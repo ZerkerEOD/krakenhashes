@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sync"
 	"time"
@@ -88,6 +89,19 @@ type Reaper struct {
 	// instance the moment it came up.
 	orphanMu        sync.Mutex
 	orphanFirstSeen map[string]time.Time
+
+	// notifiedRung is the last budget rung each client was alerted about, so
+	// the per-instance-per-sweep assessment does not page admins repeatedly.
+	// Same in-memory reasoning as orphanFirstSeen: a restart re-fires each
+	// active rung once, which is the safe direction for an alert.
+	rungMu       sync.Mutex
+	notifiedRung map[uuid.UUID]BudgetAction
+
+	// Diagnostics surfaces a drain on the job itself. Optional: a nil recorder
+	// is valid and every call is a no-op. Job-scoped rather than agent-scoped
+	// because the dispatch filter removes the agent before the per-agent
+	// diagnostics path would ever see it.
+	Diagnostics DiagnosticRecorder
 }
 
 // NewReaper creates a reaper.
@@ -106,6 +120,7 @@ func NewReaper(
 		IdleDrain:          5 * time.Minute,
 		CommissioningGrace: 30 * time.Minute,
 		orphanFirstSeen:    make(map[string]time.Time),
+		notifiedRung:       make(map[uuid.UUID]BudgetAction),
 	}
 }
 
@@ -334,7 +349,8 @@ func (r *Reaper) reconcileInstance(ctx context.Context, provider Provider, inst 
 	 *     destroy after that grace, because a gap between chunks is normal and
 	 *     tearing down during one would waste the launch we just paid for.
 	 */
-	if r.instanceHasNoWork(ctx, inst, now) {
+	work, done := r.instanceHasNoWork(ctx, inst, now)
+	if done {
 		return
 	}
 
@@ -344,16 +360,38 @@ func (r *Reaper) reconcileInstance(ctx context.Context, provider Provider, inst 
 		assessment, err := r.budget.Assess(ctx, *inst.ClientID)
 		if err != nil {
 			debug.Error("Cloud reaper: budget assessment failed for %s: %v", inst.Label, err)
+			// A draining instance still has to resolve even with no policy in
+			// hand. Destroying it once nothing is in flight needs no policy;
+			// only the timeout branch does, and TTL and idle drain still bound
+			// that case.
+			if inst.State == models.CloudInstanceDraining && work != nil && !work.InFlight {
+				r.destroy(ctx, provider, inst, "drained: no work in flight")
+				return
+			}
 		} else {
+			r.notifyBudgetRung(ctx, *inst.ClientID, assessment)
 			switch assessment.Action {
 			case BudgetActionHardStop:
 				r.destroy(ctx, provider, inst, "budget hard stop: "+assessment.Reason)
 				return
 			case BudgetActionDrain:
-				if inst.State != models.CloudInstanceDraining {
-					debug.Info("Cloud reaper: draining %s (%s)", inst.Label, assessment.Reason)
-					if err := r.instances.SetState(ctx, inst.ID, models.CloudInstanceDraining, assessment.Reason); err != nil {
-						debug.Error("Cloud reaper: failed to mark draining: %v", err)
+				if r.resolveDrain(ctx, provider, inst, work, assessment, now) {
+					return
+				}
+			default:
+				/*
+				 * Spend fell back below the drain rung — a raised cap, a new
+				 * budget period, or a released reservation.
+				 *
+				 * Put the instance back to work rather than leaving it excluded
+				 * from dispatch until the timeout kills it. Without this a
+				 * transient spike costs a whole rental: paid for, drained, and
+				 * thrown away without doing the work it was rented for.
+				 */
+				if inst.State == models.CloudInstanceDraining {
+					debug.Info("Cloud reaper: resuming %s; spend is back under the drain threshold", inst.Label)
+					if err := r.instances.EndDrain(ctx, inst.ID); err != nil {
+						debug.Error("Cloud reaper: failed to resume %s: %v", inst.Label, err)
 					}
 				}
 			}
@@ -380,7 +418,7 @@ func (r *Reaper) reconcileInstance(ctx context.Context, provider Provider, inst 
  * busy instance throws away the launch that was just paid for and the work in
  * flight on it, so the grace period is spent deliberately rather than saved.
  */
-func (r *Reaper) instanceHasNoWork(ctx context.Context, inst *models.CloudInstance, now time.Time) bool {
+func (r *Reaper) instanceHasNoWork(ctx context.Context, inst *models.CloudInstance, now time.Time) (*repository.InstanceWorkStatus, bool) {
 	/*
 	 * A null job on a launched instance means the job was DELETED, not that the
 	 * instance never had one. cloud_instances.job_execution_id is ON DELETE SET
@@ -393,22 +431,22 @@ func (r *Reaper) instanceHasNoWork(ctx context.Context, inst *models.CloudInstan
 	 */
 	if inst.JobExecutionID == nil {
 		r.destroyByLookup(ctx, inst, "the job this instance was rented for was deleted")
-		return true
+		return nil, true
 	}
 
 	work, err := r.instances.WorkStatus(ctx, *inst.JobExecutionID, inst.AgentID)
 	if err != nil {
 		debug.Error("Cloud reaper: could not determine whether %s still has work: %v", inst.Label, err)
-		return false
+		return nil, false
 	}
 
 	if !work.JobExists {
 		r.destroyByLookup(ctx, inst, "the job this instance was rented for no longer exists")
-		return true
+		return work, true
 	}
 	if work.JobFinished {
 		r.destroyByLookup(ctx, inst, "job finished; instance is no longer needed")
-		return true
+		return work, true
 	}
 
 	/*
@@ -427,32 +465,142 @@ func (r *Reaper) instanceHasNoWork(ctx context.Context, inst *models.CloudInstan
 		if !inst.ReadyAt.Valid {
 			// Has not registered at all. ready_deadline_at owns that case;
 			// measuring from nothing would destroy every instance mid-boot.
-			return false
+			return work, false
 		}
 		if r.CommissioningGrace <= 0 {
-			return false // commissioning teardown disabled
+			return work, false // commissioning teardown disabled
 		}
 		waited := now.Sub(inst.ReadyAt.Time)
 		if waited < r.CommissioningGrace {
-			return false
+			return work, false
 		}
 		r.destroyByLookup(ctx, inst, fmt.Sprintf(
 			"registered %s ago and was never given a task (commissioning grace %s)",
 			waited.Round(time.Second), r.CommissioningGrace))
-		return true
+		return work, true
 	}
 
 	// Idle drain disabled.
 	if r.IdleDrain <= 0 {
-		return false
+		return work, false
 	}
 
 	if now.Sub(work.LastActivityAt.Time) < r.IdleDrain {
-		return false
+		return work, false
 	}
 	r.destroyByLookup(ctx, inst,
 		fmt.Sprintf("no work for %s (idle drain)", now.Sub(work.LastActivityAt.Time).Round(time.Second)))
-	return true
+	return work, true
+}
+
+/*
+ * resolveDrain runs the drain rung and reports whether it destroyed.
+ *
+ * Marking and resolving in the SAME sweep is deliberate. The rung's promise is
+ * to let IN-FLIGHT work finish; an instance with nothing in flight has nothing
+ * to wait for, and holding it for one more 60-second sweep is a minute billed
+ * at >=99% of the client's cap to honour a grace nobody asked for.
+ *
+ * Note this can beat the commissioning grace: an instance still syncing files
+ * when its client crosses drain_pct is destroyed with nothing to show for the
+ * boot. That is correct — at >=99% it cannot be replaced anyway, because
+ * stop-provisioning fired at 95%, so the launch is sunk cost either way and the
+ * alternative is 30 more minutes of billing over the drain line.
+ */
+func (r *Reaper) resolveDrain(
+	ctx context.Context,
+	provider Provider,
+	inst *models.CloudInstance,
+	work *repository.InstanceWorkStatus,
+	assessment *BudgetAssessment,
+	now time.Time,
+) bool {
+	if inst.State != models.CloudInstanceDraining {
+		debug.Info("Cloud reaper: draining %s (%s)", inst.Label, assessment.Reason)
+		if err := r.instances.BeginDrain(ctx, inst.ID, assessment.Reason); err != nil {
+			debug.Error("Cloud reaper: failed to mark draining: %v", err)
+			return false
+		}
+		r.recordDrainDiag(inst, assessment.Reason)
+		inst.State = models.CloudInstanceDraining
+		inst.DrainStartedAt = sql.NullTime{Time: now, Valid: true}
+	}
+
+	if work != nil && !work.InFlight {
+		r.destroy(ctx, provider, inst, "drained: no work left in flight ("+assessment.Reason+")")
+		return true
+	}
+
+	/*
+	 * drain_timeout_seconds = 0 disables the timeout, matching every other
+	 * cloud grace knob.
+	 *
+	 * It does NOT mean "wait forever": the instance is now excluded from
+	 * dispatch, so its current chunk is the last one, and TTL, idle drain and
+	 * the stranded-task sweeper all still bound it.
+	 */
+	timeout := time.Duration(assessment.Policy.DrainTimeoutSeconds) * time.Second
+	if timeout > 0 && inst.DrainStartedAt.Valid && now.Sub(inst.DrainStartedAt.Time) >= timeout {
+		r.destroy(ctx, provider, inst, fmt.Sprintf(
+			"drain timeout: %s elapsed with work still in flight (%s)", timeout, assessment.Reason))
+		return true
+	}
+	return false
+}
+
+// recordDrainDiag surfaces "your job's rented agent is draining" on the job
+// itself. Without it a cloud-only operator sees a connected, enabled, idle
+// agent receiving nothing, with the reason recorded only in the server log —
+// the dispatch filter deliberately removes the agent before recordIdleReasons
+// would ever see it.
+func (r *Reaper) recordDrainDiag(inst *models.CloudInstance, reason string) {
+	if r.Diagnostics == nil || inst.JobExecutionID == nil {
+		return
+	}
+	r.Diagnostics.Record(models.DiagScopeJob, inst.JobExecutionID.String(),
+		models.DiagReasonCloudDraining, models.DiagSeverityWarning,
+		fmt.Sprintf("A rented instance for this job is draining and will take no new work: %s. "+
+			"Raise the client budget to resume it, or wait for it to finish and be destroyed.", reason))
+}
+
+/*
+ * notifyBudgetRung alerts admins the first time a client lands on a rung.
+ *
+ * Fires on EVERY rung above None, not just notify_pct. The ladder evaluates
+ * highest-first and fires exactly one action, so alerting only at notify_pct
+ * would leave "provisioning stopped at 95%" completely silent — which is the
+ * moment an operator most needs to know. That was the shipped behaviour:
+ * Notifier.CloudBudgetThreshold was fully built and called by nothing.
+ *
+ * Deduplicated by (client, action) because this runs per INSTANCE per sweep: a
+ * client with five rented boxes would otherwise page admins five times every 60
+ * seconds for as long as it stayed over the line.
+ *
+ * In memory, and here the orphanFirstSeen reasoning applies unchanged: a
+ * restart re-fires each active rung once, and an alert repeated is strictly
+ * better than an alert lost.
+ */
+func (r *Reaper) notifyBudgetRung(ctx context.Context, clientID uuid.UUID, a *BudgetAssessment) {
+	if r.notifier == nil {
+		return
+	}
+
+	r.rungMu.Lock()
+	last, seen := r.notifiedRung[clientID]
+	switch {
+	case a.Action == BudgetActionNone:
+		// Back under every threshold: re-arm so the next crossing alerts.
+		delete(r.notifiedRung, clientID)
+		r.rungMu.Unlock()
+		return
+	case seen && last == a.Action:
+		r.rungMu.Unlock()
+		return
+	}
+	r.notifiedRung[clientID] = a.Action
+	r.rungMu.Unlock()
+
+	r.notifier.CloudBudgetThreshold(ctx, clientID, a.Action, a.Reason)
 }
 
 // destroyByLookup resolves the instance's provider before tearing down. The
@@ -517,6 +665,23 @@ func (r *Reaper) finalize(ctx context.Context, inst *models.CloudInstance, state
 	}
 	if err := r.instances.SetState(ctx, inst.ID, state, reason); err != nil {
 		debug.Error("Cloud reaper: failed to finalize %s: %v", inst.Label, err)
+	}
+	/*
+	 * Retire the agent row alongside the instance.
+	 *
+	 * agents.retired_at was created with getIdleAgents already filtering on it
+	 * and nothing ever writing it, so the only thing keeping a terminated
+	 * instance's agent out of the idle pool was the WebSocket dropping. Between
+	 * provider.Destroy returning and the socket closing, the scheduler could
+	 * hand a chunk to an agent on a machine that no longer exists.
+	 *
+	 * Soft retirement, not deletion: deleting NULLs job_tasks.agent_id and
+	 * destroys cost attribution, which is why the column exists.
+	 */
+	if inst.AgentID != nil {
+		if err := r.instances.RetireAgent(ctx, *inst.AgentID); err != nil {
+			debug.Error("Cloud reaper: failed to retire agent %d for %s: %v", *inst.AgentID, inst.Label, err)
+		}
 	}
 	debug.Info("Cloud reaper: instance %s finalized as %s (%s)", inst.Label, state, reason)
 }

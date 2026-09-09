@@ -28,7 +28,7 @@ const cloudInstanceColumns = `
 	gpu_model, gpu_count, hourly_rate_cents, disk_gb, fileset_bytes,
 	reserved_cents, estimated_cost_cents, actual_cost_cents,
 	launch_deadline_at, ready_deadline_at, ttl_epoch,
-	launched_at, ready_at, terminated_at, termination_reason,
+	launched_at, ready_at, drain_started_at, terminated_at, termination_reason,
 	terminate_attempts, last_terminate_error, vpn_credential_ref,
 	provider_raw, created_at, updated_at`
 
@@ -47,7 +47,7 @@ func scanCloudInstance(s interface{ Scan(...interface{}) error }) (*models.Cloud
 		&gpuModel, &gpuCount, &c.HourlyRateCents, &diskGB, &filesetBytes,
 		&c.ReservedCents, &c.EstimatedCostCents, &actualCost,
 		&c.LaunchDeadlineAt, &c.ReadyDeadlineAt, &c.TTLEpoch,
-		&c.LaunchedAt, &c.ReadyAt, &c.TerminatedAt, &terminationReason,
+		&c.LaunchedAt, &c.ReadyAt, &c.DrainStartedAt, &c.TerminatedAt, &terminationReason,
 		&c.TerminateAttempts, &lastTerminateErr, &vpnRef,
 		&c.ProviderRaw, &c.CreatedAt, &c.UpdatedAt,
 	)
@@ -298,6 +298,15 @@ type InstanceWorkStatus struct {
 	// distinct case from "idle since X", because an instance that has never
 	// worked is measured from when it became ready.
 	LastActivityAt sql.NullTime
+	// InFlight is true when this instance's agent holds a task that has not
+	// reached a terminal state.
+	//
+	// This is what the drain rung waits on, and it is deliberately a boolean
+	// rather than a reuse of LastActivityAt. The drain promise is "finish what
+	// is running, then go"; measuring it with the idle-drain grace would make a
+	// budget-drained instance sit for another five minutes AT >=99% OF CAP
+	// after its last chunk ended.
+	InFlight bool
 }
 
 /*
@@ -334,17 +343,106 @@ func (r *CloudInstanceRepository) WorkStatus(ctx context.Context, jobID uuid.UUI
 	// sit for a while before it starts, and either is proof the instance is in
 	// use. COALESCE to assigned_at so a NULL completed_at cannot null the whole
 	// expression and make a busy agent look idle.
+	//
+	// InFlight rides along in the same round trip. 'processing' counts as in
+	// flight on purpose: it means the agent is still uploading crack batches
+	// (models/jobs.go), and destroying the VM there loses cracks it has already
+	// found — the one outcome strictly worse than overspending by a minute.
+	// 'reconnect_pending' is excluded: the agent is not connected, so there is
+	// no work to preserve and waiting would just burn the drain timeout.
+	//
+	// Both aggregates are total, so an agent with no rows at all yields
+	// (NULL, false) rather than no row, and the ErrNoRows handling below stays
+	// correct.
 	err = r.db.QueryRowContext(ctx, `
 		SELECT MAX(GREATEST(
 			COALESCE(completed_at, assigned_at),
 			COALESCE(started_at,   assigned_at),
-			assigned_at))
+			assigned_at)),
+		       COUNT(*) FILTER (WHERE status IN ('assigned','running','processing')) > 0
 		FROM job_tasks
-		WHERE agent_id = $1`, *agentID).Scan(&out.LastActivityAt)
+		WHERE agent_id = $1`, *agentID).Scan(&out.LastActivityAt, &out.InFlight)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("failed to read task activity for agent %d: %w", *agentID, err)
 	}
 	return out, nil
+}
+
+/*
+ * BeginDrain puts an instance on the drain rung and starts its clock.
+ *
+ * COALESCE rather than an unconditional NOW(): the reaper re-evaluates the
+ * ladder every sweep, so an instance whose client stays over the threshold
+ * would restart its own timeout every 60 seconds and never expire.
+ *
+ * The state guard stops a sweep that raced a teardown from pulling a row back
+ * out of 'terminating' and making a dying instance look live again.
+ */
+func (r *CloudInstanceRepository) BeginDrain(ctx context.Context, id uuid.UUID, reason string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE cloud_instances
+		SET state = 'draining',
+		    drain_started_at = COALESCE(drain_started_at, NOW()),
+		    termination_reason = COALESCE(NULLIF($2::text, ''), termination_reason),
+		    updated_at = NOW()
+		WHERE id = $1 AND state NOT IN ('terminating','terminated','failed')`, id, reason)
+	if err != nil {
+		return fmt.Errorf("failed to begin drain: %w", err)
+	}
+	return nil
+}
+
+/*
+ * EndDrain returns a drained instance to service.
+ *
+ * Reached when spend falls back below drain_pct — a raised cap, a new budget
+ * period, or a released reservation. Without it a transient spike would exclude
+ * the instance from dispatch until the timeout killed it, which is a rental
+ * paid for and then thrown away.
+ *
+ * Resumes to 'running' even if the instance was 'syncing' when it drained.
+ * Deliberate: file-sync progress lives on agents.sync_status, and nothing reads
+ * cloud_instances.state to decide sync behaviour, so storing and restoring a
+ * pre-drain state would be more machinery than the fact is worth.
+ */
+func (r *CloudInstanceRepository) EndDrain(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE cloud_instances
+		SET state = 'running',
+		    drain_started_at = NULL,
+		    termination_reason = NULL,
+		    updated_at = NOW()
+		WHERE id = $1 AND state = 'draining'`, id)
+	if err != nil {
+		return fmt.Errorf("failed to end drain: %w", err)
+	}
+	return nil
+}
+
+/*
+ * RetireAgent marks a cloud agent's row dead alongside its instance.
+ *
+ * agents.retired_at was created with the scheduler already filtering on it
+ * (getIdleAgents) and nothing ever writing it. Until now the only thing keeping
+ * a terminated instance's agent out of the idle pool was the WebSocket
+ * dropping — so between provider.Destroy returning and the socket closing, the
+ * scheduler could hand a chunk to an agent on a machine that no longer exists.
+ *
+ * Soft retirement rather than DELETE: deleting the row NULLs job_tasks.agent_id
+ * and destroys cost attribution, which is the whole reason this column exists.
+ *
+ * The cloud_instance_id guard is a safety rail. This must never retire an
+ * on-prem agent, whatever a corrupted cloud_instances.agent_id might point at.
+ */
+func (r *CloudInstanceRepository) RetireAgent(ctx context.Context, agentID int) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agents
+		SET retired_at = COALESCE(retired_at, NOW()), updated_at = NOW()
+		WHERE id = $1 AND cloud_instance_id IS NOT NULL`, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to retire agent %d: %w", agentID, err)
+	}
+	return nil
 }
 
 // AddIncurredCost advances the running cost estimate.

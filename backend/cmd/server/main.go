@@ -677,6 +677,14 @@ func main() {
 	cloudReaper.OrphanGrace = cloudSettings.OrphanGrace
 	cloudReaper.IdleDrain = cloudSettings.IdleDrain
 	cloudReaper.CommissioningGrace = cloudSettings.CommissioningGrace
+	// Must be set BEFORE `go cloudReaper.Run` below, or it is a data race.
+	// A draining instance is removed from dispatch, so the per-agent
+	// diagnostics path can never explain it — this is the only channel.
+	if routes.JobIntegrationManager != nil {
+		if diag := routes.JobIntegrationManager.DiagnosticsService(); diag != nil {
+			cloudReaper.Diagnostics = diag
+		}
+	}
 	cloudCtx, cloudCancel := context.WithCancel(context.Background())
 	defer cloudCancel()
 	// The environment variable still wins when set, so an operator debugging a

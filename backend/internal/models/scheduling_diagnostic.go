@@ -50,6 +50,7 @@ const (
 	DiagReasonCloudNoCapacity    = "cloud_no_capacity"    // provider had no usable offer, or it vanished
 	DiagReasonCloudDeadOnArrival = "cloud_dead_on_arrival"
 	DiagReasonCloudLaunchFailed  = "cloud_launch_failed" // anything else ProvisionForJob refused
+	DiagReasonCloudDraining      = "cloud_draining"      // budget drain rung: no new work for this instance
 )
 
 // SchedulingDiagnostic is one deduplicated diagnostic row: a single

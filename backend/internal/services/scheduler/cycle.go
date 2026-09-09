@@ -703,8 +703,9 @@ func (c *Cycle) RunOnce(ctx context.Context) (res CycleResult, retErr error) {
 	// setting the UI exposes. Fall back to the v2-era duplicate
 	// target_chunk_seconds (migration 000149) only when default_chunk_duration
 	// is missing or zero. Either name returns the same concept: target wall
-	// time per chunk in seconds. The per-job override
-	// (job_executions.chunk_size_seconds, Step 11k) still wins inside dispatchOne.
+	// time per chunk in seconds. This is only the STARTING point: dispatchOne
+	// resolves system default -> per-job chunk_size_seconds -> cloud floor ->
+	// TTL clamp. See resolveChunkDuration in dispatcher.go.
 	targetChunkSec := c.readIntSetting(ctx, "default_chunk_duration", 0)
 	if targetChunkSec <= 0 {
 		targetChunkSec = c.readIntSetting(ctx, "target_chunk_seconds", 60)
@@ -726,11 +727,15 @@ func (c *Cycle) RunOnce(ctx context.Context) (res CycleResult, retErr error) {
 		}
 
 		dispatchIn := DispatchInputs{
-			Allocations:               readyAllocations,
-			Units:                     unitsByID,
-			AgentSpeeds:               agentSpeeds,
-			TargetChunkSeconds:        targetChunkSec,
-			MinChunkSeconds:           minChunkSec,
+			Allocations:        readyAllocations,
+			Units:              unitsByID,
+			AgentSpeeds:        agentSpeeds,
+			TargetChunkSeconds: targetChunkSec,
+			MinChunkSeconds:    minChunkSec,
+			// A FLOOR for rented agents, not an override — 0 disables it.
+			// String literal rather than cloud.SettingChunkDurationSeconds:
+			// cloud's tests import scheduler, so a production edge the other
+			// way would be an import cycle.
 			CloudChunkSeconds:         c.readIntSetting(ctx, "cloud_chunk_duration_seconds", 0),
 			CloudTTLRemaining:         cloudTTL,
 			CloudTeardownSlackSeconds: c.readIntSetting(ctx, "cloud_teardown_slack_seconds", 120),
@@ -1267,6 +1272,34 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 		  AND a.is_enabled = true
 		  AND a.retired_at IS NULL
 		  AND a.status <> 'updating'
+		  /*
+		   * A rented instance on the way DOWN must receive no new work.
+		   *
+		   * This is what gives cloud_instances.state = 'draining' meaning. The
+		   * budget ladder's drain rung wrote that state and nothing read it, so
+		   * an instance at >=99% of its client's cap kept being handed fresh
+		   * chunks right up until the 100% rung killed it mid-chunk.
+		   *
+		   * An exclusion list, NOT a positive "state = running" filter: the
+		   * pre-work states
+		   * (requested/launching/provisioning/syncing) must stay eligible,
+		   * because an agent registers and can accept a task while its instance
+		   * row still says provisioning. Gating positively on 'running' would
+		   * strand every cold cloud agent. Fail open on the way up, closed on
+		   * the way down.
+		   *
+		   * 'terminating' is included because ListLive still returns it and the
+		   * reaper retries it every sweep, so an instance whose Destroy call
+		   * failed can sit there indefinitely.
+		   *
+		   * The ci.id IS NULL arm covers every on-prem agent, and a cloud agent
+		   * whose instance row was deleted — the LEFT JOIN stays a no-op for
+		   * the non-cloud fleet, which a bare state test would not.
+		   *
+		   * Benchmark dispatch needs no separate filter: benchGaps is built
+		   * inside the loop over this function's output, so it inherits this.
+		   */
+		  AND (ci.id IS NULL OR ci.state NOT IN ('draining','terminating','terminated','failed'))
 		  AND NOT EXISTS (
 			  SELECT 1 FROM job_tasks t
 			  WHERE t.agent_id = a.id
