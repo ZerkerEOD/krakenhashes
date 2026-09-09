@@ -125,6 +125,12 @@ func (n *recordingNotifier) CloudBudgetThreshold(_ context.Context, _ uuid.UUID,
 	n.budget = append(n.budget, action)
 }
 
+func (n *recordingNotifier) budgetAlerts() []BudgetAction {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return append([]BudgetAction(nil), n.budget...)
+}
+
 func (n *recordingNotifier) teardownAlerts() []int {
 	n.mu.Lock()
 	defer n.mu.Unlock()

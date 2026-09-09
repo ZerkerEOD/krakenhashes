@@ -31,7 +31,14 @@ type idleFixture struct {
 
 func newIdleFixture(t *testing.T, idleDrain time.Duration) *idleFixture {
 	t.Helper()
-	f := newReaperFixture(t, 100_000)
+	return newIdleFixtureWithCap(t, idleDrain, 100_000)
+}
+
+// newIdleFixtureWithCap is newIdleFixture with a controllable budget ceiling,
+// so the drain tests can park a client at a chosen percentage of its cap.
+func newIdleFixtureWithCap(t *testing.T, idleDrain time.Duration, capCents int64) *idleFixture {
+	t.Helper()
+	f := newReaperFixture(t, capCents)
 	f.reaper.IdleDrain = idleDrain
 
 	job := testutil.CreateCloudJob(t, f.database, f.clientID, true)

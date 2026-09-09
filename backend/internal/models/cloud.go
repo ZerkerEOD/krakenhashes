@@ -326,8 +326,13 @@ type CloudInstance struct {
 	ReadyDeadlineAt  sql.NullTime `json:"ready_deadline_at,omitempty"`
 	TTLEpoch         sql.NullTime `json:"ttl_epoch,omitempty"`
 
-	LaunchedAt         sql.NullTime `json:"launched_at,omitempty"`
-	ReadyAt            sql.NullTime `json:"ready_at,omitempty"`
+	LaunchedAt sql.NullTime `json:"launched_at,omitempty"`
+	ReadyAt    sql.NullTime `json:"ready_at,omitempty"`
+	// DrainStartedAt is when the budget ladder put this instance on the drain
+	// rung, and the clock drain_timeout_seconds is measured from. Cleared when
+	// spend falls back below drain_pct. Not updated_at, which the reaper bumps
+	// on every accrual and which would therefore never expire.
+	DrainStartedAt     sql.NullTime `json:"drain_started_at,omitempty"`
 	TerminatedAt       sql.NullTime `json:"terminated_at,omitempty"`
 	TerminationReason  string       `json:"termination_reason,omitempty"`
 	TerminateAttempts  int          `json:"terminate_attempts"`
@@ -366,6 +371,7 @@ func (c CloudInstance) MarshalJSON() ([]byte, error) {
 		TTLEpoch           *time.Time         `json:"ttl_epoch"`
 		LaunchedAt         *time.Time         `json:"launched_at"`
 		ReadyAt            *time.Time         `json:"ready_at"`
+		DrainStartedAt     *time.Time         `json:"drain_started_at"`
 		TerminatedAt       *time.Time         `json:"terminated_at"`
 		TerminationReason  string             `json:"termination_reason,omitempty"`
 		TerminateAttempts  int                `json:"terminate_attempts"`
@@ -397,6 +403,7 @@ func (c CloudInstance) MarshalJSON() ([]byte, error) {
 		TTLEpoch:           nullTime(c.TTLEpoch),
 		LaunchedAt:         nullTime(c.LaunchedAt),
 		ReadyAt:            nullTime(c.ReadyAt),
+		DrainStartedAt:     nullTime(c.DrainStartedAt),
 		TerminatedAt:       nullTime(c.TerminatedAt),
 		TerminationReason:  c.TerminationReason,
 		TerminateAttempts:  c.TerminateAttempts,

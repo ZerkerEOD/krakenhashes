@@ -248,6 +248,11 @@ export interface CloudInstance {
   ttl_epoch?: string;
   launched_at?: string;
   ready_at?: string;
+  /**
+   * Set once the budget ladder's drain rung takes this instance out of
+   * dispatch. drain_timeout_seconds is measured from here.
+   */
+  drain_started_at?: string;
   terminated_at?: string;
   termination_reason?: string;
   /** Non-zero means teardown is failing and the instance is still billing. */

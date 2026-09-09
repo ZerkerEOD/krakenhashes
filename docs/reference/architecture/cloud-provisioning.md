@@ -59,11 +59,26 @@ Per-client, fully configurable, defaults 80 / 95 / 99 / 100:
 |---|---|
 | `notify_pct` (nullable ⇒ never notify) | alert admins |
 | `stop_provision_pct` | no new instances |
-| `drain_pct` | stop dispatching new chunks, let in-flight work finish |
-| `hard_stop_pct` | destroy now |
+| `drain_pct` | stop dispatching new chunks, let in-flight work finish, then destroy |
+| `hard_stop_pct` | destroy now, mid-chunk |
 
 `allow_overage=false` (default) makes the cap absolute. The ladder only decides how
 *gracefully* the cap is reached; reservation accounting is what prevents exceeding it.
+
+**Drain in detail.** The instance is marked `draining`, which removes it from
+`getIdleAgents` so it receives no further chunks or benchmarks. It is destroyed as soon as
+nothing is in flight, or after `drain_timeout_seconds` (default 300) if work is still
+running — whichever comes first. `0` disables the timeout, which does *not* mean "wait
+forever": the instance is already excluded from dispatch, so its current chunk is its last,
+and TTL plus idle drain still bound it. A task in `processing` counts as in flight, because
+the agent is still uploading cracks it has already found. If spend falls back below
+`drain_pct` — a raised cap, a new period, a released reservation — the instance resumes
+rather than being thrown away.
+
+Unlike `cloud_idle_drain_minutes`, `cloud_commissioning_grace_minutes` and
+`cloud_orphan_grace_minutes`, which the reaper loads once at boot,
+`drain_timeout_seconds` lives on `cloud_budget_policies` and is re-read on every
+assessment — so it takes effect on the next sweep with no restart.
 
 ---
 
@@ -154,6 +169,15 @@ targeting a 60-minute chunk that finds 8 minutes of work left takes all 8. Three
    and kernel autotune are billed at rental rates. Deliberately *not* one-chunk-per-rental:
    that makes the overrun guard useless for stall detection (it fires at
    `chunk_duration × 1.2`) and turns a speed over-estimate into dying mid-chunk every time.
+
+    It is a **floor, not an override**. A job asking for *longer* keeps its own value;
+    only "shorter on a rented GPU" is overruled. This matters because
+    `job_executions.chunk_size_seconds` is `INT DEFAULT 900` with a `NOT NULL` preset
+    source, so it is never NULL — "the operator chose 1200" and "the create form
+    pre-filled 1200" are indistinguishable, and both have the same right answer on rented
+    hardware. Set it to `0` to disable the floor and give every job its own chunk size on
+    cloud. Resolution order is system default → per-job value → cloud floor → TTL clamp,
+    in `resolveChunkDuration` (`scheduler/dispatcher.go`).
 3. **Endgame tapering** (fleet-wide) — see below.
 
 ### Endgame tapering
