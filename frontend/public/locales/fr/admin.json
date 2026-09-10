@@ -1899,7 +1899,9 @@
         "defaultBurstEnabledHelp": "Traite toutes les tâches comme éligibles au cloud burst, sans cocher la case sur chaque préréglage, workflow et tâche. Prévu pour les déploiements sans GPU sur site, où la location est le seul moyen d'exécuter du travail. Les budgets client et les plafonds d'instances s'appliquent toujours. Prend effet immédiatement, y compris pour les tâches déjà en file d'attente.",
         "defaultClient": "Client de facturation par défaut",
         "defaultClientHelp": "Les dépenses cloud d'une liste de hachages sans client propre sont facturées ici. Laissé sur Aucun, le travail non attribué ne peut louer aucune capacité. Les budgets, les plafonds d'instances et l'échelle de seuils s'appliquent normalement au client choisi — un client nommé « Travail non attribué » garde le rapport de dépenses honnête.",
-        "defaultClientNone": "Aucun — le travail non attribué ne peut pas utiliser le cloud"
+        "defaultClientNone": "Aucun — le travail non attribué ne peut pas utiliser le cloud",
+        "crackDrainGrace": "Délai de remontée des cracks",
+        "crackDrainGraceHelp": "Avant de détruire une instance louée, attendre jusqu'à ce délai qu'une tâche qu'elle détient encore finisse d'envoyer les mots de passe cassés. Mesuré depuis la dernière écriture de cette tâche, non depuis son démarrage : un agent qui travaille n'est donc jamais détruit et un agent bloqué n'est pas attendu indéfiniment. Doit être supérieur au drainage d'inactivité et inférieur à 30 minutes. 0 détruit immédiatement, ce qui peut perdre définitivement des cracks déjà trouvés — ils ne peuvent pas être renvoyés depuis une machine qui n'existe plus."
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",

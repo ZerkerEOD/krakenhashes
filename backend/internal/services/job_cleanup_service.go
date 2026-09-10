@@ -72,6 +72,12 @@ func NewJobCleanupService(
 // integration instance simply isn't available yet at construction time. Until
 // this is called the backstop is inert and says so in the log rather than
 // panicking.
+// StaleProcessingTimeout is how long a 'processing' task may sit unchanged
+// before it is abandoned. Exported because cloud.Settings.CrackDrainGrace must
+// stay strictly below it — otherwise the cloud reaper holds a rented GPU
+// waiting for a crack handshake this sweep has already given up on.
+const StaleProcessingTimeout = 30 * time.Minute
+
 func (s *JobCleanupService) SetStuckProcessingHandler(handler StuckProcessingHandler) {
 	s.stuckProcessingHandler = handler
 }
@@ -569,7 +575,7 @@ func (s *JobCleanupService) checkForStaleTasks(ctx context.Context) {
 
 	// SECOND: Check for stale processing tasks (tasks in processing state for too long)
 	// Use a longer timeout for processing tasks (30 minutes default)
-	s.checkForStaleProcessingTasks(ctx, 30*time.Minute)
+	s.checkForStaleProcessingTasks(ctx, StaleProcessingTimeout)
 
 	// Find tasks that haven't been updated in the timeout period
 	cutoffTime := time.Now().Add(-taskTimeout)

@@ -74,6 +74,7 @@ const FIELDS = {
   teardownSlack: { key: 'cloud_teardown_slack_seconds' },
   idleDrainMinutes: { key: 'cloud_idle_drain_minutes' },
   commissioningGraceMinutes: { key: 'cloud_commissioning_grace_minutes' },
+  crackDrainGraceMinutes: { key: 'cloud_crack_drain_grace_minutes' },
   reaperSeconds: { key: 'cloud_reaper_interval_seconds' },
   orphanGraceMinutes: { key: 'cloud_orphan_grace_minutes' },
 } satisfies Record<string, FieldSpec>;
@@ -560,6 +561,14 @@ const CloudSystemSettings: React.FC = () => {
               helper={t('cloud.system.fields.commissioningGraceHelp') as string}
               unit={t('cloud.system.units.minutes') as string}
               {...bind(FIELDS.commissioningGraceMinutes)}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <SettingField
+              label={t('cloud.system.fields.crackDrainGrace') as string}
+              helper={t('cloud.system.fields.crackDrainGraceHelp') as string}
+              unit={t('cloud.system.units.minutes') as string}
+              {...bind(FIELDS.crackDrainGraceMinutes)}
             />
           </Grid>
         </Grid>

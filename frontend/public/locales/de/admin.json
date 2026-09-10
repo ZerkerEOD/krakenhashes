@@ -1882,7 +1882,9 @@
         "defaultBurstEnabledHelp": "Behandelt jeden Job als Cloud-Burst-fähig, ohne das Kästchen in jedem Preset, Workflow und Job anzuhaken. Gedacht für Installationen ohne eigene GPUs, bei denen Mieten die einzige Möglichkeit ist, Arbeit auszuführen. Client-Budgets und Instanzlimits gelten weiterhin. Wirkt sofort, auch für bereits eingereihte Jobs.",
         "defaultClient": "Standard-Abrechnungsclient",
         "defaultClientHelp": "Cloud-Kosten für eine Hashliste ohne eigenen Client werden hier abgerechnet. Bleibt die Auswahl leer, kann nicht zugeordnete Arbeit überhaupt keine Kapazität mieten. Budgets, Instanzlimits und die Schwellenwertstaffel gelten für den gewählten Client wie gewohnt — ein Client namens „Nicht zugeordnet“ hält den Kostenbericht ehrlich.",
-        "defaultClientNone": "Keiner — nicht zugeordnete Arbeit kann die Cloud nicht nutzen"
+        "defaultClientNone": "Keiner — nicht zugeordnete Arbeit kann die Cloud nicht nutzen",
+        "crackDrainGrace": "Karenzzeit für Crack-Übertragung",
+        "crackDrainGraceHelp": "Wartet vor dem Zerstören einer gemieteten Instanz so lange darauf, dass eine noch laufende Aufgabe geknackte Passwörter fertig hochlädt. Gemessen ab dem letzten Schreibvorgang dieser Aufgabe, nicht ab ihrem Start — ein arbeitender Agent wird also nie zerstört und auf einen hängenden wird nicht ewig gewartet. Muss länger als der Idle-Drain und kürzer als 30 Minuten sein. 0 zerstört sofort und kann bereits gefundene Cracks dauerhaft verlieren — sie lassen sich von einer nicht mehr existierenden Maschine nicht erneut senden."
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",

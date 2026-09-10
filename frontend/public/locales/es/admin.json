@@ -1882,7 +1882,9 @@
         "defaultBurstEnabledHelp": "Trata todos los trabajos como habilitados para cloud burst, sin marcar la casilla en cada preset, flujo de trabajo y trabajo. Pensado para despliegues sin GPU propias, donde alquilar es la única forma de ejecutar trabajo. Los presupuestos de cliente y los límites de instancias siguen aplicándose. Surte efecto de inmediato, incluso para los trabajos ya en cola.",
         "defaultClient": "Cliente de facturación predeterminado",
         "defaultClientHelp": "El gasto en la nube de una lista de hashes sin cliente propio se factura aquí. Si se deja en Ninguno, el trabajo sin asignar no puede alquilar capacidad. Los presupuestos, los límites de instancias y la escala de umbrales se aplican al cliente elegido con normalidad: un cliente llamado «Trabajo sin asignar» mantiene honesto el informe de gastos.",
-        "defaultClientNone": "Ninguno — el trabajo sin asignar no puede usar la nube"
+        "defaultClientNone": "Ninguno — el trabajo sin asignar no puede usar la nube",
+        "crackDrainGrace": "Margen de subida de cracks",
+        "crackDrainGraceHelp": "Antes de destruir una instancia alquilada, espera este tiempo a que una tarea que aún posee termine de subir las contraseñas descifradas. Se mide desde la última escritura de esa tarea, no desde su inicio, así que un agente que trabaja nunca se destruye y uno atascado no se espera indefinidamente. Debe ser mayor que el drenaje por inactividad y menor que 30 minutos. 0 destruye de inmediato, lo que puede perder para siempre cracks ya encontrados: no se pueden reenviar desde una máquina que ya no existe."
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",

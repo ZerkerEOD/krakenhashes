@@ -51,6 +51,10 @@ const (
 	DiagReasonCloudDeadOnArrival = "cloud_dead_on_arrival"
 	DiagReasonCloudLaunchFailed  = "cloud_launch_failed" // anything else ProvisionForJob refused
 	DiagReasonCloudDraining      = "cloud_draining"      // budget drain rung: no new work for this instance
+	// DiagReasonCloudCracksLost is recorded when a rented instance was torn
+	// down with a task still uploading cracks. The job reads "completed" and
+	// looks perfect, so without this the loss is entirely invisible.
+	DiagReasonCloudCracksLost = "cloud_cracks_lost"
 )
 
 // SchedulingDiagnostic is one deduplicated diagnostic row: a single

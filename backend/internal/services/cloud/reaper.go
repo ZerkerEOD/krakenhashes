@@ -78,6 +78,40 @@ type Reaper struct {
 	 */
 	CommissioningGrace time.Duration
 
+	/*
+	 * CrackDrainGrace is how long a teardown rung will hold an instance whose
+	 * agent still owns a task that has not gone quiet.
+	 *
+	 * This exists because of one specific, and NORMAL, sequence. Hashcat reports
+	 * status code 6 while it is STILL RUNNING; the agent forwards it as
+	 * status:"running" with AllHashesCracked set, HandleJobProgress puts the
+	 * task in 'processing', and HashlistCompletionService.completeJob completes
+	 * the JOB while that task is still mid-handshake — deliberately, so the
+	 * handshake can finish. The reaper then saw JobFinished and destroyed the
+	 * instance with ZERO grace, on the happy path, while the agent still held
+	 * cracks in a 500ms flush buffer.
+	 *
+	 * Those cracks are unrecoverable, not merely delayed. RetransmitOutfile
+	 * reads <dataDirectory>/outfile/<taskID>.txt — on the disk just destroyed —
+	 * and applyRecovery books the truncated range as covered, so the keyspace is
+	 * never re-issued either. The job reads 'completed' and looks perfect.
+	 *
+	 * Measured as QUIET TIME on the in-flight task, not as total wait. A healthy
+	 * crack upload writes every ~500ms and a healthy chunk reports every few
+	 * seconds, so this only elapses when something is genuinely stuck — which is
+	 * what makes a plain !InFlight guard both unnecessary and unsafe. A wedged
+	 * row, or a stale row from another job on the same agent, stops suppressing
+	 * teardown after this long rather than holding a GPU to its TTL.
+	 *
+	 * Zero disables the hold, matching every other cloud grace knob — and it is
+	 * the only one whose zero value can lose data rather than merely waste
+	 * money. Must stay LARGER than IdleDrain (holding work deserves more
+	 * patience than holding nothing) and SMALLER than
+	 * services.StaleProcessingTimeout (or this rung waits for a row the cleanup
+	 * sweep is about to abandon anyway). Tests assert both.
+	 */
+	CrackDrainGrace time.Duration
+
 	// orphanFirstSeen is when each currently-unrecognised provider-side label
 	// was first observed, so OrphanGrace can be applied. Guarded by orphanMu
 	// because Run and a manually triggered SweepOnce could overlap.
@@ -119,6 +153,7 @@ func NewReaper(
 		OrphanGrace:        10 * time.Minute,
 		IdleDrain:          5 * time.Minute,
 		CommissioningGrace: 30 * time.Minute,
+		CrackDrainGrace:    10 * time.Minute,
 		orphanFirstSeen:    make(map[string]time.Time),
 		notifiedRung:       make(map[uuid.UUID]BudgetAction),
 	}
@@ -441,10 +476,25 @@ func (r *Reaper) instanceHasNoWork(ctx context.Context, inst *models.CloudInstan
 	}
 
 	if !work.JobExists {
+		// Unconditional, unlike JobFinished below: job_tasks.job_execution_id is
+		// ON DELETE CASCADE, so a missing job row means the tasks are already
+		// gone and there is nothing left to attribute buffered cracks to.
 		r.destroyByLookup(ctx, inst, "the job this instance was rented for no longer exists")
 		return work, true
 	}
 	if work.JobFinished {
+		/*
+		 * NOT zero-grace any more, and this is the rung that mattered.
+		 *
+		 * "Job finished" is normally reached BY the crack handshake, not after
+		 * it: HashlistCompletionService.completeJob completes the job off the
+		 * all-hashes-cracked signal and deliberately leaves the triggering task
+		 * in 'processing' so the handshake can finish. Tearing down here was
+		 * tearing down mid-upload on the ordinary successful path.
+		 */
+		if r.holdForUnsentWork(inst, work, now, "job finished") {
+			return work, false
+		}
 		r.destroyByLookup(ctx, inst, "job finished; instance is no longer needed")
 		return work, true
 	}
@@ -485,11 +535,22 @@ func (r *Reaper) instanceHasNoWork(ctx context.Context, inst *models.CloudInstan
 		return work, false
 	}
 
-	if now.Sub(work.LastActivityAt.Time) < r.IdleDrain {
+	idleFor := now.Sub(work.LastActivityAt.Time)
+	if idleFor < r.IdleDrain {
+		return work, false
+	}
+	/*
+	 * The activity signal above now includes last_activity_at, so a working
+	 * agent is no longer misjudged as idle. This second check covers the one
+	 * case that signal cannot see: hashcat has exited, so no progress messages
+	 * arrive and last_activity_at is frozen, but crack batches are still landing
+	 * and bumping updated_at.
+	 */
+	if r.holdForUnsentWork(inst, work, now, "idle drain") {
 		return work, false
 	}
 	r.destroyByLookup(ctx, inst,
-		fmt.Sprintf("no work for %s (idle drain)", now.Sub(work.LastActivityAt.Time).Round(time.Second)))
+		fmt.Sprintf("no work for %s (idle drain)", idleFor.Round(time.Second)))
 	return work, true
 }
 
@@ -544,6 +605,53 @@ func (r *Reaper) resolveDrain(
 		r.destroy(ctx, provider, inst, fmt.Sprintf(
 			"drain timeout: %s elapsed with work still in flight (%s)", timeout, assessment.Reason))
 		return true
+	}
+	return false
+}
+
+/*
+ * holdForUnsentWork reports whether a teardown must wait, and says so out loud
+ * when it decides not to.
+ *
+ * The negative branch matters as much as the positive one: once the grace has
+ * expired we destroy anyway, and the operator has no way to infer that from the
+ * UI — the job reads 'completed' and looks perfect. So the give-up path warns
+ * and records a job-scoped diagnostic.
+ */
+func (r *Reaper) holdForUnsentWork(
+	inst *models.CloudInstance,
+	work *repository.InstanceWorkStatus,
+	now time.Time,
+	rung string,
+) bool {
+	if work == nil || !work.InFlight || r.CrackDrainGrace <= 0 {
+		return false
+	}
+	if !work.InFlightActivityAt.Valid {
+		// Unreachable while InFlight is true (assigned_at backstops the
+		// GREATEST), but a NULL here means "no evidence of movement", and the
+		// safe reading of no evidence is not to spend money on it.
+		return false
+	}
+
+	quiet := now.Sub(work.InFlightActivityAt.Time)
+	if quiet < r.CrackDrainGrace {
+		debug.Info("Cloud reaper: holding %s (%s) — its agent still owns a task that moved %s ago; "+
+			"destroying now would take the disk its unsent cracks are buffered on, and they cannot be "+
+			"retransmitted from a machine that no longer exists (crack-drain grace %s)",
+			inst.Label, rung, quiet.Round(time.Second), r.CrackDrainGrace)
+		return true
+	}
+
+	debug.Warning("Cloud reaper: destroying %s (%s) with a task still in flight — it has not moved for "+
+		"%s, past the %s crack-drain grace. ANY CRACKS STILL BUFFERED ON THAT INSTANCE ARE LOST AND "+
+		"CANNOT BE RECOVERED.", inst.Label, rung, quiet.Round(time.Second), r.CrackDrainGrace)
+	if r.Diagnostics != nil && inst.JobExecutionID != nil {
+		r.Diagnostics.Record(models.DiagScopeJob, inst.JobExecutionID.String(),
+			models.DiagReasonCloudCracksLost, models.DiagSeverityWarning,
+			fmt.Sprintf("A rented instance for this job was destroyed while a task was still uploading "+
+				"cracked passwords (silent for %s, grace %s). Some cracks found by that task may be "+
+				"missing from the hashlist.", quiet.Round(time.Second), r.CrackDrainGrace))
 	}
 	return false
 }

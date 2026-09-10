@@ -294,10 +294,29 @@ type InstanceWorkStatus struct {
 	// stop paying for the machine that was serving it.
 	JobExists bool
 	// LastActivityAt is the most recent moment this instance's agent had a task
-	// assigned, started or completed. Invalid when it has never had one — a
-	// distinct case from "idle since X", because an instance that has never
-	// worked is measured from when it became ready.
+	// assigned, started, reported progress on, or completed. Invalid when it has
+	// never had one — a distinct case from "idle since X", because an instance
+	// that has never worked is measured from when it became ready.
 	LastActivityAt sql.NullTime
+	/*
+	 * InFlightActivityAt is the last moment any of this agent's NON-TERMINAL
+	 * tasks was written to. It is the freshness half of InFlight, and the two
+	 * are deliberately returned together.
+	 *
+	 * InFlight alone is not safe to gate a teardown on. "The agent owns a
+	 * non-terminal row" and "the agent is doing something" are different facts,
+	 * and only the second is worth billing for: a wedged 'processing' row, or a
+	 * stale row belonging to a DIFFERENT job on the same agent (this aggregate
+	 * is agent-scoped on purpose — see WorkStatus), would otherwise pin InFlight
+	 * true and suppress teardown until TTL.
+	 *
+	 * updated_at rather than last_activity_at is what makes this work during the
+	 * crack-drain tail: once hashcat exits there are no more progress messages,
+	 * so last_activity_at freezes, but every crack batch still bumps updated_at
+	 * through IncrementReceivedCrackCount. It is the same signal
+	 * checkForStaleProcessingTasks already trusts.
+	 */
+	InFlightActivityAt sql.NullTime
 	// InFlight is true when this instance's agent holds a task that has not
 	// reached a terminal state.
 	//
@@ -317,6 +336,25 @@ type InstanceWorkStatus struct {
  * would drift from the allocator and start destroying instances the scheduler
  * was about to use. Whether a task was recently handed to THIS agent is a fact,
  * and a stale one only ever delays teardown.
+ *
+ * THE TASK AGGREGATES ARE AGENT-SCOPED, NOT JOB-SCOPED, AND MUST STAY THAT WAY.
+ * Scoping them to jobID looks like a tightening and is a regression:
+ *
+ *   - What dies with a destroyed VM is the agent's crack buffer and its local
+ *     outfile. Which job owns the task is irrelevant to whether destroying the
+ *     disk loses data.
+ *   - Retarget (below) repoints an instance at a different job of the same
+ *     client while the previous job's task may still be 'processing' on that
+ *     same agent. A job-scoped query would report InFlight=false and destroy
+ *     mid-handshake — on the one code path that makes it likely.
+ *   - After a retarget there is no history for the new job, so a job-scoped
+ *     LastActivityAt would be NULL, dropping a healthy instance into the
+ *     reaper's commissioning branch to be measured from ready_at (hours old)
+ *     and destroyed immediately.
+ *
+ * The risk agent-scoping carries — a stale foreign row pinning InFlight — is
+ * neutralised by InFlightActivityAt rather than by narrowing the query: a row
+ * that stopped being written stops suppressing teardown.
  */
 func (r *CloudInstanceRepository) WorkStatus(ctx context.Context, jobID uuid.UUID, agentID *int) (*InstanceWorkStatus, error) {
 	out := &InstanceWorkStatus{}
@@ -339,29 +377,66 @@ func (r *CloudInstanceRepository) WorkStatus(ctx context.Context, jobID uuid.UUI
 	if agentID == nil {
 		return out, nil
 	}
-	// GREATEST over the three lifecycle stamps: a task can be assigned and then
-	// sit for a while before it starts, and either is proof the instance is in
-	// use. COALESCE to assigned_at so a NULL completed_at cannot null the whole
-	// expression and make a busy agent look idle.
-	//
-	// InFlight rides along in the same round trip. 'processing' counts as in
-	// flight on purpose: it means the agent is still uploading crack batches
-	// (models/jobs.go), and destroying the VM there loses cracks it has already
-	// found — the one outcome strictly worse than overspending by a minute.
-	// 'reconnect_pending' is excluded: the agent is not connected, so there is
-	// no work to preserve and waiting would just burn the drain timeout.
-	//
-	// Both aggregates are total, so an agent with no rows at all yields
-	// (NULL, false) rather than no row, and the ErrNoRows handling below stays
-	// correct.
+	/*
+	 * GREATEST over the lifecycle stamps: a task can be assigned and then sit
+	 * for a while before it starts, and either is proof the instance is in use.
+	 * COALESCE to assigned_at so a NULL stamp cannot null the whole expression
+	 * and make a busy agent look idle.
+	 *
+	 * last_activity_at is in this list because WITHOUT IT THIS EXPRESSION DOES
+	 * NOT MOVE DURING A CHUNK. completed_at is NULL while a task runs, so the
+	 * whole GREATEST collapsed to started_at — and cloud_chunk_duration_seconds
+	 * is a FLOOR of 3600s for rented agents (scheduler/dispatcher.go) while
+	 * cloud_idle_drain_minutes defaults to 5. The idle rung therefore destroyed
+	 * every rented instance exactly five minutes into its first chunk, whatever
+	 * the agent was doing. Observed twice: once on real AWS hardware
+	 * ("no work for 5m41s (idle drain)") and once on the mock provider.
+	 *
+	 * last_activity_at is written ONLY by IngestProgressV2
+	 * (scheduler/progress.go), reached unconditionally from HandleJobProgress
+	 * before every early return, so it means precisely "the agent last told us
+	 * something about this task" — and nothing but an agent message moves it.
+	 * That is the semantics this field always claimed to have.
+	 *
+	 * updated_at is deliberately NOT in this list. It is trigger-driven
+	 * (update_job_tasks_updated_at, migration 000026) and fires on any write,
+	 * including backend bookkeeping, so folding it in would soften the idle
+	 * signal for a genuinely dead agent. It is used only inside the in-flight
+	 * FILTER below, where a write IS the evidence wanted.
+	 *
+	 * Postgres GREATEST ignores NULL operands, so a legacy row with no
+	 * last_activity_at cannot null the expression.
+	 *
+	 * InFlight and its freshness stamp ride along in the same round trip.
+	 * 'processing' counts as in flight on purpose: it means the agent is still
+	 * uploading crack batches (models/jobs.go), and destroying the VM there
+	 * loses cracks it has already found — permanently, because RetransmitOutfile
+	 * reads a file on the disk being destroyed and applyRecovery books the range
+	 * as covered so it is never re-run. 'reconnect_pending' is excluded: the
+	 * agent is not connected, so there is no work to preserve.
+	 *
+	 * THE TWO STATUS LISTS BELOW MUST STAY IDENTICAL. TestWorkStatus_InFlight
+	 * asserts both columns from one table so they cannot drift.
+	 *
+	 * All three aggregates are total, so an agent with no rows at all yields
+	 * (NULL, false, NULL) rather than no row, and the ErrNoRows handling below
+	 * stays correct.
+	 */
 	err = r.db.QueryRowContext(ctx, `
 		SELECT MAX(GREATEST(
-			COALESCE(completed_at, assigned_at),
-			COALESCE(started_at,   assigned_at),
+			COALESCE(completed_at,     assigned_at),
+			COALESCE(started_at,       assigned_at),
+			COALESCE(last_activity_at, assigned_at),
 			assigned_at)),
-		       COUNT(*) FILTER (WHERE status IN ('assigned','running','processing')) > 0
+		       COUNT(*) FILTER (WHERE status IN ('assigned','running','processing')) > 0,
+		       MAX(GREATEST(
+			COALESCE(last_activity_at, assigned_at),
+			COALESCE(updated_at,       assigned_at),
+			assigned_at))
+		         FILTER (WHERE status IN ('assigned','running','processing'))
 		FROM job_tasks
-		WHERE agent_id = $1`, *agentID).Scan(&out.LastActivityAt, &out.InFlight)
+		WHERE agent_id = $1`, *agentID).
+		Scan(&out.LastActivityAt, &out.InFlight, &out.InFlightActivityAt)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("failed to read task activity for agent %d: %w", *agentID, err)
 	}
