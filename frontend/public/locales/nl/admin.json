@@ -1882,7 +1882,9 @@
         "defaultBurstEnabledHelp": "Behandelt elke taak als cloud-burst-geschikt, zonder het vinkje op elke preset, workflow en taak te zetten. Bedoeld voor implementaties zonder eigen GPU's, waar huren de enige manier is om werk uit te voeren. Clientbudgetten en instantielimieten blijven gelden. Werkt direct, ook voor taken die al in de wachtrij staan.",
         "defaultClient": "Standaard facturatieclient",
         "defaultClientHelp": "Clouduitgaven voor een hashlijst zonder eigen client worden hier in rekening gebracht. Op Geen laten betekent dat niet-toegewezen werk helemaal geen capaciteit kan huren. Budgetten, instantielimieten en de drempelladder gelden gewoon voor de gekozen client — een client met de naam \"Niet toegewezen werk\" houdt het uitgavenrapport eerlijk.",
-        "defaultClientNone": "Geen — niet-toegewezen werk kan de cloud niet gebruiken"
+        "defaultClientNone": "Geen — niet-toegewezen werk kan de cloud niet gebruiken",
+        "crackDrainGrace": "Respijt voor crack-upload",
+        "crackDrainGraceHelp": "Wacht voordat een gehuurde instantie wordt vernietigd zo lang tot een taak die deze nog bezit klaar is met het uploaden van gekraakte wachtwoorden. Gemeten vanaf de laatste schrijfactie van die taak, niet vanaf de start, zodat een werkende agent nooit wordt vernietigd en op een vastgelopen agent niet eindeloos wordt gewacht. Moet langer zijn dan de idle drain en korter dan 30 minuten. 0 vernietigt direct, wat al gevonden cracks blijvend kan verliezen — ze kunnen niet opnieuw worden verzonden vanaf een machine die niet meer bestaat."
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",

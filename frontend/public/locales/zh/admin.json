@@ -1882,7 +1882,9 @@
         "defaultBurstEnabledHelp": "将所有作业视为已启用云端扩容，无需在每个预设、工作流和作业上逐一勾选。适用于没有本地 GPU 的部署，此时租用是唯一能执行任务的方式。客户预算和实例上限仍然生效。立即生效，包括已在队列中的作业。",
         "defaultClient": "默认计费客户",
         "defaultClientHelp": "未分配客户的哈希列表所产生的云端支出将计入此客户。保持为「无」时，未分配的工作将完全无法租用算力。预算、实例上限和阈值梯度会照常应用于所选客户——将客户命名为「未分配工作」可让支出报表保持真实。",
-        "defaultClientNone": "无 — 未分配的工作无法使用云端"
+        "defaultClientNone": "无 — 未分配的工作无法使用云端",
+        "crackDrainGrace": "破解结果上传宽限期",
+        "crackDrainGraceHelp": "销毁租用实例前，最多等待此时长，让其仍持有的任务完成已破解密码的上传。从该任务最后一次写入时开始计算，而非从任务开始时计算，因此正在工作的代理永远不会被销毁，卡住的代理也不会被无限等待。必须大于闲置回收时间且小于 30 分钟。设为 0 会立即销毁，可能永久丢失已找到的破解结果——它们无法从一台已不存在的机器上重新发送。"
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",

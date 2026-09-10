@@ -1991,7 +1991,9 @@
         "defaultBurstEnabledHelp": "Treats every job as cloud-burst enabled, without ticking the box on each preset, workflow and job. Intended for deployments with no on-prem GPUs, where renting is the only way work ever runs. Client budgets and instance caps still apply. Takes effect immediately, including for jobs already queued.",
         "defaultClient": "Default billing client",
         "defaultClientHelp": "Cloud spend for a hashlist with no client of its own is billed here. Leave as None and unassigned work cannot rent capacity at all. Budgets, instance caps and the threshold ladder apply to the client you pick exactly as normal — a client named something like \"Unassigned Work\" keeps the spend report honest.",
-        "defaultClientNone": "None — unassigned work cannot use cloud"
+        "defaultClientNone": "None — unassigned work cannot use cloud",
+        "crackDrainGrace": "Crack-drain grace",
+        "crackDrainGraceHelp": "Before destroying a rented instance, wait up to this long for a task it still owns to finish uploading cracked passwords. Measured from the last time that task was written to, not from when it started, so a working agent is never destroyed and a stuck one is not waited on forever. Must be longer than the idle drain and shorter than 30 minutes. 0 destroys immediately, which can permanently lose cracks the agent has already found — they cannot be re-sent from a machine that no longer exists."
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",

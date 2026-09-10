@@ -75,9 +75,32 @@ the agent is still uploading cracks it has already found. If spend falls back be
 `drain_pct` — a raised cap, a new period, a released reservation — the instance resumes
 rather than being thrown away.
 
-Unlike `cloud_idle_drain_minutes`, `cloud_commissioning_grace_minutes` and
-`cloud_orphan_grace_minutes`, which the reaper loads once at boot,
-`drain_timeout_seconds` lives on `cloud_budget_policies` and is re-read on every
+### Unsent cracks bound teardown too
+
+A rented instance is not destroyed while its agent still owns a task that is *actively being
+written to* — capped by **`cloud_crack_drain_grace_minutes`** (default 10). This guards the
+**job-finished** and **idle-drain** rungs.
+
+The case it exists for is the ordinary successful one. Hashcat reports "all hashes cracked"
+*while still running*; the backend moves the task to `processing` and completes the **job**
+off that signal, deliberately leaving the task mid-handshake so it can finish uploading. The
+reaper then saw a finished job and destroyed the instance with no grace at all — taking the
+disk holding cracks the agent had not yet sent. That loss is permanent: the outfile dies with
+the machine, and recovery books the searched range as *covered*, so no other agent re-runs it.
+The job reads `completed` and looks perfect.
+
+The grace is **quiet time, not total wait** — measured from the task's last write, so a
+working agent is never destroyed and a wedged one is not waited on forever. `0` disables it
+and restores immediate teardown; it is the only cloud grace whose zero value can lose data
+rather than merely waste money.
+
+**TTL expiry and the budget hard stop stay unconditional.** The TTL epoch is armed inside the
+guest too and will `poweroff` regardless, so a backend-side grace there would be a promise the
+guest does not honour.
+
+Unlike `cloud_idle_drain_minutes`, `cloud_commissioning_grace_minutes`,
+`cloud_crack_drain_grace_minutes` and `cloud_orphan_grace_minutes`, which the reaper loads
+once at boot, `drain_timeout_seconds` lives on `cloud_budget_policies` and is re-read on every
 assessment — so it takes effect on the next sweep with no restart.
 
 ---

@@ -34,8 +34,13 @@ const (
 	// SettingCommissioningGraceMinutes is seeded by
 	// 20260909120000_add_cloud_commissioning_grace.
 	SettingCommissioningGraceMinutes = "cloud_commissioning_grace_minutes"
-	SettingReaperIntervalSeconds     = "cloud_reaper_interval_seconds"
-	SettingOrphanGraceMinutes        = "cloud_orphan_grace_minutes"
+
+	// SettingCrackDrainGraceMinutes is seeded by
+	// 20260910120000_add_cloud_crack_drain_grace. How long a teardown waits for
+	// an instance whose agent is still uploading cracked passwords.
+	SettingCrackDrainGraceMinutes = "cloud_crack_drain_grace_minutes"
+	SettingReaperIntervalSeconds  = "cloud_reaper_interval_seconds"
+	SettingOrphanGraceMinutes     = "cloud_orphan_grace_minutes"
 
 	// SettingAgentImage is seeded by 20260907130000_add_cloud_agent_image.
 	SettingAgentImage = "cloud_agent_image"
@@ -214,6 +219,17 @@ type Settings struct {
 	// It must exceed scheduler.ReadinessBudget() or healthy instances are
 	// destroyed mid-cold-start and immediately re-rented. Zero disables it.
 	CommissioningGrace time.Duration
+
+	/*
+	 * CrackDrainGrace bounds how long teardown waits for an agent that is still
+	 * uploading cracks. Measured as QUIET TIME on the in-flight task, so a
+	 * working agent is never destroyed and a wedged one is not waited on
+	 * forever. See Reaper.CrackDrainGrace for the full rationale.
+	 *
+	 * Invariants asserted by tests: strictly greater than IdleDrain, strictly
+	 * less than services.StaleProcessingTimeout.
+	 */
+	CrackDrainGrace time.Duration
 	// AgentImage is the container image rented instances pull. Empty means the
 	// setting is unconfigured and the caller should fall back to the
 	// environment variable, then to DefaultAgentImage.
@@ -231,6 +247,7 @@ func DefaultSettings() Settings {
 		OrphanGrace:           10 * time.Minute,
 		IdleDrain:             5 * time.Minute,
 		CommissioningGrace:    30 * time.Minute,
+		CrackDrainGrace:       10 * time.Minute,
 	}
 }
 
@@ -268,6 +285,11 @@ func LoadSettings(ctx context.Context, repo *repository.SystemSettingsRepository
 	if v, ok := readInt(ctx, repo, SettingCommissioningGraceMinutes); ok {
 		// Zero is meaningful here too: it disables commissioning teardown.
 		s.CommissioningGrace = time.Duration(v) * time.Minute
+	}
+	if v, ok := readInt(ctx, repo, SettingCrackDrainGraceMinutes); ok {
+		// Zero is meaningful: it disables the hold and restores the old
+		// unconditional teardown, which can permanently lose cracks.
+		s.CrackDrainGrace = time.Duration(v) * time.Minute
 	}
 	if v, ok := readString(ctx, repo, SettingAgentImage); ok {
 		s.AgentImage = strings.TrimSpace(v)

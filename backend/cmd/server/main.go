@@ -657,9 +657,9 @@ func main() {
 	// a display value. Loaded once at startup: they govern loop cadence, and
 	// re-reading them per tick would put a query on every sweep.
 	cloudSettings := cloudsvc.LoadSettings(context.Background(), systemSettingsRepo)
-	debug.Info("Cloud settings: reaper interval=%s, orphan grace=%s, idle drain=%s, commissioning grace=%s, instance cap=%d",
+	debug.Info("Cloud settings: reaper interval=%s, orphan grace=%s, idle drain=%s, commissioning grace=%s, crack drain grace=%s, instance cap=%d",
 		cloudSettings.ReaperInterval, cloudSettings.OrphanGrace, cloudSettings.IdleDrain,
-		cloudSettings.CommissioningGrace, cloudSettings.GlobalInstanceCap)
+		cloudSettings.CommissioningGrace, cloudSettings.CrackDrainGrace, cloudSettings.GlobalInstanceCap)
 
 	// The reaper's escalation path exists for one situation: automation has
 	// lost control of an instance that is still billing. Passing nil here made
@@ -677,6 +677,7 @@ func main() {
 	cloudReaper.OrphanGrace = cloudSettings.OrphanGrace
 	cloudReaper.IdleDrain = cloudSettings.IdleDrain
 	cloudReaper.CommissioningGrace = cloudSettings.CommissioningGrace
+	cloudReaper.CrackDrainGrace = cloudSettings.CrackDrainGrace
 	// Must be set BEFORE `go cloudReaper.Run` below, or it is a data race.
 	// A draining instance is removed from dispatch, so the per-agent
 	// diagnostics path can never explain it — this is the only channel.
