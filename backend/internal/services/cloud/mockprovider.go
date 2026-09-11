@@ -63,6 +63,9 @@ type mockInstance struct {
 	cmd        *exec.Cmd
 	launchedAt time.Time
 	destroyed  bool
+	// configDir is this instance's private agent config directory, removed on
+	// Destroy. See Launch for why each one needs its own.
+	configDir string
 }
 
 // NewMockProvider creates a mock provider.
@@ -133,7 +136,37 @@ func (m *MockProvider) Launch(ctx context.Context, req LaunchRequest) (*LaunchRe
 		for k, v := range req.Env {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}
+
+		/*
+		 * Each mock instance gets its OWN config directory, because --ephemeral
+		 * does not give it one.
+		 *
+		 * The agent resolves its config directory from KH_CONFIG_DIR
+		 * (config.GetConfigDir), and the line above hands it os.Environ() — the
+		 * BACKEND's environment, which in the dev container sets that to
+		 * /etc/krakenhashes. So every mock agent wrote its identity to the same
+		 * place, and the second rental of a session silently picked up the
+		 * FIRST agent's agent.key and client.crt, reconnected as that agent, and
+		 * never registered against its own instance. Its cloud_instances row
+		 * stayed at ready_at IS NULL until the ready deadline killed it, which
+		 * reads exactly like a provisioning failure and is not one.
+		 *
+		 * That made any rehearsal involving more than one rental impossible, and
+		 * it is a pure artefact of running the agent beside the backend: a real
+		 * rented machine boots with an empty disk. A private directory per
+		 * instance is what restores that property.
+		 *
+		 * Appended AFTER req.Env so it wins over anything the caller set.
+		 */
+		configDir, err := os.MkdirTemp("", "kh-mock-agent-")
+		if err != nil {
+			return nil, fmt.Errorf("mock: create agent config dir: %w", err)
+		}
+		cmd.Env = append(cmd.Env, "KH_CONFIG_DIR="+configDir)
+		inst.configDir = configDir
+
 		if err := cmd.Start(); err != nil {
+			os.RemoveAll(configDir)
 			return nil, fmt.Errorf("mock: start agent: %w", err)
 		}
 		inst.cmd = cmd
@@ -213,6 +246,16 @@ func (m *MockProvider) Destroy(ctx context.Context, id string) error {
 			debug.Warning("mock: failed to kill agent for %s: %v", id, err)
 		}
 		_ = inst.cmd.Wait()
+	}
+
+	// Take the identity with the machine. A real rented disk goes away at
+	// teardown, so leaving these behind would let a later instance inherit this
+	// one's credentials — the exact confusion the private directory prevents.
+	// After Wait, so nothing is still writing into it.
+	if inst.configDir != "" {
+		if err := os.RemoveAll(inst.configDir); err != nil {
+			debug.Warning("mock: failed to remove agent config dir for %s: %v", id, err)
+		}
 	}
 
 	m.mu.Lock()
