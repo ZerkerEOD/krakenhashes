@@ -2691,6 +2691,94 @@ func (r *JobTaskRepository) MarkBatchesComplete(ctx context.Context, taskID uuid
 	return nil
 }
 
+/*
+ * IncrementUnrecoverableCrackCount records cracks that ARRIVED but could not be
+ * persisted, after retries, for a reason that will not change.
+ *
+ * Deliberately NOT IncrementReceivedCrackCount. That counter means "cracks we
+ * hold", and it is what the retransmit decision and the completion handshake
+ * read; bumping it for cracks that were thrown away would let the task complete
+ * looking healthy while silently missing passwords. Counting them here instead
+ * keeps the loss explicit and lets CheckTaskHandshakeUnsatisfiable prove the
+ * handshake is over rather than waiting for it to time out.
+ */
+func (r *JobTaskRepository) IncrementUnrecoverableCrackCount(ctx context.Context, taskID uuid.UUID, count int) error {
+	if count <= 0 {
+		return nil // Nothing to record.
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE job_tasks
+		SET unrecoverable_crack_count = COALESCE(unrecoverable_crack_count, 0) + $2,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`, taskID, count)
+	if err != nil {
+		return fmt.Errorf("failed to increment unrecoverable crack count: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+/*
+ * CheckTaskHandshakeUnsatisfiable reports whether this task's crack handshake
+ * can NEVER complete, so waiting for it is pointless.
+ *
+ * The condition is a proof, not a heuristic: the agent has signalled it sent
+ * everything it had, and every crack it sent has now been accounted for as
+ * either persisted or permanently rejected — yet the persisted count is still
+ * short. No further batch can arrive to close that gap, and retransmitting
+ * cannot help, because a batch rejected for a deterministic reason is rejected
+ * identically every time.
+ *
+ * Returning the lost count as well as the verdict so the caller can say HOW MANY
+ * passwords went missing. "Abandoned the handshake" without a number is not
+ * something an operator can weigh.
+ */
+func (r *JobTaskRepository) CheckTaskHandshakeUnsatisfiable(ctx context.Context, taskID uuid.UUID) (bool, int, error) {
+	var expected, received, unrecoverable int
+	var signaled bool
+
+	err := r.db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(expected_crack_count, 0),
+			COALESCE(received_crack_count, 0),
+			COALESCE(unrecoverable_crack_count, 0),
+			COALESCE(batches_complete_signaled, false)
+		FROM job_tasks
+		WHERE id = $1`, taskID).Scan(&expected, &received, &unrecoverable, &signaled)
+	if err == sql.ErrNoRows {
+		return false, 0, ErrNotFound
+	}
+	if err != nil {
+		return false, 0, fmt.Errorf("failed to check task handshake: %w", err)
+	}
+
+	// Nothing was rejected, so the ordinary rules apply: anything still missing
+	// may yet arrive, and the retransmit path is the right response to that.
+	if unrecoverable <= 0 {
+		return false, 0, nil
+	}
+	// Still short of what the agent said it sent even counting the rejects, so
+	// batches remain genuinely outstanding. Not provable yet.
+	if !signaled || received+unrecoverable < expected {
+		return false, unrecoverable, nil
+	}
+	// Already satisfiable on persisted cracks alone — CheckTaskReadyToComplete
+	// owns this case, and completing is better than abandoning.
+	if received >= expected {
+		return false, unrecoverable, nil
+	}
+
+	return true, unrecoverable, nil
+}
+
 // CheckTaskReadyToComplete checks if a task has received all expected crack batches
 // Returns true if received_crack_count >= expected_crack_count AND batches_complete_signaled
 func (r *JobTaskRepository) CheckTaskReadyToComplete(ctx context.Context, taskID uuid.UUID) (bool, error) {

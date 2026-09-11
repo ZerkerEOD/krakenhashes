@@ -387,6 +387,48 @@ ORDER BY minute DESC;
    - Partial success logged and tracked
    - Retry logic for transient errors
 
+### When a batch can never be stored
+
+`retryProcessCrackedHashes` separates transient database errors, which it retries with
+backoff, from **non-transient** ones — a malformed job row, a schema mismatch, a column the
+scan cannot read. A non-transient failure will recur identically on every attempt, so the
+cracks in that batch are gone.
+
+The handshake has to be told, or it waits for them anyway. The completion rule is
+`batches_complete_signaled AND received_crack_count >= expected_crack_count`, and a rejected
+batch does not move `received_crack_count` — so a batch that arrived and was thrown away
+used to be indistinguishable from one still in flight. The task sat in `processing` until the
+stale backstop abandoned it 30 minutes later, extended further while its agent stayed
+connected, and on a **rented** instance the reaper's unsent-work hold kept the GPU billing
+through the whole crack-drain grace first. Retransmitting could not have helped: the same
+batch fails the same way every time.
+
+Rejected cracks are therefore counted separately, in
+`job_tasks.unrecoverable_crack_count`:
+
+```
+unsatisfiable = batches_complete_signaled
+                AND unrecoverable > 0
+                AND received + unrecoverable >= expected
+                AND received < expected
+```
+
+That is a proof rather than a timeout — every crack the agent sent is accounted for as
+either stored or rejected, and the stored count is still short — so the task is abandoned
+**immediately** instead of waited out. Abandonment is the same terminal action the stale
+backstop takes: truncate to the restore point so completed work is kept, release the
+remaining keyspace for re-dispatch, and never write `failed`. The passwords are lost, but
+the range is run again and they are found again.
+
+`unrecoverable_crack_count` is deliberately **not** folded into `received_crack_count`.
+That counter means "cracks we hold", and it is what the retransmit decision reads;
+inflating it with cracks that were discarded would let the task complete looking perfectly
+healthy while silently missing passwords.
+
+The check runs from both places the completion check runs — the crack-batch path and the
+stale-processing sweep — because the deciding fact can be the rejection or the
+batches-complete signal, whichever lands second, or a restart between the two.
+
 ## Interaction with Other Systems
 
 ### Potfile Integration

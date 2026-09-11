@@ -803,6 +803,7 @@ Individual chunks assigned to agents.
 | expected_crack_count | INTEGER | | 0 | Expected number of cracks from final progress message (added in migration 085) |
 | received_crack_count | INTEGER | | 0 | Number of cracks received via crack_batch messages (added in migration 085) |
 | batches_complete_signaled | BOOLEAN | | false | Whether agent has signaled all crack batches sent (added in migration 085) |
+| unrecoverable_crack_count | INTEGER | | 0 | Cracks delivered but rejected by the backend after retries, for a reason that will not change. Counted separately from received_crack_count so the handshake can prove it will never be satisfied and abandon the task immediately instead of waiting out the stale-processing timeout. Non-zero means passwords were lost and the keyspace was re-dispatched (added in migration 20260911010000) |
 | increment_layer_id | UUID | FK → job_increment_layers(id) | | References increment layer for increment mode jobs (added in migration 089) |
 | cracking_completed_at | TIMESTAMP WITH TIME ZONE | | | When hashcat finished for this task - task enters processing state (added in migration 100) |
 | retransmit_count | INTEGER | | 0 | Number of crack retransmission attempts (added in migration 099) |

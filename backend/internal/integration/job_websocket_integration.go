@@ -2513,6 +2513,42 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 		if err != nil {
 			debug.Error("CRITICAL: Crack batch permanently failed after retries [agent_id=%d, task_id=%s, batch_size=%d, error=%v]",
 				agentID, crackBatch.TaskID, len(crackBatch.CrackedHashes), err)
+
+			/*
+			 * Record the loss, then fall through to the re-check below rather
+			 * than returning here.
+			 *
+			 * Returning was the bug. received_crack_count never moved, so
+			 * `signaled && received >= expected` could never be satisfied — but
+			 * nothing said so, and a permanently-rejected batch was
+			 * indistinguishable from one still in flight. The task therefore
+			 * waited out the full stale-processing timeout, extended further
+			 * while its agent stayed connected (the reachable-agent deferral
+			 * assumes a connected agent might still retransmit something
+			 * useful), and on a RENTED instance holdForUnsentWork kept the GPU
+			 * billing for the whole crack-drain grace before teardown gave up.
+			 * All of it spent on an outcome already decided: a batch rejected
+			 * for a deterministic reason is rejected identically on every
+			 * retransmit.
+			 *
+			 * Counting it separately from received_crack_count is what makes
+			 * the handshake's failure provable instead of merely slow. The
+			 * error is still returned to the caller afterwards, so the failure
+			 * is not swallowed.
+			 */
+			if ierr := s.jobTaskRepo.IncrementUnrecoverableCrackCount(
+				ctx, crackBatch.TaskID, len(crackBatch.CrackedHashes)); ierr != nil {
+				debug.Error("Failed to record %d unrecoverable cracks for task %s: %v; "+
+					"the handshake will fall back to the stale-processing backstop",
+					len(crackBatch.CrackedHashes), crackBatch.TaskID, ierr)
+			}
+
+			if abandoned, aerr := s.TryAbandonUnsatisfiableTask(ctx, crackBatch.TaskID); aerr != nil {
+				debug.Warning("Unsatisfiable-handshake check failed for task %s: %v", crackBatch.TaskID, aerr)
+			} else if abandoned {
+				debug.Warning("Task %s abandoned immediately: its crack handshake can no longer be satisfied",
+					crackBatch.TaskID)
+			}
 			return err
 		}
 
@@ -2709,6 +2745,44 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 			message.TaskID, task.ExpectedCrackCount, task.ReceivedCrackCount, actualDBCount)
 
 		if task.ReceivedCrackCount < task.ExpectedCrackCount {
+			/*
+			 * Before asking for a retransmit, check whether one could possibly
+			 * help.
+			 *
+			 * This is the earliest moment the answer is knowable, and the most
+			 * valuable place to act on it: the shortfall is real, but if every
+			 * missing crack is one we already received and REJECTED, the agent
+			 * resending it changes nothing — a batch that failed for a
+			 * deterministic reason fails identically every time. The old code
+			 * asked anyway, the retransmit failed the same way, and the task sat
+			 * in 'processing' until the stale backstop abandoned it half an hour
+			 * later. On a rented instance the GPU billed through the crack-drain
+			 * grace before teardown gave up on it.
+			 */
+			if abandoned, aerr := s.TryAbandonUnsatisfiableTask(ctx, message.TaskID); aerr != nil {
+				debug.Warning("Unsatisfiable-handshake check failed for task %s: %v; "+
+					"falling through to the retransmit request", message.TaskID, aerr)
+			} else if abandoned {
+				/*
+				 * Keyspace released for re-dispatch, so there is nothing left to
+				 * ask the agent for. Two deliberate omissions on the way out:
+				 *
+				 * NO DELETE APPROVAL. sendOutfileDeleteApproval tells the agent
+				 * its cracks are safely stored and the outfile can go. They are
+				 * not stored — that is the whole reason we are here — so
+				 * approving the delete would destroy the only remaining copy.
+				 * Leaving the outfile costs disk and nothing else.
+				 *
+				 * BUT DO FREE THE AGENT. The retransmit path below returns
+				 * without clearing busy_status on purpose, because it expects
+				 * the agent to send more. Nothing more is coming here, so
+				 * skipping the clear would strand a perfectly healthy agent as
+				 * occupied by a task that no longer exists.
+				 */
+				s.clearAgentBusyStatus(ctx, agentID, message.TaskID)
+				return nil
+			}
+
 			// Backend didn't receive all expected cracks - request retransmission
 			debug.Warning("Crack count mismatch for task %s: expected %d, received %d - requesting retransmit",
 				message.TaskID, task.ExpectedCrackCount, task.ReceivedCrackCount)
@@ -2739,20 +2813,7 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 	}
 
 	// Clear agent busy status - agent is now free for new work
-	agent, err := s.agentRepo.GetByID(ctx, agentID)
-	if err == nil && agent.Metadata != nil {
-		agent.Metadata["busy_status"] = "false"
-		delete(agent.Metadata, "current_task_id")
-		delete(agent.Metadata, "current_job_id")
-		if err := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); err != nil {
-			debug.Error("Failed to clear agent busy status after batches complete: %v", err)
-		} else {
-			debug.Log("Cleared agent busy status - agent free for new work", map[string]interface{}{
-				"agent_id": agentID,
-				"task_id":  message.TaskID,
-			})
-		}
-	}
+	s.clearAgentBusyStatus(ctx, agentID, message.TaskID)
 
 	// Re-evaluate completion from the DATABASE.
 	//
@@ -3026,6 +3087,105 @@ func (s *JobWebSocketIntegration) TryFinalizeTask(ctx context.Context, taskID uu
 	}
 
 	return s.checkTaskCompletion(ctx, taskID), nil
+}
+
+/*
+ * clearAgentBusyStatus releases an agent from the task it was working on.
+ *
+ * Extracted so the ordinary end of HandleCrackBatchesComplete and the
+ * abandon-early path can share it. They must not drift: an agent left marked
+ * busy is invisible to getIdleAgents and simply stops receiving work, with no
+ * error anywhere to say why.
+ *
+ * Best-effort by design, matching the behaviour it replaced. A failure here
+ * costs one agent one scheduling cycle's worth of idleness, which is not worth
+ * failing the caller's whole operation over.
+ */
+func (s *JobWebSocketIntegration) clearAgentBusyStatus(ctx context.Context, agentID int, taskID uuid.UUID) {
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err != nil || agent.Metadata == nil {
+		return
+	}
+
+	agent.Metadata["busy_status"] = "false"
+	delete(agent.Metadata, "current_task_id")
+	delete(agent.Metadata, "current_job_id")
+
+	if err := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); err != nil {
+		debug.Error("Failed to clear agent busy status after batches complete: %v", err)
+		return
+	}
+	debug.Log("Cleared agent busy status - agent free for new work", map[string]interface{}{
+		"agent_id": agentID,
+		"task_id":  taskID,
+	})
+}
+
+/*
+ * TryAbandonUnsatisfiableTask terminalises a task whose crack handshake is
+ * PROVABLY over, instead of waiting for it to time out.
+ *
+ * The sibling of TryFinalizeTask, and called from the same two places for the
+ * same reason: the deciding fact can land either on the crack-batch path or
+ * between sweeps, so whichever notices first must be able to act. Both are
+ * idempotent and cheap when they do not apply.
+ *
+ * WHERE THE TWO DIFFER. TryFinalizeTask asks "has everything arrived?" and
+ * completes. This asks "can everything still arrive?" and, when the answer is
+ * no, gives up on the missing cracks and re-opens the keyspace so the work is
+ * done again. The distinction matters because the old code had no way to
+ * express the second question: a batch that was received and REJECTED looked
+ * exactly like one still in flight, so the only available response was to wait
+ * — for the staleness timeout, for the reachable-agent deferral on top of it,
+ * and on rented hardware for the crack-drain grace while the GPU billed.
+ *
+ * Abandonment is the same terminal action the stale backstop takes, with the
+ * same properties: it truncates to the restore point so completed work is kept,
+ * releases the remainder for re-dispatch, and NEVER writes 'failed' — a lost
+ * handshake is a bookkeeping give-up, not a failed job, and HasFailedTasks is a
+ * COUNT(*) > 0 that would fail the whole execution over one row.
+ *
+ * Returns true only when it actually abandoned.
+ */
+func (s *JobWebSocketIntegration) TryAbandonUnsatisfiableTask(ctx context.Context, taskID uuid.UUID) (bool, error) {
+	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get task %s for handshake check: %w", taskID, err)
+	}
+
+	// Only a task awaiting crack batches has a handshake to give up on. A task
+	// still running has not finished producing cracks, and a terminal one is
+	// not ours to touch.
+	if task.Status != models.JobTaskStatusProcessing {
+		return false, nil
+	}
+
+	unsatisfiable, lost, err := s.jobTaskRepo.CheckTaskHandshakeUnsatisfiable(ctx, taskID)
+	if err != nil {
+		return false, fmt.Errorf("failed to check task %s handshake: %w", taskID, err)
+	}
+	if !unsatisfiable {
+		return false, nil
+	}
+
+	reason := fmt.Sprintf(
+		"crack handshake cannot be satisfied: %d crack(s) were delivered but could not be stored, "+
+			"and the agent has signalled it has nothing left to send (expected %d, stored %d). "+
+			"Retransmitting cannot help, so the keyspace is being released for re-dispatch",
+		lost, task.ExpectedCrackCount, task.ReceivedCrackCount)
+
+	if aerr := s.AbandonProcessingTask(ctx, taskID, reason); aerr != nil {
+		return false, fmt.Errorf("failed to abandon unsatisfiable task %s: %w", taskID, aerr)
+	}
+
+	// Loud on purpose: passwords the agent genuinely found are gone, and the
+	// only reason the job will still look right is that the range is being run
+	// again. If that re-run hits the same deterministic fault, this repeats —
+	// so the message has to name the count, not just the outcome.
+	debug.Error("Task %s abandoned with %d crack(s) permanently lost (job %s): %s",
+		taskID, lost, task.JobExecutionID, reason)
+
+	return true, nil
 }
 
 // dispatchTaskCompletedNotification sends a task completion notification if applicable

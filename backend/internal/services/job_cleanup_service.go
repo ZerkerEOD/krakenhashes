@@ -29,6 +29,10 @@ type StuckProcessingHandler interface {
 	// TryFinalizeTask completes a task whose crack handshake the DB already
 	// shows as satisfied. Returns true if it performed the completion.
 	TryFinalizeTask(ctx context.Context, taskID uuid.UUID) (bool, error)
+	// TryAbandonUnsatisfiableTask terminalises a task whose handshake can
+	// PROVABLY never be satisfied, because cracks it delivered were rejected
+	// and the agent has nothing left to send. Returns true if it abandoned.
+	TryAbandonUnsatisfiableTask(ctx context.Context, taskID uuid.UUID) (bool, error)
 	// AbandonProcessingTask terminalises a task whose cracks are never
 	// arriving, releasing its keyspace. Never produces 'failed'.
 	AbandonProcessingTask(ctx context.Context, taskID uuid.UUID, reason string) error
@@ -329,6 +333,26 @@ func (s *JobCleanupService) checkForStaleProcessingTasks(ctx context.Context, ti
 			} else if finalized {
 				debug.Info("Stale-processing sweep: completed task %s (job %s, agent %d) - crack handshake was already satisfied in the DB (expected %d, received %d)",
 					task.ID, task.JobExecutionID, agentID, task.ExpectedCrackCount, task.ReceivedCrackCount)
+				continue
+			}
+
+			// GATE 1b: the mirror image — a handshake that can PROVABLY never be
+			// satisfied, because cracks this task delivered were permanently
+			// rejected and the agent has signalled it has nothing left to send.
+			//
+			// Age-independent for the same reason Gate 1 is: the verdict comes
+			// from the database, not from how long the row has sat, and making a
+			// task wait out a timeout for an outcome already decided is the whole
+			// problem. It also has to live here as well as on the crack-batch
+			// path, because the deciding fact can be the batches-complete signal
+			// arriving after the rejection — or a restart between the two.
+			abandoned, aerr := handler.TryAbandonUnsatisfiableTask(ctx, task.ID)
+			if aerr != nil {
+				debug.Error("Stale-processing sweep: unsatisfiable-handshake check failed for task %s (job %s, agent %d): %v",
+					task.ID, task.JobExecutionID, agentID, aerr)
+			} else if abandoned {
+				debug.Warning("Stale-processing sweep: abandoned task %s (job %s, agent %d) - its crack handshake can never be satisfied; keyspace released for re-dispatch",
+					task.ID, task.JobExecutionID, agentID)
 				continue
 			}
 		}
