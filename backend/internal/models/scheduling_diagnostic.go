@@ -55,6 +55,19 @@ const (
 	// down with a task still uploading cracks. The job reads "completed" and
 	// looks perfect, so without this the loss is entirely invisible.
 	DiagReasonCloudCracksLost = "cloud_cracks_lost"
+
+	/*
+	 * DiagReasonCloudRentalTooShort is recorded when a rental was refused
+	 * because most of it would have been spent commissioning -- booting,
+	 * registering, syncing files and benchmarking -- rather than working.
+	 *
+	 * Separate from cloud_budget_blocked because the fix is different. A budget
+	 * block means "add money". This means "the money or the TTL ceiling buys a
+	 * rental too short to be worth making", and it is usually answered by
+	 * raising max_instance_ttl_minutes, not the cap. Sending an operator to the
+	 * budget screen for a TTL problem is how they conclude the cap is broken.
+	 */
+	DiagReasonCloudRentalTooShort = "cloud_rental_too_short"
 )
 
 // SchedulingDiagnostic is one deduplicated diagnostic row: a single

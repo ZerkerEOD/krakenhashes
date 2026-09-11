@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -139,12 +140,67 @@ func TestPlanLaunch_Refusals(t *testing.T) {
 		}
 	})
 
+	/*
+	 * Too short to be USEFUL is not the same failure as out of MONEY, and the
+	 * sentinels are deliberately different.
+	 *
+	 * The fixes point in opposite directions: ErrInsufficientBudget means "raise
+	 * the cap", while this means "raise max_instance_ttl_minutes, or accept less
+	 * efficient rentals". Classifying both as a budget block sent the operator to
+	 * the budget screen for a problem the budget screen cannot solve, which is
+	 * why classifyProvisionFailure now matches this one FIRST — its message
+	 * mentions a budget and would otherwise be caught by the text match.
+	 */
 	t.Run("budget buys less than the minimum useful rental", func(t *testing.T) {
-		// 4c at 100c/hr buys ~2.4 minutes; renting a GPU for that is pure waste.
+		// 4c at 100c/hr buys ~2.4 minutes: not enough to finish commissioning,
+		// let alone do any work.
 		clientID := fundedTestClient(t, database, 4)
 		_, err := engine.PlanLaunch(ctx, clientID, 100, time.Hour, 0)
-		if !errors.Is(err, repository.ErrInsufficientBudget) {
-			t.Errorf("err = %v, want ErrInsufficientBudget", err)
+		if !errors.Is(err, ErrRentalTooShort) {
+			t.Errorf("err = %v, want ErrRentalTooShort", err)
+		}
+		if errors.Is(err, repository.ErrInsufficientBudget) {
+			t.Error("a too-short rental must not also report as ErrInsufficientBudget; " +
+				"the two have different fixes and are classified differently")
+		}
+	})
+
+	t.Run("a TTL ceiling below the floor is refused naming the ceiling", func(t *testing.T) {
+		// Plenty of money, but the operator capped instance life below what a
+		// rental needs to be worth making.
+		clientID := fundedTestClient(t, database, 100000)
+		_, err := engine.PlanLaunch(ctx, clientID, 100, 10*time.Minute, 0)
+		if !errors.Is(err, ErrRentalTooShort) {
+			t.Fatalf("err = %v, want ErrRentalTooShort", err)
+		}
+		if !strings.Contains(err.Error(), "max_instance_ttl_minutes") {
+			t.Errorf("refusal must name the setting to change, got: %v", err)
+		}
+	})
+
+	/*
+	 * REGRESSION: allow_overage used to skip the floor entirely.
+	 *
+	 * PlanLaunch returned early on the overage branch, before any minimum-rental
+	 * check, so the one client type permitted to spend past its cap was also the
+	 * only one that could buy a rental too short to do anything with. Without the
+	 * fix this subtest gets a plan back instead of an error.
+	 */
+	t.Run("allow_overage does not bypass the minimum useful rental", func(t *testing.T) {
+		clientID := fundedTestClient(t, database, 100000)
+		if _, err := database.Exec(`
+			INSERT INTO cloud_budget_policies (
+				client_id, notify_pct, stop_provision_pct, drain_pct,
+				hard_stop_pct, allow_overage, drain_timeout_seconds
+			) VALUES ($1, 80, 95, 99, 100, true, 300)
+			ON CONFLICT (client_id) DO UPDATE SET allow_overage = true`, clientID); err != nil {
+			t.Fatalf("seed overage policy: %v", err)
+		}
+
+		_, err := engine.PlanLaunch(ctx, clientID, 100, 10*time.Minute, 0)
+		if !errors.Is(err, ErrRentalTooShort) {
+			t.Errorf("err = %v, want ErrRentalTooShort; allowing overage means the CAP stops "+
+				"bounding the TTL, not that a pointless rental becomes acceptable", err)
 		}
 	})
 

@@ -42,6 +42,12 @@ const (
 	SettingReaperIntervalSeconds  = "cloud_reaper_interval_seconds"
 	SettingOrphanGraceMinutes     = "cloud_orphan_grace_minutes"
 
+	// SettingMaxCommissioningPct is seeded by
+	// 20260911000000_add_cloud_max_commissioning_pct. The largest share of a
+	// rental's bill that may be spent getting the instance ready to work; it is
+	// what makes the minimum useful TTL a derived number instead of a guess.
+	SettingMaxCommissioningPct = "cloud_max_commissioning_pct"
+
 	// SettingAgentImage is seeded by 20260907130000_add_cloud_agent_image.
 	SettingAgentImage = "cloud_agent_image"
 
@@ -230,6 +236,28 @@ type Settings struct {
 	 * less than services.StaleProcessingTimeout.
 	 */
 	CrackDrainGrace time.Duration
+
+	/*
+	 * MaxCommissioningPct is the largest share of a rental's bill that may go on
+	 * commissioning — booting, joining the VPN, registering, syncing the file
+	 * set and benchmarking — before the rental is judged not worth making.
+	 *
+	 * It exists because the old floor was a bare 5 minutes, picked to mean "long
+	 * enough to be worth it" while scheduler.ReadinessBudget() says a healthy
+	 * agent may legitimately take 20 minutes to receive its first task. Renting
+	 * for 5 minutes could therefore never reach useful work at all, and the
+	 * engine sold one anyway. Expressing the floor as a RATIO rather than a
+	 * duration keeps it correct if either side of that arithmetic moves.
+	 *
+	 * 33 means "commissioning may be up to a third of the bill", which with a
+	 * 20-minute readiness budget puts the minimum useful rental at an hour.
+	 * Raising it buys smaller, less efficient rentals; lowering it demands
+	 * longer, more efficient ones. Zero disables the ratio rung and leaves only
+	 * the capability floor, which refuses solely what provably cannot take a
+	 * chunk at all.
+	 */
+	MaxCommissioningPct int
+
 	// AgentImage is the container image rented instances pull. Empty means the
 	// setting is unconfigured and the caller should fall back to the
 	// environment variable, then to DefaultAgentImage.
@@ -248,6 +276,7 @@ func DefaultSettings() Settings {
 		IdleDrain:             5 * time.Minute,
 		CommissioningGrace:    30 * time.Minute,
 		CrackDrainGrace:       10 * time.Minute,
+		MaxCommissioningPct:   33,
 	}
 }
 
@@ -290,6 +319,23 @@ func LoadSettings(ctx context.Context, repo *repository.SystemSettingsRepository
 		// Zero is meaningful: it disables the hold and restores the old
 		// unconditional teardown, which can permanently lose cracks.
 		s.CrackDrainGrace = time.Duration(v) * time.Minute
+	}
+	if v, ok := readInt(ctx, repo, SettingMaxCommissioningPct); ok {
+		// Zero is meaningful: it disables the efficiency rung, leaving the
+		// capability floor as the only bound. Anything above 100 would be
+		// asking for a rental that is more than entirely commissioning, so it
+		// is clamped rather than honoured; negatives are simply nonsense.
+		switch {
+		case v < 0:
+			debug.Warning("cloud: %s = %d is negative; ignoring it and keeping %d",
+				SettingMaxCommissioningPct, v, s.MaxCommissioningPct)
+		case v > 100:
+			debug.Warning("cloud: %s = %d exceeds 100; clamping to 100 (commissioning may be the whole rental)",
+				SettingMaxCommissioningPct, v)
+			s.MaxCommissioningPct = 100
+		default:
+			s.MaxCommissioningPct = v
+		}
 	}
 	if v, ok := readString(ctx, repo, SettingAgentImage); ok {
 		s.AgentImage = strings.TrimSpace(v)

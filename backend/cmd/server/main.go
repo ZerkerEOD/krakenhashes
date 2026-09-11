@@ -657,9 +657,19 @@ func main() {
 	// a display value. Loaded once at startup: they govern loop cadence, and
 	// re-reading them per tick would put a query on every sweep.
 	cloudSettings := cloudsvc.LoadSettings(context.Background(), systemSettingsRepo)
-	debug.Info("Cloud settings: reaper interval=%s, orphan grace=%s, idle drain=%s, commissioning grace=%s, crack drain grace=%s, instance cap=%d",
+	// Set before the engine is used, for the same reason the reaper's clocks
+	// are: this one decides whether a rental is refused as too short to be
+	// worth making, and leaving it at the constructor default would ignore an
+	// operator who deliberately widened or tightened it.
+	cloudBudget.MaxCommissioningPct = cloudSettings.MaxCommissioningPct
+	// The same grace the reaper honours, so a TTL sized to a job also leaves the
+	// instance time to upload the last chunk's cracks. Without it the guest's
+	// own watchdog powers off while the backend is still patiently waiting.
+	cloudService.CrackDrainGrace = cloudSettings.CrackDrainGrace
+	debug.Info("Cloud settings: reaper interval=%s, orphan grace=%s, idle drain=%s, commissioning grace=%s, crack drain grace=%s, instance cap=%d, max commissioning=%d%% (minimum useful rental %s)",
 		cloudSettings.ReaperInterval, cloudSettings.OrphanGrace, cloudSettings.IdleDrain,
-		cloudSettings.CommissioningGrace, cloudSettings.CrackDrainGrace, cloudSettings.GlobalInstanceCap)
+		cloudSettings.CommissioningGrace, cloudSettings.CrackDrainGrace, cloudSettings.GlobalInstanceCap,
+		cloudSettings.MaxCommissioningPct, cloudsvc.MinRentalTTL(cloudSettings.MaxCommissioningPct))
 
 	// The reaper's escalation path exists for one situation: automation has
 	// lost control of an instance that is still billing. Passing nil here made

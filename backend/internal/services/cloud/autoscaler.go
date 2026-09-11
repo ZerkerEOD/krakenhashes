@@ -25,6 +25,13 @@ import (
  */
 func classifyProvisionFailure(err error) (reason, severity string) {
 	switch {
+	// Checked BEFORE the budget sentinel and before the text match below,
+	// because this refusal names a budget in its message ("the remaining budget
+	// buys 24m...") and would otherwise be classified as a plain budget block --
+	// sending the operator to top up a cap when their TTL ceiling is the
+	// problem, which is the whole reason this reason code exists.
+	case errors.Is(err, ErrRentalTooShort):
+		return models.DiagReasonCloudRentalTooShort, models.DiagSeverityWarning
 	case errors.Is(err, repository.ErrInsufficientBudget):
 		return models.DiagReasonCloudBudgetBlocked, models.DiagSeverityWarning
 	case errors.Is(err, ErrOfferUnavailable):

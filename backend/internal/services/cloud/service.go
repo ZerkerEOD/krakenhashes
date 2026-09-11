@@ -79,6 +79,18 @@ type Service struct {
 	// every fresh deployment starts on anyway.
 	benchmarks *repository.CloudGPUBenchmarkRepository
 
+	/*
+	 * CrackDrainGrace mirrors the reaper's clock of the same name, and is used
+	 * only to size a TTL's drain tail — see drainTail.
+	 *
+	 * Held here rather than read per launch because, like the reaper's copy, it
+	 * is loaded once at startup. Zero means "not wired or deliberately
+	 * disabled", and drainTail degrades to the teardown slack alone rather than
+	 * to nothing: the chunk planner has already subtracted that slack and
+	 * assumed it exists.
+	 */
+	CrackDrainGrace time.Duration
+
 	// SystemSettings supplies the deployment-wide spend ceiling. Nil means the
 	// ceiling cannot be read, and ProvisionForJob then refuses rather than
 	// assuming there is none — an unreadable kill switch has to behave like an
@@ -591,6 +603,164 @@ type rankedCandidate struct {
 }
 
 /*
+ * sizeTTL narrows the client's TTL ceiling to what THIS job actually needs.
+ *
+ * The ceiling on its own is a blunt instrument. A client configured for 4-hour
+ * rentals gets a 4-hour reservation for a job with twenty minutes of work left,
+ * because ReserveCents commits the whole TTL up front. Nothing is ultimately
+ * BILLED for that — SettleInstance refunds reserved minus incurred, and idle
+ * drain destroys an instance that runs out of work — but the money is committed
+ * while the instance runs, and a cap that fits one oversized reservation fits
+ * several right-sized ones. Sizing the reservation to the work is what lets a
+ * fixed budget buy several instances in parallel instead of one at a time.
+ *
+ * Commissioning is added on top of the projection, not folded into it: the
+ * instance cannot start consuming keyspace until it has booted, synced and
+ * benchmarked, so a TTL equal to the remaining work would expire with work
+ * still outstanding and force a fresh rental to re-pay the whole setup.
+ *
+ * NARROWING ONLY. This never raises the ceiling above what the operator or the
+ * budget allows; PlanLaunch still applies both bounds and the minimum-rental
+ * floor underneath. The worst case here is that the projection is wrong and we
+ * reserve more than needed, which is the refundable direction.
+ *
+ * Called once per launch attempt rather than per autoscaler pass. Project() is
+ * several joins and an aggregate over every scheduling unit of the job — costly
+ * enough that rulesgate guards it behind the priority floor — but an attempt to
+ * actually rent hardware is rare and already about to make network calls.
+ */
+/*
+ * drainTail is the runway a sized TTL must keep AFTER the last chunk finishes,
+ * so the instance can hand back what it found instead of being shot mid-upload.
+ *
+ * Two distinct waits live at the end of a rental and they were not the same
+ * length:
+ *
+ *   - resolveChunkDuration already refuses to plan a chunk past
+ *     (remaining TTL - teardown slack), so the last chunk ends ~120s before the
+ *     deadline. That 120s is all the upload time a TTL-bound instance had.
+ *   - The reaper is willing to hold an instance for CrackDrainGrace (10 minutes
+ *     by default) while its agent is still sending cracks, precisely because a
+ *     large upload can take minutes.
+ *
+ * The reaper's patience is worth nothing if the machine is already gone:
+ * ttl_epoch is armed IN-GUEST and the watchdog powers off regardless of what
+ * the backend would prefer. So an instance sized to finish its work exactly at
+ * its TTL gets 120 seconds to upload, and anything slower is killed mid-flush —
+ * losing cracks on the ordinary successful path, which is the failure
+ * cloud_cracks_lost exists to report and which no amount of backend patience can
+ * prevent.
+ *
+ * Sizing the tail to the grace the reaper already honours makes the two agree.
+ * It costs nothing in practice: the tail is only ever RESERVED, and an instance
+ * that finishes early is released by the job-finished rung with the remainder
+ * refunded.
+ */
+func (s *Service) drainTail() time.Duration {
+	grace := s.CrackDrainGrace
+	if grace <= 0 {
+		// Unset (a Service built without wiring) or deliberately disabled. The
+		// teardown slack is still owed either way — it is the window the chunk
+		// planner has already subtracted and assumed is there.
+		return defaultTeardownSlack
+	}
+	return defaultTeardownSlack + grace
+}
+
+func (s *Service) sizeTTL(ctx context.Context, p provisionParams, cand rankedCandidate) time.Duration {
+	if s.estimator == nil {
+		return p.maxTTL
+	}
+
+	/*
+	 * The hypothetical is what makes this work on the FIRST rental.
+	 *
+	 * Project derives throughput from agents that already hold a task on the
+	 * job. In a cloud-only deployment there are none — that is precisely why the
+	 * job is starving — so without a hypothetical the projection is always
+	 * unknown at the moment it matters, and job-aware sizing would only ever
+	 * apply from the second rental onwards.
+	 *
+	 * cand.AbsoluteSpeed is zero when the ranker had no calibration anchor, and
+	 * zero here means UNKNOWN. Passing it through unchanged is correct: it adds
+	 * nothing to the projection, the projection reports itself unknown, and we
+	 * fall back to the ceiling below.
+	 */
+	proj, err := s.estimator.Project(ctx, p.jobID, cand.AbsoluteSpeed, 0, 0)
+	if err != nil {
+		// A job with no scheduling units cannot be projected at all. Fall back
+		// rather than fail the launch: an unprojectable job is still a job
+		// someone asked to run, and this is a sizing hint, not a gate.
+		debug.Warning("Cloud: could not project job %s for TTL sizing (%v); "+
+			"using the full %s ceiling", p.jobID, err, p.maxTTL)
+		return p.maxTTL
+	}
+
+	if !proj.TimeToFinishKnown {
+		debug.Debug("Cloud: job %s has no usable throughput projection "+
+			"(offer speed %d h/s); using the full %s TTL ceiling",
+			p.jobID, cand.AbsoluteSpeed, p.maxTTL)
+		return p.maxTTL
+	}
+
+	/*
+	 * Only add commissioning and the drain tail once the projection is known to
+	 * be SHORTER than the ceiling, because that addition can overflow.
+	 *
+	 * The estimator saturates at time.Duration(math.MaxInt64) on purpose — see
+	 * maxProjection — so a job with negligible throughput legitimately projects
+	 * to ~292 years. Adding 20 minutes to that wraps to a large NEGATIVE
+	 * duration, which clampTTL then reads as "smaller than the floor" and rounds
+	 * UP to the minimum rental. The job that needs the most runway would have
+	 * received the least. Comparing first keeps the arithmetic inside a few
+	 * hours, where it cannot wrap.
+	 */
+	target := p.maxTTL
+	if proj.TimeToFinish < p.maxTTL {
+		target = proj.TimeToFinish + commissioningBudget + s.drainTail()
+	}
+
+	sized := clampTTL(target, MinRentalTTL(s.budget.MaxCommissioningPct), p.maxTTL)
+	if sized < p.maxTTL {
+		debug.Info("Cloud: job %s projected to finish in %s at %d h/s; "+
+			"sizing TTL to %s instead of the %s ceiling, so the reservation matches the work",
+			p.jobID, proj.TimeToFinish.Round(time.Second), cand.AbsoluteSpeed,
+			sized.Round(time.Second), p.maxTTL)
+	}
+	return sized
+}
+
+/*
+ * clampTTL fits a desired rental length between the minimum worth making and
+ * the most the client and budget allow.
+ *
+ * THE UPPER BOUND WINS. When the ceiling is itself below the floor, this returns
+ * the ceiling and lets PlanLaunch refuse with the operator's own number in the
+ * message. Clamping up to the floor instead would hand PlanLaunch a value the
+ * client never permitted, and the refusal would quote a lifetime nobody
+ * configured.
+ *
+ * The lower bound exists because narrowing must never CAUSE a refusal. A job
+ * with two minutes of work left produces a tiny target; measured against the
+ * floor that reads as "not worth renting", even though the unnarrowed ceiling
+ * would have launched happily. Sizing back up costs nothing real — the
+ * job-finished rung releases the instance as soon as the work is done and
+ * SettleInstance refunds the remainder.
+ */
+func clampTTL(target, floor, upper time.Duration) time.Duration {
+	if target > upper {
+		return upper
+	}
+	if target < floor {
+		if floor > upper {
+			return upper
+		}
+		return floor
+	}
+	return target
+}
+
+/*
  * attemptLaunch runs steps 4-8 for one candidate offer.
  *
  * ORDER IS THE CONTRACT, and it is preserved per attempt: the row and its
@@ -607,8 +777,9 @@ func (s *Service) attemptLaunch(ctx context.Context, p provisionParams, cand ran
 	cfg, provider, offer := cand.cfg, cand.provider, cand.Offer
 
 	// 4. Budget and TTL.
-	extraCents := int64(offer.StorageCentsPerHour) * int64(p.maxTTL/time.Hour+1)
-	plan, err := s.budget.PlanLaunch(ctx, p.clientID, offer.HourlyRateCents, p.maxTTL, extraCents)
+	ttlCeiling := s.sizeTTL(ctx, p, cand)
+	extraCents := int64(offer.StorageCentsPerHour) * int64(ttlCeiling/time.Hour+1)
+	plan, err := s.budget.PlanLaunch(ctx, p.clientID, offer.HourlyRateCents, ttlCeiling, extraCents)
 	if err != nil {
 		return fmt.Errorf("budget: %w", err)
 	}

@@ -305,7 +305,21 @@ Per client:
 |---|---|
 | `cloud_budget_cents` | Spend ceiling for the current month. Unset ⇒ cloud burst unfunded. |
 | `cloud_provider_allowlist` | Which providers this client may use. **Empty by default.** |
-| `max_instance_ttl_minutes` | Ceiling on any single instance's life. |
+| `max_instance_ttl_minutes` | Ceiling on any single instance's life. A **ceiling, not a target** — see below. |
+
+`max_instance_ttl_minutes` is an upper bound, not the value every instance gets. The
+system sizes each rental to what the job actually has left plus its commissioning cost,
+so a short job does not hold a four-hour reservation. Setting this **too low costs real
+money**: every rented instance pays roughly 20 minutes of boot, sync and benchmark before
+it can do any work, so a 30-minute ceiling on a multi-hour job re-pays that setup on every
+rental. Setting it generously is close to free, because the unused remainder is refunded
+at teardown and an instance that runs out of work is destroyed by idle drain well before
+its TTL. **Prefer an hour or more.**
+
+Rentals below the minimum useful length are refused outright rather than made — the
+message names both the length on offer and the minimum, and the job records a
+`cloud_rental_too_short` diagnostic. That minimum comes from
+`cloud_max_commissioning_pct` (see the settings table below).
 
 The threshold ladder (notify / stop-provisioning / drain / hard-stop) defaults to
 80 / 95 / 99 / 100 and is overridable per client. With `allow_overage=false` the cap is
@@ -498,6 +512,32 @@ rented instance must download its files and run a benchmark before it can be giv
 and destroying it mid-startup means paying for the launch and then paying again for its
 replacement.
 
+### How short a rental is worth making
+
+| Setting | Default | Effect |
+|---|---|---|
+| `cloud_max_commissioning_pct` | `33` | The largest share of a rental's bill that may go on commissioning before the rental is refused as not worth making. |
+
+A rented GPU spends roughly 20 minutes booting, joining the VPN, registering, downloading
+wordlists and benchmarking before it can consume a single candidate. That cost is paid
+again on every rental, so short rentals are mostly setup: at a 30-minute lifetime, two
+thirds of the bill buys nothing.
+
+This setting turns that into a rule. At the default `33`, commissioning may be at most a
+third of the bill, which puts the **minimum useful rental at about an hour**. Anything
+shorter is refused before the instance is created, with a message naming both the length on
+offer and the minimum, and a `cloud_rental_too_short` diagnostic on the job.
+
+- **Raise it** to accept shorter, less efficient rentals — useful if you want small,
+  frequent bites and do not mind the overhead.
+- **Lower it** to demand longer, more efficient ones.
+- **Set it to `0`** to remove the efficiency rule entirely. This does *not* remove the
+  floor: a rental still has to be long enough to be given at least one chunk of work, or
+  the instance would bill without ever being handed anything.
+
+If provisioning starts refusing after an upgrade, this is the likely cause, and the fix is
+usually to raise `max_instance_ttl_minutes` on the client rather than to change this.
+
 ### When nothing happens
 
 Open the job. Provisioning refusals are shown on the job detail page — budget reached,
@@ -522,3 +562,17 @@ Anything inconclusive is treated as **failure**, not success: "unknown" is not "
 
 Then rent one cheap instance with a short TTL and confirm teardown by killing the backend
 immediately after launch — the in-guest watchdog should still destroy it.
+
+**Before spending anything at all, run the $0 rehearsal.** `scripts/cloud-e2e-test.sh`
+drives a complete rental against the built-in mock provider, which launches a local
+test-mode agent instead of renting hardware. It creates its own client, hashlist and job
+through the REST API and asserts each step of the lifecycle — TTL sizing, the chunk clamp
+against the teardown slack, the crack handshake, the teardown reason, and that the unused
+reservation is refunded exactly. It also injects a deliberate crack-processing fault to
+confirm a handshake that can never be satisfied is given up on immediately rather than
+holding the instance until the stale-processing timeout.
+
+One limit worth knowing: the mock agent never runs hashcat, so it emits synthetic hash
+values that match nothing and a hashlist will read **0 cracked** however well the run goes.
+The rehearsal proves provisioning, sizing, the handshake and teardown. It cannot prove that
+cracked passwords are *recorded* — only a real agent can do that.

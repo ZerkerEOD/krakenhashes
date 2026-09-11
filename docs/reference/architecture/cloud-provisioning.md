@@ -36,16 +36,74 @@ already did. Subtracting both would double-count every running instance and refu
 launches while the budget was half free.
 
 Because the money is committed *before* the instance boots, the cap cannot be exceeded by
-something already running. TTL falls out of the same arithmetic:
+something already running. TTL falls out of the same arithmetic, bounded above by what can
+be afforded and below by what is worth renting at all:
 
 ```
-ttl = min(policy.max_instance_ttl, available_budget / hourly_rate)
+upper  = min(policy.max_instance_ttl, available_budget / hourly_rate)
+target = commissioning + estimated_time_to_finish + drain_tail   (when throughput is known)
+floor  = commissioning / cloud_max_commissioning_pct
+ttl    = clamp(target, floor, upper)
+
+drain_tail = cloud_teardown_slack_seconds + cloud_crack_drain_grace_minutes
 ```
+
+**Why there is a tail.** Two waits meet at the end of a rental and they were not the same
+length. `resolveChunkDuration` refuses to plan a chunk past `remaining TTL - teardown slack`,
+so the last chunk ends about 120 seconds before the deadline — and that was all the upload
+time a TTL-bound instance had. But the reaper will hold an instance for `CrackDrainGrace`
+(10 minutes) while its agent is still sending cracks, because a large flush genuinely takes
+minutes. The reaper's patience is worth nothing once the machine is gone: `ttl_epoch` is
+armed **in-guest** and the watchdog powers off regardless. An instance sized to finish its
+work exactly at its TTL therefore got 120 seconds to upload and was killed mid-flush if it
+needed more — losing cracks on the *ordinary successful path*. Sizing the tail to the grace
+the reaper already honours makes the two agree, and costs nothing real because the tail is
+only ever reserved.
 
 !!! note "Fixing NPK's bug"
     This is NPK's `campaign_max_price / spotPrice` idea with their instance-count bug
     fixed — theirs forgot to multiply by fleet size, so an N-node fleet silently got N×
     the intended window. Here each instance reserves its own runway.
+
+**Why there is a floor.** Commissioning — boot, VPN join, registration, file sync,
+benchmark — is paid before the instance can consume any keyspace, and
+`scheduler.ReadinessBudget()` puts that at 20 minutes for a healthy agent. Measured cold
+start on AWS was 138 seconds to *register alone*. The floor was previously a hardcoded 5
+minutes, which is shorter than the instance needs to finish starting up, so the engine
+could sell a rental that was guaranteed waste. It is now derived:
+`cloud_max_commissioning_pct` (default 33) caps commissioning's share of the bill, putting
+the minimum useful rental at about an hour. Set it to `0` to leave only the capability
+floor — commissioning plus teardown slack plus one minimum chunk — below which
+`resolveChunkDuration` refuses to size a chunk at all, so the instance could never be given
+work.
+
+**Why the target is sized to the job.** Reserving the whole ceiling for a job with twenty
+minutes of work left commits money that a second instance could have used. Nothing is
+ultimately *billed* for it — when the job completes, the job-finished rung destroys the
+instance within one reaper sweep, and `SettleInstance` refunds reserved minus incurred —
+but the reservation blocks other provisioning while it is held. Sizing the reservation to
+the work is what lets one budget buy several instances in parallel rather than one at a
+time.
+
+Measured on the mock provider: a 60-minute rental that finished its work after 6 minutes
+was released at 6 minutes with `reservation +100`, `incurred 9`, `release −91`. That is
+the property the whole scheme depends on — an over-long TTL is refunded, an over-short one
+is re-paid — so it is worth re-checking whenever teardown changes.
+
+The projection comes from the same `Estimator` the finishing-soon rule uses, asked "how
+long *with this offer added*" — `RankedOffer.AbsoluteSpeed`, the ranker's relative
+throughput put back on an absolute scale by its calibration anchor. That hypothetical is
+what makes the sizing work on the **first** rental: a starving cloud-only job has no agent
+on it by definition, so without it the projection would always be unknown at the moment it
+matters. When no anchor exists — a deployment that has never benchmarked this GPU for this
+work — `AbsoluteSpeed` is zero, the projection reports itself unknown, and the TTL falls
+back to the full ceiling. Zero there means *unknown*, never *instant*.
+
+**Sizing happens once, at launch.** `ttl_epoch` is armed inside the guest and the host
+watchdog poweroffs regardless of what the database later says, so whatever is computed here
+must be something the machine can honour. There is no TTL extension —
+`CloudInstanceRepository.ExtendTTL` exists but has no callers, and extending the row would
+not move the in-guest deadline anyway.
 
 The reservation is written inside a transaction holding `SELECT … FOR UPDATE` on the
 client row. Without that lock two concurrent provisioning decisions both read the same
