@@ -399,3 +399,135 @@ func TestJobTaskRepository_SetReceivedCrackCount_IsMonotonic(t *testing.T) {
 	err := repo.SetReceivedCrackCount(ctx, uuid.New(), 1)
 	require.ErrorIs(t, err, ErrNotFound, "an unknown task ID must report ErrNotFound")
 }
+
+// --- unrecoverable cracks / unsatisfiable handshake --------------------------
+
+// setSignaled marks the agent's "I have sent you everything" flag, which the
+// guardTestTask fixture does not model.
+func setSignaled(t *testing.T, database *db.DB, taskID uuid.UUID, signaled bool) {
+	t.Helper()
+	_, err := database.Exec(
+		`UPDATE job_tasks SET batches_complete_signaled = $2 WHERE id = $1`, taskID, signaled)
+	require.NoError(t, err)
+}
+
+func readUnrecoverable(t *testing.T, database *db.DB, taskID uuid.UUID) int {
+	t.Helper()
+	var n int
+	require.NoError(t, database.QueryRow(
+		`SELECT COALESCE(unrecoverable_crack_count, 0) FROM job_tasks WHERE id = $1`, taskID).Scan(&n))
+	return n
+}
+
+// Rejected cracks are counted somewhere other than received_crack_count, and
+// they accumulate across batches.
+func TestJobTaskRepository_IncrementUnrecoverableCrackCount(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	repo := NewJobTaskRepository(database)
+	ctx := context.Background()
+
+	jobID := createSchedulerV2Prereqs(t, database)
+	taskID := insertGuardTestTask(t, database, jobID, guardTestTask{Status: "processing"})
+
+	require.NoError(t, repo.IncrementUnrecoverableCrackCount(ctx, taskID, 3))
+	require.NoError(t, repo.IncrementUnrecoverableCrackCount(ctx, taskID, 2))
+	assert.Equal(t, 5, readUnrecoverable(t, database, taskID), "rejected cracks must accumulate across batches")
+
+	st := readGuardTestTask(t, database, taskID)
+	assert.Equal(t, 0, st.ReceivedCrackCount,
+		"rejected cracks must NOT inflate received_crack_count; that counter means 'cracks we hold', "+
+			"and inflating it would let the task complete looking healthy while passwords are missing")
+
+	assert.NoError(t, repo.IncrementUnrecoverableCrackCount(ctx, taskID, 0),
+		"a zero-length batch is not an error, just nothing to record")
+	assert.Equal(t, 5, readUnrecoverable(t, database, taskID))
+
+	assert.ErrorIs(t, repo.IncrementUnrecoverableCrackCount(ctx, uuid.New(), 1), ErrNotFound,
+		"an unknown task must report ErrNotFound rather than silently succeeding")
+}
+
+/*
+ * The exact wedge this column was added for, reproduced from the observed
+ * numbers: every crack the agent sent was rejected, the agent then signalled it
+ * had nothing left, and the task sat at expected=50 received=0 with no way to
+ * say so.
+ *
+ * Before the fix there was no question to ask here — a rejected batch and a
+ * batch still in flight were the same state, so the only response was to wait
+ * out the stale-processing timeout (and, on rented hardware, bill for it).
+ */
+func TestJobTaskRepository_CheckTaskHandshakeUnsatisfiable(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	repo := NewJobTaskRepository(database)
+	ctx := context.Background()
+
+	jobID := createSchedulerV2Prereqs(t, database)
+
+	newTask := func(expected, received, unrecoverable int, signaled bool) uuid.UUID {
+		id := insertGuardTestTask(t, database, jobID, guardTestTask{
+			Status:             "processing",
+			ExpectedCrackCount: expected,
+			ReceivedCrackCount: received,
+		})
+		if unrecoverable > 0 {
+			require.NoError(t, repo.IncrementUnrecoverableCrackCount(ctx, id, unrecoverable))
+		}
+		setSignaled(t, database, id, signaled)
+		return id
+	}
+
+	t.Run("every crack rejected and the agent is done", func(t *testing.T) {
+		id := newTask(50, 0, 50, true)
+		unsat, lost, err := repo.CheckTaskHandshakeUnsatisfiable(ctx, id)
+		require.NoError(t, err)
+		assert.True(t, unsat, "expected=50 received=0 rejected=50 signalled: nothing can close this gap")
+		assert.Equal(t, 50, lost, "the caller needs the count to report how many passwords were lost")
+	})
+
+	t.Run("partly rejected, partly stored", func(t *testing.T) {
+		id := newTask(50, 30, 20, true)
+		unsat, lost, err := repo.CheckTaskHandshakeUnsatisfiable(ctx, id)
+		require.NoError(t, err)
+		assert.True(t, unsat, "30 stored + 20 rejected accounts for all 50; the missing 20 are never coming")
+		assert.Equal(t, 20, lost)
+	})
+
+	t.Run("nothing rejected is not unsatisfiable", func(t *testing.T) {
+		id := newTask(50, 10, 0, true)
+		unsat, _, err := repo.CheckTaskHandshakeUnsatisfiable(ctx, id)
+		require.NoError(t, err)
+		assert.False(t, unsat,
+			"cracks merely missing may still arrive or be retransmitted; abandoning here would "+
+				"throw away recoverable passwords, which is why the rejection count is the trigger")
+	})
+
+	t.Run("agent has not finished sending", func(t *testing.T) {
+		id := newTask(50, 0, 50, false)
+		unsat, _, err := repo.CheckTaskHandshakeUnsatisfiable(ctx, id)
+		require.NoError(t, err)
+		assert.False(t, unsat,
+			"without the batches-complete signal the agent may still send more, so the gap is not yet provable")
+	})
+
+	t.Run("batches still outstanding beyond the rejected ones", func(t *testing.T) {
+		id := newTask(50, 10, 10, true)
+		unsat, _, err := repo.CheckTaskHandshakeUnsatisfiable(ctx, id)
+		require.NoError(t, err)
+		assert.False(t, unsat,
+			"10 stored + 10 rejected is only 20 of 50; the other 30 are unaccounted for and may still land")
+	})
+
+	t.Run("already satisfiable on stored cracks alone", func(t *testing.T) {
+		id := newTask(50, 50, 5, true)
+		unsat, _, err := repo.CheckTaskHandshakeUnsatisfiable(ctx, id)
+		require.NoError(t, err)
+		assert.False(t, unsat,
+			"received >= expected means completion owns this task; completing it is strictly better "+
+				"than abandoning work that is actually finished")
+	})
+
+	t.Run("unknown task", func(t *testing.T) {
+		_, _, err := repo.CheckTaskHandshakeUnsatisfiable(ctx, uuid.New())
+		assert.ErrorIs(t, err, ErrNotFound)
+	})
+}
