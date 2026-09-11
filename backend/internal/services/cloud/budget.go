@@ -5,6 +5,7 @@ package cloud
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -58,14 +59,123 @@ type BudgetAssessment struct {
 	Reason string                    `json:"reason,omitempty"`
 }
 
+/*
+ * ErrRentalTooShort means the instance could be paid for but not usefully: the
+ * runway on offer is so short that commissioning would eat most or all of it.
+ *
+ * Distinct from ErrInsufficientBudget because the two need different responses.
+ * "You are out of money" is answered by raising the cap; "the rental would be
+ * mostly setup" is answered by raising max_instance_ttl_minutes, or by
+ * accepting less efficient rentals via cloud_max_commissioning_pct. Collapsing
+ * them told the operator to top up a budget that was not the problem.
+ */
+var ErrRentalTooShort = errors.New("rental too short to be useful")
+
+/*
+ * The commissioning arithmetic, mirrored into this package on purpose.
+ *
+ * cloud must not import scheduler in production code — the dependency runs the
+ * other way — so these constants restate numbers the scheduler owns. That is
+ * only safe because a drift guard in budget_floor_test.go asserts they still
+ * agree with their sources; if someone changes a sync grace or a benchmark
+ * window, CI fails rather than the floor quietly drifting into meaninglessness.
+ * The same trick, for the same reason, is what keeps CommissioningGrace honest.
+ */
+const (
+	// commissioningBudget mirrors scheduler.ReadinessBudget(): the longest a
+	// HEALTHY agent may go between becoming ready and receiving its first task.
+	// This is the time a rental pays for before it can do anything at all.
+	commissioningBudget = 20 * time.Minute
+	// defaultTeardownSlack mirrors the cloud_teardown_slack_seconds seed. The
+	// dispatcher subtracts it from remaining TTL before sizing a chunk.
+	defaultTeardownSlack = 120 * time.Second
+	// minUsefulChunk mirrors the scheduler's min_chunk_seconds default. Below
+	// this much runway resolveChunkDuration skips dispatch outright, so an
+	// instance with less can never be given work.
+	minUsefulChunk = 5 * time.Second
+)
+
+/*
+ * MinRentalTTL is the shortest rental worth making, in two rungs.
+ *
+ * CAPABILITY (always): commissioning + teardown slack + one minimum chunk.
+ * Below this the dispatcher provably refuses to hand the instance any work at
+ * all, so the rental cannot do anything by construction. This rung cannot be
+ * switched off.
+ *
+ * EFFICIENCY (when maxCommissioningPct > 0): the length at which commissioning
+ * is no more than the configured share of the bill. At the default 33% and a
+ * 20-minute commissioning budget this is just over an hour, and it is the rung
+ * that actually binds in practice.
+ *
+ * Pure and total, so the whole policy can be exercised as a table of cases
+ * rather than through a provisioning run — the same reason decideBudgetAction
+ * and rankOffers are pure.
+ */
+func MinRentalTTL(maxCommissioningPct int) time.Duration {
+	/*
+	 * Both rungs are rounded to whole MINUTES, because the number they are
+	 * compared against is max_instance_ttl_minutes — an operator types 60, not
+	 * 60.606. Unrounded, the default worked out to 1h0m36.363636363s, so the
+	 * single most obvious value anyone would enter was refused by 36 seconds,
+	 * and the refusal said so in nine decimal places.
+	 *
+	 * The directions are opposite on purpose. Capability rounds UP: it is a hard
+	 * requirement — below it the dispatcher will not size a chunk — so losing
+	 * seconds off it would sell a rental that cannot work. Efficiency rounds
+	 * DOWN: it is a preference, and rounding a preference towards permitting
+	 * more never refuses something the ratio itself would have allowed.
+	 */
+	capability := ceilMinute(commissioningBudget + defaultTeardownSlack + minUsefulChunk)
+	if maxCommissioningPct <= 0 {
+		return capability
+	}
+	if maxCommissioningPct > 100 {
+		maxCommissioningPct = 100
+	}
+	efficiency := time.Duration(int64(commissioningBudget) * 100 / int64(maxCommissioningPct)).
+		Truncate(time.Minute)
+	if efficiency > capability {
+		return efficiency
+	}
+	return capability
+}
+
+// ceilMinute rounds up to the next whole minute, leaving exact minutes alone.
+func ceilMinute(d time.Duration) time.Duration {
+	if r := d % time.Minute; r != 0 {
+		return d - r + time.Minute
+	}
+	return d
+}
+
 // BudgetEngine enforces per-client cloud spend limits.
 type BudgetEngine struct {
 	repo *repository.CloudBudgetRepository
+
+	/*
+	 * MaxCommissioningPct comes from cloud_max_commissioning_pct and sets the
+	 * minimum useful rental via MinRentalTTL.
+	 *
+	 * Zero is NOT "no floor": MinRentalTTL still returns the capability rung,
+	 * which refuses only what provably cannot be given a chunk. That matters
+	 * because a BudgetEngine built without wiring this — a test, or a code path
+	 * someone adds later — must not silently lose the protection entirely. Set
+	 * it explicitly to disable the efficiency rung; leaving it unset gets the
+	 * shipped default.
+	 */
+	MaxCommissioningPct int
 }
 
-// NewBudgetEngine creates a budget engine.
+// NewBudgetEngine creates a budget engine with the compiled-in default floor,
+// so a deployment whose settings table cannot be read still refuses a rental
+// that is mostly commissioning. Callers that have loaded settings should
+// overwrite MaxCommissioningPct from them.
 func NewBudgetEngine(repo *repository.CloudBudgetRepository) *BudgetEngine {
-	return &BudgetEngine{repo: repo}
+	return &BudgetEngine{
+		repo:                repo,
+		MaxCommissioningPct: DefaultSettings().MaxCommissioningPct,
+	}
 }
 
 // Assess computes the current budget state and the action it calls for.
@@ -168,36 +278,66 @@ func (e *BudgetEngine) PlanLaunch(
 	}
 
 	available := assessment.State.AvailableCents
+
+	/*
+	 * Both branches fall through to ONE floor check below.
+	 *
+	 * The overage branch used to return here directly, which meant a client
+	 * with allow_overage set got no minimum-rental check at all — the one
+	 * client type that can spend past its cap was also the one that could buy a
+	 * rental too short to do anything. Whatever the floor is, it has to apply to
+	 * every client.
+	 */
+	var ttl time.Duration
 	if assessment.Policy.AllowOverage {
 		// Overage permitted: the cap stops bounding the TTL, so only the
 		// operator's max TTL does.
-		return &LaunchBudget{
-			TTL:          maxTTL,
-			ReserveCents: costFor(maxTTL, hourlyRateCents) + extraCents,
-			Assessment:   assessment,
-		}, nil
-	}
-
-	spendable := available - extraCents
-	if spendable <= 0 {
-		return nil, fmt.Errorf("%w: %d cents available, %d needed for storage/bandwidth alone",
-			repository.ErrInsufficientBudget, available, extraCents)
-	}
-
-	// Hours the remaining budget buys, floored to whole seconds.
-	affordable := time.Duration(float64(spendable) / float64(hourlyRateCents) * float64(time.Hour))
-	ttl := affordable
-	if ttl > maxTTL {
 		ttl = maxTTL
+	} else {
+		spendable := available - extraCents
+		if spendable <= 0 {
+			return nil, fmt.Errorf("%w: %d cents available, %d needed for storage/bandwidth alone",
+				repository.ErrInsufficientBudget, available, extraCents)
+		}
+
+		// Hours the remaining budget buys, floored to whole seconds.
+		affordable := time.Duration(float64(spendable) / float64(hourlyRateCents) * float64(time.Hour))
+		ttl = affordable
+		if ttl > maxTTL {
+			ttl = maxTTL
+		}
 	}
 	ttl = ttl.Truncate(time.Second)
 
-	// Refuse a TTL so short the instance could not finish booting, let alone
-	// do useful work. Renting a GPU for 90 seconds is pure waste.
-	const minUsefulTTL = 5 * time.Minute
-	if ttl < minUsefulTTL {
-		return nil, fmt.Errorf("%w: budget buys only %s at %d cents/hr (minimum useful rental is %s)",
-			repository.ErrInsufficientBudget, ttl, hourlyRateCents, minUsefulTTL)
+	/*
+	 * Refuse a rental that would be spent mostly on getting ready to work.
+	 *
+	 * The old test was a bare `ttl < 5 * time.Minute`, a number picked to mean
+	 * "obviously too short" at a time when nothing in this package knew how long
+	 * commissioning actually takes. It does now: MinRentalTTL derives the floor
+	 * from the commissioning budget and the operator's tolerance for paying for
+	 * it. Measured cold start on real AWS hardware was 138 seconds to register
+	 * ALONE, before file sync and before the benchmark — a five-minute rental
+	 * never had a chance.
+	 *
+	 * The two messages are deliberately different. Which bound is binding
+	 * decides what the operator should go and change, and telling someone to top
+	 * up a budget when their own TTL ceiling is the problem sends them to the
+	 * wrong screen.
+	 */
+	if floor := MinRentalTTL(e.MaxCommissioningPct); ttl < floor {
+		if maxTTL <= floor {
+			return nil, fmt.Errorf(
+				"%w: the client's maximum instance lifetime is %s, but commissioning alone takes about %s, "+
+					"so a useful rental needs at least %s. Raise max_instance_ttl_minutes, "+
+					"or raise cloud_max_commissioning_pct to accept less efficient rentals",
+				ErrRentalTooShort, maxTTL, commissioningBudget, floor)
+		}
+		return nil, fmt.Errorf(
+			"%w: the remaining budget buys %s at %d cents/hr, but commissioning alone takes about %s, "+
+				"so a useful rental needs at least %s. Raise the client's budget, "+
+				"or raise cloud_max_commissioning_pct to accept less efficient rentals",
+			ErrRentalTooShort, ttl, hourlyRateCents, commissioningBudget, floor)
 	}
 
 	return &LaunchBudget{

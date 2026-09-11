@@ -217,7 +217,10 @@
       "cloud_no_capacity": "No cloud capacity available",
       "cloud_dead_on_arrival": "Rented instances could not connect back",
       "cloud_launch_failed": "Could not rent a cloud instance",
-      "seenTimes": "Seen {{count}} times"
+      "seenTimes": "Seen {{count}} times",
+      "cloud_rental_too_short": "Rental would be too short to be useful",
+      "cloud_cracks_lost": "Cracked passwords may have been lost",
+      "cloud_draining": "Cloud instance is draining (no new work)"
     }
   },
   "common": {

@@ -211,6 +211,25 @@ type RankedOffer struct {
 	CostPerWorkUnitCents float64
 	Confidence           SpeedConfidence
 	Reason               string
+
+	/*
+	 * AbsoluteSpeed is this offer's projected effective hashes/sec, i.e.
+	 * RelativeThroughput converted back onto the scale the estimator speaks.
+	 *
+	 * ZERO MEANS UNKNOWN, NEVER "INSTANT". It is zero whenever the observation
+	 * table could not establish a calibration anchor (throughputResolver.anchored
+	 * false), which is the ordinary state of a deployment that has never rented
+	 * this GPU for this work signature. Callers must branch on it exactly as they
+	 * branch on Projection.TimeToFinishKnown: a consumer that reads the zero as a
+	 * real speed projects an infinitely fast instance and sizes its TTL to
+	 * nothing.
+	 *
+	 * Deliberately not used for ranking. RelativeThroughput is the ranking key
+	 * precisely because it survives having no anchor, and making the order depend
+	 * on the anchor would change which box gets rented the first time anyone
+	 * benchmarks one.
+	 */
+	AbsoluteSpeed int64
 }
 
 /*
@@ -278,6 +297,14 @@ func rankOffers(in RankInput) ([]RankedOffer, string) {
 		total := perGPU * float64(offer.GPUCount) * multiGPUEfficiency(offer.GPUCount)
 
 		ro := RankedOffer{Offer: offer, RelativeThroughput: total, Confidence: confidence}
+		// Put the relative figure back on an absolute scale, but only when one
+		// was actually established. See RankedOffer.AbsoluteSpeed for why the
+		// unanchored case must stay at zero rather than guess.
+		if r.anchored && total > 0 && !math.IsNaN(total) && !math.IsInf(total, 0) {
+			if abs := total * r.anchor; abs > 0 && abs < math.MaxInt64 {
+				ro.AbsoluteSpeed = int64(abs)
+			}
+		}
 		switch {
 		case total <= 0 || math.IsNaN(total) || math.IsInf(total, 0):
 			// An offer claiming no GPUs, or a throughput estimate that came out
