@@ -278,6 +278,38 @@ func TestReissueFailureLeavesTheOldCertificateServing(t *testing.T) {
 	}
 }
 
+// The CA must carry NO extendedKeyUsage extension.
+//
+// Setting ExtKeyUsageAny reads as "permit everything" but is the opposite under
+// OpenSSL: an EKU extension that is present without the serverAuth bit causes
+// xku_reject to refuse the CA for the sslserver purpose, so every OpenSSL-based
+// client (curl, python-requests, openssl s_client) fails with verify error 26
+// while Go and browsers succeed.
+func TestCAHasNoExtendedKeyUsage(t *testing.T) {
+	p := newTestProvider(t, "0.0.0.0", DesiredSANs{})
+	ca := p.CACertificate()
+
+	if len(ca.ExtKeyUsage) != 0 || len(ca.UnknownExtKeyUsage) != 0 {
+		t.Fatalf("CA carries an extendedKeyUsage extension (%v / %v); a root CA must have none, "+
+			"or OpenSSL rejects the chain for the sslserver purpose",
+			ca.ExtKeyUsage, ca.UnknownExtKeyUsage)
+	}
+
+	// It must still be usable as a CA for a server leaf.
+	if !ca.IsCA || ca.KeyUsage&x509.KeyUsageCertSign == 0 {
+		t.Fatalf("CA lost IsCA or KeyCertSign: IsCA=%v KeyUsage=%v", ca.IsCA, ca.KeyUsage)
+	}
+
+	pool := x509.NewCertPool()
+	pool.AddCert(ca)
+	if _, err := p.ServerCertificate().Verify(x509.VerifyOptions{
+		Roots:     pool,
+		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}); err != nil {
+		t.Fatalf("server leaf no longer chains to the CA for serverAuth: %v", err)
+	}
+}
+
 func TestRotateCAReplacesEverything(t *testing.T) {
 	p := newTestProvider(t, "0.0.0.0", DesiredSANs{})
 

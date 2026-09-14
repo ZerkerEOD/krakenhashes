@@ -391,10 +391,23 @@ func (p *SelfSignedProvider) issueCA() (*x509.Certificate, *rsa.PrivateKey, erro
 			OrganizationalUnit: []string{p.config.CADetails.OrganizationalUnit},
 			CommonName:         p.config.CADetails.CommonName,
 		},
-		NotBefore:             time.Now().Add(-24 * time.Hour), // Valid from 24 hours ago to handle clock skew
-		NotAfter:              time.Now().AddDate(0, 0, p.config.Validity.CA),
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, // Allow any extended usage for CA
+		NotBefore: time.Now().Add(-24 * time.Hour), // Valid from 24 hours ago to handle clock skew
+		NotAfter:  time.Now().AddDate(0, 0, p.config.Validity.CA),
+		KeyUsage:  x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		// No ExtKeyUsage. A root CA with no extendedKeyUsage extension is
+		// unconstrained, which is what we want and what public roots do.
+		//
+		// This previously set ExtKeyUsageAny, meaning to "allow any usage". It does
+		// the exact opposite under OpenSSL: xku_reject() rejects when an EKU
+		// extension is PRESENT and the requested bit is clear, and caching
+		// anyExtendedKeyUsage sets only XKU_ANYEKU -- never XKU_SSL_SERVER. So the
+		// CA was refused for the sslserver purpose (verify error 26, "unsuitable
+		// certificate purpose") and `openssl x509 -purpose` reported
+		// "SSL server CA : No". Go and browsers were unaffected, which is why it
+		// went unnoticed; curl, python-requests and openssl s_client were not.
+		//
+		// Only takes effect for a newly minted CA: existing deployments keep the
+		// old one until RotateCA or a fresh install.
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 		MaxPathLen:            2, // Allow up to 2 intermediate CAs
@@ -652,10 +665,10 @@ func generateRandomSerial() (*big.Int, error) {
 	if _, err := rand.Read(serialBytes); err != nil {
 		return nil, fmt.Errorf("failed to generate random serial: %w", err)
 	}
-	
+
 	// Ensure the serial number is positive by clearing the MSB
 	serialBytes[0] &= 0x7F
-	
+
 	// Convert to big.Int
 	serial := new(big.Int).SetBytes(serialBytes)
 	return serial, nil
@@ -674,7 +687,7 @@ func generateSubjectKeyID(pub interface{}) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported public key type")
 	}
-	
+
 	hash := sha1.Sum(pubBytes)
 	return hash[:], nil
 }
