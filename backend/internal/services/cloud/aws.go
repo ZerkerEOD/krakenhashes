@@ -203,7 +203,16 @@ type AWSCredentials struct {
 	AccessKeyID     string `json:"access_key_id"`
 	SecretAccessKey string `json:"secret_access_key"`
 	SessionToken    string `json:"session_token,omitempty"`
-	// RoleARN, when set, is assumed after the base credentials resolve.
+	/*
+	 * RoleARN is DECODED BUT NOT IMPLEMENTED. NewAWSProvider builds a static
+	 * credentials provider from the three fields above and nothing assumes a
+	 * role anywhere in this package.
+	 *
+	 * Kept on the struct so an operator who already stored one does not get a
+	 * parse error, and so wiring up assume-role later does not change the
+	 * accepted shape. It is deliberately absent from the operator docs: a
+	 * documented field that silently does nothing is worse than no field.
+	 */
 	RoleARN string `json:"role_arn,omitempty"`
 }
 

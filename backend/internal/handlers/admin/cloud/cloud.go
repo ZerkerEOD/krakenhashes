@@ -694,9 +694,15 @@ func (h *Handler) Preflight(w http.ResponseWriter, r *http.Request) {
  * operator can pick zones and instance types from live data instead of pasting
  * a subnet id they looked up in another tab.
  *
- * Read-only and spends nothing: four EC2 describe calls. Not every provider has
- * a placement dimension — Vast.ai and RunPod place instances themselves — so
- * this 501s rather than pretending, and the UI hides the picker for those.
+ * Read-only and spends nothing: describe calls only. On AWS the spot price and
+ * placement-score lookups are made solely when use_spot is set, and the score
+ * call is per instance type, so the total varies with the config.
+ *
+ * ExploreCapacity is deliberately not part of Provider, so a provider with no
+ * placement axis does not have to implement a stub that lies. All three real
+ * providers implement it — AWS by zone x instance type, RunPod by data centre x
+ * GPU type, Vast.ai by country x GPU model — and today only the mock reaches the
+ * 501 below.
  */
 func (h *Handler) Capacity(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(mux.Vars(r)["id"])

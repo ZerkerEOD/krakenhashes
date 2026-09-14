@@ -213,6 +213,46 @@ The WebSocket protocol uses typed messages for communication between agents and 
    - Agent disconnected → Task is truncated-and-completed, deleted, or cancelled, and its keyspace range is re-dispatched. The job is **not** failed. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md#what-happens-when-a-task-is-stopped)
    - Hashcat execution error → Agent-reported task failure (`failed`), which fails the whole job
 
+### Cloud Provisioning Errors
+
+Cloud errors divide into two classes, and the distinction decides whether money is at stake.
+A **definitive** failure means no instance exists; an **ambiguous** one means an instance may
+be running and billing right now.
+
+1. **Configuration — refused before anything is spent**
+   - No VPN provider configured → refused. *"the backend is not internet-exposed, so an instance that cannot join your VPN would bill until its watchdog fired"*
+   - Unsupported VPN provider → refused, naming OpenVPN's `/dev/net/tun` / `CAP_NET_ADMIN` requirement
+   - Missing credentials, VPN credential, or `backend_vpn_host` → provider cannot be enabled
+   - Expired reusable VPN key → *"the reusable `<provider>` key expired at `<time>`; rotate it before provisioning"*
+   - Peer provider without acknowledgement → refused at provider level and again per client
+
+2. **Provisioning refusals — no spend, diagnostic recorded on the job**
+   - `cloud_rental_too_short` — the rental would be mostly commissioning. Two distinct messages depending on whether the client's TTL ceiling or their remaining budget is binding, because telling someone to top up a budget when their own ceiling is the problem sends them to the wrong screen
+   - Budget reached, instance cap reached, outside the provisioning window, below the minimum job priority → skip reasons shown on the job detail page
+   - Unfunded client → cannot provision at all, distinct from being at 100% of budget
+
+3. **Launch outcomes**
+   - `ErrOfferUnavailable` — **definitive.** The provider refused for capacity (`InsufficientInstanceCapacity`). The budget reservation is **released** and the claim voucher deactivated, and the retry loop moves to the next candidate
+   - `VcpuLimitExceeded` / `MaxSpotInstanceCountExceeded` — account quotas that will **never** clear without a limit-increase request, unlike a capacity refusal
+   - `UnauthorizedOperation` (bare, no detail) → a `RunInstances` ARN type is missing from the IAM policy. See [AWS IAM](../admin-guide/system-setup/cloud-aws.md#iam-policy)
+   - **Anything else — ambiguous.** The instance row is left for the reaper to reconcile by label, the reservation is **not** released, and the claim voucher is deliberately left active because the instance may be running and its agent still has to register
+
+4. **Teardown**
+   - `DELETE /instances/{id}` returning **502** → the provider refused the destroy. **The instance is still billing.** It keeps accruing and keeps blocking new provisioning for its client until resolved
+   - Repeated teardown failure → admins are paged with the raw provider ID; the instance is never reported terminated, because that would hide real spend
+   - `AGENT_DISK_FULL` on a cloud agent → treated as **structural**, not transient. The instance is terminated rather than retried into a loop that burns its whole TTL, because container-provider disk cannot grow after creation
+
+5. **Capacity explorer** (`GET /providers/{id}/capacity`)
+   - **502** — the provider was reachable but the probe failed. Unlike pre-flight, this is a real error: without the placement list there is no screen to render
+   - **501** — the provider chooses placement itself and has no axis to select. Today only `mock`
+
+!!! warning "Inconclusive is failure, not success"
+    Pre-flight returns 200 even when it fails — a failing pre-flight is a successful
+    diagnosis, and the report body is the actionable part. But `ok` is false whenever any
+    check is *inconclusive*: an unknown is not permission to spend money. On AWS that makes
+    pre-flight stricter than launching, since a denied `servicequotas:*` or
+    `ec2:DescribeInstances` lands there while a launch would still work.
+
 ### Database Errors
 
 1. **Connection Errors**
