@@ -159,6 +159,29 @@ func (s *ClaimVoucherService) CreateCloudVoucher(ctx context.Context, expiresIn 
 	return voucher, nil
 }
 
+/*
+ * DeactivateForCloudInstance kills the registration credential for an instance
+ * that definitively failed.
+ *
+ * The counterpart to CreateCloudVoucher, and the reason that one's comment says
+ * the code "dies with the instance's TTL whether or not it was ever redeemed":
+ * until this existed, dying with the TTL was the ONLY thing that killed it, so
+ * a launch refused in its first second still left a working claim code for up
+ * to an hour.
+ */
+func (s *ClaimVoucherService) DeactivateForCloudInstance(ctx context.Context, cloudInstanceID uuid.UUID) (int64, error) {
+	if cloudInstanceID == uuid.Nil {
+		return 0, fmt.Errorf("cannot deactivate vouchers without an instance id")
+	}
+	return s.repo.DeactivateForCloudInstance(ctx, cloudInstanceID)
+}
+
+// PurgeExpiredVouchers removes long-expired, never-redeemed vouchers. Redeemed
+// ones are kept as the audit link between an agent and its credential.
+func (s *ClaimVoucherService) PurgeExpiredVouchers(ctx context.Context, before time.Time) (int64, error) {
+	return s.repo.PurgeExpired(ctx, before)
+}
+
 // ListVouchers retrieves all active vouchers
 func (s *ClaimVoucherService) ListVouchers(ctx context.Context) ([]models.ClaimVoucher, error) {
 	vouchers, err := s.repo.ListActive(ctx)

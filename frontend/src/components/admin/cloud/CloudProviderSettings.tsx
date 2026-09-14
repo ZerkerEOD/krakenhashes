@@ -42,11 +42,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
 import {
+  AWSZoneSelection,
   CloudPreflightReport,
   CloudProviderConfig,
   CloudProviderConfigInput,
   CloudProviderKind,
   CLOUD_PROVIDER_KINDS,
+  providerMaturity,
   requiresThirdPartyAck,
   VPNCredentialKind,
   VPNProviderKind,
@@ -60,6 +62,7 @@ import {
   updateCloudProvider,
   formatCents,
 } from '../../../services/cloud';
+import ProviderCapacityPicker, { PlacementSelection } from './ProviderCapacityPicker';
 
 const apiError = (err: any, fallback: string): string =>
   err?.response?.data?.error || err?.message || fallback;
@@ -89,13 +92,21 @@ const CREDENTIAL_KINDS: Record<VPNProviderKind, VPNCredentialKind[]> = {
 /**
  * Which providers the backend can actually build a client for.
  *
- * buildProvider (backend/internal/services/cloud/service.go) handles vastai,
- * aws and mock, and falls through to "unsupported cloud provider" for the two
- * RunPod kinds — the adapter is not written yet. Offering them without saying
- * so lets an admin configure a provider, enable it, allowlist it for a client
- * and get silence, because nothing fails until the first launch attempt.
+ * Kept in step with buildProvider in backend/internal/services/cloud/service.go.
+ * A kind offered here but missing there lets an admin configure a provider,
+ * enable it, allowlist it for a client and get silence — nothing fails until
+ * the first launch attempt, three screens away from the mistake.
+ *
+ * All five are now implemented. Maturity, not implementation, is what separates
+ * them — see providerMaturity and the Beta warning below.
  */
-const IMPLEMENTED_PROVIDERS: CloudProviderKind[] = ['aws', 'vastai', 'mock'];
+const IMPLEMENTED_PROVIDERS: CloudProviderKind[] = [
+  'aws',
+  'vastai',
+  'runpod',
+  'runpod_community',
+  'mock',
+];
 
 /**
  * The settings key holding the VPN control-plane URL, per VPN provider.
@@ -170,6 +181,83 @@ const awsRowsToSettings = (rows: AWSInstanceRow[]) => {
   });
   return { instance_type_rates, instance_type_gpus };
 };
+
+/*
+ * AWS zone settings <-> the picker's generic placement selection.
+ *
+ * Both directions preserve the "empty list means ALL" convention exactly:
+ * instance_types and hardware are the same field wearing different names, and
+ * translating an empty list into an explicit one would silently freeze the
+ * selection so that a newly priced instance type never joins it.
+ */
+const awsZonesToSelection = (zones: AWSZoneSelection[]): PlacementSelection[] =>
+  zones.map((z) => ({
+    // The picker keys on the STABLE id. Falling back to the alias keeps a
+    // config written before zone_id was recorded from vanishing off the screen.
+    id: z.zone_id || z.zone,
+    name: z.zone || z.zone_id,
+    ref: z.subnet_id,
+    hardware: z.instance_types ?? [],
+  }));
+
+const selectionToAWSZones = (sel: PlacementSelection[]): AWSZoneSelection[] =>
+  sel.map((s) => ({
+    zone: s.name,
+    zone_id: s.id,
+    subnet_id: s.ref,
+    instance_types: s.hardware,
+  }));
+
+/** Comma-or-newline separated free text into a clean list. */
+const splitList = (raw: string): string[] =>
+  raw
+    .split(/[,\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+/*
+ * Vast.ai settings <-> the picker's placement selection, in 'axes' mode.
+ *
+ * Vast stores two INDEPENDENT lists rather than a per-country matrix, so every
+ * placement carries the same hardware list. The picker is told this via
+ * mode="axes" and behaves accordingly; flattening on save without saying so
+ * would silently discard a per-country choice the screen appeared to offer.
+ */
+const vastToSelection = (settings: Record<string, any>): PlacementSelection[] => {
+  const countries = (settings?.countries ?? []) as string[];
+  const models = (settings?.gpu_models ?? []) as string[];
+  return countries.map((c) => ({ id: c, name: c, ref: c, hardware: models }));
+};
+
+const selectionToVast = (sel: PlacementSelection[]) => ({
+  countries: sel.map((s) => s.id),
+  // Any entry answers for all of them in axes mode; empty means every card.
+  gpu_models: sel[0]?.hardware ?? [],
+});
+
+/*
+ * RunPod settings <-> the picker's placement selection, in 'axes' mode.
+ *
+ * Like Vast.ai, RunPod stores two independent lists rather than a matrix. The
+ * "anywhere" row the explorer synthesises has id "any" and is NOT a real data
+ * centre, so it must never be written back as one — doing so would send
+ * dataCenterIds:["any"] on create and fail every launch.
+ */
+const runpodToSelection = (settings: Record<string, any>): PlacementSelection[] => {
+  const dcs = (settings?.data_center_ids ?? []) as string[];
+  const types = (settings?.gpu_type_ids ?? []) as string[];
+  if (dcs.length === 0) {
+    // Unpinned is RunPod's WIDEST setting, not its narrowest: their scheduler
+    // may place a pod anywhere. Shown as the synthetic "any" row.
+    return [{ id: 'any', name: 'Anywhere (RunPod chooses)', ref: '', hardware: types }];
+  }
+  return dcs.map((d) => ({ id: d, name: d, ref: d, hardware: types }));
+};
+
+const selectionToRunPod = (sel: PlacementSelection[]) => ({
+  data_center_ids: sel.map((s) => s.id).filter((id) => id !== 'any'),
+  gpu_type_ids: sel[0]?.hardware ?? [],
+});
 
 const CloudProviderSettings: React.FC = () => {
   const { t } = useTranslation('admin');
@@ -403,6 +491,24 @@ const CloudProviderSettings: React.FC = () => {
                           <WarningIcon fontSize="small" color="warning" sx={{ ml: 1, verticalAlign: 'middle' }} />
                         </Tooltip>
                       )}
+                      {/*
+                        * A SEPARATE badge from the third-party one, deliberately.
+                        * "Nobody has proven this works" and "this runs on hardware
+                        * you do not control" are different risks that happen to
+                        * overlap on Vast: RunPod Secure is beta but first-party,
+                        * and collapsing them would hide that.
+                        */}
+                      {cfg.maturity === 'beta' && (
+                        <Tooltip title={t('cloud.providers.betaTooltip') as string}>
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            label={t('cloud.providers.betaChip') as string}
+                            sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                          />
+                        </Tooltip>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -547,6 +653,18 @@ const CloudProviderSettings: React.FC = () => {
             </Alert>
           )}
 
+          {/*
+            * Server value first, mirror second. A saved config carries a
+            * server-computed maturity; the mirror only covers the create form,
+            * where nothing has been saved to ask the server about.
+            */}
+          {(editing?.maturity ?? providerMaturity(form.provider)) === 'beta' && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <AlertTitle>{t('cloud.providers.betaTitle') as string}</AlertTitle>
+              {t('cloud.providers.betaBody') as string}
+            </Alert>
+          )}
+
           {/* AWS authenticates with an access key pair, not a single token. */}
           {form.provider === 'aws' ? (
             <>
@@ -613,15 +731,21 @@ const CloudProviderSettings: React.FC = () => {
                 helperText={t('cloud.providers.fields.awsRegionHelp') as string}
                 required
               />
-              <TextField
-                fullWidth
-                margin="normal"
-                label={t('cloud.providers.fields.awsSubnet') as string}
-                value={form.settings?.subnet_id ?? ''}
-                onChange={(e) => setSetting('subnet_id', e.target.value.trim())}
-                helperText={t('cloud.providers.fields.awsSubnetHelp') as string}
-                required
-              />
+              {/*
+                * THE SUBNET ID FIELD IS DELIBERATELY GONE.
+                *
+                * It was a second, contradictory way to express the same thing
+                * the zone picker below expresses: placement. Showing both
+                * invited editing a value the backend ignores the moment any
+                * zone is selected, which is exactly how it read to an operator.
+                *
+                * Nothing is lost. settings.subnet_id is preserved untouched on
+                * save (the form spreads existing settings), the backend's
+                * placements() still falls back to it when no zones are
+                * configured, and the picker pre-selects that subnet's zone and
+                * labels it as legacy — so opening the picker once and saving
+                * converts the config across.
+                */}
               <TextField
                 fullWidth
                 margin="normal"
@@ -780,6 +904,208 @@ const CloudProviderSettings: React.FC = () => {
               >
                 {t('cloud.providers.awsAddInstanceType') as string}
               </Button>
+
+              {/*
+                * The picker speaks placement/hardware; AWS settings speak
+                * zone/instance-type. Adapting here rather than teaching the
+                * picker AWS's vocabulary is what lets Vast and RunPod reuse it
+                * unchanged — they store different keys for the same idea.
+                */}
+              <ProviderCapacityPicker
+                providerConfigId={editing?.id ?? null}
+                selection={awsZonesToSelection((form.settings?.zones ?? []) as AWSZoneSelection[])}
+                fallbackHardware={awsRows.map((r) => r.instance_type.trim()).filter(Boolean)}
+                legacyRefNote={form.settings?.subnet_id ?? ''}
+                onChange={(sel) => setSetting('zones', selectionToAWSZones(sel))}
+              />
+            </>
+          )}
+
+          {form.provider === 'vastai' && (
+            <>
+              <Typography variant="subtitle2" sx={{ mt: 3 }}>
+                {t('cloud.providers.vastSection') as string}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('cloud.providers.vastSectionHelp') as string}
+              </Typography>
+
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.vastCountries') as string}
+                value={(form.settings?.countries ?? []).join(', ')}
+                onChange={(e) => setSetting('countries', splitList(e.target.value))}
+                helperText={t('cloud.providers.fields.vastCountriesHelp') as string}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.vastGpuModels') as string}
+                value={(form.settings?.gpu_models ?? []).join(', ')}
+                onChange={(e) => setSetting('gpu_models', splitList(e.target.value))}
+                helperText={t('cloud.providers.fields.vastGpuModelsHelp') as string}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.vastDeniedGpuModels') as string}
+                value={(form.settings?.denied_gpu_models ?? []).join(', ')}
+                onChange={(e) => setSetting('denied_gpu_models', splitList(e.target.value))}
+                helperText={t('cloud.providers.fields.vastDeniedGpuModelsHelp') as string}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                type="number"
+                label={t('cloud.providers.fields.vastMinReliability') as string}
+                value={form.settings?.min_reliability ?? 0}
+                onChange={(e) => setSetting('min_reliability', parseFloat(e.target.value) || 0)}
+                helperText={t('cloud.providers.fields.vastMinReliabilityHelp') as string}
+                inputProps={{ min: 0, max: 1, step: 0.01 }}
+              />
+
+              {/*
+                * The two tier toggles are grouped and warned about together
+                * because they are the same decision twice, and it is the only
+                * decision on this screen that moves client hash material onto
+                * machines nobody has vetted.
+                */}
+              <FormControlLabel
+                sx={{ mt: 1 }}
+                control={
+                  <Checkbox
+                    checked={Boolean(form.settings?.allow_unverified)}
+                    onChange={(e) => setSetting('allow_unverified', e.target.checked)}
+                  />
+                }
+                label={t('cloud.providers.fields.vastAllowUnverified') as string}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={Boolean(form.settings?.allow_residential)}
+                    onChange={(e) => setSetting('allow_residential', e.target.checked)}
+                  />
+                }
+                label={t('cloud.providers.fields.vastAllowResidential') as string}
+              />
+              {(form.settings?.allow_unverified || form.settings?.allow_residential) && (
+                <Alert severity="warning" sx={{ mt: 1, mb: 1 }}>
+                  <AlertTitle>{t('cloud.providers.vastTierWarningTitle') as string}</AlertTitle>
+                  {t('cloud.providers.vastTierWarningBody') as string}
+                </Alert>
+              )}
+
+              <ProviderCapacityPicker
+                providerConfigId={editing?.id ?? null}
+                mode="axes"
+                selection={vastToSelection(form.settings ?? {})}
+                fallbackHardware={(form.settings?.gpu_models ?? []) as string[]}
+                onChange={(sel) => {
+                  const { countries, gpu_models } = selectionToVast(sel);
+                  setForm((f) => ({
+                    ...f,
+                    settings: { ...f.settings, countries, gpu_models },
+                  }));
+                }}
+              />
+            </>
+          )}
+
+          {(form.provider === 'runpod' || form.provider === 'runpod_community') && (
+            <>
+              <Typography variant="subtitle2" sx={{ mt: 3 }}>
+                {t('cloud.providers.runpodSection') as string}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('cloud.providers.runpodSectionHelp') as string}
+              </Typography>
+
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.runpodDataCenters') as string}
+                value={(form.settings?.data_center_ids ?? []).join(', ')}
+                onChange={(e) => setSetting('data_center_ids', splitList(e.target.value))}
+                helperText={t('cloud.providers.fields.runpodDataCentersHelp') as string}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.runpodGpuTypes') as string}
+                value={(form.settings?.gpu_type_ids ?? []).join(', ')}
+                onChange={(e) => setSetting('gpu_type_ids', splitList(e.target.value))}
+                helperText={t('cloud.providers.fields.runpodGpuTypesHelp') as string}
+              />
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  type="number"
+                  label={t('cloud.providers.fields.runpodDiskGb') as string}
+                  value={form.settings?.container_disk_gb ?? 0}
+                  onChange={(e) => setSetting('container_disk_gb', parseInt(e.target.value, 10) || 0)}
+                  helperText={t('cloud.providers.fields.runpodDiskGbHelp') as string}
+                  inputProps={{ min: 0 }}
+                />
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  type="number"
+                  label={t('cloud.providers.fields.runpodDiskRate') as string}
+                  value={form.settings?.container_disk_cents_per_gb_month ?? 10}
+                  onChange={(e) =>
+                    setSetting('container_disk_cents_per_gb_month', parseFloat(e.target.value) || 0)
+                  }
+                  helperText={t('cloud.providers.fields.runpodDiskRateHelp') as string}
+                  inputProps={{ min: 0, step: 0.1 }}
+                />
+              </Box>
+
+              {/*
+                * Community teardown is materially weaker than Secure and the
+                * operator has to know before they enable it, not after a pod
+                * has been billing overnight.
+                */}
+              {form.provider === 'runpod_community' ? (
+                <Alert severity="warning" sx={{ mt: 2, mb: 1 }}>
+                  <AlertTitle>{t('cloud.providers.runpodCommunityTeardownTitle') as string}</AlertTitle>
+                  {t('cloud.providers.runpodCommunityTeardownBody') as string}
+                </Alert>
+              ) : (
+                <>
+                  <FormControlLabel
+                    sx={{ mt: 1 }}
+                    control={
+                      <Checkbox
+                        checked={Boolean(form.settings?.allow_in_guest_self_destruct)}
+                        onChange={(e) =>
+                          setSetting('allow_in_guest_self_destruct', e.target.checked)
+                        }
+                      />
+                    }
+                    label={t('cloud.providers.fields.runpodSelfDestruct') as string}
+                  />
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {t('cloud.providers.fields.runpodSelfDestructHelp') as string}
+                  </Typography>
+                </>
+              )}
+
+              <ProviderCapacityPicker
+                providerConfigId={editing?.id ?? null}
+                mode="axes"
+                selection={runpodToSelection(form.settings ?? {})}
+                fallbackHardware={(form.settings?.gpu_type_ids ?? []) as string[]}
+                onChange={(sel) => {
+                  const { data_center_ids, gpu_type_ids } = selectionToRunPod(sel);
+                  setForm((f) => ({
+                    ...f,
+                    settings: { ...f.settings, data_center_ids, gpu_type_ids },
+                  }));
+                }}
+              />
             </>
           )}
 

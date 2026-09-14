@@ -316,16 +316,26 @@ func BuildAgentEnv(
 		env[EnvNoProxy] = "169.254.169.254"
 	case "runpod", "runpod_community":
 		/*
-		 * api.runpod.io is the v2 control plane, kept off-tunnel for the same
-		 * reason as console.vast.ai: the teardown path must survive the VPN
-		 * dying, and a self-destruct that needs the tunnel it is reacting to
-		 * the loss of cannot work.
+		 * BOTH RunPod hosts, kept off-tunnel for the same reason as
+		 * console.vast.ai: a self-destruct that needs the tunnel whose loss it
+		 * is reacting to cannot work.
 		 *
-		 * Both tiers get it. The teardown ladder is identical — RunPod exposes
-		 * no provider-enforced TTL on either side, so the in-guest deadline is
-		 * doing real work here rather than acting as a backstop.
+		 * rest.runpod.io is the REST v1 control plane the in-guest teardown
+		 * actually DELETEs through; api.runpod.io is the GraphQL endpoint. This
+		 * previously listed api.runpod.io alone, which was the wrong host for
+		 * the one call that matters — and inert besides, because the entrypoint
+		 * had no RunPod branch to make the call at all.
+		 *
+		 * Listing both costs nothing and means the guest's teardown cannot be
+		 * silently broken by the adapter switching endpoints, which is exactly
+		 * the class of change nobody thinks to re-check a NO_PROXY list for.
+		 *
+		 * Both tiers get it, but only SECURE pods are ever given a key to use
+		 * it with: RunPod issues no per-pod scoped credential, so on Community
+		 * the in-guest rail cannot stop billing and the reaper is the only
+		 * teardown. See RunPodSettings.AllowInGuestSelfDestruct.
 		 */
-		env[EnvNoProxy] = "api.runpod.io"
+		env[EnvNoProxy] = "api.runpod.io,rest.runpod.io"
 	}
 	return env
 }

@@ -157,6 +157,81 @@ func (r *ClaimVoucherRepository) Deactivate(ctx context.Context, code string) er
 	return nil
 }
 
+/*
+ * DeactivateForCloudInstance kills any UNREDEEMED voucher bound to an instance.
+ *
+ * A cloud voucher is a registration credential, minted before the provider is
+ * called and handed to a machine that may never exist. When a launch attempt
+ * definitively fails, that credential is live until its TTL runs out with
+ * nothing left that could legitimately redeem it — and the launch path mints one
+ * PER CANDIDATE OFFER, so a provision that walks a run of capacity refusals
+ * leaves one behind for each. Measured on this deployment before the fix: 673
+ * unredeemed vouchers belonging to failed instances, every one still active.
+ *
+ * REDEEMED VOUCHERS ARE LEFT ALONE, deliberately. `used_at` already blocks
+ * reuse, and the row is the audit link between an agent and the rental it
+ * joined; flipping is_active on it would destroy that record for no gain.
+ *
+ * Returns the number deactivated so callers can log a real figure rather than
+ * "probably did something". Not finding one is NOT an error: the ambiguous
+ * launch path deliberately leaves vouchers alone, and instances that never got
+ * as far as minting have none.
+ */
+func (r *ClaimVoucherRepository) DeactivateForCloudInstance(ctx context.Context, instanceID uuid.UUID) (int64, error) {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE claim_vouchers
+		SET is_active = false, updated_at = NOW()
+		WHERE cloud_instance_id = $1 AND used_at IS NULL AND is_active = true`, instanceID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to deactivate vouchers for cloud instance %s: %w", instanceID, err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to count deactivated vouchers: %w", err)
+	}
+	return rows, nil
+}
+
+/*
+ * PurgeExpired deletes vouchers that expired before `before` and were never
+ * redeemed.
+ *
+ * NEVER touches redeemed vouchers, whatever their age: used_by_agent_id is the
+ * audit trail tying an agent to the credential it joined with, and it is also a
+ * NO ACTION foreign key, so deleting one would fail against any surviving agent
+ * anyway.
+ *
+ * Deliberately does NOT filter on is_active. Deactivation above and expiry here
+ * are independent lifecycles — a voucher deactivated on failure is exactly the
+ * kind this sweep exists to remove, and requiring is_active would skip every
+ * one of them.
+ */
+func (r *ClaimVoucherRepository) PurgeExpired(ctx context.Context, before time.Time) (int64, error) {
+	// claim_voucher_usage.voucher_code is a NO ACTION foreign key. No Go code
+	// writes that table today, so it is empty in practice — but clearing the
+	// children first costs nothing and means this does not start failing the
+	// day someone starts using it.
+	if _, err := r.db.ExecContext(ctx, `
+		DELETE FROM claim_voucher_usage
+		WHERE voucher_code IN (
+			SELECT code FROM claim_vouchers
+			WHERE expires_at IS NOT NULL AND expires_at < $1 AND used_at IS NULL)`, before); err != nil {
+		return 0, fmt.Errorf("failed to purge claim voucher usage rows: %w", err)
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM claim_vouchers
+		WHERE expires_at IS NOT NULL AND expires_at < $1 AND used_at IS NULL`, before)
+	if err != nil {
+		return 0, fmt.Errorf("failed to purge expired claim vouchers: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to count purged claim vouchers: %w", err)
+	}
+	return rows, nil
+}
+
 // ListActive retrieves all active claim vouchers
 func (r *ClaimVoucherRepository) ListActive(ctx context.Context) ([]models.ClaimVoucher, error) {
 	rows, err := r.db.QueryContext(ctx, queries.ListActiveVouchers)

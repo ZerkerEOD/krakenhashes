@@ -86,6 +86,7 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 	// Literal sub-paths are registered before /providers/{id} so "preflight"
 	// and "acknowledge" are never captured as an id.
 	s.HandleFunc("/providers/{id}/preflight", h.Preflight).Methods("POST", "OPTIONS")
+	s.HandleFunc("/providers/{id}/capacity", h.Capacity).Methods("GET", "OPTIONS")
 	s.HandleFunc("/providers/{id}/acknowledge", h.AcknowledgeProvider).Methods("POST", "OPTIONS")
 	s.HandleFunc("/providers/{id}", h.UpdateProvider).Methods("PUT", "OPTIONS")
 	s.HandleFunc("/providers/{id}", h.DeleteProvider).Methods("DELETE", "OPTIONS")
@@ -685,6 +686,42 @@ func (h *Handler) Preflight(w http.ResponseWriter, r *http.Request) {
 	}
 	// Always 200: a failing preflight is a successful diagnosis, and the
 	// report body is the actionable part.
+	writeJSON(w, http.StatusOK, report)
+}
+
+/*
+ * Capacity enumerates the placements a provider could launch into, so the
+ * operator can pick zones and instance types from live data instead of pasting
+ * a subnet id they looked up in another tab.
+ *
+ * Read-only and spends nothing: four EC2 describe calls. Not every provider has
+ * a placement dimension — Vast.ai and RunPod place instances themselves — so
+ * this 501s rather than pretending, and the UI hides the picker for those.
+ */
+func (h *Handler) Capacity(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid provider config id")
+		return
+	}
+	provider, err := h.providerFor(r.Context(), id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	}
+	explorer, ok := provider.(cloudsvc.CapacityExplorer)
+	if !ok {
+		writeErr(w, http.StatusNotImplemented,
+			fmt.Sprintf("%s chooses placement itself; there are no zones to select", provider.Name()))
+		return
+	}
+	report, err := explorer.ExploreCapacity(r.Context())
+	if err != nil {
+		// Unlike Preflight, a failure here is not a diagnosis: without the zone
+		// list there is no screen to render, so it is a real error.
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
 	writeJSON(w, http.StatusOK, report)
 }
 

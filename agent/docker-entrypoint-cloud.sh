@@ -105,6 +105,31 @@ self_destruct() {
             log "vast destroy call failed; falling back to poweroff"
     fi
 
+    # RunPod: DELETE our own pod through the REST v1 control plane.
+    #
+    # Only reachable on the SECURE tier, and only when the operator opted in.
+    # RunPod issues no per-pod scoped credential -- there is no equivalent of
+    # Vast's CONTAINER_API_KEY -- so the key below is ACCOUNT-scoped and can
+    # delete every other pod on the account. On the Community tier the host
+    # operator has root over this container and would read it straight out of
+    # the environment, so the backend never injects it there and this branch is
+    # simply skipped: teardown on Community is the backend reaper alone.
+    #
+    # RUNPOD_POD_ID is injected by RunPod itself; we cannot pass it at create
+    # time because it does not exist until the create response comes back.
+    #
+    # Without this branch a RunPod pod fell through to the last resort below,
+    # which in an unprivileged pod is just `kill -9 1` -- that kills the
+    # CONTAINER while the pod stays allocated and keeps billing.
+    if [ -n "${KH_RUNPOD_API_KEY:-}" ] && [ -n "${RUNPOD_POD_ID:-}" ]; then
+        log "destroying RunPod pod ${RUNPOD_POD_ID}"
+        curl -fsS --max-time 30 --noproxy '*' \
+            -X DELETE \
+            -H "Authorization: Bearer ${KH_RUNPOD_API_KEY}" \
+            "https://rest.runpod.io/v1/pods/${RUNPOD_POD_ID}" || \
+            log "runpod destroy call failed; the backend reaper is the only teardown left"
+    fi
+
     # AWS (and anything else with a host we can reach): ask the HOST to
     # terminate by disarming its deadline file, which is bind-mounted in.
     #

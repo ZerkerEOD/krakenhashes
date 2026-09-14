@@ -354,6 +354,22 @@ func rankOffers(in RankInput) ([]RankedOffer, string) {
 		if a.HourlyRateCents != b.HourlyRateCents {
 			return a.HourlyRateCents < b.HourlyRateCents
 		}
+		/*
+		 * Availability breaks ties LAST but before the alphabet, which is what
+		 * makes a multi-zone AWS search worth anything. The same instance type
+		 * in three zones produces three offers identical in cost, confidence
+		 * and rate, so without this the launch order is decided by zone name —
+		 * us-east-2a first, every time, including when its spot pool is the one
+		 * that is empty. Ordering by the stock signal tries the likeliest pool
+		 * first and leaves the retry loop to cover the rest.
+		 *
+		 * Greater is more available, and Unknown sorts lowest, so a provider
+		 * that reports no signal is unaffected: all its offers tie here and
+		 * fall through to ID exactly as before.
+		 */
+		if a.Availability != b.Availability {
+			return a.Availability > b.Availability
+		}
 		return a.ID < b.ID
 	})
 

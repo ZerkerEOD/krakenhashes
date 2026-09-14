@@ -167,14 +167,46 @@ echo "Every provider branch in self_destruct() can fail. If hashcat is only"
 echo "killed inside one of them, a failed teardown keeps billing GPU rates the"
 echo "whole way down to the last-resort kill."
 echo
-# The first pkill must appear before the first provider-specific branch.
+# The first pkill must appear before the FIRST of any provider-specific branch.
+# Checked against every provider rather than only Vast: a new branch inserted
+# above the pkill would reintroduce the bug with the old assertion still green.
 pkill_line=$(grep -n 'pkill -9 hashcat' "$ENTRYPOINT" | head -1 | cut -d: -f1)
 vast_line=$(grep -n 'CONTAINER_API_KEY' "$ENTRYPOINT" | head -1 | cut -d: -f1)
-if [ -n "$pkill_line" ] && [ -n "$vast_line" ] && [ "$pkill_line" -lt "$vast_line" ]; then
+runpod_line=$(grep -n 'KH_RUNPOD_API_KEY' "$ENTRYPOINT" | head -1 | cut -d: -f1)
+aws_line=$(grep -n 'KH_HOST_DEADLINE_FILE' "$ENTRYPOINT" | head -1 | cut -d: -f1)
+
+first_branch=""
+for line in "$vast_line" "$runpod_line" "$aws_line"; do
+    [ -n "$line" ] || continue
+    if [ -z "$first_branch" ] || [ "$line" -lt "$first_branch" ]; then
+        first_branch="$line"
+    fi
+done
+
+if [ -n "$pkill_line" ] && [ -n "$first_branch" ] && [ "$pkill_line" -lt "$first_branch" ]; then
     ok "hashcat is killed before the first provider branch"
 else
-    bad "hashcat is killed inside a provider branch (pkill@${pkill_line:-none}, vast@${vast_line:-none});"
+    bad "hashcat is killed inside a provider branch (pkill@${pkill_line:-none}, first branch@${first_branch:-none});"
     bad "  a failed teardown on any other provider bills GPU rates until the process dies"
+fi
+
+echo
+echo "=== RunPod pods can actually be destroyed ==="
+echo "A RunPod pod matches neither the Vast nor the AWS branch. Without its own"
+echo "it falls through to 'kill -9 1', which in an unprivileged pod kills the"
+echo "CONTAINER while the pod stays allocated and keeps billing."
+echo
+if [ -n "$runpod_line" ] && grep -q 'rest.runpod.io/v1/pods' "$ENTRYPOINT"; then
+    ok "self_destruct has a RunPod branch that DELETEs the pod"
+else
+    bad "no RunPod teardown branch; a RunPod pod bills on after self-destruct"
+fi
+# The guard matters as much as the branch: on Community no key is ever injected,
+# so the branch must be skipped rather than attempted with an empty credential.
+if grep -q 'if \[ -n "\${KH_RUNPOD_API_KEY:-}" \] && \[ -n "\${RUNPOD_POD_ID:-}" \]' "$ENTRYPOINT"; then
+    ok "the RunPod branch is guarded on both the key and the pod id"
+else
+    bad "the RunPod branch is not guarded on KH_RUNPOD_API_KEY and RUNPOD_POD_ID"
 fi
 
 echo

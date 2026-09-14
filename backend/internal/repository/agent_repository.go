@@ -380,7 +380,19 @@ func (r *AgentRepository) List(ctx context.Context, filters map[string]interface
 		status = &s
 	}
 
-	rows, err := r.db.QueryContext(ctx, queries.ListAgents, status)
+	/*
+	 * include_retired defaults to false, so retired cloud agents drop out of
+	 * the ordinary agent list.
+	 *
+	 * These rows are ephemeral by nature — one per rented GPU, retired the
+	 * moment the instance is torn down — and nothing filtered them, so they
+	 * accumulated in the operator's view indefinitely. They are kept rather
+	 * than deleted because deleting an agent severs cost attribution and takes
+	 * its benchmark history with it (see agents.retired_at's column comment).
+	 */
+	includeRetired, _ := filters["include_retired"].(bool)
+
+	rows, err := r.db.QueryContext(ctx, queries.ListAgents, status, includeRetired)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}

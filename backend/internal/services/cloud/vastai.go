@@ -15,7 +15,64 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 )
 
-const vastBaseURL = "https://console.vast.ai"
+// vastDefaultBaseURL is the marketplace API. Overridable per provider instance
+// rather than a package const, so the adapter can be pointed at an httptest
+// server — see VastAIProvider.BaseURL.
+const vastDefaultBaseURL = "https://console.vast.ai"
+
+/*
+ * VastSettings is the operator's Vast.ai placement and hardware policy.
+ *
+ * THE ZERO VALUE IS TODAY'S BEHAVIOUR, exactly: verified datacenter hosts only,
+ * every country, every card, no reliability floor. That matters because these
+ * settings were never read before — cfg.Settings was ignored entirely for
+ * Vast.ai — so every existing config deserialises to the zero value and must
+ * not change what it rents.
+ */
+type VastSettings struct {
+	/*
+	 * Countries allowlists Vast.ai geolocations. Empty means anywhere.
+	 *
+	 * Matched against Offer.Region, which until now was written and never read
+	 * anywhere in the codebase. Vast reports a coarse string ("US, Texas" or a
+	 * bare country code), so matching is a case-insensitive prefix/substring
+	 * rather than an equality test — see offerInRegion.
+	 *
+	 * Two purposes at once: data residency, and widening or narrowing the pool.
+	 */
+	Countries []string `json:"countries"`
+	// GPUModels allowlists cards by normalised model key. Empty means any.
+	GPUModels []string `json:"gpu_models"`
+	// DeniedGPUModels wins over GPUModels, matching applyOfferConstraints.
+	DeniedGPUModels []string `json:"denied_gpu_models"`
+	/*
+	 * AllowUnverified and AllowResidential open the two tiers this provider has
+	 * always excluded unconditionally.
+	 *
+	 * DEFAULT FALSE, deliberately, and the danger is worth stating where the
+	 * flag lives: unticking these is the single largest availability increase
+	 * available on Vast.ai, AND it places client hash material on machines that
+	 * have not even been through Vast's own verification. The provider is
+	 * already peer hardware whose host has root over the container; these
+	 * flags remove the one filter that keeps it to hosts Vast has checked.
+	 *
+	 * The unverified tier is also where "stuck connecting" and "bad driver"
+	 * reports concentrate, so the extra availability is partly illusory: a
+	 * rental that never reaches useful work still costs commissioning.
+	 */
+	AllowUnverified  bool `json:"allow_unverified"`
+	AllowResidential bool `json:"allow_residential"`
+	/*
+	 * MinReliability is Vast's own host reliability score, 0..1. Zero disables
+	 * the floor.
+	 *
+	 * The score was already captured into Offer.Raw and then read by nothing.
+	 * Trading a little availability for fewer dead rentals is the point: a host
+	 * that drops the instance mid-chunk has still been paid for its
+	 * commissioning.
+	 */
+	MinReliability float64 `json:"min_reliability"`
+}
 
 /*
  * VastAIProvider rents GPUs from the Vast.ai marketplace.
@@ -40,6 +97,21 @@ const vastBaseURL = "https://console.vast.ai"
 type VastAIProvider struct {
 	APIKey string
 	Client *http.Client
+	/*
+	 * BaseURL is a field rather than a package constant purely so this adapter
+	 * can be tested.
+	 *
+	 * That sounds like a detail and is not: with the URL compiled in there was
+	 * no way to exercise a single line of this file without a funded Vast.ai
+	 * account, so none of it was ever exercised at all. This provider is marked
+	 * beta precisely because it has never been paid for, and a test seam is the
+	 * only way to shrink that gap without spending money.
+	 */
+	BaseURL string
+	// Settings is the operator's placement and hardware policy. The zero value
+	// reproduces the historical behaviour exactly: verified datacenter hosts
+	// only, no country or model restriction, no reliability floor.
+	Settings VastSettings
 
 	// rateMu serialises calls: Vast.ai enforces a minimum interval between
 	// requests per endpoint and returns 429 with NO Retry-After header, so the
@@ -51,12 +123,22 @@ type VastAIProvider struct {
 }
 
 // NewVastAIProvider creates a Vast.ai provider.
-func NewVastAIProvider(apiKey string) *VastAIProvider {
+func NewVastAIProvider(apiKey string, settings VastSettings) *VastAIProvider {
 	return &VastAIProvider{
 		APIKey:      apiKey,
+		BaseURL:     vastDefaultBaseURL,
+		Settings:    settings,
 		Client:      &http.Client{Timeout: 60 * time.Second},
 		MinInterval: 3 * time.Second,
 	}
+}
+
+// baseURL tolerates a zero-value provider built by a test or an older caller.
+func (v *VastAIProvider) baseURL() string {
+	if v.BaseURL != "" {
+		return v.BaseURL
+	}
+	return vastDefaultBaseURL
 }
 
 // Name identifies the provider.
@@ -85,7 +167,7 @@ func (v *VastAIProvider) do(ctx context.Context, method, path string, body inter
 		reader = bytes.NewReader(encoded)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, vastBaseURL+path, reader)
+	req, err := http.NewRequestWithContext(ctx, method, v.baseURL()+path, reader)
 	if err != nil {
 		return fmt.Errorf("vastai: build request: %w", err)
 	}
@@ -166,13 +248,25 @@ type vastOffer struct {
 	// ~24564. Reading it as GB would make every VRAM comparison off by 1024x,
 	// which does not fail loudly — it just makes every floor pass and every
 	// ceiling drop everything.
-	GPURAM          float64 `json:"gpu_ram"`
-	DPHTotal        float64 `json:"dph_total"`
-	StorageCost     float64 `json:"storage_cost"`
-	InetDownCost    float64 `json:"inet_down_cost"`
-	DiskSpace       float64 `json:"disk_space"`
-	Duration        float64 `json:"duration"`
+	GPURAM       float64 `json:"gpu_ram"`
+	DPHTotal     float64 `json:"dph_total"`
+	StorageCost  float64 `json:"storage_cost"`
+	InetDownCost float64 `json:"inet_down_cost"`
+	DiskSpace    float64 `json:"disk_space"`
+	Duration     float64 `json:"duration"`
+	/*
+	 * Vast.ai spells the host reliability score BOTH ways depending on where you
+	 * look: `reliability2` is the documented search-filter key and appears in
+	 * bundles responses, while `reliability` shows up in older payloads. Only
+	 * `reliability` was ever decoded here, and since nothing read the value it
+	 * would have gone unnoticed if it were always zero.
+	 *
+	 * Both are accepted, and reliability() prefers whichever is populated. With
+	 * no live account to settle which one this endpoint actually sends, decoding
+	 * one and guessing is how a reliability floor silently deletes every offer.
+	 */
 	Reliability     float64 `json:"reliability"`
+	Reliability2    float64 `json:"reliability2"`
 	CudaMaxGood     float64 `json:"cuda_max_good"`
 	Geolocation     string  `json:"geolocation"`
 	Verified        bool    `json:"verified"`
@@ -206,12 +300,29 @@ func (v *VastAIProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offe
 		"type":     "ondemand",
 		"order":    [][]string{{"dph_total", "asc"}},
 		"limit":    limit,
-		// Verified datacenter hosts only, unconditionally. This provider puts
-		// client hash material on third-party machines, so the cheaper
-		// unverified tier — which is also where the "stuck connecting" and
-		// "bad driver" reports concentrate — is not offered at all.
-		"verified":   map[string]interface{}{"eq": true},
-		"datacenter": map[string]interface{}{"eq": true},
+	}
+	/*
+	 * Verified datacenter hosts only, UNLESS the operator has explicitly opened
+	 * the tier. This provider puts client hash material on third-party machines,
+	 * so the cheaper unverified tier — which is also where the "stuck
+	 * connecting" and "bad driver" reports concentrate — is excluded by default.
+	 *
+	 * Note the asymmetry in how the two states are expressed: to RESTRICT we
+	 * send {eq: true}, but to OPEN we omit the key entirely rather than sending
+	 * {eq: false}. Sending false would invert the filter and return ONLY
+	 * unverified hosts, quietly excluding every good one — the failure would
+	 * look like a mysterious drop in quality rather than a broken query.
+	 */
+	if !v.Settings.AllowUnverified {
+		query["verified"] = map[string]interface{}{"eq": true}
+	}
+	if !v.Settings.AllowResidential {
+		query["datacenter"] = map[string]interface{}{"eq": true}
+	}
+	if v.Settings.MinReliability > 0 {
+		// reliability2 is the documented filter key. Advisory like every other
+		// server-side filter here — offerReliability re-checks client-side.
+		query["reliability2"] = map[string]interface{}{"gte": v.Settings.MinReliability}
 	}
 	if q.MaxHourlyRateCents > 0 {
 		query["dph_total"] = map[string]interface{}{"lt": float64(q.MaxHourlyRateCents) / 100.0}
@@ -280,7 +391,7 @@ func (v *VastAIProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offe
 			// passes any MinAvailability floor.
 			Availability: AvailabilityUnknown,
 			Raw: models.JSONMap{
-				"reliability": o.Reliability,
+				"reliability": o.reliability(),
 				"cuda":        o.CudaMaxGood,
 				"verified":    o.Verified,
 				"inet_down":   o.InetDown,
@@ -289,7 +400,85 @@ func (v *VastAIProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offe
 	}
 	// The server-side filters above are advisory — `rented` is proof of that —
 	// so the query's real guarantee is this, applied to whatever came back.
-	return applyOfferConstraints(offers, q), nil
+	return applyOfferConstraints(offers, v.narrowQuery(q)), nil
+}
+
+/*
+ * narrowQuery folds the operator's Vast.ai policy into the caller's query.
+ *
+ * The caller builds one provider-agnostic OfferQuery and cannot know a
+ * provider's own settings, so the provider is where the two meet. Everything
+ * here NARROWS except one thing, which is called out below.
+ *
+ * Both lists are intersected rather than replaced. The caller's constraints
+ * come from the job and the client's cost ceiling; the operator's come from
+ * policy, and neither is entitled to widen the other.
+ */
+func (v *VastAIProvider) narrowQuery(q OfferQuery) OfferQuery {
+	q.AllowedRegions = intersectOrUnion(q.AllowedRegions, v.Settings.Countries)
+	q.AllowedGPUModels = intersectOrUnion(q.AllowedGPUModels, v.Settings.GPUModels)
+	// Deny lists are the one thing that accumulates: a deny is an emergency
+	// lever and must never be weakened by anything, including an intersection.
+	q.DeniedGPUModels = append(append([]string(nil), q.DeniedGPUModels...), v.Settings.DeniedGPUModels...)
+
+	if v.Settings.MinReliability > q.MinReliability {
+		q.MinReliability = v.Settings.MinReliability
+	}
+
+	/*
+	 * THE ONE RELAXATION, and it is deliberate.
+	 *
+	 * The caller hardcodes VerifiedOnly (service.go's offer search) as a safe
+	 * default from before this setting existed. AllowUnverified is a specific,
+	 * acknowledged decision by the operator to accept unverified hosts on THIS
+	 * provider — so leaving the caller's blanket default in place would make the
+	 * setting silently do nothing: the server would return unverified offers and
+	 * applyOfferConstraints would delete every one of them, with the operator
+	 * seeing "no offers" and no indication why.
+	 *
+	 * Scoped to Vast.ai, because it is the only provider whose settings can
+	 * express the consent. Nothing else is relaxed here.
+	 */
+	if v.Settings.AllowUnverified {
+		q.VerifiedOnly = false
+	}
+	return q
+}
+
+/*
+ * intersectOrUnion combines two allow lists where EMPTY MEANS EVERYTHING.
+ *
+ * That convention makes plain intersection wrong: intersecting anything with an
+ * empty list would yield an empty list, i.e. "nothing allowed", which is the
+ * exact inversion of what empty means. So an empty side yields the other side,
+ * and only when both are populated do they actually intersect.
+ *
+ * If two populated lists share nothing, the result is a single sentinel that
+ * matches no real value. Returning empty there would read as "no restriction"
+ * and rent from anywhere — silently ignoring both parties' constraints at the
+ * exact moment they disagree.
+ */
+func intersectOrUnion(a, b []string) []string {
+	if len(a) == 0 {
+		return b
+	}
+	if len(b) == 0 {
+		return a
+	}
+	inB := make(map[string]bool, len(b))
+	for _, s := range b {
+		inB[strings.ToLower(strings.TrimSpace(s))] = true
+	}
+	var out []string
+	for _, s := range a {
+		if inB[strings.ToLower(strings.TrimSpace(s))] {
+			out = append(out, s)
+		}
+	}
+	if len(out) == 0 {
+		return []string{"\x00none"}
+	}
+	return out
 }
 
 /*
@@ -507,4 +696,14 @@ func (v *VastAIProvider) CostSoFar(ctx context.Context, id string) (int64, bool,
 		return 0, false, nil
 	}
 	return int64(total * 100), true, nil
+}
+
+// reliability returns whichever spelling of the host reliability score the
+// response actually carried. Zero means the endpoint reported neither, which
+// offerReliability reads as unknown rather than as a failing host.
+func (o vastOffer) reliability() float64 {
+	if o.Reliability2 > 0 {
+		return o.Reliability2
+	}
+	return o.Reliability
 }
