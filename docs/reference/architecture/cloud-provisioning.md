@@ -1,12 +1,12 @@
 # Cloud GPU Provisioning
 
-KrakenHashes can rent ephemeral GPU instances from Vast.ai or AWS EC2, run an agent on
-them, dispatch **only** the intended job's work to them, charge the spend to a per-client
+KrakenHashes can rent ephemeral GPU instances from AWS EC2, RunPod or Vast.ai, run an agent
+on them, dispatch **only** the intended job's work to them, charge the spend to a per-client
 budget, and guarantee teardown — including when the backend itself has died.
 
 Three requirements shape every decision below:
 
-1. **Cost safety.** A rented GPU costs $0.50–$22/hr and neither provider will stop it for
+1. **Cost safety.** A rented GPU costs $0.50–$22/hr and **no** provider will stop it for
    you. Every failure mode must converge on "the instance dies."
 2. **The server is never exposed to the internet.** Cloud agents join the operator's
    *existing* VPN. KrakenHashes does not build a VPN.
@@ -174,7 +174,16 @@ Ranked by "the backend died — does the instance still die?"
 | 3 | Backend reaper reconciling by label/tag | ❌ | ≤60s |
 | 4 | Startup reconciliation on backend boot | ❌ | on boot |
 | 5 | Ordered SIGTERM drain | ❌ | on shutdown |
-| 6 | Provider ceilings (AWS vCPU quota, Vast.ai prepaid balance) | ✅ prevents | n/a |
+| 6 | Provider ceilings (AWS vCPU quota, RunPod credit balance, Vast.ai prepaid balance) | ✅ prevents | n/a |
+
+!!! warning "Tiers 1 and 2 are not available on every provider"
+    They rely on the guest being able to destroy itself, which needs a credential it can
+    safely hold. **RunPod Community has neither** — no per-pod scoped credential exists, and
+    an account-scoped one would be readable by the host operator — so the in-guest deadline
+    still kills hashcat and ends the data exposure but **cannot stop the pod billing**. On
+    that tier the ladder effectively starts at tier 3, and the refusal to hold the key is
+    enforced in the adapter's constructor rather than at the injection site, so no later
+    change to the injection path can reintroduce it.
 
 Tier 1 is armed **before** the container image is pulled. NPK's GPU nodes had no working
 watchdog at all — their only correct `trap … EXIT; shutdown` lived on a cheap
@@ -182,9 +191,11 @@ wordlist-compression node — and that is the hole this ordering closes.
 
 !!! danger "The self-destruct must not use the VPN"
     On Vast.ai, self-destruct calls `DELETE /api/v0/instances/$CONTAINER_ID/` using
-    `$CONTAINER_API_KEY`. Routing that through the tunnel would send it down a dead link
-    in exactly the scenario the heartbeat watchdog exists for, so `NO_PROXY` covers the
-    provider control plane and `169.254.169.254`.
+    `$CONTAINER_API_KEY`; on RunPod Secure it calls `DELETE rest.runpod.io/v1/pods/$ID`.
+    Routing either through the tunnel would send it down a dead link in exactly the scenario
+    the heartbeat watchdog exists for, so `NO_PROXY` covers each provider's control plane and
+    `169.254.169.254`. The calls additionally pass `--noproxy '*'`, so a mis-built
+    `NO_PROXY` cannot break teardown either.
 
 Additional guarantees:
 
@@ -422,10 +433,12 @@ could be offered another client's job.
 | PUT | `/providers/{id}` | Update; blank secret fields keep the stored value |
 | DELETE | `/providers/{id}` | Delete; 409 while any instance references it |
 | POST | `/providers/{id}/preflight` | Provider self-check; always 200 — a failing preflight is a successful diagnosis |
+| GET | `/providers/{id}/capacity` | Capacity explorer. Read-only and spends nothing; **502** when the provider is reachable but the probe failed, **501** for a provider that has no placement axis |
 | POST | `/providers/{id}/acknowledge` | Record the third-party data-exposure acknowledgement |
 | GET | `/instances` | Live fleet |
 | DELETE | `/instances/{id}` | Manual destroy; **502 means the provider refused and it is still billing** |
 | GET | `/clients` | Every client that is cloud-enabled or funded |
+| GET/PUT | `/clients/defaults` | Deployment-wide client defaults applied to clients with no explicit settings |
 | GET/PUT | `/clients/{id}/settings` | Budget, TTL ceiling, provider allowlist |
 | GET | `/clients/{id}/budget` | Live spend plus the action the ladder implies |
 | PUT/DELETE | `/clients/{id}/policy` | Per-client threshold override |
@@ -434,6 +447,12 @@ could be offered another client's job.
 | GET/PUT | `/rules` | System-default provisioning rules, **unmerged** |
 | GET/PUT/DELETE | `/clients/{id}/rules` | Per-client override; GET returns the **merged** view plus the raw override and the default |
 | GET | `/jobs/{id}/projection` | Coverage bar inputs |
+| POST | `/jobs/{jobId}/provision` | Operator-initiated launch. Names the specific precondition that failed, including the two that are otherwise invisible: no client to bill, and cloud burst never enabled |
+
+`GET /providers/{id}/capacity` splits its failure modes deliberately. Unlike preflight, a
+failure here is **not** a diagnosis — without the placement list there is no screen to render
+— so a probe error is a real 502 rather than a 200 carrying a report. A provider that chooses
+placement itself returns **501**, which today means only `mock`.
 
 The two rules read routes are **deliberately asymmetric**, and conflating them is the one
 mistake here that quietly changes policy for every client. `/rules` returns the system default
@@ -456,6 +475,67 @@ single place that trust-tier question is answered.
 Acknowledgements and credential changes are attributed to the authenticated caller, never
 to anything in the request body — `provider_ack` is written only through its own endpoint,
 never through the settings update.
+
+---
+
+## Provider maturity is derived, never stored
+
+Every provider kind declares a maturity — `stable` or `beta` — from a single map in the model
+layer. It is **computed on marshal and never persisted**, which is the whole point: a stored
+column can drift out of step with reality, and an admin who would rather not see the warning
+could edit it into a lie. A derived value cannot be either.
+
+| Kind | Maturity |
+|---|---|
+| `aws`, `mock` | Stable |
+| `vastai`, `runpod`, `runpod_community` | Beta |
+
+**It is not a measure of how much code exists.** Vast.ai is fully implemented and has never
+been driven end to end with a funded account; AWS has been taken through boot, commissioning,
+cracking, clean release and a settled refund. An implemented adapter and a proven one look
+identical from the outside and cost very differently when they are wrong.
+
+`MaturityUnknown` is never a valid answer for a shipped provider — a test asserts every kind
+declares one, so adding a provider without classifying it fails the build rather than
+defaulting to reassuring.
+
+Maturity is a **separate axis from trust**, and the two only partly overlap: RunPod Secure is
+beta but first-party, Vast.ai is both beta and third-party, `mock` is neither. The UI renders
+them as two distinct chips for that reason — collapsing them would hide that a SOC 2 provider
+is the unproven one.
+
+---
+
+## Capacity exploration is a cross-provider interface
+
+`ExploreCapacity` is deliberately **not** part of the `Provider` interface; callers type-assert
+for it. That keeps a provider with no placement axis from having to implement a stub that lies,
+and it is why the HTTP layer can answer 501 honestly.
+
+All three real providers implement it. Only `mock` does not.
+
+| Provider | Placement axis | Hardware axis | Selection mode |
+|---|---|---|---|
+| AWS | Availability zone | Instance type | `matrix` — hardware chosen **per** placement |
+| RunPod | Data centre | GPU type | `axes` — two independent lists, combined |
+| Vast.ai | Country | GPU model | `axes` |
+
+The report carries its own **trust metadata** rather than leaving the UI to guess, because the
+signals genuinely differ in kind:
+
+| Trust | Meaning | Example |
+|---|---|---|
+| `definitive` | A "no" here can never launch | AWS `DescribeInstanceTypeOfferings` |
+| `measured` | Real, observed data, but not a guarantee | live prices, rentable counts |
+| `advisory` | A hint worth ordering by and nothing more | AWS spot placement score |
+
+That grading is what stops a spot placement score being presented as availability. The score
+is used to order candidates and never to remove one — a live account scored every zone 1/10
+minutes before a launch in one of them succeeded on the first attempt.
+
+AWS is the only provider with a `definitive` signal, and the only one that has a configured
+rate to show beside the live price. RunPod and Vast.ai report availability counts instead,
+which AWS does not expose at all.
 
 ---
 
@@ -627,5 +707,8 @@ subnet at all, which is exactly the pre-zones behaviour of letting EC2 choose.
 ## Related
 
 - [Cloud Providers setup](../../admin-guide/system-setup/cloud-providers.md)
+- [AWS](../../admin-guide/system-setup/cloud-aws.md) · [RunPod](../../admin-guide/system-setup/cloud-runpod.md) · [Vast.ai](../../admin-guide/system-setup/cloud-vastai.md)
+- [Cloud agent VPN](../../admin-guide/system-setup/cloud-vpn.md)
 - [Cloud agent deployment](../../agent-guide/cloud-deployment.md)
 - [Scheduler v2 overview](scheduler-v2-overview.md)
+- [Job priority](../../admin-guide/advanced/job-priority.md) — the scale the minimum-priority rule is absolute against

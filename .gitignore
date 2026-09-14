@@ -99,6 +99,11 @@ agent/main
 logs/
 *.log
 
+# Documentation build output. `mkdocs build` (and scripts/docs-build.sh) writes
+# the rendered site here; it is regenerated from docs/ and never committed.
+# The docs virtualenv deliberately lives OUTSIDE the repo, so it needs no entry.
+/site/
+
 # Local development configuration
 docker-compose.dev-local.yml
 

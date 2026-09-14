@@ -1,6 +1,11 @@
 # Cloud GPU Providers
 
-Configure Vast.ai or AWS EC2 so KrakenHashes can rent GPU capacity on demand.
+Configure AWS EC2, RunPod or Vast.ai so KrakenHashes can rent GPU capacity on demand.
+
+This page covers what every provider shares — prerequisites, trust tiers, budgets, and the
+rules governing when anything may be spent. Per-provider setup lives on its own page:
+[AWS](cloud-aws.md), [RunPod](cloud-runpod.md), [Vast.ai](cloud-vastai.md), and the
+[VPN](cloud-vpn.md) they all require.
 
 !!! warning "Nothing bursts by accident"
     Cloud provisioning requires **three** independent opt-ins: the provider must be
@@ -27,96 +32,19 @@ becomes unrecoverable on restart. See [Environment](../../reference/environment.
 The KrakenHashes server should not be exposed to the internet. Cloud agents reach it over
 your **existing** VPN. Supported: **Tailscale, NetBird, WireGuard**.
 
-!!! danger "OpenVPN is not supported"
-    Vast.ai runs unprivileged containers with no `/dev/net/tun` and no `NET_ADMIN`, and
-    its API silently discards `--cap-add`/`--device`. OpenVPN cannot work there, and the
-    only "userspace" path for it is unmaintained out-of-tree patches to a
-    security-critical binary.
-
-| Provider | Per-instance credential | Auto-deregistration |
-|---|---|---|
-| **Tailscale** (recommended) | OAuth client → one-off ephemeral tagged key per instance | 30–60 min, or instant on logout |
-| **NetBird** | PAT → one-off ephemeral setup key per instance | ~10 min |
-| **WireGuard** | none — static operator config | none, manual |
-
-Prefer the OAuth/PAT path. A reusable Tailscale auth key is capped at **90 days**, so it is
-a scheduled outage; KrakenHashes tracks its expiry, warns as it approaches, and **refuses
-to provision once it lapses** rather than launching an instance that can never connect.
-
-!!! info "NetBird has no DNS in netstack mode"
-    NetBird's userspace mode provides no DNS. Pin the backend's overlay IP as the cloud
-    host and make sure the server certificate has a matching IP SAN.
-
-!!! warning "Keep the NetBird client reasonably current"
-    A Dockerised backend behind NetBird works because NetBird marks traffic in `prerouting`,
-    *before* Docker's published-port DNAT rewrites the destination. That mark is what lets
-    the packet through the forward path after the rewrite. Older clients did not do this,
-    and on those the agent sees `operation timed out` — a **drop**, not a refusal — while
-    the peer, the handshake and the ACL all look healthy.
-
-    If cloud agents launch and never register, check the client version on the backend host
-    before anything else:
-
-    ```bash
-    netbird version
-    ```
-
-    Note the NetBird maintainers describe this marking as applying to **peer ACLs**
-    (destination is the peer itself) and not to route ACLs. Reaching the backend at its own
-    overlay address is the peer-ACL case, so it is covered.
-
-!!! tip "Testing from the Docker host proves nothing"
-    Locally-originated traffic never traverses the forwarding path, so
-    `curl https://<overlay-ip>:31337/` succeeds on a host where every remote peer is being
-    dropped. Always test from a **different** peer:
-
-    ```bash
-    curl -m 10 http://<backend-overlay-ip>:1337/ca.crt
-    ```
-
-    If that times out while the backend answers on the host itself, capture on both
-    interfaces to see where the packet dies — and check that nothing has left a stray
-    interface in the container's network namespace (`docker exec <app> ip route`). A second
-    route for the overlay range inside the container will silently blackhole every reply.
+A VPN is **mandatory** — there is no direct-connection mode, and provisioning fails closed
+without a credential, before any provider API call is made. OpenVPN cannot work in an
+unprivileged container and is not supported.
 
 ### 3. The server certificate must cover the VPN address
 
-Cloud agents connect to the backend at its **VPN** address, and the agent sets no explicit
-`ServerName`, so SNI is whatever host it dials. That address must be in the certificate's
-subject alternative names.
+Cloud agents connect at the backend's VPN address and set no explicit `ServerName`, so that
+address must appear in the server certificate's subject alternative names.
 
-Add it in **Admin → Settings → Server Certificate** and click **Apply & Reissue** — for
-example the Tailscale name `kraken.tailnet-xxxx.ts.net` and its CGNAT address
-`100.113.129.115`. CGNAT addresses (`100.64.0.0/10`) are permitted out of the box, since
-that is what Tailscale uses and what NetBird's default account network is drawn from.
-
-!!! warning "Self-hosted NetBird may sit outside CGNAT"
-    A self-hosted NetBird can be configured with any network range, and it is easy to
-    pick one that is not private. `100.133.64.0/19` looks like CGNAT because it starts
-    with `100.`, but CGNAT stops at `100.127.255.255`. KrakenHashes refuses addresses
-    above that, with no override.
-
-    Check with `netbird status` (the `NetBird IP` line) or `ip -o -4 addr show wt0`.
-    If your range is outside `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` or
-    `100.64.0.0/10`, change the VPN's network range. Renumbering re-allocates every
-    peer, so update `BackendVPNHost` and the certificate SAN list afterwards.
-
-The reissue is immediate and non-disruptive: it uses the existing certificate authority, so
-enrolled agents are unaffected and the backend needs no restart. You do **not** need to set
-this before first boot, and you must not delete the certs directory to change it.
-
-!!! note "Enabling a provider only checks that a VPN host is configured"
-    KrakenHashes requires `BackendVPNHost` to be non-empty before a provider can be
-    enabled, but it does not currently verify that the address appears in the
-    certificate. Check it yourself after adding the provider:
-
-    ```bash
-    openssl s_client -connect <vpn-address>:31337 </dev/null 2>/dev/null \
-      | openssl x509 -noout -text | grep -A1 "Subject Alternative Name"
-    ```
-
-    If a rented instance cannot connect, its reported address also appears under
-    **Discovered addresses** on the Server Certificate page.
+!!! tip "Both prerequisites are covered in one place"
+    **→ [Cloud Agent VPN](cloud-vpn.md)** — choosing a VPN, obtaining a credential for each
+    of the three, the certificate SAN requirement, why OpenVPN is excluded, and what to check
+    when agents launch but never register.
 
 ---
 
@@ -133,7 +61,7 @@ differently when they are wrong.
 | `mock` | **Stable** | Rents nothing and spends nothing |
 | `vastai` | **Beta** | Fully implemented; never once paid for. The rental lifecycle is unproven against the live marketplace |
 | `runpod` (Secure Cloud) | **Beta** | Written against the documented API with no account to verify it on |
-| `runpod_community` | **Beta** | As above, **and teardown is reaper-only** — see the RunPod section |
+| `runpod_community` | **Beta** | As above, **and teardown is reaper-only** — see [RunPod](cloud-runpod.md#teardown-differs-sharply-between-the-two-tiers) |
 
 !!! warning "What to do when running a beta provider"
     The UI marks these with a **Beta** chip in Provider settings and a banner on the Cloud
@@ -192,305 +120,30 @@ Allowing AWS while forbidding the peer tiers is a first-class configuration —
 
 ---
 
-## Vast.ai
+## Providers
 
-### Account setup
+Each provider has its own setup page. All three need a VPN credential and a backend VPN host
+first — see [Cloud Agent VPN](cloud-vpn.md).
 
-1. Use a **dedicated Vast.ai account**. Orphan reconciliation destroys anything on the
-   account that KrakenHashes does not recognise.
-2. Fund it with a **fixed prepaid balance and no auto-billing card**. Vast.ai offers no
-   spending cap; a prepaid balance is the only hard ceiling available.
-3. Create a scoped API key with `misc`, `user_read`, `instance_read`, `instance_write`.
-   Offer search lives under `misc`, not `instance_read` — this is easy to get wrong.
+### [AWS EC2 →](cloud-aws.md)
 
-### Settings
+Your own AWS account, your IAM, AWS datacenters. **Stable** — the only provider driven end to
+end with real money. Needs a GPU quota increase (quotas default to **zero** on every account),
+an IAM policy, and a set of availability zones. That page publishes the IAM policy the
+reference deployment actually runs.
 
-```json
-{
-  "countries": ["US", "DE"],
-  "gpu_models": ["rtx_4090", "rtx_5090"],
-  "denied_gpu_models": [],
-  "min_reliability": 0.9,
-  "allow_unverified": false,
-  "allow_residential": false
-}
-```
+### [RunPod →](cloud-runpod.md)
 
-**Every list empty is the default and means no restriction** — the widest pool. An empty
-`gpu_models` keeps working as you add cards to your fleet; an explicit list freezes the
-selection.
+Two separate provider kinds: **Secure Cloud** (RunPod's own datacenters, single-tenant,
+SOC 2 — treat it like AWS) and **Community Cloud** (peer-operated, full consent chain). Both
+**beta**. The difference that matters is teardown: a Community pod has no in-guest rail and
+the backend reaper is the only thing that can stop it billing.
 
-| Setting | What it does |
-|---|---|
-| `countries` | Vast.ai geolocations, matched case-insensitively as a substring, so `US` matches `US, Texas`. Doubles as your data-residency control. |
-| `gpu_models` / `denied_gpu_models` | Matched on a normalised key, so `rtx_4090` matches both `NVIDIA GeForce RTX 4090` and `RTX 4090`. **Deny always wins** — it is the emergency lever for "that card keeps failing". |
-| `min_reliability` | Vast's own host score, 0–1. Hosts that report no score are kept. Trades a little availability for fewer dead rentals: a host that drops the instance mid-chunk has still been paid for its commissioning. |
+### [Vast.ai →](cloud-vastai.md)
 
-By default only **verified datacenter** hosts are offered. `allow_unverified` and
-`allow_residential` open those tiers.
-
-!!! danger "What opening the tiers actually costs"
-    This is the single largest availability increase available on Vast.ai, and it places
-    client hashes, wordlists, potfiles and cracked plaintexts on machines Vast.ai has **not
-    verified**. Every Vast host already has root over the container — these toggles remove
-    the one filter that keeps it to hosts Vast has checked.
-
-    Some of the extra availability is also illusory: the unverified tier is where "stuck
-    connecting" and "bad driver" reports concentrate, and a rental that never reaches useful
-    work still costs you its commissioning.
-
----
-
-## RunPod
-
-RunPod is configured as **two separate provider kinds**, not one with a tier setting:
-
-- **`runpod` — Secure Cloud.** RunPod's own datacenters, single-tenant per host, covered by
-  their SOC 2 Type II, ISO 27001 and PCI DSS attestations. Treat it like AWS.
-- **`runpod_community` — Community Cloud.** Peer-operated machines. See the trust-tier table
-  above; none of those attestations extend to this tier.
-
-Splitting them is what lets a client allowlist Secure without ever being exposed to
-Community, and what keeps the consent chain attached to the tier that needs it.
-
-### Account setup
-
-1. Use a **dedicated RunPod account**. This is a requirement, not advice. RunPod has no way
-   to tag a pod as ours, so ownership is decided client-side by matching pod **names**
-   against the anchored `kh-xxxxxxxx-xxxx-xxxx` label shape. A name is guessable where a tag
-   is not, and orphan reconciliation destroys unrecognised pods matching that shape.
-2. Fund it with a **fixed prepaid balance and no auto-refill**. Pre-flight tries the GraphQL
-   `myself` query for a balance; if your account does not expose one, the first sign of an
-   empty account is a `402` at pod-create time.
-3. Create an API key with **pod read/write**. Pre-flight probes for write scope with a
-   deliberately schema-invalid create, so a read-only key is caught at configuration time
-   rather than at the first launch.
-
-### Settings
-
-```json
-{
-  "data_center_ids": ["EU-RO-1", "US-KS-2"],
-  "gpu_type_ids": ["NVIDIA GeForce RTX 4090"],
-  "container_disk_gb": 60,
-  "container_disk_cents_per_gb_month": 10,
-  "interruptible": false,
-  "allow_in_guest_self_destruct": false
-}
-```
-
-There is **no rate table**, unlike AWS: RunPod returns live prices, so declaring your own
-would be a second source of truth that can only ever be more wrong.
-
-!!! warning "`data_center_ids` works the opposite way round from AWS zones"
-    **Empty is the WIDEST setting here, not the narrowest.** With no data centres pinned,
-    RunPod's own scheduler may place a pod anywhere. On AWS, omitting the subnet still lands
-    you in exactly one availability zone, so pinning *widens* the pool; on RunPod pinning
-    *narrows* it.
-
-    Set it for data residency, or when you would rather the launch retry loop walk genuinely
-    independent pools than re-hit one exhausted global placement.
-
-### Operational caveats
-
-- **No provider-enforced TTL.** RunPod has no `autoTerminate` or `expiresAt` field, so
-  teardown rests on the in-guest deadline and the backend reaper. Prefer shorter TTLs here
-  than you would on AWS.
-- **A stopped pod still bills**, with volume disk charged at roughly double the running rate.
-  KrakenHashes always terminates and never stops, and never attaches network volumes — those
-  outlive the pod and would hold cracked plaintexts after termination.
-- **Billing granularity is one hour**, so cost-so-far reads as unknown for any pod that lived
-  less than that. Accrual stays wall-clock based.
-- **No idempotency key on pod create.** A lost response can leave a pod billing whose id was
-  never seen. The adapter adopts by label before creating and reconciles by name on an
-  ambiguous failure, and a double launch shows up in the fleet inventory as a duplicate that
-  gets reaped as an orphan — but the window is real, and it is bounded by one reaper sweep in
-  the good case.
-- **Offers are single-GPU** in this version. It is not yet confirmed whether RunPod quotes
-  `lowestPrice` per GPU or per pod, and being wrong on a 4-GPU pod would under-reserve a
-  budget cap fourfold. Every launch compares the pod's actual `costPerHr` against the
-  reserved rate and logs any drift over 10%.
-
-### Teardown differs sharply between the two tiers
-
-| | `runpod` (Secure) | `runpod_community` |
-|---|---|---|
-| In-guest deadline kills hashcat | Yes | Yes |
-| Pod can delete itself | Optional (see below) | **Never** |
-| Backend reaper | Yes | Yes — **and it is the only thing that stops billing** |
-
-!!! danger "Community teardown is reaper-only"
-    RunPod issues **no per-pod scoped credential** — there is no equivalent of Vast.ai's
-    `CONTAINER_API_KEY`, which can delete only its own instance. The only key that can delete
-    a pod is **account-scoped**, and on Community the host operator has root over the
-    container and would read it out of the environment. That key can create and delete every
-    other pod on your account, so KrakenHashes never places one in a Community pod.
-
-    The consequence: the in-guest deadline still kills hashcat and ends the data exposure,
-    but **it cannot stop the pod billing**. If the backend is down or wedged, a Community pod
-    bills until you destroy it by hand from the Cloud Fleet page.
-
-    Give any client allowed on this tier a **low `max_instance_ttl_minutes`** and a small
-    budget cap.
-
-On **Secure**, `allow_in_guest_self_destruct` adds the third teardown rail so a pod can
-`DELETE` itself when it loses contact, matching Vast.ai. Supply a separate, narrower key as
-`self_destruct_api_key` in the credentials JSON rather than reusing your provisioning key:
-
-```json
-{ "api_key": "<provisioning key>", "self_destruct_api_key": "<pod read/write only>" }
-```
-
-A bare string is also accepted and read as the provisioning key alone.
-
----
-
-## AWS
-
-### Quotas come first
-
-**GPU quotas default to zero on every AWS account.** Until an increase is granted, no GPU
-instance can launch at all.
-
-| Quota | Code |
-|---|---|
-| Running On-Demand G and VT instances (vCPUs) | `L-DB2E81BA` |
-| All G and VT Spot Instance Requests (vCPUs) | `L-3819A6DF` |
-
-On-demand and spot quotas are independent. Request increases before first use; a first-ever
-GPU request can take days and may be partially granted.
-
-!!! tip "The quota is your only true concurrency ceiling"
-    Set it to exactly the vCPUs you are willing to run. No bug in KrakenHashes can exceed
-    it. Combine with a dedicated AWS account so nothing else consumes it.
-
-### Spot is often not cheaper
-
-Observed GPU spot discounts run 3–40%, not the advertised "up to 90%". Current-gen parts
-(L4, L40S, Blackwell) barely discount because demand is saturated. Compare before enabling.
-
-### IAM
-
-The provisioner needs tag-scoped permissions. Key points:
-
-- `ec2:RunInstances` must be allowed on **every** ARN type it touches — `image`, `subnet`,
-  `security-group`, `instance`, `volume`, `network-interface`, and `spot-instances-request`
-  for spot. Missing one yields a bare `UnauthorizedOperation` with no hint which.
-- `aws:RequestTag` conditions apply only to resources the call **creates**. Putting one on
-  the `subnet` or `image` statement denies everything.
-- A separate `ec2:CreateTags` statement gated on `ec2:CreateAction` is required, or
-  `TagSpecifications` fails the request.
-- `ec2:TerminateInstances` conditioned on `aws:ResourceTag/krakenhashes:managed` so the
-  service can never terminate anything it did not create.
-- `iam:PassRole` scoped to the exact worker role ARN with
-  `iam:PassedToService=ec2.amazonaws.com`, or this policy is a privilege-escalation vector.
-- `aws:ResourceTag` is **not** evaluated for `Describe*` — those are all-or-nothing.
-- The zone picker needs `ec2:DescribeAvailabilityZones`, `ec2:DescribeSubnets`,
-  `ec2:DescribeInstanceTypeOfferings`, `ec2:DescribeSpotPriceHistory` and
-  `ec2:GetSpotPlacementScores`. All read-only. The first two are required for the screen to
-  render at all; the rest degrade individual columns to "unknown" and name themselves in a
-  warning rather than failing the page, so an over-tight policy costs information, not
-  function.
-
-### Settings
-
-```json
-{
-  "region": "us-east-1",
-  "security_group_ids": ["sg-..."],
-  "iam_instance_profile_arn": "arn:aws:iam::123456789012:instance-profile/KrakenHashesWorker",
-  "ami_ssm_parameter": "/aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
-  "use_spot": false,
-  "instance_type_rates": { "g4dn.xlarge": 53, "g6e.xlarge": 187 },
-  "root_volume_gb": 100,
-  "zones": [
-    { "zone": "us-east-1a", "zone_id": "use1-az1", "subnet_id": "subnet-...", "instance_types": [] },
-    { "zone": "us-east-1b", "zone_id": "use1-az2", "subnet_id": "subnet-...", "instance_types": ["g4dn.xlarge"] }
-  ]
-}
-```
-
-`instance_type_rates` is in **cents per hour** and is operator-supplied rather than resolved
-from the AWS Pricing API: that API needs exact `capacitystatus`/`preInstalledSw`/`tenancy`
-filters or it silently returns the wrong SKU.
-
-Use `ami_ssm_parameter` rather than pinning `ami_id`, so image updates are picked up
-without a config change.
-
-### Zones: why one subnet is not enough
-
-**EC2 spot capacity is a property of the (instance type, availability zone) pair.**
-`g4dn.xlarge` being exhausted in `us-east-2b` says nothing about `g4dn.xlarge` in
-`us-east-2c` — they are different physical inventories. So the number of independent
-chances a launch gets is:
-
-```
-capacity pools = (zones you allow) x (instance types you allow in them)
-```
-
-A config with one `subnet_id` and one instance type has **exactly one pool**. When it is
-empty, provisioning simply stops: the launch retry loop walks its candidate list, but every
-candidate resolves to the same inventory, so the second refusal was implied by the first.
-Measured on a real deployment: fifteen consecutive `InsufficientInstanceCapacity` refusals
-against one pool, then a success within two scheduler cycles of widening to three instance
-types across two zones. Nothing about the account, quota or region changed.
-
-Each entry in `zones` is one placement. `subnet_id` is the only required field — a launch
-takes a subnet, not a zone. An **empty `instance_types` means "every type in
-`instance_type_rates`"**, which is what you want by default and what keeps the selection
-from silently narrowing when you price a new instance type later. Narrow it per zone only
-when you know a particular card is never obtainable there.
-
-`zone_id` (`use2-az1`) is the stable physical identifier; `zone` (`us-east-2a`) is an alias
-AWS shuffles **per account**, so your `us-east-2a` and another account's are usually
-different datacentres. Capacity APIs report the zone ID, which is why both are stored.
-
-!!! note "The Subnet ID field was removed from the settings form"
-    It expressed the same thing as the zone picker — placement — and the backend ignores it
-    the moment any zone is selected, so having both on screen invited editing dead config.
-
-    Nothing breaks. A stored `subnet_id` is preserved and still honoured while no zones are
-    configured. To migrate an existing config: open the provider, click **Check
-    availability**, and your current subnet's zone is already ticked and labelled *"selected
-    via the legacy single subnet_id setting"*. Saving converts it. The field is still
-    accepted by the API for automation.
-
-When `zones` is set, the top-level `subnet_id` is ignored. It remains supported on its own
-for existing configs and as the fallback when no zones are selected.
-
-### Picking zones from the UI
-
-**Admin → Settings → Cloud Provisioning → Providers → (edit an AWS provider) → Availability
-zones and instance types.**
-
-"Check availability" (`GET /api/admin/cloud/providers/{id}/capacity`) reads live data and
-spends nothing — it is five EC2 describe calls. It renders a zone × instance-type grid
-where each ticked cell is one capacity pool, with the running pool count underneath.
-
-Read the columns in this order of trustworthiness:
-
-| Signal | Source | How much to trust it |
-|---|---|---|
-| **Offered / not offered** | `DescribeInstanceTypeOfferings` | **Definitive.** A type not offered in a zone can never launch there. |
-| **Free IPs, subnet, zone state** | `DescribeSubnets`, `DescribeAvailabilityZones` | Definitive. A zone with no subnet or no free addresses cannot launch. |
-| **Spot price** | `DescribeSpotPriceHistory` | Real, but a price is not an inventory. |
-| **Placement score (n/10)** | `GetSpotPlacementScores` | **Weak.** See below. |
-
-The placement score is AWS's own relative ranking of a pool, and it is worth less than it
-looks: every `us-east-2` zone scored **1/10** on a live account minutes before a
-`g4dn.xlarge` launch in one of them succeeded on the first attempt. It is used to decide
-which pool to try **first** and for nothing else — it never removes a pool from the
-candidate list, and gating on it would have refused a launch that worked. If your IAM role
-lacks `ec2:GetSpotPlacementScores`, you lose the ordering and nothing else; the screen says
-so rather than failing.
-
-The **spot price is shown next to your configured rate** because the two drift and only one
-is real. Reservations are denominated in your configured figure, so pricing above the live
-rate merely over-reserves; pricing **below** it under-reserves against a cap you were told
-was hard. One deployment had `g4dn.xlarge` priced at 53c while spot was quoting 27c.
-
-The screen reads the **saved** provider config, so save before checking: an unsaved form's
-credentials and region are not visible to the backend.
+A marketplace of individually-owned machines. **Beta**, and the host operator has root over
+your container. Four selection axes — country, GPU model allow/deny, verified-datacenter
+toggle, and a reliability floor.
 
 ---
 
@@ -543,10 +196,11 @@ The threshold ladder (notify / stop-provisioning / drain / hard-stop) defaults t
 absolute — see [the architecture doc](../../reference/architecture/cloud-provisioning.md)
 for why reservation accounting, not the ladder, is what enforces it.
 
-Vast.ai requires the acknowledgement **twice**: once when enabling the provider, and again
-per client before that client may be allowlisted for it. The provider-level acknowledgement
-says the operator understands where Vast.ai runs; the per-client one says this particular
-engagement's data may go there. Both are attributed to the admin who accepted them.
+The peer-operated tiers — **Vast.ai** and **RunPod Community** — require the acknowledgement
+**twice**: once when enabling the provider, and again per client before that client may be
+allowlisted for it. The provider-level acknowledgement says the operator understands where
+that provider runs; the per-client one says this particular engagement's data may go there.
+Both are attributed to the admin who accepted them. AWS and RunPod Secure need neither.
 
 ## Provisioning rules: when the system may spend
 
@@ -803,13 +457,17 @@ still reachable, so historical job views continue to show which agent ran which 
 
 ## Verifying before you spend
 
-Run the pre-flight from the provider page. For AWS it reports, separately:
+Run the pre-flight from the provider page. What it can check differs by provider:
 
-- whether credentials resolve (`sts:GetCallerIdentity`)
-- the applied or default quota, and current usage
-- exactly which IAM permissions are missing, via a real `DryRun`
+| Provider | Pre-flight reports |
+|---|---|
+| **AWS** | Whether credentials resolve (`sts:GetCallerIdentity`), the applied or default GPU quota and current usage, and exactly which IAM permissions are missing — via a real `DryRun` |
+| **RunPod** | That the key is accepted, read scope on pods, **write** scope (probed with a deliberately schema-invalid create that cannot succeed), and the account credit balance |
+| **Vast.ai** | That the key is accepted, and the prepaid balance |
 
-Anything inconclusive is treated as **failure**, not success: "unknown" is not "allowed".
+Anything inconclusive is treated as **failure**, not success: "unknown" is not "allowed". On
+AWS that makes pre-flight stricter than launching — see
+[the caveat](cloud-aws.md#what-is-required-and-what-merely-degrades).
 
 Then rent one cheap instance with a short TTL and confirm teardown by killing the backend
 immediately after launch — the in-guest watchdog should still destroy it.
@@ -827,3 +485,17 @@ One limit worth knowing: the mock agent never runs hashcat, so it emits syntheti
 values that match nothing and a hashlist will read **0 cracked** however well the run goes.
 The rehearsal proves provisioning, sizing, the handshake and teardown. It cannot prove that
 cracked passwords are *recorded* — only a real agent can do that.
+
+There is a second, manual script alongside it. `scripts/cloud-only-rehearsal.sh` configures a
+$0 mock-provider deployment with no on-prem GPUs, following the
+[cloud-only checklist](#cloud-only-deployments-no-on-prem-gpus) above, and then hands you a
+checklist to work through by hand. Use `cloud-e2e-test.sh` for regression checking and this
+one to rehearse the experience an operator will actually have.
+
+## Related
+
+- [Cloud Agent VPN](cloud-vpn.md) — required before any provider can be enabled
+- [AWS EC2](cloud-aws.md) · [RunPod](cloud-runpod.md) · [Vast.ai](cloud-vastai.md) — per-provider setup
+- [Cloud Agent Deployment](../../agent-guide/cloud-deployment.md) — what runs inside a rented instance
+- [Cloud GPU Provisioning](../../reference/architecture/cloud-provisioning.md) — design rationale
+- [Job Priority](../advanced/job-priority.md) — the scale the minimum-priority rule is absolute against
