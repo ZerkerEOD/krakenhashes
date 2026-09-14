@@ -249,7 +249,7 @@ func TestCrackDrainGraceBounds(t *testing.T) {
 		crack time.Duration
 	}{
 		{"DefaultSettings", DefaultSettings().IdleDrain, DefaultSettings().CrackDrainGrace},
-		{"NewReaper", NewReaper(nil, nil, nil, nil).IdleDrain, NewReaper(nil, nil, nil, nil).CrackDrainGrace},
+		{"NewReaper", NewReaper(nil, nil, nil, nil, nil).IdleDrain, NewReaper(nil, nil, nil, nil, nil).CrackDrainGrace},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.crack <= tc.idle {

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -43,10 +44,32 @@ const (
 
 // AWSSettings is the non-secret provider configuration.
 type AWSSettings struct {
-	Region             string   `json:"region"`
-	SubnetID           string   `json:"subnet_id"`
-	SecurityGroupIDs   []string `json:"security_group_ids"`
-	IAMInstanceProfile string   `json:"iam_instance_profile_arn"`
+	Region string `json:"region"`
+	/*
+	 * SubnetID is the LEGACY single-placement setting, kept working because
+	 * every existing config has one. When Zones is empty it is treated as a
+	 * single unnamed zone; when Zones is set it is ignored entirely.
+	 *
+	 * Pinning to one subnet pins to one availability zone, and on spot that is
+	 * a pin to one capacity pool. Prefer Zones.
+	 */
+	SubnetID string `json:"subnet_id"`
+	/*
+	 * Zones is the operator's placement allowlist: the availability zones this
+	 * provider may launch into, and the instance types acceptable in each.
+	 *
+	 * This is the whole point of the multi-zone work. EC2 spot capacity is a
+	 * property of the (instance type, zone) PAIR — g4dn.xlarge exhausted in
+	 * us-east-2b says nothing about g4dn.xlarge in us-east-2c — so the number
+	 * of distinct pools a launch can fall back through is
+	 * len(zones) x len(types), and a config with one of each has exactly one
+	 * chance. Measured on this deployment: fifteen consecutive refusals against
+	 * a single type in a single subnet, then a success within two cycles of
+	 * widening to three types across two zones.
+	 */
+	Zones              []AWSZone `json:"zones"`
+	SecurityGroupIDs   []string  `json:"security_group_ids"`
+	IAMInstanceProfile string    `json:"iam_instance_profile_arn"`
 	// AMIID pins an image. When empty, AMISSMParameter is resolved instead.
 	AMIID string `json:"ami_id"`
 	// AMISSMParameter is an SSM public parameter path, e.g.
@@ -97,6 +120,39 @@ type AWSSettings struct {
 	// be rounded UP: reservations are denominated in these declared cents and
 	// nothing cross-checks them against a real invoice.
 	EBSCentsPerGBMonth float64 `json:"ebs_cents_per_gb_month"`
+}
+
+/*
+ * AWSZone is one placement the operator has approved.
+ *
+ * SubnetID is the load-bearing field: RunInstances takes a subnet, not a zone,
+ * and a zone with no subnet in the configured VPC cannot be launched into. Zone
+ * and ZoneID are carried for display and for joining against capacity APIs
+ * respectively, and neither is required for a launch to work.
+ */
+type AWSZone struct {
+	// Zone is the account-scoped alias, e.g. us-east-2a. Display only: AWS
+	// shuffles these per account, so one account's us-east-2a is generally a
+	// different datacentre from another's.
+	Zone string `json:"zone"`
+	// ZoneID is the stable physical identifier, e.g. use2-az1. This is what
+	// GetSpotPlacementScores reports and the only safe key to join it on.
+	ZoneID string `json:"zone_id"`
+	// SubnetID is the subnet in this zone that launches use. Required.
+	SubnetID string `json:"subnet_id"`
+	/*
+	 * InstanceTypes narrows which types may be launched HERE. Empty means
+	 * "every type in instance_type_rates", which is the sane default and what
+	 * a "select all" click should produce.
+	 *
+	 * Per-zone narrowing exists because availability is not uniform: an
+	 * operator may know g6 is reliably obtainable in one zone and never in
+	 * another, and be willing to accept a slower g4dn there rather than
+	 * nothing. A type listed here that has no rate in instance_type_rates is
+	 * skipped — the rate is what the budget reserves against, so an unpriced
+	 * type cannot be rented.
+	 */
+	InstanceTypes []string `json:"instance_types"`
 }
 
 // AWSInstanceGPU is the hardware an operator declares for one instance type.
@@ -342,8 +398,65 @@ func (a *AWSProvider) resolveAMI(ctx context.Context) (string, error) {
 	return *out.Parameter.Value, nil
 }
 
-// SearchOffers turns the operator's configured instance types into offers.
-// AWS has no marketplace to query: the "offer" is a type at a known rate.
+/*
+ * awsPlacement is one resolved launch target: a subnet, plus the instance types
+ * the operator will accept in it.
+ */
+type awsPlacement struct {
+	zone     string
+	zoneID   string
+	subnetID string
+	// types nil means "every priced type is acceptable here".
+	types map[string]bool
+}
+
+/*
+ * placements resolves the configured zones into launch targets.
+ *
+ * Never returns empty. With no zones configured it yields a single placement
+ * carrying the legacy subnet_id — which may itself be empty, in which case
+ * RunInstances picks a default-VPC subnet exactly as it did before zones
+ * existed. That fallback is what keeps every pre-existing config working.
+ */
+func (a *AWSProvider) placements() []awsPlacement {
+	out := make([]awsPlacement, 0, len(a.settings.Zones))
+	for _, z := range a.settings.Zones {
+		if z.SubnetID == "" {
+			// Skipped rather than launched blind: without a subnet the launch
+			// would land wherever EC2 chose, which is the single-pool problem
+			// zones exist to solve, and it would do so silently.
+			debug.Warning("Cloud/AWS: zone %s has no subnet configured; skipping it as a launch target", z.Zone)
+			continue
+		}
+		var types map[string]bool
+		if len(z.InstanceTypes) > 0 {
+			types = make(map[string]bool, len(z.InstanceTypes))
+			for _, t := range z.InstanceTypes {
+				types[t] = true
+			}
+		}
+		out = append(out, awsPlacement{
+			zone: z.Zone, zoneID: z.ZoneID, subnetID: z.SubnetID, types: types,
+		})
+	}
+	if len(out) == 0 {
+		return []awsPlacement{{subnetID: a.settings.SubnetID}}
+	}
+	return out
+}
+
+/*
+ * SearchOffers turns the operator's configured instance types into offers, one
+ * per (type, zone) pair. AWS has no marketplace to query: the "offer" is a type
+ * at a known rate, in a place.
+ *
+ * The zone dimension is not cosmetic. Spot capacity lives in the pair, so N
+ * types across M zones is N*M independent chances, and the launch retry loop in
+ * service.go walks all of them. Collapsing that to N — which is what a single
+ * configured subnet does — means an InsufficientInstanceCapacity on the first
+ * candidate all but predicts the rest, because they are the same physical pool
+ * wearing different instance types.
+ */
 func (a *AWSProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offer, error) {
 	if len(a.settings.InstanceTypeRates) == 0 {
 		return nil, fmt.Errorf("aws: no instance_type_rates configured")
@@ -363,57 +476,102 @@ func (a *AWSProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offer, 
 	}
 	storageCentsPerHour := a.ebsCentsPerHour(diskGB)
 
-	var offers []Offer
-	for instType, cents := range a.settings.InstanceTypeRates {
-		if len(allowed) > 0 && !allowed[instType] {
-			continue
-		}
-		if q.MaxHourlyRateCents > 0 && cents > q.MaxHourlyRateCents {
-			continue
-		}
-		// Declared hardware when the operator supplied it. Falling back to the
-		// instance type as the model name is deliberate rather than lazy: it
-		// keeps a stable key so observations still accumulate per instance
-		// type, and the ranker rates it as unknown hardware, which is honest.
-		// See AWSSettings.InstanceTypeGPUs for what that costs.
-		gpuModel := instType
-		gpuCount := 1
-		vramGB := 0
-		if hw, ok := a.settings.InstanceTypeGPUs[instType]; ok {
-			if hw.GPUModel != "" {
-				gpuModel = hw.GPUModel
-			}
-			if hw.GPUCount > 0 {
-				gpuCount = hw.GPUCount
-			}
-			vramGB = hw.VRAMGBPerGPU
-		}
+	placements := a.placements()
 
-		offers = append(offers, Offer{
-			ID:                  instType,
-			InstanceType:        instType,
-			GPUModel:            gpuModel,
-			GPUCount:            gpuCount,
-			VRAMGBPerGPU:        vramGB,
-			HourlyRateCents:     cents,
-			StorageCentsPerHour: storageCentsPerHour,
-			Region:              a.settings.Region,
-			// EC2 publishes no per-GPU VRAM figure anywhere in the API — the
-			// instance type implies it, via a mapping AWS does not expose and
-			// this code deliberately does not invent. Unless the operator
-			// declared it in InstanceTypeGPUs, vramGB stays 0 = UNKNOWN, so
-			// these offers pass a VRAM floor or ceiling instead of vanishing
-			// the moment an operator sets one. Little is lost by that here:
-			// AWS is already constrained to instance_type_rates, an allowlist
-			// the operator wrote and priced by hand, so an unwanted card cannot
-			// appear unless they listed it themselves.
-			//
-			// No stock signal either: the only way EC2 reports capacity is by
-			// failing a launch with InsufficientInstanceCapacity, which is not
-			// something that can be known before spending.
-			Availability: AvailabilityUnknown,
-			Raw:          models.JSONMap{"instance_type": instType},
-		})
+	/*
+	 * Placement scores order the pools. Best-effort by design: one failed call
+	 * (or an IAM role without ec2:GetSpotPlacementScores) must cost ordering,
+	 * never candidates. A nil map leaves every offer at AvailabilityUnknown,
+	 * which ties in the ranker and falls through to the existing tie-breaks.
+	 */
+	var scores map[string]int
+	if a.settings.UseSpot && len(placements) > 1 {
+		scores = a.spotPlacementScores(ctx, a.pricedTypes())
+	}
+
+	var offers []Offer
+	for _, pl := range placements {
+		for instType, cents := range a.settings.InstanceTypeRates {
+			if len(allowed) > 0 && !allowed[instType] {
+				continue
+			}
+			if pl.types != nil && !pl.types[instType] {
+				continue
+			}
+			if q.MaxHourlyRateCents > 0 && cents > q.MaxHourlyRateCents {
+				continue
+			}
+			// Declared hardware when the operator supplied it. Falling back to the
+			// instance type as the model name is deliberate rather than lazy: it
+			// keeps a stable key so observations still accumulate per instance
+			// type, and the ranker rates it as unknown hardware, which is honest.
+			// See AWSSettings.InstanceTypeGPUs for what that costs.
+			gpuModel := instType
+			gpuCount := 1
+			vramGB := 0
+			if hw, ok := a.settings.InstanceTypeGPUs[instType]; ok {
+				if hw.GPUModel != "" {
+					gpuModel = hw.GPUModel
+				}
+				if hw.GPUCount > 0 {
+					gpuCount = hw.GPUCount
+				}
+				vramGB = hw.VRAMGBPerGPU
+			}
+
+			// ID must be unique across the whole result set or two zones'
+			// offers become indistinguishable in the retry log, which is
+			// precisely the log you read after a run of capacity refusals.
+			id := instType
+			if pl.zone != "" {
+				id = instType + "@" + pl.zone
+			}
+
+			offers = append(offers, Offer{
+				ID:                  id,
+				InstanceType:        instType,
+				GPUModel:            gpuModel,
+				GPUCount:            gpuCount,
+				VRAMGBPerGPU:        vramGB,
+				HourlyRateCents:     cents,
+				StorageCentsPerHour: storageCentsPerHour,
+				Region:              a.settings.Region,
+				Zone:                pl.zone,
+				ZoneID:              pl.zoneID,
+				PlacementRef:        pl.subnetID,
+				// EC2 publishes no per-GPU VRAM figure anywhere in the API — the
+				// instance type implies it, via a mapping AWS does not expose and
+				// this code deliberately does not invent. Unless the operator
+				// declared it in InstanceTypeGPUs, vramGB stays 0 = UNKNOWN, so
+				// these offers pass a VRAM floor or ceiling instead of vanishing
+				// the moment an operator sets one. Little is lost by that here:
+				// AWS is already constrained to instance_type_rates, an allowlist
+				// the operator wrote and priced by hand, so an unwanted card cannot
+				// appear unless they listed it themselves.
+				//
+				// EC2 publishes no per-GPU VRAM figure anywhere in the API — the
+				// instance type implies it, via a mapping AWS does not expose and
+				// this code deliberately does not invent. Unless the operator
+				// declared it in InstanceTypeGPUs, vramGB stays 0 = UNKNOWN, so
+				// these offers pass a VRAM floor or ceiling instead of vanishing
+				// the moment an operator sets one. Little is lost by that here:
+				// AWS is already constrained to instance_type_rates, an allowlist
+				// the operator wrote and priced by hand, so an unwanted card cannot
+				// appear unless they listed it themselves.
+				//
+				// The only stock signal EC2 offers before a launch is the spot
+				// placement score, and it is a RELATIVE hint: 1/10 in every zone
+				// on this account minutes before a first-try success. It orders
+				// the candidates and nothing else — see spotPlacementScores.
+				Availability: availabilityFromScore(scores[pl.zoneID]),
+				Raw: models.JSONMap{
+					"instance_type": instType,
+					"zone":          pl.zone,
+					"zone_id":       pl.zoneID,
+					"subnet_id":     pl.subnetID,
+				},
+			})
+		}
 	}
 
 	// Re-apply the full query. The loop above only enforces the two constraints
@@ -433,6 +591,39 @@ func (a *AWSProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offer, 
 		}
 	}
 	return offers, nil
+}
+
+// pricedTypes is every instance type the operator has given a rate, sorted so
+// AWS calls that take a type list are deterministic.
+func (a *AWSProvider) pricedTypes() []string {
+	out := make([]string, 0, len(a.settings.InstanceTypeRates))
+	for t := range a.settings.InstanceTypeRates {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
+}
+
+/*
+ * availabilityFromScore maps a 1-10 spot placement score onto the shared stock
+ * signal. Zero (no score) stays Unknown, which sorts lowest in the ranker's
+ * tie-break but is never filtered.
+ *
+ * The bands are coarse on purpose. The score is AWS's own relative ranking of
+ * pools for one target capacity at one moment; treating a 6 as meaningfully
+ * different from a 7 would be reading precision that is not there.
+ */
+func availabilityFromScore(score int) OfferAvailability {
+	switch {
+	case score <= 0:
+		return AvailabilityUnknown
+	case score >= 7:
+		return AvailabilityHigh
+	case score >= 4:
+		return AvailabilityMedium
+	default:
+		return AvailabilityLow
+	}
 }
 
 // buildRunInput assembles the exact RunInstances call, shared by Launch and
@@ -497,8 +688,21 @@ func (a *AWSProvider) buildRunInput(amiID string, req LaunchRequest, userData st
 		}},
 	}
 
-	if a.settings.SubnetID != "" {
-		in.SubnetId = aws.String(a.settings.SubnetID)
+	/*
+	 * The OFFER's subnet wins. This is what makes the retry loop in
+	 * service.go:attemptLaunch worth having on AWS: each ranked candidate
+	 * carries its own placement, so a capacity refusal in one zone is followed
+	 * by an attempt in the next rather than N attempts at the same pool.
+	 *
+	 * Falls back to the global setting for the legacy single-subnet config and
+	 * for the preflight dry run, which has no offer.
+	 */
+	subnetID := req.Offer.PlacementRef
+	if subnetID == "" {
+		subnetID = a.settings.SubnetID
+	}
+	if subnetID != "" {
+		in.SubnetId = aws.String(subnetID)
 	}
 	if len(a.settings.SecurityGroupIDs) > 0 {
 		in.SecurityGroupIds = a.settings.SecurityGroupIDs
@@ -536,21 +740,28 @@ func (a *AWSProvider) dryRunLaunch(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var instType string
-	for t := range a.settings.InstanceTypeRates {
-		instType = t
-		break
-	}
-	if instType == "" {
+	priced := a.pricedTypes()
+	if len(priced) == 0 {
 		return fmt.Errorf("no instance_type_rates configured")
 	}
+
+	// Validate against a REAL placement. With zones configured and no legacy
+	// subnet_id, dry-running with an empty offer would omit the subnet
+	// entirely, so preflight would pass on a launch shape production never
+	// sends — and the IAM check on the subnet ARN would never happen.
+	pl := a.placements()[0]
 
 	in := a.buildRunInput(amiID, LaunchRequest{
 		Label:          "kh-preflight",
 		IdempotencyKey: "kh-preflight",
-		Offer:          Offer{InstanceType: instType},
-		DiskGB:         30,
-		TTL:            time.Hour,
+		Offer: Offer{
+			InstanceType: priced[0],
+			Zone:         pl.zone,
+			ZoneID:       pl.zoneID,
+			PlacementRef: pl.subnetID,
+		},
+		DiskGB: 30,
+		TTL:    time.Hour,
 	}, "#!/bin/bash\ntrue\n")
 	in.DryRun = aws.Bool(true)
 

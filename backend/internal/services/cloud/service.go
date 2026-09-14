@@ -30,6 +30,16 @@ import (
 // hardware.
 type VoucherIssuer interface {
 	CreateCloudVoucher(ctx context.Context, expiresIn time.Duration, cloudInstanceID uuid.UUID) (*models.ClaimVoucher, error)
+	/*
+	 * DeactivateForCloudInstance kills the credential when the instance it was
+	 * minted for definitively fails.
+	 *
+	 * Part of the issuer interface rather than a loose repository call because
+	 * minting and killing are the same responsibility: whatever can hand out a
+	 * registration credential must be able to take it back. Returns how many
+	 * were deactivated so callers log a real number.
+	 */
+	DeactivateForCloudInstance(ctx context.Context, cloudInstanceID uuid.UUID) (int64, error)
 }
 
 /*
@@ -164,6 +174,28 @@ func (s *Service) InvalidateProvider(configID uuid.UUID) {
 	s.mu.Unlock()
 }
 
+/*
+ * decodeSettings re-parses a provider config's untyped JSONB settings into that
+ * provider's typed struct.
+ *
+ * Round-tripping through JSON rather than reflecting over the map keeps the
+ * struct tags as the single definition of the wire shape, so a settings key is
+ * spelled once. Every field must therefore tolerate being absent: configs
+ * written before a setting existed simply decode to its zero value, and that
+ * zero value has to reproduce the old behaviour.
+ */
+func decodeSettings[T any](cfg *models.CloudProviderConfig) (T, error) {
+	var out T
+	raw, err := json.Marshal(cfg.Settings)
+	if err != nil {
+		return out, fmt.Errorf("encode %s settings for %s: %w", cfg.Provider, cfg.Name, err)
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return out, fmt.Errorf("parse %s settings for %s: %w", cfg.Provider, cfg.Name, err)
+	}
+	return out, nil
+}
+
 func (s *Service) buildProvider(ctx context.Context, cfg *models.CloudProviderConfig) (Provider, error) {
 	creds, err := s.decrypt(cfg.CredentialsEncrypted)
 	if err != nil {
@@ -175,16 +207,20 @@ func (s *Service) buildProvider(ctx context.Context, cfg *models.CloudProviderCo
 		if creds == "" {
 			return nil, fmt.Errorf("vast.ai provider %s has no API key", cfg.Name)
 		}
-		return NewVastAIProvider(creds), nil
-
-	case models.CloudProviderAWS:
-		settingsJSON, err := json.Marshal(cfg.Settings)
+		// cfg.Settings was ignored entirely for Vast.ai until placement policy
+		// existed. Every pre-existing config therefore decodes to the zero
+		// VastSettings, which reproduces the old behaviour exactly: verified
+		// datacenter hosts only, any country, any card, no reliability floor.
+		vastSettings, err := decodeSettings[VastSettings](cfg)
 		if err != nil {
 			return nil, err
 		}
-		var settings AWSSettings
-		if err := json.Unmarshal(settingsJSON, &settings); err != nil {
-			return nil, fmt.Errorf("parse AWS settings for %s: %w", cfg.Name, err)
+		return NewVastAIProvider(creds, vastSettings), nil
+
+	case models.CloudProviderAWS:
+		settings, err := decodeSettings[AWSSettings](cfg)
+		if err != nil {
+			return nil, err
 		}
 		var awsCreds AWSCredentials
 		if creds != "" {
@@ -193,6 +229,16 @@ func (s *Service) buildProvider(ctx context.Context, cfg *models.CloudProviderCo
 			}
 		}
 		return NewAWSProvider(ctx, settings, awsCreds)
+
+	case models.CloudProviderRunPod, models.CloudProviderRunPodCommunity:
+		// One adapter, two kinds: cfg.Provider IS the tier, passed straight
+		// through. RequiresThirdPartyAck already keys off the same constant,
+		// so the Community consent chain needs no adapter code at all.
+		runpodSettings, err := decodeSettings[RunPodSettings](cfg)
+		if err != nil {
+			return nil, err
+		}
+		return NewRunPodProvider(parseRunPodCredentials(creds), cfg.Provider, runpodSettings)
 
 	case models.CloudProviderMock:
 		binary, _ := cfg.Settings["agent_binary"].(string)
@@ -575,13 +621,67 @@ func (s *Service) ProvisionForJob(ctx context.Context, jobID uuid.UUID) error {
 		if lastErr == nil {
 			return nil
 		}
-		if !errors.Is(lastErr, ErrOfferUnavailable) {
+		switch {
+		case errors.Is(lastErr, ErrOfferUnavailable):
+			debug.Warning("Cloud: offer %s on %s vanished between search and launch (%d of %d): %v; "+
+				"trying the next candidate", cand.ID, cand.cfg.Name, i+1, len(ranked), lastErr)
+		case errors.Is(lastErr, errProviderLocal):
+			debug.Warning("Cloud: %s cannot launch right now (%d of %d): %v; trying the next candidate, "+
+				"which may be on a different provider", cand.cfg.Name, i+1, len(ranked), lastErr)
+		default:
 			return lastErr
 		}
-		debug.Warning("Cloud: offer %s on %s vanished between search and launch (%d of %d): %v; trying the next candidate",
-			cand.ID, cand.cfg.Name, i+1, len(ranked), lastErr)
 	}
-	return fmt.Errorf("every one of the %d ranked cloud offers became unavailable: %w", len(ranked), lastErr)
+	return fmt.Errorf("all %d ranked cloud offers were exhausted: %w", len(ranked), lastErr)
+}
+
+/*
+ * errProviderLocal marks a failure that is (a) confined to ONE provider config
+ * and (b) provably pre-launch, so nothing was created and nothing is billing.
+ *
+ * It exists because the launch walk was correctly conservative and therefore
+ * too broad: any error other than ErrOfferUnavailable aborted the entire
+ * provision, including every candidate belonging to a DIFFERENT provider. An
+ * expired Vast.ai reusable key would stop AWS being tried at all — the precise
+ * failure that rankedCandidates already goes out of its way to isolate one step
+ * earlier, undone one step later.
+ *
+ * The bar for wearing this sentinel is deliberately high, and ambiguity
+ * disqualifies. A timeout at the provider may have created a billing instance,
+ * so it must keep aborting the walk and leave the row for the reaper to
+ * reconcile by label. Only errors raised before the instance row, the voucher,
+ * the reservation and the provider call qualify.
+ */
+var errProviderLocal = errors.New("provider-local failure")
+
+/*
+ * killVoucher deactivates the registration credential for an instance whose
+ * launch DEFINITIVELY failed.
+ *
+ * "Definitively" is the whole contract. A cloud voucher is minted before the
+ * provider is called and is a working claim code until its TTL expires, so an
+ * attempt that fails in its first second otherwise leaves a live credential for
+ * up to an hour — once per candidate offer, which on a multi-zone AWS config is
+ * up to nine per provision.
+ *
+ * Call this ONLY where the instance is known not to exist. Never call it on the
+ * ambiguous launch path: there the instance may be running, and its agent needs
+ * this code to register.
+ *
+ * Never blocks the caller. Failing to deactivate is worth an error line, but the
+ * provisioning path has already decided what it is doing and the sweep will
+ * remove the row later regardless.
+ */
+func (s *Service) killVoucher(ctx context.Context, instanceID uuid.UUID, why string) {
+	n, err := s.vouchers.DeactivateForCloudInstance(ctx, instanceID)
+	if err != nil {
+		debug.Error("Cloud: could not deactivate the claim voucher for %s (%s): %v; it stays redeemable "+
+			"until it expires", instanceID, why, err)
+		return
+	}
+	if n > 0 {
+		debug.Info("Cloud: deactivated %d unredeemed claim voucher(s) for %s (%s)", n, instanceID, why)
+	}
 }
 
 // provisionParams is everything an attempt needs that does not vary by offer,
@@ -795,13 +895,20 @@ func (s *Service) attemptLaunch(ctx context.Context, p provisionParams, cand ran
 	// 5 & 6. Credentials. Both fail closed: an instance that cannot join the
 	// VPN or cannot register can never reach the backend, so it would burn
 	// money until its watchdog fired.
+	//
+	// Both are marked PROVIDER-LOCAL: they concern this provider config's own
+	// VPN credential and they happen before any row, voucher, reservation or
+	// provider call, so nothing exists and nothing is billing. The launch walk
+	// can move on to another provider's candidates instead of failing the whole
+	// provision — which is what an expired Vast.ai reusable key used to do to
+	// AWS. See errProviderLocal.
 	decryptedVPN, err := s.decrypt(cfg.VPNCredentialEncrypted)
 	if err != nil {
-		return fmt.Errorf("decrypt VPN credential: %w", err)
+		return fmt.Errorf("%w: decrypt VPN credential for %s: %w", errProviderLocal, cfg.Name, err)
 	}
 	vpnCred, err := s.minter.Mint(ctx, cfg, decryptedVPN, plan.TTL)
 	if err != nil {
-		return fmt.Errorf("VPN credential: %w", err)
+		return fmt.Errorf("%w: VPN credential for %s: %w", errProviderLocal, cfg.Name, err)
 	}
 
 	// 7. Row + voucher + reservation, before the provider is touched.
@@ -850,6 +957,7 @@ func (s *Service) attemptLaunch(ctx context.Context, p provisionParams, cand ran
 	if _, err := s.budget.Reserve(ctx, p.clientID, instanceID, &p.jobID, plan,
 		fmt.Sprintf("launch %s (%s @ %d cents/hr for %s)", label, offer.GPUModel, offer.HourlyRateCents, plan.TTL)); err != nil {
 		_ = s.instances.SetState(ctx, instanceID, models.CloudInstanceFailed, "budget reservation failed")
+		s.killVoucher(ctx, instanceID, "budget reservation failed")
 		return fmt.Errorf("reserve budget: %w", err)
 	}
 
@@ -897,13 +1005,24 @@ func (s *Service) attemptLaunch(ctx context.Context, p provisionParams, cand ran
 				debug.Error("could not release the reservation for vanished offer %s: %v", label, relErr)
 			}
 			_ = s.instances.SetState(ctx, instanceID, models.CloudInstanceFailed, "offer no longer available")
+			s.killVoucher(ctx, instanceID, "offer vanished before launch")
 			return fmt.Errorf("launch %s: %w", offer.ID, err)
 		}
 
-		// Anything else is AMBIGUOUS -- a timeout may have created a billing
-		// instance. The row stays behind deliberately. The reaper reconciles it
-		// by label, which is the only way to find an instance whose launch
-		// response was lost but which is nonetheless running and billing.
+		/*
+		 * Anything else is AMBIGUOUS -- a timeout may have created a billing
+		 * instance. The row stays behind deliberately. The reaper reconciles it
+		 * by label, which is the only way to find an instance whose launch
+		 * response was lost but which is nonetheless running and billing.
+		 *
+		 * THE VOUCHER IS DELIBERATELY LEFT ALIVE HERE, and this is the one
+		 * branch of the three where that is true. If the instance did come up,
+		 * its agent still has to redeem this code to register — killing it
+		 * would strand a machine that is already billing and convert a
+		 * recoverable launch into guaranteed waste. The reaper kills the
+		 * voucher when it finalises the row, by which point the outcome is
+		 * known.
+		 */
 		_ = s.instances.SetState(ctx, instanceID, models.CloudInstanceRequested, fmt.Sprintf("launch failed: %v", err))
 		return fmt.Errorf("launch: %w", err)
 	}
@@ -980,6 +1099,62 @@ func (s *Service) checkGlobalCap(ctx context.Context) error {
 		return fmt.Errorf("system-wide cloud spend ceiling reached: %d of %d cents "+
 			"committed this month (%s)", committed, settings.GlobalMonthlyCapCents,
 			SettingGlobalMonthlyCapCents)
+	}
+
+	/*
+	 * The deployment-wide INSTANCE ceiling, checked here as well as in the
+	 * autoscaler.
+	 *
+	 * It used to live only in the autoscaler, which meant the admin
+	 * "Provision now" button walked straight past it: an operator who had set
+	 * "never more than two rented boxes" could click their way to a third, and
+	 * nothing anywhere said the cap had been bypassed. The spend cap above was
+	 * the only thing still standing, and a cap denominated in dollars does not
+	 * stop you having ten instances — it just stops you having them for long.
+	 *
+	 * Duplicated rather than moved because the two callers need different
+	 * behaviour: the autoscaler records a per-job diagnostic and returns
+	 * quietly, while this path owes the operator who clicked the button an
+	 * error they can read.
+	 */
+	var countLive func() (int, error)
+	if s.instances != nil {
+		countLive = func() (int, error) { return s.instances.CountLive(ctx) }
+	}
+	return enforceInstanceCap(settings.GlobalInstanceCap, countLive)
+}
+
+/*
+ * enforceInstanceCap is the deployment-wide live-instance ceiling.
+ *
+ * Extracted from checkGlobalCap so it can be tested without standing up a
+ * Service, a settings repository and a database — the alternative was a test
+ * that grepped its own source, which passes for the wrong reasons the moment
+ * anyone renames a variable.
+ *
+ * A nil counter means the cap CANNOT BE EVALUATED, and that must fail closed.
+ * Treating it as unlimited is the same silent-omission bug the autoscaler
+ * guards against: the operator's "never more than N rented boxes" quietly
+ * becomes no limit at all, with nothing in the logs, the settings screen or the
+ * tests to say so.
+ */
+func enforceInstanceCap(cap int, countLive func() (int, error)) error {
+	if cap <= 0 {
+		return nil
+	}
+	if countLive == nil {
+		return fmt.Errorf("the deployment-wide instance cap (%s = %d) cannot be checked because no "+
+			"live-instance counter is wired in; refusing to provision rather than treating the cap "+
+			"as unlimited", SettingGlobalInstanceCap, cap)
+	}
+	live, err := countLive()
+	if err != nil {
+		return fmt.Errorf("cannot verify the deployment-wide instance cap: %w", err)
+	}
+	if live >= cap {
+		return fmt.Errorf("deployment-wide cloud instance cap reached: %d of %d instances are live (%s). "+
+			"Raise it in Cloud Provisioning settings, or wait for one to finish",
+			live, cap, SettingGlobalInstanceCap)
 	}
 	return nil
 }

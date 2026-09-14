@@ -64,6 +64,64 @@ func (p CloudProvider) RequiresThirdPartyAck() bool {
 	return p == CloudProviderVastAI || p == CloudProviderRunPodCommunity
 }
 
+/*
+ * ProviderMaturity is how much of this adapter has been proven against a real
+ * provider spending real money.
+ *
+ * This is NOT a measure of how much code exists. Vast.ai is fully implemented
+ * and has never been driven end to end with a funded account; AWS has been
+ * taken through boot, commissioning, cracking, clean release and a settled
+ * refund. Those two states look identical from the outside and cost very
+ * differently when they are wrong, which is the whole reason this type exists.
+ */
+type ProviderMaturity string
+
+const (
+	// MaturityUnknown is the zero value and means NOBODY HAS DECIDED. It is
+	// never a valid answer for a shipped provider — TestEveryProviderDeclaresMaturity
+	// fails on it — so a newly added kind cannot quietly inherit "stable".
+	MaturityUnknown ProviderMaturity = ""
+	// MaturityStable has been driven end to end, including teardown and the
+	// budget refund that makes an over-long rental cheap.
+	MaturityStable ProviderMaturity = "stable"
+	// MaturityBeta works in principle and has not been proven with money.
+	// Operators are told to monitor their jobs.
+	MaturityBeta ProviderMaturity = "beta"
+)
+
+/*
+ * providerMaturity is the single source of truth. A map rather than a switch
+ * with a default, so that "unhandled" is representable and therefore testable:
+ * a `default: return MaturityStable` would make the omission invisible, which
+ * is exactly the failure being guarded against.
+ */
+var providerMaturity = map[CloudProvider]ProviderMaturity{
+	// Proven end to end on a real account: g4dn.xlarge, 141s commissioning,
+	// 3/3 hashes cracked, released at 3.8m with 54c of 57c reserved refunded.
+	CloudProviderAWS: MaturityStable,
+	// Not a real provider — it launches local --test-mode agents and spends
+	// nothing, so there is nothing to warn an operator about.
+	CloudProviderMock: MaturityStable,
+
+	// Implemented, never paid for. Its verified/datacenter filters and the
+	// whole rental lifecycle are untested against the live marketplace.
+	CloudProviderVastAI: MaturityBeta,
+	// Adapter written against the documented API with no account to check it
+	// on. Twelve specific behaviours remain unverified — see the RunPod section
+	// of docs/reference/architecture/cloud-provisioning.md.
+	CloudProviderRunPod: MaturityBeta,
+	// As above, and additionally teardown here is reaper-only: RunPod issues no
+	// per-pod scoped credential, so a Community pod has no in-guest rail that
+	// can stop it billing.
+	CloudProviderRunPodCommunity: MaturityBeta,
+}
+
+// Maturity reports how far this provider has been proven. See ProviderMaturity.
+func (p CloudProvider) Maturity() ProviderMaturity { return providerMaturity[p] }
+
+// IsBeta is the predicate the UI and docs branch on.
+func (p CloudProvider) IsBeta() bool { return p.Maturity() == MaturityBeta }
+
 // AllCloudProviders is every supported kind, in the order a UI should offer
 // them: least surprising first, peer hardware last.
 var AllCloudProviders = []CloudProvider{
@@ -227,10 +285,20 @@ func (c CloudProviderConfig) MarshalJSON() ([]byte, error) {
 		ThirdPartyAckBy        *uuid.UUID        `json:"third_party_ack_by,omitempty"`
 		// HasCredentials lets the UI show "configured" without ever shipping
 		// the secret, the same way the SSO admin API does.
-		HasCredentials   bool      `json:"has_credentials"`
-		HasVPNCredential bool      `json:"has_vpn_credential"`
-		CreatedAt        time.Time `json:"created_at"`
-		UpdatedAt        time.Time `json:"updated_at"`
+		HasCredentials   bool `json:"has_credentials"`
+		HasVPNCredential bool `json:"has_vpn_credential"`
+		/*
+		 * Maturity is DERIVED from Provider, not stored, so it cannot drift out
+		 * of step with providerMaturity and cannot be edited into a lie by an
+		 * admin who would rather not see the warning.
+		 *
+		 * Emitted here rather than computed in the UI from the provider kind so
+		 * that promoting a provider to stable is one backend edit, not a
+		 * backend edit plus a frontend constant somebody forgets.
+		 */
+		Maturity  ProviderMaturity `json:"maturity"`
+		CreatedAt time.Time        `json:"created_at"`
+		UpdatedAt time.Time        `json:"updated_at"`
 	}
 
 	return json.Marshal(configJSON{
@@ -250,6 +318,7 @@ func (c CloudProviderConfig) MarshalJSON() ([]byte, error) {
 		ThirdPartyAckBy:        c.ThirdPartyAckBy,
 		HasCredentials:         c.CredentialsEncrypted != "",
 		HasVPNCredential:       c.VPNCredentialEncrypted != "",
+		Maturity:               c.Provider.Maturity(),
 		CreatedAt:              c.CreatedAt,
 		UpdatedAt:              c.UpdatedAt,
 	})

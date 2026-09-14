@@ -120,6 +120,38 @@ this before first boot, and you must not delete the certs directory to change it
 
 ---
 
+## Maturity: which providers have actually been paid for
+
+**Beta does not mean unfinished.** It means nobody has yet driven that adapter end to end
+against the real provider, spending real money, and watched it come back clean. An
+implemented adapter and a proven one look identical from the outside and cost very
+differently when they are wrong.
+
+| Kind | Maturity | What that is based on |
+|---|---|---|
+| `aws` | **Stable** | Driven end to end on a real account: 141s commissioning, 3/3 hashes cracked, released at 3.8 minutes, 54c of 57c reserved refunded |
+| `mock` | **Stable** | Rents nothing and spends nothing |
+| `vastai` | **Beta** | Fully implemented; never once paid for. The rental lifecycle is unproven against the live marketplace |
+| `runpod` (Secure Cloud) | **Beta** | Written against the documented API with no account to verify it on |
+| `runpod_community` | **Beta** | As above, **and teardown is reaper-only** — see the RunPod section |
+
+!!! warning "What to do when running a beta provider"
+    The UI marks these with a **Beta** chip in Provider settings and a banner on the Cloud
+    Fleet page whenever a beta instance is live. Expect bugs, and:
+
+    - **Start with a small `cloud_budget_cents` and a low `max_concurrent_instances`.**
+      The cheapest bug to survive is one that can only rent one box.
+    - **Watch instances reach `terminated` rather than assuming they will.** Teardown is
+      the least-tested path in any new adapter and the only one that costs money when it
+      fails. The Cloud Fleet page calls out instances whose teardown is failing.
+    - **Set a `max_instance_ttl_minutes` you are willing to pay in full**, since it is the
+      backstop when every other release path misses.
+
+This is a **separate axis from trust**, and the two only partly overlap: RunPod Secure is
+beta but first-party, Vast.ai is both beta and third-party, and `mock` is neither.
+
+---
+
 ## Trust tiers: which providers carry a warning, and why
 
 The consent machinery attaches to **third-party hardware**, not to "is it cloud". Two of the
@@ -171,8 +203,41 @@ Allowing AWS while forbidding the peer tiers is a first-class configuration —
 3. Create a scoped API key with `misc`, `user_read`, `instance_read`, `instance_write`.
    Offer search lives under `misc`, not `instance_read` — this is easy to get wrong.
 
-Only **verified datacenter** hosts are ever offered, unconditionally. The cheaper
-unverified tier is also where "stuck connecting" and "bad driver" reports concentrate.
+### Settings
+
+```json
+{
+  "countries": ["US", "DE"],
+  "gpu_models": ["rtx_4090", "rtx_5090"],
+  "denied_gpu_models": [],
+  "min_reliability": 0.9,
+  "allow_unverified": false,
+  "allow_residential": false
+}
+```
+
+**Every list empty is the default and means no restriction** — the widest pool. An empty
+`gpu_models` keeps working as you add cards to your fleet; an explicit list freezes the
+selection.
+
+| Setting | What it does |
+|---|---|
+| `countries` | Vast.ai geolocations, matched case-insensitively as a substring, so `US` matches `US, Texas`. Doubles as your data-residency control. |
+| `gpu_models` / `denied_gpu_models` | Matched on a normalised key, so `rtx_4090` matches both `NVIDIA GeForce RTX 4090` and `RTX 4090`. **Deny always wins** — it is the emergency lever for "that card keeps failing". |
+| `min_reliability` | Vast's own host score, 0–1. Hosts that report no score are kept. Trades a little availability for fewer dead rentals: a host that drops the instance mid-chunk has still been paid for its commissioning. |
+
+By default only **verified datacenter** hosts are offered. `allow_unverified` and
+`allow_residential` open those tiers.
+
+!!! danger "What opening the tiers actually costs"
+    This is the single largest availability increase available on Vast.ai, and it places
+    client hashes, wordlists, potfiles and cracked plaintexts on machines Vast.ai has **not
+    verified**. Every Vast host already has root over the container — these toggles remove
+    the one filter that keeps it to hosts Vast has checked.
+
+    Some of the extra availability is also illusory: the unverified tier is where "stuck
+    connecting" and "bad driver" reports concentrate, and a rental that never reaches useful
+    work still costs you its commissioning.
 
 ---
 
@@ -190,14 +255,41 @@ Community, and what keeps the consent chain attached to the tier that needs it.
 
 ### Account setup
 
-1. Use a **dedicated RunPod account**. Ownership is determined client-side by matching pod
-   names against KrakenHashes' `kh-` label shape, because the v2 API offers no idempotency
-   key, no server-side filter and no way to tag a pod as ours. Orphan reconciliation will
-   destroy unrecognised pods that match that shape.
-2. Fund it with a **fixed prepaid balance and no auto-refill**. The v2 API exposes no balance
-   endpoint at all, so pre-flight cannot verify funding — the only signal is a `402` at
-   create time.
-3. Create an API key with pod read/write.
+1. Use a **dedicated RunPod account**. This is a requirement, not advice. RunPod has no way
+   to tag a pod as ours, so ownership is decided client-side by matching pod **names**
+   against the anchored `kh-xxxxxxxx-xxxx-xxxx` label shape. A name is guessable where a tag
+   is not, and orphan reconciliation destroys unrecognised pods matching that shape.
+2. Fund it with a **fixed prepaid balance and no auto-refill**. Pre-flight tries the GraphQL
+   `myself` query for a balance; if your account does not expose one, the first sign of an
+   empty account is a `402` at pod-create time.
+3. Create an API key with **pod read/write**. Pre-flight probes for write scope with a
+   deliberately schema-invalid create, so a read-only key is caught at configuration time
+   rather than at the first launch.
+
+### Settings
+
+```json
+{
+  "data_center_ids": ["EU-RO-1", "US-KS-2"],
+  "gpu_type_ids": ["NVIDIA GeForce RTX 4090"],
+  "container_disk_gb": 60,
+  "container_disk_cents_per_gb_month": 10,
+  "interruptible": false,
+  "allow_in_guest_self_destruct": false
+}
+```
+
+There is **no rate table**, unlike AWS: RunPod returns live prices, so declaring your own
+would be a second source of truth that can only ever be more wrong.
+
+!!! warning "`data_center_ids` works the opposite way round from AWS zones"
+    **Empty is the WIDEST setting here, not the narrowest.** With no data centres pinned,
+    RunPod's own scheduler may place a pod anywhere. On AWS, omitting the subnet still lands
+    you in exactly one availability zone, so pinning *widens* the pool; on RunPod pinning
+    *narrows* it.
+
+    Set it for data residency, or when you would rather the launch retry loop walk genuinely
+    independent pools than re-hit one exhausted global placement.
 
 ### Operational caveats
 
@@ -209,6 +301,47 @@ Community, and what keeps the consent chain attached to the tier that needs it.
   outlive the pod and would hold cracked plaintexts after termination.
 - **Billing granularity is one hour**, so cost-so-far reads as unknown for any pod that lived
   less than that. Accrual stays wall-clock based.
+- **No idempotency key on pod create.** A lost response can leave a pod billing whose id was
+  never seen. The adapter adopts by label before creating and reconciles by name on an
+  ambiguous failure, and a double launch shows up in the fleet inventory as a duplicate that
+  gets reaped as an orphan — but the window is real, and it is bounded by one reaper sweep in
+  the good case.
+- **Offers are single-GPU** in this version. It is not yet confirmed whether RunPod quotes
+  `lowestPrice` per GPU or per pod, and being wrong on a 4-GPU pod would under-reserve a
+  budget cap fourfold. Every launch compares the pod's actual `costPerHr` against the
+  reserved rate and logs any drift over 10%.
+
+### Teardown differs sharply between the two tiers
+
+| | `runpod` (Secure) | `runpod_community` |
+|---|---|---|
+| In-guest deadline kills hashcat | Yes | Yes |
+| Pod can delete itself | Optional (see below) | **Never** |
+| Backend reaper | Yes | Yes — **and it is the only thing that stops billing** |
+
+!!! danger "Community teardown is reaper-only"
+    RunPod issues **no per-pod scoped credential** — there is no equivalent of Vast.ai's
+    `CONTAINER_API_KEY`, which can delete only its own instance. The only key that can delete
+    a pod is **account-scoped**, and on Community the host operator has root over the
+    container and would read it out of the environment. That key can create and delete every
+    other pod on your account, so KrakenHashes never places one in a Community pod.
+
+    The consequence: the in-guest deadline still kills hashcat and ends the data exposure,
+    but **it cannot stop the pod billing**. If the backend is down or wedged, a Community pod
+    bills until you destroy it by hand from the Cloud Fleet page.
+
+    Give any client allowed on this tier a **low `max_instance_ttl_minutes`** and a small
+    budget cap.
+
+On **Secure**, `allow_in_guest_self_destruct` adds the third teardown rail so a pod can
+`DELETE` itself when it loses contact, matching Vast.ai. Supply a separate, narrower key as
+`self_destruct_api_key` in the credentials JSON rather than reusing your provisioning key:
+
+```json
+{ "api_key": "<provisioning key>", "self_destruct_api_key": "<pod read/write only>" }
+```
+
+A bare string is also accepted and read as the provisioning key alone.
 
 ---
 
@@ -252,19 +385,28 @@ The provisioner needs tag-scoped permissions. Key points:
 - `iam:PassRole` scoped to the exact worker role ARN with
   `iam:PassedToService=ec2.amazonaws.com`, or this policy is a privilege-escalation vector.
 - `aws:ResourceTag` is **not** evaluated for `Describe*` — those are all-or-nothing.
+- The zone picker needs `ec2:DescribeAvailabilityZones`, `ec2:DescribeSubnets`,
+  `ec2:DescribeInstanceTypeOfferings`, `ec2:DescribeSpotPriceHistory` and
+  `ec2:GetSpotPlacementScores`. All read-only. The first two are required for the screen to
+  render at all; the rest degrade individual columns to "unknown" and name themselves in a
+  warning rather than failing the page, so an over-tight policy costs information, not
+  function.
 
 ### Settings
 
 ```json
 {
   "region": "us-east-1",
-  "subnet_id": "subnet-...",
   "security_group_ids": ["sg-..."],
   "iam_instance_profile_arn": "arn:aws:iam::123456789012:instance-profile/KrakenHashesWorker",
   "ami_ssm_parameter": "/aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
   "use_spot": false,
   "instance_type_rates": { "g4dn.xlarge": 53, "g6e.xlarge": 187 },
-  "root_volume_gb": 100
+  "root_volume_gb": 100,
+  "zones": [
+    { "zone": "us-east-1a", "zone_id": "use1-az1", "subnet_id": "subnet-...", "instance_types": [] },
+    { "zone": "us-east-1b", "zone_id": "use1-az2", "subnet_id": "subnet-...", "instance_types": ["g4dn.xlarge"] }
+  ]
 }
 ```
 
@@ -274,6 +416,81 @@ filters or it silently returns the wrong SKU.
 
 Use `ami_ssm_parameter` rather than pinning `ami_id`, so image updates are picked up
 without a config change.
+
+### Zones: why one subnet is not enough
+
+**EC2 spot capacity is a property of the (instance type, availability zone) pair.**
+`g4dn.xlarge` being exhausted in `us-east-2b` says nothing about `g4dn.xlarge` in
+`us-east-2c` — they are different physical inventories. So the number of independent
+chances a launch gets is:
+
+```
+capacity pools = (zones you allow) x (instance types you allow in them)
+```
+
+A config with one `subnet_id` and one instance type has **exactly one pool**. When it is
+empty, provisioning simply stops: the launch retry loop walks its candidate list, but every
+candidate resolves to the same inventory, so the second refusal was implied by the first.
+Measured on a real deployment: fifteen consecutive `InsufficientInstanceCapacity` refusals
+against one pool, then a success within two scheduler cycles of widening to three instance
+types across two zones. Nothing about the account, quota or region changed.
+
+Each entry in `zones` is one placement. `subnet_id` is the only required field — a launch
+takes a subnet, not a zone. An **empty `instance_types` means "every type in
+`instance_type_rates`"**, which is what you want by default and what keeps the selection
+from silently narrowing when you price a new instance type later. Narrow it per zone only
+when you know a particular card is never obtainable there.
+
+`zone_id` (`use2-az1`) is the stable physical identifier; `zone` (`us-east-2a`) is an alias
+AWS shuffles **per account**, so your `us-east-2a` and another account's are usually
+different datacentres. Capacity APIs report the zone ID, which is why both are stored.
+
+!!! note "The Subnet ID field was removed from the settings form"
+    It expressed the same thing as the zone picker — placement — and the backend ignores it
+    the moment any zone is selected, so having both on screen invited editing dead config.
+
+    Nothing breaks. A stored `subnet_id` is preserved and still honoured while no zones are
+    configured. To migrate an existing config: open the provider, click **Check
+    availability**, and your current subnet's zone is already ticked and labelled *"selected
+    via the legacy single subnet_id setting"*. Saving converts it. The field is still
+    accepted by the API for automation.
+
+When `zones` is set, the top-level `subnet_id` is ignored. It remains supported on its own
+for existing configs and as the fallback when no zones are selected.
+
+### Picking zones from the UI
+
+**Admin → Settings → Cloud Provisioning → Providers → (edit an AWS provider) → Availability
+zones and instance types.**
+
+"Check availability" (`GET /api/admin/cloud/providers/{id}/capacity`) reads live data and
+spends nothing — it is five EC2 describe calls. It renders a zone × instance-type grid
+where each ticked cell is one capacity pool, with the running pool count underneath.
+
+Read the columns in this order of trustworthiness:
+
+| Signal | Source | How much to trust it |
+|---|---|---|
+| **Offered / not offered** | `DescribeInstanceTypeOfferings` | **Definitive.** A type not offered in a zone can never launch there. |
+| **Free IPs, subnet, zone state** | `DescribeSubnets`, `DescribeAvailabilityZones` | Definitive. A zone with no subnet or no free addresses cannot launch. |
+| **Spot price** | `DescribeSpotPriceHistory` | Real, but a price is not an inventory. |
+| **Placement score (n/10)** | `GetSpotPlacementScores` | **Weak.** See below. |
+
+The placement score is AWS's own relative ranking of a pool, and it is worth less than it
+looks: every `us-east-2` zone scored **1/10** on a live account minutes before a
+`g4dn.xlarge` launch in one of them succeeded on the first attempt. It is used to decide
+which pool to try **first** and for nothing else — it never removes a pool from the
+candidate list, and gating on it would have refused a launch that worked. If your IAM role
+lacks `ec2:GetSpotPlacementScores`, you lose the ordering and nothing else; the screen says
+so rather than failing.
+
+The **spot price is shown next to your configured rate** because the two drift and only one
+is real. Reservations are denominated in your configured figure, so pricing above the live
+rate merely over-reserves; pricing **below** it under-reserves against a cap you were told
+was hard. One deployment had `g4dn.xlarge` priced at 53c while spot was quoting 27c.
+
+The screen reads the **saved** provider config, so save before checking: an unsaved form's
+credentials and region are not visible to the backend.
 
 ---
 
@@ -549,6 +766,40 @@ If the job shows nothing at all, it was never considered cloud-eligible. Click
 **Provision now** on the job, which names the specific precondition that failed —
 including the two that are otherwise invisible: no client to bill, and cloud burst
 never enabled.
+
+## What cloud provisioning leaves behind, and what cleans it up
+
+Renting a GPU creates two rows that outlive the rental, and both used to accumulate
+forever. What happens to them now:
+
+### Claim codes
+
+Each launch **attempt** mints a single-use claim voucher before the provider is called —
+one per candidate offer, so a provision that walks a run of capacity refusals mints one for
+each. Two things now clear them up:
+
+| When | What happens |
+|---|---|
+| The attempt definitively fails — no capacity, budget refused | The code is **deactivated immediately**. It can never be redeemed. |
+| The instance is torn down — job finished, idle drain, ready deadline | Same, at teardown. |
+| The launch outcome is **ambiguous** (a timeout) | The code is deliberately **left live**. The instance may be running and its agent still has to register with it; the reaper kills the code once it knows the outcome. |
+| A code has been expired and unredeemed for `voucher_retention_days` | Deleted by a daily sweep. |
+
+Expired codes no longer appear in the voucher list at all — previously the list filtered
+only on `is_active`, which does not imply usable, so every dead code from every failed
+launch was still displayed.
+
+`voucher_retention_days` defaults to **30**; `0` keeps them forever. **Redeemed vouchers are
+never swept at any setting** — they record which agent joined with which credential.
+
+### Agent records
+
+A rented GPU registers as an agent. On teardown that row is **retired**, not deleted:
+deleting it would sever the rental's cost attribution and take the agent's benchmark
+history with it, and those benchmarks are what make cost-per-work ranking accurate.
+
+Retired agents are **hidden from the agent list by default**. They are still there, and
+still reachable, so historical job views continue to show which agent ran which task.
 
 ## Verifying before you spend
 

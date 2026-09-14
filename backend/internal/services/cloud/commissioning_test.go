@@ -49,7 +49,7 @@ func TestCommissioningGraceExceedsSchedulerReadinessBudget(t *testing.T) {
 // table cannot be read, so it has to satisfy the same invariant as the settings
 // default rather than relying on LoadSettings having run.
 func TestNewReaperDefaultsAreSafe(t *testing.T) {
-	r := NewReaper(nil, nil, nil, nil)
+	r := NewReaper(nil, nil, nil, nil, nil)
 
 	if r.CommissioningGrace <= scheduler.ReadinessBudget() {
 		t.Errorf("NewReaper CommissioningGrace = %s, want > %s (scheduler readiness budget)",

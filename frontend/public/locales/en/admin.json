@@ -1732,7 +1732,27 @@
         "vpnUrlHelp": {
           "netbird": "Your self-hosted NetBird management server, e.g. https://netbird.example.com. Used both to mint setup keys and to start the client. Leave blank for NetBird's hosted service.",
           "tailscale": "Only for a self-hosted control server. Note that access-token minting always uses api.tailscale.com and does not support Headscale."
-        }
+        },
+        "vastCountries": "Countries (comma separated)",
+        "vastCountriesHelp": "Vast.ai country codes, e.g. US, DE, SE. Empty means anywhere. Matched case-insensitively against the reported geolocation, so 'US' matches 'US, Texas'. Doubles as your data-residency control.",
+        "vastGpuModels": "Allowed GPU models (comma separated)",
+        "vastGpuModelsHelp": "Empty means any card. Matched on a normalised key, so 'rtx_4090' matches both 'NVIDIA GeForce RTX 4090' and 'RTX 4090'. Widening this list is the cheapest way to raise availability.",
+        "vastDeniedGpuModels": "Denied GPU models (comma separated)",
+        "vastDeniedGpuModelsHelp": "Always wins over the allow list. This is the emergency lever for 'that card keeps failing, stop renting it'.",
+        "vastMinReliability": "Minimum host reliability (0-1)",
+        "vastMinReliabilityHelp": "Vast.ai's own host reliability score. 0 disables the floor. Hosts that do not report a score are kept. Trades a little availability for fewer dead rentals — a host that drops the instance mid-chunk has still been paid for its commissioning.",
+        "vastAllowUnverified": "Allow unverified hosts (raises availability; unvetted machines)",
+        "vastAllowResidential": "Allow residential hosts (raises availability; home machines, not datacenters)",
+        "runpodDataCenters": "Data centres (comma separated)",
+        "runpodDataCentersHelp": "RunPod data centre ids, e.g. EU-RO-1, US-KS-2. EMPTY IS THE WIDEST SETTING, not the narrowest — RunPod's own scheduler may then place a pod anywhere. This is the opposite of AWS zones, where leaving it blank still pins you to one. Set it for data residency, or to make the launch retry loop walk genuinely independent pools.",
+        "runpodGpuTypes": "Allowed GPU types (comma separated)",
+        "runpodGpuTypesHelp": "RunPod gpuType ids exactly as they appear in the availability grid, e.g. 'NVIDIA GeForce RTX 4090'. Empty means every card this tier carries.",
+        "runpodDiskGb": "Container disk floor (GB)",
+        "runpodDiskGbHelp": "A floor, not a cap: a job whose file set needs more will get more. Container disk is wiped when the pod restarts, and no network volume is ever attached — one would outlive the pod and retain cracked plaintexts after termination.",
+        "runpodDiskRate": "Container disk (cents/GB-month)",
+        "runpodDiskRateHelp": "Feeds the storage part of the budget reservation. Rounded up, because a reservation that under-states storage lets a client exceed a cap they were told was hard.",
+        "runpodSelfDestruct": "Let pods delete themselves if the VPN dies (Secure tier only)",
+        "runpodSelfDestructHelp": "Adds a third teardown rail so a pod can DELETE itself when it loses contact, matching Vast.ai. RunPod has no per-pod scoped credential, so this places an ACCOUNT-SCOPED key inside each pod — one that can create and delete every other pod on the account. Supply a separate, narrower key as self_destruct_api_key in the credentials JSON rather than reusing your provisioning key. Never available on the Community tier."
       },
       "peerWarningTitle": "Third-party hardware",
       "peerWarningBody": {
@@ -1747,7 +1767,51 @@
       "awsRemoveInstanceType": "Remove",
       "mockSection": "Mock behaviour and fault injection",
       "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it."
+      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "zones": {
+        "title": "Placements and hardware",
+        "help": "Tick every place and every GPU you are willing to rent. Capacity usually belongs to the (hardware, placement) pair rather than to either alone, so each ticked cell is one independent chance of getting a machine — a single ticked cell means a capacity refusal has nowhere to fall back to. Leaving a row's cards all ticked means \"any hardware I have approved\", including any added later.",
+        "probe": "Check availability",
+        "probeHelp": "Reads live zone, subnet, offering, spot price and placement-score data from AWS. Read-only: it launches nothing and costs nothing.",
+        "probeIdle": "to load live zones, subnets and spot prices for this provider.",
+        "probeFailed": "Could not read capacity from AWS.",
+        "saveFirst": "Save the provider first. Availability is read using the saved credentials and region, so an unsaved form has nothing to query with.",
+        "selectAll": "Select all usable zones",
+        "colZone": "Zone",
+        "colSubnet": "Subnet",
+        "notOffered": "EC2 does not offer this instance type in this zone. This is definitive — a launch here would fail with Unsupported.",
+        "unusable": "This placement cannot be launched into. See the note beside its name.",
+        "freeIps": "{{count}} free IPs",
+        "scoreHelp": "AWS's own 1-10 ranking for THIS card in THIS zone, and weak evidence: every zone in this region scored 1/10 on this account minutes before a launch in one of them succeeded first try. It decides which pool is tried first. It never removes a pool from the list. Compare it with the all-types score beside the zone name.",
+        "spotVsConfigured": "Spot is quoting {{spot}}/hr here; your configured rate for this type is {{configured}}/hr. Reservations use the CONFIGURED figure, so pricing below the live rate under-reserves against a budget cap you were told was hard.",
+        "poolCount": "{{count}} capacity pools selected",
+        "poolCountWarning": "One pool is one chance. When it is exhausted the launch retry loop has nowhere else to go and provisioning simply stops until capacity returns. Tick more zones, more instance types, or both.",
+        "poolCountOk": "A capacity refusal in one pool falls through to the next, in likeliest-first order.",
+        "legacyOverridden": "Zones are configured, so the single Subnet ID above ({{subnet}}) is ignored. It stays as the fallback if every zone is unticked.",
+        "combinedScore": "all types: {{score}}/10",
+        "combinedScoreHelp": "AWS's placement score for ALL your priced instance types taken together in this zone, which is a different question from any single card's score — and usually a much better answer. Measured in one region in one minute: g6.xlarge alone scored 1/10 here while g4dn + g5 + g6 together scored 9/10. Breadth is not a hedge against scarcity; it is the thing being scored.",
+        "availableCount": "{{count}} free",
+        "availableCountHelp": "A live count of machines available to rent right now. This is real inventory and the strongest signal on the screen — far better than a placement score, which is only an opinion.",
+        "livePriceHelp": "What the provider is charging for this right now.",
+        "trust": {
+          "definitive": "definitive",
+          "measured": "live",
+          "advisory": "advisory only"
+        },
+        "axesModeNote": "This provider stores countries and GPU models as two independent lists, so ticking a card applies it in every selected country. The per-cell counts and prices below are still real and specific to that country."
+      },
+      "betaChip": "Beta",
+      "betaTooltip": "Beta — pending testing. This adapter has never been driven end to end against the real provider spending real money. Expect bugs; monitor your jobs.",
+      "betaTitle": "Beta — pending testing",
+      "betaBody": "This provider has not been proven end to end with real money: boot, commissioning, cracking, clean release and the budget refund have not all been observed working together. It should function, and it will have bugs. Monitor your jobs and watch the Cloud Fleet page for instances that do not release. Start with a small budget cap and a low instance limit.",
+      "vastSection": "Vast.ai placement and hardware policy",
+      "vastSectionHelp": "Which countries and which cards this provider may rent. Leaving a list empty means no restriction, which is the widest pool and the default.",
+      "vastTierWarningTitle": "You are opening an unvetted host tier",
+      "vastTierWarningBody": "This is the single largest availability increase available on Vast.ai, and it places client hashes, wordlists, potfiles and cracked plaintexts on machines Vast.ai has not verified. Every Vast host already has root over the container; these toggles remove the one filter that keeps it to hosts Vast has checked. The unverified tier is also where 'stuck connecting' and 'bad driver' reports concentrate, so some of the extra availability is illusory — a rental that never reaches useful work still costs you its commissioning.",
+      "runpodSection": "RunPod placement and hardware policy",
+      "runpodSectionHelp": "Which data centres and GPU types this provider may rent. RunPod prices live, so there are no rates to declare here — unlike AWS.",
+      "runpodCommunityTeardownTitle": "Community teardown is the backend reaper alone",
+      "runpodCommunityTeardownBody": "RunPod issues no per-pod scoped credential, so there is no safe way for a Community pod to delete itself: the only key that would work is account-scoped, and a Community host operator has root over the container and would read it out of the environment. The in-guest deadline still kills hashcat and ends the data exposure, but it CANNOT stop the pod billing. If this backend is down or wedged, a Community pod bills until you destroy it by hand from the Cloud Fleet page. Set a low instance TTL ceiling and a small budget cap on any client allowed to use this tier."
     },
     "budgets": {
       "title": "Client budgets",
@@ -1912,7 +1976,10 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
-      }
+      },
+      "betaRunningTitle": "{{count}} instance(s) running on a beta provider",
+      "betaRunningBody": "{{providers}} has not been proven end to end with real money. Watch these instances reach 'terminated' rather than assuming they will: the teardown path is the least tested part of any new adapter, and an instance that never releases bills until you destroy it here.",
+      "betaTooltip": "{{provider}} is a beta provider — pending testing. Expect bugs; confirm this instance actually releases when its job finishes."
     },
     "rules": {
       "title": "When the system may spend",

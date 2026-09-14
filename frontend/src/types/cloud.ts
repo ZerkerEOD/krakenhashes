@@ -37,6 +37,30 @@ export function requiresThirdPartyAck(kind: CloudProviderKind): boolean {
   return kind === 'vastai' || kind === 'runpod_community';
 }
 
+/**
+ * How far this provider has been proven against the real thing, spending real
+ * money. MIRRORS providerMaturity in backend/internal/models/cloud.go — keep
+ * the two in step, and note the backend is AUTHORITATIVE: every saved config
+ * carries a server-computed `maturity` field, and that value must win wherever
+ * one exists. This mirror is only for the CREATE form, where the operator has
+ * picked a kind but nothing has been saved to ask the server about yet.
+ *
+ * Beta does not mean unfinished. Vast.ai is fully implemented and has never
+ * once been paid for; AWS has been driven end to end through teardown and a
+ * settled refund. Only the second earns "stable".
+ */
+export function providerMaturity(kind: CloudProviderKind): ProviderMaturity {
+  switch (kind) {
+    case 'aws':
+    case 'mock':
+      return 'stable';
+    case 'vastai':
+    case 'runpod':
+    case 'runpod_community':
+      return 'beta';
+  }
+}
+
 /** Operator-facing name. The two RunPod tiers must never both read "RunPod". */
 export function cloudProviderLabel(kind: CloudProviderKind): string {
   switch (kind) {
@@ -131,9 +155,24 @@ export interface CloudProviderConfig {
   /** Whether a secret is stored — the value itself never leaves the backend. */
   has_credentials: boolean;
   has_vpn_credential: boolean;
+  /**
+   * How far this adapter has been proven against the real provider, spending
+   * real money. Derived server-side from the provider kind, never stored, so
+   * it cannot be edited into a lie by an admin who would rather not see the
+   * warning.
+   *
+   * This is NOT "how finished is the code". Vast.ai is fully implemented and
+   * has never once been paid for; AWS has been driven through boot,
+   * commissioning, cracking, clean release and a settled refund. Those look
+   * identical from outside and cost very differently when wrong.
+   */
+  maturity: ProviderMaturity;
   created_at: string;
   updated_at: string;
 }
+
+/** @see CloudProviderConfig.maturity */
+export type ProviderMaturity = 'stable' | 'beta';
 
 /**
  * Inbound provider configuration.
@@ -304,6 +343,124 @@ export interface CloudPreflightReport {
   quota_source?: string;
   warnings?: string[];
   errors?: string[];
+}
+
+/**
+ * One placement the operator has approved for launches.
+ *
+ * subnet_id is the only field a launch needs — RunInstances takes a subnet, not
+ * a zone. zone is the display alias and zone_id the stable physical id, which
+ * is what capacity APIs report and therefore the only safe join key.
+ *
+ * An EMPTY instance_types means "every type I have priced", not "none". That is
+ * what a select-all click stores, and it keeps the selection from silently
+ * narrowing when a new instance type is priced later.
+ */
+export interface AWSZoneSelection {
+  zone: string;
+  zone_id: string;
+  subnet_id: string;
+  instance_types: string[];
+}
+
+/** How much weight the UI should give a capacity signal. @see SignalDescriptor */
+export type SignalTrust = 'definitive' | 'measured' | 'advisory';
+
+/** Which per-cell column a signal describes. */
+export type SignalKind =
+  | 'offered'
+  | 'available_count'
+  | 'live_price'
+  | 'configured_price'
+  | 'score';
+
+/**
+ * What one grid column means and how far to trust it.
+ *
+ * Providers differ far more in signal QUALITY than in structure, and the UI must
+ * not render a guess and a measurement identically. AWS's placement score is an
+ * opinion that has been measured contradicting reality (1/10 in every zone,
+ * minutes before a first-try launch succeeded); Vast.ai's rentable count is real
+ * inventory. Both are numbers in a cell, and only one is worth acting on.
+ */
+export interface SignalDescriptor {
+  kind: SignalKind;
+  label: string;
+  trust: SignalTrust;
+  /** Shown to the operator verbatim. Says what the signal is worth, not what it is called. */
+  explanation: string;
+}
+
+/** One cell of the placement x hardware grid. */
+export interface HardwareCapacity {
+  /** Provider key: an AWS instance type, a Vast.ai GPU name, a RunPod gpuType id. */
+  id: string;
+  /**
+   * Does the provider sell this hardware in this placement at all? The only
+   * definitive signal in the grid — false is a hard no.
+   *
+   * A provider that cannot answer reports true, never false: "we could not find
+   * out" rendered as "not available" hides capacity that exists.
+   */
+  offered: boolean;
+  selected: boolean;
+  /** The operator's declared rate, where the provider has one. This is what the budget reserves against. */
+  configured_cents?: number;
+  /** What the provider charges right now. ZERO MEANS UNKNOWN, never free. */
+  live_cents?: number;
+  observed_at?: string;
+  /** Live count of rentable units. ZERO MEANS UNKNOWN. The strongest per-cell signal any provider gives. */
+  available_count?: number;
+  /** Provider's 1-10 ranking for this cell. ZERO MEANS UNKNOWN. Orders pools; never removes one. */
+  score?: number;
+  gpu_model?: string;
+  gpu_count?: number;
+  note?: string;
+}
+
+/** One placement: an AWS zone, a Vast.ai country, a RunPod data centre. */
+export interface PlacementCapacity {
+  /** Stable provider key and the safe join key for any capacity API. */
+  id: string;
+  /** What to show a human. On AWS this is the per-account zone alias. */
+  name: string;
+  /** What a launch needs to reach here: a subnet id, a data centre id, a geolocation. */
+  ref?: string;
+  detail?: string;
+  selected: boolean;
+  hardware: HardwareCapacity[];
+  /**
+   * A placement-wide ranking where the provider has one. ZERO MEANS UNKNOWN.
+   *
+   * On AWS this scores all priced instance types TOGETHER, which is usually a
+   * much better number than any single type's — g6 alone scored 1/10 in a zone
+   * where g4dn + g5 + g6 together scored 9/10. That gap is the argument for
+   * ticking more boxes, in the provider's own numbers.
+   */
+  score?: number;
+  /** False when this placement can never launch; notes says why. */
+  usable: boolean;
+  notes?: string[];
+}
+
+/**
+ * Where a provider could actually get a GPU: a grid of placement x hardware.
+ *
+ * pool_count is the number this screen exists to raise. Capacity generally
+ * belongs to the (hardware, placement) PAIR rather than to either alone, so it
+ * is the count of distinct pools a launch may fall back through. One means one
+ * chance.
+ */
+export interface CloudCapacityReport {
+  region?: string;
+  /** Axis names in the provider's own vocabulary — "Availability zone" vs "Country". */
+  placement_label: string;
+  hardware_label: string;
+  placements: PlacementCapacity[];
+  hardware: string[];
+  signals?: SignalDescriptor[];
+  warnings?: string[];
+  pool_count: number;
 }
 
 /**

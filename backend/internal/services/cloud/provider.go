@@ -45,6 +45,31 @@ type Offer struct {
 	// has none.
 	Availability OfferAvailability
 
+	/*
+	 * Zone is the placement the offer is pinned to, empty when the provider
+	 * places instances itself.
+	 *
+	 * On AWS this is the difference between one candidate pool and several.
+	 * Spot capacity is a property of the (instance type, availability zone)
+	 * PAIR, not of the type or the region: g4dn.xlarge can be exhausted in
+	 * us-east-2b while sitting idle in us-east-2c. A search that emits one
+	 * offer per type therefore hands the launch retry loop N candidates that
+	 * all resolve to the same physical pool, and an InsufficientInstanceCapacity
+	 * on the first is a near-certain prediction of the rest.
+	 *
+	 * ZoneID is the stable identifier (use2-az1). Zone is the account-scoped
+	 * ALIAS (us-east-2a), which AWS shuffles per account so that two customers'
+	 * "us-east-2a" are usually different datacentres. Anything compared against
+	 * a capacity API — GetSpotPlacementScores in particular — must join on
+	 * ZoneID; anything shown to a human should say Zone, because that is what
+	 * the console shows them.
+	 */
+	Zone   string
+	ZoneID string
+	// PlacementRef is what the launch call actually needs to reach the zone: a
+	// subnet id on AWS. Empty falls back to the provider's global setting.
+	PlacementRef string
+
 	Raw models.JSONMap
 }
 
@@ -212,6 +237,30 @@ type OfferQuery struct {
 	// MinAvailability is the provider stock floor. Providers that do not report
 	// availability satisfy any floor — see OfferAvailability.
 	MinAvailability OfferAvailability
+
+	/*
+	 * AllowedRegions restricts placement by Offer.Region. Empty means anywhere.
+	 *
+	 * Region is a coarse, provider-shaped string — "US, Texas" on Vast.ai, an
+	 * availability zone on AWS, a data centre id on RunPod — so matching is
+	 * case-insensitive substring rather than equality. See offerInRegion.
+	 *
+	 * AN OFFER THAT REPORTS NO REGION PASSES, like every other filter here. A
+	 * provider that does not publish placement has not published "nowhere", and
+	 * dropping those would empty the candidate list for any provider that stays
+	 * quiet about geography.
+	 */
+	AllowedRegions []string
+	/*
+	 * MinReliability is a provider-reported host reliability score, 0..1. Zero
+	 * disables the floor.
+	 *
+	 * Only Vast.ai publishes one, in Offer.Raw["reliability"]. Unknown passes.
+	 * The trade is availability for fewer dead rentals: a host that drops the
+	 * instance mid-chunk has still been paid for its commissioning, so a low
+	 * floor can be cheaper than none.
+	 */
+	MinReliability float64
 }
 
 // PreflightReport is a provider's honest self-assessment.

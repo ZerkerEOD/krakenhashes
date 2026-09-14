@@ -520,6 +520,35 @@ func (r *CloudInstanceRepository) RetireAgent(ctx context.Context, agentID int) 
 	return nil
 }
 
+/*
+ * RetireAgentsForInstance retires whatever agent is attached to an instance,
+ * keyed on the AGENT's own cloud_instance_id rather than the instance's
+ * agent_id back-reference.
+ *
+ * This is the one to call from teardown. RetireAgent above needs the caller to
+ * already know the agent id, and every caller got it from
+ * cloud_instances.agent_id — so when that column was null the retirement was
+ * skipped silently and the agent row stayed alive indefinitely. Three agents on
+ * this deployment survived their terminated instances exactly that way.
+ *
+ * The direction matters: agents.cloud_instance_id is written at registration by
+ * the agent itself, while cloud_instances.agent_id is a convenience the backend
+ * maintains. Reading the agent's own copy means a lost back-reference cannot
+ * hide a live agent.
+ *
+ * Soft retirement, never DELETE — see RetireAgent for why.
+ */
+func (r *CloudInstanceRepository) RetireAgentsForInstance(ctx context.Context, instanceID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agents
+		SET retired_at = COALESCE(retired_at, NOW()), updated_at = NOW()
+		WHERE cloud_instance_id = $1 AND retired_at IS NULL`, instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to retire agents for cloud instance %s: %w", instanceID, err)
+	}
+	return nil
+}
+
 // AddIncurredCost advances the running cost estimate.
 func (r *CloudInstanceRepository) AddIncurredCost(ctx context.Context, id uuid.UUID, deltaCents int64) error {
 	_, err := r.db.ExecContext(ctx, `

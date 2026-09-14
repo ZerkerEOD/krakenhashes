@@ -191,7 +191,7 @@ func newReaperFixture(t *testing.T, capCents int64) *reaperFixture {
 
 	r := NewReaper(instances, budget,
 		func(context.Context, uuid.UUID) (Provider, error) { return provider, nil },
-		notifier)
+		notifier, &fakeVoucherIssuer{})
 
 	// A live job for the fixture's instances to belong to. Left running so the
 	// idle-drain tier never fires here — these tests are about the other tiers.

@@ -60,6 +60,7 @@ func applyOfferConstraints(offers []Offer, q OfferQuery) []Offer {
 	wantAvailability := q.MinAvailability > AvailabilityUnknown
 
 	var passedOnUnknownVRAM, passedOnUnknownAvailability, droppedByAllowList int
+	var droppedByRegion, droppedByReliability int
 
 	kept := make([]Offer, 0, len(offers))
 	for _, o := range offers {
@@ -119,6 +120,20 @@ func applyOfferConstraints(offers []Offer, q OfferQuery) []Offer {
 			continue
 		}
 
+		// Region unknown passes, for the same reason as every unknown above: a
+		// provider that does not publish placement has not published "nowhere".
+		if len(q.AllowedRegions) > 0 && o.Region != "" && !offerInRegion(o.Region, q.AllowedRegions) {
+			droppedByRegion++
+			continue
+		}
+
+		if q.MinReliability > 0 {
+			if rel, known := offerReliability(o); known && rel < q.MinReliability {
+				droppedByReliability++
+				continue
+			}
+		}
+
 		kept = append(kept, o)
 
 		// Counted only for offers that SURVIVED, so the log below reports what
@@ -151,6 +166,20 @@ func applyOfferConstraints(offers []Offer, q OfferQuery) []Offer {
 		// but it must not be something an operator has to guess at.
 		debug.Info("cloud offer filter: %d of %d offers dropped for not matching allowed GPU models %v",
 			droppedByAllowList, len(offers), q.AllowedGPUModels)
+	}
+	if droppedByRegion > 0 {
+		// Logged because a region allow list is the easiest of these to get
+		// silently wrong: the strings are provider-shaped and coarse, so a
+		// plausible-looking "United States" matches nothing when the provider
+		// reports "US, Texas", and the symptom is a provider that quietly stops
+		// producing candidates.
+		debug.Info("cloud offer filter: %d of %d offers dropped for not matching allowed regions %v; "+
+			"region strings are provider-shaped, so check these against what the provider actually reports",
+			droppedByRegion, len(offers), q.AllowedRegions)
+	}
+	if droppedByReliability > 0 {
+		debug.Info("cloud offer filter: %d of %d offers dropped below the %.2f host reliability floor",
+			droppedByReliability, len(offers), q.MinReliability)
 	}
 
 	return kept
@@ -185,4 +214,64 @@ func offerVerified(o Offer) (verified, known bool) {
 		return v, true
 	}
 	return false, false
+}
+
+/*
+ * offerInRegion matches a provider's coarse placement string against an
+ * operator's allow list, case-insensitively and by SUBSTRING in both directions.
+ *
+ * Equality would be wrong in both directions at once. Vast.ai reports
+ * "US, Texas" where an operator writes "US"; AWS reports "us-east-2a" where an
+ * operator may well write "us-east-2" meaning the whole region. Requiring an
+ * exact match makes the obvious entry silently match nothing, and the symptom
+ * is a provider that stops producing candidates with no error anywhere.
+ */
+func offerInRegion(region string, allowed []string) bool {
+	r := strings.ToLower(strings.TrimSpace(region))
+	for _, a := range allowed {
+		want := strings.ToLower(strings.TrimSpace(a))
+		if want == "" {
+			continue
+		}
+		if strings.Contains(r, want) || strings.Contains(want, r) {
+			return true
+		}
+	}
+	return false
+}
+
+/*
+ * offerReliability reads a provider's host reliability score back out of Raw.
+ *
+ * ZERO IS TREATED AS UNKNOWN, and that is not a rounding convenience — it is
+ * the only correct reading. The provider fills Raw from a Go struct field, so a
+ * score absent from the JSON decodes to 0.0 and is then written into Raw as a
+ * present key with a terrible value. "No data" and "the worst possible host"
+ * become indistinguishable at exactly the point the filter reads them.
+ *
+ * Reading that zero as known deletes EVERY offer the moment a floor is set,
+ * which is precisely what happened the first time this was tested — the whole
+ * provider silently vanishes from the candidate list with nothing to say why.
+ * A real 0.0 host is worth excluding, but not at the price of also excluding
+ * every host whose score simply was not reported.
+ */
+func offerReliability(o Offer) (score float64, known bool) {
+	if o.Raw == nil {
+		return 0, false
+	}
+	var v float64
+	switch raw := o.Raw["reliability"].(type) {
+	case float64:
+		v = raw
+	case float32:
+		v = float64(raw)
+	case int:
+		v = float64(raw)
+	default:
+		return 0, false
+	}
+	if v <= 0 {
+		return 0, false
+	}
+	return v, true
 }

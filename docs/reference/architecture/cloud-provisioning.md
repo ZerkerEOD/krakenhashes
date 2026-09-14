@@ -477,26 +477,68 @@ never through the settings update.
 
 ### RunPod
 
-Two provider kinds over one adapter, differing in the v2 API's `cloud: SECURE | COMMUNITY`
-field and in their consent chain. The API is weaker than both incumbents in ways that shape
-the design:
+Two provider kinds over one adapter (`runpod.go` for the lifecycle, `runpod_offers.go` for
+GraphQL and offers), differing in the REST v1 `cloudType: SECURE | COMMUNITY` field and in
+their consent chain. Every tier-dependent value derives from a single `secure()` predicate
+off `cfg.Provider`, so the two facts cannot disagree.
 
-- **No idempotency key, no server-side filter, no pagination.** Ownership is a client-side
-  anchored regex against the `kh-<uuid[:18]>` label every instance already carries, so a
-  dedicated account is a requirement rather than advice.
-- **No TTL field.** Teardown rests on the in-guest deadline and the backend reaper; there is
-  no provider-enforced ceiling to fall back on.
-- **No balance endpoint**, so pre-flight cannot verify funding — a `402` at create time is the
-  only signal.
-- **Billing buckets are one hour minimum**, so cost-so-far is unknown for most pods and
-  accrual stays wall-clock.
-- **A stopped pod still bills**, disk at roughly double. The adapter always terminates, never
-  stops, and never attaches network volumes — those outlive the pod and would retain cracked
-  plaintexts after termination.
+Container-based like Vast.ai rather than VM-based like AWS, so `vastai.go` is the closer
+sibling: image plus env, label-based ownership, userspace VPN. `vpn.go` needs no changes —
+RunPod pods are unprivileged containers exactly like Vast's, and the entrypoint's
+`--tun=userspace-networking` / `NB_USE_NETSTACK_MODE` / wireproxy stack already avoids a tun
+device.
 
-`api.runpod.io` is kept off-tunnel via `KH_NO_PROXY_EXTRA` for the same reason as
-`console.vast.ai`: a self-destruct path that needs the tunnel whose loss it is reacting to
-cannot work.
+The API is weaker than both incumbents in ways that shape the design:
+
+- **No idempotency key on `POST /pods`, and no server-enforced unique name.** A retried
+  create yields two pods with the same label. Mitigated by adopting an existing pod by label
+  before creating, then reconciling by name on an *ambiguous* failure — a transport error or
+  5xx, where the request may have been accepted. Only a genuine capacity refusal becomes
+  `ErrOfferUnavailable`, because that sentinel **releases the budget reservation** and
+  applying it to a timeout would free the budget for a pod that is quietly running.
+- **`GET /pods` does filter** (`name`, `gpuTypeId`, `desiredStatus`, `dataCenterId`), but no
+  filter helps *ownership*: labels are unique per instance, so the useful query is "all of
+  them" plus an anchored client-side regex against `kh-<uuid[:18]>`. Two pods sharing a label
+  is the expected double-launch signature, and the loser is re-keyed under a synthetic
+  `label#dup:<id>` so the orphan machinery reaps it rather than a map write silently dropping
+  it. **Pagination is undocumented and is the highest-consequence unknown in the adapter**,
+  since `ListOwned` is the backstop every "the reaper will adopt it later" argument depends
+  on; a suspiciously round page size is logged.
+- **`desiredStatus` is a DESIRED state, not an observation**, and it is the only status the
+  list endpoint returns. It over-claims `RUNNING` for a pod still pulling its image. Harmless
+  because readiness is gated on agent registration and `ready_deadline_at`, never on provider
+  status — but `Status` reports the raw value so an operator is not told "running" while the
+  console disagrees. A non-404 error is **never** mapped to `ObservedGone`: that is terminal
+  and would finalize the row for a pod still billing.
+- **No TTL field.** Teardown rests on the in-guest deadline and the backend reaper.
+- **No `createdAt`** on the pod object; age is inferred from `lastStartedAt`.
+- **Billing buckets are one hour minimum**, so `CostSoFar` returns `(0, false, nil)` always.
+  `costPerHr × elapsed` is available and deliberately unused: it *is* the caller's own
+  wall-clock estimate, so returning it as authoritative would launder an estimate into a fact.
+- **A stopped pod still bills**, disk at roughly double — which is why `EXITED` maps to
+  terminal. The adapter always terminates, never stops, and never attaches network volumes.
+
+Availability data is the **best of the three providers**: `gpuTypes.lowestPrice` returns
+`stockStatus`, `rentedCount` and `totalCount`, filterable by `dataCenterId` and
+`secureCloud`. Real inventory with a denominator, where AWS has only an advisory score.
+Placement pins the *opposite* way from AWS: empty `data_center_ids` lets RunPod's scheduler
+try everywhere and is the widest search.
+
+Both `api.runpod.io` (GraphQL) and `rest.runpod.io` (REST v1) are kept off-tunnel via
+`KH_NO_PROXY_EXTRA`, for the same reason as `console.vast.ai`: a self-destruct path that
+needs the tunnel whose loss it is reacting to cannot work. Only the REST host is used by the
+guest, but listing both means the teardown path cannot be silently broken by the adapter
+switching endpoints.
+
+**Teardown is asymmetric between the tiers, and this is the sharpest constraint on the
+provider.** RunPod issues no per-pod scoped credential — Vast's `CONTAINER_API_KEY` has no
+equivalent — so the only key that can delete a pod is account-scoped. On Secure that key may
+be injected as `KH_RUNPOD_API_KEY` when the operator opts in, giving the same three rails as
+Vast. On **Community it is never injected**, enforced in the constructor rather than at the
+injection site so no later code path can bypass it: a Community host operator has root over
+the container and would read it out of the environment, and that key can create and delete
+every other pod on the account. The in-guest deadline still kills hashcat and ends the data
+exposure, but on Community **only the reaper can stop the billing**.
 
 ### AWS
 
@@ -521,6 +563,64 @@ Other essentials:
 - `ClientToken` is deterministic per instance — a random token per retry would let an
   SDK-level retry after a network timeout launch a second paid GPU.
 - AMI resolved via SSM public parameter, never a name glob (NPK issue #112).
+
+### Multiple providers at once
+
+Every enabled and permitted provider config is searched on each provision
+(`rankedCandidates`), ranked **per provider** — `rankOffers` is single-provider because the
+observation ladder is provider-scoped — and then merged into **one global cost-per-work
+order**. The launch walk spans providers. Two configs of the same kind are legal; only
+`name` is unique.
+
+Failure is isolated at both ends. A provider whose credentials will not decrypt is skipped
+during the search, and a *provider-local* launch failure — currently VPN credential decrypt
+and mint, both provably before any row, voucher, reservation or provider call — carries
+`errProviderLocal` so the walk continues onto another provider's candidates. The bar for
+that sentinel is high and ambiguity disqualifies: anything at or after the instance row may
+have left something billing, so it still aborts the walk and leaves the row for the reaper.
+
+Two known limitations:
+
+- **The allowlist is keyed by provider *kind*, not config id**, so "AWS-prod" and "AWS-dev"
+  cannot be permitted separately, and same-kind configs share one benchmark observation pool.
+- **`max_concurrent_instances` is per config row**, so two configs on one provider account
+  permit twice the intended cap.
+
+### Placement: offers are (type, zone) pairs
+
+`SearchOffers` emits **one offer per instance type per configured zone**, each carrying its
+own `PlacementRef` (the subnet), and `buildRunInput` prefers the offer's subnet over the
+provider's global `subnet_id`. That pairing is the whole point:
+
+> EC2 spot capacity belongs to the **(instance type, availability zone) pair**, not to the
+> type and not to the region.
+
+Before this, `AWSSettings.SubnetID` was a single string, so a search over *N* instance types
+produced *N* candidates that all resolved to the same physical inventory. `attemptLaunch`
+walks the ranked list on `ErrOfferUnavailable` and logs "trying the next candidate" for each
+— which reads like working fallback and is not, because the second refusal was implied by
+the first. Observed: fifteen consecutive `InsufficientInstanceCapacity` refusals (each
+correctly costing $0), then a success two cycles after widening to three types across two
+zones.
+
+The number that matters is `len(zones) × len(types)`. The zone picker in the admin UI shows
+it live and warns at 1.
+
+Ordering: when spot is enabled and more than one zone is configured, `SearchOffers` calls
+`GetSpotPlacementScores` and maps the 1–10 result onto `Offer.Availability`, which the
+ranker uses as a **tie-break after cost, confidence and hourly rate**. Same type in three
+zones ties on all three, so without it the launch order is alphabetical — `us-east-2a`
+first, every time, including when 2a is the empty one.
+
+The score never *filters*. It read 1/10 in every zone on a live account minutes before a
+first-try launch succeeded in one of them, and `availabilityFromScore(0)` returns
+`AvailabilityUnknown` rather than `AvailabilityNone` precisely so that a failed call or a
+missing `ec2:GetSpotPlacementScores` permission costs ordering instead of deleting every
+candidate.
+
+Backward compatibility: `placements()` never returns empty. With no `zones`, it yields a
+single placement carrying the legacy `subnet_id` — and if that is empty too, one with no
+subnet at all, which is exactly the pre-zones behaviour of letting EC2 choose.
 
 ---
 

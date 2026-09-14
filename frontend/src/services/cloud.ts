@@ -3,6 +3,7 @@ import {
   CloudInstance,
   CloudBudgetAssessment,
   CloudBudgetPolicy,
+  CloudCapacityReport,
   CloudPreflightReport,
   CloudProjection,
   CloudProviderConfig,
@@ -147,6 +148,23 @@ export const destroyCloudInstance = async (id: string): Promise<void> => {
 export const runCloudPreflight = async (providerConfigId: string): Promise<CloudPreflightReport> => {
   const response = await api.post<CloudPreflightReport>(
     `/api/admin/cloud/providers/${providerConfigId}/preflight`
+  );
+  return response.data;
+};
+
+/**
+ * Enumerate the placements a provider could launch into.
+ *
+ * Reads the SAVED provider config, so an unsaved form's region, credentials and
+ * instance types are not visible to it — save first, then check. Spends
+ * nothing: EC2 describe calls only.
+ *
+ * 501 means the provider has no placement dimension (Vast.ai and RunPod choose
+ * for you); callers should hide the picker rather than show an error.
+ */
+export const getCloudCapacity = async (providerConfigId: string): Promise<CloudCapacityReport> => {
+  const response = await api.get<CloudCapacityReport>(
+    `/api/admin/cloud/providers/${providerConfigId}/capacity`
   );
   return response.data;
 };

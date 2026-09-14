@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   AlertTitle,
@@ -25,10 +25,11 @@ import { DeleteForever as DeleteForeverIcon, Warning as WarningIcon } from '@mui
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
-import { CloudInstance, CloudInstanceState } from '../../types/cloud';
+import { CloudInstance, CloudInstanceState, CloudProviderConfig } from '../../types/cloud';
 import {
   destroyCloudInstance,
   listCloudInstances,
+  listCloudProviders,
   formatCents,
   formatDuration,
   ttlRemainingSeconds,
@@ -71,6 +72,27 @@ const CloudFleet: React.FC = () => {
     refetchInterval: 15_000,
   });
 
+  /*
+   * Providers are fetched only to resolve each instance's maturity. An
+   * instance row carries provider_config_id but not the provider kind, and
+   * joining it server-side would mean widening the instance query, the scanner
+   * and the model for a label. The provider list is small, changes rarely and
+   * is already cached by the settings screen.
+   *
+   * No refetchInterval: unlike the fleet itself, this is configuration.
+   */
+  const { data: providerList } = useQuery({
+    queryKey: ['cloudProviders'],
+    queryFn: listCloudProviders,
+    staleTime: 60_000,
+  });
+
+  const providerByConfig = useMemo(() => {
+    const map = new Map<string, CloudProviderConfig>();
+    (providerList?.providers ?? []).forEach((p) => map.set(p.id, p));
+    return map;
+  }, [providerList]);
+
   useEffect(() => {
     const timer = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(timer);
@@ -96,6 +118,16 @@ const CloudFleet: React.FC = () => {
 
   const live = instances ?? [];
   const stuckTeardown = live.filter((i) => i.terminate_attempts > 0);
+  /*
+   * Instances on a provider nobody has yet proven with real money. The warning
+   * belongs HERE rather than only on the settings screen: an operator ticks a
+   * provider once and then lives on this page, so a caveat that only appears at
+   * configuration time is a caveat nobody re-reads while money is being spent.
+   */
+  const betaLive = live.filter((i) => providerByConfig.get(i.provider_config_id)?.maturity === 'beta');
+  const betaProviderNames = Array.from(
+    new Set(betaLive.map((i) => providerByConfig.get(i.provider_config_id)?.name).filter(Boolean))
+  ).join(', ');
   const totalHourly = live
     .filter((i) => i.state !== 'terminated' && i.state !== 'failed')
     .reduce((sum, i) => sum + i.hourly_rate_cents, 0);
@@ -118,6 +150,15 @@ const CloudFleet: React.FC = () => {
         <Alert severity="error" sx={{ mb: 2 }}>
           <AlertTitle>{t('cloud.fleet.teardownFailingTitle') as string}</AlertTitle>
           {t('cloud.fleet.teardownFailingBody', { count: stuckTeardown.length }) as string}
+        </Alert>
+      )}
+
+      {betaLive.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <AlertTitle>
+            {t('cloud.fleet.betaRunningTitle', { count: betaLive.length }) as string}
+          </AlertTitle>
+          {t('cloud.fleet.betaRunningBody', { providers: betaProviderNames }) as string}
         </Alert>
       )}
 
@@ -161,10 +202,22 @@ const CloudFleet: React.FC = () => {
               {live.map((instance) => {
                 const remaining = ttlRemainingSeconds(instance);
                 const cost = instance.actual_cost_cents ?? instance.estimated_cost_cents;
+                const provider = providerByConfig.get(instance.provider_config_id);
                 return (
                   <TableRow key={instance.id}>
                     <TableCell>
                       {instance.label}
+                      {provider?.maturity === 'beta' && (
+                        <Tooltip title={t('cloud.fleet.betaTooltip', { provider: provider.name }) as string}>
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            label={t('cloud.providers.betaChip') as string}
+                            sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                          />
+                        </Tooltip>
+                      )}
                       {instance.terminate_attempts > 0 && (
                         <Tooltip
                           title={

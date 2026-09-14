@@ -46,6 +46,14 @@ const (
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
 		WHERE ($1::text IS NULL OR a.status = $1)
+		  -- Retired cloud agents are hidden by DEFAULT, not permanently.
+		  --
+		  -- retired_at is written on teardown but was read by exactly one query
+		  -- (the scheduler's idle-agent pick), so every GPU ever rented stayed
+		  -- in this list forever. $2 lets an admin ask for them back: a hard
+		  -- filter would make the rows unreachable from the screen that is
+		  -- supposed to manage them.
+		  AND ($2::bool IS TRUE OR a.retired_at IS NULL)
 		ORDER BY a.created_at DESC`
 
 	UpdateAgent = `
@@ -217,7 +225,13 @@ const (
 		FROM claim_vouchers v
 		LEFT JOIN users u1 ON v.created_by_id = u1.id
 		LEFT JOIN agents a ON v.used_by_agent_id = a.id
+		-- is_active alone is not "usable". ClaimVoucher.IsValid() also rejects
+		-- anything past expires_at, so a voucher can be is_active = true and
+		-- completely dead -- which is how this list came to show 695 rows, 673
+		-- of them belonging to cloud instances that failed to launch. Matching
+		-- IsValid()'s own predicate keeps the screen honest.
 		WHERE v.is_active = true
+		  AND (v.expires_at IS NULL OR v.expires_at > NOW())
 		ORDER BY v.created_at DESC`
 
 	ListActiveVouchersByUser = `
@@ -229,7 +243,9 @@ const (
 		FROM claim_vouchers v
 		LEFT JOIN users u1 ON v.created_by_id = u1.id
 		LEFT JOIN agents a ON v.used_by_agent_id = a.id
+		-- Same expiry predicate as ListActiveVouchers; see the note there.
 		WHERE v.is_active = true AND v.created_by_id = $1
+		  AND (v.expires_at IS NULL OR v.expires_at > NOW())
 		ORDER BY v.created_at DESC`
 
 	// UseClaimVoucherByAgent also re-checks expiry so a voucher that lapses

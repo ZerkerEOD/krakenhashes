@@ -47,6 +47,15 @@ type Reaper struct {
 	budget    *BudgetEngine
 	providers func(ctx context.Context, providerConfigID uuid.UUID) (Provider, error)
 	notifier  Notifier
+	/*
+	 * vouchers kills the registration credential when an instance is finalized.
+	 *
+	 * The launch path only knows about the failures it can see itself. Anything
+	 * that dies LATER -- a ready deadline that lapses, a teardown, an instance
+	 * that never registered -- reaches its end here, and until this existed its
+	 * voucher stayed redeemable until the TTL ran out.
+	 */
+	vouchers VoucherIssuer
 
 	// OrphanGrace is how long an unknown provider-side instance is tolerated
 	// before destruction. Non-zero so a launch in flight is not reaped by the
@@ -144,12 +153,14 @@ func NewReaper(
 	budget *BudgetEngine,
 	providers func(ctx context.Context, providerConfigID uuid.UUID) (Provider, error),
 	notifier Notifier,
+	vouchers VoucherIssuer,
 ) *Reaper {
 	return &Reaper{
 		instances:          instances,
 		budget:             budget,
 		providers:          providers,
 		notifier:           notifier,
+		vouchers:           vouchers,
 		OrphanGrace:        10 * time.Minute,
 		IdleDrain:          5 * time.Minute,
 		CommissioningGrace: 30 * time.Minute,
@@ -786,11 +797,33 @@ func (r *Reaper) finalize(ctx context.Context, inst *models.CloudInstance, state
 	 * Soft retirement, not deletion: deleting NULLs job_tasks.agent_id and
 	 * destroys cost attribution, which is why the column exists.
 	 */
-	if inst.AgentID != nil {
-		if err := r.instances.RetireAgent(ctx, *inst.AgentID); err != nil {
-			debug.Error("Cloud reaper: failed to retire agent %d for %s: %v", *inst.AgentID, inst.Label, err)
+	/*
+	 * Retire by INSTANCE id, not agent id.
+	 *
+	 * The old form was `if inst.AgentID != nil { RetireAgent(*inst.AgentID) }`,
+	 * which skips silently whenever the instance row has no agent id -- and
+	 * that is exactly how three agents on this deployment ended up alive with
+	 * their instances long terminated. Keying on cloud_instance_id retires
+	 * whatever is actually attached, whether or not the back-reference survived.
+	 */
+	if err := r.instances.RetireAgentsForInstance(ctx, inst.ID); err != nil {
+		debug.Error("Cloud reaper: failed to retire the agent(s) for %s: %v", inst.Label, err)
+	}
+
+	/*
+	 * Kill the claim code. Safe here and nowhere earlier: by the time an
+	 * instance is finalized its fate is known, so there is no risk of pulling
+	 * the credential out from under a machine that is actually coming up.
+	 */
+	if r.vouchers != nil {
+		if n, err := r.vouchers.DeactivateForCloudInstance(ctx, inst.ID); err != nil {
+			debug.Error("Cloud reaper: could not deactivate the claim voucher for %s: %v; it stays "+
+				"redeemable until it expires", inst.Label, err)
+		} else if n > 0 {
+			debug.Info("Cloud reaper: deactivated %d unredeemed claim voucher(s) for %s", n, inst.Label)
 		}
 	}
+
 	debug.Info("Cloud reaper: instance %s finalized as %s (%s)", inst.Label, state, reason)
 }
 

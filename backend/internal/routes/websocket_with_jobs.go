@@ -276,6 +276,13 @@ func SetupWebSocketWithJobRoutes(
 	go metricsCleanupService.StartCleanupScheduler(context.Background())
 	debug.Info("Metrics cleanup service started")
 
+	// Expired, never-redeemed claim vouchers. Cloud provisioning mints one per
+	// candidate offer and nothing removed them until this existed.
+	voucherCleanupService := services.NewVoucherCleanupService(
+		repository.NewClaimVoucherRepository(database), systemSettingsRepo)
+	go voucherCleanupService.StartCleanupScheduler(context.Background())
+	debug.Info("Claim voucher cleanup service started")
+
 	if tlsConfig != nil {
 		debug.Debug("WebSocket TLS Configuration:")
 		debug.Debug("- Min Version: %v", agentTLSConfig.MinVersion)

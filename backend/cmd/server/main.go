@@ -683,7 +683,11 @@ func main() {
 		cloudNotifier = cloudsvc.NewDispatchNotifier(nil)
 	}
 
-	cloudReaper := cloudsvc.NewReaper(cloudInstanceRepo, cloudBudget, cloudService.ProviderFor, cloudNotifier)
+	// claimVoucherService is passed so teardown can kill the instance's
+	// registration credential. Without it a voucher stays redeemable until its
+	// TTL expires, for an instance that is already destroyed.
+	cloudReaper := cloudsvc.NewReaper(cloudInstanceRepo, cloudBudget, cloudService.ProviderFor,
+		cloudNotifier, claimVoucherService)
 	cloudReaper.OrphanGrace = cloudSettings.OrphanGrace
 	cloudReaper.IdleDrain = cloudSettings.IdleDrain
 	cloudReaper.CommissioningGrace = cloudSettings.CommissioningGrace
