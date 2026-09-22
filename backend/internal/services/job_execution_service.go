@@ -1255,6 +1255,13 @@ func (s *JobExecutionService) calculateTotalCandidates(
 	args = append(args, "--session", sessionID)
 	args = append(args, "--quiet")
 
+	// Skip the exec entirely once this binary has already rejected the flag.
+	// Without this the pre-flight re-runs a doomed process on every cycle for a
+	// condition that cannot change until a different hashcat binary is uploaded.
+	if !hashcatSupportsTotalCandidates(hashcatPath) {
+		return 0, false, nil
+	}
+
 	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
 
 	var lastErr error
@@ -1297,6 +1304,11 @@ func (s *JobExecutionService) calculateTotalCandidates(
 				strings.Contains(stderrStr, "already running") {
 				lastErr = fmt.Errorf("hashcat busy: %s", stderrStr)
 				continue // Retry
+			}
+			// The binary predates the flag. Record it so later runs skip the exec
+			// entirely, and do not log the same permanent condition every cycle.
+			if noteTotalCandidatesFailure(hashcatPath, stderrStr) {
+				return 0, false, nil
 			}
 			// Other error - log and allow fallback
 			debug.Warning("--total-candidates failed: %v, stderr: %s", err, stderrStr)

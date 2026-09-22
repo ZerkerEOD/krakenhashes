@@ -1588,6 +1588,11 @@ func (s *adminPresetJobService) calculatePresetMaskTotalCandidates(ctx context.C
 	sessionID := fmt.Sprintf("preset_layer_total_candidates_%s_%d", presetJobID, time.Now().UnixNano())
 	args = append(args, "--session", sessionID)
 
+	// Skip the exec entirely once this binary has already rejected the flag.
+	if !hashcatSupportsTotalCandidates(hashcatPath) {
+		return 0, false, nil
+	}
+
 	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
 
 	var lastErr error
@@ -1627,6 +1632,9 @@ func (s *adminPresetJobService) calculatePresetMaskTotalCandidates(ctx context.C
 				strings.Contains(stderrStr, "already running") {
 				lastErr = fmt.Errorf("hashcat busy: %s", stderrStr)
 				continue
+			}
+			if noteTotalCandidatesFailure(hashcatPath, stderrStr) {
+				return 0, false, nil
 			}
 			debug.Warning("preset layer --total-candidates failed: %v, stderr: %s", err, stderrStr)
 			return 0, false, nil
@@ -1684,6 +1692,14 @@ func (s *adminPresetJobService) calculateTotalCandidates(
 	args = append(args, "--session", sessionID)
 	args = append(args, "--quiet")
 
+	// Skip the exec entirely once this binary has already rejected the flag.
+	// Without this the pre-flight re-runs a doomed process on every cycle --
+	// once every ten minutes on the reference deployment -- for a condition that
+	// cannot change until a different hashcat binary is uploaded.
+	if !hashcatSupportsTotalCandidates(hashcatPath) {
+		return 0, false, nil
+	}
+
 	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
 
 	var lastErr error
@@ -1726,6 +1742,11 @@ func (s *adminPresetJobService) calculateTotalCandidates(
 				strings.Contains(stderrStr, "already running") {
 				lastErr = fmt.Errorf("hashcat busy: %s", stderrStr)
 				continue // Retry
+			}
+			// The binary predates the flag. Record it so later runs skip the exec
+			// entirely, and do not log the same permanent condition every cycle.
+			if noteTotalCandidatesFailure(hashcatPath, stderrStr) {
+				return 0, false, nil
 			}
 			// Other error - log and allow fallback
 			debug.Warning("--total-candidates failed: %v, stderr: %s", err, stderrStr)
