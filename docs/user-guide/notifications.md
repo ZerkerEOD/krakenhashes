@@ -232,6 +232,36 @@ The notification bell indicates your connection status:
 2. Verify notifications are enabled in your preferences
 3. Try refreshing the page to re-establish connection
 
+!!! note "Administrators: running behind your own reverse proxy"
+    If the bell stays **Disconnected** and the backend log repeats
+
+    ```
+    Failed to upgrade WebSocket connection: websocket: the client is not using
+    the websocket protocol: 'websocket' token not found in 'Upgrade' header
+    ```
+
+    a proxy in front of KrakenHashes is not passing the WebSocket handshake
+    through. Any proxy terminating `/api` must forward both headers, and must
+    make `Connection` conditional on the client actually requesting an upgrade:
+
+    ```nginx
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    location /api {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+    ```
+
+    A hard-coded `proxy_set_header Connection "upgrade";` produces this error on
+    ordinary REST calls too, because `/api` carries both regular requests and
+    WebSockets. The bundled nginx does this correctly; the note is for
+    deployments that add their own proxy in front of it.
+
 ### Emails Not Received
 
 1. Verify email is configured by your administrator
