@@ -1,0 +1,7 @@
+-- No-op: PostgreSQL does not support removing a value from an enum type without
+-- recreating the type and rewriting every dependent column
+-- (notifications.notification_type, audit_log.event_type,
+-- notification_preferences.notification_type). The leftover values are harmless
+-- if this migration is rolled back — the Go code simply stops dispatching them.
+--
+-- Matches the no-op down of 20260822090100, which added enum values the same way.
