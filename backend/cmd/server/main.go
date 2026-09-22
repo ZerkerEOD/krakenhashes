@@ -34,6 +34,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/crypto"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/database"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	admincloud "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/cloud"
@@ -187,6 +188,30 @@ func main() {
 	// Initialize application configuration
 	appConfig := config.NewConfig()
 	debug.Info("Application configuration initialized")
+
+	/*
+	 * Resolve the secret-encryption key before anything can touch it.
+	 *
+	 * This must run ahead of every other service: crypto.GetEncryptionService()
+	 * is a sync.Once singleton that cannot report an error, so whichever caller
+	 * reaches it first fixes the key for the process. Doing it here, with the
+	 * error checked, is what lets the server refuse to start rather than run on
+	 * a throwaway key and silently discard every credential it is asked to
+	 * store -- cloud provider API keys, VPN enrollment credentials, SSO secrets.
+	 */
+	debug.Info("Initializing secret encryption")
+	if appConfig.ConfigDir == "" {
+		// config.NewConfig falls back twice and should never yield this, but an
+		// empty directory would make the crypto package treat this as tooling and
+		// quietly use a throwaway key -- the exact failure being fixed here.
+		debug.Error("Config directory is empty; cannot resolve a persistent encryption key")
+		os.Exit(1)
+	}
+	if err := crypto.InitializeWithKeyDir(appConfig.ConfigDir); err != nil {
+		debug.Error("Failed to initialize secret encryption: %v", err)
+		os.Exit(1)
+	}
+	debug.Info("Secret encryption initialized (key source: %s)", crypto.GetEncryptionService().KeySource())
 
 	// Initialize TLS provider
 	debug.Info("Initializing TLS provider")
