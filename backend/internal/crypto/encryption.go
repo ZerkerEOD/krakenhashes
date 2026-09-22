@@ -12,11 +12,24 @@ The key is resolved once, in this order:
  1. KH_ENCRYPTION_KEY   — preferred, covers every subsystem
  2. SSO_ENCRYPTION_KEY  — legacy name, still fully supported so existing
     deployments keep decrypting their stored SSO secrets untouched
- 3. an ephemeral random key, with loud warnings
+ 3. <ConfigDir>/secrets/encryption.key — generated on first boot and reused
+    thereafter, so a server with no configuration still keeps its secrets
+ 4. an ephemeral random key
 
-Option 3 exists so a developer can boot without configuration, but it means
-every secret written during that process becomes unrecoverable the moment it
-exits. IsEphemeral() is surfaced in the admin UI for exactly that reason.
+Tier 3 is why this package needs a directory handed to it; see keyfile.go and
+InitializeWithKeyDir. Before it existed, an unconfigured server silently used a
+throwaway key and every secret it wrote became unrecoverable on exit.
+
+Tier 4 is reached in two situations, which differ deliberately:
+
+  - No key directory was supplied. Only the lazy GetEncryptionService accessor
+    does that, i.e. tests and tooling, so it is ephemeral with a warning and no
+    opt-in. A server never lands here — cmd/server always passes ConfigDir.
+  - A directory was supplied but its key cannot be read or created. That is a
+    real server misconfiguration, so it is FATAL unless the operator sets
+    KH_ALLOW_EPHEMERAL_KEY=true. An existing key is never replaced.
+
+IsEphemeral() and KeySource() are surfaced in the admin UI.
 */
 package crypto
 
@@ -59,9 +72,13 @@ var (
 type EncryptionService struct {
 	key         []byte
 	initialized bool
-	ephemeral   bool // true if key was generated at startup (not from env)
+	ephemeral   bool // true if key was generated at startup AND not persisted
 	source      string
-	mu          sync.RWMutex
+	// keyDir is the config directory under which the key file is kept. Empty
+	// means the caller did not ask for persistence, which only happens for tests
+	// and tooling; cmd/server always supplies it.
+	keyDir string
+	mu     sync.RWMutex
 }
 
 var (
@@ -69,13 +86,64 @@ var (
 	encryptionOnce    sync.Once
 )
 
-// GetEncryptionService returns the singleton encryption service instance
+// GetEncryptionService returns the singleton encryption service instance.
+//
+// This accessor cannot report an error, so it is NOT the way a server should
+// initialise the service -- a failure to obtain a persistent key would be
+// swallowed here and surface much later as a decryption error. cmd/server calls
+// InitializeWithKeyDir first, which returns the error and aborts startup; by the
+// time anything calls this, the singleton already exists.
+//
+// Reached first (tests, tooling), this still yields a usable service: it
+// initialises with no key directory, which takes an ephemeral key with a
+// warning. That keeps callers who just want Encrypt/Decrypt working without
+// setup, and cannot make a server ephemeral, because cmd/server always calls
+// InitializeWithKeyDir before anything else.
 func GetEncryptionService() *EncryptionService {
 	encryptionOnce.Do(func() {
 		encryptionService = &EncryptionService{}
-		encryptionService.Initialize()
+		if err := encryptionService.Initialize(); err != nil {
+			// Should not happen on this path (no key directory means ephemeral,
+			// which only fails if the system RNG does), but never leave a
+			// half-initialised service silently in place: Encrypt/Decrypt return
+			// ErrEncryptionNotInitialized instead.
+			debug.Error("Encryption service unavailable: %v", err)
+		}
 	})
 	return encryptionService
+}
+
+/*
+InitializeWithKeyDir initialises the singleton, persisting a generated key under
+configDir when no key is configured in the environment.
+
+Call this once during startup, before anything can reach GetEncryptionService,
+and treat a returned error as fatal. That ordering is what makes "refuse to
+start" possible: the accessor above has no way to report failure.
+*/
+func InitializeWithKeyDir(configDir string) error {
+	var initErr error
+	ran := false
+
+	encryptionOnce.Do(func() {
+		ran = true
+		encryptionService = &EncryptionService{keyDir: configDir}
+		initErr = encryptionService.Initialize()
+	})
+
+	if !ran {
+		// Something already initialised the singleton -- with a different key
+		// directory, or none. Silently keeping that key would mean the server
+		// runs on whichever key happened to be resolved first, so make the
+		// ordering mistake loud here instead.
+		if encryptionService != nil && encryptionService.keyDir == configDir {
+			return nil
+		}
+		return fmt.Errorf("encryption service was already initialized before %s was configured; "+
+			"InitializeWithKeyDir must run before any use of GetEncryptionService", configDir)
+	}
+
+	return initErr
 }
 
 // Initialize sets up the encryption service with the key from the environment,
@@ -90,18 +158,7 @@ func (e *EncryptionService) Initialize() error {
 
 	keyStr, source := resolveKeyMaterial()
 	if keyStr == "" {
-		// Generate ephemeral key for development/testing
-		debug.Warning("%s not set - generating ephemeral key. Encrypted secrets will NOT persist across restarts!", EnvEncryptionKey)
-		key := make([]byte, KeySize)
-		if _, err := io.ReadFull(rand.Reader, key); err != nil {
-			return fmt.Errorf("failed to generate ephemeral key: %w", err)
-		}
-		e.key = key
-		e.ephemeral = true
-		e.initialized = true
-		e.source = "ephemeral"
-		debug.Warning("Using ephemeral encryption key. Set %s for production.", EnvEncryptionKey)
-		return nil
+		return e.initializeWithoutEnvKey()
 	}
 
 	// Decode base64 key from environment
@@ -120,6 +177,69 @@ func (e *EncryptionService) Initialize() error {
 	e.initialized = true
 	e.source = source
 	debug.Info("Encryption service initialized with key from %s", source)
+	return nil
+}
+
+/*
+initializeWithoutEnvKey handles the case where neither environment variable is
+set: persist a generated key under the config directory, or fail.
+
+Caller holds e.mu.
+
+Once a directory is configured -- which is every server start -- a key that
+cannot be read or created is fatal unless KH_ALLOW_EPHEMERAL_KEY=true. A server
+that silently falls back to a throwaway key looks healthy while discarding every
+credential it is asked to store, which is strictly worse than not starting.
+*/
+func (e *EncryptionService) initializeWithoutEnvKey() error {
+	// No key directory means nobody asked for persistence, which only happens
+	// via the lazy GetEncryptionService accessor -- tests and tooling. The
+	// server always supplies one: config.NewConfig resolves ConfigDir to the env
+	// var, then $HOME/.krakenhashes, then ./.krakenhashes, so it is never empty.
+	if e.keyDir == "" {
+		return e.useEphemeralKey("no key directory configured")
+	}
+
+	key, created, err := loadOrCreateKeyFile(e.keyDir)
+	if err != nil {
+		if ephemeralAllowed() {
+			debug.Warning("Falling back to an ephemeral key: %v", err)
+			return e.useEphemeralKey(err.Error())
+		}
+		return fmt.Errorf("%w: %v. Fix the path above, set %s, or set %s=true to accept "+
+			"losing every stored secret on restart",
+			ErrNoPersistentKey, err, EnvEncryptionKey, EnvAllowEphemeralKey)
+	}
+
+	if created {
+		debug.Warning("Generated a new encryption key at %s. Back this file up: "+
+			"without it, stored cloud provider credentials, VPN credentials and SSO "+
+			"secrets cannot be decrypted.", keyFilePath(e.keyDir))
+	}
+
+	e.key = key
+	e.ephemeral = false
+	e.initialized = true
+	e.source = "keyfile"
+	debug.Info("Encryption service initialized with key from %s", keyFilePath(e.keyDir))
+	return nil
+}
+
+// useEphemeralKey installs a throwaway key. Caller holds e.mu.
+func (e *EncryptionService) useEphemeralKey(reason string) error {
+	key := make([]byte, KeySize)
+	if _, err := io.ReadFull(rand.Reader, key); err != nil {
+		return fmt.Errorf("failed to generate ephemeral key: %w", err)
+	}
+
+	e.key = key
+	e.ephemeral = true
+	e.initialized = true
+	e.source = "ephemeral"
+
+	debug.Warning("Using an EPHEMERAL encryption key (%s). Every secret written by this "+
+		"process becomes unrecoverable when it exits. Set %s for a server.",
+		reason, EnvEncryptionKey)
 	return nil
 }
 
@@ -164,7 +284,8 @@ func (e *EncryptionService) IsEphemeral() bool {
 }
 
 // KeySource reports where the key came from: KH_ENCRYPTION_KEY,
-// SSO_ENCRYPTION_KEY, or "ephemeral". Intended for admin diagnostics.
+// SSO_ENCRYPTION_KEY, "keyfile" (persisted under the config directory), or
+// "ephemeral". Intended for admin diagnostics.
 func (e *EncryptionService) KeySource() string {
 	e.mu.RLock()
 	defer e.mu.RUnlock()

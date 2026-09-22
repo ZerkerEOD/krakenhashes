@@ -93,16 +93,23 @@ Add to your environment or `.env` file:
 SSO_ENCRYPTION_KEY=K7gNU3sdo+OL0wNhqoVWhr3g6s1xYv72ol/pe/Unols=
 ```
 
-!!! danger "Production Requirement"
-    Always set `SSO_ENCRYPTION_KEY` in production. Without it, the system generates an ephemeral key that is lost on restart, making all encrypted secrets unrecoverable.
+!!! note "Setting a key variable is optional"
+    With neither `KH_ENCRYPTION_KEY` nor `SSO_ENCRYPTION_KEY` set, the server generates a key
+    on first boot and stores it at `$KH_CONFIG_DIR/secrets/encryption.key` (mode `0600`),
+    reusing it on every later start. Secrets survive restarts either way.
 
-!!! warning "Ephemeral Key Behavior"
-    If `SSO_ENCRYPTION_KEY` is not set:
+    **Back that file up.** It is the only copy, and without it every encrypted SSO secret must
+    be re-entered. Set a variable explicitly to keep the key outside the config directory, or
+    to share one key across servers — see the High Availability note below.
 
-    - A random 32-byte key is generated at startup
-    - Log warning: "SSO_ENCRYPTION_KEY not set - generating ephemeral key"
-    - All encrypted secrets become invalid after restart
-    - Suitable only for development/testing
+!!! warning "Ephemeral keys are now opt-in"
+    If the key file cannot be read or created — a read-only config directory, or an existing
+    file that is corrupt — the server **refuses to start** and names the path. It never
+    silently replaces a key it cannot use, because that would make every already-stored
+    secret permanently undecryptable.
+
+    `KH_ALLOW_EPHEMERAL_KEY=true` restores the old behaviour of booting anyway with a random
+    key that is discarded on exit. Development only.
 
 ### High Availability Deployments
 

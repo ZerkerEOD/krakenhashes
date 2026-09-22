@@ -18,14 +18,21 @@ rules governing when anything may be spent. Per-provider setup lives on its own 
 ### 1. An encryption key
 
 Provider credentials and VPN enrollment credentials are AES-256-GCM encrypted at rest.
-Set `KH_ENCRYPTION_KEY` before configuring anything:
+
+You do not have to configure anything: with `KH_ENCRYPTION_KEY` unset, the server generates
+a key on first boot and stores it at `$KH_CONFIG_DIR/secrets/encryption.key`, reusing it on
+every later start. **Back that file up** — it is the only copy, and without it your stored
+provider credentials cannot be decrypted.
+
+To hold the key outside the config directory, or to share one key across servers, set it
+explicitly instead:
 
 ```bash
 openssl rand -base64 32
 ```
 
-Without it the server generates an ephemeral key and every secret written by that process
-becomes unrecoverable on restart. See [Environment](../../reference/environment.md).
+An explicit `KH_ENCRYPTION_KEY` always takes precedence over the generated file. See
+[Environment](../../reference/environment.md).
 
 ### 2. A VPN the agents can join
 

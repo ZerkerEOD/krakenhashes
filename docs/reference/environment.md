@@ -153,12 +153,33 @@ The backend builds the connection string dynamically from these variables.
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `KH_ENCRYPTION_KEY` | string | - | Yes* | AES-256-GCM key for every secret stored in the database (SSO secrets, cloud provider credentials, VPN enrollment credentials). Generate with `openssl rand -base64 32` |
+| `KH_ENCRYPTION_KEY` | string | - | No | AES-256-GCM key for every secret stored in the database (SSO secrets, cloud provider credentials, VPN enrollment credentials). Generate with `openssl rand -base64 32`. If unset, the server generates and persists one — see below |
 | `SSO_ENCRYPTION_KEY` | string | - | No | Legacy, SSO-scoped name for the same key. Still fully honored. Used only when `KH_ENCRYPTION_KEY` is unset |
+| `KH_ALLOW_EPHEMERAL_KEY` | bool | `false` | No | Boot with a throwaway key when none can be persisted, instead of refusing to start. Development only |
 
-\* Required in production for encrypted secrets to persist across restarts. Without either
-variable the server generates an ephemeral key at startup and every secret written during
-that process becomes unrecoverable when it exits.
+The key is resolved in this order:
+
+1. `KH_ENCRYPTION_KEY`
+2. `SSO_ENCRYPTION_KEY` (legacy)
+3. `$KH_CONFIG_DIR/secrets/encryption.key` — generated on first boot at mode `0600` inside a
+   `0700` directory, then reused on every later start
+4. A throwaway key, **only** when `KH_ALLOW_EPHEMERAL_KEY=true`
+
+Setting either variable is therefore optional: a server with neither still keeps its secrets
+across restarts. Set one explicitly to hold the key outside the config directory, or to share
+a single key across several servers.
+
+!!! warning "Back up the generated key file"
+    `$KH_CONFIG_DIR/secrets/encryption.key` is the only copy. Without it, stored cloud
+    provider credentials, VPN enrollment credentials and SSO secrets cannot be decrypted and
+    must be re-entered.
+
+!!! danger "The server refuses to start on a key it cannot use"
+    If the key file exists but is unreadable, empty, or the wrong length, startup fails and
+    names the path. It is **never** silently replaced — regenerating would turn one bad file
+    into every stored secret becoming permanently undecryptable, which would not surface
+    until a cloud launch or an SSO login failed much later. Restore it from backup, or delete
+    it deliberately to start over with new secrets.
 
 !!! warning "Do not set both to different values"
     If `KH_ENCRYPTION_KEY` and `SSO_ENCRYPTION_KEY` are both set to different values,
