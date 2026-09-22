@@ -266,10 +266,15 @@ func (r *JobExecutionRepository) GetJobsByStatus(ctx context.Context, status mod
 // For non-terminal targets (pending, running, paused), clears completed_at
 // (supports an explicit retry workflow where the caller resets the job).
 // The non-terminal path is ALSO gated by the terminal guard — to retry a
-// terminal job, the caller must first explicitly clear the terminal state
-// (via a different repository method designed for retry). This is the
-// trade-off for safety; in practice no current code retries from a terminal
-// state via this method.
+// terminal job, the caller must use ResetToPendingForRetry, which is the
+// one method allowed to make that transition.
+//
+// That method did not exist when the guard landed, and this comment used to
+// claim "no current code retries from a terminal state via this method."
+// Both RetryJob handlers did exactly that, and because a guard-refused
+// update returns nil (see below), they reported success while the job stayed
+// 'failed'. Retry was a no-op from 2026-05-22 until ResetToPendingForRetry
+// was added. Do not route a retry through here again.
 // SetCloudBurst overrides a job's cloud opt-in after creation.
 //
 // Used by the workflow path: a workflow-level opt-in applies to every step,
@@ -349,6 +354,69 @@ func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID,
 		return nil
 	}
 
+	return nil
+}
+
+/*
+ResetToPendingForRetry reopens a terminal job so the scheduler will pick it up
+again. This is the single sanctioned exception to the terminal-state guard on
+UpdateStatus, and it is deliberately the only one.
+
+Only 'failed' and 'cancelled' are retryable. A 'completed' job is NOT: it
+finished, and reopening it would re-dispatch keyspace that was legitimately
+exhausted. A job in a live status has nothing to retry. Both cases return
+ErrJobNotRetryable so the handler can answer 400 rather than a misleading 200.
+
+The three writes are one statement on purpose. The old handler flow did them
+as separate calls — UpdateStatus, then ClearError — which meant a failure
+between them left the job reopened but still showing its old error, or (as
+actually happened) the error cleared while the status stayed 'failed'. Either
+half-state is worse than failing cleanly.
+
+completed_at must be cleared alongside the status. GetJobsNeedingUpdate keys
+its terminal grace window off completed_at, and a reopened job that kept a
+stale timestamp would be skipped by progress recalculation.
+
+What this does NOT do, deliberately:
+
+  - It does not touch job_keyspace_intervals. Coverage is computed from those
+    rows with `status <> 'failed'`, so intervals that failed are already gaps
+    the dispatcher will re-issue, and intervals that completed represent work
+    that really was done. A retry resumes; it does not redo.
+  - It does not clear the benchmark blocklist or failure counters. That is
+    ClearBlocklistForJob's job and the handler calls it separately, because
+    it needs the acting user for the cleared_by audit column.
+*/
+func (r *JobExecutionRepository) ResetToPendingForRetry(ctx context.Context, id uuid.UUID) error {
+	const query = `
+		UPDATE job_executions
+		SET status = 'pending', completed_at = NULL, error_message = NULL
+		WHERE id = $1 AND status IN ('failed', 'cancelled')`
+
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to reset job execution for retry: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		// No row matched: either the job is gone, or it is in a status this
+		// method refuses to reopen. Distinguish by reading it back — unlike
+		// UpdateStatus, neither case may return nil here. A silent success is
+		// exactly the failure mode this method exists to fix.
+		var currentStatus string
+		if err := r.db.QueryRowContext(ctx,
+			`SELECT status FROM job_executions WHERE id = $1`, id).Scan(&currentStatus); err != nil {
+			return ErrNotFound
+		}
+		return fmt.Errorf("%w: job %s is %s", ErrJobNotRetryable, id, currentStatus)
+	}
+
+	debug.Info("Reset job %s to pending for retry", id)
 	return nil
 }
 
@@ -667,25 +735,13 @@ func (r *JobExecutionRepository) UpdateEmailStatus(ctx context.Context, id uuid.
 	return nil
 }
 
-// ClearError clears the error message for a job execution
-func (r *JobExecutionRepository) ClearError(ctx context.Context, id uuid.UUID) error {
-	query := `UPDATE job_executions SET error_message = NULL WHERE id = $1`
-	result, err := r.db.ExecContext(ctx, query, id)
-	if err != nil {
-		return fmt.Errorf("failed to clear job execution error: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-
-	return nil
-}
+// ClearError was removed: its only callers were the two RetryJob handlers,
+// which cleared the error in a second write after UpdateStatus. That pair could
+// half-apply — and did, since the status half was silently refused while this
+// half succeeded, leaving jobs showing no error but still 'failed'.
+// ResetToPendingForRetry now clears error_message in the same statement that
+// reopens the job. Reintroduce a standalone clear only with a reason that is not
+// "part of a retry".
 
 // UpdateKeyspaceInfo updates the enhanced keyspace information for a job execution
 func (r *JobExecutionRepository) UpdateKeyspaceInfo(ctx context.Context, job *models.JobExecution) error {
