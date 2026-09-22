@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,16 @@ type JobProgressCalculationService struct {
 	mutex                 sync.Mutex
 	running               bool
 	stopChan              chan bool
+
+	// reportedOverlaps remembers the last overlap fingerprint logged for each
+	// job or layer, keyed by its UUID string.
+	//
+	// An overlap is a property of stored task rows: it does not change between
+	// passes, but this loop runs every two seconds and used to re-log every
+	// overlapping task each time. One deployment produced 55,415 identical
+	// ERROR lines in 90 minutes from two jobs. Reporting only on change keeps
+	// the signal — it is a real defect worth seeing — without the flood.
+	reportedOverlaps sync.Map
 }
 
 // NewJobProgressCalculationService creates a new job progress calculation service
@@ -51,6 +62,35 @@ func NewJobProgressCalculationService(
 		jobIncrementLayerRepo: jobIncrementLayerRepo,
 		stopChan:              make(chan bool),
 	}
+}
+
+/*
+reportOverlaps logs a scope's overlapping tasks at most once per distinct set.
+
+scope is a stable key (job or layer UUID); details holds one line per overlap
+found in this pass. Repeating the same set is silent; a changed set — new
+overlaps, or overlaps resolved — logs again. Clearing the entry when a scope
+comes back clean means a recurrence is reported rather than suppressed forever.
+
+Kept at WARNING: overlapping intervals mean the same keyspace was dispatched
+twice, which on the deployment that prompted this showed up as dispatched_keyspace
+running up to 2.5% past effective_keyspace. That is real duplicated work and
+should stay visible — just not 55,415 times.
+*/
+func (s *JobProgressCalculationService) reportOverlaps(scope string, label string, details []string) {
+	if len(details) == 0 {
+		s.reportedOverlaps.Delete(scope)
+		return
+	}
+
+	sig := fmt.Sprintf("%d|%s", len(details), strings.Join(details, ";"))
+	if prev, seen := s.reportedOverlaps.Load(scope); seen && prev == sig {
+		return
+	}
+	s.reportedOverlaps.Store(scope, sig)
+
+	debug.Warning("OVERLAP DETECTED in %s: %d overlapping task(s) — %s (logged once per distinct set)",
+		label, len(details), strings.Join(details, "; "))
 }
 
 // Start begins the polling loop that recalculates job progress every 2 seconds
@@ -144,6 +184,17 @@ func (s *JobProgressCalculationService) updateJobProgress() {
 
 // getJobsNeedingUpdate retrieves all jobs that need progress recalculation
 func (s *JobProgressCalculationService) getJobsNeedingUpdate(ctx context.Context) ([]models.JobExecution, error) {
+	// 'failed' is TERMINAL and belongs with 'completed', not with the active
+	// statuses. Listing it as active meant every job that had ever failed was
+	// recalculated on every pass, forever — this loop runs roughly every two
+	// seconds. On a production deployment with five failed jobs that produced
+	// 55,415 identical ERROR lines in 90 minutes (every ERROR in the file),
+	// which buried the one line explaining a live outage and rotated the log
+	// window down from the 720 hours an operator had asked for to about 90
+	// minutes.
+	//
+	// Both terminal statuses still get a short grace window so the final
+	// progress values settle after the last task lands.
 	query := `
 		SELECT
 			id, effective_keyspace, processed_keyspace, dispatched_keyspace,
@@ -152,10 +203,10 @@ func (s *JobProgressCalculationService) getJobsNeedingUpdate(ctx context.Context
 		FROM job_executions
 		WHERE
 			-- Active jobs that may have changing progress
-			(status IN ('pending', 'running', 'paused', 'failed'))
+			(status IN ('pending', 'running', 'paused'))
 			OR
-			-- Recently completed jobs (within last 15 seconds)
-			(status = 'completed' AND completed_at > NOW() - INTERVAL '15 seconds')
+			-- Recently finished jobs, so their final numbers settle (15s)
+			(status IN ('completed', 'failed') AND completed_at > NOW() - INTERVAL '15 seconds')
 		ORDER BY status, id
 	`
 
@@ -372,6 +423,7 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		})
 
 		var lastEnd int64 = 0
+		var overlaps []string
 		for _, task := range sortedTasks {
 			// Failed/cancelled tasks have their keyspace interval reopened as a gap
 			// and re-dispatched, so a stale [start,end) row must NOT count as an
@@ -381,13 +433,14 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 				continue
 			}
 			if task.KeyspaceStart < lastEnd && task.KeyspaceEnd > 0 {
-				debug.Error("OVERLAP DETECTED in job %s: task %s starts at %d but previous task ended at %d (overlap: %d)",
-					job.ID, task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart)
+				overlaps = append(overlaps, fmt.Sprintf("task %s starts at %d but previous ended at %d (overlap %d)",
+					task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart))
 			}
 			if task.KeyspaceEnd > lastEnd {
 				lastEnd = task.KeyspaceEnd
 			}
 		}
+		s.reportOverlaps(job.ID.String(), fmt.Sprintf("job %s", job.ID), overlaps)
 	}
 
 	var processedKeyspace models.BigInt
@@ -541,6 +594,7 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 		})
 
 		var lastEnd int64 = 0
+		var overlaps []string
 		for _, task := range layerTasks {
 			// Skip failed/cancelled tasks: their interval is reopened and
 			// re-dispatched, so a stale row must not trip a false overlap.
@@ -548,13 +602,15 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 				continue
 			}
 			if task.KeyspaceStart < lastEnd && task.KeyspaceEnd > 0 {
-				debug.Error("OVERLAP DETECTED in layer %s (job %s): task %s starts at %d but previous task ended at %d (overlap: %d)",
-					layer.ID, layer.JobExecutionID, task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart)
+				overlaps = append(overlaps, fmt.Sprintf("task %s starts at %d but previous ended at %d (overlap %d)",
+					task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart))
 			}
 			if task.KeyspaceEnd > lastEnd {
 				lastEnd = task.KeyspaceEnd
 			}
 		}
+		s.reportOverlaps(layer.ID.String(),
+			fmt.Sprintf("layer %s (job %s)", layer.ID, layer.JobExecutionID), overlaps)
 	}
 
 	// effective/base ratio for the layer, applied as a big.Int multiply-then-
