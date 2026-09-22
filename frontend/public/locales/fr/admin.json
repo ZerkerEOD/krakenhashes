@@ -1326,7 +1326,8 @@
       "save": "Enregistrer les paramètres"
     },
     "errors": {
-      "loadFailed": "Impossible de charger les paramètres"
+      "loadFailed": "Impossible de charger les paramètres",
+      "outOfRange": "{{label}} doit être compris entre {{min}} et {{max}}"
     },
     "messages": {
       "updateSuccess": "Paramètres d'exécution des Jobs mis à jour avec succès",

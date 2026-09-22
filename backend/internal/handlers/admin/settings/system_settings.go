@@ -202,6 +202,16 @@ func (h *SystemSettingsHandler) UpdateSetting(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Range-check numeric settings that have a registered bound. The admin UI
+	// also bounds these, but only through inputProps min/max, which a browser
+	// treats as a hint rather than a limit -- so this is the check that
+	// actually holds, and the only one an API client passes through at all.
+	if err := ValidateSettingValue(settingKey, request.Value); err != nil {
+		debug.Warning("Refused out-of-range write to %s: %v", settingKey, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	debug.Info("Updating setting %s to value: %s", settingKey, request.Value)
 
 	// Update the setting

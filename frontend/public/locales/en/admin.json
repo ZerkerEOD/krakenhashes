@@ -1340,7 +1340,8 @@
       "save": "Save Settings"
     },
     "errors": {
-      "loadFailed": "Failed to load settings"
+      "loadFailed": "Failed to load settings",
+      "outOfRange": "{{label}} must be between {{min}} and {{max}}"
     },
     "messages": {
       "updateSuccess": "Job execution settings updated successfully",

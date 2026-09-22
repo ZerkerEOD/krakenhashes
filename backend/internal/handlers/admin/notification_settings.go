@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
+	adminsettings "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/settings"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
@@ -239,6 +240,15 @@ func (h *NotificationSettingsHandler) UpdateAgentOfflineSettings(w http.Response
 		 * never took effect, and nothing in the UI showed it.
 		 */
 		value := strconv.Itoa(*request.BufferMinutes)
+		// This is a third write path for a key the settings registry bounds, so
+		// it has to apply the same range check. The `> 0` guard above only
+		// establishes a floor; without this an admin could store a buffer of
+		// 99999 minutes here that the Job Execution page would refuse.
+		if err := adminsettings.ValidateSettingValue("agent_offline_buffer_minutes", value); err != nil {
+			debug.Warning("Refused out-of-range agent_offline_buffer_minutes: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if err := h.systemSettingsRepo.UpdateSetting(ctx, "agent_offline_buffer_minutes", value); err != nil {
 			debug.Error("Failed to update agent_offline_buffer_minutes: %v", err)
 			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
