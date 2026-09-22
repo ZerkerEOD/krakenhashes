@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -814,17 +815,19 @@ func (h *JobHandler) RetryJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reset the job to pending status
-	if err := h.jobExecRepo.UpdateStatus(ctx, jobID, models.JobExecutionStatusPending); err != nil {
-		debug.Error("Failed to reset job status: %v", err)
+	// Reopen the job. Must be ResetToPendingForRetry, not UpdateStatus: the
+	// latter enforces "terminal is terminal" and silently refuses a
+	// failed -> pending flip, so this endpoint answered 200 without
+	// reopening anything. Same defect as the /api/jobs retry handler.
+	if err := h.jobExecRepo.ResetToPendingForRetry(ctx, jobID); err != nil {
+		if errors.Is(err, repository.ErrJobNotRetryable) {
+			debug.Warning("RetryJob: job %s no longer retryable: %v", jobID, err)
+			h.sendError(w, "VALIDATION_ERROR", "Job can only be retried if it's failed or cancelled", http.StatusBadRequest)
+			return
+		}
+		debug.Error("Failed to reset job %s for retry: %v", jobID, err)
 		h.sendError(w, "INTERNAL_ERROR", "Failed to retry job", http.StatusInternalServerError)
 		return
-	}
-
-	// Clear error message
-	if err := h.jobExecRepo.ClearError(ctx, jobID); err != nil {
-		debug.Error("Failed to clear job error: %v", err)
-		// Don't fail the request, just log the error
 	}
 
 	// Mark failed/cancelled tasks as pending so they can be retried
