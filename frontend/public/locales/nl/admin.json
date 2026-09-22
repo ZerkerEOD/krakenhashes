@@ -1310,7 +1310,8 @@
       "save": "Instellingen opslaan"
     },
     "errors": {
-      "loadFailed": "Laden van instellingen mislukt"
+      "loadFailed": "Laden van instellingen mislukt",
+      "outOfRange": "{{label}} moet tussen {{min}} en {{max}} liggen"
     },
     "messages": {
       "updateSuccess": "Taakuitvoeringsinstellingen succesvol bijgewerkt",

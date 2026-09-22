@@ -1,21 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Box,
-  Typography,
-  TextField,
-  Alert,
-  CircularProgress,
-  Grid,
-  FormControlLabel,
-  Switch,
-  Divider,
-  Paper,
-  InputAdornment,
-  MenuItem,
-} from '@mui/material';
-import { useSnackbar } from 'notistack';
+import React from 'react';
+import { Box, Typography, Alert, CircularProgress, Grid } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { getSystemSettings, updateSystemSetting } from '../../services/systemSettings';
 
 /**
  * Job Execution settings.
@@ -42,244 +27,22 @@ import { getSystemSettings, updateSystemSetting } from '../../services/systemSet
  *     wrong one for hours.
  */
 
-type SettingsMap = Record<string, string>;
-
-
-
-/*
- * DECLARED AT MODULE SCOPE, NOT INSIDE THE COMPONENT.
- *
- * These four were previously defined in the render body. A component defined
- * there gets a new function identity on every render, and React compares
- * element types by identity — so it does not see an update to an existing
- * field, it sees a different component type in that position, unmounts the
- * subtree and mounts a fresh one. The DOM node is replaced on every keystroke
- * and the caret is lost after each character typed.
- *
- * Panel was the worst of the four: it wraps every field on the page, so its
- * remount cascaded through all of them regardless of how the inputs themselves
- * were written.
- *
- * The shared state they close over now arrives through context rather than as
- * props, which keeps all ~40 call sites unchanged.
- */
-interface SettingsCtxValue {
-  values: SettingsMap;
-  setValues: React.Dispatch<React.SetStateAction<SettingsMap>>;
-  saveOne: (key: string, value: string, previous: string) => void;
-  loading: boolean;
-  savingKey: string | null;
-}
-
-const SettingsCtx = React.createContext<SettingsCtxValue | null>(null);
-
-const useSettingsCtx = (): SettingsCtxValue => {
-  const ctx = React.useContext(SettingsCtx);
-  if (!ctx) throw new Error('setting field rendered outside JobExecutionSettings');
-  return ctx;
-};
-
-const numberValueOf = (values: SettingsMap, key: string, fallback = 0): number => {
-  const parsed = parseInt(values[key] ?? '', 10);
-  return isNaN(parsed) ? fallback : parsed;
-};
-
-/** Number field bound to one setting key; saves on blur. */
-const NumberSetting: React.FC<{
-  settingKey: string;
-  label: string;
-  helper: string;
-  min?: number;
-  max?: number;
-  unit?: string;
-  /** Displayed unit differs from the stored unit (e.g. stored seconds, shown minutes). */
-  toDisplay?: (stored: number) => number;
-  toStored?: (shown: number) => number;
-}> = ({ settingKey, label, helper, min, max, unit, toDisplay, toStored }) => {
-  const { values, setValues, saveOne, loading, savingKey } = useSettingsCtx();
-  const stored = numberValueOf(values, settingKey);
-  const shown = toDisplay ? toDisplay(stored) : stored;
-  return (
-    <TextField
-      fullWidth
-      type="number"
-      label={label}
-      value={shown}
-      onChange={(e) => {
-        const parsed = parseInt(e.target.value, 10);
-        if (isNaN(parsed)) return;
-        const next = toStored ? toStored(parsed) : parsed;
-        setValues((v) => ({ ...v, [settingKey]: String(next) }));
-      }}
-      onBlur={(e) => {
-        const parsed = parseInt(e.target.value, 10);
-        if (isNaN(parsed)) return;
-        const next = String(toStored ? toStored(parsed) : parsed);
-        if (next === values[settingKey]) return;
-        saveOne(settingKey, next, values[settingKey] ?? '');
-      }}
-      disabled={loading || savingKey === settingKey}
-      helperText={helper}
-      InputProps={{
-        inputProps: { min, max },
-        endAdornment: unit ? <InputAdornment position="end">{unit}</InputAdornment> : undefined,
-      }}
-    />
-  );
-};
-
-/** Toggle bound to one setting key; saves immediately. */
-const SwitchSetting: React.FC<{ settingKey: string; label: string; helper?: string }> = ({
-  settingKey,
-  label,
-  helper,
-}) => {
-  const { values, setValues, saveOne, loading, savingKey } = useSettingsCtx();
-  const boolValue = (key: string): boolean => values[key] === 'true';
-  return (
-  <>
-    <FormControlLabel
-      control={
-        <Switch
-          checked={boolValue(settingKey)}
-          onChange={(e) => {
-            const previous = values[settingKey] ?? '';
-            const next = String(e.target.checked);
-            setValues((v) => ({ ...v, [settingKey]: next }));
-            saveOne(settingKey, next, previous);
-          }}
-          disabled={loading || savingKey === settingKey}
-        />
-      }
-      label={label}
-    />
-    {helper && (
-      <Typography variant="caption" color="textSecondary" display="block">
-        {helper}
-      </Typography>
-    )}
-    </>
-  );
-};
-
-/** Select bound to one setting key; saves immediately. */
-const SelectSetting: React.FC<{
-  settingKey: string;
-  label: string;
-  helper: string;
-  options: { value: string; label: string }[];
-}> = ({ settingKey, label, helper, options }) => {
-  const { values, setValues, saveOne, loading, savingKey } = useSettingsCtx();
-  return (
-  <TextField
-    select
-    fullWidth
-    label={label}
-    value={values[settingKey] ?? ''}
-    onChange={(e) => {
-      const previous = values[settingKey] ?? '';
-      setValues((v) => ({ ...v, [settingKey]: e.target.value }));
-      saveOne(settingKey, e.target.value, previous);
-    }}
-    disabled={loading || savingKey === settingKey}
-    helperText={helper}
-  >
-    {options.map((o) => (
-      <MenuItem key={o.value} value={o.value}>
-        {o.label}
-      </MenuItem>
-    ))}
-  </TextField>
-  );
-};
-
-const Panel: React.FC<{ title: string; children: React.ReactNode; caption?: string }> = ({
-  title,
-  caption,
-  children,
-}) => (
-  <Grid item xs={12}>
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-        {title}
-      </Typography>
-      {caption && (
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-          {caption}
-        </Typography>
-      )}
-      <Divider sx={{ mb: 2 }} />
-      <Grid container spacing={2}>
-        {children}
-      </Grid>
-    </Paper>
-  </Grid>
-);
-
+// Field components, the per-key save hook and the Panel wrapper are shared
+// with the other admin settings pages so all of them get the same save
+// semantics. See settingsFields.tsx for why they live at module scope and why
+// a field must never write the whole page.
+import {
+  NumberSetting,
+  Panel,
+  SelectSetting,
+  SettingsCtx,
+  SwitchSetting,
+  useSystemSettingsForm,
+} from './settingsFields';
 
 const JobExecutionSettingsComponent: React.FC = () => {
   const { t } = useTranslation('admin');
-  const [values, setValues] = useState<SettingsMap>({});
-  const [loading, setLoading] = useState(true);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const { enqueueSnackbar } = useSnackbar();
-
-  const fetchSettings = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getSystemSettings();
-      const map: SettingsMap = {};
-      data.forEach((s) => {
-        map[s.key] = s.value ?? '';
-      });
-      setValues(map);
-    } catch (err: any) {
-      console.error('Failed to fetch settings:', err);
-      setError(err.response?.data?.error || (t('jobExecution.errors.loadFailed') as string));
-      enqueueSnackbar(t('jobExecution.messages.loadFailed') as string, { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [t, enqueueSnackbar]);
-
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
-  /**
-   * Persist a single setting. Only the key being edited is written, so a save
-   * here can never clobber an unrelated setting.
-   */
-  const saveOne = useCallback(
-    async (key: string, value: string, previous: string) => {
-      setSavingKey(key);
-      setError(null);
-      try {
-        await updateSystemSetting(key, value);
-        enqueueSnackbar(t('jobExecution.messages.updateSuccess') as string, { variant: 'success' });
-      } catch (err: any) {
-        console.error(`Failed to update ${key}:`, err);
-        // Revert just this field — the rest of the page is still server-accurate
-        // because nothing else was sent.
-        setValues((v) => ({ ...v, [key]: previous }));
-        const message = err.response?.data?.error || (t('jobExecution.messages.saveFailed') as string);
-        setError(`${key}: ${message}`);
-        enqueueSnackbar(message, { variant: 'error' });
-      } finally {
-        setSavingKey(null);
-      }
-    },
-    [t, enqueueSnackbar]
-  );
-
-  const numberValue = (key: string, fallback = 0): number => {
-    const parsed = parseInt(values[key] ?? '', 10);
-    return isNaN(parsed) ? fallback : parsed;
-  };
-
-  const boolValue = (key: string): boolean => values[key] === 'true';
+  const { values, setValues, saveOne, loading, savingKey, error, clearError } = useSystemSettingsForm();
 
   if (loading) {
     return (
@@ -303,7 +66,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
           {error}
         </Alert>
       )}
@@ -363,7 +126,11 @@ const JobExecutionSettingsComponent: React.FC = () => {
               label={t('jobExecution.keyspaceBenchmark.keyspaceTimeout') as string}
               helper={t('jobExecution.keyspaceBenchmark.keyspaceTimeoutHelper') as string}
               min={1}
-              max={1440}
+              // 60, not 1440. The fallback when this expires is cheap and correct
+              // (use the wordlist word count and notify), so a multi-hour ceiling
+              // buys nothing and invites a seconds-for-minutes mix-up — this field
+              // sits beside two speed-test timeouts measured in seconds.
+              max={60}
               unit={t('jobExecution.agentConfig.minutes') as string}
             />
           </Grid>

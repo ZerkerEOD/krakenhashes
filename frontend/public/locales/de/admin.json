@@ -1310,7 +1310,8 @@
       "save": "Einstellungen speichern"
     },
     "errors": {
-      "loadFailed": "Fehler beim Laden der Einstellungen"
+      "loadFailed": "Fehler beim Laden der Einstellungen",
+      "outOfRange": "{{label}} muss zwischen {{min}} und {{max}} liegen"
     },
     "messages": {
       "updateSuccess": "Auftragsausführungs-Einstellungen erfolgreich aktualisiert",

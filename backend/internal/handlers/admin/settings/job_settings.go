@@ -3,7 +3,9 @@ package settings
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -342,6 +344,22 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"benchmark_history_retention_days": strconv.Itoa(settings.BenchmarkHistoryRetentionDays),
 		// Analytics settings
 		"analytics_default_date_range_months": strconv.Itoa(settings.AnalyticsDefaultDateRangeMonths),
+	}
+
+	// Validate everything BEFORE writing anything. This endpoint writes all ~25
+	// keys on every call, so a value rejected halfway through would leave the
+	// page's settings half-applied with no indication of where it stopped.
+	var invalid []string
+	for key, value := range updates {
+		if err := ValidateSettingValue(key, value); err != nil {
+			invalid = append(invalid, err.Error())
+		}
+	}
+	if len(invalid) > 0 {
+		sort.Strings(invalid) // map iteration order is randomised; keep the response stable
+		debug.Warning("Refused job execution settings update: %s", strings.Join(invalid, "; "))
+		httputil.RespondWithError(w, http.StatusBadRequest, strings.Join(invalid, "; "))
+		return
 	}
 
 	var failedKeys []string

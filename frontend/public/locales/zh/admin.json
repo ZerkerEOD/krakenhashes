@@ -1189,7 +1189,8 @@
       "save": "保存设置"
     },
     "errors": {
-      "loadFailed": "加载设置失败"
+      "loadFailed": "加载设置失败",
+      "outOfRange": "{{label}} 必须介于 {{min}} 和 {{max}} 之间"
     },
     "messages": {
       "updateSuccess": "任务执行设置更新成功",

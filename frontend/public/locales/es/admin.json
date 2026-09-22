@@ -1310,7 +1310,8 @@
       "save": "Guardar configuracion"
     },
     "errors": {
-      "loadFailed": "Error al cargar configuracion"
+      "loadFailed": "Error al cargar configuracion",
+      "outOfRange": "{{label}} debe estar entre {{min}} y {{max}}"
     },
     "messages": {
       "updateSuccess": "Configuracion de ejecucion de trabajos actualizada exitosamente",
