@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1596,8 +1597,15 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 
 		// Check for scanner errors
 		if err := scanner.Err(); err != nil {
-			debug.Error("[Hashcat stdout reader] Scanner error after %d lines: %v", lineCount, err)
-			e.sendErrorProgress(process, fmt.Sprintf("Output reading failed: %v", err))
+			if isClosedPipeAfterExit(err) {
+				// Not a failure — see isClosedPipeAfterExit. Reporting it as one
+				// told the backend a chunk that had just finished at 100% had
+				// failed, and ten of those killed the whole job.
+				debug.Info("[Hashcat stdout reader] Pipe closed at process exit after %d lines (benign): %v", lineCount, err)
+			} else {
+				debug.Error("[Hashcat stdout reader] Scanner error after %d lines: %v", lineCount, err)
+				e.sendErrorProgress(process, fmt.Sprintf("Output reading failed: %v", err))
+			}
 		} else {
 			debug.Info("[Hashcat stdout reader] Finished reading %d lines without error", lineCount)
 		}
@@ -1688,7 +1696,11 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 
 		// Check for scanner errors
 		if err := scanner.Err(); err != nil {
-			debug.Error("[Hashcat stderr reader] Scanner error after %d lines: %v", lineCount, err)
+			if isClosedPipeAfterExit(err) {
+				debug.Info("[Hashcat stderr reader] Pipe closed at process exit after %d lines (benign): %v", lineCount, err)
+			} else {
+				debug.Error("[Hashcat stderr reader] Scanner error after %d lines: %v", lineCount, err)
+			}
 		} else {
 			debug.Info("[Hashcat stderr reader] Finished reading %d lines without error", lineCount)
 		}
@@ -2029,6 +2041,38 @@ func (e *HashcatExecutor) sendProgressUpdate(process *HashcatProcess, progress *
 		// Channel full, log warning but don't block
 		debug.Warning("Progress channel full for task %s, dropping update", process.TaskID)
 	}
+}
+
+/*
+isClosedPipeAfterExit reports whether a stdout/stderr reader error is the benign
+end-of-process race rather than a real I/O fault.
+
+os/exec's StdoutPipe closes the pipe as soon as Cmd.Wait() sees the process exit,
+and Wait runs in its own goroutine here while the readers may still be inside
+Scan(). The reader then observes os.ErrClosed ("read |0: file already closed").
+The Go documentation says as much: "Wait will close the pipe after seeing the
+command exit ... it is thus incorrect to call Wait before all reads from the pipe
+have completed."
+
+This carries no information about whether the run succeeded — the process is
+already gone and its exit code is handled separately — so it must not be reported
+as a task failure.
+
+It was. A production deployment lost three jobs to it, at 21%, 22% and 40%
+complete. Each chunk that finished normally raced on exit, the agent reported the
+completed task as failed, and the backend counted that against the per-tuple
+benchmark failure cap (job_scheduling_benchmark_planning.go). At ten, the whole
+job was marked "per-tuple hard cap reached". The tasks themselves were recorded
+status=completed, progress=100% — carrying a failure_reason they had not earned.
+
+Matched by sentinel first; the string check is a fallback in case a future
+wrapping loses errors.Is compatibility.
+*/
+func isClosedPipeAfterExit(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, os.ErrClosed) || strings.Contains(err.Error(), "file already closed")
 }
 
 // sendErrorProgress sends an error progress update
