@@ -630,6 +630,14 @@ func (s *JobExecutionService) calculateMaskTotalCandidates(ctx context.Context, 
 	sessionID := fmt.Sprintf("layer_total_candidates_%s_%d", jobID, time.Now().UnixNano())
 	args = append(args, "--session", sessionID)
 
+	// Skip the exec entirely once this binary has already rejected the flag.
+	// Without this the pre-flight re-runs a doomed process on every cycle --
+	// once every ten minutes on the reference deployment -- for a condition that
+	// cannot change until a different hashcat binary is uploaded.
+	if !hashcatSupportsTotalCandidates(hashcatPath) {
+		return 0, false, nil
+	}
+
 	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
 
 	var lastErr error
@@ -669,6 +677,9 @@ func (s *JobExecutionService) calculateMaskTotalCandidates(ctx context.Context, 
 				strings.Contains(stderrStr, "already running") {
 				lastErr = fmt.Errorf("hashcat busy: %s", stderrStr)
 				continue
+			}
+			if noteTotalCandidatesFailure(hashcatPath, stderrStr) {
+				return 0, false, nil
 			}
 			debug.Warning("layer --total-candidates failed: %v, stderr: %s", err, stderrStr)
 			return 0, false, nil

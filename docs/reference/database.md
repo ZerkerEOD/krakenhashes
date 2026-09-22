@@ -1187,7 +1187,8 @@ Stores client-specific settings (added in migration 17). Also used for system-wi
 
 **Important System-Wide Settings:**
 - `default_data_retention_months` - Default retention period for all hashlists (when client_id is NULL)
-- `last_purge_run` - Timestamp of last retention purge execution
+- `last_purge_run` - Timestamp of the last hashlist data retention purge (NULL until one completes)
+- `last_analytics_purge_run` - Timestamp of the last analytics report retention purge (NULL until one completes)
 
 **Unique Constraint:** (client_id, key)
 
