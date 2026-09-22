@@ -112,6 +112,14 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		fileInfo, err := os.Stat(filePath)
 		if err != nil {
 			debug.Error("File not found: %s", filePath)
+			// Record that the row is unbacked, so a resource the admin UI still
+			// shows as 'verified' stops looking healthy. Best effort: failing to
+			// record it must not change the response the agent gets.
+			markCtx, markCancel := context.WithTimeout(r.Context(), 5*time.Second)
+			if markErr := fileRepo.MarkMissingOnDisk(markCtx, fileType, filePath); markErr != nil {
+				debug.Error("Failed to flag missing %s %s: %v", fileType, filePath, markErr)
+			}
+			markCancel()
 			http.Error(w, "File not found", http.StatusNotFound)
 			return
 		}
@@ -250,6 +258,14 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		fileInfo, err := os.Stat(filePath)
 		if err != nil {
 			debug.Error("File not found: %s", filePath)
+			// Record that the row is unbacked, so a resource the admin UI still
+			// shows as 'verified' stops looking healthy. Best effort: failing to
+			// record it must not change the response the agent gets.
+			markCtx, markCancel := context.WithTimeout(r.Context(), 5*time.Second)
+			if markErr := fileRepo.MarkMissingOnDisk(markCtx, fileType, filePath); markErr != nil {
+				debug.Error("Failed to flag missing %s %s: %v", fileType, filePath, markErr)
+			}
+			markCancel()
 			http.Error(w, "File not found", http.StatusNotFound)
 			return
 		}
