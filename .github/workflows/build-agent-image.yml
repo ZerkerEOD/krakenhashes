@@ -100,8 +100,16 @@ jobs:
             # Release build - clean version
             LDFLAGS="-s -w -X github.com/ZerkerEOD/krakenhashes/agent/internal/version.Version=${VERSION}"
           else
-            # Dev build - version with commit
-            LDFLAGS="-s -w -X github.com/ZerkerEOD/krakenhashes/agent/internal/version.Version=${VERSION}-${{ steps.version.outputs.SHORT_SHA }}-dev"
+            # Dev build - version with commit AND the branch's own tag.
+            #
+            # The suffix must be DEV_TAG, not a hard-coded "dev": that is the same
+            # value this build is published under, so the binary reports the image
+            # it came from. Hard-coding it meant the :cloud-gpu image shipped an
+            # agent calling itself "...-dev", indistinguishable from what master
+            # publishes -- so a support dump could not tell which branch an agent
+            # was actually running, and identifying one meant fingerprinting
+            # source line numbers out of its logs.
+            LDFLAGS="-s -w -X github.com/ZerkerEOD/krakenhashes/agent/internal/version.Version=${VERSION}-${{ steps.version.outputs.SHORT_SHA }}-${{ env.DEV_TAG }}"
           fi
           go build -v -ldflags="${LDFLAGS}" -o krakenhashes-agent ./cmd/agent
 
