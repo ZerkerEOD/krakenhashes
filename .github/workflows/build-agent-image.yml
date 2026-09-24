@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - master
-      # The cloud agent image exists only on this branch, and nothing can be
-      # provisioned without it -- zerkereod/krakenhashes-agent-cloud has never
-      # been published. Remove this line when the branch merges.
-      - feature/cloud-gpu-provisioning
     tags:
       - 'v*'
     paths:
@@ -24,10 +20,15 @@ env:
   NVIDIA_IMAGE: zerkereod/krakenhashes-agent-nvidia
   AMD_IMAGE: zerkereod/krakenhashes-agent-amd
   CLOUD_IMAGE: zerkereod/krakenhashes-agent-cloud
-  # Non-release tag. master publishes :dev; any other branch publishes its own
-  # tag so a feature branch can NEVER overwrite the images master ships -- an
-  # operator running :dev must not silently receive unproven branch code.
-  DEV_TAG: ${{ github.ref_name == 'master' && 'dev' || 'cloud-gpu' }}
+  # Non-release tag. master publishes :dev; anything else publishes :branch, so
+  # a non-master ref can NEVER overwrite the images master ships -- an operator
+  # running :dev must not silently receive unproven code.
+  #
+  # Only push-to-master and release tags trigger this workflow, so the fallback
+  # is now reachable only via workflow_dispatch on another ref. It stays as the
+  # guard for exactly that case; it is not branch-specific leftovers. (It was
+  # 'cloud-gpu' while feature/cloud-gpu-provisioning built its own images.)
+  DEV_TAG: ${{ github.ref_name == 'master' && 'dev' || 'branch' }}
 
 jobs:
   # Check if agent files actually changed (for releases)
