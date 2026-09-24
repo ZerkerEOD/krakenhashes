@@ -116,9 +116,9 @@ type Handler struct {
 	// cloudFileSets resolves the job-scoped download list for a rented agent.
 	// Nil when cloud provisioning is not configured. Set via
 	// SetCloudFileSetResolver.
-	cloudFileSets  CloudFileSetResolver
-	clients        map[int]*Client
-	mu             sync.RWMutex
+	cloudFileSets CloudFileSetResolver
+	clients       map[int]*Client
+	mu            sync.RWMutex
 
 	// Inventory callback system for pre-benchmark file checks
 	// Key is agentID - only one pending file sync callback per agent at a time
@@ -913,6 +913,7 @@ const rejectionCooldown = 5 * time.Second
 // state is mid-handoff. Used for two cases:
 //   - Agent rejected a task assignment (race with prior task's cleanup)
 //   - Agent reported a task as completed (cleanup not yet finished)
+//
 // Name kept as MarkRejected for diff hygiene; the semantics broadened
 // when post-completion cooldown was added.
 func (h *Handler) MarkRejected(agentID int) {

@@ -16,13 +16,13 @@ import (
 
 // RetentionService handles the automatic purging of old hashlists and analytics reports based on retention policies.
 type RetentionService struct {
-	db                    *db.DB // Needed for transactions
-	hashlistRepo          *repository.HashListRepository
-	hashRepo              *repository.HashRepository
-	clientRepo            *repository.ClientRepository
-	clientSettingsRepo    *repository.ClientSettingsRepository
-	analyticsRepo         *repository.AnalyticsRepository
-	assocWordlistRepo     *repository.AssociationWordlistRepository
+	db                 *db.DB // Needed for transactions
+	hashlistRepo       *repository.HashListRepository
+	hashRepo           *repository.HashRepository
+	clientRepo         *repository.ClientRepository
+	clientSettingsRepo *repository.ClientSettingsRepository
+	analyticsRepo      *repository.AnalyticsRepository
+	assocWordlistRepo  *repository.AssociationWordlistRepository
 }
 
 // NewRetentionService creates a new RetentionService.

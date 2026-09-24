@@ -28,17 +28,17 @@ func NewJobSettingsHandler(systemSettingsRepo *repository.SystemSettingsReposito
 
 // JobExecutionSettings represents all job execution related settings
 type JobExecutionSettings struct {
-	DefaultChunkDuration             int    `json:"default_chunk_duration"`
-	AgentHashlistRetentionHours      int    `json:"agent_hashlist_retention_hours"`
-	ProgressReportingInterval        int    `json:"progress_reporting_interval"`
-	MaxConcurrentJobsPerAgent        int    `json:"max_concurrent_jobs_per_agent"`
-	JobInterruptionEnabled           bool   `json:"job_interruption_enabled"`
-	BenchmarkCacheDurationHours      int    `json:"benchmark_cache_duration_hours"`
-	EnableRealtimeCrackNotifications bool   `json:"enable_realtime_crack_notifications"`
-	JobRefreshIntervalSeconds        int    `json:"job_refresh_interval_seconds"`
-	MaxChunkRetryAttempts            int    `json:"max_chunk_retry_attempts"`
-	JobsPerPageDefault               int    `json:"jobs_per_page_default"`
-	ReconnectGracePeriodMinutes      int    `json:"reconnect_grace_period_minutes"`
+	DefaultChunkDuration             int  `json:"default_chunk_duration"`
+	AgentHashlistRetentionHours      int  `json:"agent_hashlist_retention_hours"`
+	ProgressReportingInterval        int  `json:"progress_reporting_interval"`
+	MaxConcurrentJobsPerAgent        int  `json:"max_concurrent_jobs_per_agent"`
+	JobInterruptionEnabled           bool `json:"job_interruption_enabled"`
+	BenchmarkCacheDurationHours      int  `json:"benchmark_cache_duration_hours"`
+	EnableRealtimeCrackNotifications bool `json:"enable_realtime_crack_notifications"`
+	JobRefreshIntervalSeconds        int  `json:"job_refresh_interval_seconds"`
+	MaxChunkRetryAttempts            int  `json:"max_chunk_retry_attempts"`
+	JobsPerPageDefault               int  `json:"jobs_per_page_default"`
+	ReconnectGracePeriodMinutes      int  `json:"reconnect_grace_period_minutes"`
 	// Scheduler-v2 tuning knobs
 	MinChunkSeconds              int  `json:"min_chunk_seconds"`
 	TaskHeartbeatTimeoutSeconds  int  `json:"task_heartbeat_timeout_seconds"`
@@ -337,7 +337,7 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"potfile_max_batch_size": strconv.Itoa(settings.PotfileMaxBatchSize),
 		"potfile_batch_interval": strconv.Itoa(settings.PotfileBatchInterval),
 		// Client potfile settings
-		"client_potfiles_enabled":                              strconv.FormatBool(settings.ClientPotfilesEnabled),
+		"client_potfiles_enabled":                               strconv.FormatBool(settings.ClientPotfilesEnabled),
 		"remove_from_global_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromGlobalPotfileOnHashlistDeleteDefault),
 		"remove_from_client_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromClientPotfileOnHashlistDeleteDefault),
 		// Benchmark history settings

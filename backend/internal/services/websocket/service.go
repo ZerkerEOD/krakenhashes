@@ -214,10 +214,10 @@ type FileSyncCommandPayload struct {
 
 // FileSyncStatusPayload represents a status update for file synchronization
 type FileSyncStatusPayload struct {
-	RequestID string           `json:"request_id"`
-	AgentID   int              `json:"agent_id"`
-	Status    string           `json:"status"`   // "in_progress", "completed", "failed"
-	Progress  int              `json:"progress"` // 0-100 percentage
+	RequestID string `json:"request_id"`
+	AgentID   int    `json:"agent_id"`
+	Status    string `json:"status"`   // "in_progress", "completed", "failed"
+	Progress  int    `json:"progress"` // 0-100 percentage
 	// Message is the agent's human-readable summary, e.g. "File sync completed
 	// with 2 failures out of 17 files". The agent has always sent it; it was
 	// simply not decoded, so the reason a sync failed was dropped on the floor.

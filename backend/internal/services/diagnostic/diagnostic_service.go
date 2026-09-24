@@ -165,12 +165,12 @@ func (s *DiagnosticService) collectSystemInfo(ctx context.Context) (map[string]i
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	info["memory"] = map[string]interface{}{
-		"alloc_mb":        memStats.Alloc / 1024 / 1024,
-		"total_alloc_mb":  memStats.TotalAlloc / 1024 / 1024,
-		"sys_mb":          memStats.Sys / 1024 / 1024,
-		"num_gc":          memStats.NumGC,
-		"heap_objects":    memStats.HeapObjects,
-		"heap_alloc_mb":   memStats.HeapAlloc / 1024 / 1024,
+		"alloc_mb":       memStats.Alloc / 1024 / 1024,
+		"total_alloc_mb": memStats.TotalAlloc / 1024 / 1024,
+		"sys_mb":         memStats.Sys / 1024 / 1024,
+		"num_gc":         memStats.NumGC,
+		"heap_objects":   memStats.HeapObjects,
+		"heap_alloc_mb":  memStats.HeapAlloc / 1024 / 1024,
 	}
 
 	// Hostname
@@ -809,4 +809,3 @@ func (s *DiagnosticService) ReloadNginx() error {
 	}
 	return nil
 }
-
