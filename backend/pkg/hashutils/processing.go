@@ -87,15 +87,18 @@ type CustomExtractor func(rawHash string) *UsernameAndDomain
 
 // customUsernameExtractors maps hash_type_id to custom extraction functions
 var customUsernameExtractors = map[int]CustomExtractor{
-	1000:  extractNTLM,         // NTLM
-	1100:  extractDCC,           // Domain Cached Credentials
-	5500:  extractNetNTLMv1,     // NetNTLMv1
-	5600:  extractNetNTLMv2,     // NetNTLMv2
-	6800:  extractLastPass,      // LastPass
-	18200: extractKerberos,      // Kerberos AS-REP
-	27000: extractNetNTLMv1,     // NetNTLMv1 (NT) - same format as 5500
-	27100: extractNetNTLMv2,     // NetNTLMv2 (NT) - same format as 5600
-	35400: extractKerberos,      // Kerberos AS-REP (NT) - same format as 18200
+	1000:  extractNTLM,        // NTLM
+	1100:  extractDCC,         // Domain Cached Credentials
+	5500:  extractNetNTLMv1,   // NetNTLMv1
+	5600:  extractNetNTLMv2,   // NetNTLMv2
+	6800:  extractLastPass,    // LastPass
+	13100: extractKerberosTGS, // Kerberos TGS-REP etype 23 (Kerberoasting)
+	18200: extractKerberos,    // Kerberos AS-REP
+	19600: extractKerberosTGS, // Kerberos TGS-REP etype 17
+	19700: extractKerberosTGS, // Kerberos TGS-REP etype 18
+	27000: extractNetNTLMv1,   // NetNTLMv1 (NT) - same format as 5500
+	27100: extractNetNTLMv2,   // NetNTLMv2 (NT) - same format as 5600
+	35400: extractKerberos,    // Kerberos AS-REP (NT) - same format as 18200
 }
 
 // extractNTLM extracts username and domain from NTLM pwdump format
@@ -204,6 +207,79 @@ func extractKerberos(rawHash string) *UsernameAndDomain {
 	// the principal authoritatively denotes a realm, so ParseDomainUsername
 	// (which splits on '@') is intentionally correct here.
 	username, domain := ParseDomainUsername(userDomainPart)
+	return &UsernameAndDomain{
+		Username: &username,
+		Domain:   domain,
+	}
+}
+
+// extractKerberosTGS extracts the service account and realm from Kerberos 5
+// TGS-REP hashes (Kerberoasting output). Unlike AS-REP (extractKerberos), the
+// account info here is not user@domain but a $-delimited user$realm$spn block:
+//
+//	13100 (etype 23): $krb5tgs$23$*user$realm$spn*$checksum$edata2   (format 1)
+//	                  $krb5tgs$23$checksum$edata2                    (format 2, no account)
+//	                  $krb5tgs$spn:checksum$edata2                   (format 3, no user/realm)
+//	19600 (etype 17): $krb5tgs$17$user$realm$edata2
+//	19700 (etype 18): $krb5tgs$18$user$realm$edata2
+//
+// The realm is returned verbatim (e.g. CORP.LOCAL); NormalizeDomain lowercases
+// it at storage time, matching every other extractor. Returns nil when the hash
+// carries no account info (format 2/3), so no bogus username is invented.
+func extractKerberosTGS(rawHash string) *UsernameAndDomain {
+	const tag = "$krb5tgs$"
+	if !strings.HasPrefix(rawHash, tag) {
+		return nil
+	}
+	rest := rawHash[len(tag):]
+
+	// Isolate the etype token (23/17/18) that follows the tag.
+	dollar := strings.IndexByte(rest, '$')
+	if dollar <= 0 {
+		return nil
+	}
+	etype := rest[:dollar]
+	rest = rest[dollar+1:]
+
+	// Format 1 (etype 23): the account block is wrapped in *...*.
+	if strings.HasPrefix(rest, "*") {
+		end := strings.IndexByte(rest[1:], '*')
+		if end == -1 {
+			return nil
+		}
+		return parseKerberosUserRealm(rest[1 : 1+end])
+	}
+
+	// Without the asterisks, only etype 17/18 carry an inline user$realm here.
+	// For etype 23 an unwrapped body is format 2 ($krb5tgs$23$checksum$edata2),
+	// which has no account info — do not treat the checksum as a username.
+	if etype == "17" || etype == "18" {
+		return parseKerberosUserRealm(rest)
+	}
+	return nil
+}
+
+// parseKerberosUserRealm splits a Kerberos "user$realm$..." account block into
+// its username and realm. A machine account name ends in '$', which appears as
+// an empty field between the name and the realm (WKS01$$REALM$...), so that
+// case is stitched back together rather than yielding an empty username.
+func parseKerberosUserRealm(account string) *UsernameAndDomain {
+	parts := strings.Split(account, "$")
+	if len(parts) < 2 || parts[0] == "" {
+		return nil
+	}
+	username := parts[0]
+	realm := parts[1]
+	if realm == "" && len(parts) >= 3 {
+		username = parts[0] + "$" // machine account, e.g. WKS01$
+		realm = parts[2]
+	}
+
+	var domain *string
+	if realm != "" {
+		d := realm
+		domain = &d
+	}
 	return &UsernameAndDomain{
 		Username: &username,
 		Domain:   domain,
