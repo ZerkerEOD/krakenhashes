@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"net"
 	"net/smtp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,7 +25,7 @@ type SMTPConfig struct {
 	Username      string `json:"username"`
 	FromEmail     string `json:"from_email"`
 	FromName      string `json:"from_name"`
-	Encryption    string `json:"encryption"`     // "none", "starttls", or "tls"
+	Encryption    string `json:"encryption"` // "none", "starttls", or "tls"
 	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
 }
 
@@ -293,9 +294,29 @@ func (p *smtpProvider) buildMessage(from string, to []string, subject, textConte
 	return []byte(buf.String())
 }
 
+/*
+ * dialAddr builds the host:port string every send path dials.
+ *
+ * net.JoinHostPort, NOT fmt.Sprintf("%s:%d", ...). For an IPv6 literal host the
+ * naive form produces "::1:25", which net.Dial cannot parse at all — the
+ * bracketed "[::1]:25" is the only valid spelling. An operator whose SMTP
+ * server is reachable only over IPv6 got a connection error with nothing in it
+ * to suggest the address was the problem.
+ *
+ * Go 1.26's vet added a `hostport` analyzer that catches exactly this, so the
+ * two plain-Dial callers would have started failing the build's vet step the
+ * day CI moved off 1.25. The third caller (sendTLS) goes through
+ * tls.DialWithDialer, which the analyzer cannot see through — it had the same
+ * bug and no warning, which is the better argument for fixing all three here
+ * rather than silencing two.
+ */
+func (p *smtpProvider) dialAddr() string {
+	return net.JoinHostPort(p.config.Host, strconv.Itoa(p.config.Port))
+}
+
 // sendPlain sends email without encryption
 func (p *smtpProvider) sendPlain(message []byte, to []string) error {
-	addr := fmt.Sprintf("%s:%d", p.config.Host, p.config.Port)
+	addr := p.dialAddr()
 
 	// Dial with timeout
 	dialer := &net.Dialer{Timeout: 30 * time.Second}
@@ -336,7 +357,7 @@ func (p *smtpProvider) sendPlain(message []byte, to []string) error {
 
 // sendSTARTTLS sends email using STARTTLS (upgrade plain connection to TLS)
 func (p *smtpProvider) sendSTARTTLS(message []byte, to []string) error {
-	addr := fmt.Sprintf("%s:%d", p.config.Host, p.config.Port)
+	addr := p.dialAddr()
 
 	// Dial with timeout
 	dialer := &net.Dialer{Timeout: 30 * time.Second}
@@ -393,7 +414,7 @@ func (p *smtpProvider) sendSTARTTLS(message []byte, to []string) error {
 
 // sendTLS sends email using direct TLS connection (implicit TLS)
 func (p *smtpProvider) sendTLS(message []byte, to []string) error {
-	addr := fmt.Sprintf("%s:%d", p.config.Host, p.config.Port)
+	addr := p.dialAddr()
 
 	// Establish TLS connection with timeout
 	dialer := &net.Dialer{Timeout: 30 * time.Second}
