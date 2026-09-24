@@ -65,7 +65,8 @@ idx_job_tasks_status
 idx_job_executions_status
 
 -- Hash lookups
-idx_hashes_hash_value (unique)
+idx_hashes_hash_value_md5 (md5 expression)
+idx_hashes_original_hash_md5_unique (unique, md5 expression)
 idx_hashlists_status
 ```
 
