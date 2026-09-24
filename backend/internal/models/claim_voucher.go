@@ -60,8 +60,18 @@ type ClaimVoucher struct {
 	UsedByAgentID sql.NullInt64 `json:"used_by_agent_id,omitempty"`
 	UsedByAgent   *Agent        `json:"used_by_agent,omitempty"`
 	UsedAt        sql.NullTime  `json:"used_at,omitempty"`
-	CreatedAt     time.Time     `json:"created_at"`
-	UpdatedAt     time.Time     `json:"updated_at"`
+	// ExpiresAt is the absolute expiry for the voucher. Invalid (NULL in the
+	// database) means the voucher never expires, which is the legacy behavior
+	// every voucher issued before this field existed relies on.
+	ExpiresAt sql.NullTime `json:"expires_at,omitempty"`
+	CreatedAt time.Time    `json:"created_at"`
+	UpdatedAt time.Time    `json:"updated_at"`
+	// CloudInstanceID binds this voucher to one rented instance. Registration
+	// copies it onto the agent, which is what makes the agent's cloud identity
+	// server-assigned rather than self-declared — the value grants a job lock
+	// and several exemptions, so it must never come from the agent's own claim.
+	// Nil for every ordinary voucher.
+	CloudInstanceID *uuid.UUID `json:"cloud_instance_id,omitempty"`
 }
 
 // ClaimVoucherUsage tracks usage attempts of claim vouchers
@@ -86,6 +96,13 @@ func (v *ClaimVoucher) IsValid() bool {
 
 	// For single-use codes, check if they've been used
 	if !v.IsContinuous && v.UsedByAgentID.Valid {
+		return false
+	}
+
+	// Expired vouchers are unusable regardless of type. An invalid
+	// (NULL) ExpiresAt means "never expires" — the behavior of every
+	// voucher issued before expiry existed.
+	if v.ExpiresAt.Valid && time.Now().After(v.ExpiresAt.Time) {
 		return false
 	}
 

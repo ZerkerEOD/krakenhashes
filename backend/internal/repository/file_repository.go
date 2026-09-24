@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -39,6 +40,73 @@ type FileRepository struct {
 func NewFileRepository(db *db.DB, basePath string) *FileRepository {
 	debug.Info("Initializing FileRepository with base path: %s", basePath)
 	return &FileRepository{db: db, basePath: basePath}
+}
+
+/*
+MarkMissingOnDisk flips a wordlist or rule row from 'verified' to 'failed' when
+the file it points at is gone.
+
+A row claiming verification_status='verified' with nothing behind it is
+completely invisible: the admin UI shows the resource as healthy, last_verified_at
+never advances past upload time, and nothing re-checks existence. On the
+reference deployment one such row (hashcat/hashmob.1k.rule, 'verified',
+file_size 15222) sat that way for nine days while every agent sync 404ed on it.
+
+The download handler is the only place that reliably learns the file is missing,
+so it reports the fact here. Failing to record it must never turn a 404 into a
+500 -- the caller logs and carries on.
+
+Scoped to wordlists and rules. Binaries carry their own verification lifecycle
+and a different on-disk layout, and charsets have no such column; both are
+no-ops rather than silent guesses.
+
+Takes the absolute path that failed rather than a name, and derives the stored
+file_name from it relative to the resource root. The two download routes hold
+the category differently -- one has it as its own path segment, the other embeds
+it in the filename -- but both produce the same filePath, so deriving from that
+is both uniform and exactly the thing that was not found.
+*/
+func (r *FileRepository) MarkMissingOnDisk(ctx context.Context, fileType, filePath string) error {
+	// Table and directory chosen by whitelist, never interpolated from the request.
+	var table, dir string
+	switch fileType {
+	case "wordlist":
+		table, dir = "wordlists", "wordlists"
+	case "rule":
+		table, dir = "rules", "rules"
+	default:
+		return nil
+	}
+
+	relName, err := filepath.Rel(filepath.Join(r.basePath, dir), filePath)
+	if err != nil || strings.HasPrefix(relName, "..") {
+		// Outside the resource root: not a row we own, so nothing to flag.
+		return nil
+	}
+	relName = filepath.ToSlash(relName)
+
+	// file_name is normally stored with its category prefix ("hashcat/x.rule"),
+	// but tolerate a bare name for rows written without one.
+	bare := path.Base(relName)
+
+	query := fmt.Sprintf(`
+		UPDATE %s
+		SET verification_status = 'failed'
+		WHERE (file_name = $1 OR file_name = $2)
+		  AND verification_status = 'verified'
+	`, table)
+
+	result, err := r.db.ExecContext(ctx, query, relName, bare)
+	if err != nil {
+		return fmt.Errorf("failed to mark %s %q as missing: %w", fileType, relName, err)
+	}
+
+	if affected, err := result.RowsAffected(); err == nil && affected > 0 {
+		debug.Warning("Marked %s %q as failed verification: the file is missing from disk. "+
+			"Re-upload it or remove the entry.", fileType, relName)
+	}
+
+	return nil
 }
 
 // GetWordlists retrieves wordlists matching the specified category

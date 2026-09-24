@@ -13,14 +13,30 @@ to 1000**. Admins can raise or lower that ceiling (values above 1,000,000 are re
 job and preset-job creation validates against whatever it is currently set to.
 
 Priority is a pure ordering key — a higher number is served first — so only the bands *your*
-deployment agrees on matter, not the absolute numbers. The convention below fits a 0-100 working
-range; scale it if you raise the ceiling:
+deployment agrees on matter, not the absolute numbers.
 
-- **Critical Priority (90-100)**: Emergency response, security incidents
-- **High Priority (70-89)**: Time-sensitive audits, compliance deadlines
-- **Normal Priority (40-69)**: Standard security assessments
-- **Low Priority (10-39)**: Background processing, research tasks
-- **Minimal Priority (0-9)**: Non-urgent, opportunistic processing
+**Bands are a fraction of your ceiling, so read them against the ceiling you actually run.** The
+table gives both the shipped default (1000) and the common 0-100 working range:
+
+| Band | Meaning | At the default ceiling (1000) | On a 0-100 range |
+|---|---|---|---|
+| **Critical** | Emergency response, security incidents | 900-1000 | 90-100 |
+| **High** | Time-sensitive audits, compliance deadlines | 700-899 | 70-89 |
+| **Normal** | Standard security assessments | 400-699 | 40-69 |
+| **Low** | Background processing, research tasks | 100-399 | 10-39 |
+| **Minimal** | Non-urgent, opportunistic processing | 0-99 | 0-9 |
+
+!!! warning "Absolute numbers, not percentages"
+
+    Priority is stored and compared as an **absolute integer** everywhere in the system, including
+    the cloud provisioning priority floor. Lowering `max_job_priority` does **not** rescale existing
+    jobs, and a threshold typed against the wrong ceiling fails quietly rather than loudly.
+
+    The cloud priority floor is where this bites hardest. Setting it to `700` meaning "High and
+    above" is correct at the default ceiling of 1000 and matches **nothing at all** on a deployment
+    that standardised on 0-100 — automatic provisioning simply stops, with no error anywhere. The
+    admin UI renders the floor against your live ceiling for exactly this reason; trust the marks it
+    shows over any number quoted in a document.
 
 ### How Priority Affects Job Execution
 

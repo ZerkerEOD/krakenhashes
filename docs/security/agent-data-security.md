@@ -190,6 +190,63 @@ For maximum isolation:
 - Only allow outbound connections from agents to the backend API/WebSocket port
 - Block agent-to-agent communication if agents serve different teams
 
+## Rented (cloud) agents
+
+A cloud agent is an ephemeral GPU rented for one job and destroyed afterwards. Everything
+above still applies, plus three things that do not arise with hardware you own.
+
+### The VPN is mandatory
+
+Cloud agents never reach the backend over the open internet. They join the operator's existing
+VPN — Tailscale, NetBird or WireGuard, always in userspace mode — and provisioning **fails
+closed** without a credential, at two independent points. There is no direct-connection mode
+and no bypass, including for the mock provider. See
+[Cloud Agent VPN](../admin-guide/system-setup/cloud-vpn.md).
+
+The rented container is third-party hardware, so keeping it on the overlay is what stops a
+machine someone else operates from talking to a public endpoint. It is also load-bearing for
+confidentiality rather than just reachability: the agent's CA fetch and certificate renewal
+use plain HTTP inside the tunnel.
+
+### On peer-operated tiers, the host has root over your container
+
+**Vast.ai** and **RunPod Community** are individually- or peer-owned machines. The owner of
+the machine your job lands on has root over the container, and can read the hashes, wordlists,
+potfiles and cracked plaintexts on it. **The data is not encrypted at rest on the host.**
+
+The protection there is a terms-of-service clause, not an isolation boundary. Do not use those
+tiers for production or client engagement data.
+
+Because it is a policy boundary rather than a technical one, it is gated by consent rather
+than by a control — **three** separate opt-ins, each attributed in the audit log:
+
+1. A provider-level acknowledgement before the config can be enabled.
+2. A per-client acknowledgement before that client may allowlist it.
+3. A **per-job** opt-in before any job lands on one.
+
+Without the per-job flag a job simply does not see peer offers; it can still rent from the
+secure providers in the client's allowlist, so leaving it off degrades rather than blocks.
+
+AWS and RunPod Secure carry none of this: they are your own account or a single-tenant SOC 2
+datacenter.
+
+### Credentials are never written to disk on the instance
+
+Cloud agents run in **ephemeral mode** — configuration comes from the environment and no
+`.env` is ever written. Writing the claim code to disk would hand a live registration
+credential to whoever operates the rented machine.
+
+File sync is **job-scoped** for the same reason: a rented instance receives an explicit
+download list containing only what its job needs, never the org's whole corpus. Without that
+it would also receive every client's cracked plaintexts, since client potfiles are served as
+wordlists.
+
+One credential is a deliberate exception worth understanding. **RunPod Secure** can optionally
+be given an API key so the pod can delete itself when it loses contact — and RunPod issues no
+per-pod scoped credential, so that key is **account-scoped**. Supply a narrower
+`self_destruct_api_key` rather than reusing the provisioning key. On **RunPod Community** the
+key is never injected at all, which is exactly why teardown there is reaper-only.
+
 ## Security Limitations
 
 - **No secure erasure**: Files are deleted with standard `os.Remove()`, not secure wiping. Data may be recoverable from disk with forensic tools until overwritten. For environments requiring secure erasure, use full-disk encryption on agent machines.
@@ -197,3 +254,4 @@ For maximum isolation:
 - **Hashcat temp files**: Hashcat may create its own temporary files during execution that are outside the agent's cleanup scope.
 - **Shared wordlists/rules**: Global (non-client) wordlists and rules are retained on disk and shared across all jobs. These are not considered client-sensitive data.
 - **Trust is advisory**: The trust model controls job scheduling, not file access. An agent with filesystem access could theoretically access any file in its data directory regardless of team boundaries.
+- **Peer-operated cloud hosts are outside every protection above**: on Vast.ai and RunPod Community the host operator has root over the container, so file permissions, post-task cleanup and periodic cleanup are all defences the host can simply ignore. Treat anything placed there as disclosed.

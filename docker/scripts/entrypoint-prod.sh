@@ -35,10 +35,19 @@ mkdir -p /etc/krakenhashes/certs
 chown krakenhashes:krakenhashes /etc/krakenhashes/certs
 chmod 755 /etc/krakenhashes/certs
 
-# If certificates already exist, ensure they are readable
+# If certificates already exist, ensure they are readable by the backend.
+#
+# Default-deny: everything is tightened to 0600 and only files known to be public
+# are widened to 0644. A blanket `chmod 644` reverts the 0600 the TLS provider
+# sets on ca.key/server.key/client.key on every container start. The certs dir
+# also holds certbot's privkey.pem and cloudflare.ini (an API token), neither of
+# which is named *.key, so an allowlist of public names is the only safe rule.
 if [ -n "$(ls -A /etc/krakenhashes/certs 2>/dev/null)" ]; then
-    echo "Making existing certificates readable..."
-    find /etc/krakenhashes/certs -type f -exec chmod 644 {} \;
+    echo "Fixing certificate permissions..."
+    find /etc/krakenhashes/certs -type f -exec chmod 600 {} \;
+    find /etc/krakenhashes/certs -type f \
+        \( -name '*.crt' -o -name 'fullchain.pem' -o -name 'chain.pem' -o -name 'cert.pem' \) \
+        -exec chmod 644 {} \;
     find /etc/krakenhashes/certs -type f -exec chown krakenhashes:krakenhashes {} \;
 fi
 
@@ -63,6 +72,14 @@ chmod -R 755 "/var/log/krakenhashes"
 chown -R nginx:nginx "/var/log/krakenhashes/nginx"
 # Backend logs should remain owned by krakenhashes (already set above)
 
+# Compute the certificate SAN defaults BEFORE the heredoc.
+#
+# `hostname -i` returns SPACE-separated addresses on a multi-homed container.
+# Interpolated raw, those become a single unparseable SAN entry that the TLS
+# provider can only warn about and skip, so normalise the separator here.
+KH_SAN_DNS_NAMES="localhost,$(hostname)"
+KH_SAN_IP_ADDRESSES="127.0.0.1,$(hostname -i | tr -s ' ' ',' | sed 's/,*$//')"
+
 # Create backend .env file
 cat > /etc/krakenhashes/.env << EOF
 # Server Configuration
@@ -71,9 +88,11 @@ KH_HOST=${KH_HOST:-0.0.0.0}
 KH_HTTPS_PORT=${KH_HTTPS_PORT:-31337}
 KH_IN_DOCKER=TRUE
 
-# Get container's hostname and IP
-KH_ADDITIONAL_DNS_NAMES=localhost,$(hostname)
-KH_ADDITIONAL_IP_ADDRESSES=127.0.0.1,0.0.0.0,$(hostname -i)
+# Container hostname and IP, used as the initial certificate SANs only.
+# These seed the very first certificate generation; after that the SAN list is
+# managed in Admin -> Settings and stored in the database.
+KH_ADDITIONAL_DNS_NAMES=${KH_SAN_DNS_NAMES}
+KH_ADDITIONAL_IP_ADDRESSES=${KH_SAN_IP_ADDRESSES}
 
 # Database Configuration - External PostgreSQL
 DB_HOST=${DB_HOST:-postgres}

@@ -16,13 +16,13 @@ import (
 
 // RetentionService handles the automatic purging of old hashlists and analytics reports based on retention policies.
 type RetentionService struct {
-	db                    *db.DB // Needed for transactions
-	hashlistRepo          *repository.HashListRepository
-	hashRepo              *repository.HashRepository
-	clientRepo            *repository.ClientRepository
-	clientSettingsRepo    *repository.ClientSettingsRepository
-	analyticsRepo         *repository.AnalyticsRepository
-	assocWordlistRepo     *repository.AssociationWordlistRepository
+	db                 *db.DB // Needed for transactions
+	hashlistRepo       *repository.HashListRepository
+	hashRepo           *repository.HashRepository
+	clientRepo         *repository.ClientRepository
+	clientSettingsRepo *repository.ClientSettingsRepository
+	analyticsRepo      *repository.AnalyticsRepository
+	assocWordlistRepo  *repository.AssociationWordlistRepository
 }
 
 // NewRetentionService creates a new RetentionService.
@@ -140,7 +140,10 @@ func (s *RetentionService) PurgeOldHashlists(ctx context.Context) error {
 		}
 	}
 
-	// 5. Update last purge run timestamp
+	// 5. Update last purge run timestamp.
+	//
+	// Seeded by migration 20260918120000: SetSetting is UPDATE-only, so before
+	// the row existed this failed on every single purge.
 	nowStr := time.Now().Format(time.RFC3339Nano)
 	err = s.clientSettingsRepo.SetSetting(ctx, "last_purge_run", &nowStr)
 	if err != nil {
@@ -250,11 +253,16 @@ func (s *RetentionService) PurgeOldAnalyticsReports(ctx context.Context) error {
 		}
 	}
 
-	// 5. Update last purge run timestamp
+	// 5. Update last purge run timestamp.
+	//
+	// Its own key, not last_purge_run: that one belongs to the hashlist purge,
+	// and while both wrote it neither timestamp survived the other, so "when did
+	// analytics retention last run" had no answer. Seeded by migration
+	// 20260918120000 -- SetSetting is UPDATE-only and cannot create the row.
 	nowStr := time.Now().Format(time.RFC3339Nano)
-	err = s.clientSettingsRepo.SetSetting(ctx, "last_purge_run", &nowStr)
+	err = s.clientSettingsRepo.SetSetting(ctx, "last_analytics_purge_run", &nowStr)
 	if err != nil {
-		debug.Error("Analytics Purge: Failed to update last_purge_run timestamp: %v", err)
+		debug.Error("Analytics Purge: Failed to update last_analytics_purge_run timestamp: %v", err)
 		// Log error but don't fail the whole operation
 	}
 

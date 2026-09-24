@@ -101,10 +101,17 @@ Agents automatically clean up old files to prevent storage accumulation:
 Response:
 ```json
 {
-  "default_retention_months": 36,
-  "last_purge_run": "2025-09-17T10:35:00.391Z"
+  "data": {
+    "key": "default_data_retention_months",
+    "value": "36",
+    "description": "Default data retention period in months for clients without a specific setting. 0 means keep forever.",
+    "updated_at": "2026-09-17T10:35:00.391Z"
+  }
 }
 ```
+
+This endpoint returns the default retention setting only. Purge timestamps are read
+directly from `client_settings` — see [Verifying a purge ran](#verifying-a-purge-ran) below.
 
 ### Update Retention Settings
 
@@ -160,7 +167,18 @@ Check retention activity in the backend logs:
 docker exec krakenhashes-app tail -f /var/log/krakenhashes/backend/backend.log | grep -i purge
 ```
 
-View last purge run time:
+### Verifying a purge ran
+
+The two retention purges record their own timestamps:
+
 ```sql
-SELECT value FROM client_settings WHERE key = 'last_purge_run';
-``` 
+SELECT key, value FROM client_settings
+WHERE key IN ('last_purge_run', 'last_analytics_purge_run');
+```
+
+- `last_purge_run` — the hashlist data retention purge
+- `last_analytics_purge_run` — the analytics report retention purge
+
+A `NULL` value means that purge has not completed since the keys were introduced. Both
+were previously written to the same key, so on older deployments whichever purge ran last
+overwrote the other. 

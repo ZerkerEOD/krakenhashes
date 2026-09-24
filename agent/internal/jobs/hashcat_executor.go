@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	filesync "github.com/ZerkerEOD/krakenhashes/agent/internal/sync"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/console"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/debug"
 )
@@ -204,33 +206,38 @@ type CharsetFileInfo struct {
 
 // JobTaskAssignment represents a task assignment from the backend
 type JobTaskAssignment struct {
-	TaskID            string                     `json:"task_id"`
-	JobExecutionID    string                     `json:"job_execution_id"`
-	HashlistID        int64                      `json:"hashlist_id"`
-	HashlistPath      string                     `json:"hashlist_path"` // Local path on agent
-	AttackMode        int                        `json:"attack_mode"`
-	HashType          int                        `json:"hash_type"`
-	KeyspaceStart     int64                      `json:"keyspace_start"`
-	KeyspaceEnd       int64                      `json:"keyspace_end"`
-	WordlistPaths     []string                   `json:"wordlist_paths"`                // Local paths on agent
-	RulePaths         []string                   `json:"rule_paths"`                    // Local paths on agent
-	Mask              string                     `json:"mask,omitempty"`                // For mask attacks
-	CustomCharsets    map[string]string          `json:"custom_charsets,omitempty"`     // Custom charsets: {"1": "?u?d", "3": "?s"}
-	CharsetFiles      map[string]CharsetFileInfo `json:"charset_files,omitempty"`       // File-based charsets: {"1": {name: "file.hcchr", ...}}
-	HexCharset        bool                       `json:"hex_charset,omitempty"`         // When true, auto-inject --hex-charset flag
-	BinaryPath        string                     `json:"binary_path"`                   // Hashcat binary to use
-	ChunkDuration     int                        `json:"chunk_duration"`                // Expected duration in seconds
-	ReportInterval    int                        `json:"report_interval"`               // Progress reporting interval
-	OutputFormat      string                     `json:"output_format"`                 // Hashcat output format
-	ExtraParameters   string                     `json:"extra_parameters,omitempty"`    // Agent-specific hashcat parameters
-	JobAdditionalArgs string                     `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params)
-	EnabledDevices    []int                      `json:"enabled_devices,omitempty"`     // List of enabled device IDs
-	IncrementMode     string                     `json:"increment_mode,omitempty"`      // Mask increment mode: off, increment, increment_inverse
-	IncrementMin      *int                       `json:"increment_min,omitempty"`       // Starting mask length for increment mode
-	IncrementMax      *int                       `json:"increment_max,omitempty"`       // Maximum mask length for increment mode
-	IsKeyspaceSplit   bool                       `json:"is_keyspace_split"`             // Whether this task uses keyspace splitting (--skip/--limit)
-	Slow              bool                       `json:"slow,omitempty"`                // Hash type is slow (iterated) — add hashcat -S for wordlist attacks so host-side candidate generation keeps the GPU saturated under small --limit chunks
-	BaseKeyspace      int64                      `json:"base_keyspace,omitempty"`       // Server's base keyspace for --skip/--limit coordinate conversion
+	TaskID         string                     `json:"task_id"`
+	JobExecutionID string                     `json:"job_execution_id"`
+	HashlistID     int64                      `json:"hashlist_id"`
+	HashlistPath   string                     `json:"hashlist_path"` // Local path on agent
+	AttackMode     int                        `json:"attack_mode"`
+	HashType       int                        `json:"hash_type"`
+	KeyspaceStart  int64                      `json:"keyspace_start"`
+	KeyspaceEnd    int64                      `json:"keyspace_end"`
+	WordlistPaths  []string                   `json:"wordlist_paths"`            // Local paths on agent
+	RulePaths      []string                   `json:"rule_paths"`                // Local paths on agent
+	Mask           string                     `json:"mask,omitempty"`            // For mask attacks
+	CustomCharsets map[string]string          `json:"custom_charsets,omitempty"` // Custom charsets: {"1": "?u?d", "3": "?s"}
+	CharsetFiles   map[string]CharsetFileInfo `json:"charset_files,omitempty"`   // File-based charsets: {"1": {name: "file.hcchr", ...}}
+	HexCharset     bool                       `json:"hex_charset,omitempty"`     // When true, auto-inject --hex-charset flag
+	BinaryPath     string                     `json:"binary_path"`               // Hashcat binary to use
+	// BinaryName is the archive filename behind BinaryPath (BinaryMD5 already
+	// exists further down). Without it a missing binary could be detected but
+	// not requested, which is why nothing in the agent ever fetched hashcat on
+	// demand.
+	BinaryName        string `json:"binary_name,omitempty"`
+	ChunkDuration     int    `json:"chunk_duration"`                // Expected duration in seconds
+	ReportInterval    int    `json:"report_interval"`               // Progress reporting interval
+	OutputFormat      string `json:"output_format"`                 // Hashcat output format
+	ExtraParameters   string `json:"extra_parameters,omitempty"`    // Agent-specific hashcat parameters
+	JobAdditionalArgs string `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params)
+	EnabledDevices    []int  `json:"enabled_devices,omitempty"`     // List of enabled device IDs
+	IncrementMode     string `json:"increment_mode,omitempty"`      // Mask increment mode: off, increment, increment_inverse
+	IncrementMin      *int   `json:"increment_min,omitempty"`       // Starting mask length for increment mode
+	IncrementMax      *int   `json:"increment_max,omitempty"`       // Maximum mask length for increment mode
+	IsKeyspaceSplit   bool   `json:"is_keyspace_split"`             // Whether this task uses keyspace splitting (--skip/--limit)
+	Slow              bool   `json:"slow,omitempty"`                // Hash type is slow (iterated) — add hashcat -S for wordlist attacks so host-side candidate generation keeps the GPU saturated under small --limit chunks
+	BaseKeyspace      int64  `json:"base_keyspace,omitempty"`       // Server's base keyspace for --skip/--limit coordinate conversion
 	// Effective-keyspace range (base × rule/salt multipliers) for this
 	// task. The real hashcat executor reads effective progress from
 	// hashcat's progress[0]/[1] and ignores these. They exist so the
@@ -1590,8 +1597,15 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 
 		// Check for scanner errors
 		if err := scanner.Err(); err != nil {
-			debug.Error("[Hashcat stdout reader] Scanner error after %d lines: %v", lineCount, err)
-			e.sendErrorProgress(process, fmt.Sprintf("Output reading failed: %v", err))
+			if isClosedPipeAfterExit(err) {
+				// Not a failure — see isClosedPipeAfterExit. Reporting it as one
+				// told the backend a chunk that had just finished at 100% had
+				// failed, and ten of those killed the whole job.
+				debug.Info("[Hashcat stdout reader] Pipe closed at process exit after %d lines (benign): %v", lineCount, err)
+			} else {
+				debug.Error("[Hashcat stdout reader] Scanner error after %d lines: %v", lineCount, err)
+				e.sendErrorProgress(process, fmt.Sprintf("Output reading failed: %v", err))
+			}
 		} else {
 			debug.Info("[Hashcat stdout reader] Finished reading %d lines without error", lineCount)
 		}
@@ -1682,7 +1696,11 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 
 		// Check for scanner errors
 		if err := scanner.Err(); err != nil {
-			debug.Error("[Hashcat stderr reader] Scanner error after %d lines: %v", lineCount, err)
+			if isClosedPipeAfterExit(err) {
+				debug.Info("[Hashcat stderr reader] Pipe closed at process exit after %d lines (benign): %v", lineCount, err)
+			} else {
+				debug.Error("[Hashcat stderr reader] Scanner error after %d lines: %v", lineCount, err)
+			}
 		} else {
 			debug.Info("[Hashcat stderr reader] Finished reading %d lines without error", lineCount)
 		}
@@ -2023,6 +2041,38 @@ func (e *HashcatExecutor) sendProgressUpdate(process *HashcatProcess, progress *
 		// Channel full, log warning but don't block
 		debug.Warning("Progress channel full for task %s, dropping update", process.TaskID)
 	}
+}
+
+/*
+isClosedPipeAfterExit reports whether a stdout/stderr reader error is the benign
+end-of-process race rather than a real I/O fault.
+
+os/exec's StdoutPipe closes the pipe as soon as Cmd.Wait() sees the process exit,
+and Wait runs in its own goroutine here while the readers may still be inside
+Scan(). The reader then observes os.ErrClosed ("read |0: file already closed").
+The Go documentation says as much: "Wait will close the pipe after seeing the
+command exit ... it is thus incorrect to call Wait before all reads from the pipe
+have completed."
+
+This carries no information about whether the run succeeded — the process is
+already gone and its exit code is handled separately — so it must not be reported
+as a task failure.
+
+It was. A production deployment lost three jobs to it, at 21%, 22% and 40%
+complete. Each chunk that finished normally raced on exit, the agent reported the
+completed task as failed, and the backend counted that against the per-tuple
+benchmark failure cap (job_scheduling_benchmark_planning.go). At ten, the whole
+job was marked "per-tuple hard cap reached". The tasks themselves were recorded
+status=completed, progress=100% — carrying a failure_reason they had not earned.
+
+Matched by sentinel first; the string check is a fallback in case a future
+wrapping loses errors.Is compatibility.
+*/
+func isClosedPipeAfterExit(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, os.ErrClosed) || strings.Contains(err.Error(), "file already closed")
 }
 
 // sendErrorProgress sends an error progress update
@@ -2761,6 +2811,28 @@ func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error
 			}
 		}
 
+		/*
+		 * Refuse an incomplete extraction before probing for a name.
+		 *
+		 * The extractor creates hashcat.bin with O_CREATE before copying
+		 * 200+ MB into it, and sets the executable bit from the archive's own
+		 * mode -- so a file that exists AND is executable can still be a
+		 * partially written binary. Every check below would pass for it, and
+		 * the caller would exec it.
+		 *
+		 * The message must keep the substring "but not extracted": errorclass
+		 * matches on it to classify this as CategoryAgentNotReady, which is
+		 * what stops an extraction still in progress being recorded as a
+		 * benchmark failure and counted toward the 24h blocklist.
+		 */
+		if !filesync.IsBinaryExtracted(binaryDir) {
+			if archives, _ := filepath.Glob(filepath.Join(binaryDir, "*.7z")); len(archives) > 0 {
+				return "", fmt.Errorf("hashcat archive found at %s but not extracted completely yet",
+					filepath.Base(archives[0]))
+			}
+			return "", fmt.Errorf("hashcat binary not found in directory %s (nothing extracted there)", binaryDir)
+		}
+
 		for _, path := range possiblePaths {
 			if fileInfo, err := os.Stat(path); err == nil {
 				// Check if it's the right type of executable for this OS
@@ -2781,10 +2853,11 @@ func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error
 			}
 		}
 
-		// Check if the .7z archive exists but hasn't been extracted
-		archivePath := filepath.Join(binaryDir, "hashcat-6.2.6+1017.7z")
-		if _, err := os.Stat(archivePath); err == nil {
-			return "", fmt.Errorf("hashcat archive found at %s but not extracted. Please ensure file sync extracts binaries", archivePath)
+		// Archive present but no usable executable. Globbed rather than
+		// matching one hardcoded filename, which was only ever right for a
+		// single hashcat build.
+		if archives, _ := filepath.Glob(filepath.Join(binaryDir, "*.7z")); len(archives) > 0 {
+			return "", fmt.Errorf("hashcat archive found at %s but not extracted. Please ensure file sync extracts binaries", archives[0])
 		}
 
 		return "", fmt.Errorf("hashcat binary not found in directory %s. Checked paths: %v", binaryDir, possiblePaths)

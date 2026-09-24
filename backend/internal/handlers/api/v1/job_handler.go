@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -66,12 +67,12 @@ type APIError struct {
 
 // CreateJobRequest represents the request body for creating a job
 type CreateJobRequest struct {
-	Name         string     `json:"name"`
-	HashlistID   int64      `json:"hashlist_id"`
-	WorkflowID   *uuid.UUID `json:"workflow_id,omitempty"`
-	PresetJobID  *uuid.UUID `json:"preset_job_id,omitempty"`
-	Priority     int        `json:"priority"`
-	MaxAgents    int        `json:"max_agents"`
+	Name        string     `json:"name"`
+	HashlistID  int64      `json:"hashlist_id"`
+	WorkflowID  *uuid.UUID `json:"workflow_id,omitempty"`
+	PresetJobID *uuid.UUID `json:"preset_job_id,omitempty"`
+	Priority    int        `json:"priority"`
+	MaxAgents   int        `json:"max_agents"`
 }
 
 // CreateJobResponse represents the response for job creation
@@ -84,24 +85,24 @@ type CreateJobResponse struct {
 
 // JobStatusResponse represents a detailed job status for polling
 type JobStatusResponse struct {
-	ID                     string     `json:"id"`
-	Name                   string     `json:"name"`
-	Status                 string     `json:"status"`
-	Priority               int        `json:"priority"`
-	MaxAgents              int        `json:"max_agents"`
-	DispatchedPercent      float64    `json:"dispatched_percent"`
-	SearchedPercent        float64    `json:"searched_percent"`
-	CrackedCount           int        `json:"cracked_count"`
-	AgentCount             int        `json:"agent_count"`
-	TotalSpeed             int64      `json:"total_speed"`
-	CreatedAt              time.Time  `json:"created_at"`
-	StartedAt              *time.Time `json:"started_at,omitempty"`
-	CompletedAt            *time.Time `json:"completed_at,omitempty"`
-	ErrorMessage           *string          `json:"error_message,omitempty"`
-	EffectiveKeyspace      *models.BigInt   `json:"effective_keyspace,omitempty"`
-	ProcessedKeyspace      models.BigInt    `json:"processed_keyspace"`
-	DispatchedKeyspace     models.BigInt    `json:"dispatched_keyspace"`
-	OverallProgressPercent float64          `json:"overall_progress_percent"`
+	ID                     string         `json:"id"`
+	Name                   string         `json:"name"`
+	Status                 string         `json:"status"`
+	Priority               int            `json:"priority"`
+	MaxAgents              int            `json:"max_agents"`
+	DispatchedPercent      float64        `json:"dispatched_percent"`
+	SearchedPercent        float64        `json:"searched_percent"`
+	CrackedCount           int            `json:"cracked_count"`
+	AgentCount             int            `json:"agent_count"`
+	TotalSpeed             int64          `json:"total_speed"`
+	CreatedAt              time.Time      `json:"created_at"`
+	StartedAt              *time.Time     `json:"started_at,omitempty"`
+	CompletedAt            *time.Time     `json:"completed_at,omitempty"`
+	ErrorMessage           *string        `json:"error_message,omitempty"`
+	EffectiveKeyspace      *models.BigInt `json:"effective_keyspace,omitempty"`
+	ProcessedKeyspace      models.BigInt  `json:"processed_keyspace"`
+	DispatchedKeyspace     models.BigInt  `json:"dispatched_keyspace"`
+	OverallProgressPercent float64        `json:"overall_progress_percent"`
 	// Increment mode fields
 	IncrementMode string `json:"increment_mode,omitempty"`
 	IncrementMin  *int   `json:"increment_min,omitempty"`
@@ -110,11 +111,11 @@ type JobStatusResponse struct {
 
 // ListJobsResponse represents the response for listing jobs
 type ListJobsResponse struct {
-	Jobs         []JobSummary       `json:"jobs"`
-	Total        int                `json:"total"`
-	Page         int                `json:"page"`
-	PageSize     int                `json:"page_size"`
-	StatusCounts map[string]int     `json:"status_counts"`
+	Jobs         []JobSummary   `json:"jobs"`
+	Total        int            `json:"total"`
+	Page         int            `json:"page"`
+	PageSize     int            `json:"page_size"`
+	StatusCounts map[string]int `json:"status_counts"`
 }
 
 // JobSummary represents a brief job summary for listing
@@ -248,6 +249,14 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 				debug.Error("Failed to create job execution for preset %s: %v", step.PresetJobID, err)
 				h.sendError(w, "JOB_CREATION_FAILED", fmt.Sprintf("Failed to create job: %v", err), http.StatusBadRequest)
 				return
+			}
+
+			// A workflow-level cloud opt-in applies to every step, overriding
+			// the individual presets.
+			if workflow.CloudBurstEnabled {
+				if err := h.jobExecRepo.SetCloudBurst(ctx, jobExecution.ID, true, nil); err != nil {
+					debug.Error("Failed to apply workflow cloud burst to job %s: %v", jobExecution.ID, err)
+				}
 			}
 
 			// Update priority and max_agents if specified
@@ -806,17 +815,19 @@ func (h *JobHandler) RetryJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reset the job to pending status
-	if err := h.jobExecRepo.UpdateStatus(ctx, jobID, models.JobExecutionStatusPending); err != nil {
-		debug.Error("Failed to reset job status: %v", err)
+	// Reopen the job. Must be ResetToPendingForRetry, not UpdateStatus: the
+	// latter enforces "terminal is terminal" and silently refuses a
+	// failed -> pending flip, so this endpoint answered 200 without
+	// reopening anything. Same defect as the /api/jobs retry handler.
+	if err := h.jobExecRepo.ResetToPendingForRetry(ctx, jobID); err != nil {
+		if errors.Is(err, repository.ErrJobNotRetryable) {
+			debug.Warning("RetryJob: job %s no longer retryable: %v", jobID, err)
+			h.sendError(w, "VALIDATION_ERROR", "Job can only be retried if it's failed or cancelled", http.StatusBadRequest)
+			return
+		}
+		debug.Error("Failed to reset job %s for retry: %v", jobID, err)
 		h.sendError(w, "INTERNAL_ERROR", "Failed to retry job", http.StatusInternalServerError)
 		return
-	}
-
-	// Clear error message
-	if err := h.jobExecRepo.ClearError(ctx, jobID); err != nil {
-		debug.Error("Failed to clear job error: %v", err)
-		// Don't fail the request, just log the error
 	}
 
 	// Mark failed/cancelled tasks as pending so they can be retried

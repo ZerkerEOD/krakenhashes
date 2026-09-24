@@ -2,13 +2,19 @@ package queries
 
 // Agent queries
 const (
+	// cloud_instance_id is written INSIDE this INSERT rather than by a
+	// follow-up UPDATE. Closing that window is the point: between the two
+	// statements the agent is a fully-registered on-prem agent, so the
+	// scheduler's very next cycle could hand it any client's job before the
+	// cloud lock existed.
 	CreateAgent = `
 		INSERT INTO agents (
 			name, status, last_heartbeat, version, hardware,
 			os_info, created_by_id, created_at, updated_at, api_key,
-			api_key_created_at, api_key_last_used, last_error, metadata, owner_id
+			api_key_created_at, api_key_last_used, last_error, metadata, owner_id,
+			cloud_instance_id
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
 		) RETURNING id`
 
 	GetAgentByID = `
@@ -40,6 +46,14 @@ const (
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
 		WHERE ($1::text IS NULL OR a.status = $1)
+		  -- Retired cloud agents are hidden by DEFAULT, not permanently.
+		  --
+		  -- retired_at is written on teardown but was read by exactly one query
+		  -- (the scheduler's idle-agent pick), so every GPU ever rented stayed
+		  -- in this list forever. $2 lets an admin ask for them back: a hard
+		  -- filter would make the rows unreachable from the screen that is
+		  -- supposed to manage them.
+		  AND ($2::bool IS TRUE OR a.retired_at IS NULL)
 		ORDER BY a.created_at DESC`
 
 	UpdateAgent = `
@@ -90,7 +104,7 @@ const (
 			a.updated_at, a.api_key, a.api_key_created_at,
 			a.api_key_last_used, a.metadata, a.owner_id, a.extra_parameters, a.is_enabled,
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
-			a.binary_version,
+			a.binary_version, a.cloud_instance_id, a.retired_at,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -185,15 +199,16 @@ const (
 	CreateClaimVoucher = `
 		INSERT INTO claim_vouchers (
 			code, is_active, is_continuous,
-			created_by_id, created_at, updated_at
+			created_by_id, created_at, updated_at, expires_at, cloud_instance_id
 		) VALUES (
-			$1, $2, $3, $4, $5, $6
+			$1, $2, $3, $4, $5, $6, $7, $8
 		) RETURNING code`
 
 	GetClaimVoucherByCode = `
-		SELECT 
+		SELECT
 			v.code, v.is_active, v.is_continuous,
-			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at,
+			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at, v.expires_at,
+			v.cloud_instance_id,
 			u1.id, u1.username, u1.email, u1.role,
 			a.id, a.name, a.status
 		FROM claim_vouchers v
@@ -204,34 +219,45 @@ const (
 	ListActiveVouchers = `
 		SELECT
 			v.code, v.is_active, v.is_continuous,
-			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at,
+			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at, v.expires_at,
 			u1.id, u1.username, u1.email, u1.role,
 			a.id, a.name, a.status
 		FROM claim_vouchers v
 		LEFT JOIN users u1 ON v.created_by_id = u1.id
 		LEFT JOIN agents a ON v.used_by_agent_id = a.id
+		-- is_active alone is not "usable". ClaimVoucher.IsValid() also rejects
+		-- anything past expires_at, so a voucher can be is_active = true and
+		-- completely dead -- which is how this list came to show 695 rows, 673
+		-- of them belonging to cloud instances that failed to launch. Matching
+		-- IsValid()'s own predicate keeps the screen honest.
 		WHERE v.is_active = true
+		  AND (v.expires_at IS NULL OR v.expires_at > NOW())
 		ORDER BY v.created_at DESC`
 
 	ListActiveVouchersByUser = `
 		SELECT
 			v.code, v.is_active, v.is_continuous,
-			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at,
+			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at, v.expires_at,
 			u1.id, u1.username, u1.email, u1.role,
 			a.id, a.name, a.status
 		FROM claim_vouchers v
 		LEFT JOIN users u1 ON v.created_by_id = u1.id
 		LEFT JOIN agents a ON v.used_by_agent_id = a.id
+		-- Same expiry predicate as ListActiveVouchers; see the note there.
 		WHERE v.is_active = true AND v.created_by_id = $1
+		  AND (v.expires_at IS NULL OR v.expires_at > NOW())
 		ORDER BY v.created_at DESC`
 
+	// UseClaimVoucherByAgent also re-checks expiry so a voucher that lapses
+	// between GetByCode and the redeeming UPDATE can't slip through.
 	UseClaimVoucherByAgent = `
 		UPDATE claim_vouchers SET
 			used_by_agent_id = $2,
 			used_at = $3,
 			updated_at = $3
 		WHERE code = $1 AND is_active = true
-		AND (is_continuous = true OR used_by_agent_id IS NULL)`
+		AND (is_continuous = true OR used_by_agent_id IS NULL)
+		AND (expires_at IS NULL OR expires_at > $3)`
 
 	DeactivateClaimVoucher = `
 		UPDATE claim_vouchers SET

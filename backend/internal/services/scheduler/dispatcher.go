@@ -32,6 +32,32 @@ type DispatchInputs struct {
 	// 'min_chunk_seconds'). The caller reads them once per cycle.
 	TargetChunkSeconds int
 	MinChunkSeconds    int
+
+	// CloudChunkSeconds is the target chunk duration for RENTED agents
+	// (system setting 'cloud_chunk_duration_seconds', default ~3x the on-prem
+	// value). Per-chunk overhead — hashcat startup, kernel autotune, wordlist
+	// load — is billed at rental rates, so cloud chunks are deliberately
+	// longer. Zero falls back to TargetChunkSeconds.
+	CloudChunkSeconds int
+
+	// CloudTTLRemaining is agent_id -> seconds of life left, for rented
+	// agents only. A chunk is NEVER planned past an instance's death: doing
+	// so claims a keyspace interval the instance cannot finish, and that
+	// interval stays claimed until the sweeper evicts it (network grace plus
+	// a sweep tick), during which nobody works it.
+	CloudTTLRemaining map[int]int
+
+	// CloudTeardownSlackSeconds is reserved at the end of a rented instance's
+	// TTL for drain and destroy.
+	CloudTeardownSlackSeconds int
+
+	// EndgameShares is unit_id -> agent_id -> chunk size in BASE units,
+	// precomputed by the caller when a unit has entered the endgame.
+	//
+	// Computed in the caller, not here, because tapering needs the SET of
+	// agents on a unit while dispatchOne only ever sees one allocation at a
+	// time inside its own transaction.
+	EndgameShares map[uuid.UUID]map[int]int64
 }
 
 // DispatchedTask is the output handed back to the scheduling cycle so it
@@ -166,17 +192,41 @@ func dispatchOne(
 		speed = ConservativeAgentSpeed
 	}
 
-	// Per-job chunk-duration override (Step 11k): job_executions.chunk_size_seconds
-	// takes precedence over the system-wide target_chunk_seconds. The user
-	// can set this per job ("chunk size" field in the UI). NULL or 0 means
-	// fall back to the system setting passed in DispatchInputs.
-	chunkDurationSec := in.TargetChunkSeconds
+	// Chunk duration: system default, then the per-job value, then the cloud
+	// floor for rented agents, then the TTL clamp. See resolveChunkDuration for
+	// why the cloud value is a floor rather than an override.
 	var jobChunkSize sql.NullInt32
 	if qerr := database.QueryRowContext(ctx, `
 		SELECT chunk_size_seconds FROM job_executions WHERE id = $1
-	`, unit.ParentJobID).Scan(&jobChunkSize); qerr == nil && jobChunkSize.Valid && jobChunkSize.Int32 > 0 {
-		chunkDurationSec = int(jobChunkSize.Int32)
+	`, unit.ParentJobID).Scan(&jobChunkSize); qerr != nil {
+		// Previously swallowed. A failed read is not "the job has no
+		// preference" — it is a missing signal, and on a rented agent it is the
+		// difference between a 20-minute and a 60-minute chunk.
+		debug.Warning("scheduler-v2: reading chunk_size_seconds for job %s failed (%v); falling back to the system target",
+			unit.ParentJobID, qerr)
 	}
+	jobChunkSec := 0
+	if jobChunkSize.Valid {
+		jobChunkSec = int(jobChunkSize.Int32)
+	}
+
+	ttlRemaining, isCloud := in.CloudTTLRemaining[alloc.AgentID]
+	plan := resolveChunkDuration(
+		in.TargetChunkSeconds,
+		jobChunkSec,
+		in.CloudChunkSeconds,
+		in.MinChunkSeconds,
+		ttlRemaining,
+		in.CloudTeardownSlackSeconds,
+		isCloud,
+	)
+	if plan.Skip {
+		// Not enough life left to do anything useful. Dispatching here would
+		// claim an interval the instance cannot finish.
+		debug.Info("scheduler-v2: skipping dispatch to cloud agent %d — only %ds of TTL left", alloc.AgentID, ttlRemaining)
+		return nil, nil
+	}
+	chunkDurationSec := plan.DurationSec
 
 	chunkSize := sizeChunk(
 		gap.End-gap.Start,
@@ -186,6 +236,19 @@ func dispatchOne(
 		chunkDurationSec,
 		in.MinChunkSeconds,
 	)
+
+	// Endgame tapering overrides the time-boxed size so every agent on this
+	// unit converges on the same finish time. Without it, a fast rented GPU
+	// finishes the tail and then bills while a slow on-prem card grinds a
+	// chunk it started ten minutes earlier.
+	if shares, ok := in.EndgameShares[unit.ID]; ok {
+		if share, ok := shares[alloc.AgentID]; ok && share > 0 {
+			chunkSize = share
+			if avail := gap.End - gap.Start; chunkSize > avail {
+				chunkSize = avail
+			}
+		}
+	}
 	rangeStart := gap.Start
 	rangeEnd := gap.Start + chunkSize
 	// Defense in depth: never dispatch past the wordlist end. The gap
@@ -306,7 +369,7 @@ func dispatchOne(
 			unit.ParentJobID,
 			alloc.AgentID,
 			rangeStart, rangeEnd,
-			chunkDurationSec, // Step 11k: per-job override (job.chunk_size_seconds) wins over system setting
+			chunkDurationSec, // resolveChunkDuration: system default -> per-job value -> cloud floor -> TTL clamp
 			unit.ID,
 			now,
 			speed,
@@ -456,6 +519,87 @@ func firstGap(ctx context.Context, database *db.DB, unitID uuid.UUID) (models.Un
 // If baseKeyspace or effectiveKeyspace is missing/zero we can't compute a
 // multiplier; fall back to taking the whole gap so we make progress while
 // the next agent benchmark / first-progress refines the unit.
+// chunkPlan is the outcome of chunk-duration resolution for one allocation.
+type chunkPlan struct {
+	// DurationSec is the target wall time for this chunk, in seconds.
+	DurationSec int
+	// Skip is true when a rented agent has too little life left for the
+	// dispatch to be worth making at all.
+	Skip bool
+}
+
+/*
+ * resolveChunkDuration picks the target wall time for one chunk.
+ *
+ * Rules, in the order they bind (later wins):
+ *
+ *  1. targetSec   — the system default (default_chunk_duration, falling back to
+ *     target_chunk_seconds), used when the job carries nothing.
+ *  2. jobChunkSec — job_executions.chunk_size_seconds, when > 0.
+ *  3. cloudSec    — for RENTED agents only, a FLOOR rather than an override.
+ *  4. the TTL clamp — always last, and the only rule that may lower the result
+ *     below the floor.
+ *
+ * WHY THE CLOUD VALUE IS A FLOOR AND NOT A PRECEDENCE QUESTION.
+ *
+ * job_executions.chunk_size_seconds is INT DEFAULT 900 (migration 000049) and
+ * its preset/workflow source is NOT NULL (migration 000018); the preset form
+ * fills the system default into the field on blur. So the column is never NULL
+ * and never 0, and "the operator chose 1200" is indistinguishable from "the
+ * create form pre-filled 1200".
+ *
+ * Treating that inherited number as a deliberate override is what made
+ * cloud_chunk_duration_seconds unreachable: the old code applied the cloud
+ * value and then overwrote it on 100% of jobs, so every rented GPU ran the
+ * on-prem chunk size while the setting claimed 3600.
+ *
+ * The two cases the schema cannot tell apart have the SAME right answer on
+ * rented hardware. hashcat startup, kernel autotune and wordlist load are fixed
+ * wall time billed at $0.50-$22/hr, so the only thing that shrinks them as a
+ * fraction of the bill is a longer chunk. max() rather than assignment, so a
+ * job asking for LONGER than the cloud target keeps its own value: the floor
+ * only ever overrides "shorter", which is precisely the intent the setting
+ * exists to overrule.
+ *
+ * An operator who genuinely wants short chunks on rented hardware lowers
+ * cloud_chunk_duration_seconds; 0 (or an unset key) disables the floor entirely
+ * and restores per-job authority on cloud.
+ *
+ * A rented agent with an unknown or zero TTL is skipped, not dispatched with an
+ * unclamped chunk. Preserved from the original: claiming an interval the
+ * instance cannot finish strands that keyspace until the sweeper evicts it.
+ */
+func resolveChunkDuration(
+	targetSec, jobChunkSec, cloudSec, minSec int,
+	ttlRemaining, teardownSlack int,
+	isCloud bool,
+) chunkPlan {
+	dur := targetSec
+	if jobChunkSec > 0 {
+		dur = jobChunkSec
+	}
+
+	if !isCloud {
+		return chunkPlan{DurationSec: dur}
+	}
+
+	// Cloud floor. Never lowers; only raises.
+	if cloudSec > dur {
+		dur = cloudSec
+	}
+
+	// TTL clamp, unchanged and deliberately last: nothing above it — job value
+	// or cloud floor — may outlive the instance it would run on.
+	affordable := ttlRemaining - teardownSlack
+	if affordable < minSec {
+		return chunkPlan{Skip: true}
+	}
+	if affordable < dur {
+		dur = affordable
+	}
+	return chunkPlan{DurationSec: dur}
+}
+
 func sizeChunk(gapBase int64, baseKeyspace int64, effectiveKeyspace *big.Int, speed int64, targetSec, minSec int) int64 {
 	if gapBase <= 0 {
 		return 0

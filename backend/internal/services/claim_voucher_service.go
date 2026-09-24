@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -79,13 +80,24 @@ func (s *ClaimVoucherService) CreateTempVoucher(ctx context.Context, userID stri
 
 	// Create voucher with normalized code for storage
 	code := generateClaimCode()
+	now := time.Now()
+
+	// Honor expiresIn. A non-positive duration means "no expiry", preserving
+	// the behavior of every voucher issued before this parameter was wired up
+	// (it used to be accepted and silently discarded).
+	var expiresAt sql.NullTime
+	if expiresIn > 0 {
+		expiresAt = sql.NullTime{Time: now.Add(expiresIn), Valid: true}
+	}
+
 	voucher := &models.ClaimVoucher{
 		Code:         normalizeClaimCode(code),
 		IsActive:     true,
 		IsContinuous: isContinuous,
 		CreatedByID:  creatorID,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		CreatedAt:    now,
+		UpdatedAt:    now,
+		ExpiresAt:    expiresAt,
 	}
 
 	// Save voucher
@@ -97,6 +109,77 @@ func (s *ClaimVoucherService) CreateTempVoucher(ctx context.Context, userID stri
 	// Format code for display before returning
 	voucher.Code = formatClaimCode(voucher.Code)
 	return voucher, nil
+}
+
+/*
+ * CreateCloudVoucher mints a single-use, system-owned voucher bound to one
+ * rented instance.
+ *
+ * The binding is the security mechanism, not bookkeeping. When the agent
+ * registers, the backend reads the instance id off the voucher it presented
+ * rather than off anything the agent said about itself. That value is what
+ * pins the agent to one job, exempts it from max_agents and exempts it from
+ * the offline monitor — so an agent able to declare its own would be able to
+ * grant itself all three, including a lock on a job belonging to a client it
+ * has nothing to do with.
+ *
+ * Always single-use and always expiring: a rented box gets exactly one
+ * registration, and the code dies with the instance's TTL whether or not it
+ * was ever redeemed.
+ */
+func (s *ClaimVoucherService) CreateCloudVoucher(ctx context.Context, expiresIn time.Duration, cloudInstanceID uuid.UUID) (*models.ClaimVoucher, error) {
+	if cloudInstanceID == uuid.Nil {
+		return nil, fmt.Errorf("cloud voucher requires an instance id")
+	}
+	if expiresIn <= 0 {
+		// CreateTempVoucher reads a non-positive duration as "never expires".
+		// For a cloud voucher that would leave a live registration credential
+		// behind after the instance it belonged to was destroyed.
+		return nil, fmt.Errorf("cloud voucher requires a positive expiry")
+	}
+
+	now := time.Now()
+	voucher := &models.ClaimVoucher{
+		Code:            normalizeClaimCode(generateClaimCode()),
+		IsActive:        true,
+		IsContinuous:    false,
+		CreatedByID:     models.SystemUserID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		ExpiresAt:       sql.NullTime{Time: now.Add(expiresIn), Valid: true},
+		CloudInstanceID: &cloudInstanceID,
+	}
+
+	if err := s.repo.Create(ctx, voucher); err != nil {
+		debug.Error("failed to create cloud voucher for instance %s: %v", cloudInstanceID, err)
+		return nil, fmt.Errorf("failed to create cloud voucher: %w", err)
+	}
+
+	voucher.Code = formatClaimCode(voucher.Code)
+	return voucher, nil
+}
+
+/*
+ * DeactivateForCloudInstance kills the registration credential for an instance
+ * that definitively failed.
+ *
+ * The counterpart to CreateCloudVoucher, and the reason that one's comment says
+ * the code "dies with the instance's TTL whether or not it was ever redeemed":
+ * until this existed, dying with the TTL was the ONLY thing that killed it, so
+ * a launch refused in its first second still left a working claim code for up
+ * to an hour.
+ */
+func (s *ClaimVoucherService) DeactivateForCloudInstance(ctx context.Context, cloudInstanceID uuid.UUID) (int64, error) {
+	if cloudInstanceID == uuid.Nil {
+		return 0, fmt.Errorf("cannot deactivate vouchers without an instance id")
+	}
+	return s.repo.DeactivateForCloudInstance(ctx, cloudInstanceID)
+}
+
+// PurgeExpiredVouchers removes long-expired, never-redeemed vouchers. Redeemed
+// ones are kept as the audit link between an agent and its credential.
+func (s *ClaimVoucherService) PurgeExpiredVouchers(ctx context.Context, before time.Time) (int64, error) {
+	return s.repo.PurgeExpired(ctx, before)
 }
 
 // ListVouchers retrieves all active vouchers

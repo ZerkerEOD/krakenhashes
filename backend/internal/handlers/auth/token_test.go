@@ -31,7 +31,7 @@ func TestTokenManagement(t *testing.T) {
 		assert.NotEmpty(t, token)
 
 		// Store token
-		err = db.StoreToken(testUser.ID.String(), token)
+		_, err = db.StoreToken(testUser.ID.String(), token)
 		require.NoError(t, err)
 
 		// Verify token exists
@@ -40,7 +40,7 @@ func TestTokenManagement(t *testing.T) {
 		assert.True(t, exists)
 
 		// Remove token
-		err = db.RemoveToken(token)
+		err = db.RemoveTokenByString(token)
 		require.NoError(t, err)
 
 		// Verify token no longer exists
@@ -73,7 +73,7 @@ func TestTokenManagement(t *testing.T) {
 			require.NoError(t, err)
 			tokens[i] = token
 
-			err = db.StoreToken(testUser.ID.String(), token)
+			_, err = db.StoreToken(testUser.ID.String(), token)
 			require.NoError(t, err)
 		}
 
@@ -85,7 +85,7 @@ func TestTokenManagement(t *testing.T) {
 		}
 
 		// Remove one token shouldn't affect others
-		err := db.RemoveToken(tokens[0])
+		err := db.RemoveTokenByString(tokens[0])
 		require.NoError(t, err)
 
 		// First token should not exist
@@ -102,7 +102,7 @@ func TestTokenManagement(t *testing.T) {
 
 		// Clean up
 		for i := 1; i < len(tokens); i++ {
-			db.RemoveToken(tokens[i])
+			db.RemoveTokenByString(tokens[i])
 		}
 	})
 
@@ -110,7 +110,7 @@ func TestTokenManagement(t *testing.T) {
 		// Generate and store token
 		token, err := handler.generateAuthToken(testUser, 60)
 		require.NoError(t, err)
-		err = db.StoreToken(testUser.ID.String(), token)
+		_, err = db.StoreToken(testUser.ID.String(), token)
 		require.NoError(t, err)
 
 		// Make authenticated request
@@ -129,7 +129,7 @@ func TestTokenManagement(t *testing.T) {
 		assert.Equal(t, "user", resp["role"])
 
 		// Remove token and check again
-		err = db.RemoveToken(token)
+		err = db.RemoveTokenByString(token)
 		require.NoError(t, err)
 
 		req = httptest.NewRequest(http.MethodGet, "/auth/check", nil)
@@ -165,9 +165,9 @@ func TestTokenSecurityFeatures(t *testing.T) {
 		require.NoError(t, err)
 
 		// Store both tokens
-		err = db.StoreToken(user1.ID.String(), token1)
+		_, err = db.StoreToken(user1.ID.String(), token1)
 		require.NoError(t, err)
-		err = db.StoreToken(user2.ID.String(), token2)
+		_, err = db.StoreToken(user2.ID.String(), token2)
 		require.NoError(t, err)
 
 		// Verify tokens are different
@@ -368,7 +368,7 @@ func TestMultiDeviceTokenSupport(t *testing.T) {
 			tokens[device] = resp.Token
 
 			// Store token
-			err := db.StoreToken(testUser.ID.String(), resp.Token)
+			_, err := db.StoreToken(testUser.ID.String(), resp.Token)
 			require.NoError(t, err)
 		}
 

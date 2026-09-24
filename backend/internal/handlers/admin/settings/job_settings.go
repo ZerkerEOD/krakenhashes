@@ -3,7 +3,9 @@ package settings
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -26,17 +28,17 @@ func NewJobSettingsHandler(systemSettingsRepo *repository.SystemSettingsReposito
 
 // JobExecutionSettings represents all job execution related settings
 type JobExecutionSettings struct {
-	DefaultChunkDuration             int    `json:"default_chunk_duration"`
-	AgentHashlistRetentionHours      int    `json:"agent_hashlist_retention_hours"`
-	ProgressReportingInterval        int    `json:"progress_reporting_interval"`
-	MaxConcurrentJobsPerAgent        int    `json:"max_concurrent_jobs_per_agent"`
-	JobInterruptionEnabled           bool   `json:"job_interruption_enabled"`
-	BenchmarkCacheDurationHours      int    `json:"benchmark_cache_duration_hours"`
-	EnableRealtimeCrackNotifications bool   `json:"enable_realtime_crack_notifications"`
-	JobRefreshIntervalSeconds        int    `json:"job_refresh_interval_seconds"`
-	MaxChunkRetryAttempts            int    `json:"max_chunk_retry_attempts"`
-	JobsPerPageDefault               int    `json:"jobs_per_page_default"`
-	ReconnectGracePeriodMinutes      int    `json:"reconnect_grace_period_minutes"`
+	DefaultChunkDuration             int  `json:"default_chunk_duration"`
+	AgentHashlistRetentionHours      int  `json:"agent_hashlist_retention_hours"`
+	ProgressReportingInterval        int  `json:"progress_reporting_interval"`
+	MaxConcurrentJobsPerAgent        int  `json:"max_concurrent_jobs_per_agent"`
+	JobInterruptionEnabled           bool `json:"job_interruption_enabled"`
+	BenchmarkCacheDurationHours      int  `json:"benchmark_cache_duration_hours"`
+	EnableRealtimeCrackNotifications bool `json:"enable_realtime_crack_notifications"`
+	JobRefreshIntervalSeconds        int  `json:"job_refresh_interval_seconds"`
+	MaxChunkRetryAttempts            int  `json:"max_chunk_retry_attempts"`
+	JobsPerPageDefault               int  `json:"jobs_per_page_default"`
+	ReconnectGracePeriodMinutes      int  `json:"reconnect_grace_period_minutes"`
 	// Scheduler-v2 tuning knobs
 	MinChunkSeconds              int  `json:"min_chunk_seconds"`
 	TaskHeartbeatTimeoutSeconds  int  `json:"task_heartbeat_timeout_seconds"`
@@ -335,13 +337,29 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"potfile_max_batch_size": strconv.Itoa(settings.PotfileMaxBatchSize),
 		"potfile_batch_interval": strconv.Itoa(settings.PotfileBatchInterval),
 		// Client potfile settings
-		"client_potfiles_enabled":                              strconv.FormatBool(settings.ClientPotfilesEnabled),
+		"client_potfiles_enabled":                               strconv.FormatBool(settings.ClientPotfilesEnabled),
 		"remove_from_global_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromGlobalPotfileOnHashlistDeleteDefault),
 		"remove_from_client_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromClientPotfileOnHashlistDeleteDefault),
 		// Benchmark history settings
 		"benchmark_history_retention_days": strconv.Itoa(settings.BenchmarkHistoryRetentionDays),
 		// Analytics settings
 		"analytics_default_date_range_months": strconv.Itoa(settings.AnalyticsDefaultDateRangeMonths),
+	}
+
+	// Validate everything BEFORE writing anything. This endpoint writes all ~25
+	// keys on every call, so a value rejected halfway through would leave the
+	// page's settings half-applied with no indication of where it stopped.
+	var invalid []string
+	for key, value := range updates {
+		if err := ValidateSettingValue(key, value); err != nil {
+			invalid = append(invalid, err.Error())
+		}
+	}
+	if len(invalid) > 0 {
+		sort.Strings(invalid) // map iteration order is randomised; keep the response stable
+		debug.Warning("Refused job execution settings update: %s", strings.Join(invalid, "; "))
+		httputil.RespondWithError(w, http.StatusBadRequest, strings.Join(invalid, "; "))
+		return
 	}
 
 	var failedKeys []string

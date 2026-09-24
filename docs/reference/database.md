@@ -52,14 +52,21 @@ This document provides a comprehensive reference for the KrakenHashes database s
    - [system_settings](#system_settings)
 10. [Performance & Scheduling](#performance--scheduling)
     - [performance_metrics](#performance_metrics)
-    - [agent_scheduling](#agent_scheduling)
-11. [Notifications & Audit](#notifications--audit)
+    - [agent_schedules](#agent_schedules)
+11. [Cloud GPU Provisioning](#cloud-gpu-provisioning)
+    - [cloud_provider_configs](#cloud_provider_configs)
+    - [cloud_instances](#cloud_instances)
+    - [cloud_spend_ledger](#cloud_spend_ledger)
+    - [cloud_budget_policies](#cloud_budget_policies)
+    - [cloud_provisioning_rules](#cloud_provisioning_rules)
+    - [cloud_gpu_benchmarks](#cloud_gpu_benchmarks)
+12. [Notifications & Audit](#notifications--audit)
     - [notifications](#notifications)
     - [user_notification_preferences](#user_notification_preferences)
     - [user_webhooks](#user_webhooks)
     - [agent_offline_buffer](#agent_offline_buffer)
     - [audit_log](#audit_log)
-12. [Migration History](#migration-history)
+13. [Migration History](#migration-history)
 
 ---
 
@@ -241,6 +248,8 @@ Registered compute agents for distributed processing.
 | owner_id | UUID | FK → users(id) | | Agent owner (added in migration 30) |
 | extra_parameters | TEXT | | | Extra hashcat parameters (added in migration 30) |
 | is_enabled | BOOLEAN | NOT NULL | true | Agent enabled status (added in migration 31) |
+| cloud_instance_id | UUID | FK → cloud_instances(id) ON DELETE SET NULL | | Set when this agent is a rented cloud instance |
+| retired_at | TIMESTAMP WITH TIME ZONE | | | Soft retirement. NULL for a live agent |
 
 **Indexes:**
 - idx_agents_status (status)
@@ -251,6 +260,19 @@ Registered compute agents for distributed processing.
 
 **Triggers:**
 - update_agents_updated_at: Updates updated_at on row modification
+
+**Retirement, not deletion:**
+A rented GPU registers as an ordinary agent row. On teardown it is **retired**, never deleted
+— deleting it would NULL `job_tasks.agent_id`, severing the rental's cost attribution, and
+take the agent's benchmark history with it. Those benchmarks are what make cost-per-work
+ranking accurate across rentals.
+
+Retirement is keyed on `cloud_instance_id`, not on the instance row's `agent_id`, so an
+instance that lost its agent reference is still retired correctly.
+
+Retired agents are **hidden from the agent list by default** but remain reachable through an
+`include_retired` filter, so historical job views continue to resolve which agent ran which
+task. The scheduler's idle-agent selection skips them.
 
 ### agent_metrics
 
@@ -296,11 +318,25 @@ Stores active agent registration vouchers.
 | is_active | BOOLEAN | NOT NULL | true | Voucher active status |
 | used_at | TIMESTAMP WITH TIME ZONE | | | Usage timestamp |
 | used_by_agent_id | INTEGER | FK → agents(id) | | Agent that used voucher |
+| expires_at | TIMESTAMP WITH TIME ZONE | | | Expiry; NULL never expires |
+| cloud_instance_id | UUID | FK → cloud_instances(id) ON DELETE SET NULL | | Set when the voucher was minted for a rented instance |
 
 **Indexes:**
 - idx_claim_vouchers_code (code)
 - idx_claim_vouchers_active (is_active)
 - idx_claim_vouchers_created_by (created_by_id)
+- idx_claim_vouchers_cloud_instance (cloud_instance_id) WHERE cloud_instance_id IS NOT NULL
+- idx_claim_vouchers_expires_at (expires_at) WHERE expires_at IS NOT NULL AND is_active = true
+
+**Cloud lifecycle:**
+A launch attempt mints one voucher **per candidate offer**, before the provider is called.
+`is_active` alone does not mean usable — a voucher is redeemable only while it is also
+unredeemed and in date, which is why listings filter on expiry too.
+
+- Deactivated immediately when the attempt **definitively** fails (no capacity, budget refused), and at teardown.
+- Deliberately **left active** when the launch outcome is ambiguous: the instance may be running and its agent still has to register. The reaper clears it once the outcome is known.
+- Expired-and-never-redeemed vouchers are deleted by a daily sweep after `voucher_retention_days` (default 30; `0` keeps them forever).
+- **Redeemed vouchers are never swept**, at any setting — they record which agent joined with which credential.
 
 **Triggers:**
 - update_claim_vouchers_updated_at: Updates updated_at on row modification
@@ -803,6 +839,7 @@ Individual chunks assigned to agents.
 | expected_crack_count | INTEGER | | 0 | Expected number of cracks from final progress message (added in migration 085) |
 | received_crack_count | INTEGER | | 0 | Number of cracks received via crack_batch messages (added in migration 085) |
 | batches_complete_signaled | BOOLEAN | | false | Whether agent has signaled all crack batches sent (added in migration 085) |
+| unrecoverable_crack_count | INTEGER | | 0 | Cracks delivered but rejected by the backend after retries, for a reason that will not change. Counted separately from received_crack_count so the handshake can prove it will never be satisfied and abandon the task immediately instead of waiting out the stale-processing timeout. Non-zero means passwords were lost and the keyspace was re-dispatched (added in migration 20260911010000) |
 | increment_layer_id | UUID | FK → job_increment_layers(id) | | References increment layer for increment mode jobs (added in migration 089) |
 | cracking_completed_at | TIMESTAMP WITH TIME ZONE | | | When hashcat finished for this task - task enters processing state (added in migration 100) |
 | retransmit_count | INTEGER | | 0 | Number of crack retransmission attempts (added in migration 099) |
@@ -1150,7 +1187,8 @@ Stores client-specific settings (added in migration 17). Also used for system-wi
 
 **Important System-Wide Settings:**
 - `default_data_retention_months` - Default retention period for all hashlists (when client_id is NULL)
-- `last_purge_run` - Timestamp of last retention purge execution
+- `last_purge_run` - Timestamp of the last hashlist data retention purge (NULL until one completes)
+- `last_analytics_purge_run` - Timestamp of the last analytics report retention purge (NULL until one completes)
 
 **Unique Constraint:** (client_id, key)
 
@@ -1409,6 +1447,190 @@ Stores daily scheduling information for agents (added in migration 42).
 
 **Triggers:**
 - update_agent_schedules_updated_at: Updates updated_at on row modification
+
+---
+
+## Cloud GPU Provisioning
+
+Tables backing ephemeral rented GPU agents. See
+[Cloud GPU Provisioning](architecture/cloud-provisioning.md) for the design and
+[Cloud GPU Providers](../admin-guide/system-setup/cloud-providers.md) for setup.
+
+### cloud_provider_configs
+
+One row per configured provider account. Secrets are AES-256-GCM encrypted at rest and never
+returned by the API.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Config ID |
+| provider | VARCHAR(32) | NOT NULL, CHECK | | `vastai`, `aws`, `runpod`, `runpod_community`, `mock` |
+| name | VARCHAR(255) | NOT NULL, UNIQUE | | Operator-facing name |
+| enabled | BOOLEAN | NOT NULL | false | Only enabled configs are considered for offers |
+| credentials_encrypted | TEXT | | | Provider credentials, encrypted |
+| settings | JSONB | NOT NULL | '{}' | Provider-specific settings; shape differs per provider |
+| max_concurrent_instances | INTEGER | NOT NULL | 0 | Per-config instance cap; `0` = unlimited |
+| max_instance_hourly_cents | INTEGER | NOT NULL | 0 | Per-instance rate ceiling; `0` = no ceiling |
+| vpn_provider | VARCHAR(32) | CHECK | | `tailscale`, `netbird`, `wireguard` |
+| vpn_credential_kind | VARCHAR(32) | CHECK | | `oauth`, `pat`, `reusable_key`, `static_config` |
+| vpn_credential_encrypted | TEXT | | | VPN enrollment credential, encrypted |
+| vpn_credential_expires_at | TIMESTAMP WITH TIME ZONE | | | Enforced for `reusable_key` only |
+| vpn_tag_or_group | VARCHAR(255) | | | Tag/group the node joins; required for Tailscale OAuth |
+| backend_vpn_host | VARCHAR(255) | | | `KH_HOST` handed to cloud agents. Must appear in the server certificate SANs |
+| third_party_ack_at | TIMESTAMP WITH TIME ZONE | | | Peer-tier data-exposure acknowledgement |
+| third_party_ack_by | UUID | FK → users(id) ON DELETE SET NULL | | Admin who acknowledged |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Creation time |
+| updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Last update time |
+
+**Indexes:**
+- cloud_provider_configs_name_key (name) UNIQUE
+- idx_cloud_provider_configs_enabled (provider) WHERE enabled = true
+
+**Notes:**
+- `cloud_instances.provider_config_id` is **ON DELETE RESTRICT** — a config cannot be deleted while any instance row references it.
+- The acknowledgement columns are written only through the dedicated acknowledge endpoint, never through a settings update.
+
+### cloud_instances
+
+One row per rented instance, written **before** the provider is called so a crash cannot lose
+track of a machine that may be billing.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Instance ID |
+| provider_config_id | UUID | NOT NULL, FK → cloud_provider_configs(id) ON DELETE RESTRICT | | Which account rented it |
+| label | VARCHAR(255) | NOT NULL, UNIQUE | | `kh-<uuid-prefix>`; the ownership marker reconciliation matches on |
+| idempotency_key | VARCHAR(255) | NOT NULL, UNIQUE | | Prevents a retried launch from renting twice |
+| provider_instance_id | VARCHAR(255) | | | Provider-side ID; NULL until the create call returns |
+| agent_id | INTEGER | FK → agents(id) ON DELETE SET NULL | | The agent that registered, once it does |
+| job_execution_id | UUID | FK → job_executions(id) ON DELETE SET NULL | | The job it was rented for |
+| client_id | UUID | FK → clients(id) ON DELETE SET NULL | | Billed client |
+| client_name_snapshot | VARCHAR(255) | | | Name at rental time, so history survives a rename |
+| state | VARCHAR(32) | NOT NULL, CHECK | 'requested' | `requested`, `launching`, `provisioning`, `syncing`, `running`, `draining`, `terminating`, `terminated`, `failed` |
+| gpu_model | VARCHAR(255) | | | Reported GPU model |
+| gpu_count | INTEGER | | | GPUs on the instance |
+| hourly_rate_cents | INTEGER | NOT NULL | 0 | Rate the reservation was denominated in |
+| disk_gb | INTEGER | | | Provisioned disk; immutable after creation on container providers |
+| fileset_bytes | BIGINT | | | Size of the job's file set, which drove `disk_gb` |
+| reserved_cents | BIGINT | NOT NULL | 0 | Budget reserved up front |
+| estimated_cost_cents | BIGINT | NOT NULL | 0 | Running estimate |
+| actual_cost_cents | BIGINT | | | Final settled cost |
+| launch_deadline_at | TIMESTAMP WITH TIME ZONE | | | By when the provider call must have completed |
+| ready_deadline_at | TIMESTAMP WITH TIME ZONE | | | By when the agent must have registered; mirrored in-guest |
+| ttl_epoch | TIMESTAMP WITH TIME ZONE | | | Absolute kill time |
+| launched_at | TIMESTAMP WITH TIME ZONE | | | Provider accepted the launch |
+| ready_at | TIMESTAMP WITH TIME ZONE | | | Agent registered |
+| drain_started_at | TIMESTAMP WITH TIME ZONE | | | Drain began |
+| terminated_at | TIMESTAMP WITH TIME ZONE | | | Teardown confirmed |
+| termination_reason | TEXT | | | Why it was destroyed |
+| terminate_attempts | INTEGER | NOT NULL | 0 | Failed teardown count; drives the dead-man's switch |
+| last_terminate_error | TEXT | | | Most recent teardown failure |
+| vpn_credential_ref | VARCHAR(255) | | | Reference to the minted credential. **Recorded but never read back to revoke** |
+| provider_raw | JSONB | NOT NULL | '{}' | Raw provider response, for diagnosis |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Creation time |
+| updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Last update time |
+
+**Indexes:**
+- cloud_instances_label_key (label) UNIQUE
+- cloud_instances_idempotency_key_key (idempotency_key) UNIQUE
+- idx_cloud_instances_agent (agent_id)
+- idx_cloud_instances_client (client_id)
+- idx_cloud_instances_job (job_execution_id)
+- idx_cloud_instances_live (state, ttl_epoch) WHERE state NOT IN ('terminated','failed')
+
+**Referenced by:** `agents.cloud_instance_id`, `claim_vouchers.cloud_instance_id`, `cloud_spend_ledger.cloud_instance_id` — all ON DELETE SET NULL.
+
+### cloud_spend_ledger
+
+Append-only spend records. The budget is computed from this table rather than a running
+balance, so a crash mid-rental cannot corrupt it.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Entry ID |
+| client_id | UUID | FK → clients(id) ON DELETE SET NULL | | Billed client |
+| job_execution_id | UUID | FK → job_executions(id) ON DELETE SET NULL | | Job the spend belongs to |
+| cloud_instance_id | UUID | FK → cloud_instances(id) ON DELETE SET NULL | | Instance the spend belongs to |
+| cents | BIGINT | NOT NULL | | Signed amount; releases are negative |
+| kind | VARCHAR(32) | NOT NULL, CHECK | | `reservation`, `incurred`, `release`, `reconciliation` |
+| note | TEXT | | | Human-readable explanation |
+| recorded_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Entry time |
+
+**Indexes:**
+- idx_cloud_spend_ledger_client_time (client_id, recorded_at DESC)
+- idx_cloud_spend_ledger_instance (cloud_instance_id)
+
+!!! warning "`committed` and `incurred` are different questions"
+    Summing `cents` across every kind gives neither. **Committed** spend is
+    `reservation + release + reconciliation`; **incurred** is the `incurred` rows alone. A
+    clean rental nets to zero committed once its unused reservation is released.
+
+### cloud_budget_policies
+
+The notify / stop / drain / hard-stop ladder. Exactly one row has `client_id IS NULL` and is
+the system default; any other row is a per-client override that replaces it wholesale.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Policy ID |
+| client_id | UUID | UNIQUE, FK → clients(id) ON DELETE CASCADE | | NULL = the system default |
+| notify_pct | INTEGER | | | Warn at this percentage; NULL disables the notification rung |
+| stop_provision_pct | INTEGER | NOT NULL | 95 | Stop starting new instances |
+| drain_pct | INTEGER | NOT NULL | 99 | Drain running instances |
+| hard_stop_pct | INTEGER | NOT NULL | 100 | Terminate |
+| allow_overage | BOOLEAN | NOT NULL | false | When false the cap is absolute |
+| drain_timeout_seconds | INTEGER | NOT NULL | 300 | How long a drain may take before termination |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Creation time |
+| updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Last update time |
+
+**Constraints:**
+- `cloud_budget_policies_pct_ordering` — the rungs must be non-decreasing, and `notify_pct` must be > 0 and ≤ `stop_provision_pct`.
+- `idx_cloud_budget_policies_system_default` — a partial unique index guaranteeing at most one system-default row.
+
+### cloud_provisioning_rules
+
+When the system may spend at all. Same system-default-plus-override shape as the budget
+policy, but merged **field by field** rather than replaced wholesale — an unset field
+inherits.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Rule ID |
+| client_id | UUID | UNIQUE, FK → clients(id) ON DELETE CASCADE | | NULL = the system default |
+| min_job_priority | INTEGER | CHECK ≥ 0 | | Absolute `job_executions.priority` floor, not a percentage |
+| min_starvation_seconds | INTEGER | CHECK ≥ 0 | | How long a job must starve before renting |
+| skip_if_finishing_within_seconds | INTEGER | CHECK ≥ 0 | | Don't rent for a job about to finish |
+| max_spend_per_job_cents | BIGINT | CHECK ≥ 0 | | Whole-life per-job cap; **not admin-bypassable** |
+| provisioning_window_start | TIME | | | Window opens |
+| provisioning_window_end | TIME | | | Window closes; earlier than start **wraps midnight** |
+| provisioning_window_tz | TEXT | | | IANA zone the window is evaluated in |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Creation time |
+| updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Last update time |
+
+**Constraints:**
+- `cloud_provisioning_rules_window_pairing` — start and end must both be set or both NULL.
+- `idx_cloud_provisioning_rules_system_default` — at most one system-default row.
+
+### cloud_gpu_benchmarks
+
+Cross-rental benchmark cache, keyed on hardware rather than on an agent, so a new instance of
+a model already seen can be scheduled without re-benchmarking.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Record ID |
+| provider | VARCHAR(32) | NOT NULL | | Provider kind the sample came from |
+| gpu_model | VARCHAR(255) | NOT NULL | | Normalised GPU model |
+| gpu_count | INTEGER | NOT NULL | 1 | GPUs in the sampled instance |
+| attack_mode | INTEGER | NOT NULL | | Hashcat attack mode |
+| hash_type | INTEGER | NOT NULL | | Hashcat hash type |
+| salt_count | INTEGER | | | Salt count; NULL means unsalted/unknown |
+| speed | BIGINT | NOT NULL | | Hashes per second |
+| sample_count | INTEGER | NOT NULL | 1 | Samples averaged into `speed` |
+| updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | now() | Last update time |
+
+**Indexes:**
+- cloud_gpu_benchmarks_unique (provider, gpu_model, gpu_count, attack_mode, hash_type, salt_count) UNIQUE **NULLS NOT DISTINCT** — so two NULL `salt_count` rows collide rather than duplicating.
 
 ---
 

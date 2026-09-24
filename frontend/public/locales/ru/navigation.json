@@ -21,7 +21,8 @@
     "jobWorkflows": "Рабочие процессы",
     "diagnostics": "Диагностика",
     "auditLog": "Журнал аудита",
-    "jobAnalytics": "Аналитика заданий"
+    "jobAnalytics": "Аналитика заданий",
+    "cloudFleet": "Cloud Fleet"
   },
   "userMenu": {
     "userSettings": "Настройки пользователя",

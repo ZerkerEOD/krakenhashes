@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
 	wshandler "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/websocket"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/certs"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -165,12 +165,12 @@ func (s *DiagnosticService) collectSystemInfo(ctx context.Context) (map[string]i
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	info["memory"] = map[string]interface{}{
-		"alloc_mb":        memStats.Alloc / 1024 / 1024,
-		"total_alloc_mb":  memStats.TotalAlloc / 1024 / 1024,
-		"sys_mb":          memStats.Sys / 1024 / 1024,
-		"num_gc":          memStats.NumGC,
-		"heap_objects":    memStats.HeapObjects,
-		"heap_alloc_mb":   memStats.HeapAlloc / 1024 / 1024,
+		"alloc_mb":       memStats.Alloc / 1024 / 1024,
+		"total_alloc_mb": memStats.TotalAlloc / 1024 / 1024,
+		"sys_mb":         memStats.Sys / 1024 / 1024,
+		"num_gc":         memStats.NumGC,
+		"heap_objects":   memStats.HeapObjects,
+		"heap_alloc_mb":  memStats.HeapAlloc / 1024 / 1024,
 	}
 
 	// Hostname
@@ -796,17 +796,16 @@ func getDirStats(path string) (int64, int64, error) {
 
 // ReloadNginx sends a HUP signal to nginx via supervisorctl to trigger a hot-reload.
 // This causes nginx to gracefully reload its configuration without dropping connections.
+//
+// Delegates to certs.ReloadNginx so there is a single implementation shared with
+// the certificate reissue path, which additionally runs `nginx -t` first.
 func (s *DiagnosticService) ReloadNginx() error {
-	debug.Info("Reloading nginx configuration via supervisorctl")
-
-	cmd := exec.Command("supervisorctl", "signal", "HUP", "nginx")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		debug.Error("Failed to reload nginx: %v, output: %s", err, string(output))
-		return fmt.Errorf("failed to reload nginx: %w (output: %s)", err, string(output))
+	outcome := certs.ReloadNginx()
+	if !outcome.Attempted {
+		return fmt.Errorf("nginx reload is only available in the Docker deployment")
 	}
-
-	debug.Info("Nginx reload successful: %s", strings.TrimSpace(string(output)))
+	if !outcome.Succeeded {
+		return fmt.Errorf("failed to reload nginx: %s", outcome.Detail)
+	}
 	return nil
 }
-

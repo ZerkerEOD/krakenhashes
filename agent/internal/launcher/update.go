@@ -154,9 +154,13 @@ func (s *Supervisor) download(url, dst string) error {
 }
 
 func (s *Supervisor) downloadOnce(url, dst string, insecure bool) error {
+	// Proxy is explicit because a custom Transport defaults to a nil Proxy.
+	// The launcher bootstraps and self-updates over the same VPN path the
+	// agent uses, so it has to honor HTTPS_PROXY/NO_PROXY too.
 	client := &http.Client{
 		Timeout: 10 * time.Minute,
 		Transport: &http.Transport{
+			Proxy:           http.ProxyFromEnvironment,
 			TLSClientConfig: s.tlsClientConfig(insecure),
 		},
 	}

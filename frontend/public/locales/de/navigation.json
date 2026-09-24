@@ -21,7 +21,8 @@
     "jobWorkflows": "Auftrags-Workflows",
     "diagnostics": "Diagnose",
     "auditLog": "Audit-Protokoll",
-    "jobAnalytics": "Auftragsanalysen"
+    "jobAnalytics": "Auftragsanalysen",
+    "cloudFleet": "Cloud Fleet"
   },
   "userMenu": {
     "userSettings": "Benutzereinstellungen",

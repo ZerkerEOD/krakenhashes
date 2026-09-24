@@ -26,6 +26,16 @@ var (
 	// one of them right.
 	ErrTaskTerminal = errors.New("task is already in a terminal status")
 
+	// ErrJobNotRetryable is returned by ResetToPendingForRetry when the job
+	// row exists but is not in a retryable status ('failed' or 'cancelled').
+	//
+	// Distinct from ErrNotFound for the same reason ErrTaskTerminal is: the
+	// caller needs to tell "no such job" (404) from "that job is still
+	// running, there is nothing to retry" (400). Retry is the one legitimate
+	// terminal -> non-terminal transition in the system, and it must stay
+	// narrow — a running or completed job must never be reopened this way.
+	ErrJobNotRetryable = errors.New("job is not in a retryable status")
+
 	// ErrInvalidStatus is returned when an invalid status is provided
 	ErrInvalidStatus = errors.New("invalid status")
 

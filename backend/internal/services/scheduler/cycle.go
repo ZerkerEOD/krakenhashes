@@ -83,6 +83,17 @@ type Cycle struct {
 	// nil (capture disabled). Set via SetDiagnostics after construction.
 	diag DiagnosticsRecorder
 
+	// cloudLocks pins ephemeral rented agents to the job that paid for them.
+	// May be nil when cloud provisioning is not configured, in which case the
+	// isolation predicate is skipped entirely and behavior is unchanged.
+	// Set via SetCloudLocks after construction.
+	cloudLocks CloudAgentLocks
+
+	// starvation receives the cloud autoscaler's input once per cycle. May be
+	// nil (no cloud provisioning), in which case publishing is skipped and the
+	// cycle does no extra work. Set via SetStarvationPublisher.
+	starvation StarvationPublisher
+
 	// running is the single-flight guard. Today, the runner's
 	// single-goroutine ticker pattern guarantees no overlap, but a
 	// future refactor that adds a manual cycle trigger (e.g., on agent
@@ -136,6 +147,160 @@ func NewCycle(
 // SetDiagnostics wires the diagnostics recorder used to explain agent idleness.
 // Optional; if never set, idle-reason capture is disabled.
 func (c *Cycle) SetDiagnostics(d DiagnosticsRecorder) { c.diag = d }
+
+// SetCloudLocks wires the cloud dispatch-isolation source. Leaving it nil
+// disables the predicate entirely, so deployments without cloud provisioning
+// behave exactly as before.
+func (c *Cycle) SetCloudLocks(l CloudAgentLocks) { c.cloudLocks = l }
+
+/*
+ * StarvationPublisher receives the cloud-burst signal the autoscaler acts on.
+ *
+ * Declared here rather than imported from the cloud package so the scheduler
+ * stays free of a dependency on provisioning; *cloud.StarvationSnapshot
+ * satisfies it structurally. Implementations must not block — this is called on
+ * the 3-second dispatch path.
+ */
+type StarvationPublisher interface {
+	Publish(starvingJobs map[uuid.UUID]bool, idleOnPrem int)
+}
+
+// SetStarvationPublisher wires the cloud autoscaler's input. Leaving it nil
+// disables publishing, which is correct for deployments without cloud
+// provisioning.
+func (c *Cycle) SetStarvationPublisher(p StarvationPublisher) { c.starvation = p }
+
+/*
+ * publishStarvation reports, once per cycle, which jobs could put another agent
+ * to work and how much free on-prem capacity was left over.
+ *
+ * This is deliberately NOT computeStarvingUnits. That function serves
+ * preemption and skips units with Priority <= 0 as well as parents with
+ * AllowHighPriorityOverride == false — both opt-ins that default OFF, so a
+ * normal cloud-burst job would publish an empty set and the autoscaler would
+ * no-op forever.
+ *
+ * Two properties here exist purely to stop money burning:
+ *
+ *   1. A unit whose parent is already AT max_agents is not starving. It goes
+ *      unallocated every single cycle by design, and an instance rented for it
+ *      is one the allocator is then forbidden to use — an idle GPU billing by
+ *      the second until its TTL expires.
+ *
+ *   2. idleOnPrem counts on-prem agents that were LEFT OVER after allocation,
+ *      not every agent that started the cycle idle. Counting all of them would
+ *      report "free capacity exists" on exactly the cycles where all of it was
+ *      just consumed, and the autoscaler would refuse to ever rent.
+ *
+ * Cloud agents are excluded from that count: one rented instance sitting
+ * between chunks must not read as spare capacity and suppress all further
+ * scaling for the job that is paying for it.
+ */
+func (c *Cycle) publishStarvation(unitInfos []UnitInfo, agentInfos []AgentInfo, allocations []Allocation) {
+	if c.starvation == nil {
+		return
+	}
+
+	unitParent := make(map[uuid.UUID]uuid.UUID, len(unitInfos))
+	for _, u := range unitInfos {
+		unitParent[u.ID] = u.ParentJobID
+	}
+
+	allocatedUnits := make(map[uuid.UUID]bool, len(allocations))
+	allocatedAgents := make(map[int]bool, len(allocations))
+	perParent := make(map[uuid.UUID]int, len(allocations))
+	for _, a := range allocations {
+		allocatedUnits[a.UnitID] = true
+		allocatedAgents[a.AgentID] = true
+		perParent[unitParent[a.UnitID]]++
+	}
+
+	starving := make(map[uuid.UUID]bool)
+	for _, u := range unitInfos {
+		if allocatedUnits[u.ID] {
+			continue
+		}
+		/*
+		 * A parent that got ANY allocation this cycle is making progress, so it
+		 * is not starving — even though siblings went unserved.
+		 *
+		 * Per-UNIT starvation is the wrong question to hand the autoscaler.
+		 * Consumers age this signal to decide whether to rent paid capacity,
+		 * and the question they ask is "has this job been unable to make any
+		 * progress for N seconds". An increment job with 20 units on 3 agents
+		 * leaves 17 units unallocated on every one of the 3-second cycles where
+		 * an agent picks up new work, so a per-unit answer republishes it as
+		 * starving forever: the age grows without bound while the job cracks at
+		 * full throughput, and min_starvation_seconds protects nothing. The
+		 * only jobs whose age ever reset would be single-unit ones and ones
+		 * already capped by max_agents.
+		 *
+		 * The deliberate trade: a badly UNDER-SERVED job — one that could use
+		 * twenty agents and lands one allocation every few cycles — has its age
+		 * reset by that trickle and takes longer to qualify for cloud burst.
+		 * That is the safe direction. Renting only after a job has been
+		 * completely stalled for the configured window costs latency; renting
+		 * for a job that never stopped working costs money, every hour, for
+		 * something the operator believed they had switched off.
+		 */
+		if perParent[u.ParentJobID] > 0 {
+			continue
+		}
+		// MaxAgents and ActiveAgentCount are parent-level: every sibling unit
+		// of an increment job carries the same pair, so this cap check is
+		// consistent across the parent regardless of unit iteration order.
+		if u.MaxAgents > 0 && u.ActiveAgentCount+perParent[u.ParentJobID] >= u.MaxAgents {
+			continue
+		}
+		starving[u.ParentJobID] = true
+	}
+
+	idleOnPrem := 0
+	for _, a := range agentInfos {
+		if !a.IsCloud && !allocatedAgents[a.ID] {
+			idleOnPrem++
+		}
+	}
+
+	c.starvation.Publish(starving, idleOnPrem)
+}
+
+/*
+ * withCloudIsolation wraps a compatibility predicate so a rented agent can only
+ * ever be offered work from the job that paid for it.
+ *
+ * locks maps agent_id -> job_execution_id for EVERY cloud agent, not just idle
+ * ones: preemption asks about the agent holding a victim task, and a paid
+ * instance must never be preempted away from the job that bought it.
+ *
+ * Fails CLOSED in both directions. An agent in the lock map is refused any unit
+ * whose parent job differs, AND is refused a unit that is missing from
+ * unitsByID entirely — an unknown unit cannot be shown to belong to the right
+ * job, and guessing costs one client's hashes landing on another client's
+ * rented hardware.
+ *
+ * Deliberately composed OUTSIDE CompatCache: that cache's invalidation is
+ * unreliable, so a cached `true` for an unrelated unit could survive many
+ * cycles. See the call site in RunOnce for the full reasoning.
+ */
+func withCloudIsolation(
+	base func(unitID uuid.UUID, agentID int) bool,
+	locks map[int]uuid.UUID,
+	unitsByID map[uuid.UUID]*models.SchedulingUnit,
+) func(unitID uuid.UUID, agentID int) bool {
+	if len(locks) == 0 {
+		return base
+	}
+	return func(unitID uuid.UUID, agentID int) bool {
+		if jobID, isCloud := locks[agentID]; isCloud {
+			unit, ok := unitsByID[unitID]
+			if !ok || unit.ParentJobID != jobID {
+				return false
+			}
+		}
+		return base(unitID, agentID)
+	}
+}
 
 // recordIdleReasons captures, for each idle-eligible agent that did NOT get a
 // task or benchmark this cycle, the reason it's sitting idle — so the agent page
@@ -238,7 +403,7 @@ type CycleResult struct {
 // row doesn't abort the cycle. The cycle returns a non-nil error only
 // when an early-stage failure (e.g., GetSchedulable) makes the rest
 // pointless.
-func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
+func (c *Cycle) RunOnce(ctx context.Context) (res CycleResult, retErr error) {
 	// Single-flight guard. Returns the zero CycleResult immediately if
 	// another RunOnce is already in flight (e.g., a slow DB query
 	// blew past the ticker interval, or a future caller invoked
@@ -251,7 +416,49 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 	}
 	defer c.running.Store(false)
 
-	res := CycleResult{}
+	/*
+	 * Cloud autoscaler signal.
+	 *
+	 * Declared up here and published from a defer so that EVERY successful exit
+	 * reports — including the early returns for "no schedulable units", "no idle
+	 * agents" and "no allocations". The middle two are precisely the states a
+	 * cloud burst exists to relieve, so returning from them without publishing
+	 * would let the snapshot go stale and the autoscaler would never fire.
+	 *
+	 * Registered AFTER the single-flight guard on purpose: a skipped overlapping
+	 * cycle knows nothing, and publishing an empty set from it would falsely
+	 * report "nothing is starving". Error returns publish nothing for the same
+	 * reason — a partial view of the cycle is not a view of the cycle.
+	 */
+	var (
+		unitInfos   []UnitInfo
+		unitsByID   map[uuid.UUID]*models.SchedulingUnit
+		agentInfos  []AgentInfo
+		allocations []Allocation
+	)
+	defer func() {
+		if retErr == nil {
+			c.publishStarvation(unitInfos, agentInfos, allocations)
+		}
+	}()
+
+	// Cloud dispatch isolation, part 1: load the lock snapshot BEFORE any work.
+	//
+	// Loading it depends on nothing else, and failing closed here means a
+	// database that cannot answer costs one skipped cycle rather than a cycle
+	// that dispatches every rented agent unrestricted. The snapshot is applied
+	// to the compatibility predicate further down, once units are known.
+	var cloudLocks map[int]uuid.UUID
+	if c.cloudLocks != nil {
+		var lockErr error
+		cloudLocks, lockErr = c.cloudLocks.LoadAgentJobLocks(ctx)
+		if lockErr != nil {
+			// Dispatching without the lock map could leak one client's hashes
+			// onto another client's rented hardware, which is strictly worse
+			// than skipping a 3-second cycle.
+			return res, fmt.Errorf("cycle: load cloud agent job locks: %w", lockErr)
+		}
+	}
 
 	// Step 3: select schedulable units (Step 1 = sweeper, runs separately
 	// via SweeperRunner; Step 2 = compatibility cache refresh, deferred
@@ -268,13 +475,13 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 	// Build UnitInfo with active-agent counts and binary versions
 	// (joined from parent job_execution — scheduling_units doesn't
 	// carry binary_version yet; Phase E may add it for perf).
-	unitInfos, unitsByID, err := c.buildUnitInfos(ctx, units)
+	unitInfos, unitsByID, err = c.buildUnitInfos(ctx, units)
 	if err != nil {
 		return res, fmt.Errorf("cycle: build unit infos: %w", err)
 	}
 
 	// Step 2 (per-cycle rebuild): find idle compatible agents.
-	agentInfos, err := c.getIdleAgents(ctx)
+	agentInfos, err = c.getIdleAgents(ctx)
 	if err != nil {
 		return res, fmt.Errorf("cycle: get idle agents: %w", err)
 	}
@@ -316,6 +523,24 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 		}
 	}
 
+	// Cloud dispatch isolation.
+	//
+	// A rented instance may only ever receive work from the job it was
+	// provisioned for. Composed HERE rather than inside CompatCache on
+	// purpose: the cache's invalidation is unreliable (OnUnitChanged has no
+	// production callers, OnAgentChanged only fires on connect/disconnect,
+	// and WarmAll re-warms every 30s), so a cached `true` for an unrelated
+	// unit could survive ~10 cycles. Since IsFileMapReady fails open and a
+	// client is registered before its first agent_status arrives, that stale
+	// entry could hand a freshly-registered cloud agent ANOTHER CLIENT'S JOB
+	// on its very first cycle. Wrapping outside the cache caps staleness at
+	// one 3-second cycle and leaves nothing to invalidate.
+	//
+	// The snapshot must cover ALL cloud agents, not just idle ones, because
+	// preemption asks about the agent holding a victim task — and a paid
+	// instance must never be preempted away from the job that bought it.
+	compatFn = withCloudIsolation(compatFn, cloudLocks, unitsByID)
+
 	if len(agentInfos) == 0 {
 		// Every agent is busy. This used to return immediately, which made
 		// preemption (Step 7, far below) unreachable in precisely the
@@ -335,7 +560,7 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 	// benchmark — driving benchmarks off what would actually be dispatched
 	// (so we only ever benchmark agent/unit combos that matter this cycle).
 	mode := c.readOverflowMode(ctx)
-	allocations := AllocateAgentsByPriority(unitInfos, agentInfos, mode, compatFn)
+	allocations = AllocateAgentsByPriority(unitInfos, agentInfos, mode, compatFn)
 	res.Allocations = len(allocations)
 	if len(allocations) == 0 {
 		// Every idle-eligible agent is unallocated this cycle — record why
@@ -399,6 +624,54 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 			} else if blocked {
 				continue
 			}
+			/*
+			 * Readiness gate: never benchmark an agent that is mid-download.
+			 *
+			 * This is the asymmetry that cost a rented GPU eight minutes and a
+			 * 24-hour blocklist. TASK dispatch is safe against missing files --
+			 * the agent's ensure* chain fetches them and the rejection loop
+			 * re-delivers -- so it is deliberately left fail-open here. A
+			 * BENCHMARK had no such pre-flight and simply invoked hashcat.
+			 *
+			 * Applies to the benchmark branch ONLY, and only to 'in_progress'.
+			 * A global sync_status gate was removed from getIdleAgents on
+			 * purpose, because it means "holds the entire corpus" -- something
+			 * cloud agents never do.
+			 *
+			 * A lookup error does NOT skip: refusing to benchmark on a
+			 * transient DB error would stall dispatch, and the agent's own
+			 * pre-flight now covers the case this gate is merely optimising.
+			 */
+			if syncing, sErr := agentFileSyncInProgress(ctx, c.db, alloc.AgentID, syncInProgressGrace); sErr != nil {
+				debug.Warning("cycle: file-sync state check (agent=%d unit=%s): %v", alloc.AgentID, u.ID, sErr)
+			} else if syncing {
+				debug.Info("cycle: agent %d is still downloading its files; deferring benchmark for unit %s",
+					alloc.AgentID, u.ID)
+				continue
+			}
+			/*
+			 * Second storm guard, for the case the blocklist cannot see: a
+			 * benchmark that SUCCEEDED recently but was not accepted, so the
+			 * cached-speed lookup above still reports the combo missing and we
+			 * re-dispatch on every 3-second cycle forever.
+			 *
+			 * This throttle already existed but only in IdentifyMissingBenchmarks,
+			 * which has no callers — the live path here inherited none of it. A
+			 * lookup failure deliberately does NOT skip: refusing to benchmark
+			 * on a transient DB error would stall dispatch entirely, and the
+			 * blocklist above already bounds genuinely repeating failures.
+			 */
+			if recent, rErr := agentBenchmarkedSuccessfullyRecently(
+				ctx, c.db, alloc.AgentID, u.AttackMode, hashType, benchmarkRedispatchCooldown,
+			); rErr != nil {
+				debug.Warning("cycle: recent-benchmark check (agent=%d unit=%s): %v", alloc.AgentID, u.ID, rErr)
+			} else if recent {
+				debug.Warning("cycle: agent %d benchmarked (attack_mode=%d hash_type=%d) successfully "+
+					"within %s but the cached-speed lookup still reports it missing — throttling "+
+					"re-dispatch. This usually means the stored salt_count disagrees with the lookup.",
+					alloc.AgentID, u.AttackMode, hashType, benchmarkRedispatchCooldown)
+				continue
+			}
 			benchGaps = append(benchGaps, BenchmarkGap{
 				AgentID:    alloc.AgentID,
 				UnitID:     u.ID,
@@ -430,8 +703,9 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 	// setting the UI exposes. Fall back to the v2-era duplicate
 	// target_chunk_seconds (migration 000149) only when default_chunk_duration
 	// is missing or zero. Either name returns the same concept: target wall
-	// time per chunk in seconds. The per-job override
-	// (job_executions.chunk_size_seconds, Step 11k) still wins inside dispatchOne.
+	// time per chunk in seconds. This is only the STARTING point: dispatchOne
+	// resolves system default -> per-job chunk_size_seconds -> cloud floor ->
+	// TTL clamp. See resolveChunkDuration in dispatcher.go.
 	targetChunkSec := c.readIntSetting(ctx, "default_chunk_duration", 0)
 	if targetChunkSec <= 0 {
 		targetChunkSec = c.readIntSetting(ctx, "target_chunk_seconds", 60)
@@ -440,12 +714,33 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 
 	var dispatched []DispatchedTask
 	if len(readyAllocations) > 0 {
+		agentSpeeds := c.readAgentSpeeds(ctx, readyAllocations, unitsByID)
+
+		// Cloud sizing context: which allocated agents are rented, and how
+		// long each has left. Chunks are clamped to that so work is never
+		// planned past an instance's death.
+		cloudTTL := make(map[int]int)
+		for _, a := range agentInfos {
+			if a.IsCloud {
+				cloudTTL[a.ID] = a.CloudTTLRemainingSec
+			}
+		}
+
 		dispatchIn := DispatchInputs{
 			Allocations:        readyAllocations,
 			Units:              unitsByID,
-			AgentSpeeds:        c.readAgentSpeeds(ctx, readyAllocations, unitsByID),
+			AgentSpeeds:        agentSpeeds,
 			TargetChunkSeconds: targetChunkSec,
 			MinChunkSeconds:    minChunkSec,
+			// A FLOOR for rented agents, not an override — 0 disables it.
+			// String literal rather than cloud.SettingChunkDurationSeconds:
+			// cloud's tests import scheduler, so a production edge the other
+			// way would be an import cycle.
+			CloudChunkSeconds:         c.readIntSetting(ctx, "cloud_chunk_duration_seconds", 0),
+			CloudTTLRemaining:         cloudTTL,
+			CloudTeardownSlackSeconds: c.readIntSetting(ctx, "cloud_teardown_slack_seconds", 120),
+			EndgameShares: c.computeEndgameShares(ctx, readyAllocations, unitsByID,
+				agentSpeeds, targetChunkSec, minChunkSec),
 		}
 		var dispatchErrs []error
 		dispatched, dispatchErrs = DispatchOneChunkPerAgent(ctx, c.db, dispatchIn)
@@ -868,12 +1163,19 @@ func (c *Cycle) activeAgentCountsByParent(ctx context.Context, units []*models.S
 		parentIDs = append(parentIDs, u.ParentJobID)
 	}
 	out := map[uuid.UUID]int{}
+	// Cloud agents are excluded from this count for the same reason they
+	// bypass the cap in fillTier: max_agents budgets the SHARED on-prem pool,
+	// and a dedicated rented instance is not part of it. Counting them here
+	// while exempting them in the allocator would double-book the cap from
+	// opposite directions and starve the on-prem agents instead.
 	rows, err := c.db.QueryContext(ctx, `
 		SELECT su.parent_job_id, COUNT(*)
 		FROM job_tasks t
 		JOIN scheduling_units su ON su.id = t.scheduling_unit_id
+		LEFT JOIN agents a ON a.id = t.agent_id
 		WHERE su.parent_job_id = ANY($1::uuid[])
 		  AND t.status IN ('assigned', 'running')
+		  AND a.cloud_instance_id IS NULL
 		GROUP BY su.parent_job_id
 	`, uuidSliceToTextArray(parentIDs))
 	if err != nil {
@@ -956,12 +1258,48 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 	// benchmarkInFlightWindow so a crashed/never-returned benchmark eventually
 	// frees the agent for a retry rather than wedging it forever.
 	benchWindowSecs := int(benchmarkInFlightWindow / time.Second)
+	// ci.ttl_epoch drives the chunk TTL clamp; ci.id marks the agent as cloud.
+	// LEFT JOIN so on-prem agents are unaffected. retired_at excludes cloud
+	// agents whose instance has finished — they are kept for cost attribution
+	// rather than deleted, so they must be filtered here instead.
 	rows, err := c.db.QueryContext(ctx, `
-		SELECT a.id, COALESCE(a.binary_version, '')
+		SELECT a.id, COALESCE(a.binary_version, ''),
+		       (a.cloud_instance_id IS NOT NULL) AS is_cloud,
+		       COALESCE(GREATEST(0, EXTRACT(EPOCH FROM (ci.ttl_epoch - NOW()))), 0)::int AS cloud_ttl_remaining
 		FROM agents a
+		LEFT JOIN cloud_instances ci ON ci.id = a.cloud_instance_id
 		WHERE a.id = ANY($1::bigint[])
 		  AND a.is_enabled = true
+		  AND a.retired_at IS NULL
 		  AND a.status <> 'updating'
+		  /*
+		   * A rented instance on the way DOWN must receive no new work.
+		   *
+		   * This is what gives cloud_instances.state = 'draining' meaning. The
+		   * budget ladder's drain rung wrote that state and nothing read it, so
+		   * an instance at >=99% of its client's cap kept being handed fresh
+		   * chunks right up until the 100% rung killed it mid-chunk.
+		   *
+		   * An exclusion list, NOT a positive "state = running" filter: the
+		   * pre-work states
+		   * (requested/launching/provisioning/syncing) must stay eligible,
+		   * because an agent registers and can accept a task while its instance
+		   * row still says provisioning. Gating positively on 'running' would
+		   * strand every cold cloud agent. Fail open on the way up, closed on
+		   * the way down.
+		   *
+		   * 'terminating' is included because ListLive still returns it and the
+		   * reaper retries it every sweep, so an instance whose Destroy call
+		   * failed can sit there indefinitely.
+		   *
+		   * The ci.id IS NULL arm covers every on-prem agent, and a cloud agent
+		   * whose instance row was deleted — the LEFT JOIN stays a no-op for
+		   * the non-cloud fleet, which a bare state test would not.
+		   *
+		   * Benchmark dispatch needs no separate filter: benchGaps is built
+		   * inside the loop over this function's output, so it inherits this.
+		   */
+		  AND (ci.id IS NULL OR ci.state NOT IN ('draining','terminating','terminated','failed'))
 		  AND NOT EXISTS (
 			  SELECT 1 FROM job_tasks t
 			  WHERE t.agent_id = a.id
@@ -984,13 +1322,17 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 	for rows.Next() {
 		var id int
 		var ver string
-		if err := rows.Scan(&id, &ver); err != nil {
+		var isCloud bool
+		var ttlRemaining int
+		if err := rows.Scan(&id, &ver, &isCloud, &ttlRemaining); err != nil {
 			return nil, fmt.Errorf("scan idle agent: %w", err)
 		}
 		out = append(out, AgentInfo{
-			ID:             id,
-			BinaryVersion:  ver,
-			BenchmarkSpeed: 0, // filled later by readAgentSpeeds
+			ID:                   id,
+			BinaryVersion:        ver,
+			BenchmarkSpeed:       0, // filled later by readAgentSpeeds
+			IsCloud:              isCloud,
+			CloudTTLRemainingSec: ttlRemaining,
 		})
 	}
 
@@ -1311,17 +1653,26 @@ func (c *Cycle) attachFileMD5s(ctx context.Context, payload *wsservice.TaskAssig
 		}
 	}
 
-	// BinaryPath format: "binaries/<binary_version_id>". Sent for completeness;
-	// binary versions are immutable (a new binary gets a new id and path), so
-	// the agent treats the binary directory as present-or-absent rather than
-	// re-verifying this hash.
+	/*
+	 * BinaryPath format: "binaries/<binary_version_id>". Binary versions are
+	 * immutable (a new binary gets a new id and path), so the agent treats the
+	 * directory as present-or-absent rather than re-verifying this hash.
+	 *
+	 * The NAME is sent alongside because "binaries/5" names a directory, and
+	 * the agent's downloader keys a binary on (id, archive filename). Without
+	 * it the agent could detect a missing binary but not ask for it — which is
+	 * why a freshly provisioned agent whose sync had not yet delivered hashcat
+	 * failed its benchmark outright instead of fetching what it lacked.
+	 */
 	if payload.BinaryPath != "" {
 		idStr := strings.TrimPrefix(payload.BinaryPath, "binaries/")
 		if id, convErr := strconv.Atoi(idStr); convErr == nil {
-			var md5 string
+			var md5, fileName string
 			if err := c.db.QueryRowContext(ctx,
-				`SELECT md5_hash FROM binary_versions WHERE id = $1`, id).Scan(&md5); err == nil {
+				`SELECT COALESCE(md5_hash,''), COALESCE(file_name,'')
+				   FROM binary_versions WHERE id = $1`, id).Scan(&md5, &fileName); err == nil {
 				payload.BinaryMD5 = md5
+				payload.BinaryName = fileName
 			}
 		}
 	}

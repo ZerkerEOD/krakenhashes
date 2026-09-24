@@ -20,6 +20,11 @@ body:
 
               Most data in KrakenHashes uses UUIDs and IDs, but some context may include identifiable information.
 
+              **Do not attach a diagnostics package to this issue.** A GitHub issue is public and
+              permanent, and the package from **Admin → Diagnostics** describes your deployment in
+              detail. Send it as a **[Discord](https://discord.gg/taafA9cSFV) DM** instead and
+              reference the issue number here.
+
     - type: input
       id: version
       attributes:
@@ -39,6 +44,7 @@ body:
               - Frontend
               - Agent
               - Database
+              - Cloud Provisioning (AWS / RunPod / Vast.ai)
               - Multiple Components
               - Unsure
       validations:
