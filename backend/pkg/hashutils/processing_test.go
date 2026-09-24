@@ -21,6 +21,7 @@ func TestExtractUsernameAndDomain_DomainExtraction(t *testing.T) {
 		hashTypeID   int
 		wantUsername string
 		wantDomain   *string // nil means "no domain expected"
+		wantNil      bool    // true means ExtractUsernameAndDomain must return nil
 	}{
 		{
 			name:         "LastPass 6800 email username yields no domain",
@@ -65,6 +66,42 @@ func TestExtractUsernameAndDomain_DomainExtraction(t *testing.T) {
 			wantDomain:   strptr("REALM.LOCAL"),
 		},
 		{
+			name:         "Kerberos 13100 TGS-REP extracts service account and realm",
+			rawHash:      "$krb5tgs$23$*svc_sql$CORP.LOCAL$MSSQLSvc/db01.corp.local:1433*$a97bc6b204b035f39b80b9e174ef7afc$c5706f6e",
+			hashTypeID:   13100,
+			wantUsername: "svc_sql",
+			wantDomain:   strptr("CORP.LOCAL"),
+		},
+		{
+			name:         "Kerberos 13100 TGS-REP machine account keeps trailing dollar",
+			rawHash:      "$krb5tgs$23$*WKS01$$CORP.LOCAL$MSSQLSvc/db01.corp.local*$a97bc6b204b035f39b80b9e174ef7afc$c5706f6e",
+			hashTypeID:   13100,
+			wantUsername: "WKS01$",
+			wantDomain:   strptr("CORP.LOCAL"),
+		},
+		{
+			name:         "Kerberos 13100 format 2 has no account info",
+			rawHash:      "$krb5tgs$23$a97bc6b204b035f39b80b9e174ef7afc$c5706f6e",
+			hashTypeID:   13100,
+			wantUsername: "",  // extractor returns nil
+			wantDomain:   nil, // heuristic must not manufacture one either
+			wantNil:      true,
+		},
+		{
+			name:         "Kerberos 19600 TGS-REP etype 17 extracts account and realm",
+			rawHash:      "$krb5tgs$17$srv_http$synacktiv.local$849e31b3db1c1f203fa20b85$948690f5",
+			hashTypeID:   19600,
+			wantUsername: "srv_http",
+			wantDomain:   strptr("synacktiv.local"),
+		},
+		{
+			name:         "Kerberos 19700 TGS-REP etype 18 extracts account and realm",
+			rawHash:      "$krb5tgs$18$srv_http$synacktiv.local$16ce51f6eba20c8ee534ff8a$57d07b23",
+			hashTypeID:   19700,
+			wantUsername: "srv_http",
+			wantDomain:   strptr("synacktiv.local"),
+		},
+		{
 			name:         "NTLM pwdump 1000 extracts domain from backslash",
 			rawHash:      `CORP\user:1001:aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117ad06bdd830b7586c:::`,
 			hashTypeID:   1000,
@@ -76,6 +113,12 @@ func TestExtractUsernameAndDomain_DomainExtraction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ExtractUsernameAndDomain(tt.rawHash, tt.hashTypeID)
+			if tt.wantNil {
+				if got != nil {
+					t.Fatalf("ExtractUsernameAndDomain = %+v, want nil (no account info to extract)", got)
+				}
+				return
+			}
 			if got == nil {
 				t.Fatalf("ExtractUsernameAndDomain returned nil; want username=%q domain=%s",
 					tt.wantUsername, derefDomain(tt.wantDomain))
