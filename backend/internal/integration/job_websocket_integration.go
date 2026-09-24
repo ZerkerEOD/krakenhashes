@@ -21,6 +21,7 @@ import (
 	wsservice "github.com/ZerkerEOD/krakenhashes/backend/internal/services/websocket"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/hashutils"
 	"github.com/google/uuid"
 	"strconv"
 	"strings"
@@ -3954,7 +3955,7 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 		// Process each LM half-hash crack
 		for _, crackedEntry := range crackedHashes {
 			halfHash := crackedEntry.Hash // This is a 16-char half
-			password := crackedEntry.Plain
+			password := hashutils.DecodeHexPlain(crackedEntry.Plain)
 
 			matches, found := lmHashMatches[halfHash]
 			if !found || len(matches) == 0 {
@@ -4111,7 +4112,9 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 		// Process each cracked hash
 		for _, crackedEntry := range crackedHashes {
 			hashValue := crackedEntry.Hash
-			password := crackedEntry.Plain
+			// hashcat writes plains containing ':' or unprintable bytes as
+			// $HEX[...]; store the real password when it is safe to (GH #90).
+			password := hashutils.DecodeHexPlain(crackedEntry.Plain)
 			crackPos := crackedEntry.CrackPos
 
 			// Lookup from our pre-loaded map instead of querying database
