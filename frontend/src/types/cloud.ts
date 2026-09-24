@@ -45,9 +45,9 @@ export function requiresThirdPartyAck(kind: CloudProviderKind): boolean {
  * one exists. This mirror is only for the CREATE form, where the operator has
  * picked a kind but nothing has been saved to ask the server about yet.
  *
- * Beta does not mean unfinished. Vast.ai is fully implemented and has never
- * once been paid for; AWS has been driven end to end through teardown and a
- * settled refund. Only the second earns "stable".
+ * Experimental does not mean unfinished. Vast.ai is fully implemented and has
+ * never once been paid for; AWS has been driven end to end through teardown and
+ * a settled refund. Only the second earns "stable".
  */
 export function providerMaturity(kind: CloudProviderKind): ProviderMaturity {
   switch (kind) {
@@ -57,9 +57,21 @@ export function providerMaturity(kind: CloudProviderKind): ProviderMaturity {
     case 'vastai':
     case 'runpod':
     case 'runpod_community':
-      return 'beta';
+      return 'experimental';
   }
 }
+
+/*
+ * Where a problem with an experimental provider goes.
+ *
+ * TWO destinations on purpose. The bug report is public and permanent, so it
+ * gets the narrative; the diagnostic bundle is not, because it carries client
+ * names, hostnames and job metadata that must not land in a public issue. The
+ * split is restated in the issue template and in
+ * docs/admin-guide/system-setup/cloud-providers.md — keep the three in step.
+ */
+export const CLOUD_ISSUE_URL = 'https://github.com/ZerkerEOD/krakenhashes/issues/new/choose';
+export const CLOUD_DISCORD_URL = 'https://discord.gg/taafA9cSFV';
 
 /** Operator-facing name. The two RunPod tiers must never both read "RunPod". */
 export function cloudProviderLabel(kind: CloudProviderKind): string {
@@ -172,7 +184,7 @@ export interface CloudProviderConfig {
 }
 
 /** @see CloudProviderConfig.maturity */
-export type ProviderMaturity = 'stable' | 'beta';
+export type ProviderMaturity = 'stable' | 'experimental';
 
 /**
  * Inbound provider configuration.

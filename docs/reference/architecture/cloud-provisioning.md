@@ -480,15 +480,19 @@ never through the settings update.
 
 ## Provider maturity is derived, never stored
 
-Every provider kind declares a maturity — `stable` or `beta` — from a single map in the model
-layer. It is **computed on marshal and never persisted**, which is the whole point: a stored
-column can drift out of step with reality, and an admin who would rather not see the warning
-could edit it into a lie. A derived value cannot be either.
+Every provider kind declares a maturity — `stable` or `experimental` — from a single map in
+the model layer. It is **computed on marshal and never persisted**, which is the whole point:
+a stored column can drift out of step with reality, and an admin who would rather not see the
+warning could edit it into a lie. A derived value cannot be either.
 
-| Kind | Maturity |
-|---|---|
-| `aws`, `mock` | Stable |
-| `vastai`, `runpod`, `runpod_community` | Beta |
+| Kind | Maturity | UI |
+|---|---|---|
+| `aws`, `mock` | `stable` | green **Tested** chip |
+| `vastai`, `runpod`, `runpod_community` | `experimental` | amber **Experimental** chip |
+
+The wire value is `experimental` rather than `beta` deliberately: "beta" is a claim about
+completeness, and the claim being made here is about **evidence**. The adapters are finished;
+what is missing is a paid run that somebody watched.
 
 **It is not a measure of how much code exists.** Vast.ai is fully implemented and has never
 been driven end to end with a funded account; AWS has been taken through boot, commissioning,
@@ -500,9 +504,14 @@ declares one, so adding a provider without classifying it fails the build rather
 defaulting to reassuring.
 
 Maturity is a **separate axis from trust**, and the two only partly overlap: RunPod Secure is
-beta but first-party, Vast.ai is both beta and third-party, `mock` is neither. The UI renders
-them as two distinct chips for that reason — collapsing them would hide that a SOC 2 provider
-is the unproven one.
+experimental but first-party, Vast.ai is both experimental and third-party, `mock` is neither.
+The UI renders them as two distinct chips for that reason — collapsing them would hide that a
+SOC 2 provider is the unproven one.
+
+Both maturity states are rendered in the provider settings table, not just the unproven one.
+"Proven" inferred from the absence of a warning is not a claim anyone reads, and the table is
+where the providers are compared side by side. The Cloud Fleet page stays warning-only: a
+Tested chip on every AWS instance row is noise on a page that is watched continuously.
 
 ---
 

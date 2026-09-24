@@ -1,11 +1,16 @@
 # RunPod
 
-!!! warning "Beta — implemented but never paid for"
+!!! warning "Experimental — implemented but never paid for"
     Both RunPod kinds are written against the documented API with no account to verify them
     on. The rental lifecycle is unproven against the live service. Start with a small budget
     and a one-instance cap, and watch instances reach `terminated` rather than assuming they
     will. See
     [Maturity](cloud-providers.md#maturity-which-providers-have-actually-been-paid-for).
+
+    **If you run this, please say what happened** — that is the only thing that moves RunPod
+    off this list. File a bug report, and send diagnostics by Discord DM rather than
+    attaching them:
+    [Reporting a problem](cloud-providers.md#reporting-a-problem-with-an-experimental-provider).
 
 RunPod is configured as **two separate provider kinds**, not one with a tier setting:
 

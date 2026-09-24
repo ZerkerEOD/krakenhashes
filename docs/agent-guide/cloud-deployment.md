@@ -202,6 +202,13 @@ whole TTL.
 6. **Two pods for one launch** — RunPod has no idempotency key on create, so a lost response
    can leave a pod whose id was never seen. The duplicate shows up in the fleet inventory and
    is reaped as an orphan within a sweep.
+7. **None of the above, and it was RunPod or Vast.ai** — those adapters are
+   [Experimental](../admin-guide/system-setup/cloud-providers.md#maturity-which-providers-have-actually-been-paid-for)
+   and have never been driven end to end with real money, so an unexplained rental there is as
+   likely to be our bug as your configuration. Please report it — bug report on GitHub,
+   diagnostics by Discord DM:
+   [Reporting a problem](../admin-guide/system-setup/cloud-providers.md#reporting-a-problem-with-an-experimental-provider).
+   Say what the **provider's own console** showed; that is the fact the backend cannot see.
 
 Vast.ai states `exited`, `unknown` and `offline` **never recover**. KrakenHashes destroys
 them immediately rather than polling, because polling them is just spending money.

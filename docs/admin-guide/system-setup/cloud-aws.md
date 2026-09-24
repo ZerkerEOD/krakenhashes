@@ -1,8 +1,12 @@
 # AWS EC2
 
-Renting GPU capacity from **your own AWS account**. This is the only provider that has been
-driven end to end with real money — see the maturity table in
-[Cloud GPU Providers](cloud-providers.md#maturity-which-providers-have-actually-been-paid-for).
+Renting GPU capacity from **your own AWS account**.
+
+!!! success "Tested — the only provider driven end to end with real money"
+    A real rental was taken through boot, commissioning, cracking, clean release and a settled
+    budget refund: 141s to a registered agent, 3/3 hashes cracked, released at 3.8 minutes
+    with 54c of the 57c reserved refunded. Every other provider is
+    [Experimental](cloud-providers.md#maturity-which-providers-have-actually-been-paid-for).
 
 Your hardware, your IAM, AWS datacenters, SOC 2. No third-party acknowledgement and no
 per-job peer-host opt-in.
