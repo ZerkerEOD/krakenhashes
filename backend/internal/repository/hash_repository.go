@@ -35,7 +35,8 @@ func (r *HashRepository) GetByHashValues(ctx context.Context, hashValues []strin
 	query := `
 		SELECT id, hash_value, original_hash, hash_type_id, is_cracked, password, last_updated, username, domain
 		FROM hashes
-		WHERE hash_value = ANY($1)
+		WHERE md5(hash_value) IN (SELECT md5(v) FROM unnest($1::text[]) AS v)
+		  AND hash_value = ANY($1)
 	`
 	rows, err := r.db.QueryContext(ctx, query, pq.Array(hashValues))
 	if err != nil {
@@ -430,13 +431,14 @@ func (r *HashRepository) BulkImportHashes(ctx context.Context, hashes []*models.
 		return nil, fmt.Errorf("failed to deduplicate temp table: %w", err)
 	}
 
-	// 4. Insert NEW hashes using ON CONFLICT DO NOTHING (requires unique index on original_hash)
+	// 4. Insert NEW hashes using ON CONFLICT DO NOTHING (requires the unique index on
+	// md5(original_hash); a raw-text index cannot hold hashes over ~2.7 KB, GH #88)
 	// This is MUCH faster than NOT EXISTS subquery which did full table scans
 	insertResult, err := tx.ExecContext(ctx, `
 		INSERT INTO hashes (id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated)
 		SELECT gen_random_uuid(), t.hash_value, t.original_hash, t.username, t.domain, t.hash_type_id, t.is_cracked, t.password, NOW()
 		FROM temp_hash_import t
-		ON CONFLICT (original_hash) DO NOTHING
+		ON CONFLICT (md5(original_hash)) DO NOTHING
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert new hashes: %w", err)
@@ -453,7 +455,8 @@ func (r *HashRepository) BulkImportHashes(ctx context.Context, hashes []*models.
 		    domain = COALESCE(h.domain, t.domain),
 		    last_updated = NOW()
 		FROM temp_hash_import t
-		WHERE h.original_hash = t.original_hash
+		WHERE md5(h.original_hash) = md5(t.original_hash)
+		  AND h.original_hash = t.original_hash
 		  AND t.is_cracked = TRUE
 		  AND h.is_cracked = FALSE
 	`)
@@ -468,7 +471,9 @@ func (r *HashRepository) BulkImportHashes(ctx context.Context, hashes []*models.
 		INSERT INTO hashlist_hashes (hashlist_id, hash_id)
 		SELECT DISTINCT $1::bigint, h.id
 		FROM hashes h
-		INNER JOIN temp_hash_import t ON h.original_hash = t.original_hash
+		INNER JOIN temp_hash_import t
+		        ON md5(h.original_hash) = md5(t.original_hash)
+		       AND h.original_hash = t.original_hash
 		ON CONFLICT (hashlist_id, hash_id) DO NOTHING
 	`, hashlistID)
 	if err != nil {
@@ -519,7 +524,8 @@ func (r *HashRepository) SearchHashes(ctx context.Context, hashValues []string, 
 		FROM hashes h
 		JOIN hashlist_hashes hlh ON h.id = hlh.hash_id
 		JOIN hashlists hl ON hlh.hashlist_id = hl.id
-		WHERE h.hash_value = ANY($1)
+		WHERE md5(h.hash_value) IN (SELECT md5(v) FROM unnest($1::text[]) AS v)
+		  AND h.hash_value = ANY($1)
 		  AND hl.user_id = $2
 		ORDER BY h.hash_value, hl.name; -- Group results by hash value
 	`
@@ -742,7 +748,8 @@ func (r *HashRepository) GetByHashValueForUpdate(tx *sql.Tx, hashValue string) (
 	query := `
 		SELECT id, hash_value, original_hash, hash_type_id, is_cracked, password, last_updated, username, domain
 		FROM hashes
-		WHERE hash_value = $1
+		WHERE md5(hash_value) = md5($1)
+		  AND hash_value = $1
 		FOR UPDATE -- Lock the row
 	`
 	row := tx.QueryRow(query, hashValue)

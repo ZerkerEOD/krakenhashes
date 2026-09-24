@@ -523,9 +523,12 @@ Stores individual hash entries.
 | cracked_by_task_id | UUID | FK → job_tasks(id) ON DELETE SET NULL | | Task that cracked this hash (added in migration 098) |
 
 **Indexes:**
-- idx_hashes_hash_value (hash_value)
-- idx_hashes_original_hash_unique (original_hash) UNIQUE - Fast deduplication during bulk import (added in migration 096)
+- idx_hashes_hash_value_md5 (md5(hash_value)) - Exact hash lookups; queries match `md5(hash_value) = md5($1) AND hash_value = $1`
+- idx_hashes_original_hash_md5_unique (md5(original_hash)) UNIQUE - Deduplication during bulk import via `ON CONFLICT (md5(original_hash))`
+- idx_hashes_uncracked (id) WHERE is_cracked = FALSE - Uncracked-hash streaming and loopback checks
 - idx_hashes_cracked_by_task_id (cracked_by_task_id) WHERE cracked_by_task_id IS NOT NULL - Crack attribution lookup (added in migration 098)
+
+The hash-text indexes key on `md5(...)` rather than the raw text because a btree entry is capped at 2704 bytes, and some hashes (e.g. mode 13100 Kerberoast tickets) are far longer (migration 20260924120000, GH #88).
 
 **Triggers:**
 - update_hashes_last_updated: Updates last_updated on row modification
