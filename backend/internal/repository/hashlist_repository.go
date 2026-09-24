@@ -504,14 +504,14 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 	var hashlists []models.HashList
 	for rows.Next() {
 		var hashlist models.HashList
-		var clientID sql.Null[uuid.UUID]                    // Use sql.Null for nullable UUID
-		var clientName sql.NullString                       // Use sql.NullString for nullable client name from LEFT JOIN
-		var originalFilePath sql.NullString                 // Handle nullable original_file_path
-		var archivedAt sql.NullTime                         // Handle nullable archived_at
-		var clientExcludeFromGlobalPotfile sql.NullBool     // Client's exclude_from_potfile setting (for global)
-		var clientExcludeFromClientPotfile sql.NullBool     // Client's exclude_from_client_potfile setting
-		var clientRemoveFromGlobalOnDelete sql.NullBool     // Client's remove_from_global_potfile_on_hashlist_delete setting
-		var clientRemoveFromClientOnDelete sql.NullBool     // Client's remove_from_client_potfile_on_hashlist_delete setting
+		var clientID sql.Null[uuid.UUID]                // Use sql.Null for nullable UUID
+		var clientName sql.NullString                   // Use sql.NullString for nullable client name from LEFT JOIN
+		var originalFilePath sql.NullString             // Handle nullable original_file_path
+		var archivedAt sql.NullTime                     // Handle nullable archived_at
+		var clientExcludeFromGlobalPotfile sql.NullBool // Client's exclude_from_potfile setting (for global)
+		var clientExcludeFromClientPotfile sql.NullBool // Client's exclude_from_client_potfile setting
+		var clientRemoveFromGlobalOnDelete sql.NullBool // Client's remove_from_global_potfile_on_hashlist_delete setting
+		var clientRemoveFromClientOnDelete sql.NullBool // Client's remove_from_client_potfile_on_hashlist_delete setting
 		var validationNoticeNS sql.NullString
 
 		if err := rows.Scan(
@@ -701,7 +701,7 @@ func (r *HashListRepository) Delete(ctx context.Context, id int64) error {
 		debug.Info("[Delete:%d] Checking for orphaned hashes among %d candidates...", id, len(associatedHashIDs))
 
 		// Process in batches to avoid shared memory issues with large arrays
-		checkBatchSize := 50000 // Check 50k hashes at a time for orphan status
+		checkBatchSize := 50000  // Check 50k hashes at a time for orphan status
 		deleteBatchSize := 10000 // Delete in smaller batches
 		totalOrphansDeleted := 0
 
@@ -1470,7 +1470,8 @@ func (r *HashListRepository) GetHashlistsContainingHashes(ctx context.Context, h
 		FROM hashlists hl
 		JOIN hashlist_hashes hh ON hl.id = hh.hashlist_id
 		JOIN hashes h ON hh.hash_id = h.id
-		WHERE h.hash_value = ANY($1)
+		WHERE md5(h.hash_value) IN (SELECT md5(v) FROM unnest($1::text[]) AS v)
+		  AND h.hash_value = ANY($1)
 		ORDER BY hl.id`
 
 	rows, err := r.db.QueryContext(ctx, query, pq.Array(hashValues))
