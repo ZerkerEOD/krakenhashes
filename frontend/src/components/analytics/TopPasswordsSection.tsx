@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
 import { TopPassword } from '../../types/analytics';
+import CrackedPassword from '../common/CrackedPassword';
 
 interface TopPasswordsSectionProps {
   data: TopPassword[];
@@ -57,7 +58,7 @@ export default function TopPasswordsSection({ data }: TopPasswordsSectionProps) 
                 <TableCell>{index + 1}</TableCell>
                 <TableCell>
                   <Chip
-                    label={pwd.password}
+                    label={<CrackedPassword password={pwd.password} />}
                     size="small"
                     sx={{ fontFamily: 'monospace' }}
                   />

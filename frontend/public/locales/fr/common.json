@@ -149,5 +149,11 @@
     "errors": {
       "fetchFailed": "Impossible de récupérer les informations de version"
     }
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Texte non valide. Le mot de passe exact est {{value}}. Les caractères affichés sont une estimation (Windows-1252), pas le vrai mot de passe.",
+    "copyExact": "Copier la valeur exacte (pour hashcat)",
+    "copyGuess": "Copier l'estimation (non exacte)"
   }
 }

@@ -38,6 +38,8 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 import { useSnackbar } from 'notistack';
 import { CrackedHash, PotResponse } from '../../services/pot';
+import CrackedPassword from '../common/CrackedPassword';
+import { toPotfilePlain } from '../../utils/hexPlain';
 
 interface PotTableProps {
   title: string;
@@ -251,7 +253,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
 
   const exportData = () => {
     const exportText = data
-      .map(hash => `${hash.original_hash}:${hash.password}`)
+      .map(hash => `${hash.original_hash}:${toPotfilePlain(hash.password)}`)
       .join('\n');
     
     const blob = new Blob([exportText], { type: 'text/plain' });
@@ -527,7 +529,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
                         },
                       }}
                     >
-                      {hash.password}
+                      <CrackedPassword password={hash.password} />
                     </TableCell>
                   </Tooltip>
                   <TableCell>{hash.hash_type_id}</TableCell>
@@ -535,7 +537,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
                     <Tooltip title={t('tooltips.copyHash') as string}>
                       <IconButton
                         size="small"
-                        onClick={() => copyToClipboard(`${hash.original_hash}:${hash.password}`)}
+                        onClick={() => copyToClipboard(`${hash.original_hash}:${toPotfilePlain(hash.password)}`)}
                       >
                         <CopyIcon fontSize="small" />
                       </IconButton>

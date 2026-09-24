@@ -149,5 +149,11 @@
     "errors": {
       "fetchFailed": "Versionsinformationen konnten nicht abgerufen werden"
     }
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Kein gültiger Text. Das exakte Passwort ist {{value}}. Die angezeigten Zeichen sind eine Vermutung (Windows-1252), nicht das echte Passwort.",
+    "copyExact": "Exakten Wert kopieren (für Hashcat)",
+    "copyGuess": "Vermutung kopieren (nicht exakt)"
   }
 }
