@@ -30,6 +30,7 @@ import {
 import { api } from '../../services/api';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
+import CrackedPassword from '../common/CrackedPassword';
 
 interface HashDetail {
   id: string;
@@ -264,7 +265,9 @@ export default function HashlistHashesTable({
                     }}
                   >
                     {hash.is_cracked
-                      ? hash.password || '-'
+                      ? hash.password
+                        ? <CrackedPassword password={hash.password} />
+                        : '-'
                       : hash.is_partially_lm_cracked
                       ? `[${hash.lm_first_half_password || '?'}][${hash.lm_second_half_password || '?'}]`
                       : '-'}

@@ -24,6 +24,7 @@ import {
   KeyboardArrowUp as ExpandLessIcon,
   Fingerprint as FingerprintIcon,
 } from '@mui/icons-material';
+import CrackedPassword from '../common/CrackedPassword';
 
 interface HashReuseData {
   total_reused: number;
@@ -73,7 +74,7 @@ function HashReuseRow({ item, t }: HashReuseRowProps) {
         <TableCell>
           {item.password ? (
             <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-              {item.password}
+              <CrackedPassword password={item.password} />
             </Typography>
           ) : (
             <Typography variant="body2" color="text.secondary">

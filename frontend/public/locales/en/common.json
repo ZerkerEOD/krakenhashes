@@ -151,5 +151,11 @@
     "errors": {
       "fetchFailed": "Failed to fetch version information"
     }
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Not valid text. The exact password is {{value}}. The characters shown are a best guess (Windows-1252), not the real password.",
+    "copyExact": "Copy exact value (for hashcat)",
+    "copyGuess": "Copy best guess (not exact)"
   }
 }

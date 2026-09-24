@@ -149,5 +149,11 @@
     "errors": {
       "fetchFailed": "Ophalen van versie-informatie mislukt"
     }
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Geen geldige tekst. Het exacte wachtwoord is {{value}}. De getoonde tekens zijn een schatting (Windows-1252), niet het echte wachtwoord.",
+    "copyExact": "Exacte waarde kopiëren (voor hashcat)",
+    "copyGuess": "Schatting kopiëren (niet exact)"
   }
 }

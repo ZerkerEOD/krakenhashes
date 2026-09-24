@@ -149,5 +149,11 @@
     "errors": {
       "fetchFailed": "获取版本信息失败"
     }
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "不是有效文本。确切密码为 {{value}}。显示的字符只是猜测（Windows-1252），并非真实密码。",
+    "copyExact": "复制确切值（用于 hashcat）",
+    "copyGuess": "复制猜测值（不精确）"
   }
 }

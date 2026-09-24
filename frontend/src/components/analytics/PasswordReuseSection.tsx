@@ -26,6 +26,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { ReuseStats, PasswordReuseInfo, UserOccurrence } from '../../types/analytics';
+import CrackedPassword from '../common/CrackedPassword';
 import { threeColumnTableStyles, passwordReuseTableStyles } from './tableStyles';
 
 interface PasswordReuseSectionProps {
@@ -166,7 +167,7 @@ export default function PasswordReuseSection({ data }: PasswordReuseSectionProps
                 return (
                   <TableRow key={index}>
                     <TableCell sx={passwordReuseTableStyles.passwordCell}>
-                      <Chip label={passwordInfo.password} size="small" />
+                      <Chip label={<CrackedPassword password={passwordInfo.password} />} size="small" />
                     </TableCell>
                     <TableCell sx={passwordReuseTableStyles.usersCell}>{formatUsers(passwordInfo.users, globalIndex)}</TableCell>
                     <TableCell sx={passwordReuseTableStyles.occurrencesCell}>{passwordInfo.total_occurrences}</TableCell>

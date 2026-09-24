@@ -17,9 +17,13 @@ import {
 import {
   Close as CloseIcon,
   ContentCopy as CopyIcon,
-  Check as CheckIcon
+  Check as CheckIcon,
+  TextFields as TextFieldsIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
+import CrackedPassword from '../common/CrackedPassword';
+import { hexPlainPreview, parseHexPlain } from '../../utils/hexPlain';
 
 interface HashDetail {
   id: string;
@@ -48,6 +52,7 @@ interface HashDetailModalProps {
 
 export default function HashDetailModal({ open, onClose, hash }: HashDetailModalProps) {
   const { enqueueSnackbar } = useSnackbar();
+  const { t } = useTranslation('common');
   const [copied, setCopied] = React.useState(false);
 
   const handleCopyHash = () => {
@@ -64,6 +69,17 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
     if (hash?.password) {
       navigator.clipboard.writeText(hash.password).then(() => {
         enqueueSnackbar('Cracked text copied to clipboard', { variant: 'success' });
+      });
+    }
+  };
+
+  // Only set for $HEX[...] passwords: a readable best guess, which is not the
+  // exact password (the $HEX value copied above is).
+  const hexBytes = hash?.password ? parseHexPlain(hash.password) : null;
+  const handleCopyBestGuess = () => {
+    if (hexBytes) {
+      navigator.clipboard.writeText(hexPlainPreview(hexBytes)).then(() => {
+        enqueueSnackbar(t('clipboard.copied') as string, { variant: 'success' });
       });
     }
   };
@@ -173,11 +189,20 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
                   <Typography variant="subtitle2" color="text.secondary">
                     Cracked Text
                   </Typography>
-                  <Tooltip title="Copy plaintext">
-                    <IconButton size="small" onClick={handleCopyCrackedText}>
-                      <CopyIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  <Box>
+                    {hexBytes && (
+                      <Tooltip title={t('hexPassword.copyGuess') as string}>
+                        <IconButton size="small" onClick={handleCopyBestGuess}>
+                          <TextFieldsIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Tooltip title={hexBytes ? (t('hexPassword.copyExact') as string) : 'Copy plaintext'}>
+                      <IconButton size="small" onClick={handleCopyCrackedText}>
+                        <CopyIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </Box>
                 <Typography 
                   variant="body1" 
@@ -187,7 +212,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
                     color: 'success.main'
                   }}
                 >
-                  {hash.password}
+                  <CrackedPassword password={hash.password} />
                 </Typography>
               </Paper>
             </Grid>

@@ -149,5 +149,11 @@
     "errors": {
       "fetchFailed": "Error al obtener la informacion de version"
     }
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "No es texto válido. La contraseña exacta es {{value}}. Los caracteres mostrados son una estimación (Windows-1252), no la contraseña real.",
+    "copyExact": "Copiar valor exacto (para hashcat)",
+    "copyGuess": "Copiar estimación (no exacta)"
   }
 }
