@@ -622,10 +622,10 @@ func (s *adminPresetJobService) needsKeyspaceRecalculation(existing, updated *mo
 // CalculateKeyspaceForPresetJob calculates the total keyspace for a preset job using hashcat --keyspace
 func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Context, presetJob *models.PresetJob) (*int64, error) {
 	debug.Log("Starting keyspace calculation for preset job", map[string]interface{}{
-		"preset_job_id":    presetJob.ID,
-		"binary_version":   presetJob.BinaryVersion,
-		"attack_mode":      presetJob.AttackMode,
-		"data_directory":   s.dataDirectory,
+		"preset_job_id":  presetJob.ID,
+		"binary_version": presetJob.BinaryVersion,
+		"attack_mode":    presetJob.AttackMode,
+		"data_directory": s.dataDirectory,
 	})
 
 	// Resolve binary version pattern to actual binary ID
@@ -643,7 +643,7 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 			binaryVersionID, err)
 		return nil, fmt.Errorf("failed to get hashcat binary path for version %d: %w", binaryVersionID, err)
 	}
-	
+
 	// Verify the binary exists and is executable
 	if fileInfo, err := os.Stat(hashcatPath); err != nil {
 		debug.Error("Hashcat binary not found: path=%s, error=%v", hashcatPath, err)
@@ -770,13 +770,13 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 	args = append(args, "--quiet")
 
 	debug.Log("Calculating keyspace for preset job", map[string]interface{}{
-		"preset_job_id":  presetJob.ID,
-		"command":        hashcatPath,
-		"args":           args,
-		"attack_mode":    presetJob.AttackMode,
-		"session_id":     sessionID,
-		"working_dir":    s.dataDirectory,
-		"full_command":   fmt.Sprintf("%s %s", hashcatPath, strings.Join(args, " ")),
+		"preset_job_id": presetJob.ID,
+		"command":       hashcatPath,
+		"args":          args,
+		"attack_mode":   presetJob.AttackMode,
+		"session_id":    sessionID,
+		"working_dir":   s.dataDirectory,
+		"full_command":  fmt.Sprintf("%s %s", hashcatPath, strings.Join(args, " ")),
 	})
 
 	// Execute hashcat command with configurable timeout
@@ -791,7 +791,7 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 	// Log environment
 	debug.Log("Executing hashcat command", map[string]interface{}{
 		"working_directory": cmd.Dir,
-		"path_env":         os.Getenv("PATH"),
+		"path_env":          os.Getenv("PATH"),
 	})
 
 	// Capture stdout and stderr separately
@@ -964,7 +964,7 @@ func (s *adminPresetJobService) resolveWordlistPath(ctx context.Context, wordlis
 		"wordlist_id_str": wordlistIDStr,
 		"data_directory":  s.dataDirectory,
 	})
-	
+
 	wordlistID, err := strconv.ParseInt(wordlistIDStr, 10, 64)
 	if err != nil {
 		debug.Error("Invalid wordlist ID format: wordlist_id=%s, error=%v", wordlistIDStr, err)
@@ -990,7 +990,7 @@ func (s *adminPresetJobService) resolveWordlistPath(ctx context.Context, wordlis
 				"name_field":  wl.Name,
 				"path":        path,
 			})
-			
+
 			// Verify the file exists
 			if fileInfo, err := os.Stat(path); err != nil {
 				debug.Error("Wordlist file not found: path=%s, error=%v", path, err)
@@ -1015,7 +1015,7 @@ func (s *adminPresetJobService) resolveRulePath(ctx context.Context, ruleIDStr s
 		"rule_id_str":    ruleIDStr,
 		"data_directory": s.dataDirectory,
 	})
-	
+
 	ruleID, err := strconv.ParseInt(ruleIDStr, 10, 64)
 	if err != nil {
 		debug.Error("Invalid rule ID format: rule_id=%s, error=%v", ruleIDStr, err)
@@ -1041,7 +1041,7 @@ func (s *adminPresetJobService) resolveRulePath(ctx context.Context, ruleIDStr s
 				"name_field": rule.Name,
 				"path":       path,
 			})
-			
+
 			// Verify the file exists
 			if fileInfo, err := os.Stat(path); err != nil {
 				debug.Error("Rule file not found: path=%s, error=%v", path, err)
@@ -1456,8 +1456,8 @@ func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Cont
 	}
 
 	debug.Log("Preset increment layers initialized successfully", map[string]interface{}{
-		"preset_job_id":           presetJob.ID,
-		"layer_count":             len(layerMasks),
+		"preset_job_id":            presetJob.ID,
+		"layer_count":              len(layerMasks),
 		"total_effective_keyspace": totalEffectiveKeyspace,
 	})
 

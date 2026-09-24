@@ -42,10 +42,10 @@ type GenerateVoucherRequest struct {
 
 // GenerateVoucherResponse represents the response containing a voucher
 type GenerateVoucherResponse struct {
-	Code         string    `json:"code"`
-	IsActive     bool      `json:"is_active"`
-	IsContinuous bool      `json:"is_continuous"`
-	CreatedAt    time.Time `json:"created_at"`
+	Code         string     `json:"code"`
+	IsActive     bool       `json:"is_active"`
+	IsContinuous bool       `json:"is_continuous"`
+	CreatedAt    time.Time  `json:"created_at"`
 	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
 }
 

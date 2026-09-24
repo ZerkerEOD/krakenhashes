@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"errors"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
-	"errors"
 )
 
 // SystemSettingsHandler handles system settings requests
@@ -240,7 +240,7 @@ func (h *SystemSettingsHandler) UpdateSetting(w http.ResponseWriter, r *http.Req
 func (h *SystemSettingsHandler) GetSetting(w http.ResponseWriter, r *http.Request) {
 	// Extract setting key from URL path
 	settingKey := r.URL.Path[len("/api/admin/settings/"):]
-	
+
 	debug.Debug("Getting system setting: %s", settingKey)
 
 	setting, err := h.systemSettingsRepo.GetSetting(r.Context(), settingKey)
