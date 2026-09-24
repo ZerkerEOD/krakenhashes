@@ -15,6 +15,7 @@ import {
   FormControl,
   FormControlLabel,
   InputLabel,
+  Link,
   List,
   ListItem,
   ListItemText,
@@ -47,6 +48,8 @@ import {
   CloudProviderConfig,
   CloudProviderConfigInput,
   CloudProviderKind,
+  CLOUD_DISCORD_URL,
+  CLOUD_ISSUE_URL,
   CLOUD_PROVIDER_KINDS,
   providerMaturity,
   requiresThirdPartyAck,
@@ -495,16 +498,33 @@ const CloudProviderSettings: React.FC = () => {
                         * A SEPARATE badge from the third-party one, deliberately.
                         * "Nobody has proven this works" and "this runs on hardware
                         * you do not control" are different risks that happen to
-                        * overlap on Vast: RunPod Secure is beta but first-party,
-                        * and collapsing them would hide that.
+                        * overlap on Vast: RunPod Secure is experimental but
+                        * first-party, and collapsing them would hide that.
+                        *
+                        * BOTH states are rendered, unlike the Fleet page. This
+                        * table is where providers are compared side by side, and
+                        * "proven" inferred from the absence of a warning is not a
+                        * claim anyone reads. The Fleet page stays warning-only
+                        * because a Tested chip on every AWS instance row is noise
+                        * on a page an operator watches continuously.
                         */}
-                      {cfg.maturity === 'beta' && (
-                        <Tooltip title={t('cloud.providers.betaTooltip') as string}>
+                      {cfg.maturity === 'experimental' ? (
+                        <Tooltip title={t('cloud.providers.experimentalTooltip') as string}>
                           <Chip
                             size="small"
                             variant="outlined"
                             color="warning"
-                            label={t('cloud.providers.betaChip') as string}
+                            label={t('cloud.providers.experimentalChip') as string}
+                            sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                          />
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title={t('cloud.providers.testedTooltip') as string}>
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color="success"
+                            label={t('cloud.providers.testedChip') as string}
                             sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
                           />
                         </Tooltip>
@@ -658,10 +678,24 @@ const CloudProviderSettings: React.FC = () => {
             * server-computed maturity; the mirror only covers the create form,
             * where nothing has been saved to ask the server about.
             */}
-          {(editing?.maturity ?? providerMaturity(form.provider)) === 'beta' && (
+          {(editing?.maturity ?? providerMaturity(form.provider)) === 'experimental' && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              <AlertTitle>{t('cloud.providers.betaTitle') as string}</AlertTitle>
-              {t('cloud.providers.betaBody') as string}
+              <AlertTitle>{t('cloud.providers.experimentalTitle') as string}</AlertTitle>
+              {t('cloud.providers.experimentalBody') as string}
+              {/*
+                * The two destinations are deliberately separate links rather
+                * than one "get help" pointer: the bug report is public and the
+                * diagnostic bundle must not be.
+                */}
+              <Box sx={{ mt: 1 }}>
+                <Link href={CLOUD_ISSUE_URL} target="_blank" rel="noopener noreferrer">
+                  {t('cloud.providers.reportIssueLink') as string}
+                </Link>
+                {' · '}
+                <Link href={CLOUD_DISCORD_URL} target="_blank" rel="noopener noreferrer">
+                  {t('cloud.providers.reportDiagnosticsLink') as string}
+                </Link>
+              </Box>
             </Alert>
           )}
 

@@ -84,9 +84,12 @@ const (
 	// MaturityStable has been driven end to end, including teardown and the
 	// budget refund that makes an over-long rental cheap.
 	MaturityStable ProviderMaturity = "stable"
-	// MaturityBeta works in principle and has not been proven with money.
-	// Operators are told to monitor their jobs.
-	MaturityBeta ProviderMaturity = "beta"
+	// MaturityExperimental works in principle and has not been proven with
+	// money. Operators are told to monitor their jobs and to report what they
+	// find, because a rented GPU nobody has watched is the expensive kind of
+	// unknown. Deliberately not "beta", which reads as "nearly finished" — the
+	// claim being made here is about evidence, not completeness.
+	MaturityExperimental ProviderMaturity = "experimental"
 )
 
 /*
@@ -105,22 +108,22 @@ var providerMaturity = map[CloudProvider]ProviderMaturity{
 
 	// Implemented, never paid for. Its verified/datacenter filters and the
 	// whole rental lifecycle are untested against the live marketplace.
-	CloudProviderVastAI: MaturityBeta,
+	CloudProviderVastAI: MaturityExperimental,
 	// Adapter written against the documented API with no account to check it
 	// on. Twelve specific behaviours remain unverified — see the RunPod section
 	// of docs/reference/architecture/cloud-provisioning.md.
-	CloudProviderRunPod: MaturityBeta,
+	CloudProviderRunPod: MaturityExperimental,
 	// As above, and additionally teardown here is reaper-only: RunPod issues no
 	// per-pod scoped credential, so a Community pod has no in-guest rail that
 	// can stop it billing.
-	CloudProviderRunPodCommunity: MaturityBeta,
+	CloudProviderRunPodCommunity: MaturityExperimental,
 }
 
 // Maturity reports how far this provider has been proven. See ProviderMaturity.
 func (p CloudProvider) Maturity() ProviderMaturity { return providerMaturity[p] }
 
-// IsBeta is the predicate the UI and docs branch on.
-func (p CloudProvider) IsBeta() bool { return p.Maturity() == MaturityBeta }
+// IsExperimental is the predicate the UI and docs branch on.
+func (p CloudProvider) IsExperimental() bool { return p.Maturity() == MaturityExperimental }
 
 // AllCloudProviders is every supported kind, in the order a UI should offer
 // them: least surprising first, peer hardware last.

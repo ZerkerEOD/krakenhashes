@@ -50,6 +50,23 @@ var DiagnosticTables = []string{
 	"rules",
 	"wordlists",
 	"system_settings",
+
+	/*
+	 * Cloud provisioning. These are here because operators running an
+	 * experimental provider (Vast.ai, either RunPod tier) are asked to send a
+	 * bundle when a rental misbehaves, and without these tables the bundle says
+	 * nothing at all about the rental — see
+	 * docs/admin-guide/system-setup/cloud-providers.md#reporting-a-problem-with-an-experimental-provider.
+	 *
+	 * The columns that carry the answer are cost, state and timing, none of
+	 * which are sensitive. The ones that are — the client name, the provider's
+	 * raw response, and the encrypted credentials — are redacted below, and
+	 * db_export_test.go pins both halves so neither drifts.
+	 */
+	"cloud_instances",
+	"cloud_provider_configs",
+	"cloud_spend_ledger",
+	"scheduling_diagnostics",
 }
 
 // SensitiveColumns maps table names to columns that should be censored.
@@ -57,8 +74,8 @@ var DiagnosticTables = []string{
 // operator-authored prose all belong here. Non-string scalars
 // (timestamps, counts, IDs) are safe to pass through verbatim.
 var SensitiveColumns = map[string][]string{
-	"agents":                    {"name", "hostname", "api_key", "last_error", "sync_error", "device_detection_error"},
-	"agent_benchmark_blocklist": {"reason"},
+	"agents":                     {"name", "hostname", "api_key", "last_error", "sync_error", "device_detection_error"},
+	"agent_benchmark_blocklist":  {"reason"},
 	"benchmark_failure_attempts": {"last_error"},
 	"benchmark_requests":         {"error_message"},
 	"hashlists":                  {"name", "file_path", "original_filename"},
@@ -71,6 +88,54 @@ var SensitiveColumns = map[string][]string{
 	"users":                      {"username", "email", "first_name", "last_name"},
 	"clients":                    {"name", "description"},
 	"teams":                      {"name", "description"},
+
+	/*
+	 * Cloud provisioning — redact deliberately narrowly.
+	 *
+	 * sanitizeValue DESTROYS the value; it does not mask part of it. So every
+	 * column listed here is a column a bug report can no longer explain. The
+	 * fields that actually diagnose a bad rental are prose the BACKEND wrote
+	 * about its own behaviour, not anything an operator typed:
+	 *
+	 *   cloud_instances.termination_reason    "TTL expired", "job finished; instance
+	 *                                          is no longer needed", "no work for
+	 *                                          5m41s (idle drain)"
+	 *   cloud_instances.last_terminate_error  the provider's refusal, verbatim — the
+	 *                                          one field that explains a leaked box
+	 *   scheduling_diagnostics.detail         "InsufficientInstanceCapacity ... in
+	 *                                          us-east-2a", "no VPN provider configured"
+	 *   cloud_spend_ledger.note               "launch kh-336d6f84 (Tesla T4 @ 53
+	 *                                          cents/hr for 30m0s)"
+	 *
+	 * Those stay in the clear on purpose. They name AWS regions, GPU models and
+	 * request IDs, never client or hash material, and redacting them would leave
+	 * a bundle that proves only that something went wrong.
+	 *
+	 * `label` is ours too (kh-<hex>) and is what an operator matches against the
+	 * provider's own console, so it also stays.
+	 */
+	"cloud_instances": {
+		// The client's real name, snapshotted at launch so the ledger survives
+		// a rename. Same class as clients.name above.
+		"client_name_snapshot",
+		// A handle to the VPN credential this instance was issued.
+		"vpn_credential_ref",
+		// The provider's raw launch response: public IPs, DNS names, and on some
+		// providers account identifiers.
+		"provider_raw",
+	},
+	"cloud_provider_configs": {
+		// Operator-authored, and routinely named after the engagement it bills to.
+		"name",
+		// Encrypted at rest, but a bundle leaves the deployment — never ship them.
+		"credentials_encrypted",
+		"vpn_credential_encrypted",
+		// Network shape of a server that is deliberately not on the internet.
+		"vpn_tag_or_group",
+		"backend_vpn_host",
+		// Per-provider blob: backend host, agent binary path, provider tags.
+		"settings",
+	},
 }
 
 // systemSettingsSecretKeyPrefixes lists key prefixes whose `value` column in
@@ -510,13 +575,13 @@ func (s *DBExportService) GetSystemInfo(ctx context.Context) (map[string]interfa
 
 	stats := s.db.Stats()
 	info["connection_stats"] = map[string]interface{}{
-		"open_connections":  stats.OpenConnections,
-		"in_use":            stats.InUse,
-		"idle":              stats.Idle,
-		"max_open":          stats.MaxOpenConnections,
-		"wait_count":        stats.WaitCount,
-		"wait_duration_ms":  stats.WaitDuration.Milliseconds(),
-		"max_idle_closed":   stats.MaxIdleClosed,
+		"open_connections":    stats.OpenConnections,
+		"in_use":              stats.InUse,
+		"idle":                stats.Idle,
+		"max_open":            stats.MaxOpenConnections,
+		"wait_count":          stats.WaitCount,
+		"wait_duration_ms":    stats.WaitDuration.Milliseconds(),
+		"max_idle_closed":     stats.MaxIdleClosed,
 		"max_lifetime_closed": stats.MaxLifetimeClosed,
 	}
 

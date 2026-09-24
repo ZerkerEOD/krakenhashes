@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Link,
   Paper,
   Table,
   TableBody,
@@ -25,7 +26,13 @@ import { DeleteForever as DeleteForeverIcon, Warning as WarningIcon } from '@mui
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
-import { CloudInstance, CloudInstanceState, CloudProviderConfig } from '../../types/cloud';
+import {
+  CloudInstance,
+  CloudInstanceState,
+  CloudProviderConfig,
+  CLOUD_DISCORD_URL,
+  CLOUD_ISSUE_URL,
+} from '../../types/cloud';
 import {
   destroyCloudInstance,
   listCloudInstances,
@@ -123,10 +130,18 @@ const CloudFleet: React.FC = () => {
    * belongs HERE rather than only on the settings screen: an operator ticks a
    * provider once and then lives on this page, so a caveat that only appears at
    * configuration time is a caveat nobody re-reads while money is being spent.
+   *
+   * Only the unproven state is marked, unlike the provider settings table: a
+   * Tested chip on every AWS row would be noise on a page that is watched
+   * continuously rather than read once.
    */
-  const betaLive = live.filter((i) => providerByConfig.get(i.provider_config_id)?.maturity === 'beta');
-  const betaProviderNames = Array.from(
-    new Set(betaLive.map((i) => providerByConfig.get(i.provider_config_id)?.name).filter(Boolean))
+  const experimentalLive = live.filter(
+    (i) => providerByConfig.get(i.provider_config_id)?.maturity === 'experimental'
+  );
+  const experimentalProviderNames = Array.from(
+    new Set(
+      experimentalLive.map((i) => providerByConfig.get(i.provider_config_id)?.name).filter(Boolean)
+    )
   ).join(', ');
   const totalHourly = live
     .filter((i) => i.state !== 'terminated' && i.state !== 'failed')
@@ -153,12 +168,29 @@ const CloudFleet: React.FC = () => {
         </Alert>
       )}
 
-      {betaLive.length > 0 && (
+      {experimentalLive.length > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           <AlertTitle>
-            {t('cloud.fleet.betaRunningTitle', { count: betaLive.length }) as string}
+            {
+              t('cloud.fleet.experimentalRunningTitle', {
+                count: experimentalLive.length,
+              }) as string
+            }
           </AlertTitle>
-          {t('cloud.fleet.betaRunningBody', { providers: betaProviderNames }) as string}
+          {
+            t('cloud.fleet.experimentalRunningBody', {
+              providers: experimentalProviderNames,
+            }) as string
+          }
+          <Box sx={{ mt: 1 }}>
+            <Link href={CLOUD_ISSUE_URL} target="_blank" rel="noopener noreferrer">
+              {t('cloud.providers.reportIssueLink') as string}
+            </Link>
+            {' · '}
+            <Link href={CLOUD_DISCORD_URL} target="_blank" rel="noopener noreferrer">
+              {t('cloud.providers.reportDiagnosticsLink') as string}
+            </Link>
+          </Box>
         </Alert>
       )}
 
@@ -207,13 +239,19 @@ const CloudFleet: React.FC = () => {
                   <TableRow key={instance.id}>
                     <TableCell>
                       {instance.label}
-                      {provider?.maturity === 'beta' && (
-                        <Tooltip title={t('cloud.fleet.betaTooltip', { provider: provider.name }) as string}>
+                      {provider?.maturity === 'experimental' && (
+                        <Tooltip
+                          title={
+                            t('cloud.fleet.experimentalTooltip', {
+                              provider: provider.name,
+                            }) as string
+                          }
+                        >
                           <Chip
                             size="small"
                             variant="outlined"
                             color="warning"
-                            label={t('cloud.providers.betaChip') as string}
+                            label={t('cloud.providers.experimentalChip') as string}
                             sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
                           />
                         </Tooltip>

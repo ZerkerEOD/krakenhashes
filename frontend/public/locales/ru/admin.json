@@ -1639,7 +1639,15 @@
       "awsRemoveInstanceType": "Remove",
       "mockSection": "Mock behaviour and fault injection",
       "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it."
+      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "experimentalChip": "Экспериментальный",
+      "experimentalTooltip": "Экспериментальный — ещё не протестирован. Этот адаптер ни разу не проходил полный цикл с реальным провайдером за реальные деньги. Ожидайте ошибок; следите за задачами и сообщайте о том, что найдёте.",
+      "experimentalTitle": "Экспериментальный — ещё не протестирован",
+      "experimentalBody": "Этот провайдер не проверен полным циклом за реальные деньги: запуск, ввод в работу, перебор, корректное освобождение и возврат бюджета ни разу не наблюдались вместе. Он должен работать, и в нём будут ошибки. Начните с небольшого лимита бюджета и малого числа экземпляров и следите на странице «Облачный парк» за экземплярами, которые не освобождаются. Пожалуйста, сообщайте обо всех проблемах.",
+      "testedChip": "Протестирован",
+      "testedTooltip": "Протестирован — пройден полный цикл с реальным провайдером за реальные деньги: запуск, перебор, корректное освобождение и подтверждённый возврат бюджета.",
+      "reportIssueLink": "Сообщить об ошибке на GitHub",
+      "reportDiagnosticsLink": "Отправить диагностику в Discord (не в issue)"
     },
     "budgets": {
       "title": "Client budgets",
@@ -1804,7 +1812,10 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
-      }
+      },
+      "experimentalRunningTitle": "Экземпляров на экспериментальном провайдере: {{count}}",
+      "experimentalRunningBody": "{{providers}} не проверен полным циклом за реальные деньги. Убедитесь, что эти экземпляры действительно достигают состояния «terminated», а не предполагайте это: освобождение — наименее протестированная часть любого нового адаптера, и экземпляр, который не освобождается, продолжает тратить деньги, пока вы не уничтожите его здесь. Пожалуйста, сообщайте о наблюдениях.",
+      "experimentalTooltip": "{{provider}} — экспериментальный провайдер, ещё не протестирован. Ожидайте ошибок; убедитесь, что этот экземпляр действительно освобождается после завершения задачи."
     },
     "rules": {
       "title": "Когда системе разрешено тратить",

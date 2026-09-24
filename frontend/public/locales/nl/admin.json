@@ -1639,7 +1639,15 @@
       "awsRemoveInstanceType": "Remove",
       "mockSection": "Mock behaviour and fault injection",
       "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it."
+      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "experimentalChip": "Experimenteel",
+      "experimentalTooltip": "Experimenteel — nog niet getest. Deze adapter is nooit van begin tot eind tegen de echte provider met echt geld gedraaid. Reken op bugs; houd uw jobs in de gaten en meld wat u tegenkomt.",
+      "experimentalTitle": "Experimenteel — nog niet getest",
+      "experimentalBody": "Deze provider is niet van begin tot eind met echt geld bewezen: opstarten, in bedrijf nemen, cracken, netjes vrijgeven en de budgetrestitutie zijn niet samen waargenomen. Hij zou moeten werken, en hij zal bugs hebben. Begin met een klein budgetplafond en weinig instanties, en let op de pagina Cloud-vloot op instanties die niet worden vrijgegeven. Meld alstublieft alles wat misgaat.",
+      "testedChip": "Getest",
+      "testedTooltip": "Getest — van begin tot eind tegen de echte provider met echt geld gedraaid: opstarten, cracken, netjes vrijgeven en een afgerekende budgetrestitutie.",
+      "reportIssueLink": "Bug melden op GitHub",
+      "reportDiagnosticsLink": "Diagnostiek via Discord sturen (niet in het issue)"
     },
     "budgets": {
       "title": "Client budgets",
@@ -1804,7 +1812,10 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
-      }
+      },
+      "experimentalRunningTitle": "{{count}} instantie(s) draaien op een experimentele provider",
+      "experimentalRunningBody": "{{providers}} is niet van begin tot eind met echt geld bewezen. Controleer dat deze instanties daadwerkelijk 'terminated' bereiken in plaats van dat aan te nemen: vrijgeven is het minst geteste deel van elke nieuwe adapter, en een instantie die nooit wordt vrijgegeven blijft kosten maken tot u hem hier vernietigt. Meld alstublieft wat u ziet.",
+      "experimentalTooltip": "{{provider}} is een experimentele provider — nog niet getest. Reken op bugs; controleer of deze instantie echt wordt vrijgegeven als de job klaar is."
     },
     "rules": {
       "title": "Wanneer het systeem mag uitgeven",

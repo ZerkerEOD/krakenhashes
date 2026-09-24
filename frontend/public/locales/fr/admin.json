@@ -1656,7 +1656,15 @@
       "awsRemoveInstanceType": "Remove",
       "mockSection": "Mock behaviour and fault injection",
       "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it."
+      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "experimentalChip": "Expérimental",
+      "experimentalTooltip": "Expérimental — pas encore testé. Cet adaptateur n'a jamais été exécuté de bout en bout contre le fournisseur réel en dépensant de l'argent réel. Attendez-vous à des bugs ; surveillez vos travaux et signalez ce que vous trouvez.",
+      "experimentalTitle": "Expérimental — pas encore testé",
+      "experimentalBody": "Ce fournisseur n'a jamais été éprouvé de bout en bout avec de l'argent réel : démarrage, mise en service, cracking, libération propre et remboursement du budget n'ont pas été observés ensemble. Il devrait fonctionner, et il aura des bugs. Commencez avec un petit plafond de budget et peu d'instances, et surveillez sur la page Flotte cloud les instances qui ne se libèrent pas. Merci de signaler tout problème.",
+      "testedChip": "Testé",
+      "testedTooltip": "Testé — exécuté de bout en bout contre le fournisseur réel avec de l'argent réel : démarrage, cracking, libération propre et un remboursement de budget soldé.",
+      "reportIssueLink": "Signaler un bug sur GitHub",
+      "reportDiagnosticsLink": "Envoyer les diagnostics sur Discord (pas dans l'issue)"
     },
     "budgets": {
       "title": "Client budgets",
@@ -1821,7 +1829,10 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
-      }
+      },
+      "experimentalRunningTitle": "{{count}} instance(s) sur un fournisseur expérimental",
+      "experimentalRunningBody": "{{providers}} n'a jamais été éprouvé de bout en bout avec de l'argent réel. Vérifiez que ces instances atteignent bien « terminated » au lieu de le supposer : la libération est la partie la moins testée de tout nouvel adaptateur, et une instance qui ne se libère jamais continue de facturer jusqu'à ce que vous la détruisiez ici. Merci de signaler ce que vous observez.",
+      "experimentalTooltip": "{{provider}} est un fournisseur expérimental — pas encore testé. Attendez-vous à des bugs ; confirmez que cette instance se libère réellement à la fin de son travail."
     },
     "rules": {
       "title": "Quand le système peut dépenser",

@@ -24,7 +24,7 @@ func TestEveryProviderDeclaresMaturity(t *testing.T) {
 				"Add it to providerMaturity in cloud.go. Stable means it has been driven "+
 				"end to end against the real provider INCLUDING teardown and the budget "+
 				"refund — not that the code looks finished. If it has not been paid for, "+
-				"it is beta.", p)
+				"it is experimental.", p)
 		}
 	}
 }
@@ -47,12 +47,12 @@ func TestOnlyProvenProvidersAreStable(t *testing.T) {
 		{CloudProviderMock, MaturityStable,
 			"spends nothing and rents no hardware; there is no operator risk to warn about"},
 
-		{CloudProviderVastAI, MaturityBeta,
+		{CloudProviderVastAI, MaturityExperimental,
 			"fully implemented and never once paid for; the rental lifecycle is unproven " +
 				"against the live marketplace"},
-		{CloudProviderRunPod, MaturityBeta,
+		{CloudProviderRunPod, MaturityExperimental,
 			"written against the documented API with no account to verify it on"},
-		{CloudProviderRunPodCommunity, MaturityBeta,
+		{CloudProviderRunPodCommunity, MaturityExperimental,
 			"as RunPod Secure, and teardown is reaper-only: no per-pod scoped credential " +
 				"exists, so nothing inside the pod can stop it billing"},
 	}
@@ -71,9 +71,9 @@ func TestOnlyProvenProvidersAreStable(t *testing.T) {
 					"operators to monitor their jobs. Do it only after a real paid run "+
 					"reaches clean teardown, and say so here.", tc.provider, got, tc.want, tc.why)
 			}
-			if tc.provider.IsBeta() != (tc.want == MaturityBeta) {
-				t.Errorf("%s.IsBeta() disagrees with Maturity(); the UI branches on IsBeta",
-					tc.provider)
+			if tc.provider.IsExperimental() != (tc.want == MaturityExperimental) {
+				t.Errorf("%s.IsExperimental() disagrees with Maturity(); the UI branches "+
+					"on IsExperimental", tc.provider)
 			}
 		})
 	}
@@ -83,20 +83,21 @@ func TestOnlyProvenProvidersAreStable(t *testing.T) {
  * TestMaturityIsIndependentOfTrustTier keeps two questions from collapsing into
  * one. "Have we proven this works?" and "does this put hash material on
  * hardware you do not control?" are different, and the pairs prove it:
- * RunPod Secure is beta but not third-party, Mock is neither, Vast is both.
+ * RunPod Secure is experimental but not third-party, Mock is neither, Vast is
+ * both.
  *
  * Collapsing them would mean either an untested first-party provider silently
  * acquiring a data-exposure consent gate, or a proven peer provider losing one.
  */
 func TestMaturityIsIndependentOfTrustTier(t *testing.T) {
-	if !CloudProviderRunPod.IsBeta() || CloudProviderRunPod.RequiresThirdPartyAck() {
-		t.Error("RunPod Secure must be beta AND not third-party; it is the pair that " +
-			"proves the two predicates are independent")
+	if !CloudProviderRunPod.IsExperimental() || CloudProviderRunPod.RequiresThirdPartyAck() {
+		t.Error("RunPod Secure must be experimental AND not third-party; it is the pair " +
+			"that proves the two predicates are independent")
 	}
-	if CloudProviderMock.IsBeta() || CloudProviderMock.RequiresThirdPartyAck() {
-		t.Error("Mock must be neither beta nor third-party")
+	if CloudProviderMock.IsExperimental() || CloudProviderMock.RequiresThirdPartyAck() {
+		t.Error("Mock must be neither experimental nor third-party")
 	}
-	if !CloudProviderVastAI.IsBeta() || !CloudProviderVastAI.RequiresThirdPartyAck() {
-		t.Error("Vast.ai must be both beta and third-party")
+	if !CloudProviderVastAI.IsExperimental() || !CloudProviderVastAI.RequiresThirdPartyAck() {
+		t.Error("Vast.ai must be both experimental and third-party")
 	}
 }

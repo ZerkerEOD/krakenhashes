@@ -1639,7 +1639,15 @@
       "awsRemoveInstanceType": "Remove",
       "mockSection": "Mock behaviour and fault injection",
       "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it."
+      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "experimentalChip": "Experimentell",
+      "experimentalTooltip": "Experimentell — noch nicht getestet. Dieser Adapter wurde nie mit echtem Geld vollständig gegen den realen Anbieter durchlaufen. Rechnen Sie mit Fehlern; überwachen Sie Ihre Jobs und melden Sie, was Sie finden.",
+      "experimentalTitle": "Experimentell — noch nicht getestet",
+      "experimentalBody": "Dieser Anbieter wurde nie mit echtem Geld vollständig erprobt: Start, Inbetriebnahme, Cracking, saubere Freigabe und die Budget-Rückerstattung wurden nicht zusammen beobachtet. Er sollte funktionieren, und er wird Fehler haben. Beginnen Sie mit einem kleinen Budgetlimit und wenigen Instanzen und achten Sie auf der Seite „Cloud-Flotte“ auf Instanzen, die nicht freigegeben werden. Bitte melden Sie alles, was schiefgeht.",
+      "testedChip": "Getestet",
+      "testedTooltip": "Getestet — mit echtem Geld vollständig gegen den realen Anbieter durchlaufen: Start, Cracking, saubere Freigabe und eine abgerechnete Budget-Rückerstattung.",
+      "reportIssueLink": "Fehler auf GitHub melden",
+      "reportDiagnosticsLink": "Diagnose per Discord senden (nicht im Issue)"
     },
     "budgets": {
       "title": "Client budgets",
@@ -1804,7 +1812,10 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
-      }
+      },
+      "experimentalRunningTitle": "{{count}} Instanz(en) laufen auf einem experimentellen Anbieter",
+      "experimentalRunningBody": "{{providers}} wurde nie mit echtem Geld vollständig erprobt. Prüfen Sie, dass diese Instanzen tatsächlich den Status „terminated“ erreichen, statt es anzunehmen: Der Teardown-Pfad ist der am wenigsten getestete Teil jedes neuen Adapters, und eine Instanz, die nie freigegeben wird, kostet weiter, bis Sie sie hier zerstören. Bitte melden Sie, was Sie beobachten.",
+      "experimentalTooltip": "{{provider}} ist ein experimenteller Anbieter — noch nicht getestet. Rechnen Sie mit Fehlern; prüfen Sie, dass diese Instanz nach Abschluss ihres Jobs wirklich freigegeben wird."
     },
     "rules": {
       "title": "Wann das System Geld ausgeben darf",

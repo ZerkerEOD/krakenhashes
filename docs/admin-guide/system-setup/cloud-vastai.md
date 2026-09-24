@@ -1,10 +1,15 @@
 # Vast.ai
 
-!!! warning "Beta — implemented but never paid for"
+!!! warning "Experimental — implemented but never paid for"
     Fully implemented; never once driven end to end with a funded account. The rental
     lifecycle is unproven against the live marketplace. Start with a small budget and a
     one-instance cap, and watch instances reach `terminated` rather than assuming they will.
     See [Maturity](cloud-providers.md#maturity-which-providers-have-actually-been-paid-for).
+
+    **If you run this, please say what happened** — that is the only thing that moves Vast.ai
+    off this list. File a bug report, and send diagnostics by Discord DM rather than
+    attaching them:
+    [Reporting a problem](cloud-providers.md#reporting-a-problem-with-an-experimental-provider).
 
 !!! danger "Every Vast.ai host has root over your container"
     Vast.ai is a marketplace of **individually-owned consumer machines**. The owner of the

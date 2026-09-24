@@ -1639,7 +1639,15 @@
       "awsRemoveInstanceType": "Remove",
       "mockSection": "Mock behaviour and fault injection",
       "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it."
+      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "experimentalChip": "实验性",
+      "experimentalTooltip": "实验性 — 尚未测试。此适配器从未用真实资金在真实提供商上完整跑通。预期会有缺陷；请监控您的作业并反馈发现的问题。",
+      "experimentalTitle": "实验性 — 尚未测试",
+      "experimentalBody": "该提供商尚未用真实资金完整验证：启动、初始化、破解、干净释放以及预算退款从未被一起观察到。它应该可以工作，但会有缺陷。请从较小的预算上限和较低的实例数量开始，并在「云机群」页面留意未被释放的实例。请反馈任何异常。",
+      "testedChip": "已测试",
+      "testedTooltip": "已测试 — 已用真实资金在真实提供商上完整跑通：启动、破解、干净释放以及已结算的预算退款。",
+      "reportIssueLink": "在 GitHub 提交缺陷",
+      "reportDiagnosticsLink": "通过 Discord 发送诊断（勿放入 issue）"
     },
     "budgets": {
       "title": "Client budgets",
@@ -1804,7 +1812,10 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
-      }
+      },
+      "experimentalRunningTitle": "{{count}} 个实例运行在实验性提供商上",
+      "experimentalRunningBody": "{{providers}} 尚未用真实资金完整验证。请确认这些实例确实进入「terminated」状态，而不要想当然：释放是任何新适配器中测试最少的环节，未被释放的实例会持续计费，直到您在此处销毁它。请反馈您观察到的情况。",
+      "experimentalTooltip": "{{provider}} 是实验性提供商 — 尚未测试。预期会有缺陷；请确认作业完成后该实例确实被释放。"
     },
     "rules": {
       "title": "系统何时可以花钱",

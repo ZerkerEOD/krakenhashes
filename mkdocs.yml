@@ -135,6 +135,10 @@ nav:
       - Authentication: admin-guide/system-setup/authentication.md
       - SSO Authentication: admin-guide/system-setup/sso.md
       - Cloud GPU Providers: admin-guide/system-setup/cloud-providers.md
+      - "Cloud: AWS EC2": admin-guide/system-setup/cloud-aws.md
+      - "Cloud: RunPod": admin-guide/system-setup/cloud-runpod.md
+      - "Cloud: Vast.ai": admin-guide/system-setup/cloud-vastai.md
+      - "Cloud: Agent VPN": admin-guide/system-setup/cloud-vpn.md
     - Resource Management:
       - Managing Binaries: admin-guide/resource-management/binaries.md
       - Wordlist Management: admin-guide/resource-management/wordlists.md

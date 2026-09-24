@@ -1639,7 +1639,15 @@
       "awsRemoveInstanceType": "Remove",
       "mockSection": "Mock behaviour and fault injection",
       "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it."
+      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "experimentalChip": "Experimental",
+      "experimentalTooltip": "Experimental — aún sin probar. Este adaptador nunca se ha ejecutado de principio a fin contra el proveedor real gastando dinero real. Espere errores; vigile sus trabajos e informe de lo que encuentre.",
+      "experimentalTitle": "Experimental — aún sin probar",
+      "experimentalBody": "Este proveedor no se ha probado de principio a fin con dinero real: el arranque, la puesta en marcha, el cracking, la liberación limpia y el reembolso del presupuesto no se han observado funcionando juntos. Debería funcionar, y tendrá errores. Empiece con un límite de presupuesto pequeño y pocas instancias, y vigile en la página Flota en la nube las instancias que no se liberan. Informe de cualquier problema.",
+      "testedChip": "Probado",
+      "testedTooltip": "Probado — ejecutado de principio a fin contra el proveedor real con dinero real: arranque, cracking, liberación limpia y un reembolso de presupuesto liquidado.",
+      "reportIssueLink": "Informar de un error en GitHub",
+      "reportDiagnosticsLink": "Enviar diagnósticos por Discord (no en el issue)"
     },
     "budgets": {
       "title": "Client budgets",
@@ -1804,7 +1812,10 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
-      }
+      },
+      "experimentalRunningTitle": "{{count}} instancia(s) en un proveedor experimental",
+      "experimentalRunningBody": "{{providers}} no se ha probado de principio a fin con dinero real. Compruebe que estas instancias llegan a «terminated» en lugar de darlo por hecho: la liberación es la parte menos probada de cualquier adaptador nuevo, y una instancia que nunca se libera sigue facturando hasta que la destruya aquí. Informe de lo que observe.",
+      "experimentalTooltip": "{{provider}} es un proveedor experimental — aún sin probar. Espere errores; confirme que esta instancia se libera realmente cuando termine su trabajo."
     },
     "rules": {
       "title": "Cuándo puede gastar el sistema",

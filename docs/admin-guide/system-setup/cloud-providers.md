@@ -57,22 +57,24 @@ address must appear in the server certificate's subject alternative names.
 
 ## Maturity: which providers have actually been paid for
 
-**Beta does not mean unfinished.** It means nobody has yet driven that adapter end to end
-against the real provider, spending real money, and watched it come back clean. An
+**Experimental does not mean unfinished.** It means nobody has yet driven that adapter end
+to end against the real provider, spending real money, and watched it come back clean. An
 implemented adapter and a proven one look identical from the outside and cost very
-differently when they are wrong.
+differently when they are wrong. Only **AWS** has been through that, which is why it is the
+only one marked Tested.
 
 | Kind | Maturity | What that is based on |
 |---|---|---|
-| `aws` | **Stable** | Driven end to end on a real account: 141s commissioning, 3/3 hashes cracked, released at 3.8 minutes, 54c of 57c reserved refunded |
-| `mock` | **Stable** | Rents nothing and spends nothing |
-| `vastai` | **Beta** | Fully implemented; never once paid for. The rental lifecycle is unproven against the live marketplace |
-| `runpod` (Secure Cloud) | **Beta** | Written against the documented API with no account to verify it on |
-| `runpod_community` | **Beta** | As above, **and teardown is reaper-only** — see [RunPod](cloud-runpod.md#teardown-differs-sharply-between-the-two-tiers) |
+| `aws` | **Tested** | Driven end to end on a real account: 141s commissioning, 3/3 hashes cracked, released at 3.8 minutes, 54c of 57c reserved refunded |
+| `mock` | **Tested** | Rents nothing and spends nothing |
+| `vastai` | **Experimental** | Fully implemented; never once paid for. The rental lifecycle is unproven against the live marketplace |
+| `runpod` (Secure Cloud) | **Experimental** | Written against the documented API with no account to verify it on |
+| `runpod_community` | **Experimental** | As above, **and teardown is reaper-only** — see [RunPod](cloud-runpod.md#teardown-differs-sharply-between-the-two-tiers) |
 
-!!! warning "What to do when running a beta provider"
-    The UI marks these with a **Beta** chip in Provider settings and a banner on the Cloud
-    Fleet page whenever a beta instance is live. Expect bugs, and:
+!!! warning "What to do when running an experimental provider"
+    The UI marks these with an **Experimental** chip in Provider settings — against a green
+    **Tested** chip on the proven ones — and a banner on the Cloud Fleet page whenever an
+    experimental instance is live. Expect bugs, and:
 
     - **Start with a small `cloud_budget_cents` and a low `max_concurrent_instances`.**
       The cheapest bug to survive is one that can only rent one box.
@@ -81,9 +83,52 @@ differently when they are wrong.
       fails. The Cloud Fleet page calls out instances whose teardown is failing.
     - **Set a `max_instance_ttl_minutes` you are willing to pay in full**, since it is the
       backstop when every other release path misses.
+    - **Report what you find** — see [below](#reporting-a-problem-with-an-experimental-provider).
+      These adapters become Tested only when somebody runs them and says what happened.
 
 This is a **separate axis from trust**, and the two only partly overlap: RunPod Secure is
-beta but first-party, Vast.ai is both beta and third-party, and `mock` is neither.
+experimental but first-party, Vast.ai is both experimental and third-party, and `mock` is
+neither.
+
+---
+
+## Reporting a problem with an experimental provider
+
+Vast.ai and both RunPod tiers ship unproven on purpose rather than hidden, and the only way
+they stop being unproven is a report from someone who ran one. Anything surprising is worth
+sending, even if it eventually worked.
+
+**Two destinations, and the split matters:**
+
+| What | Where |
+|---|---|
+| The narrative — what you did, what you expected, what happened | A **bug report** on [GitHub](https://github.com/ZerkerEOD/krakenhashes/issues/new/choose), component **Cloud Provisioning** |
+| Logs, diagnostic bundles, database rows | A **Discord DM** — [discord.gg/taafA9cSFV](https://discord.gg/taafA9cSFV) |
+
+!!! danger "Do not attach diagnostics to a GitHub issue"
+    A GitHub issue is public and permanent. The diagnostic bundle carries client names,
+    hostnames, job metadata and hashlist names, and even a hand-trimmed log usually keeps
+    more than you meant. Send those over Discord instead, and reference the issue number.
+
+**What to collect**, in descending order of usefulness:
+
+1. **What the provider's own console said.** This is the one fact KrakenHashes cannot know,
+   and the one that matters most — particularly whether anything is *still running* there
+   after the backend believes it destroyed the instance.
+2. **The diagnostics bundle** from **Admin → Diagnostics** (see
+   [Diagnostics](../operations/diagnostics.md)). It now includes the cloud tables.
+3. **The instance row**, which is the whole rental in one line:
+
+    ```sql
+    SELECT label, state, termination_reason, terminate_attempts, last_terminate_error,
+           launched_at, ready_at, terminated_at, ttl_epoch,
+           reserved_cents, estimated_cost_cents, actual_cost_cents
+      FROM cloud_instances ORDER BY created_at DESC LIMIT 5;
+    ```
+
+4. **Whatever the job page said.** A job that will not provision explains itself there —
+   budget reached, cap reached, no capacity, instances that could not connect back. A job
+   sitting at `pending` with **no** explanation is itself a bug worth reporting.
 
 ---
 
@@ -134,7 +179,7 @@ first — see [Cloud Agent VPN](cloud-vpn.md).
 
 ### [AWS EC2 →](cloud-aws.md)
 
-Your own AWS account, your IAM, AWS datacenters. **Stable** — the only provider driven end to
+Your own AWS account, your IAM, AWS datacenters. **Tested** — the only provider driven end to
 end with real money. Needs a GPU quota increase (quotas default to **zero** on every account),
 an IAM policy, and a set of availability zones. That page publishes the IAM policy the
 reference deployment actually runs.
@@ -143,12 +188,12 @@ reference deployment actually runs.
 
 Two separate provider kinds: **Secure Cloud** (RunPod's own datacenters, single-tenant,
 SOC 2 — treat it like AWS) and **Community Cloud** (peer-operated, full consent chain). Both
-**beta**. The difference that matters is teardown: a Community pod has no in-guest rail and
-the backend reaper is the only thing that can stop it billing.
+**experimental**. The difference that matters is teardown: a Community pod has no in-guest
+rail and the backend reaper is the only thing that can stop it billing.
 
 ### [Vast.ai →](cloud-vastai.md)
 
-A marketplace of individually-owned machines. **Beta**, and the host operator has root over
+A marketplace of individually-owned machines. **Experimental**, and the host operator has root over
 your container. Four selection axes — country, GPU model allow/deny, verified-datacenter
 toggle, and a reliability floor.
 

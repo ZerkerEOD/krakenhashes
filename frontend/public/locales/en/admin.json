@@ -1801,10 +1801,6 @@
         },
         "axesModeNote": "This provider stores countries and GPU models as two independent lists, so ticking a card applies it in every selected country. The per-cell counts and prices below are still real and specific to that country."
       },
-      "betaChip": "Beta",
-      "betaTooltip": "Beta — pending testing. This adapter has never been driven end to end against the real provider spending real money. Expect bugs; monitor your jobs.",
-      "betaTitle": "Beta — pending testing",
-      "betaBody": "This provider has not been proven end to end with real money: boot, commissioning, cracking, clean release and the budget refund have not all been observed working together. It should function, and it will have bugs. Monitor your jobs and watch the Cloud Fleet page for instances that do not release. Start with a small budget cap and a low instance limit.",
       "vastSection": "Vast.ai placement and hardware policy",
       "vastSectionHelp": "Which countries and which cards this provider may rent. Leaving a list empty means no restriction, which is the widest pool and the default.",
       "vastTierWarningTitle": "You are opening an unvetted host tier",
@@ -1812,7 +1808,15 @@
       "runpodSection": "RunPod placement and hardware policy",
       "runpodSectionHelp": "Which data centres and GPU types this provider may rent. RunPod prices live, so there are no rates to declare here — unlike AWS.",
       "runpodCommunityTeardownTitle": "Community teardown is the backend reaper alone",
-      "runpodCommunityTeardownBody": "RunPod issues no per-pod scoped credential, so there is no safe way for a Community pod to delete itself: the only key that would work is account-scoped, and a Community host operator has root over the container and would read it out of the environment. The in-guest deadline still kills hashcat and ends the data exposure, but it CANNOT stop the pod billing. If this backend is down or wedged, a Community pod bills until you destroy it by hand from the Cloud Fleet page. Set a low instance TTL ceiling and a small budget cap on any client allowed to use this tier."
+      "runpodCommunityTeardownBody": "RunPod issues no per-pod scoped credential, so there is no safe way for a Community pod to delete itself: the only key that would work is account-scoped, and a Community host operator has root over the container and would read it out of the environment. The in-guest deadline still kills hashcat and ends the data exposure, but it CANNOT stop the pod billing. If this backend is down or wedged, a Community pod bills until you destroy it by hand from the Cloud Fleet page. Set a low instance TTL ceiling and a small budget cap on any client allowed to use this tier.",
+      "experimentalChip": "Experimental",
+      "experimentalTooltip": "Experimental — not yet tested. This adapter has never been driven end to end against the real provider spending real money. Expect bugs; monitor your jobs and report what you find.",
+      "experimentalTitle": "Experimental — not yet tested",
+      "experimentalBody": "This provider has not been proven end to end with real money: boot, commissioning, cracking, clean release and the budget refund have not all been observed working together. It should function, and it will have bugs. Start with a small budget cap and a low instance limit, and watch the Cloud Fleet page for instances that do not release. Please report anything that goes wrong.",
+      "testedChip": "Tested",
+      "testedTooltip": "Tested — driven end to end against the real provider with real money, through boot, cracking, clean release and a settled budget refund.",
+      "reportIssueLink": "Report a bug on GitHub",
+      "reportDiagnosticsLink": "Send diagnostics on Discord (not in the issue)"
     },
     "budgets": {
       "title": "Client budgets",
@@ -1978,9 +1982,9 @@
         "disk": "Disk",
         "actions": "Actions"
       },
-      "betaRunningTitle": "{{count}} instance(s) running on a beta provider",
-      "betaRunningBody": "{{providers}} has not been proven end to end with real money. Watch these instances reach 'terminated' rather than assuming they will: the teardown path is the least tested part of any new adapter, and an instance that never releases bills until you destroy it here.",
-      "betaTooltip": "{{provider}} is a beta provider — pending testing. Expect bugs; confirm this instance actually releases when its job finishes."
+      "experimentalRunningTitle": "{{count}} instance(s) running on an experimental provider",
+      "experimentalRunningBody": "{{providers}} has not been proven end to end with real money. Watch these instances reach 'terminated' rather than assuming they will: the teardown path is the least tested part of any new adapter, and an instance that never releases bills until you destroy it here. Please report what you see.",
+      "experimentalTooltip": "{{provider}} is an experimental provider — not yet tested. Expect bugs; confirm this instance actually releases when its job finishes."
     },
     "rules": {
       "title": "When the system may spend",
