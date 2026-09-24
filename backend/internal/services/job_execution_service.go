@@ -271,6 +271,17 @@ type CustomJobConfig struct {
 	IncrementMax              *int
 	AssociationWordlistID     *uuid.UUID // For association attacks (-a 9)
 	AdditionalArgs            *string    // Additional hashcat arguments
+
+	// CloudBurstEnabled opts this job into renting paid GPU capacity, and
+	// CloudMaxInstances caps that concurrency separately from MaxAgents (which
+	// governs only the shared on-prem pool). Off by default.
+	CloudBurstEnabled bool
+	CloudMaxInstances *int
+	// CloudAllowCommunityHosts opts this job onto peer-operated hardware
+	// (Vast.ai, RunPod Community), where the host's owner has root over the
+	// container. Independent of CloudBurstEnabled: a job may legitimately burst
+	// to SOC 2 capacity while never touching someone else's machine.
+	CloudAllowCommunityHosts bool
 }
 
 // CreateJobExecution creates a new job execution from a preset job and hashlist
@@ -390,7 +401,15 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		ProcessedKeyspace: models.NewBigInt(0),
 		AttackMode:        presetJob.AttackMode,
 		MaxAgents:         presetJob.MaxAgents,
-		CreatedBy:         createdBy,
+		// Carried from the preset so the opt-in survives into the job the
+		// scheduler actually reads.
+		CloudBurstEnabled: presetJob.CloudBurstEnabled,
+		CloudMaxInstances: presetJob.CloudMaxInstances,
+		// Peer-host consent travels with the preset for the same reason: it is
+		// the job row the provisioning gate reads, so a flag left behind here
+		// silently denies capacity the operator did allow.
+		CloudAllowCommunityHosts: presetJob.CloudAllowCommunityHosts,
+		CreatedBy:                createdBy,
 
 		// Copy all configuration from preset to make job self-contained
 		Name:                      customJobName, // Will be set after getting client info
@@ -423,7 +442,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	}
 
 	// Record that base_keyspace is an upper-bound estimate and tell the operator.
-	// Mirrors CreateCustomJobExecution's handling, and must run BEFORE
+	// Mirrors FinalizeJob's handling, and must run BEFORE
 	// populateSchedulingUnitsIfEnabled below — that is what copies the flag onto
 	// the units, and without it on the unit the dispatcher's estimated-tail guard
 	// (resolveEstimatedKeyspaceOverrun) can never fire for this job.
@@ -621,6 +640,9 @@ func (s *JobExecutionService) CreatePreparingJob(ctx context.Context, config Cus
 		Priority:                  config.Priority,
 		AttackMode:                config.AttackMode,
 		MaxAgents:                 config.MaxAgents,
+		CloudBurstEnabled:         config.CloudBurstEnabled,
+		CloudMaxInstances:         config.CloudMaxInstances,
+		CloudAllowCommunityHosts:  config.CloudAllowCommunityHosts,
 		CreatedBy:                 createdBy,
 		Name:                      name,
 		WordlistIDs:               config.WordlistIDs, // user's selection (display only until finalize)
@@ -1233,6 +1255,13 @@ func (s *JobExecutionService) calculateTotalCandidates(
 	args = append(args, "--session", sessionID)
 	args = append(args, "--quiet")
 
+	// Skip the exec entirely once this binary has already rejected the flag.
+	// Without this the pre-flight re-runs a doomed process on every cycle for a
+	// condition that cannot change until a different hashcat binary is uploaded.
+	if !hashcatSupportsTotalCandidates(hashcatPath) {
+		return 0, false, nil
+	}
+
 	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
 
 	var lastErr error
@@ -1275,6 +1304,11 @@ func (s *JobExecutionService) calculateTotalCandidates(
 				strings.Contains(stderrStr, "already running") {
 				lastErr = fmt.Errorf("hashcat busy: %s", stderrStr)
 				continue // Retry
+			}
+			// The binary predates the flag. Record it so later runs skip the exec
+			// entirely, and do not log the same permanent condition every cycle.
+			if noteTotalCandidatesFailure(hashcatPath, stderrStr) {
+				return 0, false, nil
 			}
 			// Other error - log and allow fallback
 			debug.Warning("--total-candidates failed: %v, stderr: %s", err, stderrStr)

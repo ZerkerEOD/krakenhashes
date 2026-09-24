@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	khauth "github.com/ZerkerEOD/krakenhashes/backend/internal/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -205,7 +206,7 @@ func TestLogoutHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	// Store token in database
-	err = db.StoreToken(testUser.ID.String(), token)
+	_, err = db.StoreToken(testUser.ID.String(), token)
 	require.NoError(t, err)
 
 	t.Run("successful logout with token", func(t *testing.T) {
@@ -261,9 +262,9 @@ func TestCheckAuthHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	// Store tokens
-	err = db.StoreToken(adminUser.ID.String(), adminToken)
+	_, err = db.StoreToken(adminUser.ID.String(), adminToken)
 	require.NoError(t, err)
-	err = db.StoreToken(regularUser.ID.String(), userToken)
+	_, err = db.StoreToken(regularUser.ID.String(), userToken)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -342,7 +343,7 @@ func TestCookieDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.host, func(t *testing.T) {
-			domain := getCookieDomain(tt.host)
+			domain := khauth.GetCookieDomain(tt.host)
 			assert.Equal(t, tt.expectedDomain, domain)
 		})
 	}

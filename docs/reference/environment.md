@@ -149,14 +149,60 @@ The backend builds the connection string dynamically from these variables.
 | `CORS_ALLOWED_ORIGIN` | string | `https://localhost:443` | No | Allowed CORS origin |
 | `ALLOWED_ORIGINS` | string | `*` | No | Comma-separated list of allowed origins |
 
+### Secret Encryption
+
+| Variable | Type | Default | Required | Description |
+|----------|------|---------|----------|-------------|
+| `KH_ENCRYPTION_KEY` | string | - | No | AES-256-GCM key for every secret stored in the database (SSO secrets, cloud provider credentials, VPN enrollment credentials). Generate with `openssl rand -base64 32`. If unset, the server generates and persists one — see below |
+| `SSO_ENCRYPTION_KEY` | string | - | No | Legacy, SSO-scoped name for the same key. Still fully honored. Used only when `KH_ENCRYPTION_KEY` is unset |
+| `KH_ALLOW_EPHEMERAL_KEY` | bool | `false` | No | Boot with a throwaway key when none can be persisted, instead of refusing to start. Development only |
+
+The key is resolved in this order:
+
+1. `KH_ENCRYPTION_KEY`
+2. `SSO_ENCRYPTION_KEY` (legacy)
+3. `$KH_CONFIG_DIR/secrets/encryption.key` — generated on first boot at mode `0600` inside a
+   `0700` directory, then reused on every later start
+4. A throwaway key, **only** when `KH_ALLOW_EPHEMERAL_KEY=true`
+
+Setting either variable is therefore optional: a server with neither still keeps its secrets
+across restarts. Set one explicitly to hold the key outside the config directory, or to share
+a single key across several servers.
+
+!!! warning "Back up the generated key file"
+    `$KH_CONFIG_DIR/secrets/encryption.key` is the only copy. Without it, stored cloud
+    provider credentials, VPN enrollment credentials and SSO secrets cannot be decrypted and
+    must be re-entered.
+
+!!! danger "The server refuses to start on a key it cannot use"
+    If the key file exists but is unreadable, empty, or the wrong length, startup fails and
+    names the path. It is **never** silently replaced — regenerating would turn one bad file
+    into every stored secret becoming permanently undecryptable, which would not surface
+    until a cloud launch or an SSO login failed much later. Restore it from backup, or delete
+    it deliberately to start over with new secrets.
+
+!!! warning "Do not set both to different values"
+    If `KH_ENCRYPTION_KEY` and `SSO_ENCRYPTION_KEY` are both set to different values,
+    `KH_ENCRYPTION_KEY` wins and anything previously encrypted under the legacy key
+    (SSO bind passwords, SAML private keys, OAuth client secrets) will fail to decrypt
+    until re-entered. To migrate, copy the existing `SSO_ENCRYPTION_KEY` value into
+    `KH_ENCRYPTION_KEY` and remove the old variable.
+
 ### SSO Configuration
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `SSO_ENCRYPTION_KEY` | string | - | Yes* | AES-256-GCM key for encrypting SSO secrets. Generate with `openssl rand -base64 32` |
 | `KH_EXTERNAL_URL` | string | - | No | External URL for SSO redirect callbacks (e.g., `https://krakenhashes.local:8443`). Required when behind a reverse proxy on a nonstandard port. Falls back to request Host header if unset |
 
-\* Required in production for SSO secrets to persist across restarts
+### Single-Instance Guard
+
+Only one backend may run against a given database: the job scheduler's concurrency guard
+is process-local, so two backends dispatch the same keyspace intervals twice.
+
+| Variable | Type | Default | Required | Description |
+|----------|------|---------|----------|-------------|
+| `KH_INSTANCE_LOCK_WAIT` | int | `30` | No | Seconds to wait for an outgoing process to release the lock before giving up. Covers rolling restarts |
+| `KH_ALLOW_MULTIPLE_INSTANCES` | bool | `false` | No | Disable the guard entirely. Doing so double-dispatches job chunks and, with cloud provisioning enabled, can launch duplicate paid GPU instances |
 
 ## TLS/SSL Configuration
 
@@ -171,8 +217,15 @@ The backend builds the connection string dynamically from these variables.
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `KH_ADDITIONAL_DNS_NAMES` | string | - | No | Comma-separated additional DNS names for certificates |
-| `KH_ADDITIONAL_IP_ADDRESSES` | string | - | No | Comma-separated additional IP addresses for certificates |
+| `KH_ADDITIONAL_DNS_NAMES` | string | - | Recommended [^sans] | Comma-separated additional DNS names for certificates |
+| `KH_ADDITIONAL_IP_ADDRESSES` | string | - | Recommended [^sans] | Comma-separated additional IP addresses for certificates |
+
+[^sans]: Optional to start the server, but an agent cannot connect to an address the
+    certificate does not name, so in practice one of these must be set or the addresses
+    must be added in **Admin → Settings → Server Certificate**. These variables seed the
+    first certificate only; after that the settings page is authoritative and the
+    variables are ignored. See the
+    [SSL/TLS setup guide](../admin-guide/system-setup/ssl-tls.md).
 | `KH_KEY_SIZE` | integer | `4096` | No | RSA key size (2048 or 4096) |
 | `KH_SERVER_CERT_VALIDITY` | integer | `365` | No | Server certificate validity in days |
 | `KH_CA_CERT_VALIDITY` | integer | `3650` | No | CA certificate validity in days |

@@ -14,6 +14,12 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+# Timestamped backups written beside .env by tooling and by hand. The three
+# patterns above do NOT match ".env.bak.20260908113906", so one of these sat
+# untracked-but-unignored in the working tree carrying DB_PASSWORD, JWT_SECRET
+# and SSO_ENCRYPTION_KEY, one `git add -A` away from being committed.
+.env.bak*
+.env.*.bak
 
 # Development files
 test_*.txt
@@ -93,6 +99,11 @@ agent/main
 logs/
 *.log
 
+# Documentation build output. `mkdocs build` (and scripts/docs-build.sh) writes
+# the rendered site here; it is regenerated from docs/ and never committed.
+# The docs virtualenv deliberately lives OUTSIDE the repo, so it needs no entry.
+/site/
+
 # Local development configuration
 docker-compose.dev-local.yml
 
@@ -100,3 +111,8 @@ docker-compose.dev-local.yml
 tests/ 
 # Local Rafter false-positive suppression policy (not consumed by CI)
 .rafter.yml
+
+# Certificates the agent metrics integration test generates at run time. The
+# test mints a fresh self-signed CA per run rather than carrying a fixture, so
+# anything landing here is a build artifact.
+agent/internal/metrics/integration_test/config/

@@ -159,9 +159,16 @@ Every diagnostic package includes:
 | File | Contents |
 |------|----------|
 | `system_info.json` | Server runtime info, memory stats, database metrics |
-| `database_export.json` | Sanitized export of diagnostic database tables |
+| `database_export.json` | Sanitized export of diagnostic database tables, including the cloud provisioning tables |
 | `server_logs/backend/` | Backend application logs |
 | `agents/debug_status.json` | Debug status for all registered agents |
+
+!!! warning "A package is sanitized, not anonymous"
+    Client names, credentials, file paths and hostnames are redacted, but the export still
+    describes your deployment in detail — job names by ID, agent counts, GPU models, spend.
+    Treat a package as you would a database dump: send it to a person, never attach it to a
+    public issue. For cloud provisioning specifically, see
+    [Reporting a problem](../system-setup/cloud-providers.md#reporting-a-problem-with-an-experimental-provider).
 
 ### Optional Inclusions
 

@@ -46,11 +46,45 @@ type UserJobsHandler struct {
 	benchmarkRepo         *repository.BenchmarkRepository
 	loopbackService       *services.LoopbackService
 	wsHandler             WSHandler
+	// diagnostics surfaces scheduling/provisioning reasons on the job detail
+	// page. Optional: nil simply omits them.
+	diagnostics *services.DiagnosticsService
+}
+
+// SetDiagnostics wires the buffered diagnostics store so the job detail page
+// can explain why a job is not being provisioned for. Without it a cloud-only
+// operator has no in-product signal at all — the per-agent diagnostics path
+// cannot help, because it iterates agents and there are none.
+func (h *UserJobsHandler) SetDiagnostics(d *services.DiagnosticsService) {
+	h.diagnostics = d
 }
 
 // WSHandler interface for WebSocket operations
 type WSHandler interface {
 	SendMessage(agentID int, msg interface{}) error
+}
+
+/*
+ * jobDiagnostics reads the active "why is nothing happening" reasons for a job.
+ *
+ * Read through the service rather than the repository so pending in-memory
+ * records are force-flushed first: the autoscaler runs once a minute and
+ * buffers, so a straight database read would routinely miss the very refusal
+ * the operator has just opened the page to understand.
+ *
+ * Never fails the request. A job detail page that 500s because a diagnostic
+ * could not be read is strictly worse than one without the explanation.
+ */
+func (h *UserJobsHandler) jobDiagnostics(ctx context.Context, jobID uuid.UUID) []models.SchedulingDiagnostic {
+	if h.diagnostics == nil {
+		return nil
+	}
+	diags, err := h.diagnostics.ListActiveByScope(ctx, models.DiagScopeJob, jobID.String())
+	if err != nil {
+		debug.Warning("job detail: could not read diagnostics for job %s: %v", jobID, err)
+		return nil
+	}
+	return diags
 }
 
 // SetWSHandler sets the WebSocket handler after creation
@@ -1030,6 +1064,16 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 					continue
 				}
 
+				// A workflow-level cloud opt-in applies to every step, overriding
+				// the individual presets. Set only when the workflow asks for it,
+				// so a workflow that does not burst leaves each preset's own
+				// (already-copied) setting alone.
+				if workflow.CloudBurstEnabled {
+					if err := h.jobExecRepo.SetCloudBurst(ctx, jobExecution.ID, true, presetJob.CloudMaxInstances); err != nil {
+						debug.Error("Failed to apply workflow cloud burst to job %s: %v", jobExecution.ID, err)
+					}
+				}
+
 				createdJobs = append(createdJobs, jobExecution.ID.String())
 
 				stepLoopback := workflow.LoopbackAllEligible || step.LoopbackEnabled
@@ -1075,6 +1119,16 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				// Loopback, when true, re-runs this attack's mutation against only the
 				// newly-cracked plaintexts until dry (GH #64). Not combined with Filter.
 				Loopback bool `json:"loopback"`
+				// CloudBurstEnabled opts this job into renting paid GPU capacity.
+				// CloudMaxInstances caps that separately from MaxAgents, which
+				// governs only the shared on-prem pool.
+				CloudBurstEnabled bool `json:"cloud_burst_enabled"`
+				CloudMaxInstances *int `json:"cloud_max_instances"`
+				// CloudAllowCommunityHosts opts this job onto peer-operated
+				// hardware, where the machine's owner has root over the
+				// container. Independent of the burst flag: a job may burst to
+				// SOC 2 capacity while never touching someone else's machine.
+				CloudAllowCommunityHosts bool `json:"cloud_allow_community_hosts"`
 			} `json:"custom_job"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
@@ -1133,7 +1187,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 		}
 
 		// Debug logging for increment mode
-		debug.Info("Received custom job request with increment settings", map[string]interface{}{
+		debug.Info("Received custom job request with increment settings: %v", map[string]interface{}{
 			"increment_mode": req.CustomJob.IncrementMode,
 			"increment_min":  req.CustomJob.IncrementMin,
 			"increment_max":  req.CustomJob.IncrementMax,
@@ -1217,6 +1271,9 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			IncrementMin:              req.CustomJob.IncrementMin,
 			IncrementMax:              req.CustomJob.IncrementMax,
 			AdditionalArgs:            req.CustomJob.AdditionalArgs,
+			CloudBurstEnabled:         req.CustomJob.CloudBurstEnabled,
+			CloudMaxInstances:         req.CustomJob.CloudMaxInstances,
+			CloudAllowCommunityHosts:  req.CustomJob.CloudAllowCommunityHosts,
 		}
 
 		// Add association wordlist ID for mode 9
@@ -1686,39 +1743,43 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare response
 	response := map[string]interface{}{
-		"id":                       jobID.String(),
-		"name":                     getJobName(*job, hashlist),
-		"hashlist_id":              job.HashlistID,
-		"hashlist_name":            hashlist.Name,
-		"status":                   string(job.Status),
-		"priority":                 job.Priority,
-		"max_agents":               job.MaxAgents,
-		"chunk_size_seconds":       job.ChunkSizeSeconds,
-		"attack_mode":              job.AttackMode,
-		"hash_type":                formattedHashType,
-		"effective_keyspace":       job.EffectiveKeyspace,
-		"base_keyspace":            job.BaseKeyspace,
-		"processed_keyspace":       job.ProcessedKeyspace,
-		"dispatched_keyspace":      job.DispatchedKeyspace,
-		"dispatched_percent":       dispatchedPercent,
-		"searched_percent":         searchedPercent,
-		"overall_progress_percent": overallProgressPercent,
-		"multiplication_factor":    job.MultiplicationFactor,
-		"increment_mode":           job.IncrementMode,
-		"increment_min":            job.IncrementMin,
-		"increment_max":            job.IncrementMax,
-		"cracked_count":            crackedCount,
-		"agent_count":              agentCount,
-		"total_speed":              totalSpeed,
-		"created_at":               job.CreatedAt.Format(time.RFC3339),
-		"updated_at":               job.UpdatedAt.Format(time.RFC3339),
-		"tasks":                    taskSummaries,
-		"total_tasks":              totalTasks,
-		"wordlist_ids":             job.WordlistIDs,
-		"wordlist_names":           wordlistNames,
-		"rule_ids":                 job.RuleIDs,
-		"rule_names":               ruleNames,
-		"mask":                     job.Mask,
+		"id":                          jobID.String(),
+		"name":                        getJobName(*job, hashlist),
+		"hashlist_id":                 job.HashlistID,
+		"hashlist_name":               hashlist.Name,
+		"status":                      string(job.Status),
+		"priority":                    job.Priority,
+		"max_agents":                  job.MaxAgents,
+		"cloud_burst_enabled":         job.CloudBurstEnabled,
+		"cloud_allow_community_hosts": job.CloudAllowCommunityHosts,
+		"cloud_max_instances":         job.CloudMaxInstances,
+		"chunk_size_seconds":          job.ChunkSizeSeconds,
+		"attack_mode":                 job.AttackMode,
+		"hash_type":                   formattedHashType,
+		"effective_keyspace":          job.EffectiveKeyspace,
+		"base_keyspace":               job.BaseKeyspace,
+		"processed_keyspace":          job.ProcessedKeyspace,
+		"dispatched_keyspace":         job.DispatchedKeyspace,
+		"dispatched_percent":          dispatchedPercent,
+		"searched_percent":            searchedPercent,
+		"overall_progress_percent":    overallProgressPercent,
+		"multiplication_factor":       job.MultiplicationFactor,
+		"increment_mode":              job.IncrementMode,
+		"increment_min":               job.IncrementMin,
+		"increment_max":               job.IncrementMax,
+		"cracked_count":               crackedCount,
+		"agent_count":                 agentCount,
+		"total_speed":                 totalSpeed,
+		"created_at":                  job.CreatedAt.Format(time.RFC3339),
+		"updated_at":                  job.UpdatedAt.Format(time.RFC3339),
+		"diagnostics":                 h.jobDiagnostics(r.Context(), jobID),
+		"tasks":                       taskSummaries,
+		"total_tasks":                 totalTasks,
+		"wordlist_ids":                job.WordlistIDs,
+		"wordlist_names":              wordlistNames,
+		"rule_ids":                    job.RuleIDs,
+		"rule_names":                  ruleNames,
+		"mask":                        job.Mask,
 	}
 
 	if job.StartedAt != nil {
@@ -1893,17 +1954,21 @@ func (h *UserJobsHandler) RetryJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reset the job to pending status
-	if err := h.jobExecRepo.UpdateStatus(ctx, jobID, models.JobExecutionStatusPending); err != nil {
-		debug.Error("Failed to reset job status: %v", err)
+	// Reopen the job. This MUST go through ResetToPendingForRetry:
+	// UpdateStatus enforces "terminal is terminal" and silently refuses a
+	// failed -> pending flip, which is why retry did nothing but still
+	// answered 200 for months. Errors here fail the request — a retry that
+	// did not reopen the job is not a successful retry.
+	if err := h.jobExecRepo.ResetToPendingForRetry(ctx, jobID); err != nil {
+		if errors.Is(err, repository.ErrJobNotRetryable) {
+			// Lost a race with a status change between the read above and now.
+			debug.Warning("RetryJob: job %s no longer retryable: %v", jobID, err)
+			http.Error(w, "Job can only be retried if it's failed or cancelled", http.StatusBadRequest)
+			return
+		}
+		debug.Error("Failed to reset job %s for retry: %v", jobID, err)
 		http.Error(w, "Failed to retry job", http.StatusInternalServerError)
 		return
-	}
-
-	// Clear error message
-	if err := h.jobExecRepo.ClearError(ctx, jobID); err != nil {
-		debug.Error("Failed to clear job error: %v", err)
-		// Don't fail the request, just log the error
 	}
 
 	// Mark failed/cancelled tasks as pending so they can be retried

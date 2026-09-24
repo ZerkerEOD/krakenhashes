@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
+	adminsettings "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/settings"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
@@ -227,7 +229,26 @@ func (h *NotificationSettingsHandler) UpdateAgentOfflineSettings(w http.Response
 	ctx := r.Context()
 
 	if request.BufferMinutes != nil && *request.BufferMinutes > 0 {
-		value := json.Number(*request.BufferMinutes).String()
+		/*
+		 * strconv.Itoa, not json.Number(int).
+		 *
+		 * json.Number is a string type, so json.Number(5) is a RUNE
+		 * conversion: it yields "\x05", the control character, not "5". This
+		 * setting was therefore being stored as an unprintable byte, and every
+		 * later read of agent_offline_buffer_minutes would fail to parse it and
+		 * silently fall back to the default — so the buffer an admin configured
+		 * never took effect, and nothing in the UI showed it.
+		 */
+		value := strconv.Itoa(*request.BufferMinutes)
+		// This is a third write path for a key the settings registry bounds, so
+		// it has to apply the same range check. The `> 0` guard above only
+		// establishes a floor; without this an admin could store a buffer of
+		// 99999 minutes here that the Job Execution page would refuse.
+		if err := adminsettings.ValidateSettingValue("agent_offline_buffer_minutes", value); err != nil {
+			debug.Warning("Refused out-of-range agent_offline_buffer_minutes: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if err := h.systemSettingsRepo.UpdateSetting(ctx, "agent_offline_buffer_minutes", value); err != nil {
 			debug.Error("Failed to update agent_offline_buffer_minutes: %v", err)
 			http.Error(w, "Failed to update settings", http.StatusInternalServerError)

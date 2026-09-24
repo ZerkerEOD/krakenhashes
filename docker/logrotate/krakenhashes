@@ -1,3 +1,12 @@
+# The backend writes to stdout; supervisord owns these files and rotates them
+# itself (stdout_logfile_maxbytes / stdout_logfile_backups). logrotate therefore
+# uses copytruncate rather than renaming a file supervisord holds an fd on.
+#
+# There is deliberately NO postrotate signal here. The backend handles only
+# SIGINT and SIGTERM, so SIGHUP would TERMINATE it -- an hourly outage. The old
+# `supervisorctl signal HUP krakenhashes-backend` line was harmless only because
+# supervisorctl had no socket to connect to; now that it does, the signal would
+# actually be delivered.
 /var/log/krakenhashes/backend/*.log {
     size 100M
     missingok
@@ -5,11 +14,8 @@
     compress
     delaycompress
     notifempty
-    create 0640 root root
+    copytruncate
     sharedscripts
-    postrotate
-        supervisorctl signal HUP krakenhashes-backend || true
-    endscript
 }
 
 /var/log/krakenhashes/nginx/*.log {

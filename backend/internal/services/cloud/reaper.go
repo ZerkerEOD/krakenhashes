@@ -1,0 +1,855 @@
+package cloud
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/google/uuid"
+)
+
+// terminateFailureAlertThreshold is how many consecutive failed teardowns
+// escalate to admins. An instance we cannot kill is money actively burning, so
+// this is deliberately small.
+const terminateFailureAlertThreshold = 3
+
+// Notifier raises operator-visible alerts. Kept as a narrow interface so the
+// reaper does not depend on the notification package's construction order.
+type Notifier interface {
+	CloudTeardownFailed(ctx context.Context, inst *models.CloudInstance, attempts int, cause error)
+	CloudBudgetThreshold(ctx context.Context, clientID uuid.UUID, action BudgetAction, reason string)
+}
+
+/*
+ * Reaper reconciles the database against provider inventory and destroys
+ * anything that should not exist.
+ *
+ * It is the third tier of the teardown ladder, below the in-guest absolute
+ * deadline and the agent's heartbeat-loss self-destruct. Those two survive the
+ * backend disappearing entirely; the reaper does not. It exists to catch what
+ * they cannot:
+ *
+ *   - instances whose launch response was lost, so we never recorded an ID
+ *   - instances that exist on the account with no database row at all
+ *   - instances stuck in a state that will never become useful (Vast.ai's
+ *     exited/unknown/offline never recover — polling them burns money)
+ *   - instances past TTL whose in-guest timer failed to arm
+ *   - instances idle with no work left
+ *   - instances whose client has exhausted its budget
+ */
+type Reaper struct {
+	instances *repository.CloudInstanceRepository
+	budget    *BudgetEngine
+	providers func(ctx context.Context, providerConfigID uuid.UUID) (Provider, error)
+	notifier  Notifier
+	/*
+	 * vouchers kills the registration credential when an instance is finalized.
+	 *
+	 * The launch path only knows about the failures it can see itself. Anything
+	 * that dies LATER -- a ready deadline that lapses, a teardown, an instance
+	 * that never registered -- reaches its end here, and until this existed its
+	 * voucher stayed redeemable until the TTL ran out.
+	 */
+	vouchers VoucherIssuer
+
+	// OrphanGrace is how long an unknown provider-side instance is tolerated
+	// before destruction. Non-zero so a launch in flight is not reaped by the
+	// reconciliation pass racing it.
+	OrphanGrace time.Duration
+	// IdleDrain is how long an instance may sit with no work before teardown.
+	// It applies ONLY to an instance that has already run at least one task —
+	// see CommissioningGrace for the other case.
+	IdleDrain time.Duration
+
+	/*
+	 * CommissioningGrace bounds an instance that has NEVER been given a task.
+	 *
+	 * Splitting this out from IdleDrain is not tidiness, it closes a spend
+	 * loop. A cold instance must finish a file sync and then a benchmark
+	 * before any job_tasks row can exist, and the scheduler's own windows
+	 * allow ~20 minutes for that (scheduler.ReadinessBudget). Measuring it
+	 * with a 5-minute idle drain destroyed instances for doing exactly what
+	 * they had been told to do — and because the job was still starving, the
+	 * autoscaler immediately rented another. Neither dead-on-arrival breaker
+	 * caught it: both key on ready_at IS NULL, and an instance killed during
+	 * sync has ready_at set. It looped at full rate, logging success.
+	 *
+	 * Measured from cloud_instances.ready_at, which is written exactly once
+	 * (COALESCE in AgentRepository), so nothing can extend it. That is the
+	 * point: an agent wedged in sync_status='in_progress' forever still dies
+	 * here. A refreshable stamp — benchmark_requests.requested_at is the
+	 * tempting one — would be re-stamped every redispatch and never fire.
+	 */
+	CommissioningGrace time.Duration
+
+	/*
+	 * CrackDrainGrace is how long a teardown rung will hold an instance whose
+	 * agent still owns a task that has not gone quiet.
+	 *
+	 * This exists because of one specific, and NORMAL, sequence. Hashcat reports
+	 * status code 6 while it is STILL RUNNING; the agent forwards it as
+	 * status:"running" with AllHashesCracked set, HandleJobProgress puts the
+	 * task in 'processing', and HashlistCompletionService.completeJob completes
+	 * the JOB while that task is still mid-handshake — deliberately, so the
+	 * handshake can finish. The reaper then saw JobFinished and destroyed the
+	 * instance with ZERO grace, on the happy path, while the agent still held
+	 * cracks in a 500ms flush buffer.
+	 *
+	 * Those cracks are unrecoverable, not merely delayed. RetransmitOutfile
+	 * reads <dataDirectory>/outfile/<taskID>.txt — on the disk just destroyed —
+	 * and applyRecovery books the truncated range as covered, so the keyspace is
+	 * never re-issued either. The job reads 'completed' and looks perfect.
+	 *
+	 * Measured as QUIET TIME on the in-flight task, not as total wait. A healthy
+	 * crack upload writes every ~500ms and a healthy chunk reports every few
+	 * seconds, so this only elapses when something is genuinely stuck — which is
+	 * what makes a plain !InFlight guard both unnecessary and unsafe. A wedged
+	 * row, or a stale row from another job on the same agent, stops suppressing
+	 * teardown after this long rather than holding a GPU to its TTL.
+	 *
+	 * Zero disables the hold, matching every other cloud grace knob — and it is
+	 * the only one whose zero value can lose data rather than merely waste
+	 * money. Must stay LARGER than IdleDrain (holding work deserves more
+	 * patience than holding nothing) and SMALLER than
+	 * services.StaleProcessingTimeout (or this rung waits for a row the cleanup
+	 * sweep is about to abandon anyway). Tests assert both.
+	 */
+	CrackDrainGrace time.Duration
+
+	// orphanFirstSeen is when each currently-unrecognised provider-side label
+	// was first observed, so OrphanGrace can be applied. Guarded by orphanMu
+	// because Run and a manually triggered SweepOnce could overlap.
+	//
+	// In memory rather than in the database, deliberately. A restart forgets
+	// and re-starts the clock, which delays a destruction by one grace period
+	// — the SAFE direction. Persisting it would mean a crash-looping backend
+	// accumulated grace it never actually observed and destroyed a live
+	// instance the moment it came up.
+	orphanMu        sync.Mutex
+	orphanFirstSeen map[string]time.Time
+
+	// notifiedRung is the last budget rung each client was alerted about, so
+	// the per-instance-per-sweep assessment does not page admins repeatedly.
+	// Same in-memory reasoning as orphanFirstSeen: a restart re-fires each
+	// active rung once, which is the safe direction for an alert.
+	rungMu       sync.Mutex
+	notifiedRung map[uuid.UUID]BudgetAction
+
+	// Diagnostics surfaces a drain on the job itself. Optional: a nil recorder
+	// is valid and every call is a no-op. Job-scoped rather than agent-scoped
+	// because the dispatch filter removes the agent before the per-agent
+	// diagnostics path would ever see it.
+	Diagnostics DiagnosticRecorder
+}
+
+// NewReaper creates a reaper.
+func NewReaper(
+	instances *repository.CloudInstanceRepository,
+	budget *BudgetEngine,
+	providers func(ctx context.Context, providerConfigID uuid.UUID) (Provider, error),
+	notifier Notifier,
+	vouchers VoucherIssuer,
+) *Reaper {
+	return &Reaper{
+		instances:          instances,
+		budget:             budget,
+		providers:          providers,
+		notifier:           notifier,
+		vouchers:           vouchers,
+		OrphanGrace:        10 * time.Minute,
+		IdleDrain:          5 * time.Minute,
+		CommissioningGrace: 30 * time.Minute,
+		CrackDrainGrace:    10 * time.Minute,
+		orphanFirstSeen:    make(map[string]time.Time),
+		notifiedRung:       make(map[uuid.UUID]BudgetAction),
+	}
+}
+
+// Run drives the reaper until the context is cancelled. Modelled on
+// AgentUpdateSweeper: a ticker plus an extracted SweepOnce so the logic stays
+// directly testable.
+func (r *Reaper) Run(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	// Run immediately: on backend startup this is the reconciliation pass that
+	// reclaims anything orphaned by the previous process dying.
+	r.SweepOnce(ctx)
+
+	for {
+		select {
+		case <-ctx.Done():
+			debug.Info("Cloud reaper stopping")
+			return
+		case <-ticker.C:
+			r.SweepOnce(ctx)
+		}
+	}
+}
+
+// SweepOnce performs one reconciliation pass. It never returns an error:
+// a failure on one instance must not stop the others from being reaped.
+func (r *Reaper) SweepOnce(ctx context.Context) {
+	now := time.Now()
+
+	live, err := r.instances.ListLive(ctx)
+	if err != nil {
+		debug.Error("Cloud reaper: failed to list live instances: %v", err)
+		return
+	}
+
+	// Provider inventory, fetched once per provider config, keyed by label.
+	inventories := make(map[uuid.UUID]map[string]InstanceStatus)
+	known := make(map[string]bool)
+
+	for _, inst := range live {
+		known[inst.Label] = true
+
+		provider, err := r.providers(ctx, inst.ProviderConfigID)
+		if err != nil {
+			debug.Error("Cloud reaper: no provider for instance %s: %v", inst.Label, err)
+			continue
+		}
+
+		if _, ok := inventories[inst.ProviderConfigID]; !ok {
+			inv, err := provider.ListOwned(ctx)
+			if err != nil {
+				debug.Error("Cloud reaper: failed to list owned instances: %v", err)
+				// Without inventory we cannot safely judge orphans this pass,
+				// but per-instance deadline checks below still apply.
+				inventories[inst.ProviderConfigID] = nil
+			} else {
+				inventories[inst.ProviderConfigID] = inv
+			}
+		}
+
+		r.reconcileInstance(ctx, provider, inst, inventories[inst.ProviderConfigID], now)
+	}
+
+	/*
+	 * Orphans: present at the provider, absent from our database. This is the
+	 * only recovery for a launch that applied but whose label never landed in
+	 * a row, and it is why a dedicated provider account is recommended.
+	 *
+	 * Gated on OrphanGrace, which until now was loaded from settings, assigned
+	 * in main.go and never read — orphans were destroyed on first sight.
+	 *
+	 * The race it exists for is real and this pass creates it: `live` is read
+	 * once at the top, but each provider's inventory is fetched later in the
+	 * loop below it. An instance provisioned in that window is in the inventory
+	 * and NOT in `known`, so first-sight destruction would tear down an
+	 * instance whose row was written seconds earlier — and the operator would
+	 * see a launch that "failed" for no visible reason.
+	 */
+	r.forgetVanishedOrphans(inventories)
+
+	for cfgID, inv := range inventories {
+		if inv == nil {
+			continue
+		}
+		provider, err := r.providers(ctx, cfgID)
+		if err != nil {
+			continue
+		}
+		for label, status := range inv {
+			if known[label] {
+				continue
+			}
+			if waited, ready := r.orphanAge(label, now); !ready {
+				debug.Info("Cloud reaper: label %s is unrecognised but only %s old; "+
+					"holding for the %s orphan grace in case its launch is still in flight",
+					label, waited.Round(time.Second), r.OrphanGrace)
+				continue
+			}
+			debug.Warning("Cloud reaper: destroying ORPHAN instance %s (present at provider, absent from database)", label)
+			if err := provider.Destroy(ctx, status.ProviderInstanceID); err != nil {
+				debug.Error("Cloud reaper: failed to destroy orphan %s: %v", label, err)
+			}
+		}
+	}
+}
+
+/*
+ * orphanAge reports how long a label has been unrecognised, and whether that is
+ * long enough to destroy it.
+ *
+ * First sight records the time and returns not-ready, so an orphan always
+ * survives at least one sweep. With OrphanGrace <= 0 the caller gets the old
+ * first-sight behaviour, which keeps the setting's "0 disables it" reading
+ * consistent with the other cloud knobs.
+ */
+func (r *Reaper) orphanAge(label string, now time.Time) (time.Duration, bool) {
+	if r.OrphanGrace <= 0 {
+		return 0, true
+	}
+
+	r.orphanMu.Lock()
+	defer r.orphanMu.Unlock()
+
+	first, seen := r.orphanFirstSeen[label]
+	if !seen {
+		r.orphanFirstSeen[label] = now
+		return 0, false
+	}
+	waited := now.Sub(first)
+	return waited, waited >= r.OrphanGrace
+}
+
+/*
+ * forgetVanishedOrphans drops labels that are no longer in any inventory.
+ *
+ * Without this the map grows for the life of the process, and — worse — a label
+ * that was briefly unrecognised, then adopted into a row, then legitimately
+ * reused would inherit its old first-seen time and skip its grace period.
+ *
+ * A nil inventory means that provider could not be listed this pass. Its labels
+ * are left untouched rather than forgotten, so one failed list call does not
+ * reset the clock on every orphan it owns.
+ */
+func (r *Reaper) forgetVanishedOrphans(inventories map[uuid.UUID]map[string]InstanceStatus) {
+	present := make(map[string]bool)
+	for _, inv := range inventories {
+		if inv == nil {
+			return // at least one provider is unreadable; do not prune on partial data
+		}
+		for label := range inv {
+			present[label] = true
+		}
+	}
+
+	r.orphanMu.Lock()
+	defer r.orphanMu.Unlock()
+	for label := range r.orphanFirstSeen {
+		if !present[label] {
+			delete(r.orphanFirstSeen, label)
+		}
+	}
+}
+
+// reconcileInstance decides the fate of one tracked instance.
+func (r *Reaper) reconcileInstance(ctx context.Context, provider Provider, inst *models.CloudInstance, inventory map[string]InstanceStatus, now time.Time) {
+	// 1. Launch never confirmed. Reconcile by label: if the provider has it,
+	//    adopt the ID; if the deadline passed and it does not, give up.
+	if inst.ProviderInstanceID == "" {
+		if inventory != nil {
+			if status, ok := inventory[inst.Label]; ok {
+				debug.Warning("Cloud reaper: adopting instance %s from provider (launch response was lost)", inst.Label)
+				if err := r.instances.MarkLaunched(ctx, inst.ID, status.ProviderInstanceID, now,
+					now.Add(r.remainingTTL(inst, now)), status.Raw); err != nil {
+					debug.Error("Cloud reaper: failed to adopt %s: %v", inst.Label, err)
+				}
+				return
+			}
+		}
+		if inst.LaunchDeadlineAt.Valid && now.After(inst.LaunchDeadlineAt.Time) {
+			debug.Warning("Cloud reaper: instance %s never launched, marking failed", inst.Label)
+			r.finalize(ctx, inst, models.CloudInstanceFailed, "launch deadline exceeded")
+		}
+		return
+	}
+
+	// 2. Provider says it is terminal. Vast.ai's exited/unknown/offline never
+	//    recover, so polling them further is pure spend.
+	status, err := provider.Status(ctx, inst.ProviderInstanceID)
+	if err == nil && status.Terminal {
+		debug.Info("Cloud reaper: instance %s is terminal at provider (%s); tearing down", inst.Label, status.Message)
+		r.destroy(ctx, provider, inst, fmt.Sprintf("provider terminal state: %s", status.Message))
+		return
+	}
+
+	// 3. TTL expired. The in-guest watchdog should already have fired; if we
+	//    are here it did not, which is exactly why this tier exists.
+	if inst.TTLEpoch.Valid && now.After(inst.TTLEpoch.Time) {
+		r.destroy(ctx, provider, inst, "TTL expired")
+		return
+	}
+
+	// 4. Agent never registered within its readiness window.
+	if inst.AgentID == nil && inst.ReadyDeadlineAt.Valid && now.After(inst.ReadyDeadlineAt.Time) {
+		r.destroy(ctx, provider, inst, "agent did not register before ready deadline")
+		return
+	}
+
+	/*
+	 * 4.5. The work is gone.
+	 *
+	 * This is the largest avoidable waste in the whole feature and the one no
+	 * other tier catches. Every tier above fires on something being WRONG — a
+	 * failed launch, an expired TTL, an exhausted budget. Nothing fires on the
+	 * ordinary happy ending: the job finishes at 14:02 on an instance rented
+	 * until 18:00, and a GPU bills for four hours with nothing to do.
+	 *
+	 * Two cases, deliberately separated:
+	 *
+	 *   - the job reached a terminal state: destroy now, no grace. There is
+	 *     nothing left that could ever need this instance.
+	 *   - the job is alive but this instance has had no task for IdleDrain:
+	 *     destroy after that grace, because a gap between chunks is normal and
+	 *     tearing down during one would waste the launch we just paid for.
+	 */
+	work, done := r.instanceHasNoWork(ctx, inst, now)
+	if done {
+		return
+	}
+
+	// 5. Budget. Assessed per client, so one client exhausting its budget
+	//    never tears down another's instances.
+	if inst.ClientID != nil {
+		assessment, err := r.budget.Assess(ctx, *inst.ClientID)
+		if err != nil {
+			debug.Error("Cloud reaper: budget assessment failed for %s: %v", inst.Label, err)
+			// A draining instance still has to resolve even with no policy in
+			// hand. Destroying it once nothing is in flight needs no policy;
+			// only the timeout branch does, and TTL and idle drain still bound
+			// that case.
+			if inst.State == models.CloudInstanceDraining && work != nil && !work.InFlight {
+				r.destroy(ctx, provider, inst, "drained: no work in flight")
+				return
+			}
+		} else {
+			r.notifyBudgetRung(ctx, *inst.ClientID, assessment)
+			switch assessment.Action {
+			case BudgetActionHardStop:
+				r.destroy(ctx, provider, inst, "budget hard stop: "+assessment.Reason)
+				return
+			case BudgetActionDrain:
+				if r.resolveDrain(ctx, provider, inst, work, assessment, now) {
+					return
+				}
+			default:
+				/*
+				 * Spend fell back below the drain rung — a raised cap, a new
+				 * budget period, or a released reservation.
+				 *
+				 * Put the instance back to work rather than leaving it excluded
+				 * from dispatch until the timeout kills it. Without this a
+				 * transient spike costs a whole rental: paid for, drained, and
+				 * thrown away without doing the work it was rented for.
+				 */
+				if inst.State == models.CloudInstanceDraining {
+					debug.Info("Cloud reaper: resuming %s; spend is back under the drain threshold", inst.Label)
+					if err := r.instances.EndDrain(ctx, inst.ID); err != nil {
+						debug.Error("Cloud reaper: failed to resume %s: %v", inst.Label, err)
+					}
+				}
+			}
+		}
+	}
+
+	// 6. Accrue spend so the budget picture stays current between launches.
+	billedFrom := inst.LaunchedAt.Time
+	if delta, err := r.budget.AccrueInstance(ctx, inst, billedFrom, now); err != nil {
+		debug.Error("Cloud reaper: failed to accrue for %s: %v", inst.Label, err)
+	} else if delta > 0 {
+		if err := r.instances.AddIncurredCost(ctx, inst.ID, delta); err != nil {
+			debug.Error("Cloud reaper: failed to record incurred cost: %v", err)
+		}
+	}
+}
+
+/*
+ * instanceHasNoWork destroys an instance whose job no longer needs it, and
+ * reports whether it did.
+ *
+ * Fails toward KEEPING the instance: a query error, an unknown activity time,
+ * or a job that is merely between chunks all leave it running. Destroying a
+ * busy instance throws away the launch that was just paid for and the work in
+ * flight on it, so the grace period is spent deliberately rather than saved.
+ */
+func (r *Reaper) instanceHasNoWork(ctx context.Context, inst *models.CloudInstance, now time.Time) (*repository.InstanceWorkStatus, bool) {
+	/*
+	 * A null job on a launched instance means the job was DELETED, not that the
+	 * instance never had one. cloud_instances.job_execution_id is ON DELETE SET
+	 * NULL and ProvisionForJob always sets it, so the only way to arrive here
+	 * with nil is that the row it pointed at is gone.
+	 *
+	 * Skipping this case leaves a GPU running until its TTL with no job, no
+	 * work, and nothing else in the ladder that would notice. If a warm pool of
+	 * job-less instances is ever added, this is the branch it has to change.
+	 */
+	if inst.JobExecutionID == nil {
+		r.destroyByLookup(ctx, inst, "the job this instance was rented for was deleted")
+		return nil, true
+	}
+
+	work, err := r.instances.WorkStatus(ctx, *inst.JobExecutionID, inst.AgentID)
+	if err != nil {
+		debug.Error("Cloud reaper: could not determine whether %s still has work: %v", inst.Label, err)
+		return nil, false
+	}
+
+	if !work.JobExists {
+		// Unconditional, unlike JobFinished below: job_tasks.job_execution_id is
+		// ON DELETE CASCADE, so a missing job row means the tasks are already
+		// gone and there is nothing left to attribute buffered cracks to.
+		r.destroyByLookup(ctx, inst, "the job this instance was rented for no longer exists")
+		return work, true
+	}
+	if work.JobFinished {
+		/*
+		 * NOT zero-grace any more, and this is the rung that mattered.
+		 *
+		 * "Job finished" is normally reached BY the crack handshake, not after
+		 * it: HashlistCompletionService.completeJob completes the job off the
+		 * all-hashes-cracked signal and deliberately leaves the triggering task
+		 * in 'processing' so the handshake can finish. Tearing down here was
+		 * tearing down mid-upload on the ordinary successful path.
+		 */
+		if r.holdForUnsentWork(inst, work, now, "job finished") {
+			return work, false
+		}
+		r.destroyByLookup(ctx, inst, "job finished; instance is no longer needed")
+		return work, true
+	}
+
+	/*
+	 * Never given a task: this is COMMISSIONING, not idleness.
+	 *
+	 * A cold instance must complete a file sync and then a benchmark before a
+	 * job_tasks row can exist, and LastActivityAt is derived only from
+	 * job_tasks — a benchmark is invisible to it. Judging that window with the
+	 * between-chunks idle drain is what produced the rent/kill/rent loop this
+	 * split exists to stop.
+	 *
+	 * ready_at is written once and never moved, so this ceiling is absolute:
+	 * an instance wedged in sync forever is still destroyed here.
+	 */
+	if !work.LastActivityAt.Valid {
+		if !inst.ReadyAt.Valid {
+			// Has not registered at all. ready_deadline_at owns that case;
+			// measuring from nothing would destroy every instance mid-boot.
+			return work, false
+		}
+		if r.CommissioningGrace <= 0 {
+			return work, false // commissioning teardown disabled
+		}
+		waited := now.Sub(inst.ReadyAt.Time)
+		if waited < r.CommissioningGrace {
+			return work, false
+		}
+		r.destroyByLookup(ctx, inst, fmt.Sprintf(
+			"registered %s ago and was never given a task (commissioning grace %s)",
+			waited.Round(time.Second), r.CommissioningGrace))
+		return work, true
+	}
+
+	// Idle drain disabled.
+	if r.IdleDrain <= 0 {
+		return work, false
+	}
+
+	idleFor := now.Sub(work.LastActivityAt.Time)
+	if idleFor < r.IdleDrain {
+		return work, false
+	}
+	/*
+	 * The activity signal above now includes last_activity_at, so a working
+	 * agent is no longer misjudged as idle. This second check covers the one
+	 * case that signal cannot see: hashcat has exited, so no progress messages
+	 * arrive and last_activity_at is frozen, but crack batches are still landing
+	 * and bumping updated_at.
+	 */
+	if r.holdForUnsentWork(inst, work, now, "idle drain") {
+		return work, false
+	}
+	r.destroyByLookup(ctx, inst,
+		fmt.Sprintf("no work for %s (idle drain)", idleFor.Round(time.Second)))
+	return work, true
+}
+
+/*
+ * resolveDrain runs the drain rung and reports whether it destroyed.
+ *
+ * Marking and resolving in the SAME sweep is deliberate. The rung's promise is
+ * to let IN-FLIGHT work finish; an instance with nothing in flight has nothing
+ * to wait for, and holding it for one more 60-second sweep is a minute billed
+ * at >=99% of the client's cap to honour a grace nobody asked for.
+ *
+ * Note this can beat the commissioning grace: an instance still syncing files
+ * when its client crosses drain_pct is destroyed with nothing to show for the
+ * boot. That is correct — at >=99% it cannot be replaced anyway, because
+ * stop-provisioning fired at 95%, so the launch is sunk cost either way and the
+ * alternative is 30 more minutes of billing over the drain line.
+ */
+func (r *Reaper) resolveDrain(
+	ctx context.Context,
+	provider Provider,
+	inst *models.CloudInstance,
+	work *repository.InstanceWorkStatus,
+	assessment *BudgetAssessment,
+	now time.Time,
+) bool {
+	if inst.State != models.CloudInstanceDraining {
+		debug.Info("Cloud reaper: draining %s (%s)", inst.Label, assessment.Reason)
+		if err := r.instances.BeginDrain(ctx, inst.ID, assessment.Reason); err != nil {
+			debug.Error("Cloud reaper: failed to mark draining: %v", err)
+			return false
+		}
+		r.recordDrainDiag(inst, assessment.Reason)
+		inst.State = models.CloudInstanceDraining
+		inst.DrainStartedAt = sql.NullTime{Time: now, Valid: true}
+	}
+
+	if work != nil && !work.InFlight {
+		r.destroy(ctx, provider, inst, "drained: no work left in flight ("+assessment.Reason+")")
+		return true
+	}
+
+	/*
+	 * drain_timeout_seconds = 0 disables the timeout, matching every other
+	 * cloud grace knob.
+	 *
+	 * It does NOT mean "wait forever": the instance is now excluded from
+	 * dispatch, so its current chunk is the last one, and TTL, idle drain and
+	 * the stranded-task sweeper all still bound it.
+	 */
+	timeout := time.Duration(assessment.Policy.DrainTimeoutSeconds) * time.Second
+	if timeout > 0 && inst.DrainStartedAt.Valid && now.Sub(inst.DrainStartedAt.Time) >= timeout {
+		r.destroy(ctx, provider, inst, fmt.Sprintf(
+			"drain timeout: %s elapsed with work still in flight (%s)", timeout, assessment.Reason))
+		return true
+	}
+	return false
+}
+
+/*
+ * holdForUnsentWork reports whether a teardown must wait, and says so out loud
+ * when it decides not to.
+ *
+ * The negative branch matters as much as the positive one: once the grace has
+ * expired we destroy anyway, and the operator has no way to infer that from the
+ * UI — the job reads 'completed' and looks perfect. So the give-up path warns
+ * and records a job-scoped diagnostic.
+ */
+func (r *Reaper) holdForUnsentWork(
+	inst *models.CloudInstance,
+	work *repository.InstanceWorkStatus,
+	now time.Time,
+	rung string,
+) bool {
+	if work == nil || !work.InFlight || r.CrackDrainGrace <= 0 {
+		return false
+	}
+	if !work.InFlightActivityAt.Valid {
+		// Unreachable while InFlight is true (assigned_at backstops the
+		// GREATEST), but a NULL here means "no evidence of movement", and the
+		// safe reading of no evidence is not to spend money on it.
+		return false
+	}
+
+	quiet := now.Sub(work.InFlightActivityAt.Time)
+	if quiet < r.CrackDrainGrace {
+		debug.Info("Cloud reaper: holding %s (%s) — its agent still owns a task that moved %s ago; "+
+			"destroying now would take the disk its unsent cracks are buffered on, and they cannot be "+
+			"retransmitted from a machine that no longer exists (crack-drain grace %s)",
+			inst.Label, rung, quiet.Round(time.Second), r.CrackDrainGrace)
+		return true
+	}
+
+	debug.Warning("Cloud reaper: destroying %s (%s) with a task still in flight — it has not moved for "+
+		"%s, past the %s crack-drain grace. ANY CRACKS STILL BUFFERED ON THAT INSTANCE ARE LOST AND "+
+		"CANNOT BE RECOVERED.", inst.Label, rung, quiet.Round(time.Second), r.CrackDrainGrace)
+	if r.Diagnostics != nil && inst.JobExecutionID != nil {
+		r.Diagnostics.Record(models.DiagScopeJob, inst.JobExecutionID.String(),
+			models.DiagReasonCloudCracksLost, models.DiagSeverityWarning,
+			fmt.Sprintf("A rented instance for this job was destroyed while a task was still uploading "+
+				"cracked passwords (silent for %s, grace %s). Some cracks found by that task may be "+
+				"missing from the hashlist.", quiet.Round(time.Second), r.CrackDrainGrace))
+	}
+	return false
+}
+
+// recordDrainDiag surfaces "your job's rented agent is draining" on the job
+// itself. Without it a cloud-only operator sees a connected, enabled, idle
+// agent receiving nothing, with the reason recorded only in the server log —
+// the dispatch filter deliberately removes the agent before recordIdleReasons
+// would ever see it.
+func (r *Reaper) recordDrainDiag(inst *models.CloudInstance, reason string) {
+	if r.Diagnostics == nil || inst.JobExecutionID == nil {
+		return
+	}
+	r.Diagnostics.Record(models.DiagScopeJob, inst.JobExecutionID.String(),
+		models.DiagReasonCloudDraining, models.DiagSeverityWarning,
+		fmt.Sprintf("A rented instance for this job is draining and will take no new work: %s. "+
+			"Raise the client budget to resume it, or wait for it to finish and be destroyed.", reason))
+}
+
+/*
+ * notifyBudgetRung alerts admins the first time a client lands on a rung.
+ *
+ * Fires on EVERY rung above None, not just notify_pct. The ladder evaluates
+ * highest-first and fires exactly one action, so alerting only at notify_pct
+ * would leave "provisioning stopped at 95%" completely silent — which is the
+ * moment an operator most needs to know. That was the shipped behaviour:
+ * Notifier.CloudBudgetThreshold was fully built and called by nothing.
+ *
+ * Deduplicated by (client, action) because this runs per INSTANCE per sweep: a
+ * client with five rented boxes would otherwise page admins five times every 60
+ * seconds for as long as it stayed over the line.
+ *
+ * In memory, and here the orphanFirstSeen reasoning applies unchanged: a
+ * restart re-fires each active rung once, and an alert repeated is strictly
+ * better than an alert lost.
+ */
+func (r *Reaper) notifyBudgetRung(ctx context.Context, clientID uuid.UUID, a *BudgetAssessment) {
+	if r.notifier == nil {
+		return
+	}
+
+	r.rungMu.Lock()
+	last, seen := r.notifiedRung[clientID]
+	switch {
+	case a.Action == BudgetActionNone:
+		// Back under every threshold: re-arm so the next crossing alerts.
+		delete(r.notifiedRung, clientID)
+		r.rungMu.Unlock()
+		return
+	case seen && last == a.Action:
+		r.rungMu.Unlock()
+		return
+	}
+	r.notifiedRung[clientID] = a.Action
+	r.rungMu.Unlock()
+
+	r.notifier.CloudBudgetThreshold(ctx, clientID, a.Action, a.Reason)
+}
+
+// destroyByLookup resolves the instance's provider before tearing down. The
+// idle path is reached from reconcileInstance, which already holds a provider,
+// but the settle-and-destroy sequence is identical and worth not duplicating.
+func (r *Reaper) destroyByLookup(ctx context.Context, inst *models.CloudInstance, reason string) {
+	provider, err := r.providers(ctx, inst.ProviderConfigID)
+	if err != nil {
+		debug.Error("Cloud reaper: cannot resolve provider to destroy idle instance %s: %v", inst.Label, err)
+		return
+	}
+	debug.Info("Cloud reaper: destroying %s - %s", inst.Label, reason)
+	r.destroy(ctx, provider, inst, reason)
+}
+
+// remainingTTL returns how much of an instance's intended life is left.
+func (r *Reaper) remainingTTL(inst *models.CloudInstance, now time.Time) time.Duration {
+	if inst.TTLEpoch.Valid {
+		if d := inst.TTLEpoch.Time.Sub(now); d > 0 {
+			return d
+		}
+		return 0
+	}
+	return time.Hour
+}
+
+/*
+ * destroy tears an instance down and settles its budget.
+ *
+ * Failures are counted rather than swallowed. After
+ * terminateFailureAlertThreshold consecutive failures an admin is paged with
+ * the raw provider ID, because at that point automation has demonstrably lost
+ * control of something that is still billing. The instance deliberately stays
+ * in a live state so it keeps accruing and keeps blocking new provisioning for
+ * that client — reporting it as terminated would hide real spend.
+ */
+func (r *Reaper) destroy(ctx context.Context, provider Provider, inst *models.CloudInstance, reason string) {
+	if err := r.instances.SetState(ctx, inst.ID, models.CloudInstanceTerminating, reason); err != nil {
+		debug.Error("Cloud reaper: failed to mark terminating: %v", err)
+	}
+
+	if err := provider.Destroy(ctx, inst.ProviderInstanceID); err != nil {
+		attempts, recErr := r.instances.RecordTerminateFailure(ctx, inst.ID, err.Error())
+		if recErr != nil {
+			debug.Error("Cloud reaper: failed to record terminate failure: %v", recErr)
+		}
+		debug.Error("Cloud reaper: destroy failed for %s (attempt %d): %v", inst.Label, attempts, err)
+
+		if attempts >= terminateFailureAlertThreshold && r.notifier != nil {
+			r.notifier.CloudTeardownFailed(ctx, inst, attempts, err)
+		}
+		return
+	}
+
+	r.finalize(ctx, inst, models.CloudInstanceTerminated, reason)
+}
+
+// finalize records the end state and releases unused budget.
+func (r *Reaper) finalize(ctx context.Context, inst *models.CloudInstance, state models.CloudInstanceState, reason string) {
+	if err := r.budget.SettleInstance(ctx, inst); err != nil {
+		debug.Error("Cloud reaper: failed to settle budget for %s: %v", inst.Label, err)
+	}
+	if err := r.instances.SetState(ctx, inst.ID, state, reason); err != nil {
+		debug.Error("Cloud reaper: failed to finalize %s: %v", inst.Label, err)
+	}
+	/*
+	 * Retire the agent row alongside the instance.
+	 *
+	 * agents.retired_at was created with getIdleAgents already filtering on it
+	 * and nothing ever writing it, so the only thing keeping a terminated
+	 * instance's agent out of the idle pool was the WebSocket dropping. Between
+	 * provider.Destroy returning and the socket closing, the scheduler could
+	 * hand a chunk to an agent on a machine that no longer exists.
+	 *
+	 * Soft retirement, not deletion: deleting NULLs job_tasks.agent_id and
+	 * destroys cost attribution, which is why the column exists.
+	 */
+	/*
+	 * Retire by INSTANCE id, not agent id.
+	 *
+	 * The old form was `if inst.AgentID != nil { RetireAgent(*inst.AgentID) }`,
+	 * which skips silently whenever the instance row has no agent id -- and
+	 * that is exactly how three agents on this deployment ended up alive with
+	 * their instances long terminated. Keying on cloud_instance_id retires
+	 * whatever is actually attached, whether or not the back-reference survived.
+	 */
+	if err := r.instances.RetireAgentsForInstance(ctx, inst.ID); err != nil {
+		debug.Error("Cloud reaper: failed to retire the agent(s) for %s: %v", inst.Label, err)
+	}
+
+	/*
+	 * Kill the claim code. Safe here and nowhere earlier: by the time an
+	 * instance is finalized its fate is known, so there is no risk of pulling
+	 * the credential out from under a machine that is actually coming up.
+	 */
+	if r.vouchers != nil {
+		if n, err := r.vouchers.DeactivateForCloudInstance(ctx, inst.ID); err != nil {
+			debug.Error("Cloud reaper: could not deactivate the claim voucher for %s: %v; it stays "+
+				"redeemable until it expires", inst.Label, err)
+		} else if n > 0 {
+			debug.Info("Cloud reaper: deactivated %d unredeemed claim voucher(s) for %s", n, inst.Label)
+		}
+	}
+
+	debug.Info("Cloud reaper: instance %s finalized as %s (%s)", inst.Label, state, reason)
+}
+
+// DrainAll tears down every live instance. Called from the ordered SIGTERM
+// path, before the HTTP servers shut down.
+//
+// This is best-effort by nature: SIGKILL and OOM bypass it entirely, which is
+// precisely why the in-guest absolute deadline is the real guarantee and this
+// is only an optimization to stop billing sooner.
+func (r *Reaper) DrainAll(ctx context.Context) {
+	live, err := r.instances.ListLive(ctx)
+	if err != nil {
+		debug.Error("Cloud drain: failed to list live instances: %v", err)
+		return
+	}
+	if len(live) == 0 {
+		return
+	}
+	debug.Info("Cloud drain: destroying %d live instance(s) before shutdown", len(live))
+
+	for _, inst := range live {
+		provider, err := r.providers(ctx, inst.ProviderConfigID)
+		if err != nil {
+			debug.Error("Cloud drain: no provider for %s: %v", inst.Label, err)
+			continue
+		}
+		r.destroy(ctx, provider, inst, "backend shutting down")
+	}
+}

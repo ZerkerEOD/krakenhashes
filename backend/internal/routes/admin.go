@@ -21,9 +21,18 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// AdminRouter is a package-level reference to the admin subrouter, mirroring
+// JobIntegrationManager in websocket_with_jobs.go.
+//
+// It exists so main.go can attach route groups whose dependencies are only
+// constructed after SetupRoutes has returned — cloud provisioning needs the
+// provider/instance/budget repositories and the estimator, none of which
+// SetupAdminRoutes builds.
+var AdminRouter *mux.Router
+
 // SetupAdminRoutes configures all admin-related routes
 // SetupAdminRoutes registers all /admin/* HTTP routes on the provided router and returns the configured admin subrouter.
-// 
+//
 // The registered endpoints include authentication settings, SSO administration, retention, system/job/monitoring/agent settings,
 // team and user management (including API key and session operations), email configuration/templates/usage, optional binary management,
 // global custom charset management, preset job/workflow routes (via the provided AdminJobsHandler), and job analytics.
@@ -64,6 +73,10 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	// Apply admin middleware
 	adminRouter.Use(middleware.AdminOnly)
 
+	// Published so late-constructed handlers (cloud provisioning) can attach.
+	// Anything registered through this still inherits AdminOnly above.
+	AdminRouter = adminRouter
+
 	// Auth settings routes
 	adminRouter.HandleFunc("/auth/settings", authSettingsHandler.GetSettings).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/auth/settings", authSettingsHandler.UpdateSettings).Methods(http.MethodPut, http.MethodOptions)
@@ -92,11 +105,11 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	// System settings routes (New)
 	adminRouter.HandleFunc("/settings/max-priority", systemSettingsHandler.GetMaxPriority).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/settings/max-priority", systemSettingsHandler.UpdateMaxPriority).Methods(http.MethodPut, http.MethodOptions)
-	
+
 	// Job execution settings routes (New) - Must be before generic {key} route
 	adminRouter.HandleFunc("/settings/job-execution", jobSettingsHandler.GetJobExecutionSettings).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/settings/job-execution", jobSettingsHandler.UpdateJobExecutionSettings).Methods(http.MethodPut, http.MethodOptions)
-	
+
 	// Monitoring settings routes - Must be before generic {key} route
 	adminRouter.HandleFunc("/settings/monitoring", monitoringSettingsHandler.GetMonitoringSettings).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/settings/monitoring", monitoringSettingsHandler.UpdateMonitoringSettings).Methods(http.MethodPut, http.MethodOptions)

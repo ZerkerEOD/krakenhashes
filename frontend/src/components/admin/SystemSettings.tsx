@@ -52,13 +52,13 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
       // Load general system settings
       try {
         const settings = await getSystemSettings();
-        const requireClientSetting = settings.data?.find((s: any) => s.key === 'require_client_for_hashlist');
+        const requireClientSetting = settings.find((s) => s.key === 'require_client_for_hashlist');
         if (requireClientSetting) {
           setRequireClientForHashlist(requireClientSetting.value === 'true');
         }
-        const hashlistBatchSizeSetting = settings.data?.find((s: any) => s.key === 'hashlist_bulk_batch_size');
+        const hashlistBatchSizeSetting = settings.find((s) => s.key === 'hashlist_bulk_batch_size');
         if (hashlistBatchSizeSetting) {
-          setHashlistBatchSize(parseInt(hashlistBatchSizeSetting.value) || 100000);
+          setHashlistBatchSize(parseInt(hashlistBatchSizeSetting.value ?? '') || 100000);
         }
       } catch (err) {
         console.error('Failed to load general settings:', err);

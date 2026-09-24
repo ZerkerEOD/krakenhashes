@@ -934,7 +934,6 @@ func (h *hashlistHandler) handleLinkedHashlistUpload(w http.ResponseWriter, r *h
 }
 
 func (h *hashlistHandler) handleListHashlists(w http.ResponseWriter, r *http.Request) {
-	debug.Error("***** ATTENTION: handleListHashlists FUNCTION ENTERED *****") // Added prominent log
 	ctx := r.Context()
 
 	// Parse query parameters

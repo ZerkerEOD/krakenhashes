@@ -253,16 +253,28 @@ func fillTier(
 				j++
 				continue
 			}
-			if capacity == 0 {
-				break
+			// Cloud agents bypass the max_agents budget entirely.
+			//
+			// max_agents governs the SHARED on-prem pool — it exists so one
+			// job cannot monopolise the fleet. A rented instance is dedicated
+			// to this job, was paid for by this job's client, and competes
+			// with nobody, so charging it against fleet fairness would mean a
+			// job with the default max_agents=1 and one on-prem agent could
+			// never use capacity it had already been billed for. Cloud
+			// concurrency is bounded by budget and cloud_max_instances instead.
+			if !agent.IsCloud && capacity == 0 {
+				j++
+				continue
 			}
 			*allocationsPtr = append(*allocationsPtr, Allocation{UnitID: u.ID, AgentID: agent.ID})
 			free = removeAt(free, j)
-			parentAllocated[u.ParentJobID]++
-			unitAllocated[u.ID]++
-			if capacity > 0 {
-				capacity--
+			if !agent.IsCloud {
+				parentAllocated[u.ParentJobID]++
+				if capacity > 0 {
+					capacity--
+				}
 			}
+			unitAllocated[u.ID]++
 		}
 	}
 }

@@ -1,0 +1,331 @@
+#!/bin/bash
+#
+# KrakenHashes cloud agent entrypoint.
+#
+# Runs as PID 1 in a rented GPU container. Responsibilities, in strict order:
+#
+#   1. Arm the absolute-deadline self-destruct. FIRST, before anything that can
+#      hang. A VPN that never connects or an agent that never starts must still
+#      result in a destroyed instance, and only a timer armed before those
+#      steps can guarantee that.
+#   2. Join the operator's VPN in USERSPACE mode, exposing a local SOCKS5 proxy.
+#      Vast.ai containers are unprivileged: no /dev/net/tun, no NET_ADMIN, and
+#      the API silently discards --cap-add/--device. Kernel-mode VPNs and
+#      OpenVPN cannot work here at all.
+#   3. Point the agent at that proxy and exec it.
+#
+set -uo pipefail
+
+log() { echo "[kh-cloud $(date -u +%H:%M:%S)] $*"; }
+
+# ---------------------------------------------------------------------------
+# 1. Self-destruct watchdogs
+# ---------------------------------------------------------------------------
+#
+# Three independent timers:
+#
+#   absolute deadline    KH_DEADLINE_EPOCH. Never reset. This is the hard cap
+#                        on what this instance can ever cost.
+#   heartbeat loss       KH_HEARTBEAT_LOSS_TIMEOUT. Reset whenever the agent
+#                        proves it can reach the backend. Covers the case the
+#                        absolute deadline is too coarse for: the control plane
+#                        died an hour into a six-hour rental.
+#   ready deadline       KH_READY_DEADLINE_EPOCH. Absolute, like the kill
+#                        deadline. Covers the gap between the two above: an
+#                        agent that has NEVER reached the backend has no last
+#                        contact for the heartbeat timer to measure, so that
+#                        rail is silent and only the TTL remains.
+#
+# self_destruct must NOT go through the VPN. On Vast.ai the destroy call is the
+# whole point of the heartbeat timer — the tunnel being dead is exactly why
+# we're firing — so the provider control plane is excluded via NO_PROXY.
+
+# KH_HEARTBEAT_FILE is overridable so the watchdog can be exercised without a
+# container, and KH_WATCHDOG_INTERVAL so that exercise takes seconds instead of
+# the 30s poll x 900s timeout a real instance uses.
+#
+# EXPORTED, not just set: the agent is the only thing that knows whether it can
+# still reach the backend, so the agent is what refreshes this file. Its
+# presence in the environment is also what tells the agent it is running under a
+# watchdog at all — an on-prem agent never sees it and writes nothing.
+: "${KH_HEARTBEAT_FILE:=/tmp/kh-last-contact}"
+export KH_HEARTBEAT_FILE
+HEARTBEAT_FILE="$KH_HEARTBEAT_FILE"
+: "${KH_DEADLINE_EPOCH:=0}"
+: "${KH_HEARTBEAT_LOSS_TIMEOUT:=900}"
+: "${KH_WATCHDOG_INTERVAL:=30}"
+# Absolute instant by which the agent must have registered at least once. Zero
+# or unset disables the rail. See the watchdog for why it is absolute.
+: "${KH_READY_DEADLINE_EPOCH:=0}"
+
+# The heartbeat file is DELIBERATELY NOT seeded here.
+#
+# It used to be stamped with the current time on every start, which made "the
+# agent has proven it can reach the backend" indistinguishable from "this
+# container just booted". Under --restart=unless-stopped that turned the
+# heartbeat rail off entirely for the failure it most needed to cover: an agent
+# that cannot register exits, the container restarts within seconds, the seed
+# rewrites the timestamp, and the loss timer restarts from zero every time. It
+# can never reach KH_HEARTBEAT_LOSS_TIMEOUT, so the instance bills until some
+# other rail ends it -- in the observed case the backend-side reaper twenty
+# minutes later, and if the backend is what is unreachable, not until the TTL.
+#
+# The file is now written only by the agent, on real contact. Its ABSENCE means
+# "never registered", which is what KH_READY_DEADLINE_EPOCH bounds; its age
+# means "time since last contact", which is what the loss timeout bounds. The
+# file lives on the container filesystem, which a restart preserves, so a
+# successful registration is still remembered across the restart loop.
+
+self_destruct() {
+    local reason="$1"
+    log "SELF-DESTRUCT: $reason"
+
+    # STOP THE GPU FIRST, before any provider branch.
+    #
+    # Every branch below can fail: the Vast DELETE can 4xx, the host deadline
+    # file may not be mounted, poweroff needs a capability we do not have. Until
+    # this line existed inside the AWS branch only, a failed Vast teardown fell
+    # through to `kill -9 1` with hashcat still running at full rate the whole
+    # way — billed at GPU rates for a teardown that was already going wrong.
+    #
+    # Killing hashcat is safe to do early and unconditionally: the backend
+    # re-dispatches the interrupted chunk to another agent, and we are on our
+    # way out regardless of which branch succeeds.
+    pkill -9 hashcat 2>/dev/null
+
+    # Vast.ai: every container gets $CONTAINER_ID and $CONTAINER_API_KEY, and
+    # that key is scoped to destroying only this instance. DELETE, never stop:
+    # a stopped instance keeps billing storage.
+    if [ -n "${CONTAINER_API_KEY:-}" ] && [ -n "${CONTAINER_ID:-}" ]; then
+        log "destroying Vast.ai instance $CONTAINER_ID"
+        curl -fsS --max-time 30 --noproxy '*' \
+            -X DELETE \
+            -H "Authorization: Bearer ${CONTAINER_API_KEY}" \
+            "https://console.vast.ai/api/v0/instances/${CONTAINER_ID}/" || \
+            log "vast destroy call failed; falling back to poweroff"
+    fi
+
+    # RunPod: DELETE our own pod through the REST v1 control plane.
+    #
+    # Only reachable on the SECURE tier, and only when the operator opted in.
+    # RunPod issues no per-pod scoped credential -- there is no equivalent of
+    # Vast's CONTAINER_API_KEY -- so the key below is ACCOUNT-scoped and can
+    # delete every other pod on the account. On the Community tier the host
+    # operator has root over this container and would read it straight out of
+    # the environment, so the backend never injects it there and this branch is
+    # simply skipped: teardown on Community is the backend reaper alone.
+    #
+    # RUNPOD_POD_ID is injected by RunPod itself; we cannot pass it at create
+    # time because it does not exist until the create response comes back.
+    #
+    # Without this branch a RunPod pod fell through to the last resort below,
+    # which in an unprivileged pod is just `kill -9 1` -- that kills the
+    # CONTAINER while the pod stays allocated and keeps billing.
+    if [ -n "${KH_RUNPOD_API_KEY:-}" ] && [ -n "${RUNPOD_POD_ID:-}" ]; then
+        log "destroying RunPod pod ${RUNPOD_POD_ID}"
+        curl -fsS --max-time 30 --noproxy '*' \
+            -X DELETE \
+            -H "Authorization: Bearer ${KH_RUNPOD_API_KEY}" \
+            "https://rest.runpod.io/v1/pods/${RUNPOD_POD_ID}" || \
+            log "runpod destroy call failed; the backend reaper is the only teardown left"
+    fi
+
+    # AWS (and anything else with a host we can reach): ask the HOST to
+    # terminate by disarming its deadline file, which is bind-mounted in.
+    #
+    # This exists because the obvious approach does not work. This container is
+    # unprivileged — no CAP_SYS_BOOT — so `poweroff` fails, and the fallback
+    # `kill -9 1` only kills the container, which `--restart=unless-stopped`
+    # then restarts. The machine keeps billing and the agent keeps coming back.
+    # The host watchdog polls this file every 30s and powers off on a 0.
+    if [ -n "${KH_HOST_DEADLINE_FILE:-}" ] && [ -w "${KH_HOST_DEADLINE_FILE}" ]; then
+        log "disarming host deadline ${KH_HOST_DEADLINE_FILE}; host watchdog will power off within 30s"
+        echo 0 > "${KH_HOST_DEADLINE_FILE}"
+        # hashcat is already dead (see the top of this function), so this wait
+        # costs idle-instance rates rather than GPU rates.
+        sleep 90
+    fi
+
+    # Last resort. On a privileged host this terminates (instances are launched
+    # with InstanceInitiatedShutdownBehavior=terminate); everywhere else it at
+    # least stops the agent. --force twice skips a graceful shutdown that a
+    # wedged GPU driver could stall indefinitely.
+    poweroff --force --force 2>/dev/null || halt -f 2>/dev/null || kill -9 1
+}
+
+watchdog() {
+    while true; do
+        now=$(date +%s)
+
+        if [ "${KH_DEADLINE_EPOCH}" -gt 0 ] && [ "$now" -ge "${KH_DEADLINE_EPOCH}" ]; then
+            self_destruct "absolute deadline reached"
+        fi
+
+        if [ -r "$HEARTBEAT_FILE" ]; then
+            last=$(cat "$HEARTBEAT_FILE" 2>/dev/null || echo "$now")
+            if [ $((now - last)) -ge "${KH_HEARTBEAT_LOSS_TIMEOUT}" ]; then
+                self_destruct "no contact with backend for ${KH_HEARTBEAT_LOSS_TIMEOUT}s"
+            fi
+        elif [ "${KH_READY_DEADLINE_EPOCH}" -gt 0 ] && [ "$now" -ge "${KH_READY_DEADLINE_EPOCH}" ]; then
+            # No heartbeat file at all: the agent has never once reached the
+            # backend. The loss timeout cannot express this -- there is no last
+            # contact to measure from -- so without this branch the window
+            # between "VPN is up" and "agent registered" was bounded only by the
+            # full TTL, and a backend the guest cannot reach billed the entire
+            # lease for nothing.
+            #
+            # Compared against an ABSOLUTE epoch handed down at launch rather
+            # than time since this process started, because the container
+            # restarts on agent exit and any clock kept in here would restart
+            # with it -- which is exactly how the heartbeat rail was defeated.
+            self_destruct "agent never registered before the ready deadline"
+        fi
+
+        sleep "${KH_WATCHDOG_INTERVAL}"
+    done
+}
+watchdog &
+log "watchdog armed (deadline=${KH_DEADLINE_EPOCH}, heartbeat_timeout=${KH_HEARTBEAT_LOSS_TIMEOUT}s, ready_deadline=${KH_READY_DEADLINE_EPOCH}, interval=${KH_WATCHDOG_INTERVAL}s, heartbeat_file=${HEARTBEAT_FILE})"
+
+# ---------------------------------------------------------------------------
+# 2. VPN, userspace mode
+# ---------------------------------------------------------------------------
+
+SOCKS_PORT=1055
+: "${KH_VPN_PROVIDER:=none}"
+
+start_tailscale() {
+    [ -n "${KH_VPN_AUTH_KEY:-}" ] || { log "FATAL: tailscale selected but KH_VPN_AUTH_KEY is empty"; return 1; }
+    local login_args=()
+    [ -n "${KH_VPN_LOGIN_SERVER:-}" ] && login_args+=(--login-server "${KH_VPN_LOGIN_SERVER}")
+
+    # --tun=userspace-networking runs WireGuard and the TCP/IP stack in-process
+    # (gVisor netstack): no tun device, no NET_ADMIN, no root.
+    # --state=mem: keeps the node ephemeral even if the auth key were not.
+    tailscaled --tun=userspace-networking --state=mem: \
+        --socks5-server=127.0.0.1:${SOCKS_PORT} \
+        --outbound-http-proxy-listen=127.0.0.1:${SOCKS_PORT} &
+
+    local up_args=(--auth-key="${KH_VPN_AUTH_KEY}" --hostname="kh-${HOSTNAME}" --shields-up)
+    [ -n "${KH_VPN_TAG:-}" ] && up_args+=(--advertise-tags="${KH_VPN_TAG}")
+    [ ${#login_args[@]} -gt 0 ] && up_args+=("${login_args[@]}")
+
+    for _ in $(seq 1 30); do
+        if tailscale "${up_args[@]}" >/dev/null 2>&1; then
+            log "tailscale connected"
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+# wait_for_socks blocks until the local SOCKS5 proxy accepts a connection.
+#
+# This is the thing the agent actually depends on: every request it makes is
+# routed through 127.0.0.1:$SOCKS_PORT, so a VPN client that started but never
+# opened its listener is indistinguishable from one that never started, and
+# both must count as failure.
+#
+# bash's /dev/tcp is used deliberately -- it needs no netcat, no curl and no
+# addition to the image.
+wait_for_socks() {
+    local tries=$1
+    for _ in $(seq 1 "$tries"); do
+        if (exec 3<>/dev/tcp/127.0.0.1/${SOCKS_PORT}) 2>/dev/null; then
+            exec 3<&- 2>/dev/null || true
+            exec 3>&- 2>/dev/null || true
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+start_netbird() {
+    [ -n "${KH_VPN_AUTH_KEY:-}" ] || { log "FATAL: netbird selected but KH_VPN_AUTH_KEY is empty"; return 1; }
+    # netstack mode is NetBird's userspace equivalent. Note it provides NO DNS,
+    # so KH_HOST must be an overlay IP for NetBird deployments and the server
+    # certificate needs a matching IP SAN.
+    export NB_USE_NETSTACK_MODE=true
+    export NB_SOCKS5_LISTENER_PORT=${SOCKS_PORT}
+    local args=(--setup-key "${KH_VPN_AUTH_KEY}" --hostname "kh-${HOSTNAME}" -F)
+    [ -n "${KH_VPN_LOGIN_SERVER:-}" ] && args+=(--management-url "${KH_VPN_LOGIN_SERVER}")
+    netbird up "${args[@]}" &
+
+    # Readiness is the SOCKS listener, not `netbird status`.
+    #
+    # Two earlier versions of this were wrong in opposite directions. The
+    # original slept 10s and returned, so the function's exit status was
+    # `log`'s -- always 0 -- and `start_netbird || self_destruct` could never
+    # fire: a revoked key produced a billing instance that sat unreachable
+    # until the 15-minute heartbeat watchdog caught it.
+    #
+    # The replacement polled `netbird status` for "Management: Connected".
+    # That cannot work under `-F`: foreground mode never creates
+    # /var/run/netbird.sock, so status fails with "failed to connect to
+    # daemon" EVERY time, and each call blocks ~12s on a gRPC deadline before
+    # it does. Thirty of those is seven minutes of a healthy, billing instance
+    # before a self-destruct for a VPN that was actually up.
+    #
+    # The SOCKS listener is the right signal on both counts: it is what the
+    # agent proxies through, so it tests the thing that must work rather than a
+    # proxy for it, and it costs a TCP connect rather than a daemon round trip.
+    if wait_for_socks 45; then
+        log "netbird netstack started (SOCKS on ${SOCKS_PORT})"
+        return 0
+    fi
+    log "FATAL: netbird opened no SOCKS listener on ${SOCKS_PORT} within 90s"
+    return 1
+}
+
+start_wireguard() {
+    [ -n "${KH_VPN_CONFIG:-}" ] || { log "FATAL: wireguard selected but KH_VPN_CONFIG is empty"; return 1; }
+    # wireproxy is userspace WireGuard exposing SOCKS5 — no tun, no NET_ADMIN.
+    # wireguard-go and boringtun do NOT qualify: they still create a tun device.
+    mkdir -p /etc/wireproxy
+    printf '%s\n' "${KH_VPN_CONFIG}" > /etc/wireproxy/wireproxy.conf
+    printf '\n[Socks5]\nBindAddress = 127.0.0.1:%s\n' "${SOCKS_PORT}" >> /etc/wireproxy/wireproxy.conf
+    chmod 600 /etc/wireproxy/wireproxy.conf
+    wireproxy -c /etc/wireproxy/wireproxy.conf &
+    # Same defect as netbird had: a fixed sleep made this function always return
+    # 0, so a malformed peer config produced a billing instance with no tunnel.
+    if ! wait_for_socks 15; then
+        log "FATAL: wireproxy opened no SOCKS listener on ${SOCKS_PORT}"
+        return 1
+    fi
+    log "wireproxy started"
+}
+
+case "${KH_VPN_PROVIDER}" in
+    tailscale) start_tailscale || { log "FATAL: tailscale failed to connect"; self_destruct "VPN unavailable"; } ;;
+    netbird)   start_netbird   || { log "FATAL: netbird failed";              self_destruct "VPN unavailable"; } ;;
+    wireguard) start_wireguard || { log "FATAL: wireproxy failed";            self_destruct "VPN unavailable"; } ;;
+    none)      log "no VPN configured; assuming direct reachability" ;;
+    *)         log "FATAL: unknown KH_VPN_PROVIDER '${KH_VPN_PROVIDER}'"; self_destruct "bad VPN configuration" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 3. Point the agent at the tunnel and run it
+# ---------------------------------------------------------------------------
+#
+# HTTPS_PROXY, not ALL_PROXY: Go's net/http does not read ALL_PROXY, and a
+# wss:// URL is rewritten to https before the proxy function is consulted, so
+# HTTPS_PROXY is the variable that governs the WebSocket. Go treats socks5 as
+# socks5h, sending the HOSTNAME to the proxy, which is what lets the VPN
+# resolve the backend's private name for us.
+if [ "${KH_VPN_PROVIDER}" != "none" ]; then
+    export HTTPS_PROXY="socks5://127.0.0.1:${SOCKS_PORT}"
+    export HTTP_PROXY="socks5://127.0.0.1:${SOCKS_PORT}"
+    # localhost must bypass, and so must the provider control plane, or the
+    # self-destruct call would be routed through a tunnel that may be dead.
+    export NO_PROXY="127.0.0.1,localhost,${KH_NO_PROXY_EXTRA:-}"
+    log "agent will use SOCKS5 proxy on 127.0.0.1:${SOCKS_PORT} (NO_PROXY=${NO_PROXY})"
+fi
+
+# Ephemeral mode: configuration from the environment, never a .env file. The
+# claim code must not be written to a disk the host operator can read.
+export KH_EPHEMERAL=true
+
+log "starting agent"
+exec /app/krakenhashes-agent "$@"

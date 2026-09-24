@@ -31,7 +31,10 @@ func TestRunOnce_SingleFlight(t *testing.T) {
 	if err != nil {
 		t.Errorf("guard short-circuit should return nil error, got: %v", err)
 	}
-	if res != (CycleResult{}) {
+	// CycleResult carries a []error, so it is not comparable with != and must
+	// be checked field-wise. Errors is the only slice field; the rest are ints.
+	if res.UnitsSchedulable != 0 || res.IdleAgents != 0 || res.Allocations != 0 ||
+		res.Benchmarked != 0 || res.Dispatched != 0 || len(res.Errors) != 0 {
 		t.Errorf("guard short-circuit should return zero CycleResult, got: %+v", res)
 	}
 	if !c.running.Load() {

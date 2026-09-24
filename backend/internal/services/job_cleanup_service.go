@@ -29,6 +29,10 @@ type StuckProcessingHandler interface {
 	// TryFinalizeTask completes a task whose crack handshake the DB already
 	// shows as satisfied. Returns true if it performed the completion.
 	TryFinalizeTask(ctx context.Context, taskID uuid.UUID) (bool, error)
+	// TryAbandonUnsatisfiableTask terminalises a task whose handshake can
+	// PROVABLY never be satisfied, because cracks it delivered were rejected
+	// and the agent has nothing left to send. Returns true if it abandoned.
+	TryAbandonUnsatisfiableTask(ctx context.Context, taskID uuid.UUID) (bool, error)
 	// AbandonProcessingTask terminalises a task whose cracks are never
 	// arriving, releasing its keyspace. Never produces 'failed'.
 	AbandonProcessingTask(ctx context.Context, taskID uuid.UUID, reason string) error
@@ -72,6 +76,12 @@ func NewJobCleanupService(
 // integration instance simply isn't available yet at construction time. Until
 // this is called the backstop is inert and says so in the log rather than
 // panicking.
+// StaleProcessingTimeout is how long a 'processing' task may sit unchanged
+// before it is abandoned. Exported because cloud.Settings.CrackDrainGrace must
+// stay strictly below it — otherwise the cloud reaper holds a rented GPU
+// waiting for a crack handshake this sweep has already given up on.
+const StaleProcessingTimeout = 30 * time.Minute
+
 func (s *JobCleanupService) SetStuckProcessingHandler(handler StuckProcessingHandler) {
 	s.stuckProcessingHandler = handler
 }
@@ -325,6 +335,26 @@ func (s *JobCleanupService) checkForStaleProcessingTasks(ctx context.Context, ti
 					task.ID, task.JobExecutionID, agentID, task.ExpectedCrackCount, task.ReceivedCrackCount)
 				continue
 			}
+
+			// GATE 1b: the mirror image — a handshake that can PROVABLY never be
+			// satisfied, because cracks this task delivered were permanently
+			// rejected and the agent has signalled it has nothing left to send.
+			//
+			// Age-independent for the same reason Gate 1 is: the verdict comes
+			// from the database, not from how long the row has sat, and making a
+			// task wait out a timeout for an outcome already decided is the whole
+			// problem. It also has to live here as well as on the crack-batch
+			// path, because the deciding fact can be the batches-complete signal
+			// arriving after the rejection — or a restart between the two.
+			abandoned, aerr := handler.TryAbandonUnsatisfiableTask(ctx, task.ID)
+			if aerr != nil {
+				debug.Error("Stale-processing sweep: unsatisfiable-handshake check failed for task %s (job %s, agent %d): %v",
+					task.ID, task.JobExecutionID, agentID, aerr)
+			} else if abandoned {
+				debug.Warning("Stale-processing sweep: abandoned task %s (job %s, agent %d) - its crack handshake can never be satisfied; keyspace released for re-dispatch",
+					task.ID, task.JobExecutionID, agentID)
+				continue
+			}
 		}
 
 		// GATE 2: expensive and lossy (it gives up on cracks that may still be
@@ -569,7 +599,7 @@ func (s *JobCleanupService) checkForStaleTasks(ctx context.Context) {
 
 	// SECOND: Check for stale processing tasks (tasks in processing state for too long)
 	// Use a longer timeout for processing tasks (30 minutes default)
-	s.checkForStaleProcessingTasks(ctx, 30*time.Minute)
+	s.checkForStaleProcessingTasks(ctx, StaleProcessingTimeout)
 
 	// Find tasks that haven't been updated in the timeout period
 	cutoffTime := time.Now().Add(-taskTimeout)

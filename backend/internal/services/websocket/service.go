@@ -52,11 +52,11 @@ const (
 	TypeBufferedMessages        MessageType = "buffered_messages"
 	TypeCurrentTaskStatus       MessageType = "current_task_status"
 	TypeAgentShutdown           MessageType = "agent_shutdown"
-	TypePendingOutfiles         MessageType = "pending_outfiles"        // Agent reports tasks with unacknowledged outfiles
-	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected" // Agent rejects outfile deletion (line count mismatch)
-	TypeTaskStopAck             MessageType = "task_stop_ack"           // Agent acknowledges stop command (GH Issue #12)
-	TypeStateSyncResponse       MessageType = "state_sync_response"     // Agent responds with state sync (GH Issue #12)
-	TypeAgentOrphanReport       MessageType = "agent_orphan_report"     // Agent audits an "Already an instance" hashcat collision (Slice C)
+	TypePendingOutfiles         MessageType = "pending_outfiles"         // Agent reports tasks with unacknowledged outfiles
+	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected"  // Agent rejects outfile deletion (line count mismatch)
+	TypeTaskStopAck             MessageType = "task_stop_ack"            // Agent acknowledges stop command (GH Issue #12)
+	TypeStateSyncResponse       MessageType = "state_sync_response"      // Agent responds with state sync (GH Issue #12)
+	TypeAgentOrphanReport       MessageType = "agent_orphan_report"      // Agent audits an "Already an instance" hashcat collision (Slice C)
 	TypeTaskAssignmentRejected  MessageType = "task_assignment_rejected" // Agent refused an inbound task_assignment (e.g., shutdown in progress)
 
 	// Server -> Agent messages
@@ -96,6 +96,19 @@ const (
 	TypeLogStatusResponse MessageType = "log_status_response" // Agent responds with log status
 	TypeLogPurge          MessageType = "log_purge"           // Server requests log purge
 	TypeLogPurgeAck       MessageType = "log_purge_ack"       // Agent acknowledges log purge
+
+	// Certificate refresh.
+	//
+	// Sent after a CA rotation so connected agents re-pull ca.crt and their
+	// client certificate immediately, instead of discovering the change the next
+	// time a handshake fails.
+	//
+	// Deliberately NOT used for a server-leaf reissue: an agent affected by a
+	// missing address has no WebSocket by definition, so this channel cannot
+	// reach it. Those agents recover through their normal reconnect loop, which
+	// picks up the hot-swapped certificate on the next dial.
+	TypeCertRefresh    MessageType = "cert_refresh"     // Server asks the agent to refresh its certificates
+	TypeCertRefreshAck MessageType = "cert_refresh_ack" // Agent acknowledges the refresh
 )
 
 // Client represents a connected agent
@@ -201,11 +214,15 @@ type FileSyncCommandPayload struct {
 
 // FileSyncStatusPayload represents a status update for file synchronization
 type FileSyncStatusPayload struct {
-	RequestID string           `json:"request_id"`
-	AgentID   int              `json:"agent_id"`
-	Status    string           `json:"status"`   // "in_progress", "completed", "failed"
-	Progress  int              `json:"progress"` // 0-100 percentage
-	Results   []FileSyncResult `json:"results,omitempty"`
+	RequestID string `json:"request_id"`
+	AgentID   int    `json:"agent_id"`
+	Status    string `json:"status"`   // "in_progress", "completed", "failed"
+	Progress  int    `json:"progress"` // 0-100 percentage
+	// Message is the agent's human-readable summary, e.g. "File sync completed
+	// with 2 failures out of 17 files". The agent has always sent it; it was
+	// simply not decoded, so the reason a sync failed was dropped on the floor.
+	Message string           `json:"message,omitempty"`
+	Results []FileSyncResult `json:"results,omitempty"`
 }
 
 // FileSyncResult represents the result of a file sync operation
@@ -303,6 +320,21 @@ type TaskAssignmentPayload struct {
 	WordlistMD5s map[string]string `json:"wordlist_md5s,omitempty"` // wire path -> md5
 	RuleMD5s     map[string]string `json:"rule_md5s,omitempty"`     // wire path -> md5
 	BinaryMD5    string            `json:"binary_md5,omitempty"`    // md5 for BinaryPath
+	/*
+	 * BinaryName is the archive filename for BinaryPath, e.g.
+	 * "hashcat-7.1.2+338.7z".
+	 *
+	 * Required for the agent to fetch a binary it does not have. BinaryPath
+	 * ("binaries/5") names a DIRECTORY, and the agent's download path keys a
+	 * binary on (id, archive filename) — so with the path and md5 alone there
+	 * was no way to construct the request, and nothing anywhere in the agent
+	 * fetched a missing binary on demand. It only ever appeared because a
+	 * backend-pushed file sync happened to deliver it first.
+	 *
+	 * Omitted when unknown, and the agent falls back to its previous
+	 * present-or-absent behaviour, so an older agent is unaffected.
+	 */
+	BinaryName string `json:"binary_name,omitempty"`
 
 	// Server's base keyspace for agent-side coordinate conversion
 	// Agents with -O may have a different outer-loop keyspace; this lets them convert --skip/--limit
@@ -375,6 +407,17 @@ type BenchmarkRequestPayload struct {
 	AttackMode     int    `json:"attack_mode"`
 	HashType       int    `json:"hash_type"`
 	BinaryPath     string `json:"binary_path"`
+	/*
+	 * BinaryName / BinaryMD5 let the agent FETCH the binary it was told to use.
+	 *
+	 * The benchmark path is where their absence hurt most: unlike task
+	 * dispatch, it had no pre-flight at all, so a rented instance whose file
+	 * sync was still running failed the benchmark within seconds of
+	 * registering, three times, and earned a 24h blocklist for a condition that
+	 * resolved itself half a minute later.
+	 */
+	BinaryName string `json:"binary_name,omitempty"`
+	BinaryMD5  string `json:"binary_md5,omitempty"`
 	// Additional fields for real-world speed test
 	TaskID                  string                     `json:"task_id,omitempty"`
 	HashlistID              int64                      `json:"hashlist_id,omitempty"`
@@ -511,6 +554,27 @@ type LogPurgeAckPayload struct {
 	RequestID string `json:"request_id"`
 	Success   bool   `json:"success"`
 	Message   string `json:"message,omitempty"`
+}
+
+// CertRefreshPayload asks an agent to re-pull its trust material.
+type CertRefreshPayload struct {
+	RequestID string `json:"request_id"`
+	// Reason is "ca_rotated" or "leaf_reissued".
+	Reason string `json:"reason"`
+	// CAFingerprint is the SHA-256 of the new CA's DER. The agent compares it
+	// against the CA already on disk and does nothing when they match, so a
+	// broadcast to a large fleet does not trigger a download per agent.
+	CAFingerprint string `json:"ca_fingerprint"`
+}
+
+// CertRefreshAckPayload reports what the agent ended up holding.
+type CertRefreshAckPayload struct {
+	RequestID string `json:"request_id"`
+	Success   bool   `json:"success"`
+	Message   string `json:"message,omitempty"`
+	// CAFingerprint is what the agent now has, so the server can tell a
+	// successful refresh from a no-op.
+	CAFingerprint string `json:"ca_fingerprint,omitempty"`
 }
 
 // Service handles WebSocket business logic
@@ -682,6 +746,10 @@ func (s *Service) HandleMessage(ctx context.Context, agent *models.Agent, msg *M
 		return nil
 	case TypeLogPurgeAck:
 		// Log purge ack is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeCertRefreshAck:
+		// Certificate refresh ack is handled in the handler layer
 		// Just update heartbeat here
 		return nil
 	case TypeStateSyncResponse:

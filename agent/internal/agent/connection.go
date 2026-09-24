@@ -115,7 +115,30 @@ const (
 	WSTypeLogStatusResponse WSMessageType = "log_status_response" // Agent -> Server: report log file info
 	WSTypeLogPurge          WSMessageType = "log_purge"           // Server -> Agent: delete log files
 	WSTypeLogPurgeAck       WSMessageType = "log_purge_ack"       // Agent -> Server: confirm purge
+
+	// Certificate refresh. Sent after the server rotates its certificate
+	// authority, so a connected agent updates its trust material immediately
+	// instead of waiting for its next handshake to fail.
+	WSTypeCertRefresh    WSMessageType = "cert_refresh"     // Server -> Agent: re-pull CA and client cert
+	WSTypeCertRefreshAck WSMessageType = "cert_refresh_ack" // Agent -> Server: confirm refresh
 )
+
+/*
+ * benchmarkPreflightTimeout bounds fetching the files a benchmark needs, on a
+ * clock separate from the speed test itself.
+ *
+ * Generous on purpose: the hashcat archive extracts to roughly 467 MB across
+ * ~3,100 files and the extractor is single-threaded, so tens of seconds is
+ * normal and a slow link makes it minutes. The speed-test budget (120s + 60s
+ * grace by default) is far too tight to absorb that, and a fetch that overran
+ * it would be reported as a benchmark timeout rather than as "still
+ * provisioning".
+ *
+ * A rented instance is bounded independently by its own rails -- the 10-minute
+ * ready deadline and the 5-minute idle drain -- so this cap exists to stop an
+ * on-prem agent hanging forever, not to bound cloud spend.
+ */
+const benchmarkPreflightTimeout = 10 * time.Minute
 
 // WSMessage represents a WebSocket message
 type WSMessage struct {
@@ -192,6 +215,8 @@ type BenchmarkRequest struct {
 	RulePaths               []string                        `json:"rule_paths"`
 	Mask                    string                          `json:"mask,omitempty"`
 	BinaryPath              string                          `json:"binary_path"`
+	BinaryName              string                          `json:"binary_name,omitempty"`
+	BinaryMD5               string                          `json:"binary_md5,omitempty"`
 	TestDuration            int                             `json:"test_duration"`                       // Maximum seconds the agent should spend collecting status updates before giving up
 	TimeoutDuration         int                             `json:"timeout_duration"`                    // Hard wall-clock cap on the entire speed-test (context deadline); should be >= TestDuration
 	MinStatusUpdates        int                             `json:"min_status_updates,omitempty"`        // Minimum hashcat --status-json ticks the agent must collect before returning a result. <=0 means use the agent's default.
@@ -469,10 +494,29 @@ func fetchBackendConfig(urlConfig *config.URLConfig) (*BackendConfig, error) {
 	debug.Debug("Fetching config from: %s", url)
 
 	// Create HTTP client with TLS configuration
+	//
+	// Proxy is set explicitly because a custom Transport defaults to a nil
+	// Proxy (only http.DefaultTransport carries ProxyFromEnvironment). Cloud
+	// agents reach the backend through a userspace VPN that exposes a local
+	// SOCKS5 proxy, so every outbound call must honor HTTPS_PROXY/NO_PROXY.
+	//
+	// TLS: verify against the downloaded CA whenever we have one. This used to
+	// be an unconditional InsecureSkipVerify, which is a MITM hole on any
+	// untrusted path — and a cloud agent's path is untrusted by definition.
+	// The insecure fallback survives only for the genuine first-run bootstrap,
+	// where the CA has not been fetched yet.
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+	if certPool := caPoolFromDisk(); certPool != nil {
+		tlsConfig.RootCAs = certPool
+	} else {
+		debug.Warning("No CA certificate available yet; falling back to unverified TLS for the config fetch. " +
+			"This is expected only on first-run bootstrap.")
+		tlsConfig.InsecureSkipVerify = true // #nosec G402 -- pre-enrollment bootstrap only; see above
+	}
+
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true, // Skip verification for self-signed certs
-		},
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsConfig,
 	}
 	client := &http.Client{
 		Transport: tr,
@@ -567,6 +611,16 @@ type Connection struct {
 	// Atomic flag to track connection status
 	isConnected atomic.Bool
 
+	// tlsFailures suppresses duplicate TLS failure reports and duplicate console
+	// guidance, so an unreachable address is explained once rather than every
+	// 30 seconds for as long as the reconnect loop runs.
+	tlsFailures tlsFailureReporter
+
+	// lastCertFailure carries the most recent certFailureKind out of connect()
+	// so maintainConnection can tell the operator something specific instead of
+	// a generic "reconnecting" line.
+	lastCertFailure atomic.Int32
+
 	// TLS configuration
 	tlsConfig *tls.Config
 
@@ -619,6 +673,13 @@ type Connection struct {
 	devicesDetected     bool
 	detectionInProgress bool
 	deviceMutex         sync.Mutex
+
+	// extractInProgress guards the async binary-extraction pre-check. A plain
+	// flag rather than sync.Once because archives keep arriving: a Once would
+	// refuse to heal one that showed up after the first run, which is the whole
+	// purpose of the pre-check.
+	extractInProgress bool
+	extractMutex      sync.Mutex
 
 	// Task completion ACK tracking (GH Issue #12)
 	completionAckChan   chan *TaskCompleteAckPayload
@@ -776,6 +837,27 @@ func RenewCertificates(urlConfig *config.URLConfig) error {
 
 	debug.Info("Successfully renewed and saved certificates")
 	return nil
+}
+
+// caPoolFromDisk returns the trusted CA pool if one has already been fetched,
+// or nil if not.
+//
+// Deliberately side-effect free, unlike loadCACertificate: it must never
+// trigger a download, because its caller (fetchBackendConfig) runs on every
+// connect and a download there would both recurse and hide a missing CA.
+// A nil return means "not enrolled yet", not "error".
+func caPoolFromDisk() *x509.CertPool {
+	certPath := filepath.Join(config.GetConfigDir(), "ca.crt")
+	certData, err := os.ReadFile(certPath)
+	if err != nil {
+		return nil
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(certData) {
+		debug.Warning("CA certificate at %s could not be parsed", certPath)
+		return nil
+	}
+	return pool
 }
 
 // loadCACertificate loads the CA certificate from disk
@@ -981,7 +1063,15 @@ func (c *Connection) connect() error {
 	header.Set("X-Agent-ID", agentIDStr)
 
 	// Configure WebSocket dialer with TLS
+	//
+	// Proxy must be set explicitly: websocket.DefaultDialer carries
+	// ProxyFromEnvironment, but a Dialer struct literal leaves it nil and no
+	// proxy is consulted at all. gorilla bundles x/net/proxy (x_net_proxy.go),
+	// so this handles both HTTP CONNECT and socks5:// — and SOCKS5 sends the
+	// hostname rather than a resolved IP, which is what lets a VPN resolve the
+	// backend's private name for us.
 	dialer := websocket.Dialer{
+		Proxy:            http.ProxyFromEnvironment,
 		WriteBufferSize:  maxMessageSize,
 		ReadBufferSize:   maxMessageSize,
 		HandshakeTimeout: writeWait,
@@ -1011,9 +1101,33 @@ func (c *Connection) connect() error {
 			debug.Error("WebSocket connection failed with no response: %v", err)
 			debug.Debug("Error type: %T", err)
 
+			kind, serverCert := classifyCertFailure(err)
+
+			// An unknown-address failure is server-side and terminal for this
+			// attempt. RenewCertificates only re-downloads ca.crt and this
+			// agent's own client certificate; the problem is that the SERVER's
+			// leaf has no name matching the address we dialled, and nothing on
+			// this side can add one. Running the renewal path anyway is what
+			// produced the misleading "connection failed after certificate
+			// renewal" error and pointed operators at the agent instead of the
+			// server. Report it once, say so plainly, and fail fast.
+			if kind == certFailureHostnameMismatch {
+				c.lastCertFailure.Store(int32(certFailureHostnameMismatch))
+				reportTLSFailure(&c.tlsFailures, c.urlConfig, kind, serverCert,
+					u.Hostname(), portNumber(u.Port()), err, version.Version)
+				if c.tlsFailures.shouldShowGuidance() {
+					printSANGuidance(u.Hostname(), portNumber(u.Port()), serverCert)
+				}
+				return fmt.Errorf("server certificate does not cover %s: %w", u.Host, err)
+			}
+
 			// Check if this is a certificate verification error
 			if isCertificateError(err) {
+				c.lastCertFailure.Store(int32(kind))
 				debug.Info("Certificate verification error detected, attempting to renew certificates")
+				if c.tlsFailures.shouldShowGuidance() {
+					printGenericCertGuidance(u.Host, kind, err)
+				}
 				if renewErr := RenewCertificates(c.urlConfig); renewErr != nil {
 					debug.Error("Failed to renew certificates: %v", renewErr)
 					return fmt.Errorf("certificate renewal failed: %w", renewErr)
@@ -1070,6 +1184,11 @@ func (c *Connection) connect() error {
 	console.Success("WebSocket connection established")
 	c.isConnected.Store(true)
 
+	// Clear the TLS failure suppression so a later recurrence is reported and
+	// explained again rather than silently swallowed by the cooldown.
+	c.lastCertFailure.Store(int32(certFailureNone))
+	c.tlsFailures.reset()
+
 	// Device detection is done at agent startup, not after connection
 	// This prevents running hashcat -I during active jobs after reconnections
 
@@ -1094,10 +1213,21 @@ func (c *Connection) maintainConnection() {
 			if !c.isConnected.Load() {
 				debug.Info("Connection state: disconnected")
 				debug.Info("Reconnection attempt %d - Waiting %v before retry", attempt, backoff)
+				// When the failure is the server certificate not covering our
+				// address, a generic "reconnecting" line is actively unhelpful:
+				// the loop will never succeed until an administrator acts. Say
+				// what is actually wrong instead.
+				sanBlocked := certFailureKind(c.lastCertFailure.Load()) == certFailureHostnameMismatch
 				if attempt == 1 {
 					console.Warning("Connection lost, reconnecting...")
 				} else if attempt%5 == 0 {
-					console.Warning("Still trying to reconnect (attempt %d)...", attempt)
+					if sanBlocked {
+						console.Warning("Still cannot verify the server certificate for this address "+
+							"(attempt %d). This needs an administrator to add the address in "+
+							"Admin -> Settings -> Server Certificate.", attempt)
+					} else {
+						console.Warning("Still trying to reconnect (attempt %d)...", attempt)
+					}
 				}
 				time.Sleep(backoff)
 
@@ -1155,6 +1285,10 @@ func (c *Connection) readPump() {
 	// Set handlers for ping/pong
 	c.ws.SetPingHandler(func(appData string) error {
 		debug.Info("Received ping from server, sending pong")
+		// A server ping is proof the tunnel and the control plane are both up.
+		// On a rented instance this is what stops the in-guest watchdog from
+		// destroying a healthy machine.
+		noteBackendContact()
 		err := c.ws.SetReadDeadline(time.Now().Add(pongWait))
 		if err != nil {
 			debug.Error("Failed to set read deadline: %v", err)
@@ -1173,6 +1307,7 @@ func (c *Connection) readPump() {
 
 	c.ws.SetPongHandler(func(string) error {
 		debug.Info("Received pong from server")
+		noteBackendContact()
 		err := c.ws.SetReadDeadline(time.Now().Add(pongWait))
 		if err != nil {
 			debug.Error("Failed to set read deadline: %v", err)
@@ -1197,6 +1332,11 @@ func (c *Connection) readPump() {
 			c.isConnected.Store(false)
 			break
 		}
+
+		// Any decoded frame is proof of contact, not just heartbeats. Gating
+		// the cloud watchdog on one message type would let a stall in that type
+		// destroy a machine that is otherwise working normally.
+		noteBackendContact()
 
 		// Handle different message types
 		switch msg.Type {
@@ -1331,12 +1471,17 @@ func (c *Connection) readPump() {
 				go c.monitorDownloadProgress()
 			}
 
-			// Pre-check: Look for binary archives that need extraction
-			// This ensures we extract any archives that were downloaded but not extracted
-			if err := c.checkAndExtractBinaryArchives(); err != nil {
-				debug.Error("Error during pre-sync binary archive check: %v", err)
-				// Continue anyway, this is just a pre-check
-			}
+			/*
+			 * Pre-check for archives that arrived but were never extracted.
+			 *
+			 * Off readPump, because extracting a ~467 MB hashcat tree takes
+			 * tens of seconds and readPump is the goroutine that reads pings.
+			 * Blocking it here meant the connection could time out during a
+			 * perfectly successful extraction. Same reasoning as the task
+			 * handler below, which was already made async for this exact
+			 * reason.
+			 */
+			go c.checkAndExtractBinaryArchivesAsync()
 
 			// Check if binaries are being downloaded
 			hasBinaries := false
@@ -1372,16 +1517,9 @@ func (c *Connection) readPump() {
 
 			debug.Info("Queued %d files for download", len(commandPayload.Files))
 
-			// Check if all files were already available (no new downloads needed)
-			// This happens when download manager verified files exist on disk
-			if c.downloadManager != nil {
-				total, pending, downloading, _, _ := c.downloadManager.GetDownloadStats()
-				if pending == 0 && downloading == 0 && total > 0 {
-					// All files were already synced - immediately complete sync
-					debug.Info("All %d files already synced (verified on disk), sending sync_completed immediately", total)
-					c.sendSyncCompleted()
-				}
-			}
+			// Check if all files were already available (no new downloads needed).
+			// This happens when the download manager verified files exist on disk.
+			c.maybeSendSyncCompleted()
 
 			// If binaries were downloaded, trigger device detection after downloads complete
 			if hasBinaries && c.downloadManager != nil {
@@ -1722,6 +1860,8 @@ func (c *Connection) readPump() {
 					RulePaths:               benchmarkPayload.RulePaths,
 					Mask:                    benchmarkPayload.Mask,
 					BinaryPath:              benchmarkPayload.BinaryPath,
+					BinaryName:              benchmarkPayload.BinaryName,
+					BinaryMD5:               benchmarkPayload.BinaryMD5,
 					ReportInterval:          5,                                        // Default status interval
 					ExtraParameters:         benchmarkPayload.ExtraParameters,         // Agent-specific parameters
 					EnabledDevices:          benchmarkPayload.EnabledDevices,          // Device list
@@ -1755,8 +1895,40 @@ func (c *Connection) readPump() {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutDuration)*time.Second)
 				defer cancel()
 
+				jobManager := c.jobManager.(*jobs.JobManager)
+
+				/*
+				 * Fetch anything this benchmark needs and does not have --
+				 * above all the hashcat binary, which nothing in the agent ever
+				 * downloaded on demand.
+				 *
+				 * Given its OWN deadline, deliberately not the speed test's.
+				 * Fetching is not part of what the speed test measures, and the
+				 * uncompressed budget is 120s + 60s grace: a cold agent pulling
+				 * a ~467 MB hashcat tree can spend most of that before hashcat
+				 * is even invoked, so charging it to the same clock turns a slow
+				 * download into a BENCHMARK_TIMEOUT -- which classifies as
+				 * transient, IS counted, and heads straight back toward the
+				 * blocklist this whole change exists to avoid.
+				 */
+				preflightCtx, preflightCancel := context.WithTimeout(
+					context.Background(), benchmarkPreflightTimeout)
+				preflightErr := jobManager.EnsureBenchmarkFiles(preflightCtx, assignment)
+				preflightCancel()
+				if err := preflightErr; err != nil {
+					debug.Error("Benchmark pre-flight failed: %v", err)
+					// AGENT_NOT_PROVISIONED is the typed code the backend keys
+					// its "do not count this toward the blocklist" branch on.
+					// Without it the raw string falls through to CategoryUnknown
+					// -> transient -> three strikes -> 24h blocklist.
+					c.sendBenchmarkFailure(benchmarkPayload,
+						fmt.Sprintf("agent not provisioned for this job: %v", err),
+						"AGENT_NOT_PROVISIONED")
+					return
+				}
+
 				// Get the executor from job manager
-				executor := c.jobManager.(*jobs.JobManager).GetExecutor()
+				executor := jobManager.GetExecutor()
 				totalSpeed, deviceSpeeds, totalEffectiveKeyspace, agentBaseKeyspace, err := executor.RunSpeedTest(ctx, assignment, testDuration, minStatusUpdates)
 
 				if err != nil {
@@ -1876,6 +2048,10 @@ func (c *Connection) readPump() {
 		case WSTypeLogPurge:
 			debug.Info("Received log purge command")
 			c.handleLogPurge(msg.Payload)
+
+		case WSTypeCertRefresh:
+			debug.Info("Received certificate refresh command")
+			c.handleCertRefresh(msg.Payload)
 
 		default:
 			debug.Warning("Received unknown message type: %s", msg.Type)
@@ -3158,14 +3334,15 @@ func (c *Connection) monitorDownloadProgress() {
 		debug.Info("Download progress: %d completed, %d failed, %d pending, %d downloading (total: %d)",
 			completed, failed, pending, downloading, total)
 
-		// Check if all downloads are resolved (no active downloads remaining)
-		if pending == 0 && downloading == 0 && total > 0 {
-			// All downloads finished (either completed or failed)
-			if failed > 0 {
-				debug.Warning("File sync completed with %d failures out of %d total files", failed, total)
-			}
-			c.sendSyncCompleted()
+		if failed > 0 && pending == 0 && downloading == 0 {
+			debug.Warning("File sync completed with %d failures out of %d total files", failed, total)
 		}
+
+		// Single place that decides whether the sync is finished: every
+		// condition (this batch resolved, nothing else downloading, no
+		// extraction running) lives in maybeSendSyncCompleted so the two call
+		// sites cannot drift apart.
+		c.maybeSendSyncCompleted()
 	}
 }
 
@@ -3174,6 +3351,13 @@ func (c *Connection) sendSyncStarted(filesToSync int) {
 	c.syncMutex.Lock()
 	c.syncStatus = "in_progress"
 	c.syncMutex.Unlock()
+
+	// Open a new stats batch before any file is queued, so the completion
+	// report describes this sync rather than everything downloaded since the
+	// process started.
+	if c.downloadManager != nil {
+		c.downloadManager.BeginBatch()
+	}
 
 	payload, _ := json.Marshal(map[string]interface{}{
 		"agent_id":      c.agentID,
@@ -3196,25 +3380,37 @@ func (c *Connection) sendSyncStarted(filesToSync int) {
 
 // sendSyncCompleted sends sync completed message to backend
 func (c *Connection) sendSyncCompleted() {
-	c.syncMutex.Lock()
-	if c.syncStatus == "completed" {
-		c.syncMutex.Unlock()
-		return // Already sent
-	}
-	c.syncStatus = "completed"
-	c.syncMutex.Unlock()
-
-	// Get final stats from download manager (single source of truth)
+	// Get final stats for THIS batch from the download manager.
 	total, _, _, completed, failed := c.downloadManager.GetDownloadStats()
 
-	// Send status message in the format the backend expects
+	// A sync that could not fetch every file is not a completed sync.
+	//
+	// This used to report status "completed" unconditionally and mention the
+	// failures only in the human-readable message, which no code reads. The
+	// backend keys off the status field, so an agent that failed to download a
+	// wordlist was recorded as fully synced and was then handed work it could
+	// not run — the failure surfaced much later as an unexplained job error.
+	//
+	// Reporting "failed" is safe for scheduling: the benchmark readiness gate
+	// holds work only while a sync is in_progress, so a failed sync does not
+	// strand the agent, it just stops claiming a completeness it does not have.
+	syncState := "completed"
 	statusMessage := "File sync completed successfully"
 	if failed > 0 {
+		syncState = "failed"
 		statusMessage = fmt.Sprintf("File sync completed with %d failures out of %d files", failed, total)
 	}
 
+	c.syncMutex.Lock()
+	if c.syncStatus == syncState {
+		c.syncMutex.Unlock()
+		return // Already sent
+	}
+	c.syncStatus = syncState
+	c.syncMutex.Unlock()
+
 	payload, _ := json.Marshal(map[string]interface{}{
-		"status":   "completed",
+		"status":   syncState,
 		"progress": 100,
 		"message":  statusMessage,
 	})
@@ -3301,36 +3497,92 @@ func (c *Connection) checkAndExtractBinaryArchives() error {
 			continue // No archives in this directory
 		}
 
-		// Check if any executables exist
-		execFiles, err := c.fileSync.FindExtractedExecutables(binaryIDDir)
-		if err != nil {
-			debug.Error("Failed to search for executables in %s: %v", binaryIDDir, err)
-			continue
-		}
-
-		// If we have archives but no executables, extract them
-		if len(execFiles) == 0 && len(archiveFiles) > 0 {
-			debug.Info("Found binary directory %s with archives but no executables, extracting...", entry.Name())
-
-			// Extract each archive
-			for _, archivePath := range archiveFiles {
-				archiveFilename := filepath.Base(archivePath)
-				debug.Info("Extracting binary archive %s during pre-sync check", archiveFilename)
-				console.Status("Extracting binary archive %s...", archiveFilename)
-
-				if err := c.fileSync.ExtractBinary7z(archivePath, binaryIDDir); err != nil {
-					debug.Error("Failed to extract binary archive %s: %v", archiveFilename, err)
-					console.Error("Failed to extract binary archive %s: %v", archiveFilename, err)
-					continue
-				}
-
-				debug.Info("Successfully extracted binary archive %s during pre-sync check", archiveFilename)
-				console.Success("Binary archive %s extracted successfully", archiveFilename)
+		// EnsureBinaryExtracted decides for itself whether anything is needed
+		// and is cheap when it is not, so there is no separate "is it already
+		// done?" probe here to get wrong.
+		for _, archivePath := range archiveFiles {
+			if err := c.fileSync.EnsureBinaryExtracted(archivePath, binaryIDDir); err != nil {
+				debug.Error("Failed to extract binary archive %s: %v", filepath.Base(archivePath), err)
+				console.Error("Failed to extract binary archive %s: %v", filepath.Base(archivePath), err)
 			}
 		}
 	}
 
 	return nil
+}
+
+/*
+ * checkAndExtractBinaryArchivesAsync runs the pre-check off readPump, at most
+ * once at a time.
+ *
+ * Modelled on TryDetectDevicesIfNeeded: take the mutex, bail if already
+ * running, set the flag, release, and clear in a defer. The actual work is
+ * already serialized per binary directory inside EnsureBinaryExtracted, so this
+ * flag exists only to stop goroutines piling up when several file-sync commands
+ * arrive together.
+ */
+func (c *Connection) checkAndExtractBinaryArchivesAsync() {
+	c.extractMutex.Lock()
+	if c.extractInProgress {
+		c.extractMutex.Unlock()
+		debug.Debug("Binary extraction pre-check already running; skipping duplicate")
+		return
+	}
+	c.extractInProgress = true
+	c.extractMutex.Unlock()
+
+	defer func() {
+		c.extractMutex.Lock()
+		c.extractInProgress = false
+		c.extractMutex.Unlock()
+
+		// Sync completion may have been held back while this ran. Re-evaluate
+		// now that the binaries are actually usable.
+		c.maybeSendSyncCompleted()
+	}()
+
+	if err := c.checkAndExtractBinaryArchives(); err != nil {
+		debug.Error("Error during binary archive pre-check: %v", err)
+	}
+}
+
+// binaryExtractInProgress reports whether the async pre-check is running.
+func (c *Connection) binaryExtractInProgress() bool {
+	c.extractMutex.Lock()
+	defer c.extractMutex.Unlock()
+	return c.extractInProgress
+}
+
+/*
+ * maybeSendSyncCompleted reports the sync finished, but only once every file is
+ * downloaded AND no extraction is still running.
+ *
+ * The extraction clause is the part that is easy to lose. Before the pre-check
+ * was moved off readPump it always finished before this point was reached, so
+ * "downloads are done" and "the binaries are usable" were the same statement.
+ * Detaching it separates them: without this guard the backend would be told the
+ * agent is synced while a hashcat tree is still being written, and the
+ * benchmark readiness gate — whose entire job is to hold work until the files
+ * are there — would open too early.
+ */
+func (c *Connection) maybeSendSyncCompleted() {
+	if c.downloadManager == nil {
+		return
+	}
+	total, pending, downloading, _, _ := c.downloadManager.GetDownloadStats()
+	if pending != 0 || downloading != 0 || total == 0 {
+		return
+	}
+	if c.downloadManager.GetActiveDownloads() != 0 {
+		return
+	}
+	if c.binaryExtractInProgress() {
+		debug.Info("All %d files downloaded, but a binary extraction is still running; "+
+			"holding sync_completed until it finishes", total)
+		return
+	}
+	debug.Info("All %d files synced and extracted, sending sync_completed", total)
+	c.sendSyncCompleted()
 }
 
 // DetectAndSendDevices detects available compute devices and sends them to the server

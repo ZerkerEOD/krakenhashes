@@ -216,6 +216,42 @@ export interface JobDetailsResponse {
   increment_mode?: string;
   increment_min?: number;
   increment_max?: number;
+  /** True when this job may rent paid GPU capacity. Off by default. */
+  cloud_burst_enabled?: boolean;
+  /**
+   * True when this job may land on PEER-OPERATED hardware (Vast.ai, RunPod
+   * Community), where the machine's owner has root over the container. Off by
+   * default and separate from cloud_burst_enabled: without it the job simply
+   * does not see peer offers and may still rent secure capacity.
+   */
+  cloud_allow_community_hosts?: boolean;
+  /**
+   * Cap on rented instances, separate from max_agents (which governs the
+   * shared on-prem pool). null lets the remaining budget decide.
+   */
+  cloud_max_instances?: number | null;
+  /**
+   * Why the scheduler or the cloud autoscaler is not acting on this job.
+   *
+   * Present because a cloud-only deployment has no other channel: every
+   * provisioning refusal used to be a server log line, and the per-agent
+   * diagnostics view cannot help an operator whose fleet is entirely rented,
+   * since it iterates agents and there are none.
+   */
+  diagnostics?: SchedulingDiagnostic[] | null;
+}
+
+/** One deduplicated "why is nothing happening" reason. */
+export interface SchedulingDiagnostic {
+  id: number;
+  scope: string;
+  scope_id: string;
+  reason_code: string;
+  severity: 'info' | 'warning' | 'error' | string;
+  detail: string;
+  count: number;
+  first_seen: string;
+  last_seen: string;
 }
 
 // Job detail response

@@ -76,9 +76,9 @@ func createTestJobExecution(t *testing.T, database *db.DB) uuid.UUID {
 	var hashlistID int64
 	err := database.QueryRowContext(ctx, `
 		INSERT INTO hashlists (name, user_id, hash_type_id, status)
-		VALUES ('scheduler-test', $1, 0, $2)
+		VALUES ('scheduler-test-'||$3, $1, 0, $2)
 		RETURNING id
-	`, user.ID, models.HashListStatusReady).Scan(&hashlistID)
+	`, user.ID, models.HashListStatusReady, suffix).Scan(&hashlistID)
 	if err != nil {
 		t.Fatalf("failed to create test hashlist: %v", err)
 	}
@@ -86,8 +86,8 @@ func createTestJobExecution(t *testing.T, database *db.DB) uuid.UUID {
 	presetJobID := uuid.New()
 	_, err = database.ExecContext(ctx, `
 		INSERT INTO preset_jobs (id, name, attack_mode, priority, chunk_size_seconds)
-		VALUES ($1, 'scheduler-test', 0, 0, 60)
-	`, presetJobID)
+		VALUES ($1, $2, 0, 0, 60)
+	`, presetJobID, "scheduler-test-"+suffix)
 	if err != nil {
 		t.Fatalf("failed to create test preset_job: %v", err)
 	}
@@ -111,12 +111,17 @@ func createTestUnit(t *testing.T, database *db.DB, parentJobID uuid.UUID, baseKe
 	t.Helper()
 
 	unitID := uuid.New()
+	// effective_keyspace and base_keyspace must be bound separately and cast
+	// explicitly: effective_keyspace became NUMERIC (base x rules x salts can
+	// exceed int64) while base_keyspace stayed BIGINT, so reusing one
+	// placeholder for both makes Postgres fail with "inconsistent types
+	// deduced for parameter $3".
 	_, err := database.ExecContext(context.Background(), `
 		INSERT INTO scheduling_units (
 			id, parent_job_id, layer_index, status, attack_mode,
 			effective_keyspace, base_keyspace, is_accurate_keyspace
-		) VALUES ($1, $2, 0, 'running', 0, $3, $3, true)
-	`, unitID, parentJobID, baseKeyspace)
+		) VALUES ($1, $2, 0, 'running', 0, $3::numeric, $4::bigint, true)
+	`, unitID, parentJobID, baseKeyspace, baseKeyspace)
 	if err != nil {
 		t.Fatalf("failed to create test scheduling_unit: %v", err)
 	}

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"errors"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
-	"errors"
 )
 
 // SystemSettingsHandler handles system settings requests
@@ -166,6 +166,14 @@ func (h *SystemSettingsHandler) ListSettings(w http.ResponseWriter, r *http.Requ
 }
 
 // UpdateSetting updates a specific system setting
+// guardedSettingKeys maps a setting key to the endpoint that owns its validation.
+//
+// Reads are deliberately left open; only writes are redirected.
+var guardedSettingKeys = map[string]string{
+	"tls_additional_ip_addresses": "PUT /api/admin/tls/sans",
+	"tls_additional_dns_names":    "PUT /api/admin/tls/sans",
+}
+
 func (h *SystemSettingsHandler) UpdateSetting(w http.ResponseWriter, r *http.Request) {
 	debug.Info("Received request to update system setting")
 
@@ -181,7 +189,29 @@ func (h *SystemSettingsHandler) UpdateSetting(w http.ResponseWriter, r *http.Req
 
 	// Extract setting key from URL path
 	settingKey := r.URL.Path[len("/api/admin/settings/"):]
-	
+
+	// Some settings carry invariants this generic key/value endpoint cannot
+	// enforce. Writing them here would be a complete end-run around the
+	// validation on their dedicated endpoint -- the certificate name lists, for
+	// example, would let an administrator put a public, internet-routable
+	// address into the server certificate of a tool that must never be exposed.
+	if endpoint, guarded := guardedSettingKeys[settingKey]; guarded {
+		debug.Warning("Refused a generic write to guarded setting %s", settingKey)
+		http.Error(w, "This setting is validated elsewhere and cannot be written here. Use "+endpoint+".",
+			http.StatusBadRequest)
+		return
+	}
+
+	// Range-check numeric settings that have a registered bound. The admin UI
+	// also bounds these, but only through inputProps min/max, which a browser
+	// treats as a hint rather than a limit -- so this is the check that
+	// actually holds, and the only one an API client passes through at all.
+	if err := ValidateSettingValue(settingKey, request.Value); err != nil {
+		debug.Warning("Refused out-of-range write to %s: %v", settingKey, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	debug.Info("Updating setting %s to value: %s", settingKey, request.Value)
 
 	// Update the setting
@@ -210,7 +240,7 @@ func (h *SystemSettingsHandler) UpdateSetting(w http.ResponseWriter, r *http.Req
 func (h *SystemSettingsHandler) GetSetting(w http.ResponseWriter, r *http.Request) {
 	// Extract setting key from URL path
 	settingKey := r.URL.Path[len("/api/admin/settings/"):]
-	
+
 	debug.Debug("Getting system setting: %s", settingKey)
 
 	setting, err := h.systemSettingsRepo.GetSetting(r.Context(), settingKey)

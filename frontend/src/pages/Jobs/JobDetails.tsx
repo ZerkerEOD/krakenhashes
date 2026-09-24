@@ -16,6 +16,7 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  AlertTitle,
   Skeleton,
   TextField,
   IconButton,
@@ -38,8 +39,10 @@ import { getJobDetails, getJobLayers, api } from '../../services/api';
 import { JobDetailsResponse, JobTask, JobIncrementLayerWithStats } from '../../types/jobs';
 import JobProgressBar from '../../components/JobProgressBar';
 import BenchmarkBlocklistPanel from '../../components/jobs/BenchmarkBlocklistPanel';
+import CloudProjectionDialog from '../../components/jobs/CloudProjectionDialog';
 import { useSnackbar } from 'notistack';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
+import { provisionInstanceForJob } from '../../services/cloud';
 
 const JobDetails: React.FC = () => {
   const { t } = useTranslation('jobs');
@@ -48,6 +51,31 @@ const JobDetails: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   
   const [jobData, setJobData] = useState<JobDetailsResponse | null>(null);
+  const [projectionOpen, setProjectionOpen] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
+
+  /*
+   * Manual provisioning is a spend, so it confirms first and reports the
+   * backend's refusal verbatim — those messages name the rail that blocked it
+   * (budget, window, consent, quota), which is exactly what an operator needs
+   * and what a generic "failed" would throw away.
+   */
+  const handleProvisionNow = async () => {
+    if (!id) return;
+    if (!window.confirm(t('cloud.cloudBurst.provisionConfirm') as string)) return;
+    setProvisioning(true);
+    try {
+      await provisionInstanceForJob(id);
+      enqueueSnackbar(t('cloud.cloudBurst.provisionRequested') as string, { variant: 'success' });
+    } catch (err: any) {
+      enqueueSnackbar(
+        err?.response?.data?.error || (t('cloud.cloudBurst.provisionFailed') as string),
+        { variant: 'error' }
+      );
+    } finally {
+      setProvisioning(false);
+    }
+  };
   const [layers, setLayers] = useState<JobIncrementLayerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -895,6 +923,38 @@ const JobDetails: React.FC = () => {
         </Alert>
       )}
 
+      {/*
+        * Why nothing is happening.
+        *
+        * Placed above the job information rather than beside the cloud row on
+        * purpose: the case this exists for is a job sitting at pending with no
+        * agents and no instances, where there is nothing else on the page that
+        * would draw the eye. Previously the only record of a provisioning
+        * refusal was a line in the server log, which is no help at all to
+        * someone running an entirely rented fleet — or to a remote tester.
+        */}
+      {(jobData.diagnostics ?? []).length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          {(jobData.diagnostics ?? []).map((d) => (
+            <Alert
+              key={d.id}
+              severity={d.severity === 'error' ? 'error' : d.severity === 'warning' ? 'warning' : 'info'}
+              sx={{ mb: 1 }}
+            >
+              <AlertTitle>
+                {t('details.diagnostics.' + d.reason_code, { defaultValue: d.reason_code })}
+              </AlertTitle>
+              {d.detail}
+              {d.count > 1 && (
+                <Typography variant="caption" display="block" sx={{ mt: 0.5, opacity: 0.8 }}>
+                  {t('details.diagnostics.seenTimes', { count: d.count })}
+                </Typography>
+              )}
+            </Alert>
+          ))}
+        </Box>
+      )}
+
       {/* Job Information Table */}
       <Paper sx={{ mb: 3 }}>
         <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
@@ -983,6 +1043,44 @@ const JobDetails: React.FC = () => {
                   )}
                 </TableCell>
               </TableRow>
+              {jobData.cloud_burst_enabled && (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>{t('cloud.cloudBurst.badge')}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip size="small" color="info" label={t('cloud.cloudBurst.badge')} />
+                      {jobData.cloud_max_instances
+                        ? t('cloud.cloudBurst.maxInstances') + ': ' + jobData.cloud_max_instances
+                        : null}
+                      {/* Answers "will this finish before the budget runs out?"
+                          before any money is spent. */}
+                      <Button size="small" onClick={() => setProjectionOpen(true)}>
+                        {t('cloud.projection.title')}
+                      </Button>
+                      {/*
+                        * Rent one instance now, bypassing the autoscaler.
+                        *
+                        * The autoscaler applies the SOFT rules — minimum
+                        * starvation, skip-if-finishing-soon — and will not act
+                        * while any on-prem agent is idle. That is right for
+                        * automatic spending and wrong for an operator who has
+                        * decided they want capacity now, and it makes teardown
+                        * and provider testing nearly impossible to exercise
+                        * deliberately. The hard rails (window, per-job cap,
+                        * budget, consent) still apply.
+                        */}
+                      <Button
+                        size="small"
+                        color="warning"
+                        disabled={provisioning}
+                        onClick={handleProvisionNow}
+                      >
+                        {t('cloud.cloudBurst.provisionNow')}
+                      </Button>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              )}
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.chunkSize')}</TableCell>
                 <TableCell>
@@ -1471,6 +1569,17 @@ const JobDetails: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Read-only here: the operator is inspecting the projection, not
+          launching from this page, so confirming just closes the dialog. */}
+      {jobData?.cloud_burst_enabled && (
+        <CloudProjectionDialog
+          open={projectionOpen}
+          jobId={jobData.id}
+          onClose={() => setProjectionOpen(false)}
+          onConfirm={() => setProjectionOpen(false)}
+        />
+      )}
     </Box>
   );
 };

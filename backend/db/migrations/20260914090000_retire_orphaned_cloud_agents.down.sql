@@ -1,0 +1,12 @@
+-- Deliberately a no-op.
+--
+-- The up migration retires agents whose cloud instance is already terminated or
+-- failed. Un-retiring them would return agents attached to destroyed machines
+-- to the scheduler's idle pool, which is the bug this fixes -- and there is no
+-- way to tell which rows this migration stamped apart from ones the reaper
+-- stamped legitimately, so a blanket reversal would be strictly worse than
+-- doing nothing.
+--
+-- Rolling back the code is safe on its own: retired_at is only ever read as a
+-- filter, so an extra stamp costs nothing to an older binary.
+SELECT 1;

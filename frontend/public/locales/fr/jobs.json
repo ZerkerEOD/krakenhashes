@@ -208,6 +208,15 @@
       "hybridMaskWordlist": "Hybride Masque + Wordlist",
       "association": "Association",
       "modeNumber": "Mode {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Budget cloud atteint",
+      "cloud_cap_reached": "Plafond d'instances cloud atteint",
+      "cloud_settling": "Attente du démarrage d'une instance louée",
+      "cloud_no_capacity": "Aucune capacité cloud disponible",
+      "cloud_dead_on_arrival": "Les instances louées n'ont pas pu se reconnecter",
+      "cloud_launch_failed": "Impossible de louer une instance cloud",
+      "seenTimes": "Vu {{count}} fois"
     }
   },
   "common": {
@@ -329,5 +338,36 @@
     "bulkUnarchiveSuccess_plural": "{{count}} jobs désarchivés avec succès",
     "bulkDeleteSuccess": "{{count}} job supprimé avec succès",
     "bulkDeleteSuccess_plural": "{{count}} jobs supprimés avec succès"
+  },
+  "cloud": {
+    "projection": {
+      "title": "Will this finish within budget?",
+      "loadFailed": "Failed to project this job",
+      "coverageLabel": "Budget coverage",
+      "coverageValue": "{{pct}}% of the remaining work is funded",
+      "timeToFinish": "Projected time to finish",
+      "projectedCost": "Projected cloud cost",
+      "availableBudget": "Available budget",
+      "onpremSpeed": "On-prem speed",
+      "cloudSpeed": "Cloud speed",
+      "unknown": "Unknown",
+      "confirm": "Launch",
+      "pessimistic": "This is a salted hash type, so real throughput will exceed this estimate as salts crack. Treat the projection as a worst case.",
+      "shortfallTitle": "The budget runs out before the work does",
+      "shortfallBody": "At the projected rate, the budget covers {{pct}}% of the remaining keyspace. The job will stop partway through. Partial progress may still be worth buying — but it should be a deliberate choice.",
+      "shortfallAcknowledge": "I understand this job will not finish within budget"
+    },
+    "cloudBurst": {
+      "label": "Allow cloud burst for this job",
+      "help": "Rent GPU instances when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider. Nothing is rented without this.",
+      "maxInstances": "Maximum rented instances",
+      "maxInstancesHelp": "Separate from max agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
+      "badge": "Cloud burst",
+      "thirdPartyBadge": "Third-party host",
+      "provisionNow": "Provision now",
+      "provisionConfirm": "Rent one cloud instance for this job now?\n\nThis bypasses the autoscaler's starvation and finishing-soon rules, and will spend money against this client's budget. The budget, spend window, per-job cap and provider consent still apply.",
+      "provisionRequested": "Cloud instance requested",
+      "provisionFailed": "Could not provision a cloud instance"
+    }
   }
 }

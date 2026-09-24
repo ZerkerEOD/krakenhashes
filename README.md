@@ -70,3 +70,4 @@ Instructions for setting up and running each component can be found in their res
 
 -   [ ] Better file syncing to agents
 -   [x] Use bloodhound data for client password analytics
+-   [x] Cloud GPU provisioning — rent GPUs on demand with per-client budgets and guaranteed teardown (AWS tested; RunPod and Vast.ai experimental)
