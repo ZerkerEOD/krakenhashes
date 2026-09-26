@@ -1563,18 +1563,26 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 
 	// Resolve binary path via the injected resolver. Matches the
 	// legacy format from job_websocket_integration.go:781 —
-	// "binaries/<binary_version_id>". Errors here are non-fatal; we
-	// log and send the assignment with an empty BinaryPath, which
-	// the agent will reject. That's a clear failure signal in the
-	// agent log rather than a silent fall-through to "default."
+	// "binaries/<binary_version_id>".
+	//
+	// A task is never sent without a binary (GH #91). The allocator's
+	// compatibility check already keeps agents with no compatible binary
+	// out of the allocation, so a failure here is a transient lookup
+	// error: returning it leaves the task unsent, and the stale-task sweep
+	// recovers and re-dispatches it, without blaming the agent. Previously
+	// the assignment went out with an empty BinaryPath, which the agent
+	// resolved to its own data directory and failed to exec.
 	if c.binaryResolver != nil {
 		binaryID, berr := c.binaryResolver.DetermineBinaryForTask(ctx, dt.AgentID, unit.ParentJobID)
 		if berr != nil {
-			debug.Warning("scheduler-v2: binary resolution failed for task %s (agent %d, job %s): %v",
+			return fmt.Errorf("resolve hashcat binary for task %s (agent %d, job %s): %w",
 				dt.TaskID, dt.AgentID, unit.ParentJobID, berr)
-		} else {
-			payload.BinaryPath = fmt.Sprintf("binaries/%d", binaryID)
 		}
+		if binaryID <= 0 {
+			return fmt.Errorf("resolve hashcat binary for task %s (agent %d, job %s): got id %d",
+				dt.TaskID, dt.AgentID, unit.ParentJobID, binaryID)
+		}
+		payload.BinaryPath = fmt.Sprintf("binaries/%d", binaryID)
 	}
 
 	// Route client-specific wordlists and the client potfile out of the

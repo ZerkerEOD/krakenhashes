@@ -503,15 +503,23 @@ func buildBenchmarkRequest(
 	// agent able to detect a missing hashcat but not request one.
 	binaryPath, binaryName, binaryMD5 := "", "", ""
 	if binaryResolver != nil {
-		if binID, berr := binaryResolver.DetermineBinaryForTask(ctx, g.AgentID, unit.ParentJobID); berr == nil {
-			binaryPath = fmt.Sprintf("binaries/%d", binID)
-			// Non-fatal: an unnamed binary simply reverts to the older
-			// present-or-absent behaviour rather than blocking the benchmark.
-			if err := database.QueryRowContext(ctx,
-				`SELECT COALESCE(file_name,''), COALESCE(md5_hash,'')
-				   FROM binary_versions WHERE id = $1`, binID).Scan(&binaryName, &binaryMD5); err != nil {
-				debug.Warning("benchmark: lookup binary %d name/md5: %v", binID, err)
-			}
+		// Never send a benchmark without a binary (GH #91): an error here
+		// skips this request before it is recorded as in flight, so the next
+		// cycle retries it instead of the agent failing on an empty path.
+		binID, berr := binaryResolver.DetermineBinaryForTask(ctx, g.AgentID, unit.ParentJobID)
+		if berr != nil {
+			return nil, fmt.Errorf("resolve hashcat binary: %w", berr)
+		}
+		if binID <= 0 {
+			return nil, fmt.Errorf("resolve hashcat binary: got id %d", binID)
+		}
+		binaryPath = fmt.Sprintf("binaries/%d", binID)
+		// Non-fatal: an unnamed binary simply reverts to the older
+		// present-or-absent behaviour rather than blocking the benchmark.
+		if err := database.QueryRowContext(ctx,
+			`SELECT COALESCE(file_name,''), COALESCE(md5_hash,'')
+			   FROM binary_versions WHERE id = $1`, binID).Scan(&binaryName, &binaryMD5); err != nil {
+			debug.Warning("benchmark: lookup binary %d name/md5: %v", binID, err)
 		}
 	}
 
