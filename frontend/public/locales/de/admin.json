@@ -324,7 +324,9 @@
     "status": {
       "verified": "Verifiziert",
       "pending": "Ausstehend",
-      "failed": "Fehlgeschlagen"
+      "failed": "Fehlgeschlagen",
+      "missing": "Datei fehlt auf der Festplatte",
+      "missingSince": "Datei seit {{date}} nicht mehr auf der Festplatte. Erneut hochladen oder Eintrag entfernen."
     },
     "types": {
       "general": "Allgemein",
@@ -418,7 +420,9 @@
       "pending": "Ausstehend",
       "failed": "Fehlgeschlagen",
       "ready": "Bereit",
-      "processing": "Wird verarbeitet"
+      "processing": "Wird verarbeitet",
+      "missing": "Datei fehlt auf der Festplatte",
+      "missingSince": "Datei seit {{date}} nicht mehr auf der Festplatte. Erneut hochladen oder Eintrag entfernen."
     },
     "types": {
       "hashcat": "Hashcat",

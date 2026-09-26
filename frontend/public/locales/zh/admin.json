@@ -324,7 +324,9 @@
     "status": {
       "verified": "已验证",
       "pending": "待处理",
-      "failed": "失败"
+      "failed": "失败",
+      "missing": "磁盘上缺少文件",
+      "missingSince": "自 {{date}} 起文件在磁盘上缺失。请重新上传或删除该条目。"
     },
     "types": {
       "general": "通用",
@@ -418,7 +420,9 @@
       "pending": "待处理",
       "failed": "失败",
       "ready": "就绪",
-      "processing": "处理中"
+      "processing": "处理中",
+      "missing": "磁盘上缺少文件",
+      "missingSince": "自 {{date}} 起文件在磁盘上缺失。请重新上传或删除该条目。"
     },
     "types": {
       "hashcat": "Hashcat",

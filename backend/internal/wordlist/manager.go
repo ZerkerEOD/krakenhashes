@@ -44,6 +44,8 @@ type Manager interface {
 	DeleteWordlist(ctx context.Context, id int, confirmID *int) error
 	GetDeletionImpact(ctx context.Context, id int) (*models.DeletionImpact, error)
 	VerifyWordlist(ctx context.Context, id int, req *models.WordlistVerifyRequest) error
+	MarkWordlistMissing(ctx context.Context, id int) (bool, error)
+	RestoreWordlistOnDisk(ctx context.Context, id int) (bool, error)
 	UpdateWordlistFileInfo(ctx context.Context, id int, md5Hash string, fileSize int64) error
 	UpdateWordlistComplete(ctx context.Context, id int, md5Hash string, fileSize int64, wordCount int64) error
 	AddWordlistTag(ctx context.Context, id int, tag string, userID uuid.UUID) error
@@ -77,6 +79,8 @@ type WordlistStore interface {
 	UpdateWordlist(ctx context.Context, wordlist *models.Wordlist) error
 	DeleteWordlist(ctx context.Context, id int) error
 	UpdateWordlistVerification(ctx context.Context, id int, status string, wordCount *int64) error
+	MarkWordlistMissing(ctx context.Context, id int) (bool, error)
+	RestoreWordlistOnDisk(ctx context.Context, id int) (bool, error)
 	UpdateWordlistFileInfo(ctx context.Context, id int, md5Hash string, fileSize int64) error
 	UpdateWordlistComplete(ctx context.Context, id int, md5Hash string, fileSize int64, wordCount int64) error
 
@@ -447,6 +451,16 @@ func (m *manager) VerifyWordlist(ctx context.Context, id int, req *models.Wordli
 
 	// Update verification status
 	return m.store.UpdateWordlistVerification(ctx, id, req.Status, req.WordCount)
+}
+
+// MarkWordlistMissing flags a wordlist whose file is gone from disk (GH #93).
+func (m *manager) MarkWordlistMissing(ctx context.Context, id int) (bool, error) {
+	return m.store.MarkWordlistMissing(ctx, id)
+}
+
+// RestoreWordlistOnDisk clears a wordlist's missing flag once its file is back (GH #93).
+func (m *manager) RestoreWordlistOnDisk(ctx context.Context, id int) (bool, error) {
+	return m.store.RestoreWordlistOnDisk(ctx, id)
 }
 
 // UpdateWordlistFileInfo updates a wordlist's file information (MD5 hash and file size)

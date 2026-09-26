@@ -89,9 +89,12 @@ func (r *FileRepository) MarkMissingOnDisk(ctx context.Context, fileType, filePa
 	// but tolerate a bare name for rows written without one.
 	bare := path.Base(relName)
 
+	// missing_since marks this as a file-gone failure (GH #93) so the reconcile
+	// pass can restore it when the file returns and the UI can label it "missing"
+	// rather than a generic verification failure.
 	query := fmt.Sprintf(`
 		UPDATE %s
-		SET verification_status = 'failed'
+		SET verification_status = 'failed', missing_since = NOW()
 		WHERE (file_name = $1 OR file_name = $2)
 		  AND verification_status = 'verified'
 	`, table)

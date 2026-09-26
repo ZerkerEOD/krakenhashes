@@ -446,7 +446,16 @@ export default function WordlistsManagement() {
     });
 
   // Render status chip based on verification status
-  const renderStatusChip = (status: string) => {
+  const renderStatusChip = (status: string, missingSince?: string) => {
+    // A file-gone failure (GH #93) is actionable in a way a generic verification
+    // failure is not, so label it distinctly when missing_since is set.
+    if (status === 'failed' && missingSince) {
+      return (
+        <Tooltip title={t('wordlists.status.missingSince', { date: new Date(missingSince).toLocaleString() }) as string}>
+          <Chip label={t('wordlists.status.missing') as string} color="error" size="small" />
+        </Tooltip>
+      );
+    }
     switch (status) {
       case 'verified':
         return <Chip label={t('wordlists.status.verified') as string} color="success" size="small" />;
@@ -627,7 +636,7 @@ export default function WordlistsManagement() {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        {renderStatusChip(wordlist.verification_status)}
+                        {renderStatusChip(wordlist.verification_status, wordlist.missing_since)}
                       </TableCell>
                       <TableCell>
                         <Chip

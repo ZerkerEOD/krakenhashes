@@ -324,7 +324,9 @@
     "status": {
       "verified": "Verificado",
       "pending": "Pendiente",
-      "failed": "Fallido"
+      "failed": "Fallido",
+      "missing": "Archivo ausente en el disco",
+      "missingSince": "El archivo falta en el disco desde {{date}}. Vuelve a subirlo o elimina la entrada."
     },
     "types": {
       "general": "General",
@@ -418,7 +420,9 @@
       "pending": "Pendiente",
       "failed": "Fallido",
       "ready": "Listo",
-      "processing": "Procesando"
+      "processing": "Procesando",
+      "missing": "Archivo ausente en el disco",
+      "missingSince": "El archivo falta en el disco desde {{date}}. Vuelve a subirlo o elimina la entrada."
     },
     "types": {
       "hashcat": "Hashcat",

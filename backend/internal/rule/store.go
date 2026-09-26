@@ -26,7 +26,7 @@ func (s *Store) ListRules(ctx context.Context, filter *models.RuleFilter) ([]*mo
 	query := `
 		SELECT r.id, r.name, r.description, r.rule_type, r.file_name, 
 		       r.md5_hash, r.file_size, r.rule_count, r.created_at, r.created_by, 
-		       r.updated_at, r.updated_by, r.last_verified_at, r.verification_status
+		       r.updated_at, r.updated_by, r.last_verified_at, r.verification_status, r.missing_since
 		FROM rules r
 		WHERE 1=1
 	`
@@ -93,11 +93,12 @@ func (s *Store) ListRules(ctx context.Context, filter *models.RuleFilter) ([]*mo
 	for rows.Next() {
 		r := &models.Rule{}
 		var lastVerifiedAt sql.NullTime
+		var missingSince sql.NullTime
 
 		err := rows.Scan(
 			&r.ID, &r.Name, &r.Description, &r.RuleType, &r.FileName,
 			&r.MD5Hash, &r.FileSize, &r.RuleCount, &r.CreatedAt, &r.CreatedBy,
-			&r.UpdatedAt, &r.UpdatedBy, &lastVerifiedAt, &r.VerificationStatus,
+			&r.UpdatedAt, &r.UpdatedBy, &lastVerifiedAt, &r.VerificationStatus, &missingSince,
 		)
 		if err != nil {
 			debug.Error("Failed to scan rule: %v", err)
@@ -107,6 +108,10 @@ func (s *Store) ListRules(ctx context.Context, filter *models.RuleFilter) ([]*mo
 		// Set LastVerifiedAt if valid
 		if lastVerifiedAt.Valid {
 			r.LastVerifiedAt = lastVerifiedAt.Time
+		}
+		if missingSince.Valid {
+			t := missingSince.Time
+			r.MissingSince = &t
 		}
 
 		// Get tags for this rule
@@ -352,6 +357,39 @@ func (s *Store) UpdateRuleVerification(ctx context.Context, id int, status strin
 	}
 
 	return nil
+}
+
+// MarkRuleMissing flags a rule whose file is gone from disk (GH #93): status ->
+// 'failed', missing_since -> NOW(). Only flips a currently-'verified' row not
+// already flagged, so it never clobbers a genuine content failure. Returns
+// whether a row changed.
+func (s *Store) MarkRuleMissing(ctx context.Context, id int) (bool, error) {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE rules
+		SET verification_status = 'failed', missing_since = NOW(), last_verified_at = NOW()
+		WHERE id = $1 AND verification_status = 'verified' AND missing_since IS NULL
+	`, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to mark rule %d missing: %w", id, err)
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
+}
+
+// RestoreRuleOnDisk clears the missing flag once the file is back (GH #93):
+// status -> 'verified', missing_since -> NULL. Guarded on missing_since IS NOT
+// NULL so it only un-does a missing-file flag. Returns whether a row changed.
+func (s *Store) RestoreRuleOnDisk(ctx context.Context, id int) (bool, error) {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE rules
+		SET verification_status = 'verified', missing_since = NULL, last_verified_at = NOW()
+		WHERE id = $1 AND missing_since IS NOT NULL
+	`, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to restore rule %d: %w", id, err)
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
 }
 
 // UpdateRuleFileInfo updates a rule's file information (MD5 hash and file size)

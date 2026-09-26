@@ -26,21 +26,22 @@ const (
 // Rule represents the structure of the 'rules' table.
 // Note: Add other fields from migration 000014 if needed for other contexts.
 type Rule struct {
-	ID                 int       `json:"id"`
-	Name               string    `json:"name"`
-	Description        string    `json:"description"`
-	RuleType           string    `json:"rule_type"` // e.g., "hashcat", "custom"
-	FileName           string    `json:"file_name"`
-	MD5Hash            string    `json:"md5_hash"`
-	FileSize           int64     `json:"file_size"`
-	RuleCount          int64     `json:"rule_count"`
-	CreatedAt          time.Time `json:"created_at"`
-	CreatedBy          uuid.UUID `json:"created_by"`
-	UpdatedAt          time.Time `json:"updated_at"`
-	UpdatedBy          uuid.UUID `json:"updated_by,omitempty"`
-	LastVerifiedAt     time.Time `json:"last_verified_at,omitempty"`
-	VerificationStatus string    `json:"verification_status"` // e.g., "pending", "verified", "failed"
-	Tags               []string  `json:"tags,omitempty"`
+	ID                 int        `json:"id"`
+	Name               string     `json:"name"`
+	Description        string     `json:"description"`
+	RuleType           string     `json:"rule_type"` // e.g., "hashcat", "custom"
+	FileName           string     `json:"file_name"`
+	MD5Hash            string     `json:"md5_hash"`
+	FileSize           int64      `json:"file_size"`
+	RuleCount          int64      `json:"rule_count"`
+	CreatedAt          time.Time  `json:"created_at"`
+	CreatedBy          uuid.UUID  `json:"created_by"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	UpdatedBy          uuid.UUID  `json:"updated_by,omitempty"`
+	LastVerifiedAt     time.Time  `json:"last_verified_at,omitempty"`
+	VerificationStatus string     `json:"verification_status"`     // e.g., "pending", "verified", "failed"
+	MissingSince       *time.Time `json:"missing_since,omitempty"` // set when verification_status='failed' because the file is gone from disk (GH #93)
+	Tags               []string   `json:"tags,omitempty"`
 }
 
 // RuleBasic is a subset of Rule used for simple listings (e.g., form data).

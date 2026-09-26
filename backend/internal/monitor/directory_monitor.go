@@ -273,6 +273,10 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 		return
 	}
 
+	// Collect the relPath of every standalone managed file present on disk, so
+	// the reconcile pass below can flag rows whose file has gone (GH #93).
+	seen := make(map[string]bool)
+
 	// Walk directory recursively
 	err := filepath.Walk(m.wordlistDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -325,6 +329,11 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 			debug.Debug("Skipping client wordlist from directory monitoring: %s", relPath)
 			return nil
 		}
+
+		// A standalone managed file that exists on disk. Record it before the
+		// processing/stability gates so a mid-write or in-flight file is never
+		// treated as missing by the reconcile pass (GH #93).
+		seen[filepath.ToSlash(relPath)] = true
 
 		// Skip if already being processed
 		if _, isProcessing := m.processingFiles.Load(relPath); isProcessing {
@@ -387,7 +396,7 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 				m.fileStatuses.Store(relPath, "unchanged")
 				return
 			}
-			
+
 			// Skip pot-file from monitoring
 			if existingWordlist != nil && existingWordlist.IsPotfile {
 				debug.Info("Skipping pot-file from monitoring due to is_potfile flag: %s (ID: %d)", relPath, existingWordlist.ID)
@@ -413,7 +422,72 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 
 	if err != nil {
 		debug.Error("Error walking wordlist directory: %v", err)
+		return
 	}
+
+	m.reconcileMissingWordlists(context.Background(), seen)
+}
+
+// reconcileMissingWordlists flags verified wordlists whose file has disappeared
+// from disk, and restores ones whose file has returned (GH #93). Only standalone
+// monitor-managed wordlists are considered — potfiles, ephemeral/filtered
+// children, and association/client lists are managed elsewhere.
+func (m *DirectoryMonitor) reconcileMissingWordlists(ctx context.Context, seen map[string]bool) {
+	// Unmount guard: if the walk saw no files at all, the directory may be
+	// unmounted (an empty mountpoint still "exists"); never mass-flag on that.
+	if len(seen) == 0 {
+		debug.Debug("Wordlist reconcile skipped: no files seen on disk (directory empty or unmounted)")
+		return
+	}
+
+	all, err := m.wordlistManager.ListWordlists(ctx, nil)
+	if err != nil {
+		debug.Error("Wordlist reconcile: failed to list wordlists: %v", err)
+		return
+	}
+
+	for _, w := range all {
+		if !isMonitorManagedWordlist(w) {
+			continue
+		}
+		key := filepath.ToSlash(w.FileName)
+		present := seen[key]
+		if !present {
+			// Confirm the file really is gone before flagging.
+			if _, statErr := os.Stat(m.wordlistManager.GetWordlistPath(w.FileName, w.WordlistType)); statErr == nil {
+				present = true
+			}
+		}
+
+		switch {
+		case w.VerificationStatus == models.VerificationStatusVerified && !present:
+			if changed, err := m.wordlistManager.MarkWordlistMissing(ctx, w.ID); err != nil {
+				debug.Error("Wordlist reconcile: failed to mark %q (id %d) missing: %v", w.FileName, w.ID, err)
+			} else if changed {
+				debug.Warning("Wordlist %q (id %d) is missing from disk; marked failed. Re-upload it or remove the entry.", w.FileName, w.ID)
+			}
+		case w.MissingSince != nil && present:
+			if changed, err := m.wordlistManager.RestoreWordlistOnDisk(ctx, w.ID); err != nil {
+				debug.Error("Wordlist reconcile: failed to restore %q (id %d): %v", w.FileName, w.ID, err)
+			} else if changed {
+				debug.Info("Wordlist %q (id %d) is back on disk; restored to verified.", w.FileName, w.ID)
+			}
+		}
+	}
+}
+
+// isMonitorManagedWordlist reports whether a wordlist is a standalone file the
+// directory monitor owns (so it may flag it missing), mirroring the skips in
+// checkWordlistDirectory.
+func isMonitorManagedWordlist(w *models.Wordlist) bool {
+	if w.IsPotfile || w.IsEphemeral || w.ParentWordlistID != nil {
+		return false
+	}
+	name := filepath.ToSlash(w.FileName)
+	if strings.HasPrefix(name, "association/") || strings.HasPrefix(name, "clients/") {
+		return false
+	}
+	return true
 }
 
 // processNewWordlistFile processes a new wordlist file
@@ -645,6 +719,10 @@ func (m *DirectoryMonitor) checkRuleDirectory() {
 		return
 	}
 
+	// Collect the relPath of every rule file present on disk for the reconcile
+	// pass below (GH #93).
+	seen := make(map[string]bool)
+
 	// Walk directory recursively
 	err := filepath.Walk(m.ruleDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -668,6 +746,10 @@ func (m *DirectoryMonitor) checkRuleDirectory() {
 			debug.Error("Failed to get relative path for %s: %v", path, err)
 			return nil
 		}
+
+		// Record before the processing/stability gates so an in-flight file is
+		// never treated as missing by the reconcile pass (GH #93).
+		seen[filepath.ToSlash(relPath)] = true
 
 		// Skip if already being processed
 		if _, isProcessing := m.processingFiles.Load(relPath); isProcessing {
@@ -774,6 +856,50 @@ func (m *DirectoryMonitor) checkRuleDirectory() {
 
 	if err != nil {
 		debug.Error("Error walking rule directory: %v", err)
+		return
+	}
+
+	m.reconcileMissingRules(context.Background(), seen)
+}
+
+// reconcileMissingRules flags verified rules whose file has disappeared from
+// disk, and restores ones whose file has returned (GH #93).
+func (m *DirectoryMonitor) reconcileMissingRules(ctx context.Context, seen map[string]bool) {
+	// Unmount guard: never mass-flag when the walk saw no files at all.
+	if len(seen) == 0 {
+		debug.Debug("Rule reconcile skipped: no files seen on disk (directory empty or unmounted)")
+		return
+	}
+
+	all, err := m.ruleManager.ListRules(ctx, nil)
+	if err != nil {
+		debug.Error("Rule reconcile: failed to list rules: %v", err)
+		return
+	}
+
+	for _, r := range all {
+		key := filepath.ToSlash(r.FileName)
+		present := seen[key]
+		if !present {
+			if _, statErr := os.Stat(m.ruleManager.GetRulePath(r.FileName, r.RuleType)); statErr == nil {
+				present = true
+			}
+		}
+
+		switch {
+		case r.VerificationStatus == models.VerificationStatusVerified && !present:
+			if changed, err := m.ruleManager.MarkRuleMissing(ctx, r.ID); err != nil {
+				debug.Error("Rule reconcile: failed to mark %q (id %d) missing: %v", r.FileName, r.ID, err)
+			} else if changed {
+				debug.Warning("Rule %q (id %d) is missing from disk; marked failed. Re-upload it or remove the entry.", r.FileName, r.ID)
+			}
+		case r.MissingSince != nil && present:
+			if changed, err := m.ruleManager.RestoreRuleOnDisk(ctx, r.ID); err != nil {
+				debug.Error("Rule reconcile: failed to restore %q (id %d): %v", r.FileName, r.ID, err)
+			} else if changed {
+				debug.Info("Rule %q (id %d) is back on disk; restored to verified.", r.FileName, r.ID)
+			}
+		}
 	}
 }
 

@@ -497,17 +497,23 @@ export default function RulesManagement() {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={t(`rules.status.${rule.verification_status}`) as string}
-                          size="small"
-                          color={
-                            rule.verification_status === RuleStatus.READY
-                              ? 'success'
-                              : rule.verification_status === RuleStatus.PROCESSING
-                              ? 'warning'
-                              : 'error'
-                          }
-                        />
+                        {rule.verification_status === RuleStatus.FAILED && rule.missing_since ? (
+                          <Tooltip title={t('rules.status.missingSince', { date: new Date(rule.missing_since).toLocaleString() }) as string}>
+                            <Chip label={t('rules.status.missing') as string} size="small" color="error" />
+                          </Tooltip>
+                        ) : (
+                          <Chip
+                            label={t(`rules.status.${rule.verification_status}`) as string}
+                            size="small"
+                            color={
+                              rule.verification_status === RuleStatus.READY
+                                ? 'success'
+                                : rule.verification_status === RuleStatus.PROCESSING
+                                ? 'warning'
+                                : 'error'
+                            }
+                          />
+                        )}
                       </TableCell>
                       <TableCell>
                         <Chip
