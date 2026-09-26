@@ -656,6 +656,11 @@ func (jm *JobManager) EnsureBenchmarkFiles(ctx context.Context, assignment *JobT
  * extracted — and skips the ~467 MB download when the local copy's md5 matches.
  */
 func (jm *JobManager) ensureBinary(ctx context.Context, assignment *JobTaskAssignment) error {
+	// Nothing to fetch without a path. An empty path is not rejected here —
+	// benchmarks/older payloads may legitimately reach this step without one —
+	// it is rejected at exec time by resolveHashcatBinary, which names the real
+	// problem instead of the old "fork/exec <data dir>: permission denied"
+	// (GH #91).
 	if assignment.BinaryPath == "" {
 		return nil
 	}

@@ -354,6 +354,11 @@ type HashcatExecutor struct {
 	mutex           sync.RWMutex
 	activeProcesses map[string]*HashcatProcess
 
+	// parseContexts keeps each task's hashlist lookup after hashcat exits so
+	// RetransmitOutfile can parse lines with the same known-hash matching as
+	// the live path (GH #90). Guarded by mutex; an entry goes with its outfile.
+	parseContexts map[string]*crackParseContext
+
 	// Output callback for sending output via websocket
 	outputCallback func(taskID string, output string, isError bool)
 
@@ -442,7 +447,9 @@ type HashcatProcess struct {
 	mutex             sync.Mutex
 
 	// Cleanup coordination
-	CleanupInProgress atomic.Bool // Flag to prevent timer creation during cleanup
+	CleanupInProgress atomic.Bool   // Flag to prevent timer creation during cleanup
+	allCrackedDrained atomic.Bool   // set once the AllHashesCracked drain has run, so the streaming path drains at most once per task (GH #92)
+	Finished          chan struct{} // closed after the run goroutine has flushed cracks and cleaned up; StopTask waits on it so a stop-ack means "flushed" (GH #92)
 }
 
 // NewHashcatExecutor creates a new hashcat executor
@@ -453,6 +460,7 @@ func NewHashcatExecutor(dataDirectory string) *HashcatExecutor {
 	executor := &HashcatExecutor{
 		dataDirectory:      dataDirectory,
 		activeProcesses:    make(map[string]*HashcatProcess),
+		parseContexts:      make(map[string]*crackParseContext),
 		crackBatchBuffers:  make(map[string][]CrackedHash),
 		crackBatchTimers:   make(map[string]*time.Timer),
 		crackBatchInterval: 500 * time.Millisecond, // 500ms batching window (reduced frequency)
@@ -715,6 +723,7 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 		Cmd:               command,
 		Cancel:            cancel,
 		ProgressChannel:   make(chan *JobProgress, 100),
+		Finished:          make(chan struct{}),
 		StatusFile:        statusFile,
 		PotFile:           potFile,
 		OutputFile:        outputFile,
@@ -731,6 +740,11 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 
 	// Store process
 	e.activeProcesses[assignment.TaskID] = process
+	e.rememberParseContextLocked(assignment.TaskID, &crackParseContext{
+		content:  hashlistContent,
+		lookup:   hashlistMap,
+		hashType: assignment.HashType,
+	})
 
 	// Show console message about starting execution
 	console.Status("Starting hashcat execution for task %s", assignment.TaskID)
@@ -1311,6 +1325,13 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			// Force kill if needed
 			process.Cmd.Process.Kill()
 		}
+
+		// Signal last: cracks are flushed (cleanupBatchState ran in the body)
+		// and the process is torn down, so a stop-ack sent after StopTask
+		// returns means the cracks are on the wire (GH #92).
+		if process.Finished != nil {
+			close(process.Finished)
+		}
 	}()
 
 	// Start output readers before starting the process
@@ -1570,6 +1591,21 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 								timeRemaining := int(remaining / progress.HashRate)
 								progress.TimeRemaining = &timeRemaining
 							}
+						}
+
+						// The AllHashesCracked flag triggers hashlist-completion
+						// handling on the backend. That must not happen while the
+						// agent still holds cracks it found moments ago: on a
+						// rented instance the disk is destroyed at teardown, so a
+						// crack not yet on the wire is lost, not merely delayed
+						// (GH #92). Drain the outfile and flush the batch here,
+						// once per task, so every crack is enqueued ahead of this
+						// message. The exit handler below still does the same for
+						// the normal (not-all-cracked) completion.
+						if allHashesCracked && process.OutfilePath != "" &&
+							process.allCrackedDrained.CompareAndSwap(false, true) {
+							e.readNewOutfileLines(process)
+							e.flushCrackBatch(process)
 						}
 
 						// Streaming status updates are always sent as "running".
@@ -2238,20 +2274,38 @@ func (e *HashcatExecutor) cleanupBatchState(process *HashcatProcess) {
 	}
 }
 
-// StopTask stops a running task
+// StopTask stops a running task and waits for its cracks to be flushed.
+//
+// The lock is released before waiting: the run goroutine takes e.mutex in its
+// cleanup defer (to delete itself from activeProcesses), so holding it here
+// would deadlock. The bounded wait lets a stop-ack sent afterwards mean the
+// final cracks are on the wire rather than still buffered (GH #92).
 func (e *HashcatExecutor) StopTask(taskID string) error {
 	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
 	process, exists := e.activeProcesses[taskID]
+	e.mutex.Unlock()
+
 	if !exists {
 		return fmt.Errorf("task %s not found", taskID)
 	}
 
 	// Cancel the context to stop the process
 	process.Cancel()
+
+	if process.Finished != nil {
+		select {
+		case <-process.Finished:
+		case <-time.After(stopDrainTimeout):
+			debug.Warning("StopTask: task %s did not finish draining within %s; acking anyway", taskID, stopDrainTimeout)
+		}
+	}
 	return nil
 }
+
+// stopDrainTimeout bounds how long StopTask waits for the run goroutine to
+// flush cracks and tear down. On a stop the process is killed and its cracks
+// flushed in well under a second; the cap only guards against a wedged process.
+const stopDrainTimeout = 10 * time.Second
 
 // GetTaskProgress returns the current progress of a task
 func (e *HashcatExecutor) GetTaskProgress(taskID string) (*JobProgress, error) {
@@ -2748,9 +2802,33 @@ func (e *HashcatExecutor) parseSpeedFromJSON(jsonStr string) (int64, []DeviceSpe
 	return totalSpeed, deviceSpeeds, totalEffectiveKeyspace, nil
 }
 
+// errNoBinaryAssigned is returned for a task that arrives with no hashcat
+// binary path. TASK_NO_BINARY is a typed code the backend classifier checks
+// before its "binary not synced yet" markers, which the callers' wrapping text
+// would otherwise match: waiting for file sync cannot fix it (GH #91).
+var errNoBinaryAssigned = errors.New("TASK_NO_BINARY: no hashcat binary is assigned to this task (empty binary path)")
+
+// isUsableBinary reports whether path is a regular file hashcat can be run
+// from. os.Stat alone also accepts directories, which is how an empty binary
+// path used to resolve to the data directory itself (GH #91).
+func isUsableBinary(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return strings.HasSuffix(path, ".exe") || info.Mode()&0111 != 0
+	}
+	return !strings.HasSuffix(path, ".exe") && info.Mode()&0111 != 0
+}
+
 // resolveHashcatBinary resolves the hashcat binary path from the assignment
 func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error) {
 	debug.Info("Resolving hashcat binary from path: %s", binaryPath)
+
+	if strings.TrimSpace(binaryPath) == "" {
+		return "", errNoBinaryAssigned
+	}
 
 	// The binaryPath might come in different formats:
 	// - "binaries/hashcat_2" (old format)
@@ -2770,12 +2848,12 @@ func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error
 	} else {
 		// Direct path or other format
 		// Check if it's already a full path
-		if _, err := os.Stat(binaryPath); err == nil {
+		if isUsableBinary(binaryPath) {
 			return binaryPath, nil
 		}
 		// Try in data directory
 		fullPath := filepath.Join(e.dataDirectory, binaryPath)
-		if _, err := os.Stat(fullPath); err == nil {
+		if isUsableBinary(fullPath) {
 			return fullPath, nil
 		}
 		return "", fmt.Errorf("invalid binary path format: %s", binaryPath)
@@ -2834,22 +2912,10 @@ func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error
 		}
 
 		for _, path := range possiblePaths {
-			if fileInfo, err := os.Stat(path); err == nil {
-				// Check if it's the right type of executable for this OS
-				isExecutable := false
-
-				if runtime.GOOS == "windows" {
-					// On Windows, .exe files are executable
-					isExecutable = strings.HasSuffix(path, ".exe") || fileInfo.Mode()&0111 != 0
-				} else {
-					// On Unix-like systems, check execute permission and skip .exe files
-					isExecutable = !strings.HasSuffix(path, ".exe") && fileInfo.Mode()&0111 != 0
-				}
-
-				if isExecutable {
-					debug.Info("Found hashcat binary for %s at: %s", runtime.GOOS, path)
-					return path, nil
-				}
+			// Regular file with the right executable form for this OS.
+			if isUsableBinary(path) {
+				debug.Info("Found hashcat binary for %s at: %s", runtime.GOOS, path)
+				return path, nil
 			}
 		}
 
@@ -3006,38 +3072,42 @@ func (e *HashcatExecutor) parseCrackedHash(line string, hashlistContent []string
 		}
 	}
 
-	// OPTIMIZED: O(1) HashMap lookup for standard hash types
-	// Format is always: hash:password (hash may contain colons for some types)
-	// We use LastIndex to handle hashes that contain colons (like SHA512CRYPT)
-	lastColonIdx := strings.LastIndex(line, ":")
-	if lastColonIdx == -1 {
+	// Standard types: the line is hash:plain, and the hash itself may contain
+	// colons (NetNTLMv1, hash:salt modes, ...). Try each colon as the split
+	// point, rightmost first, and take the first prefix that is a real hashlist
+	// entry. With hashcat's default autohex a plain never contains ':' (it is
+	// written as $HEX[...]), so the rightmost colon is normally the split and
+	// this costs one O(1) lookup; walking left handles plains that do contain
+	// colons (autohex disabled). Rightmost-first also picks the longer entry
+	// when one hashlist entry is a colon-prefix of another. GH #90.
+	for idx := strings.LastIndex(line, ":"); idx >= 0; idx = strings.LastIndex(line[:idx], ":") {
+		if originalHash, exists := hashlistMap[strings.ToLower(line[:idx])]; exists {
+			return &CrackedHash{
+				Hash:     originalHash, // Use original hash from hashlist (preserving case as stored in DB)
+				Plain:    line[idx+1:], // Password with original case
+				FullLine: line,         // Keep the full line for reference
+			}
+		}
+	}
+
+	// The hashlist could not be loaded for this task (ExecuteTask continues
+	// with an empty map). Keep the historical last-colon split so cracks still
+	// reach the backend, which ignores any hash that is not in the hashlist.
+	if len(hashlistMap) == 0 {
+		if idx := strings.LastIndex(line, ":"); idx >= 16 && !strings.Contains(line[:idx], " ") {
+			return &CrackedHash{
+				Hash:     line[:idx],
+				Plain:    line[idx+1:],
+				FullLine: line,
+			}
+		}
 		return nil
 	}
 
-	hashPart := line[:lastColonIdx]
-	password := line[lastColonIdx+1:]
-	hashPartLower := strings.ToLower(hashPart)
-
-	// O(1) lookup in the pre-built map
-	if originalHash, exists := hashlistMap[hashPartLower]; exists {
-		return &CrackedHash{
-			Hash:     originalHash, // Use original hash from hashlist (preserving case as stored in DB)
-			Plain:    password,     // Password with original case
-			FullLine: line,         // Keep the full line for reference
-		}
-	}
-
-	// Fallback for edge cases (hash not in map but looks valid)
-	// This can happen if hash was modified by hashcat output formatting
-	if len(hashPart) >= 16 && !strings.Contains(hashPart, " ") {
-		debug.Warning("[Crack Parser] Using fallback for unmatched hash: %s", hashPart)
-		return &CrackedHash{
-			Hash:     hashPart,
-			Plain:    password,
-			FullLine: line,
-		}
-	}
-
+	// No prefix of the line is in the hashlist. Inventing a hash from it only
+	// produced a crack the backend silently discarded, so drop it here and say
+	// so. The line is not logged: it contains the plaintext.
+	debug.Warning("[Crack Parser] Dropping output line that matches no hash in the hashlist (hash type %d, %d bytes)", hashType, len(line))
 	return nil
 }
 
@@ -3092,8 +3162,10 @@ func (e *HashcatExecutor) readNewOutfileLines(process *HashcatProcess) {
 			return
 		}
 
-		// Parse using hash-type-aware parser with O(1) lookup (same as stdout reader)
-		lineStr := strings.TrimSpace(line)
+		// Parse using hash-type-aware parser with O(1) lookup (same as stdout reader).
+		// Strip only the line ending: hashcat does not hex-encode spaces, so
+		// TrimSpace would cut a password's leading/trailing blanks.
+		lineStr := strings.TrimRight(line, "\r\n")
 		cracked := e.parseCrackedHash(lineStr, process.HashlistContent, process.HashlistMap, process.Assignment.HashType)
 		if cracked == nil {
 			continue
@@ -3132,6 +3204,34 @@ func (e *HashcatExecutor) readNewOutfileLines(process *HashcatProcess) {
 	}
 }
 
+// crackParseContext is what parseCrackedHash needs to split an outfile line:
+// the task's hashlist (slice and lowercase lookup) and hash type.
+type crackParseContext struct {
+	content  []string
+	lookup   map[string]string
+	hashType int
+}
+
+// outfilePathFor returns the outfile location used by buildHashcatCommand.
+func (e *HashcatExecutor) outfilePathFor(taskID string) string {
+	return filepath.Join(e.dataDirectory, "outfile", fmt.Sprintf("%s.txt", taskID))
+}
+
+// rememberParseContextLocked stores a task's parse context and drops contexts
+// whose outfile is gone and whose task is no longer running, so contexts do
+// not pile up if a delete approval never arrives. Caller holds e.mutex.
+func (e *HashcatExecutor) rememberParseContextLocked(taskID string, ctx *crackParseContext) {
+	for id := range e.parseContexts {
+		if _, running := e.activeProcesses[id]; running {
+			continue
+		}
+		if _, err := os.Stat(e.outfilePathFor(id)); os.IsNotExist(err) {
+			delete(e.parseContexts, id)
+		}
+	}
+	e.parseContexts[taskID] = ctx
+}
+
 // RetransmitOutfile reads an entire outfile and returns all cracks for retransmission
 func (e *HashcatExecutor) RetransmitOutfile(taskID string) ([]CrackedHash, error) {
 	outfileDir := filepath.Join(e.dataDirectory, "outfile")
@@ -3150,6 +3250,16 @@ func (e *HashcatExecutor) RetransmitOutfile(taskID string) ([]CrackedHash, error
 	}
 	defer file.Close()
 
+	e.mutex.RLock()
+	parseCtx := e.parseContexts[taskID]
+	e.mutex.RUnlock()
+	if parseCtx == nil {
+		// The agent restarted since the task ran, so its hashlist is gone.
+		// Fall back to the old split; hashes containing a colon cannot be
+		// recovered this way.
+		debug.Warning("No hashlist context for task %s retransmit; using first-colon split", taskID)
+	}
+
 	var cracks []CrackedHash
 	scanner := bufio.NewScanner(file)
 	// Increase buffer size for long lines
@@ -3157,15 +3267,25 @@ func (e *HashcatExecutor) RetransmitOutfile(taskID string) ([]CrackedHash, error
 	scanner.Buffer(buf, 10*1024*1024) // 10MB max line length
 
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := strings.TrimRight(scanner.Text(), "\r")
 		if line == "" {
+			continue
+		}
+
+		// Same known-hash matching as the live outfile reader, so a hash that
+		// contains colons (NetNTLMv1/v2, hash:salt) is not cut at its first
+		// colon (GH #90).
+		if parseCtx != nil {
+			if cracked := e.parseCrackedHash(line, parseCtx.content, parseCtx.lookup, parseCtx.hashType); cracked != nil {
+				cracks = append(cracks, CrackedHash{Hash: cracked.Hash, Plain: cracked.Plain})
+			}
 			continue
 		}
 
 		// Parse the line - format is hash:plain (format 1,2)
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) < 2 {
-			debug.Warning("Invalid outfile line format: %s", line)
+			debug.Warning("Invalid outfile line format in task %s outfile", taskID)
 			continue
 		}
 
@@ -3198,6 +3318,10 @@ func (e *HashcatExecutor) DeleteOutfile(taskID string) error {
 	if err := os.Remove(outfilePath); err != nil {
 		return fmt.Errorf("failed to delete outfile: %w", err)
 	}
+
+	e.mutex.Lock()
+	delete(e.parseContexts, taskID)
+	e.mutex.Unlock()
 
 	debug.Info("Successfully deleted outfile for task %s", taskID)
 	return nil
