@@ -1655,23 +1655,29 @@ func (c *Connection) readPump() {
 				console.Warning("Task stopped by server: %s", stopPayload.TaskID)
 			}
 
-			var stopped bool
-			var stopMessage string
-			if err := c.jobManager.StopJob(stopPayload.TaskID); err != nil {
-				debug.Error("Failed to stop job %s: %v", stopPayload.TaskID, err)
-				console.Error("Failed to stop task %s: %v", stopPayload.TaskID, err)
-				stopped = false
-				stopMessage = err.Error()
-			} else {
-				debug.Info("Successfully stopped job %s", stopPayload.TaskID)
-				console.Success("Task %s stopped successfully", stopPayload.TaskID)
-				stopped = true
-			}
+			// Handle asynchronously: StopJob now waits for the task's final
+			// cracks to be flushed before the ack is sent (GH #92), and that
+			// wait must not block readPump (heartbeats, pongs, other messages).
+			// Mirrors the async file-sync and benchmark handlers above.
+			go func(stop JobStopPayload) {
+				var stopped bool
+				var stopMessage string
+				if err := c.jobManager.StopJob(stop.TaskID); err != nil {
+					debug.Error("Failed to stop job %s: %v", stop.TaskID, err)
+					console.Error("Failed to stop task %s: %v", stop.TaskID, err)
+					stopped = false
+					stopMessage = err.Error()
+				} else {
+					debug.Info("Successfully stopped job %s", stop.TaskID)
+					console.Success("Task %s stopped successfully", stop.TaskID)
+					stopped = true
+				}
 
-			// Send stop ACK back to backend (GH Issue #12)
-			if stopPayload.StopID != "" {
-				c.sendTaskStopAck(stopPayload.TaskID, stopPayload.StopID, stopped, stopMessage)
-			}
+				// Send stop ACK back to backend, after the flush (GH Issue #12, #92)
+				if stop.StopID != "" {
+					c.sendTaskStopAck(stop.TaskID, stop.StopID, stopped, stopMessage)
+				}
+			}(stopPayload)
 
 		case WSTypeTaskCompleteAck:
 			// Server acknowledged task completion (GH Issue #12)

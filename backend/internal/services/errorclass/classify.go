@@ -180,6 +180,16 @@ func Classify(message string) Category {
 	if strings.Contains(m, "agent_autotune") || strings.Contains(m, "agent_no_work") {
 		return CategoryAgentTransient
 	}
+	// TASK_NO_BINARY: the agent received work with no hashcat binary path
+	// (GH #91). The dispatchers no longer send such work, so this means a
+	// server-side fault, not an agent one. Checked before the not-ready
+	// markers, which the agent's wrapping text ("failed to ensure/resolve
+	// hashcat binary") would otherwise match and retry forever as "still
+	// syncing". Not transient either: transient failures count toward the
+	// agent's blocklist threshold. Fail the job with this reason instead.
+	if strings.Contains(m, "task_no_binary") {
+		return CategoryJobConfig
+	}
 	// Checked before every marker list: the agent aborts its pre-flight without
 	// invoking hashcat, so none of the downstream lists can legitimately match,
 	// and misclassifying this as a real failure is what produced the 24h
