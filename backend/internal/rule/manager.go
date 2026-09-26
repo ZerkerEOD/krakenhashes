@@ -30,6 +30,8 @@ type Manager interface {
 	DeleteRule(ctx context.Context, id int, confirmID *int) error
 	GetDeletionImpact(ctx context.Context, id int) (*models.DeletionImpact, error)
 	VerifyRule(ctx context.Context, id int, req *models.RuleVerifyRequest) error
+	MarkRuleMissing(ctx context.Context, id int) (bool, error)
+	RestoreRuleOnDisk(ctx context.Context, id int) (bool, error)
 	UpdateRuleFileInfo(ctx context.Context, id int, md5Hash string, fileSize int64) error
 	AddRuleTag(ctx context.Context, id int, tag string, userID uuid.UUID) error
 	DeleteRuleTag(ctx context.Context, id int, tag string) error
@@ -50,6 +52,8 @@ type RuleStore interface {
 	UpdateRule(ctx context.Context, rule *models.Rule) error
 	DeleteRule(ctx context.Context, id int) error
 	UpdateRuleVerification(ctx context.Context, id int, status string, ruleCount *int64) error
+	MarkRuleMissing(ctx context.Context, id int) (bool, error)
+	RestoreRuleOnDisk(ctx context.Context, id int) (bool, error)
 	UpdateRuleFileInfo(ctx context.Context, id int, md5Hash string, fileSize int64) error
 
 	// Tag operations
@@ -440,6 +444,16 @@ func (m *manager) VerifyRule(ctx context.Context, id int, req *models.RuleVerify
 
 	// Update verification status
 	return m.store.UpdateRuleVerification(ctx, id, req.Status, req.RuleCount)
+}
+
+// MarkRuleMissing flags a rule whose file is gone from disk (GH #93).
+func (m *manager) MarkRuleMissing(ctx context.Context, id int) (bool, error) {
+	return m.store.MarkRuleMissing(ctx, id)
+}
+
+// RestoreRuleOnDisk clears a rule's missing flag once its file is back (GH #93).
+func (m *manager) RestoreRuleOnDisk(ctx context.Context, id int) (bool, error) {
+	return m.store.RestoreRuleOnDisk(ctx, id)
 }
 
 // UpdateRuleFileInfo updates a rule's file information (MD5 hash and file size)

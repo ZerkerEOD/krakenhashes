@@ -124,6 +124,21 @@ All auto-imported wordlists and rules are created in the database using a specia
 7. File contents are counted (words or rules)
 8. Status is updated to "verified" once counting is complete
 
+### Missing Files
+
+The monitor also reconciles the other direction: on each pass it checks that every
+verified wordlist and rule still exists on disk. If a file has disappeared by any
+route other than the API (a manual `rm`, a moved data directory, a lost volume),
+its row is marked **failed** and shown in Wordlist/Rule Management as **"File
+missing on disk"**, distinct from other verification failures. A missing file is
+also dropped from the agent sync manifest, so one orphaned entry no longer makes
+every agent's file sync report as failed.
+
+Restore or re-upload the file and the next monitoring pass returns the row to
+**verified** automatically; alternatively, delete the entry through the UI. As a
+safety measure, if the monitored directory is empty or unreadable (for example an
+unmounted volume), the missing-file sweep is skipped so nothing is mass-flagged.
+
 ## File Transfer Considerations
 
 When transferring files to the monitored directories, be aware of the following:
