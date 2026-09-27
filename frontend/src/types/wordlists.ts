@@ -29,6 +29,7 @@ export interface Wordlist {
   created_at: string;
   updated_at: string;
   verification_status: WordlistStatus;
+  missing_since?: string; // set when verification_status='failed' because the file is gone from disk (GH #93)
   created_by: string;
   updated_by?: string;
   last_verified_at?: string;

@@ -325,7 +325,9 @@
     "status": {
       "verified": "Verified",
       "pending": "Pending",
-      "failed": "Failed"
+      "failed": "Failed",
+      "missing": "File missing on disk",
+      "missingSince": "File missing from disk since {{date}}. Re-upload it or remove the entry."
     },
     "types": {
       "general": "General",
@@ -419,7 +421,9 @@
       "pending": "Pending",
       "failed": "Failed",
       "ready": "Ready",
-      "processing": "Processing"
+      "processing": "Processing",
+      "missing": "File missing on disk",
+      "missingSince": "File missing from disk since {{date}}. Re-upload it or remove the entry."
     },
     "types": {
       "hashcat": "Hashcat",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -27,7 +28,8 @@ const wordlistColumns = `w.id, w.name, w.description, w.wordlist_type, w.format,
 	w.md5_hash, w.file_size, w.word_count, w.created_at, w.created_by,
 	w.updated_at, w.updated_by, w.last_verified_at, w.verification_status,
 	w.is_potfile, w.parent_wordlist_id, w.filter_spec, w.parent_md5,
-	w.is_ephemeral, w.owner_job_id, w.is_stale, w.parent_offset, w.parent_anchor_md5`
+	w.is_ephemeral, w.owner_job_id, w.is_stale, w.parent_offset, w.parent_anchor_md5,
+	w.missing_since`
 
 // rowScanner abstracts *sql.Row and *sql.Rows for the shared scan helper.
 type rowScanner interface {
@@ -44,6 +46,7 @@ func scanWordlist(row rowScanner, w *models.Wordlist) error {
 		ownerJob       uuid.NullUUID
 		parentOffset   sql.NullInt64
 		parentAnchor   sql.NullString
+		missingSince   sql.NullTime
 	)
 
 	if err := row.Scan(
@@ -52,8 +55,13 @@ func scanWordlist(row rowScanner, w *models.Wordlist) error {
 		&w.UpdatedAt, &w.UpdatedBy, &lastVerifiedAt, &w.VerificationStatus,
 		&w.IsPotfile, &parentID, &filterSpec, &parentMD5,
 		&w.IsEphemeral, &ownerJob, &w.IsStale, &parentOffset, &parentAnchor,
+		&missingSince,
 	); err != nil {
 		return err
+	}
+	if missingSince.Valid {
+		t := missingSince.Time
+		w.MissingSince = &t
 	}
 
 	if lastVerifiedAt.Valid {
@@ -407,6 +415,42 @@ func (s *Store) UpdateWordlistVerification(ctx context.Context, id int, status s
 	}
 
 	return nil
+}
+
+// MarkWordlistMissing flags a wordlist whose file is gone from disk (GH #93):
+// verification_status -> 'failed' and missing_since -> NOW(). Guarded to only
+// flip a currently-'verified' row that is not already flagged, so it never
+// clobbers a genuine content/generation failure or re-stamps the timestamp.
+// Returns whether a row changed.
+func (s *Store) MarkWordlistMissing(ctx context.Context, id int) (bool, error) {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE wordlists
+		SET verification_status = 'failed', missing_since = NOW(), last_verified_at = NOW()
+		WHERE id = $1 AND verification_status = 'verified' AND missing_since IS NULL
+	`, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to mark wordlist %d missing: %w", id, err)
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
+}
+
+// RestoreWordlistOnDisk clears the missing flag once the file is back (GH #93):
+// verification_status -> 'verified' and missing_since -> NULL. Guarded on
+// missing_since IS NOT NULL so it only ever un-does a missing-file flag, never
+// a content/generation failure that legitimately sits at 'failed'. Returns
+// whether a row changed.
+func (s *Store) RestoreWordlistOnDisk(ctx context.Context, id int) (bool, error) {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE wordlists
+		SET verification_status = 'verified', missing_since = NULL, last_verified_at = NOW()
+		WHERE id = $1 AND missing_since IS NOT NULL
+	`, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to restore wordlist %d: %w", id, err)
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
 }
 
 // UpdateWordlistFileInfo updates a wordlist's file information (MD5 hash and file size)

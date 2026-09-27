@@ -10,6 +10,7 @@ export enum RuleType {
 export enum RuleStatus {
   READY = 'verified',
   PROCESSING = 'pending',
+  FAILED = 'failed',
   ERROR = 'error',
   DELETED = 'deleted'
 }
@@ -26,6 +27,7 @@ export interface Rule {
   created_at: string;
   updated_at: string;
   verification_status: RuleStatus;
+  missing_since?: string; // set when verification_status='failed' because the file is gone from disk (GH #93)
   created_by: string;
   updated_by?: string;
   last_verified_at?: string;

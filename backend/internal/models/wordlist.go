@@ -33,23 +33,24 @@ const (
 // Wordlist represents the structure of the 'wordlists' table.
 // Note: Add other fields from migration 000013 if needed for other contexts.
 type Wordlist struct {
-	ID                 int       `json:"id" db:"id"`
-	Name               string    `json:"name" db:"name"`
-	Description        string    `json:"description"`
-	WordlistType       string    `json:"wordlist_type"` // e.g., "dictionary", "password", "custom"
-	Format             string    `json:"format"`        // e.g., "txt", "gz", "zip"
-	FileName           string    `json:"file_name"`
-	MD5Hash            string    `json:"md5_hash"`
-	FileSize           int64     `json:"file_size" db:"file_size"`
-	WordCount          int64     `json:"word_count"`
-	CreatedAt          time.Time `json:"created_at" db:"created_at"`
-	CreatedBy          uuid.UUID `json:"created_by" db:"created_by"`
-	UpdatedAt          time.Time `json:"updated_at"`
-	UpdatedBy          uuid.UUID `json:"updated_by,omitempty"`
-	LastVerifiedAt     time.Time `json:"last_verified_at,omitempty"`
-	VerificationStatus string    `json:"verification_status"` // e.g., "pending", "verified", "failed"
-	IsPotfile          bool      `json:"is_potfile" db:"is_potfile"`
-	Tags               []string  `json:"tags,omitempty"`
+	ID                 int        `json:"id" db:"id"`
+	Name               string     `json:"name" db:"name"`
+	Description        string     `json:"description"`
+	WordlistType       string     `json:"wordlist_type"` // e.g., "dictionary", "password", "custom"
+	Format             string     `json:"format"`        // e.g., "txt", "gz", "zip"
+	FileName           string     `json:"file_name"`
+	MD5Hash            string     `json:"md5_hash"`
+	FileSize           int64      `json:"file_size" db:"file_size"`
+	WordCount          int64      `json:"word_count"`
+	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
+	CreatedBy          uuid.UUID  `json:"created_by" db:"created_by"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	UpdatedBy          uuid.UUID  `json:"updated_by,omitempty"`
+	LastVerifiedAt     time.Time  `json:"last_verified_at,omitempty"`
+	VerificationStatus string     `json:"verification_status"`     // e.g., "pending", "verified", "failed"
+	MissingSince       *time.Time `json:"missing_since,omitempty"` // set when verification_status='failed' because the file is gone from disk (GH #93)
+	IsPotfile          bool       `json:"is_potfile" db:"is_potfile"`
+	Tags               []string   `json:"tags,omitempty"`
 
 	// Filtering (GH #40). Populated only for derived/filtered wordlists.
 	ParentWordlistID *int            `json:"parent_wordlist_id,omitempty"`

@@ -324,7 +324,9 @@
     "status": {
       "verified": "Geverifieerd",
       "pending": "In behandeling",
-      "failed": "Mislukt"
+      "failed": "Mislukt",
+      "missing": "Bestand ontbreekt op schijf",
+      "missingSince": "Bestand ontbreekt sinds {{date}} op schijf. Upload het opnieuw of verwijder de vermelding."
     },
     "types": {
       "general": "Algemeen",
@@ -418,7 +420,9 @@
       "pending": "In behandeling",
       "failed": "Mislukt",
       "ready": "Gereed",
-      "processing": "Verwerken"
+      "processing": "Verwerken",
+      "missing": "Bestand ontbreekt op schijf",
+      "missingSince": "Bestand ontbreekt sinds {{date}} op schijf. Upload het opnieuw of verwijder de vermelding."
     },
     "types": {
       "hashcat": "Hashcat",

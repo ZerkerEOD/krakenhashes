@@ -327,7 +327,9 @@
     "status": {
       "verified": "Vérifiée",
       "pending": "En attente",
-      "failed": "Échec"
+      "failed": "Échec",
+      "missing": "Fichier absent du disque",
+      "missingSince": "Fichier absent du disque depuis {{date}}. Réimportez-le ou supprimez l'entrée."
     },
     "types": {
       "general": "Général",
@@ -425,7 +427,9 @@
       "pending": "En attente",
       "failed": "Échec",
       "ready": "Prête",
-      "processing": "Traitement en cours"
+      "processing": "Traitement en cours",
+      "missing": "Fichier absent du disque",
+      "missingSince": "Fichier absent du disque depuis {{date}}. Réimportez-le ou supprimez l'entrée."
     },
     "types": {
       "hashcat": "Hashcat",
