@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/testutil"
@@ -125,7 +124,7 @@ func TestTokenManagement(t *testing.T) {
 
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-		assert.True(t, resp["authenticated"].(bool))
+		assert.True(t, testutil.GetRespBool(t, resp, "authenticated"))
 		assert.Equal(t, "user", resp["role"])
 
 		// Remove token and check again
@@ -142,7 +141,7 @@ func TestTokenManagement(t *testing.T) {
 		handler.CheckAuthHandler(rr, req)
 
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-		assert.False(t, resp["authenticated"].(bool))
+		assert.False(t, testutil.GetRespBool(t, resp, "authenticated"))
 	})
 }
 
@@ -216,7 +215,7 @@ func TestTokenSecurityFeatures(t *testing.T) {
 
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-		assert.False(t, resp["authenticated"].(bool))
+		assert.False(t, testutil.GetRespBool(t, resp, "authenticated"))
 	})
 
 	t.Run("invalid token handling", func(t *testing.T) {
@@ -245,7 +244,7 @@ func TestTokenSecurityFeatures(t *testing.T) {
 
 				var resp map[string]interface{}
 				testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-				assert.False(t, resp["authenticated"].(bool))
+				assert.False(t, testutil.GetRespBool(t, resp, "authenticated"))
 			})
 		}
 	})
@@ -277,7 +276,10 @@ func TestTokenCookieHandling(t *testing.T) {
 		assert.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
 		assert.Equal(t, "/", cookie.Path)
 		assert.Equal(t, "example.com", cookie.Domain)
-		assert.Equal(t, int(time.Hour*24*7/time.Second), cookie.MaxAge)
+		// Cookie MaxAge is jwt_expiry_minutes*60. SeedDefaults seeds
+		// jwt_expiry_minutes=60 (auth_settings), so 60*60 = 3600 seconds. The old
+		// value (7 days) predated the switch to the configurable auth setting.
+		assert.Equal(t, 60*60, cookie.MaxAge)
 	})
 
 	t.Run("cookie removal on logout", func(t *testing.T) {
@@ -345,8 +347,9 @@ func TestMultiDeviceTokenSupport(t *testing.T) {
 	emailService := testutil.NewMockEmailService()
 	handler := NewHandler(db, emailService)
 
-	// Create test user
-	testUser := testutil.CreateTestUser(t, db, "testuser", "test@example.com", testutil.DefaultTestPassword, "user")
+	// Create test user (needed in the database for login; the handler stores
+	// each device's token itself, so the test does not reference the user again)
+	_ = testutil.CreateTestUser(t, db, "testuser", "test@example.com", testutil.DefaultTestPassword, "user")
 
 	t.Run("multiple active sessions", func(t *testing.T) {
 		devices := []string{"desktop", "mobile", "tablet"}
@@ -367,9 +370,10 @@ func TestMultiDeviceTokenSupport(t *testing.T) {
 			testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
 			tokens[device] = resp.Token
 
-			// Store token
-			_, err := db.StoreToken(testUser.ID.String(), resp.Token)
-			require.NoError(t, err)
+			// LoginHandler already stored this token (handlers.go), so do not
+			// store it again here: re-inserting the identical token string
+			// violates the tokens.token UNIQUE constraint. The distinct tokens
+			// this loop relies on come from jwt.GenerateToken's per-token jti.
 		}
 
 		// Verify all tokens are valid
@@ -385,7 +389,7 @@ func TestMultiDeviceTokenSupport(t *testing.T) {
 
 			var resp map[string]interface{}
 			testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-			assert.True(t, resp["authenticated"].(bool), "Token for %s should be valid", device)
+			assert.True(t, testutil.GetRespBool(t, resp, "authenticated"), "Token for %s should be valid", device)
 		}
 
 		// Logout from one device shouldn't affect others
@@ -408,7 +412,7 @@ func TestMultiDeviceTokenSupport(t *testing.T) {
 
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-		assert.False(t, resp["authenticated"].(bool))
+		assert.False(t, testutil.GetRespBool(t, resp, "authenticated"))
 
 		// Other tokens should still be valid
 		for device, token := range tokens {
@@ -426,7 +430,7 @@ func TestMultiDeviceTokenSupport(t *testing.T) {
 			handler.CheckAuthHandler(rr, req)
 
 			testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-			assert.True(t, resp["authenticated"].(bool), "Token for %s should still be valid", device)
+			assert.True(t, testutil.GetRespBool(t, resp, "authenticated"), "Token for %s should still be valid", device)
 		}
 	})
 }

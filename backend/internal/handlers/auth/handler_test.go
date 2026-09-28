@@ -150,7 +150,7 @@ func TestLoginHandlerWithMFA(t *testing.T) {
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
 
-		assert.True(t, resp["mfa_required"].(bool))
+		assert.True(t, testutil.GetRespBool(t, resp, "mfa_required"))
 		assert.NotEmpty(t, resp["session_token"])
 		assert.Contains(t, resp["mfa_type"], "email")
 		assert.Equal(t, "email", resp["preferred_method"])
@@ -183,7 +183,7 @@ func TestLoginHandlerWithMFA(t *testing.T) {
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
 
-		assert.True(t, resp["mfa_required"].(bool))
+		assert.True(t, testutil.GetRespBool(t, resp, "mfa_required"))
 		assert.NotEmpty(t, resp["session_token"])
 		assert.Contains(t, resp["mfa_type"], "authenticator")
 		assert.Equal(t, "authenticator", resp["preferred_method"])
