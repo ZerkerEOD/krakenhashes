@@ -444,22 +444,29 @@ func (db *DB) GetUserByID(userID string) (*models.User, error) {
 func (db *DB) GetUserWithMFAData(userID string) (*models.UserMFAData, error) {
 	var user models.UserMFAData
 	var backupCodes []string
+	// mfa_secret has no default and is left NULL until a user sets up an
+	// authenticator (the CreateUser insert never writes it), so it must be scanned
+	// through a NullString. Scanning NULL straight into a string fails, which made
+	// the authenticator branch of VerifyMFAHandler 500 on first-time setup (the
+	// secret still lives in pending_mfa_setup at that point) and on any user who
+	// has only ever used email MFA. GetUserMFASettings already scans it this way.
+	var mfaSecret sql.NullString
 
 	query := `
-		SELECT 
+		SELECT
 			id,
 			mfa_enabled,
 			mfa_secret,
 			backup_codes,
 			preferred_mfa_method
-		FROM users 
+		FROM users
 		WHERE id = $1
 	`
 
 	err := db.QueryRow(query, userID).Scan(
 		&user.ID,
 		&user.MFAEnabled,
-		&user.MFASecret,
+		&mfaSecret,
 		pq.Array(&backupCodes),
 		&user.PreferredMFAMethod,
 	)
@@ -470,6 +477,7 @@ func (db *DB) GetUserWithMFAData(userID string) (*models.UserMFAData, error) {
 		return nil, fmt.Errorf("failed to get user MFA data: %w", err)
 	}
 
+	user.MFASecret = mfaSecret.String
 	user.BackupCodes = backupCodes
 	return &user, nil
 }

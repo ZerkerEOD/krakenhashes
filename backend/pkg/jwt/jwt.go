@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 var jwtKey = []byte(os.Getenv("JWT_SECRET"))
@@ -27,6 +28,16 @@ func GenerateToken(userID string, role string, expiryMinutes int) (string, error
 	claims["user_id"] = userID
 	claims["role"] = role
 	claims["exp"] = time.Now().Add(time.Duration(expiryMinutes) * time.Minute).Unix()
+	// A random jti makes every token string unique. Without it, exp has only
+	// second granularity, so two tokens minted for the same user+role within one
+	// second are byte-identical and the second insert violates the
+	// tokens.token UNIQUE constraint (HTTP 500). Reachable on password login,
+	// SSO (a retried OAuth callback / double-submitted SAMLResponse), passkey,
+	// and token refresh. iat is complementary; jti carries the uniqueness.
+	// Only user_id and role are ever read back (ValidateJWT/GetUserRole), so the
+	// extra claims are ignored everywhere else.
+	claims["jti"] = uuid.NewString()
+	claims["iat"] = time.Now().Unix()
 
 	// Generate encoded token
 	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))

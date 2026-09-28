@@ -179,6 +179,14 @@ func SetupTestDB(t *testing.T) *db.DB {
 	if err != nil {
 		t.Fatalf("Failed to connect to test database: %v", err)
 	}
+	// Bound the pool. Some tests fan out 100 goroutines that each grab a
+	// connection (concurrent token validation), and an unbounded pool opened that
+	// many real connections at once, blowing past Postgres' max_connections and
+	// failing with "sorry, too many clients already". Capping the pool makes those
+	// goroutines queue for a connection instead of erroring; with -p 1 only one of
+	// these pools is ever active at a time, so this stays well under the server limit.
+	rawDB.SetMaxOpenConns(20)
+	rawDB.SetMaxIdleConns(20)
 	testDB := &db.DB{DB: rawDB}
 
 	if err := runMigrationsOnce(); err != nil {
@@ -388,6 +396,17 @@ func SeedDefaults(t *testing.T, database *db.DB) {
 	if err != nil && !strings.Contains(err.Error(), "does not exist") {
 		t.Fatalf("Failed to seed default team: %v", err)
 	}
+
+	// An active email provider, so HasActiveEmailProvider() is true and the
+	// email-MFA login branch is exercised (GH #89). TruncateAll empties this
+	// table, so it must be re-seeded here or the email path is silently skipped.
+	_, err = database.Exec(`
+		INSERT INTO email_config (provider_type, api_key, is_active)
+		VALUES ('mailgun', 'test-api-key', true)
+	`)
+	if err != nil && !strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("Failed to seed email_config: %v", err)
+	}
 }
 
 // CreateTestUser creates a test user with the given attributes
@@ -409,7 +428,7 @@ func CreateTestUser(t *testing.T, database *db.DB, username, email, pass string,
 			mfa_enabled, mfa_type, preferred_mfa_method,
 			last_password_change, notify_on_job_completion
 		)
-		VALUES ($1, $2, $3, $4, true, false, 0, false, ARRAY['email']::text[], NULL, NOW(), false)
+		VALUES ($1, $2, $3, $4, true, false, 0, false, ARRAY['email']::text[], 'email', NOW(), false)
 		RETURNING id, username, email, role, created_at, updated_at,
 		          account_enabled, account_locked, failed_login_attempts,
 		          mfa_enabled, last_password_change, notify_on_job_completion

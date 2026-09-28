@@ -14,7 +14,6 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/testutil"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/jwt"
-	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,11 +34,12 @@ func TestUserJourney(t *testing.T) {
 		token := performLogin(t, authHandler, "newuser", testutil.DefaultTestPassword, false, "")
 		assert.NotEmpty(t, token)
 
-		// Step 3: User decides to enable MFA for security
-		setupAuthenticatorMFA(t, authHandler, mfaHandler, user.ID.String())
+		// Step 3: User decides to enable MFA for security. The server generates the
+		// secret, so setup returns it and the rest of the journey logs in with it.
+		secret := setupAuthenticatorMFA(t, authHandler, mfaHandler, user.ID.String())
 
 		// Step 4: Subsequent login requires MFA
-		performLogin(t, authHandler, "newuser", testutil.DefaultTestPassword, true, testutil.ValidTOTPSecret)
+		performLogin(t, authHandler, "newuser", testutil.DefaultTestPassword, true, secret)
 
 		// Step 5: User generates backup codes
 		backupCodes := generateBackupCodes(t, mfaHandler, user.ID.String())
@@ -173,7 +173,7 @@ func TestEdgeCases(t *testing.T) {
 
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-		assert.False(t, resp["authenticated"].(bool))
+		assert.False(t, testutil.GetRespBool(t, resp, "authenticated"))
 	})
 
 	t.Run("MFA timing edge cases", func(t *testing.T) {
@@ -243,7 +243,11 @@ func TestPerformanceScenarios(t *testing.T) {
 
 				var resp map[string]interface{}
 				json.NewDecoder(rr.Body).Decode(&resp)
-				results <- resp["authenticated"].(bool)
+				// Two-value form on purpose: this runs in a spawned goroutine, so a
+				// panic from a bare .(bool) would crash the whole test binary rather
+				// than fail one test. A malformed response counts as not authenticated.
+				authenticated, _ := resp["authenticated"].(bool)
+				results <- authenticated
 			}()
 		}
 
@@ -279,12 +283,12 @@ func performLogin(t *testing.T, handler *auth.Handler, username, password string
 	if expectMFA {
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-		assert.True(t, resp["mfa_required"].(bool))
+		assert.True(t, testutil.GetRespBool(t, resp, "mfa_required"))
 
-		sessionToken := resp["session_token"].(string)
+		sessionToken := testutil.GetRespString(t, resp, "session_token")
 
 		// Complete MFA
-		code, err := totp.GenerateCode(totpSecret, time.Now())
+		code, err := testutil.GenerateTOTPCode(totpSecret)
 		require.NoError(t, err)
 
 		mfaReq := map[string]string{
@@ -301,7 +305,7 @@ func performLogin(t *testing.T, handler *auth.Handler, username, password string
 		handler.VerifyMFAHandler(rr, req)
 
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-		return resp["token"].(string)
+		return testutil.GetRespString(t, resp, "token")
 	} else {
 		var resp models.LoginResponse
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
@@ -309,7 +313,9 @@ func performLogin(t *testing.T, handler *auth.Handler, username, password string
 	}
 }
 
-func setupAuthenticatorMFA(t *testing.T, authHandler *auth.Handler, mfaHandler *auth.MFAHandler, userID string) {
+// setupAuthenticatorMFA runs the real authenticator setup and returns the secret
+// the server generated, so callers can log in with the same secret afterwards.
+func setupAuthenticatorMFA(t *testing.T, authHandler *auth.Handler, mfaHandler *auth.MFAHandler, userID string) string {
 	// Setup MFA
 	req := testutil.MakeAuthenticatedRequest(t, http.MethodPost, "/auth/mfa/setup",
 		map[string]string{"method": "authenticator"}, userID, "user")
@@ -321,8 +327,9 @@ func setupAuthenticatorMFA(t *testing.T, authHandler *auth.Handler, mfaHandler *
 	}
 	testutil.AssertJSONResponse(t, rr, http.StatusOK, &setupResp)
 
-	// Verify setup
-	code, err := totp.GenerateCode(testutil.ValidTOTPSecret, time.Now())
+	// Verify setup with a code generated from the secret the server just issued
+	// (not a fixed test secret — the server picks a fresh random secret each time).
+	code, err := testutil.GenerateTOTPCode(setupResp.Secret)
 	require.NoError(t, err)
 
 	req = testutil.MakeAuthenticatedRequest(t, http.MethodPost, "/auth/mfa/verify",
@@ -330,6 +337,8 @@ func setupAuthenticatorMFA(t *testing.T, authHandler *auth.Handler, mfaHandler *
 	rr = httptest.NewRecorder()
 	authHandler.VerifyMFAHandler(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
+
+	return setupResp.Secret
 }
 
 func generateBackupCodes(t *testing.T, mfaHandler *auth.MFAHandler, userID string) []string {
@@ -361,7 +370,7 @@ func testBackupCodeUsage(t *testing.T, handler *auth.Handler, database *db.DB, u
 
 	var resp map[string]interface{}
 	testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-	sessionToken := resp["session_token"].(string)
+	sessionToken := testutil.GetRespString(t, resp, "session_token")
 
 	// Use backup code
 	mfaReq := map[string]string{
@@ -378,7 +387,7 @@ func testBackupCodeUsage(t *testing.T, handler *auth.Handler, database *db.DB, u
 	handler.VerifyMFAHandler(rr, req)
 
 	testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-	assert.True(t, resp["success"].(bool))
+	assert.True(t, testutil.GetRespBool(t, resp, "success"))
 }
 
 func disableMFA(t *testing.T, mfaHandler *auth.MFAHandler, userID string) {
@@ -418,11 +427,11 @@ func testMobileLoginFlow(t *testing.T, handler *auth.Handler, emailService *test
 
 	var resp map[string]interface{}
 	testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-	assert.True(t, resp["mfa_required"].(bool))
+	assert.True(t, testutil.GetRespBool(t, resp, "mfa_required"))
 
 	// Mobile app would show UI for email code entry
 	// Simulate email code verification
-	sessionToken := resp["session_token"].(string)
+	sessionToken := testutil.GetRespString(t, resp, "session_token")
 	emailCode := emailService.LastCode
 
 	mfaReq := map[string]string{
@@ -440,16 +449,15 @@ func testMobileLoginFlow(t *testing.T, handler *auth.Handler, emailService *test
 	handler.VerifyMFAHandler(rr, req)
 
 	testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-	assert.True(t, resp["success"].(bool))
+	assert.True(t, testutil.GetRespBool(t, resp, "success"))
 }
 
 func generateExpiredToken(t *testing.T, userID, role string) string {
-	// Generate token that expires immediately
-	token, err := jwt.GenerateToken(userID, role, 1) // 1 minute expiry for testing
+	// A negative expiry puts exp in the past, so the token is genuinely expired and
+	// ValidateJWT rejects it. The old value (+1 minute) produced a still-valid token,
+	// so the "expired token should not authenticate" assertion could never hold.
+	token, err := jwt.GenerateToken(userID, role, -1)
 	require.NoError(t, err)
-
-	// In a real implementation, you'd modify the expiration
-	// For this test, we'll simulate an expired token scenario
 	return token
 }
 
@@ -463,7 +471,7 @@ func testTOTPAtTimeBoundaries(t *testing.T, handler *auth.Handler, username, pas
 
 	for i, testTime := range times {
 		t.Run(fmt.Sprintf("time_window_%d", i), func(t *testing.T) {
-			code, err := totp.GenerateCode(secret, testTime)
+			code, err := testutil.GenerateTOTPCodeAt(secret, testTime)
 			require.NoError(t, err)
 
 			// Login first
@@ -481,7 +489,7 @@ func testTOTPAtTimeBoundaries(t *testing.T, handler *auth.Handler, username, pas
 
 			var resp map[string]interface{}
 			testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
-			sessionToken := resp["session_token"].(string)
+			sessionToken := testutil.GetRespString(t, resp, "session_token")
 
 			// Try MFA with time-shifted code
 			mfaReq := map[string]string{
@@ -502,7 +510,7 @@ func testTOTPAtTimeBoundaries(t *testing.T, handler *auth.Handler, username, pas
 			if i <= 1 {
 				testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
 				if resp["success"] != nil {
-					assert.True(t, resp["success"].(bool))
+					assert.True(t, testutil.GetRespBool(t, resp, "success"))
 				}
 			}
 		})

@@ -5,11 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/testutil"
 	"github.com/google/uuid"
-	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,7 +94,7 @@ func TestVerifyMFAHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// Generate valid TOTP code
-		code, err := totp.GenerateCode(secret, time.Now())
+		code, err := testutil.GenerateTOTPCode(secret)
 		require.NoError(t, err)
 
 		req := testutil.MakeAuthenticatedRequest(t, http.MethodPost, "/auth/mfa/verify",
@@ -142,7 +140,7 @@ func TestVerifyMFAHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// Generate valid TOTP code
-		code, err := totp.GenerateCode(testutil.ValidTOTPSecret, time.Now())
+		code, err := testutil.GenerateTOTPCode(testutil.ValidTOTPSecret)
 		require.NoError(t, err)
 
 		req := testutil.MakeRequest(t, http.MethodPost, "/auth/mfa/verify",
@@ -154,7 +152,7 @@ func TestVerifyMFAHandler(t *testing.T) {
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
 
-		assert.True(t, resp["success"].(bool))
+		assert.True(t, testutil.GetRespBool(t, resp, "success"))
 		assert.NotEmpty(t, resp["token"])
 
 		// Check that auth cookie was set
@@ -176,9 +174,9 @@ func TestVerifyMFAHandler(t *testing.T) {
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusBadRequest, &resp)
 
-		assert.False(t, resp["success"].(bool))
+		assert.False(t, testutil.GetRespBool(t, resp, "success"))
 		assert.Contains(t, resp["message"], "Invalid verification code")
-		assert.Greater(t, resp["remainingAttempts"].(float64), 0.0)
+		assert.Greater(t, testutil.GetRespFloat64(t, resp, "remainingAttempts"), 0.0)
 	})
 
 	t.Run("max attempts exceeded", func(t *testing.T) {
@@ -209,9 +207,9 @@ func TestVerifyMFAHandler(t *testing.T) {
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusTooManyRequests, &resp)
 
-		assert.False(t, resp["success"].(bool))
+		assert.False(t, testutil.GetRespBool(t, resp, "success"))
 		assert.Contains(t, resp["message"], "Too many verification attempts")
-		assert.Equal(t, 0.0, resp["remainingAttempts"].(float64))
+		assert.Equal(t, 0.0, testutil.GetRespFloat64(t, resp, "remainingAttempts"))
 	})
 }
 
@@ -277,7 +275,7 @@ func TestBackupCodes(t *testing.T) {
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
 
-		assert.True(t, resp["success"].(bool))
+		assert.True(t, testutil.GetRespBool(t, resp, "success"))
 		assert.NotEmpty(t, resp["token"])
 
 		// Try to use the same backup code again - should fail
@@ -366,8 +364,9 @@ func TestMFASettings(t *testing.T) {
 	})
 
 	t.Run("cannot disable MFA when required", func(t *testing.T) {
-		// Enable MFA requirement
-		_, err := db.Exec("UPDATE mfa_settings SET require_mfa = true")
+		// Enable MFA requirement. require_mfa lives on auth_settings (there is no
+		// mfa_settings table); the seeded singleton row is what IsMFARequired reads.
+		_, err := db.Exec("UPDATE auth_settings SET require_mfa = true")
 		require.NoError(t, err)
 
 		req := testutil.MakeAuthenticatedRequest(t, http.MethodPost, "/auth/mfa/disable",
@@ -412,8 +411,8 @@ func TestEmailMFAFlow(t *testing.T) {
 		var resp map[string]interface{}
 		testutil.AssertJSONResponse(t, rr, http.StatusOK, &resp)
 
-		assert.True(t, resp["success"].(bool))
-		assert.Greater(t, resp["remainingAttempts"].(float64), 0.0)
+		assert.True(t, testutil.GetRespBool(t, resp, "success"))
+		assert.Greater(t, testutil.GetRespFloat64(t, resp, "remainingAttempts"), 0.0)
 
 		// Verify email was sent
 		assert.Equal(t, 1, emailService.CallCount)
@@ -422,9 +421,14 @@ func TestEmailMFAFlow(t *testing.T) {
 	})
 
 	t.Run("email code cooldown", func(t *testing.T) {
+		// Use a dedicated user: the resend cooldown is per user, and the previous
+		// subtest already sent testuser a code, so reusing testUser would put even
+		// this subtest's first send on cooldown.
+		cooldownUser := testutil.CreateTestUser(t, db, "cooldownuser", "cooldown@example.com", testutil.DefaultTestPassword, "user")
+
 		// Create MFA session
 		sessionToken := uuid.New().String()
-		_, err := db.CreateMFASession(testUser.ID.String(), sessionToken)
+		_, err := db.CreateMFASession(cooldownUser.ID.String(), sessionToken)
 		require.NoError(t, err)
 
 		// Send first code

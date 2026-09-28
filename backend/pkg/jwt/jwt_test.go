@@ -347,3 +347,28 @@ func TestEmptyJWTSecret(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, userID, validatedID)
 }
+
+// TestGenerateTokenUnique guards the tokens.token UNIQUE constraint: two tokens
+// minted for the same user+role within the same second must differ (random jti),
+// and both must still validate. Before the jti claim, they were byte-identical
+// and the second StoreToken 500'd (GH #89).
+func TestGenerateTokenUnique(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-unique")
+	userID := uuid.NewString()
+
+	a, err := GenerateToken(userID, "user", 60)
+	require.NoError(t, err)
+	b, err := GenerateToken(userID, "user", 60)
+	require.NoError(t, err)
+
+	assert.NotEqual(t, a, b, "two tokens for the same user in the same second must be distinct")
+
+	for _, tok := range []string{a, b} {
+		gotID, err := ValidateJWT(tok)
+		require.NoError(t, err)
+		assert.Equal(t, userID, gotID)
+		role, err := GetUserRole(tok)
+		require.NoError(t, err)
+		assert.Equal(t, "user", role)
+	}
+}
