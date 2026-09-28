@@ -147,11 +147,17 @@ jobs:
               working-directory: backend
               env:
                   TEST_DATABASE_URL: postgres://krakenhashes:krakenhashes@localhost:5432/krakenhashes_test?sslmode=disable
+                  JWT_SECRET: test-secret
               # -p 1 IS LOAD-BEARING, not a performance tuning choice. Several
               # packages share one test database and truncate it in their
               # fixtures; running two of them concurrently produces deadlocks
               # and foreign-key violations that look like real failures and are
               # not reproducible locally.
+              #
+              # The auth packages (pkg/jwt, handlers/auth, integration_test) are
+              # gated here so a regression in the login/MFA/token paths fails CI.
+              # handlers/auth and integration_test share the test database and
+              # truncate it, which is exactly why -p 1 is required (GH #89).
               #
               # ./internal/services/scheduler is excluded: it has 3 known
               # failures from a genuine spec disagreement about max_agents_fifo
@@ -161,10 +167,13 @@ jobs:
               # visible rather than silently dropped.
               run: |
                   go test -p 1 -timeout 25m \
+                    ./pkg/jwt/... \
                     ./internal/services/cloud/... \
                     ./internal/repository/... \
                     ./internal/models/... \
                     ./internal/handlers/admin/... \
+                    ./internal/handlers/auth/... \
+                    ./internal/integration_test/... \
                     ./internal/testutil/...
 
             - name: Known-failing suites (reported, not gating)

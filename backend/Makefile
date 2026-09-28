@@ -20,15 +20,19 @@ clean:
 test:
 	go test -v ./...
 
+# handlers/auth and integration_test share one database and TRUNCATE globally, so
+# they must run serially across packages: -p 1 (and no t.Parallel() within them).
+# Without it the two packages truncate each other's data mid-run and fail
+# non-deterministically (GH #89).
 .PHONY: test-auth
 test-auth:
 	@echo "Running authentication tests..."
-	@JWT_SECRET=test-secret go test -v -count=1 ./pkg/jwt ./pkg/password ./internal/handlers/auth ./internal/integration_test
+	@JWT_SECRET=test-secret go test -v -p 1 -count=1 ./pkg/jwt ./pkg/password ./internal/handlers/auth ./internal/integration_test
 
 .PHONY: test-integration
 test-integration:
 	@echo "Running integration tests..."
-	@JWT_SECRET=test-secret go test -v -count=1 ./internal/integration_test
+	@JWT_SECRET=test-secret go test -v -p 1 -count=1 ./internal/integration_test
 
 .PHONY: test-unit
 test-unit:
