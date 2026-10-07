@@ -1378,7 +1378,9 @@ func (s *JobWebSocketIntegration) resolveSpeedTestParameters(ctx context.Context
 		}
 		return s.readIntSetting(ctx, key)
 	}
-	return scheduler.ResolveSpeedTestParameters(getInt, wordlistPaths)
+	// Legacy path predates per-agent storage tiers; no tier-aware widening here
+	// (scheduler-v2 buildBenchmarkRequest passes the real tier).
+	return scheduler.ResolveSpeedTestParameters(getInt, wordlistPaths, "")
 }
 
 // readIntSetting fetches a system setting and parses it as int. Returns

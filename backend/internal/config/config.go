@@ -18,6 +18,7 @@ type Config struct {
 	HTTPSPort     int    // Port for HTTPS (API)
 	ConfigDir     string // Base directory for config files (certs, etc.)
 	DataDir       string // Base directory for mutable data (uploads, db?)
+	ShareDir      string // Compose-mounted network-share path (KH_SHARE_DIR); "" when no share is mounted. Holds wordlists/ and rules/ when the storage backend is 'share'.
 	MaxUploadSize int64  // Max size for file uploads in bytes
 	HashUploadDir string // Directory within DataDir to store hashlist uploads
 	ExternalURL   string // External URL for SSO redirects (e.g. https://krakenhashes.local:8443)
@@ -149,6 +150,22 @@ func NewConfig() *Config {
 
 	debug.Info("Using data directory: %s", dataDir)
 
+	// Network-share mount path (KH_SHARE_DIR). Optional: set (via docker-compose)
+	// only when a network share is mounted for wordlist/rule storage. When the
+	// storage backend is 'share', wordlists/ and rules/ are read from under
+	// this path instead of DataDir. We do NOT create it here — the share is
+	// mounted externally and the in-app migration creates the needed subdirs on
+	// it; a missing/unmounted path is handled by the storage resolver.
+	shareDir := os.Getenv("KH_SHARE_DIR")
+	if shareDir != "" && !filepath.IsAbs(shareDir) {
+		if abs, err := filepath.Abs(shareDir); err == nil {
+			shareDir = abs
+		}
+	}
+	if shareDir != "" {
+		debug.Info("Network-share mount path (KH_SHARE_DIR): %s", shareDir)
+	}
+
 	// Get Max Upload Size
 	maxUploadSize := int64(32 << 20) // Default 32 MiB
 	if sizeStr := env.GetOrDefault("KH_MAX_UPLOAD_SIZE_MB", "32"); sizeStr != "" {
@@ -185,6 +202,7 @@ func NewConfig() *Config {
 		HTTPSPort:     httpsPort,
 		ConfigDir:     configDir,
 		DataDir:       dataDir,
+		ShareDir:      shareDir,
 		MaxUploadSize: maxUploadSize,
 		HashUploadDir: hashUploadDir,
 		ExternalURL:   os.Getenv("KH_EXTERNAL_URL"),

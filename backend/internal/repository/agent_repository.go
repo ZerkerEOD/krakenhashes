@@ -43,6 +43,14 @@ func (r *AgentRepository) Create(ctx context.Context, agent *models.Agent) error
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
+	// storage_tier carries a NOT NULL CHECK constraint. Default an unset tier so
+	// no caller can violate it: RegisterAgentWithVersion already clamps its
+	// seed-only value, this guards the older registration path and any future
+	// caller that builds a models.Agent without a tier.
+	if agent.StorageTier == "" {
+		agent.StorageTier = models.StorageTierFullCache
+	}
+
 	args := []interface{}{
 		agent.Name,
 		agent.Status,
@@ -60,6 +68,8 @@ func (r *AgentRepository) Create(ctx context.Context, agent *models.Agent) error
 		metadataJSON,
 		agent.OwnerID,
 		agent.CloudInstanceID,
+		agent.StorageTier,
+		agent.NetworkShareMountPath,
 	}
 
 	// On-prem registration keeps its single unwrapped INSERT.
@@ -161,6 +171,8 @@ func (r *AgentRepository) GetByID(ctx context.Context, id int) (*models.Agent, e
 		&agent.UpdateAttempts,
 		&agent.UpdateError,
 		&agent.UpdateLastAttemptAt,
+		&agent.StorageTier,
+		&agent.NetworkShareMountPath,
 		&createdByUser.ID,
 		&createdByUser.Username,
 		&createdByUser.Email,
@@ -440,6 +452,8 @@ func (r *AgentRepository) List(ctx context.Context, filters map[string]interface
 			&agent.UpdateAttempts,
 			&agent.UpdateError,
 			&agent.UpdateLastAttemptAt,
+			&agent.StorageTier,
+			&agent.NetworkShareMountPath,
 			&createdByUser.ID,
 			&createdByUser.Username,
 			&createdByUser.Email,
@@ -707,6 +721,8 @@ func (r *AgentRepository) GetByAPIKey(ctx context.Context, apiKey string) (*mode
 		&agent.BinaryVersion,
 		&cloudInstanceID,
 		&agent.RetiredAt,
+		&agent.StorageTier,
+		&agent.NetworkShareMountPath,
 		&createdByUser.ID,
 		&createdByUser.Username,
 		&createdByUser.Email,
@@ -785,17 +801,19 @@ func (r *AgentRepository) GetDB() *sql.DB {
 }
 
 // UpdateAgentSettings updates agent settings including is_enabled, owner, extra parameters, and binary version
-func (r *AgentRepository) UpdateAgentSettings(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string, binaryVersion string) error {
+func (r *AgentRepository) UpdateAgentSettings(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string, binaryVersion string, storageTier string, networkShareMountPath string) error {
 	query := `
 		UPDATE agents
 		SET is_enabled = $2,
 		    owner_id = $3,
 		    extra_parameters = $4,
 		    binary_version = $5,
+		    storage_tier = $6,
+		    network_share_mount_path = $7,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1`
 
-	result, err := r.db.ExecContext(ctx, query, agentID, isEnabled, ownerID, extraParameters, binaryVersion)
+	result, err := r.db.ExecContext(ctx, query, agentID, isEnabled, ownerID, extraParameters, binaryVersion, storageTier, networkShareMountPath)
 	if err != nil {
 		return fmt.Errorf("failed to update agent settings: %w", err)
 	}

@@ -17,6 +17,7 @@ This guide covers the procedures for updating KrakenHashes deployments, includin
 - [Updating Docker Deployments](#updating-docker-deployments)
 - [Database Migration Procedures](#database-migration-procedures)
 - [Agent Update Process](#agent-update-process)
+- [Enabling New Features After an Update](#enabling-new-features-after-an-update)
 - [Rollback Procedures](#rollback-procedures)
 - [Version Compatibility](#version-compatibility)
 - [Post-Update Verification](#post-update-verification)
@@ -229,6 +230,38 @@ docker-compose exec backend curl -s http://localhost:8080/api/v1/agents | jq '.[
 
 # Verify compatibility matrix in release notes
 ```
+
+## Enabling New Features After an Update
+
+New capabilities usually ship **opt-in and off by default**, so an update by itself changes nothing about how the system behaves — you adopt a feature deliberately, after the upgrade is healthy. That is what keeps updates safe and non-disruptive, but it also means a new feature won't appear to "just work" until you turn it on.
+
+### How to find what's new
+
+1. **Release notes** — the authoritative list of what changed, including any new opt-in features and the steps to enable them.
+2. **`diff .env.example .env`** — the Pre-Update Checklist step (above) surfaces new environment variables. New *optional* variables are typically commented out or empty by default; copy the ones you want into your `.env`.
+3. **Admin → System Settings** — most runtime features are toggled here, not in `.env`. After an upgrade, scan the settings tabs for new sections.
+
+### Where features get enabled
+
+| Enablement path | Examples | Notes |
+|-----------------|----------|-------|
+| Admin UI (no restart) | Per-agent settings, storage backend, scheduling modes | Takes effect live. |
+| New `.env` variable (+ restart) | New mount paths, tuning knobs | Add to `.env`, then `docker-compose up -d` to apply. |
+| Both | Network share storage | A compose/`.env` mount **plus** an Admin toggle + migration. |
+
+### Example: adopting Network Share Storage
+
+The network-share storage backend and per-agent storage tiers are a good model of the opt-in pattern. After upgrading to a version that includes them, nothing changes until you choose to use them:
+
+1. **New env var** — `diff .env.example .env` shows `KH_SHARE_DIR_HOST` (and `KH_SHARE_DIR`, `KH_MIGRATION_DRAIN_FLOOR_SECONDS`). Leave them unset to keep local-disk behavior.
+2. **Mount + bind** — mount your SMB/NFS share on the host, set `KH_SHARE_DIR_HOST` to that path, and restart so the compose bind takes effect.
+3. **Enable + migrate** — go to **Admin → System Settings → Storage**, validate the mount, and run the one-time migration to move wordlists/rules onto the share. The migration is resumable and reversible.
+4. **Per-agent tiers (optional)** — assign on-prem agents the `network_direct` or `on_demand` tier as needed.
+
+Full details: [Storage Architecture](../admin-guide/resource-management/storage.md#network-share-storage) and the [Network Share Storage architecture](../reference/architecture/network-share-storage.md) reference. The same "check release notes → review `.env.example` diff → enable in Admin" flow applies to any opt-in feature a release introduces.
+
+!!! note "Database columns for a new feature arrive with the migration"
+    Opt-in features that need new tables/columns get them automatically when migrations run on backend startup (above) — the schema is ready even while the feature stays off. You only *enable* the behavior; you don't run any extra schema step.
 
 ## Rollback Procedures
 

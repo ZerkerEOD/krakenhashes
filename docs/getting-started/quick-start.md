@@ -181,6 +181,7 @@ This is normal with self-signed certificates. For production, see the [Installat
 
 -   **For Users**: Read [Understanding Jobs and Workflows](../user-guide/jobs-workflows.md)
 -   **For Admins**: Review the full [Installation Guide](installation.md) for production setup
+-   **For Admins (large deployments)**: Consider [network share storage](../admin-guide/resource-management/storage.md#network-share-storage) to keep wordlists/rules on an SMB/NFS share instead of local disk
 -   **For Developers**: See [Development Setup](installation.md#development-installation)
 
 ## Getting Help

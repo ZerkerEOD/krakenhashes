@@ -28,6 +28,8 @@ func (s *stubSender) GetConnectedAgents() []int                 { return s.conne
 func (s *stubSender) IsShuttingDown(int) bool                   { return false }
 func (s *stubSender) WasRecentlyRejected(int) bool              { return false }
 func (s *stubSender) IsFileMapReady(int) bool                   { return true }
+func (s *stubSender) IsShareReady(int) bool                     { return true }
+func (s *stubSender) AgentHeldFiles(int) map[string]bool        { return nil }
 
 // drainCycle builds a Cycle wired only far enough for getIdleAgents.
 func drainCycle(database *db.DB, agentIDs []int) *Cycle {

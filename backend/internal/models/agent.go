@@ -145,7 +145,23 @@ type Agent struct {
 	UpdateAttempts      int            `json:"updateAttempts"`
 	UpdateError         sql.NullString `json:"updateError"`
 	UpdateLastAttemptAt sql.NullTime   `json:"updateLastAttemptAt"`
+	// Network-share storage tier (feature/network-share-storage, WS5):
+	//   full_cache     — download & keep all lists (default; today's behavior)
+	//   on_demand      — download per task, LRU-evict under disk pressure
+	//   network_direct — read immutable wordlists/rules directly off a mounted share
+	// NetworkShareMountPath is the agent-side read-only mount path for
+	// network_direct; NetworkShareID optionally links the share config row.
+	StorageTier           string     `json:"storageTier"`
+	NetworkShareID        *uuid.UUID `json:"networkShareId,omitempty"`
+	NetworkShareMountPath string     `json:"networkShareMountPath"`
 }
+
+// Storage tiers for the network-share feature.
+const (
+	StorageTierFullCache     = "full_cache"
+	StorageTierOnDemand      = "on_demand"
+	StorageTierNetworkDirect = "network_direct"
+)
 
 // IsSystemAgent returns true if the agent is owned by the system user (universal agent)
 func (a *Agent) IsSystemAgent() bool {
@@ -285,6 +301,9 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		UpdateAttempts                int               `json:"updateAttempts"`
 		UpdateError                   *string           `json:"updateError"`
 		UpdateLastAttemptAt           *time.Time        `json:"updateLastAttemptAt"`
+		StorageTier                   string            `json:"storageTier"`
+		NetworkShareID                *uuid.UUID        `json:"networkShareId,omitempty"`
+		NetworkShareMountPath         string            `json:"networkShareMountPath"`
 	}
 
 	temp := AgentJSON{
@@ -327,6 +346,9 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		UpdateAttempts:                a.UpdateAttempts,
 		UpdateError:                   nullStr(a.UpdateError),
 		UpdateLastAttemptAt:           nullTime(a.UpdateLastAttemptAt),
+		StorageTier:                   a.StorageTier,
+		NetworkShareID:                a.NetworkShareID,
+		NetworkShareMountPath:         a.NetworkShareMountPath,
 	}
 
 	return json.Marshal(temp)

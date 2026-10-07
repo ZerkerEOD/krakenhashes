@@ -60,6 +60,13 @@ services:
             - ${LOG_DIR:-./logs}:/var/log/krakenhashes
             - ${KH_CONFIG_DIR_HOST:-./config}:/etc/krakenhashes
             - ${KH_DATA_DIR_HOST:-./data}:/var/lib/krakenhashes
+            # Optional network-share storage: bind an operator-mounted SMB/NFS
+            # share into the server (read-write; the server writes wordlists/ and
+            # rules/ here when the storage backend is set to 'share' in
+            # Admin -> Settings -> Storage). Mount the share on the host first;
+            # leaving KH_SHARE_DIR_HOST unset binds an empty default path and the
+            # feature stays off until enabled.
+            - ${KH_SHARE_DIR_HOST:-/mnt/krakenhashes-share}:/var/lib/krakenhashes-share
         environment:
             - TZ=UTC
             - PUID=${PUID:-1000}
@@ -70,6 +77,7 @@ services:
             - DB_USER=${DB_USER:-krakenhashes}
             - DB_PASSWORD=${DB_PASSWORD:-krakenhashes}
             - DB_ARGUMENTS=${DB_ARGUMENTS:-sslmode=disable}
+            - KH_SHARE_DIR=/var/lib/krakenhashes-share
         restart: unless-stopped
         networks:
             - krakenhashes-net

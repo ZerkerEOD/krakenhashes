@@ -11,8 +11,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/migrationgate"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/fsutil"
 	"github.com/google/uuid"
@@ -105,6 +107,17 @@ func NewManager(store RuleStore, rulesDir string, maxUploadSize int64, allowedFo
 	}
 }
 
+// rulesBaseDir returns the active rules root. In production it follows the
+// storage backend via the resolver (local data dir, or the network share after
+// an in-process migration); when the resolver isn't initialized (unit tests
+// with a temp dir) it falls back to the directory passed at construction.
+func (m *manager) rulesBaseDir() string {
+	if storagepaths.Initialized() {
+		return storagepaths.RulesRoot()
+	}
+	return m.rulesDir
+}
+
 // ListRules retrieves all rules with optional filtering
 func (m *manager) ListRules(ctx context.Context, filters map[string]interface{}) ([]*models.Rule, error) {
 	// Convert map[string]interface{} to *models.RuleFilter
@@ -153,6 +166,11 @@ func (m *manager) GetRuleByName(ctx context.Context, name string) (*models.Rule,
 
 // AddRule adds a new rule
 func (m *manager) AddRule(ctx context.Context, req *models.RuleAddRequest, userID uuid.UUID) (*models.Rule, error) {
+	// Reject uploads while a storage migration holds the store locked (copy/
+	// validate phases). The drain phase still allows writes.
+	if migrationgate.WritesFrozen() {
+		return nil, fmt.Errorf("storage migration in progress: rule uploads are temporarily frozen, please retry shortly")
+	}
 	// Create rule model
 	rule := &models.Rule{
 		Name:               req.Name,
@@ -410,7 +428,7 @@ func (m *manager) DeleteRule(ctx context.Context, id int, confirmID *int) error 
 	}
 
 	// Delete file
-	filePath := filepath.Join(m.rulesDir, rule.FileName)
+	filePath := filepath.Join(m.rulesBaseDir(), rule.FileName)
 	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
 		debug.Error("Failed to delete rule file %s: %v", filePath, err)
 		// Don't return error, as the database entry is already deleted
@@ -433,7 +451,7 @@ func (m *manager) VerifyRule(ctx context.Context, id int, req *models.RuleVerify
 
 	// If status is "verified" and rule count is not provided, calculate it
 	if req.Status == "verified" && req.RuleCount == nil {
-		filePath := filepath.Join(m.rulesDir, rule.FileName)
+		filePath := filepath.Join(m.rulesBaseDir(), rule.FileName)
 		ruleCount, err := m.CountRulesInFile(filePath)
 		if err != nil {
 			debug.Error("Failed to count rules in file %s: %v", filePath, err)
@@ -475,7 +493,7 @@ func (m *manager) DeleteRuleTag(ctx context.Context, id int, tag string) error {
 func (m *manager) GetRulePath(filename string, ruleType string) string {
 	// Check if the filename already contains a subdirectory
 	if strings.Contains(filename, string(filepath.Separator)) {
-		return filepath.Join(m.rulesDir, filename)
+		return filepath.Join(m.rulesBaseDir(), filename)
 	}
 
 	// If no rule type is provided, use a default
@@ -489,7 +507,7 @@ func (m *manager) GetRulePath(filename string, ruleType string) string {
 	}
 
 	// Place in appropriate subdirectory
-	return filepath.Join(m.rulesDir, ruleType, filename)
+	return filepath.Join(m.rulesBaseDir(), ruleType, filename)
 }
 
 // CountRulesInFile counts the number of rules in a hashcat rule file.

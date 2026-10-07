@@ -207,6 +207,7 @@ nav:
       - Job Completion System: reference/architecture/job-completion-system.md
       - Job Update System: reference/architecture/job-update-system.md
       - Loopback Sessions: reference/architecture/loopback.md
+      - Network Share Storage: reference/architecture/network-share-storage.md
       - Notification System: reference/architecture/notification-system.md
       - Rule Splitting: reference/architecture/rule-splitting.md
       - File Hash Cache: reference/architecture/file-hash-cache.md

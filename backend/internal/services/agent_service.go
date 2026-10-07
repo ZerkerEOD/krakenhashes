@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -19,6 +20,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
+
+// ErrInvalidAgentSettings wraps validation failures in UpdateAgent (an invalid
+// storage tier, or network_direct without a mount path) so handlers can return
+// a 400 with the message instead of an opaque 500.
+var ErrInvalidAgentSettings = errors.New("invalid agent settings")
 
 // AgentService handles agent-related operations
 type AgentService struct {
@@ -243,6 +249,25 @@ func (s *AgentService) RegisterAgent(ctx context.Context, claimCode, hostname st
 	return agent, nil
 }
 
+// normalizeAgentStorageTier validates a seed-only storage tier + mount path
+// supplied by an agent at registration. An unknown tier, or network_direct
+// without a mount path, clamps to full_cache so registration never fails over a
+// misconfigured agent. The mount path is kept only for network_direct.
+func normalizeAgentStorageTier(tier, mountPath string) (string, string) {
+	switch tier {
+	case models.StorageTierOnDemand:
+		return models.StorageTierOnDemand, ""
+	case models.StorageTierNetworkDirect:
+		mp := strings.TrimSpace(mountPath)
+		if mp == "" {
+			return models.StorageTierFullCache, ""
+		}
+		return models.StorageTierNetworkDirect, mp
+	default:
+		return models.StorageTierFullCache, ""
+	}
+}
+
 // RegisterAgentWithVersion registers a new agent with a claim code and includes the agent version
 //
 // This function validates the claim code, generates API credentials, and creates the agent record
@@ -257,7 +282,7 @@ func (s *AgentService) RegisterAgent(ctx context.Context, claimCode, hostname st
 // Returns:
 //   - *models.Agent: The newly registered agent
 //   - error: Any errors encountered during registration
-func (s *AgentService) RegisterAgentWithVersion(ctx context.Context, claimCode, hostname, version string) (*models.Agent, error) {
+func (s *AgentService) RegisterAgentWithVersion(ctx context.Context, claimCode, hostname, version, storageTier, networkShareMountPath string) (*models.Agent, error) {
 	debug.Info("Starting agent registration with claim code: %s, hostname: %s, version: %s", claimCode, hostname, version)
 
 	// Normalize claim code by removing hyphens and converting to uppercase
@@ -310,6 +335,15 @@ func (s *AgentService) RegisterAgentWithVersion(ctx context.Context, claimCode, 
 		debug.Debug("No version provided, defaulting to 'unknown'")
 	}
 
+	// Seed-only storage config (WS9): the agent may declare an initial storage
+	// tier + mount path at registration. Clamp it here so a bad combination
+	// never blocks registration or violates the storage_tier CHECK constraint;
+	// the admin UI is authoritative afterwards.
+	tier, mountPath := normalizeAgentStorageTier(storageTier, networkShareMountPath)
+	if tier != models.StorageTierFullCache {
+		debug.Info("Agent registering with seeded storage tier: %s (mount=%s)", tier, mountPath)
+	}
+
 	// Create new agent
 	agent := &models.Agent{
 		Name:          name,
@@ -328,6 +362,8 @@ func (s *AgentService) RegisterAgentWithVersion(ctx context.Context, claimCode, 
 			Time:  now,
 			Valid: true,
 		},
+		StorageTier:           tier,
+		NetworkShareMountPath: mountPath,
 	}
 
 	// Cloud identity is read off the VOUCHER, never off anything the agent
@@ -934,7 +970,10 @@ func (s *AgentService) HasEnabledDevices(agentID int) (bool, error) {
 }
 
 // UpdateAgent updates agent settings including owner and extra parameters
-func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string, binaryVersion string) error {
+// storageTier and networkShareMountPath are pointers so a partial settings PUT
+// (e.g. an enable toggle that omits them) PRESERVES the current values instead
+// of resetting the tier to full_cache. nil = keep existing.
+func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string, binaryVersion string, storageTier *string, networkShareMountPath *string) error {
 	// First check if agent exists; capture prior IsEnabled so a false→true
 	// transition can reset the benchmark health counters. Without this
 	// reset, manually re-enabling an auto-quarantined agent leaves its
@@ -951,8 +990,31 @@ func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled b
 		binaryVersion = "default"
 	}
 
+	// Resolve tier + mount path, preserving the current values when the caller
+	// omitted them (nil). An empty explicit tier normalizes to full_cache.
+	tier := existing.StorageTier
+	if storageTier != nil {
+		tier = *storageTier
+	}
+	if tier == "" {
+		tier = models.StorageTierFullCache
+	}
+	switch tier {
+	case models.StorageTierFullCache, models.StorageTierOnDemand, models.StorageTierNetworkDirect:
+	default:
+		return fmt.Errorf("%w: invalid storage_tier %q", ErrInvalidAgentSettings, tier)
+	}
+	mountPath := existing.NetworkShareMountPath
+	if networkShareMountPath != nil {
+		mountPath = *networkShareMountPath
+	}
+	// A network_direct agent must have a mount path to read the share from.
+	if tier == models.StorageTierNetworkDirect && mountPath == "" {
+		return fmt.Errorf("%w: network_direct tier requires a network share mount path", ErrInvalidAgentSettings)
+	}
+
 	// Update agent in database
-	if err := s.agentRepo.UpdateAgentSettings(ctx, agentID, isEnabled, ownerID, extraParameters, binaryVersion); err != nil {
+	if err := s.agentRepo.UpdateAgentSettings(ctx, agentID, isEnabled, ownerID, extraParameters, binaryVersion, tier, mountPath); err != nil {
 		return err
 	}
 

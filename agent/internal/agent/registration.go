@@ -76,6 +76,11 @@ type RegistrationRequest struct {
 	ClaimCode string `json:"claim_code"`
 	Hostname  string `json:"hostname"`
 	Version   string `json:"version"` // Agent version
+	// Seed-only storage config (WS9): the agent's locally-configured tier +
+	// mount path, recorded by the server as this agent's initial values. The
+	// admin UI is authoritative afterwards. Omitted when unset (full_cache).
+	StorageTier           string `json:"storage_tier,omitempty"`
+	NetworkShareMountPath string `json:"network_share_mount_path,omitempty"`
 }
 
 // RegistrationResponse represents the server's response to registration
@@ -361,7 +366,7 @@ func sendRegistrationRequest(urlConfig *config.URLConfig, req *RegistrationReque
 // 1. Send the claim code to the server
 // 2. Receive agent ID and API key
 // 3. Store the credentials locally
-func RegisterAgent(claimCode string, urlConfig *config.URLConfig) error {
+func RegisterAgent(claimCode string, urlConfig *config.URLConfig, storageTier, networkShareMountPath string) error {
 	debug.Info("Starting agent registration process")
 
 	// Prepare registration request
@@ -376,9 +381,11 @@ func RegisterAgent(claimCode string, urlConfig *config.URLConfig) error {
 	agentVersion := version.GetVersion()
 	debug.Info("Sending registration request for hostname: %s with version: %s", hostname, agentVersion)
 	resp, err := sendRegistrationRequest(urlConfig, &RegistrationRequest{
-		ClaimCode: claimCode,
-		Hostname:  hostname,
-		Version:   agentVersion,
+		ClaimCode:             claimCode,
+		Hostname:              hostname,
+		Version:               agentVersion,
+		StorageTier:           storageTier,
+		NetworkShareMountPath: networkShareMountPath,
 	})
 	if err != nil {
 		debug.Error("Registration request failed: %v", err)

@@ -7,7 +7,17 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 )
+
+// networkDirectSpeedTestMultiplier widens the benchmark window for the
+// network_direct tier (WS10 C2.2). Such an agent reads the wordlist directly off
+// the mounted share before hashcat can emit its first status; even on a LAN
+// share a large (multi-GB) uncompressed list takes several times longer than
+// local disk, which would otherwise trip ErrBenchmarkTimeout and march the agent
+// toward a 24h benchmark blocklist. Scales the compression-chosen base. (Remote/
+// high-latency shares should use on_demand/full_cache per the latency guidance.)
+const networkDirectSpeedTestMultiplier = 4
 
 // compressedWordlistExts are the wordlist file suffixes we treat as compressed
 // when picking a benchmark timeout. Hashcat needs significantly more time to
@@ -55,7 +65,7 @@ func HasCompressedWordlist(paths []string) bool {
 // This is the single source of truth: both
 // JobWebSocketIntegration.resolveSpeedTestParameters and the scheduler-v2
 // buildBenchmarkRequest call it.
-func ResolveSpeedTestParameters(getInt func(key string) (int, bool), wordlistPaths []string) (testDuration, timeoutDuration, minStatusUpdates int) {
+func ResolveSpeedTestParameters(getInt func(key string) (int, bool), wordlistPaths []string, storageTier string) (testDuration, timeoutDuration, minStatusUpdates int) {
 	// Conservative defaults that match the migration seeds.
 	const (
 		defaultUncompressed = 120
@@ -84,6 +94,13 @@ func ResolveSpeedTestParameters(getInt func(key string) (int, bool), wordlistPat
 		testDuration = compressed
 	} else {
 		testDuration = uncompressed
+	}
+
+	// network_direct reads the wordlist off the mount before emitting a status;
+	// widen the window so a large list doesn't spuriously time out. Applied on
+	// top of the compression choice.
+	if storageTier == models.StorageTierNetworkDirect {
+		testDuration *= networkDirectSpeedTestMultiplier
 	}
 
 	timeoutDuration = testDuration + timeoutGraceSeconds

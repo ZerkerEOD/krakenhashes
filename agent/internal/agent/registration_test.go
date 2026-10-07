@@ -346,7 +346,7 @@ func TestRegistrationIntegration(t *testing.T) {
 	}
 
 	// Register agent
-	err = RegisterAgent("test-claim-code", urlConfig)
+	err = RegisterAgent("test-claim-code", urlConfig, "", "")
 	assert.NoError(t, err)
 	assert.True(t, caCertRequested, "CA certificate should be requested")
 	assert.True(t, registrationCalled, "Registration endpoint should be called")

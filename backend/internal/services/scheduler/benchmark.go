@@ -9,6 +9,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	wsservice "github.com/ZerkerEOD/krakenhashes/backend/internal/services/websocket"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -492,10 +493,12 @@ func buildBenchmarkRequest(
 	// Agent-level extra_parameters (e.g. "-w 4 -O"). Non-fatal on error —
 	// a benchmark without them is still better than none, but log it.
 	var agentExtraParams string
+	var agentStorageTier string
 	if err := database.QueryRowContext(ctx, `
-		SELECT COALESCE(extra_parameters, '') FROM agents WHERE id = $1
-	`, g.AgentID).Scan(&agentExtraParams); err != nil {
-		debug.Warning("benchmark: lookup agent %d extra_parameters: %v", g.AgentID, err)
+		SELECT COALESCE(extra_parameters, ''), COALESCE(storage_tier, '')
+		  FROM agents WHERE id = $1
+	`, g.AgentID).Scan(&agentExtraParams, &agentStorageTier); err != nil {
+		debug.Warning("benchmark: lookup agent %d extra_parameters/storage_tier: %v", g.AgentID, err)
 	}
 
 	// Resolve WHICH binary to use, and enough about it for the agent to fetch
@@ -531,7 +534,7 @@ func buildBenchmarkRequest(
 	// short for a "cold" agent to compile kernels and emit status updates,
 	// causing spurious BENCHMARK_TIMEOUT failures and 24h blocklists.
 	testDuration, timeoutDuration, minStatusUpdates := ResolveSpeedTestParameters(
-		dbIntSettingReader(ctx, database), taskPayload.WordlistPaths)
+		dbIntSettingReader(ctx, database), taskPayload.WordlistPaths, agentStorageTier)
 
 	req := &wsservice.BenchmarkRequestPayload{
 		RequestID:               uuid.New().String(),
@@ -556,11 +559,30 @@ func buildBenchmarkRequest(
 		TimeoutDuration:         timeoutDuration,
 		MinStatusUpdates:        minStatusUpdates,
 	}
-	// NOTE: EnabledDevices is intentionally not set here — the benchmark runs
-	// on all of the agent's devices. Deriving the enabled subset needs the
-	// device repo's runtime-options parsing (GetHashcatDeviceID), which this
-	// free function doesn't have wired. Minor follow-up if device-limited
-	// agents need device-scoped benchmark speed.
+	// Scope the benchmark to the agent's ENABLED devices, exactly like a real
+	// task (mirrors cycle.enabledDeviceIDsForAgent). A benchmark must never run
+	// on a device a job won't use: otherwise a device-limited agent (e.g. an
+	// iGPU disabled in favor of a discrete GPU) would benchmark on the excluded
+	// device, AND the cached speed would reflect a device set that never runs
+	// chunks. Only set -d when SOME device is disabled; with all enabled, leave
+	// it nil so hashcat uses every device (unchanged behavior).
+	if devs, derr := repository.NewAgentDeviceRepository(database).GetByAgentID(g.AgentID); derr != nil {
+		debug.Warning("benchmark: enabled-device lookup for agent %d failed: %v (benchmarking all devices)", g.AgentID, derr)
+	} else {
+		var enabled []int
+		hasDisabled := false
+		for i := range devs {
+			if devs[i].Enabled {
+				enabled = append(enabled, devs[i].GetHashcatDeviceID())
+			} else {
+				hasDisabled = true
+			}
+		}
+		if hasDisabled {
+			req.EnabledDevices = enabled
+		}
+	}
+
 	if unit.AttackMode == AttackModeAssociation && originalFilePath != "" {
 		req.HashlistPath = originalFilePath
 	}

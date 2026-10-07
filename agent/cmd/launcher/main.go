@@ -8,13 +8,21 @@
 // Usage:
 //
 //	krakenhashes-launcher [run] [--agent-binary PATH] [--health-timeout SECS] [agent flags...]
-//	krakenhashes-launcher install   [--system] [--host HOST] [--claim CODE] [--config-dir DIR] [--data-dir DIR]
+//	krakenhashes-launcher install   [--system] [--host HOST] [--claim CODE] [--config-dir DIR] [--data-dir DIR] [agent flags...]
 //	krakenhashes-launcher uninstall [--system] [--purge] [--config-dir DIR] [--data-dir DIR]
 //	krakenhashes-launcher version
 //
 // install/uninstall default to a per-user service (no root): systemd --user on
 // Linux, a per-user LaunchAgent on macOS, a logon Scheduled Task on Windows.
 // --system installs/removes a root/system service instead (sudo / Administrator).
+//
+// Any flags the launcher does not itself consume are forwarded verbatim to the
+// agent — both for `run` (passthrough) and for `install` (baked into the
+// service unit so they persist across reboot and auto-update). That is how the
+// agent's storage flags reach it, e.g.:
+//
+//	krakenhashes-launcher install --host HOST --claim CODE \
+//	    --storage-tier network_direct --network-share-mount-path /mnt/kh-agent-share
 package main
 
 import (
@@ -83,10 +91,11 @@ type launcherFlags struct {
 // returning the populated launcherFlags and the remaining arguments to pass through to the agent.
 //
 // Recognized flags (left-to-right):
-// - --agent-binary <path>, -agent-binary <path>, --agent-binary=<path>
-//   -> sets agentBinary.
-// - --health-timeout <seconds>, -health-timeout <seconds>, --health-timeout=<seconds>
-//   -> parses seconds as an integer and sets healthTimeout accordingly; leaves the default if parsing fails.
+//   - --agent-binary <path>, -agent-binary <path>, --agent-binary=<path>
+//     -> sets agentBinary.
+//   - --health-timeout <seconds>, -health-timeout <seconds>, --health-timeout=<seconds>
+//     -> parses seconds as an integer and sets healthTimeout accordingly; leaves the default if parsing fails.
+//
 // Any tokens not matching the above forms are appended, in order, to the returned passthrough slice.
 func parseLauncherFlags(args []string) (launcherFlags, []string) {
 	var lf launcherFlags
@@ -198,13 +207,16 @@ func doRun(logger *log.Logger, args []string) {
 // and invokes launcher.Install returning any resulting error.
 //
 // Recognized flags:
-//   --system / -system         (no value) mark system-wide installation
-//   --host / -host <host>      host for the agent/service
-//   --claim / -claim <code>    claim code to provision the agent
-//   --config-dir / -config-dir <path>  custom configuration directory
-//   --data-dir / -data-dir <path>      custom data directory
 //
-// Any unknown tokens are forwarded to the agent as ExtraArgs.
+//	--system / -system         (no value) mark system-wide installation
+//	--host / -host <host>      host for the agent/service
+//	--claim / -claim <code>    claim code to provision the agent
+//	--config-dir / -config-dir <path>  custom configuration directory
+//	--data-dir / -data-dir <path>      custom data directory
+//
+// Any unknown tokens are forwarded to the agent as ExtraArgs and baked into the
+// service unit, so agent flags such as --storage-tier / --network-share-mount-path
+// persist across reboot and auto-update.
 func doInstall(args []string) error {
 	exe, err := os.Executable()
 	if err != nil {
@@ -259,12 +271,13 @@ func doInstall(args []string) error {
 // installed binaries and the config/data directories (default to the launcher's
 // sibling config/ and data/, or the dirs given via --config-dir / --data-dir,
 // doUninstall parses uninstall subcommand arguments, constructs a launcher.UninstallOptions value, and invokes launcher.Uninstall with the resolved options.
-// 
+//
 // Supported flags in args are:
-//   --system / -system       : mark uninstall as system-wide
-//   --purge  / -purge        : remove service, binaries, config and data (including agent credentials)
-//   --config-dir / -config-dir <path> : path to configuration directory
-//   --data-dir   / -data-dir   <path> : path to data directory
+//
+//	--system / -system       : mark uninstall as system-wide
+//	--purge  / -purge        : remove service, binaries, config and data (including agent credentials)
+//	--config-dir / -config-dir <path> : path to configuration directory
+//	--data-dir   / -data-dir   <path> : path to data directory
 //
 // When --purge is specified and config/data paths are not provided, defaults are set to "<exeDir>/config" and "<exeDir>/data" where exeDir is the directory containing the launcher executable. The function returns any error produced by launcher.Uninstall.
 func doUninstall(args []string) error {

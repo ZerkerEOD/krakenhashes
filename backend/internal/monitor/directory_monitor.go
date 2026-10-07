@@ -11,6 +11,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/fsutil"
@@ -433,6 +434,12 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 // monitor-managed wordlists are considered — potfiles, ephemeral/filtered
 // children, and association/client lists are managed elsewhere.
 func (m *DirectoryMonitor) reconcileMissingWordlists(ctx context.Context, seen map[string]bool) {
+	// Share-health guard (WS3): when wordlists live on a network share and the
+	// mount is offline, a down mount is not a deletion — never reconcile.
+	if !storagepaths.ShareHealthy() {
+		debug.Warning("Wordlist reconcile skipped: network share appears offline (degraded)")
+		return
+	}
 	// Unmount guard: if the walk saw no files at all, the directory may be
 	// unmounted (an empty mountpoint still "exists"); never mass-flag on that.
 	if len(seen) == 0 {
@@ -865,6 +872,11 @@ func (m *DirectoryMonitor) checkRuleDirectory() {
 // reconcileMissingRules flags verified rules whose file has disappeared from
 // disk, and restores ones whose file has returned (GH #93).
 func (m *DirectoryMonitor) reconcileMissingRules(ctx context.Context, seen map[string]bool) {
+	// Share-health guard (WS3): a down network-share mount is not a deletion.
+	if !storagepaths.ShareHealthy() {
+		debug.Warning("Rule reconcile skipped: network share appears offline (degraded)")
+		return
+	}
 	// Unmount guard: never mass-flag when the walk saw no files at all.
 	if len(seen) == 0 {
 		debug.Debug("Rule reconcile skipped: no files seen on disk (directory empty or unmounted)")

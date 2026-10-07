@@ -99,6 +99,10 @@ HASHCAT_EXTRA_PARAMS=  # Extra parameters to pass to hashcat (e.g., "-O -w 3" fo
 # Logging Configuration
 DEBUG=false            # Enable debug logging
 LOG_LEVEL=INFO        # Log level (DEBUG, INFO, WARNING, ERROR)
+
+# Storage Configuration (network-share feature)
+KH_STORAGE_TIER=full_cache        # full_cache (default) | on_demand | network_direct
+KH_NETWORK_SHARE_MOUNT_PATH=      # Read-only mount path for the network_direct tier
 ```
 
 ### Important: Hashcat Parameter Precedence
@@ -143,6 +147,8 @@ Flags:
   -hashcat-params string Extra parameters to pass to hashcat (e.g., '-O -w 3')
   -config-dir string     Configuration directory for certificates and credentials
   -data-dir string       Data directory for binaries, wordlists, rules, and hashlists
+  -storage-tier string             full_cache (default) | on_demand | network_direct (seeds the server at registration)
+  -network-share-mount-path string Read-only mount path for the network_direct tier (e.g. /mnt/kh-agent-share)
   -help                  Show help
 ```
 
@@ -180,6 +186,61 @@ The exception is **ephemeral mode** (`--ephemeral` / `KH_EPHEMERAL=true`), where
 3. Command line flags
 
 and no `.env` file is read or written. Use it for containers and rented cloud instances.
+
+## Storage Tier (network-share feature)
+
+An agent can obtain wordlists/rules in one of three tiers:
+
+| Tier | Behavior |
+|------|----------|
+| `full_cache` (default) | Download over HTTP and keep everything locally. |
+| `on_demand` | Download per task over HTTP, evict under disk pressure. |
+| `network_direct` | Read wordlists/rules **directly off a mounted share** — no download. On-prem only; cloud agents cannot mount and fall back to the HTTP relay. |
+
+Set the tier with `--storage-tier` / `KH_STORAGE_TIER`, and the read-only share
+mount with `--network-share-mount-path` / `KH_NETWORK_SHARE_MOUNT_PATH`. You must
+mount the share yourself at that path before starting the agent — the agent
+never mounts anything, and it refuses to start if its own binary lives on a
+network mount.
+
+These settings are a **seed**: they set the agent's *initial* tier/mount and are
+reported to the server when the agent registers. After that, the admin UI
+(**Admin → System Settings → Storage**, per agent) is authoritative and can
+override them; the server re-asserts its stored value on each reconnect. A tier
+of `network_direct` with no mount path, or an unknown tier, falls back to
+`full_cache` so a misconfigured agent still starts.
+
+```bash
+# On-prem network_direct agent (share already mounted read-only at the path)
+./krakenhashes-agent \
+  -host your-server:31337 \
+  -claim YOUR_CLAIM_CODE \
+  -storage-tier network_direct \
+  -network-share-mount-path /mnt/kh-agent-share
+```
+
+### Latency & remote shares
+
+Use `network_direct` only for a **low-latency, LAN-adjacent share** (your host on the
+same network as the server's share). Every job reads the whole wordlist off the mount
+before hashcat starts, so a remote/high-latency share (another building, state, or
+country) stalls startup. For those, run the agent on `full_cache` or `on_demand`
+instead — they download over the HTTP relay, which tolerates a slow link far better
+than a kernel mount.
+
+When you do mount a share, prefer **fail-fast** options so a dropped share returns an
+error quickly instead of hanging the agent (the Storage panel's generated command does
+this for you):
+
+- **NFS:** `soft,timeo=150,retrans=2` (≈30 s to an I/O error) rather than the kernel `hard` default.
+- **SMB/CIFS:** `soft`.
+
+The agent backs this up: it runs a bounded, background check on the mount and reports
+itself *not ready* if the mount is slow or gone (the scheduler then reroutes work),
+without ever blocking its own heartbeat. A slow share costs time, not failed jobs — the
+server widens the benchmark/startup windows for `network_direct` agents and does not
+count a share-read benchmark timeout against the agent. If a share keeps timing out even
+so, move the agent to `full_cache`/`on_demand`.
 
 ## Device Configuration
 

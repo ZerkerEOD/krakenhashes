@@ -182,6 +182,16 @@ Important directories that should be persisted:
 -   `/var/log/krakenhashes` - Application logs
 -   PostgreSQL data volume
 
+#### Storage Backend: Local or Network Share
+
+By default all data — including wordlists and rules — lives on the local data volume above; this is the right choice for most installs. For large deployments you can instead keep **wordlists and rules on a network share** (SMB/NFS) so the server (and select agents) don't each need a large disk:
+
+1. Mount the SMB/NFS share on the host (KrakenHashes never stores share credentials).
+2. Set `KH_SHARE_DIR_HOST` in your `.env` to that host path — the compose file binds it into the backend at `KH_SHARE_DIR`.
+3. Enable it and run the one-time migration from **Admin → System Settings → Storage**.
+
+It stays inactive (local-disk behavior) until you enable it, so this is safe to leave unconfigured at install time and adopt later. See [Storage Architecture](../admin-guide/resource-management/storage.md#network-share-storage) for the full model, migration flow, and per-agent storage tiers.
+
 #### Environment Variables
 
 | Variable      | Default      | Description                   |
@@ -195,6 +205,7 @@ Important directories that should be persisted:
 | `TLS_MODE`    | self-signed  | TLS certificate mode          |
 | `PUID`        | 1000         | User ID for file permissions  |
 | `PGID`        | 1000         | Group ID for file permissions |
+| `KH_SHARE_DIR_HOST` | (unset) | Optional: host path of a mounted SMB/NFS share for wordlists/rules (see above) |
 
 #### Logging Configuration
 

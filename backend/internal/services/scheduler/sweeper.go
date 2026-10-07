@@ -61,9 +61,13 @@ func EvictTimedOutTasks(
 	ctx context.Context,
 	database *db.DB,
 	heartbeatTimeoutSeconds int,
+	startupGraceSeconds int,
 ) (evicted []EvictedTask, errs []error) {
 	if heartbeatTimeoutSeconds <= 0 {
 		heartbeatTimeoutSeconds = 120
+	}
+	if startupGraceSeconds <= 0 {
+		startupGraceSeconds = 600
 	}
 
 	// Find stale tasks plus the interval row they own (joined via
@@ -72,8 +76,16 @@ func EvictTimedOutTasks(
 	// JOIN to the agent so we can include disconnect-grace expiry as a
 	// second eviction trigger — see §8.7 and migration 000150. A task
 	// is stale if ANY of:
-	//   - status IN ('assigned','running') and last_activity_at is
-	//     older than the heartbeat timeout (agent connected but silent)
+	//   - status='running' (first progress arrived) and last_activity_at
+	//     is older than the heartbeat timeout (agent connected but silent)
+	//   - status='assigned' (dispatched, no progress yet — the agent is
+	//     still downloading/verifying/decompressing/autotuning) and
+	//     last_activity_at is older than the STARTUP GRACE
+	//     (task_startup_grace_seconds, migration 000149). This longer
+	//     pre-first-progress window is what stops a slow file pull from
+	//     being evicted and reissued mid-download; task_loading pings
+	//     refresh last_activity_at so a live prep is never killed while a
+	//     stalled one still times out.
 	//   - status IN ('assigned','running') and its agent's
 	//     disconnect_grace_expires_at has passed (agent gone, hasn't
 	//     come back, and we caught the task before HandleAgentDisconnection
@@ -99,9 +111,35 @@ func EvictTimedOutTasks(
 		  AND t.range_end IS NOT NULL
 		  AND (
 			  (
-				  t.status IN ('assigned', 'running')
+				  -- 'running' means the first job_progress arrived, so the
+				  -- download/decompress/autotune startup window is over;
+				  -- hold it to the (short) heartbeat timeout.
+				  t.status = 'running'
 				  AND t.last_activity_at IS NOT NULL
 				  AND t.last_activity_at < NOW() - ($1 || ' seconds')::INTERVAL
+			  )
+			  OR
+			  (
+				  -- 'assigned' means dispatched but no progress yet — the
+				  -- agent is still downloading/verifying/decompressing/
+				  -- autotuning (a 15-40GB network-share/HTTP pull can take
+				  -- many minutes). Measure against the LONGER startup grace
+				  -- ($2, task_startup_grace_seconds) instead of the heartbeat.
+				  -- last_activity_at is the dispatch time for older agents
+				  -- and is refreshed by task_loading pings for newer ones, so
+				  -- a live prep survives while a genuinely stalled one still
+				  -- times out. Without this split a long pull tripped the
+				  -- 120s heartbeat and got evicted+reissued mid-download.
+				  -- network_direct agents read the wordlist directly off the
+				  -- mount before first progress, so they get a ×4 wider grace
+				  -- (a large list on a LAN share isn't evicted mid-read;
+				  -- remote/high-latency shares should use the download tiers).
+				  t.status = 'assigned'
+				  AND t.last_activity_at IS NOT NULL
+				  AND t.last_activity_at < NOW() - (
+					  ($2 || ' seconds')::INTERVAL
+					  * (CASE WHEN a.storage_tier = 'network_direct' THEN 4 ELSE 1 END)
+				  )
 			  )
 			  OR
 			  (
@@ -116,7 +154,7 @@ func EvictTimedOutTasks(
 			  )
 		  )
 	`
-	rows, err := database.QueryContext(ctx, query, heartbeatTimeoutSeconds)
+	rows, err := database.QueryContext(ctx, query, heartbeatTimeoutSeconds, startupGraceSeconds)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("sweeper: query stale tasks: %w", err))
 		return nil, errs

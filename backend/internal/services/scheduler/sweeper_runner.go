@@ -62,8 +62,9 @@ func (r *SweeperRunner) Run(ctx context.Context) {
 // sweepOnce performs a single eviction pass. Separated for testability.
 func (r *SweeperRunner) sweepOnce(ctx context.Context) {
 	timeout := r.readHeartbeatTimeoutSeconds(ctx)
+	startupGrace := r.readTaskStartupGraceSeconds(ctx)
 
-	evicted, errs := EvictTimedOutTasks(ctx, r.db, timeout)
+	evicted, errs := EvictTimedOutTasks(ctx, r.db, timeout, startupGrace)
 	for _, e := range errs {
 		debug.Warning("sweeper: %v", e)
 	}
@@ -119,6 +120,31 @@ func (r *SweeperRunner) readHeartbeatTimeoutSeconds(ctx context.Context) int {
 	readCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	setting, err := r.systemSettingsRepo.GetSetting(readCtx, "task_heartbeat_timeout_seconds")
+	if err != nil || setting == nil || setting.Value == nil {
+		return def
+	}
+	n, err := strconv.Atoi(*setting.Value)
+	if err != nil || n <= 0 {
+		return def
+	}
+	return n
+}
+
+// readTaskStartupGraceSeconds returns the configured pre-first-progress
+// grace window (task_startup_grace_seconds), or the 600s default if the
+// setting can't be read or is invalid. This is the window the sweeper
+// applies to a still-'assigned' task (agent downloading/decompressing/
+// autotuning before hashcat emits its first progress) instead of the
+// shorter heartbeat timeout — see EvictTimedOutTasks. Read each cycle so
+// admins can tune it without a restart.
+func (r *SweeperRunner) readTaskStartupGraceSeconds(ctx context.Context) int {
+	const def = 600
+	if r.systemSettingsRepo == nil {
+		return def
+	}
+	readCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	setting, err := r.systemSettingsRepo.GetSetting(readCtx, "task_startup_grace_seconds")
 	if err != nil || setting == nil || setting.Value == nil {
 		return def
 	}

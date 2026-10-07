@@ -51,6 +51,7 @@ import (
 	cloudsvc "github.com/ZerkerEOD/krakenhashes/backend/internal/services/cloud"
 	retentionsvc "github.com/ZerkerEOD/krakenhashes/backend/internal/services/retention"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/sandiscovery"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	tlsprovider "github.com/ZerkerEOD/krakenhashes/backend/internal/tls"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
@@ -188,6 +189,12 @@ func main() {
 	// Initialize application configuration
 	appConfig := config.NewConfig()
 	debug.Info("Application configuration initialized")
+
+	// Initialize the storage-path resolver (provisional 'local'; flipped to the
+	// DB-stored backend once migrations have run and the network_shares row can
+	// be read, below). Path lookups resolve at request time, so this only needs
+	// to be in place before request handling and the file monitor start.
+	storagepaths.Initialize(appConfig.DataDir, appConfig.ShareDir, "")
 
 	/*
 	 * Resolve the secret-encryption key before anything can touch it.
@@ -335,6 +342,14 @@ func main() {
 		os.Exit(1)
 	}
 	debug.Info("Database migrations completed successfully")
+
+	// Now that network_shares exists, adopt the persisted storage backend so
+	// wordlist/rule paths resolve to the share when a migration has completed.
+	if backend, err := repository.NewNetworkShareRepository(dbWrapper).GetStorageBackend(context.Background()); err != nil {
+		debug.Warning("Could not read storage backend; defaulting to local: %v", err)
+	} else {
+		storagepaths.SetBackend(backend)
+	}
 
 	// Reconcile the server certificate with the configured subject alternative
 	// names.

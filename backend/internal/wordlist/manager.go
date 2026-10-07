@@ -20,8 +20,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/migrationgate"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/fsutil"
 	"github.com/google/uuid"
@@ -131,6 +133,19 @@ func NewManager(store WordlistStore, wordlistsDir string, maxUploadSize int64, a
 	}
 }
 
+// wordlistsBaseDir returns the active wordlists root. In production it follows
+// the storage backend via the resolver (local data dir, or the network share
+// after an in-process migration), so uploads, deletes and generated ephemeral
+// lists all land wherever files are currently served from. When the resolver
+// isn't initialized (unit tests that construct a manager with a temp dir) it
+// falls back to the directory passed at construction.
+func (m *manager) wordlistsBaseDir() string {
+	if storagepaths.Initialized() {
+		return storagepaths.WordlistsRoot()
+	}
+	return m.wordlistsDir
+}
+
 // ListWordlists retrieves all wordlists with optional filtering
 func (m *manager) ListWordlists(ctx context.Context, filters map[string]interface{}) ([]*models.Wordlist, error) {
 	return m.store.ListWordlists(ctx, filters)
@@ -153,6 +168,11 @@ func (m *manager) GetWordlistByMD5Hash(ctx context.Context, md5Hash string) (*mo
 
 // AddWordlist adds a new wordlist
 func (m *manager) AddWordlist(ctx context.Context, req *models.WordlistAddRequest, userID uuid.UUID) (*models.Wordlist, error) {
+	// Reject uploads while a storage migration holds the wordlist/rule store
+	// locked (the copy/validate phases). The drain phase still allows writes.
+	if migrationgate.WritesFrozen() {
+		return nil, fmt.Errorf("storage migration in progress: wordlist uploads are temporarily frozen, please retry shortly")
+	}
 	// Create wordlist model
 	wordlist := &models.Wordlist{
 		Name:               req.Name,
@@ -417,7 +437,7 @@ func (m *manager) DeleteWordlist(ctx context.Context, id int, confirmID *int) er
 	}
 
 	// Delete file
-	filePath := filepath.Join(m.wordlistsDir, wordlist.FileName)
+	filePath := filepath.Join(m.wordlistsBaseDir(), wordlist.FileName)
 	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
 		debug.Error("Failed to delete wordlist file %s: %v", filePath, err)
 		// Don't return error, as the database entry is already deleted
@@ -440,7 +460,7 @@ func (m *manager) VerifyWordlist(ctx context.Context, id int, req *models.Wordli
 
 	// If status is "verified" and word count is not provided, calculate it
 	if req.Status == "verified" && req.WordCount == nil {
-		filePath := filepath.Join(m.wordlistsDir, wordlist.FileName)
+		filePath := filepath.Join(m.wordlistsBaseDir(), wordlist.FileName)
 		wordCount, err := m.CountWordsInFile(filePath)
 		if err != nil {
 			debug.Error("Failed to count words in file %s: %v", filePath, err)
@@ -501,7 +521,7 @@ func (m *manager) DeleteWordlistTag(ctx context.Context, id int, tag string) err
 func (m *manager) GetWordlistPath(filename string, wordlistType string) string {
 	// Check if the filename already contains a subdirectory
 	if strings.Contains(filename, string(filepath.Separator)) {
-		return filepath.Join(m.wordlistsDir, filename)
+		return filepath.Join(m.wordlistsBaseDir(), filename)
 	}
 
 	// If no wordlist type is provided, use a default
@@ -521,7 +541,7 @@ func (m *manager) GetWordlistPath(filename string, wordlistType string) string {
 	}
 
 	// Place in appropriate subdirectory
-	return filepath.Join(m.wordlistsDir, wordlistType, filename)
+	return filepath.Join(m.wordlistsBaseDir(), wordlistType, filename)
 }
 
 // CountWordsInFile counts the number of words in a file

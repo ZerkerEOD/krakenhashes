@@ -130,7 +130,7 @@ func TestMetricsIntegration(t *testing.T) {
 	urlConfig := config.NewURLConfig()
 
 	// Try to register the agent
-	err = agent.RegisterAgent("test-claim-code", urlConfig)
+	err = agent.RegisterAgent("test-claim-code", urlConfig, "", "")
 	require.NoError(t, err)
 
 	// Create connection

@@ -146,9 +146,15 @@ KH_PING_PERIOD: "54s"     # Ping interval (must be < pong wait)
   "isEnabled": true,
   "ownerId": "user-uuid",
   "extraParameters": "--custom-charset1=?l?u?d",
-  "binaryVersion": "7.x"
+  "binaryVersion": "7.x",
+  "storageTier": "network_direct",
+  "networkShareMountPath": "/mnt/kh-agent-share"
 }
 ```
+
+### Storage Tier
+
+Each agent has a **storage tier** that controls how it obtains wordlists/rules — `full_cache` (default), `on_demand`, or `network_direct`. Set it per agent here or in **Admin → System Settings → Storage**; `network_direct` additionally requires `networkShareMountPath`. The UI sends partial updates, so omitted fields are preserved. Agents may also *seed* an initial tier at startup via flags/env, but this admin setting is authoritative and is re-asserted on each reconnect. See [Storage Architecture → Per-Agent Storage Tiers](../resource-management/storage.md#per-agent-storage-tiers) for what each tier does.
 
 ### Agent Binary Version Pattern
 

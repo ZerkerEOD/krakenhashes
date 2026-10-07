@@ -206,21 +206,27 @@ type CharsetFileInfo struct {
 
 // JobTaskAssignment represents a task assignment from the backend
 type JobTaskAssignment struct {
-	TaskID         string                     `json:"task_id"`
-	JobExecutionID string                     `json:"job_execution_id"`
-	HashlistID     int64                      `json:"hashlist_id"`
-	HashlistPath   string                     `json:"hashlist_path"` // Local path on agent
-	AttackMode     int                        `json:"attack_mode"`
-	HashType       int                        `json:"hash_type"`
-	KeyspaceStart  int64                      `json:"keyspace_start"`
-	KeyspaceEnd    int64                      `json:"keyspace_end"`
-	WordlistPaths  []string                   `json:"wordlist_paths"`            // Local paths on agent
-	RulePaths      []string                   `json:"rule_paths"`                // Local paths on agent
-	Mask           string                     `json:"mask,omitempty"`            // For mask attacks
-	CustomCharsets map[string]string          `json:"custom_charsets,omitempty"` // Custom charsets: {"1": "?u?d", "3": "?s"}
-	CharsetFiles   map[string]CharsetFileInfo `json:"charset_files,omitempty"`   // File-based charsets: {"1": {name: "file.hcchr", ...}}
-	HexCharset     bool                       `json:"hex_charset,omitempty"`     // When true, auto-inject --hex-charset flag
-	BinaryPath     string                     `json:"binary_path"`               // Hashcat binary to use
+	TaskID         string   `json:"task_id"`
+	JobExecutionID string   `json:"job_execution_id"`
+	HashlistID     int64    `json:"hashlist_id"`
+	HashlistPath   string   `json:"hashlist_path"` // Local path on agent
+	AttackMode     int      `json:"attack_mode"`
+	HashType       int      `json:"hash_type"`
+	KeyspaceStart  int64    `json:"keyspace_start"`
+	KeyspaceEnd    int64    `json:"keyspace_end"`
+	WordlistPaths  []string `json:"wordlist_paths"` // Local paths on agent
+	RulePaths      []string `json:"rule_paths"`     // Local paths on agent
+	// ImmutableFileBase is set agent-side (never from the backend payload) before
+	// execution: the base directory for immutable wordlist/rule files. For the
+	// network_direct tier it is the read-only share mount; otherwise the local
+	// data directory. hashlist/charset/potfile/client paths always use the data
+	// directory regardless.
+	ImmutableFileBase string                     `json:"-"`
+	Mask              string                     `json:"mask,omitempty"`            // For mask attacks
+	CustomCharsets    map[string]string          `json:"custom_charsets,omitempty"` // Custom charsets: {"1": "?u?d", "3": "?s"}
+	CharsetFiles      map[string]CharsetFileInfo `json:"charset_files,omitempty"`   // File-based charsets: {"1": {name: "file.hcchr", ...}}
+	HexCharset        bool                       `json:"hex_charset,omitempty"`     // When true, auto-inject --hex-charset flag
+	BinaryPath        string                     `json:"binary_path"`               // Hashcat binary to use
 	// BinaryName is the archive filename behind BinaryPath (BinaryMD5 already
 	// exists further down). Without it a missing binary could be detected but
 	// not requested, which is why nothing in the agent ever fetched hashcat on
@@ -787,6 +793,22 @@ func hasSlowCandidatesFlag(args []string) bool {
 	return false
 }
 
+// fileBaseFor returns the base directory to resolve a backend-relative
+// wordlist/rule path against. Client and association wordlists always live
+// locally (they are excluded from the network share), so they use the data
+// directory; every other immutable wordlist/rule uses ImmutableFileBase — the
+// read-only share mount for the network_direct tier, else the data directory
+// (so full_cache/on_demand behavior is unchanged).
+func (e *HashcatExecutor) fileBaseFor(a *JobTaskAssignment, relPath string) string {
+	if strings.HasPrefix(relPath, "wordlists/clients/") || strings.HasPrefix(relPath, "wordlists/association/") {
+		return e.dataDirectory
+	}
+	if a.ImmutableFileBase != "" {
+		return a.ImmutableFileBase
+	}
+	return e.dataDirectory
+}
+
 // selectHybridWordlist returns the full local path of the single wordlist for a
 // hybrid attack, preferring WordlistPaths[0] and falling back to a client-specific
 // wordlist (then the client potfile) when the generic list is empty — mirroring the
@@ -796,7 +818,7 @@ func (e *HashcatExecutor) selectHybridWordlist(assignment *JobTaskAssignment) st
 	// Prefer the generic wordlist list (existing behavior — no os.Stat so we
 	// don't change current semantics for global-wordlist hybrid jobs).
 	if len(assignment.WordlistPaths) > 0 {
-		return filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+		return filepath.Join(e.fileBaseFor(assignment, assignment.WordlistPaths[0]), assignment.WordlistPaths[0])
 	}
 
 	// Fall back to a client-specific wordlist, then the client potfile. These
@@ -1039,7 +1061,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		// Add wordlists
 		debug.Info("Adding wordlists to hashcat command: %v", assignment.WordlistPaths)
 		for _, wordlistPath := range assignment.WordlistPaths {
-			fullPath := filepath.Join(e.dataDirectory, wordlistPath)
+			fullPath := filepath.Join(e.fileBaseFor(assignment, wordlistPath), wordlistPath)
 			debug.Info("Adding wordlist: %s (full path: %s)", wordlistPath, fullPath)
 			args = append(args, fullPath)
 		}
@@ -1080,15 +1102,15 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		// Add rules
 		debug.Info("Adding rules to hashcat command: %v", assignment.RulePaths)
 		for _, rulePath := range assignment.RulePaths {
-			fullPath := filepath.Join(e.dataDirectory, rulePath)
+			fullPath := filepath.Join(e.fileBaseFor(assignment, rulePath), rulePath)
 			debug.Info("Adding rule: %s (full path: %s)", rulePath, fullPath)
 			args = append(args, "-r", fullPath)
 		}
 
 	case int(AttackModeCombination): // Combination attack
 		if len(assignment.WordlistPaths) >= 2 {
-			wordlist1 := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
-			wordlist2 := filepath.Join(e.dataDirectory, assignment.WordlistPaths[1])
+			wordlist1 := filepath.Join(e.fileBaseFor(assignment, assignment.WordlistPaths[0]), assignment.WordlistPaths[0])
+			wordlist2 := filepath.Join(e.fileBaseFor(assignment, assignment.WordlistPaths[1]), assignment.WordlistPaths[1])
 			args = append(args, wordlist1, wordlist2)
 		}
 
@@ -1123,7 +1145,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		}
 
 		// Use first wordlist as the association wordlist
-		assocWordlistPath := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+		assocWordlistPath := filepath.Join(e.fileBaseFor(assignment, assignment.WordlistPaths[0]), assignment.WordlistPaths[0])
 		debug.Info("Adding association wordlist: %s", assocWordlistPath)
 
 		// Verify association wordlist exists
@@ -1135,7 +1157,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 
 		// Add rules if specified
 		for _, rulePath := range assignment.RulePaths {
-			fullPath := filepath.Join(e.dataDirectory, rulePath)
+			fullPath := filepath.Join(e.fileBaseFor(assignment, rulePath), rulePath)
 			debug.Info("Adding rule for association attack: %s", fullPath)
 			args = append(args, "-r", fullPath)
 		}
@@ -1233,15 +1255,15 @@ func (e *HashcatExecutor) getAgentKeyspace(assignment *JobTaskAssignment) (int64
 	switch assignment.AttackMode {
 	case int(AttackModeStraight): // Dictionary attack
 		for _, wordlistPath := range assignment.WordlistPaths {
-			args = append(args, filepath.Join(e.dataDirectory, wordlistPath))
+			args = append(args, filepath.Join(e.fileBaseFor(assignment, wordlistPath), wordlistPath))
 		}
 		for _, rulePath := range assignment.RulePaths {
-			args = append(args, "-r", filepath.Join(e.dataDirectory, rulePath))
+			args = append(args, "-r", filepath.Join(e.fileBaseFor(assignment, rulePath), rulePath))
 		}
 	case int(AttackModeCombination):
 		if len(assignment.WordlistPaths) >= 2 {
-			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[0]))
-			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[1]))
+			args = append(args, filepath.Join(e.fileBaseFor(assignment, assignment.WordlistPaths[0]), assignment.WordlistPaths[0]))
+			args = append(args, filepath.Join(e.fileBaseFor(assignment, assignment.WordlistPaths[1]), assignment.WordlistPaths[1]))
 		}
 	case int(AttackModeBruteForce): // Mask attack
 		if assignment.Mask != "" {
@@ -1249,20 +1271,20 @@ func (e *HashcatExecutor) getAgentKeyspace(assignment *JobTaskAssignment) (int64
 		}
 	case int(AttackModeHybridWordlistMask):
 		if len(assignment.WordlistPaths) > 0 && assignment.Mask != "" {
-			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[0]))
+			args = append(args, filepath.Join(e.fileBaseFor(assignment, assignment.WordlistPaths[0]), assignment.WordlistPaths[0]))
 			args = append(args, assignment.Mask)
 		}
 	case int(AttackModeHybridMaskWordlist):
 		if assignment.Mask != "" && len(assignment.WordlistPaths) > 0 {
 			args = append(args, assignment.Mask)
-			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[0]))
+			args = append(args, filepath.Join(e.fileBaseFor(assignment, assignment.WordlistPaths[0]), assignment.WordlistPaths[0]))
 		}
 	case int(AttackModeAssociation):
 		if len(assignment.WordlistPaths) > 0 {
-			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[0]))
+			args = append(args, filepath.Join(e.fileBaseFor(assignment, assignment.WordlistPaths[0]), assignment.WordlistPaths[0]))
 		}
 		for _, rulePath := range assignment.RulePaths {
-			args = append(args, "-r", filepath.Join(e.dataDirectory, rulePath))
+			args = append(args, "-r", filepath.Join(e.fileBaseFor(assignment, rulePath), rulePath))
 		}
 	}
 
@@ -1771,6 +1793,14 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			e.monitorOutfile(outfileCtx, process)
 		}()
 		debug.Info("Started outfile monitor for task %s", process.TaskID)
+	}
+	// Guarantee the monitor's context is released on every return path. The
+	// completion branch below calls outfileCancel() explicitly (before waiting on
+	// outfileDone); this defer is the backstop for the cancellation/early-return
+	// paths that don't, so the derived context never leaks. CancelFunc is
+	// idempotent, so the double call on the completion path is harmless.
+	if outfileCancel != nil {
+		defer outfileCancel()
 	}
 
 	// Write PID to file for tracking

@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/monitor"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -67,8 +67,13 @@ func NewMonitorService(
 	directoryMonitor := monitor.NewDirectoryMonitor(
 		wordlistManager,
 		ruleManager,
-		filepath.Join(cfg.DataDir, "wordlists"),
-		filepath.Join(cfg.DataDir, "rules"),
+		// Watch wherever the shareable wordlists/rules currently live (local
+		// data dir, or the network share after a migration). The hash cache
+		// keys on mtime+size, so files unchanged on a slow share are not
+		// re-hashed every pass. WS4's migration re-points the monitor after a
+		// runtime backend flip.
+		storagepaths.WordlistsRoot(),
+		storagepaths.RulesRoot(),
 		time.Second*30, // Check every 30 seconds
 		systemUserID,   // This will be the system user (uuid.Nil)
 		jobUpdateHandler,

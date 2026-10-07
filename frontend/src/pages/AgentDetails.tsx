@@ -93,6 +93,10 @@ interface Agent {
   ownerId?: string;
   extraParameters?: string;
   isEnabled?: boolean;
+  /** Storage tier: full_cache | on_demand | network_direct (network-share feature) */
+  storageTier?: string;
+  /** Agent-side read-only mount path for the network_direct tier */
+  networkShareMountPath?: string;
   /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
   binaryVersion?: string;
   /** Auto-update: version-stale but busy; updates when it goes idle */
@@ -216,6 +220,10 @@ const AgentDetails: React.FC = () => {
   // Binary configuration state
   const [binaryVersion, setBinaryVersion] = useState<string>('default');
 
+  // Storage tier (network-share feature)
+  const [storageTier, setStorageTier] = useState<string>('full_cache');
+  const [networkShareMountPath, setNetworkShareMountPath] = useState<string>('');
+
   // Debug configuration state (admin only)
   const [debugStatus, setDebugStatus] = useState<AgentDebugStatus | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
@@ -293,6 +301,8 @@ const AgentDetails: React.FC = () => {
       setIsEnabled(agentData.isEnabled !== undefined ? agentData.isEnabled : true);
       setOwnerId(agentData.ownerId || '');
       setExtraParameters(agentData.extraParameters || '');
+      setStorageTier(agentData.storageTier || 'full_cache');
+      setNetworkShareMountPath(agentData.networkShareMountPath || '');
       setBinaryVersion(agentData.binaryVersion || 'default');
       
       // Initialize device states using device_id as the key
@@ -614,6 +624,57 @@ const AgentDetails: React.FC = () => {
     }
   };
 
+  // Persist the storage tier + mount path. Sends the other managed settings
+  // alongside so the partial-PUT preserves them; the backend also preserves
+  // tier/mount-path when omitted, so this is belt-and-suspenders.
+  const saveStorageSettings = async (tier: string, mountPath: string) => {
+    await api.put(`/api/agents/${id}`, {
+      isEnabled,
+      ownerId: ownerId || null,
+      extraParameters: extraParameters.trim(),
+      storageTier: tier,
+      networkShareMountPath: mountPath,
+    });
+  };
+
+  const handleStorageTierChange = async (newTier: string) => {
+    const old = storageTier;
+    setStorageTier(newTier);
+    // network_direct requires a mount path. Don't save (and don't revert) when
+    // switching to it with no path yet — just reveal the path field and let the
+    // operator enter one; the save happens on the path field's blur
+    // (handleMountPathSave). Saving here with an empty path would fail server-side
+    // and the catch below would revert the tier, hiding the field again (the
+    // "rebound").
+    if (newTier === 'network_direct' && !networkShareMountPath.trim()) {
+      setError('');
+      setSuccess('Enter the read-only mount path on this agent host, then it saves automatically.');
+      return;
+    }
+    try {
+      await saveStorageSettings(newTier, networkShareMountPath);
+      setSuccess('Storage tier updated');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update storage tier');
+      setStorageTier(old);
+    }
+  };
+
+  const handleMountPathSave = async () => {
+    // Avoid firing an invalid save on blur before a path is entered.
+    if (storageTier === 'network_direct' && !networkShareMountPath.trim()) {
+      return;
+    }
+    try {
+      await saveStorageSettings(storageTier, networkShareMountPath);
+      setSuccess('Mount path updated');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update mount path');
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -785,6 +846,41 @@ const AgentDetails: React.FC = () => {
                     ? t('messages.binaryVersionPattern', { version: binaryVersion }) as string
                     : t('messages.binaryDefault') as string}
                 />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>Storage tier</Typography>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  value={storageTier}
+                  onChange={(e) => handleStorageTierChange(e.target.value)}
+                  helperText={
+                    storageTier === 'full_cache'
+                      ? 'Downloads and keeps all wordlists/rules locally (fastest to start).'
+                      : storageTier === 'on_demand'
+                      ? 'Downloads per task over HTTP and evicts least-recently-used lists under disk pressure.'
+                      : 'Reads wordlists/rules directly from a network share mounted on this agent host (no local copy).'
+                  }
+                >
+                  <MenuItem value="full_cache">Full cache — keep all lists</MenuItem>
+                  <MenuItem value="on_demand">On demand — download + LRU evict</MenuItem>
+                  <MenuItem value="network_direct">Network direct — read from mounted share</MenuItem>
+                </TextField>
+                {storageTier === 'network_direct' && (
+                  <TextField
+                    fullWidth
+                    size="small"
+                    sx={{ mt: 2 }}
+                    label="Network share mount path (read-only, on the agent host)"
+                    value={networkShareMountPath}
+                    onChange={(e) => setNetworkShareMountPath(e.target.value)}
+                    onBlur={handleMountPathSave}
+                    placeholder="/mnt/krakenhashes-share"
+                    helperText="The operator mounts the share here on this agent's host; the agent only reads from it. Credentials are entered by the operator, never sent by the server."
+                  />
+                )}
               </Grid>
 
               <Grid item xs={12}>
