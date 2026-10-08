@@ -4,6 +4,8 @@
 
 KrakenHashes implements a centralized file storage system with intelligent deduplication, hash verification, and performance optimizations. This guide covers the storage architecture, capacity planning, and maintenance procedures.
 
+By default the server keeps all wordlists and rules on local disk. For large deployments it can instead keep them on a **network share** (see [Network Share Storage](#network-share-storage)), and individual agents can be assigned a **storage tier** that controls whether they cache every list, download per job, or read directly off a mounted share (see [Per-Agent Storage Tiers](#per-agent-storage-tiers)).
+
 ## Storage Directory Structure
 
 The system organizes files into a hierarchical structure under the configured data directory (default: `/var/lib/krakenhashes` in Docker, `~/.krakenhashes-data` locally):
@@ -36,6 +38,89 @@ All directories are created with mode `0750` (rwxr-x---) to ensure:
 - Owner has full access
 - Group has read and execute access
 - Others have no access
+
+## Network Share Storage
+
+Wordlists and rules can grow to hundreds of gigabytes. Instead of giving every server that much local disk, KrakenHashes can keep the master copy of `wordlists/` and `rules/` on a network share (NFS or SMB/CIFS). Everything else — hashlists, binaries, charsets, uploads, and the global potfile master — always stays on local disk.
+
+Which backend is active is **database state** (`storage_backend` = `local` or `share`), not an environment variable, so a restart simply reads the current backend. You switch between them with an in-app, resumable migration — there is no manual file copying and no downtime window beyond the migration's own lock phase.
+
+### How it fits together
+
+- **The server consumes the share; it does not mount or manage it.** You mount the share on the host (or in the container) via `docker-compose`, and point the backend at that path with `KH_SHARE_DIR` (host side `KH_SHARE_DIR_HOST`). KrakenHashes only reads and writes files under that path.
+- **No credentials are stored by KrakenHashes.** The server's share credentials live in your compose/mount configuration. Agent-side share credentials are entered by the operator when they mount the share (see [agent setup](#on-prem-agent-setup)). The application never holds or distributes share secrets.
+- **The HTTP file API is the relay.** Agents on the `full_cache` and `on_demand` tiers keep downloading files over HTTPS exactly as before — the server just happens to be reading them off the share. Only `network_direct` agents read the share directly.
+- **The potfile is always served over HTTP**, never read directly off the share, because it is mutable.
+
+### The Storage settings panel
+
+Configure everything from **Admin → System Settings → Storage**. The panel has two parts:
+
+1. **Server storage mount (read-only status + actions).** Shows the server's mounted share path (`KH_SHARE_DIR`), its health, the current backend (`local`/`share`), and any in-progress migration. From here you **Enable** the network share, **Validate** the mount (stats the path, confirms readable `wordlists/`+`rules/`, runs a scoped write/throughput probe, reports free space), and start a **Migration** in either direction.
+2. **On-prem agent mount command (optional).** Generates a templated `mount` command (protocol, VPN host, share name, options) that operators paste on a `network_direct` agent host. Username/password are placeholders you fill in; KrakenHashes does not store them.
+
+!!! note "Cloud agents use the relay, not a mount"
+    Cloud GPU instances run their VPN in userspace / SOCKS-only mode and cannot perform a kernel mount, so they **cannot** use `network_direct`. They consume wordlists/rules over the HTTP relay (as `full_cache`/`on_demand`) across the VPN. `network_direct` is an **on-prem-only** tier.
+
+### Migrating to the share (and back)
+
+The migration runs inside the live server process — no restart — and is driven by the `storage_backend` / migration state in the database. It is resumable and idempotent (interrupt it and it picks up where it left off), and MD5-validates every file before flipping the backend. The same engine runs in reverse for rollback/decommission.
+
+| Phase | What happens | System availability |
+|-------|--------------|---------------------|
+| **Drain** | Wait for in-flight tasks to finish and agents to reconnect. Starts at a floor of `KH_MIGRATION_DRAIN_FLOOR_SECONDS` (default 720s / 12 min), refined by the longest-running task's ETA. | Fully operational; no *new* dispatch. |
+| **Lock & migrate** | Wordlist/rule writes are frozen and a maintenance state is shown; the worker copies files to the target, skipping any already copied (verified by MD5). | Reads continue; uploads and new dispatch paused. |
+| **Validate** | Every migrated file is re-verified by MD5 against the source. | Still locked. |
+| **Flip & resume** | `storage_backend` flips to the target; writes, uploads and dispatch resume. | Back to normal, serving from the new backend. |
+
+On **any failure the backend is left unchanged** (writes/dispatch resume on the original storage), so a failed migration is safe. The source copies are **not deleted** after a successful migration — reclaim that space manually once you've confirmed the new backend is serving correctly.
+
+!!! warning "A share outage is treated as transient, not as missing files"
+    If the mounted share becomes unreachable while the backend is `share`, KrakenHashes raises a degraded-storage condition and pauses share-backed dispatch rather than marking files missing or failing jobs. Restore the mount and work resumes.
+
+## Per-Agent Storage Tiers
+
+Each agent has a **storage tier** that controls how it obtains wordlists/rules for a job. Set it per agent in **Admin → System Settings → Storage** (or on the agent detail page); it can also be seeded at the agent via `--storage-tier` / `KH_STORAGE_TIER` (see [agent configuration](../../agent-guide/configuration.md#storage-tier-network-share-feature)), but the admin UI stays authoritative.
+
+| Tier | Behavior | Use when |
+|------|----------|----------|
+| `full_cache` *(default)* | Downloads over HTTP and keeps every list locally. Identical to pre-feature behavior. | The agent has ample local disk and runs many jobs. |
+| `on_demand` | Downloads lists per task over HTTP, then evicts least-recently-used wordlist/rule files once free space drops below `KH_AGENT_ONDEMAND_TARGET_FREE_GB` (default 20 GiB). Files in use by a running task are never evicted. | Limited local disk; still over the relay. |
+| `network_direct` | Reads immutable wordlists/rules **directly off a mounted share** — no download. On-prem only. | On-prem agent on the same share as the server. |
+
+Notes for `network_direct`:
+
+- The agent only *observes* an already-mounted path — it never mounts anything itself.
+- The agent **refuses to start if its own binary lives on a network mount** (only the data path may be a network share).
+- The potfile and client-specific wordlists still come over HTTP even on this tier.
+- A missing-on-mount file makes the agent cleanly reject the task so the scheduler re-dispatches it elsewhere, rather than failing the job.
+
+### On-prem agent setup
+
+On a `network_direct` agent host: mount the share read-only (use the templated command from the Storage panel, filling in your own credentials), then point the agent at that path:
+
+```bash
+# Example: share already mounted read-only at /mnt/kh-agent-share
+./krakenhashes-agent \
+  --host your-server:31337 \
+  --claim YOUR_CLAIM_CODE \
+  --storage-tier network_direct \
+  --network-share-mount-path /mnt/kh-agent-share
+```
+
+See [Agent Configuration → Storage Tier](../../agent-guide/configuration.md#storage-tier-network-share-feature) for the equivalent `.env` keys and the launcher/service form.
+
+### Latency & remote shares
+
+`network_direct` is designed for a **low-latency, LAN-adjacent share** — an agent sitting on the same network as the server's share, where reading a multi-gigabyte wordlist straight off the mount is as fast as (or faster than) downloading it. It is **not** a good fit for a share in another building, state, or country: every job reads the whole list over that link before hashcat starts, and high latency turns a cold read into minutes of stalled startup.
+
+**Put remote or high-latency shares on the download tiers instead.** `full_cache` (download once, keep) or `on_demand` (download per job, evict under disk pressure) pull wordlists/rules over the HTTP relay, which retries and tolerates a slow link far better than a kernel mount — the same reason cloud agents always use the relay. The server still reads the share; only the agent changes.
+
+The system hardens `network_direct` against a slow-but-working share so it degrades instead of failing:
+
+- **Mount commands fail fast.** The generated mount command defaults to `soft` (and, for NFS, `timeo`/`retrans`) so a hung or dropped share returns an I/O error quickly instead of freezing the mount on the kernel's `hard` default. You can override any option in the Storage panel. The trade-off is that a transient blip surfaces as an error (and a rerouted task) rather than a silent wait — the right choice here, because it pairs with the next point.
+- **Fail-closed share health.** A `network_direct` agent runs a bounded, background liveness check on its mount and reports `share_ready`. If the mount is slow or gone, the agent stays connected (its heartbeat is never blocked) but reports not-ready, and the scheduler reroutes work to other agents until the share recovers.
+- **Wider benchmark/startup windows.** A `network_direct` agent's benchmark reads the wordlist off the mount before hashcat emits a result; its benchmark speed-test window and its task startup grace are widened (×4) so a large cold read isn't mistaken for a stall and evicted. A benchmark read that times out on the share is treated as a non-counting transient — it never marches the job toward a failure or blocklists the agent — so a slow share costs you time, not a failed job. If a share keeps timing out even with the wider window, that is the signal to move it to `full_cache`/`on_demand`.
 
 ## File Deduplication and Hash Verification
 

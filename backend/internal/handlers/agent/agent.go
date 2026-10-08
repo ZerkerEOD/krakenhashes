@@ -3,6 +3,7 @@ package agent
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -160,8 +161,10 @@ func (h *AgentHandler) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate claim code and register agent with version if provided
-	agent, err := h.service.RegisterAgentWithVersion(r.Context(), req.ClaimCode, req.Hostname, req.Version)
+	// Validate claim code and register agent with version if provided.
+	// This legacy endpoint does not carry seed-only storage config; the agent
+	// defaults to full_cache and the admin UI remains authoritative.
+	agent, err := h.service.RegisterAgentWithVersion(r.Context(), req.ClaimCode, req.Hostname, req.Version, "", "")
 	if err != nil {
 		debug.Error("Failed to register agent: %v", err)
 		http.Error(w, "Registration failed", http.StatusUnauthorized)
@@ -557,6 +560,10 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		OwnerID         *string `json:"ownerId"`
 		ExtraParameters string  `json:"extraParameters"`
 		BinaryVersion   string  `json:"binaryVersion"`
+		// Pointers so a partial settings PUT that omits them preserves the
+		// current tier instead of resetting it to full_cache.
+		StorageTier           *string `json:"storageTier"`
+		NetworkShareMountPath *string `json:"networkShareMountPath"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -576,9 +583,15 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update agent
-	if err := h.service.UpdateAgent(ctx, id, req.IsEnabled, req.OwnerID, req.ExtraParameters, binaryVersion); err != nil {
+	if err := h.service.UpdateAgent(ctx, id, req.IsEnabled, req.OwnerID, req.ExtraParameters, binaryVersion, req.StorageTier, req.NetworkShareMountPath); err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Agent not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidAgentSettings) {
+			// Validation failure (bad tier, or network_direct without a mount
+			// path) — a client error, not a server fault.
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		debug.Error("Failed to update agent: %v", err)

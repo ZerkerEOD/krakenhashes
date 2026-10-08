@@ -11,6 +11,32 @@ import (
 	"github.com/google/uuid"
 )
 
+// TouchTaskActivity bumps last_activity_at = NOW() for a scheduler-v2 task
+// in response to a task_loading liveness ping — the agent is still preparing
+// the task (files downloading/verifying/decompressing, or benchmarking) and
+// hashcat hasn't emitted its first job_progress yet. Without this, a long
+// prep would let last_activity_at go stale and the sweeper's startup-grace
+// window would evict the still-'assigned' task mid-download.
+//
+// Scoped to status IN ('assigned','running') and to v2 tasks
+// (scheduling_unit_id IS NOT NULL) so it can never disturb a terminal row or
+// a legacy task; a no-op if the task is already gone/terminal. Best-effort —
+// the caller logs and continues; a failure just falls back to the dispatch-
+// time grace, the same as an older agent that sends no pings.
+func TouchTaskActivity(ctx context.Context, database *db.DB, taskID uuid.UUID) error {
+	_, err := database.ExecContext(ctx, `
+		UPDATE job_tasks
+		SET last_activity_at = NOW()
+		WHERE id = $1
+		  AND scheduling_unit_id IS NOT NULL
+		  AND status IN ('assigned', 'running')
+	`, taskID)
+	if err != nil {
+		return fmt.Errorf("touch task activity %s: %w", taskID, err)
+	}
+	return nil
+}
+
 // IngestProgressV2 updates the scheduler-v2-side columns when an agent
 // reports progress for a task. Called from the legacy
 // HandleJobProgress with a one-liner; no-op for legacy tasks (those

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,10 +19,23 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/auth/api"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
+
+// wordlistDirForCategory returns the parent directory for a served wordlist
+// category. Client and association wordlists never move to a network share, so
+// they always resolve to the local wordlists dir; every other category
+// (general/specialized/targeted/custom, including the global potfile under
+// custom) follows the active storage backend (local or share).
+func wordlistDirForCategory(category string) string {
+	if category == "clients" || category == "association" {
+		return storagepaths.LocalWordlistsDir()
+	}
+	return storagepaths.WordlistsRoot()
+}
 
 // SetupFileDownloadRoutes configures routes for agent file downloads
 func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agentService *services.AgentService) *http.ServeMux {
@@ -53,9 +67,9 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		// Determine file path based on type
 		switch fileType {
 		case "wordlist":
-			filePath = filepath.Join(cfg.DataDir, "wordlists", category, filename)
+			filePath = filepath.Join(wordlistDirForCategory(category), category, filename)
 		case "rule":
-			filePath = filepath.Join(cfg.DataDir, "rules", category, filename)
+			filePath = filepath.Join(storagepaths.RulesRoot(), category, filename)
 		case "charset":
 			// Charset files are stored directly in the charsets directory
 			filePath = filepath.Join(cfg.DataDir, "charsets", filename)
@@ -109,17 +123,34 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		debug.Info("Looking for file at path: %s", filePath)
 
 		// Check if file exists
-		fileInfo, err := os.Stat(filePath)
+		fileInfo, err := storagepaths.StatWithTimeout(filePath)
 		if err != nil {
-			debug.Error("File not found: %s", filePath)
-			// Record that the row is unbacked, so a resource the admin UI still
-			// shows as 'verified' stops looking healthy. Best effort: failing to
-			// record it must not change the response the agent gets.
-			markCtx, markCancel := context.WithTimeout(r.Context(), 5*time.Second)
-			if markErr := fileRepo.MarkMissingOnDisk(markCtx, fileType, filePath); markErr != nil {
-				debug.Error("Failed to flag missing %s %s: %v", fileType, filePath, markErr)
+			if errors.Is(err, storagepaths.ErrStatTimeout) {
+				// The mount is hung/high-latency: the bounded stat gave up rather
+				// than blocking this request goroutine indefinitely. Transient —
+				// don't touch the DB row (not "deleted"); the agent retries and the
+				// task re-queues.
+				debug.Warning("Stat timed out for %s: network share appears hung/high-latency (degraded, will retry)", filePath)
+				http.Error(w, "Storage temporarily unavailable", http.StatusServiceUnavailable)
+				return
 			}
-			markCancel()
+			debug.Error("File not found: %s", filePath)
+			// Reconcile guard: only flag the row as unbacked when the storage is
+			// actually reachable. If wordlists/rules live on a network share and
+			// the mount has gone away, a stat failure means "the share is down",
+			// NOT "the file was deleted" — flagging here would mass-mark every
+			// share-backed resource missing on a transient blip. When the share
+			// is unhealthy we return 404 (the agent retries / the task re-queues)
+			// but leave the DB row alone.
+			if storagepaths.ShareHealthy() {
+				markCtx, markCancel := context.WithTimeout(r.Context(), 5*time.Second)
+				if markErr := fileRepo.MarkMissingOnDisk(markCtx, fileType, filePath); markErr != nil {
+					debug.Error("Failed to flag missing %s %s: %v", fileType, filePath, markErr)
+				}
+				markCancel()
+			} else {
+				debug.Warning("Not flagging %s %s missing: network share appears offline (degraded, will retry)", fileType, filePath)
+			}
 			http.Error(w, "File not found", http.StatusNotFound)
 			return
 		}
@@ -190,7 +221,7 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 			}
 			category := parts[0]
 			baseName := parts[len(parts)-1]
-			filePath = filepath.Join(cfg.DataDir, "wordlists", category, baseName)
+			filePath = filepath.Join(wordlistDirForCategory(category), category, baseName)
 		case "rule":
 			// Extract category from filename (e.g., hashcat/file.txt -> hashcat)
 			parts := strings.Split(filename, "/")
@@ -201,7 +232,7 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 			}
 			category := parts[0]
 			baseName := parts[len(parts)-1]
-			filePath = filepath.Join(cfg.DataDir, "rules", category, baseName)
+			filePath = filepath.Join(storagepaths.RulesRoot(), category, baseName)
 		case "charset":
 			// Charset files are stored directly in the charsets directory
 			filePath = filepath.Join(cfg.DataDir, "charsets", filename)
@@ -255,17 +286,34 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		debug.Info("Looking for file at path: %s", filePath)
 
 		// Check if file exists
-		fileInfo, err := os.Stat(filePath)
+		fileInfo, err := storagepaths.StatWithTimeout(filePath)
 		if err != nil {
-			debug.Error("File not found: %s", filePath)
-			// Record that the row is unbacked, so a resource the admin UI still
-			// shows as 'verified' stops looking healthy. Best effort: failing to
-			// record it must not change the response the agent gets.
-			markCtx, markCancel := context.WithTimeout(r.Context(), 5*time.Second)
-			if markErr := fileRepo.MarkMissingOnDisk(markCtx, fileType, filePath); markErr != nil {
-				debug.Error("Failed to flag missing %s %s: %v", fileType, filePath, markErr)
+			if errors.Is(err, storagepaths.ErrStatTimeout) {
+				// The mount is hung/high-latency: the bounded stat gave up rather
+				// than blocking this request goroutine indefinitely. Transient —
+				// don't touch the DB row (not "deleted"); the agent retries and the
+				// task re-queues.
+				debug.Warning("Stat timed out for %s: network share appears hung/high-latency (degraded, will retry)", filePath)
+				http.Error(w, "Storage temporarily unavailable", http.StatusServiceUnavailable)
+				return
 			}
-			markCancel()
+			debug.Error("File not found: %s", filePath)
+			// Reconcile guard: only flag the row as unbacked when the storage is
+			// actually reachable. If wordlists/rules live on a network share and
+			// the mount has gone away, a stat failure means "the share is down",
+			// NOT "the file was deleted" — flagging here would mass-mark every
+			// share-backed resource missing on a transient blip. When the share
+			// is unhealthy we return 404 (the agent retries / the task re-queues)
+			// but leave the DB row alone.
+			if storagepaths.ShareHealthy() {
+				markCtx, markCancel := context.WithTimeout(r.Context(), 5*time.Second)
+				if markErr := fileRepo.MarkMissingOnDisk(markCtx, fileType, filePath); markErr != nil {
+					debug.Error("Failed to flag missing %s %s: %v", fileType, filePath, markErr)
+				}
+				markCancel()
+			} else {
+				debug.Warning("Not flagging %s %s missing: network share appears offline (degraded, will retry)", fileType, filePath)
+			}
 			http.Error(w, "File not found", http.StatusNotFound)
 			return
 		}

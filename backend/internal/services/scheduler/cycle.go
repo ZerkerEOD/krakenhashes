@@ -15,6 +15,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/migrationgate"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	wsservice "github.com/ZerkerEOD/krakenhashes/backend/internal/services/websocket"
@@ -49,6 +50,21 @@ type WSSender interface {
 	// IsShuttingDown/WasRecentlyRejected. Implementations should return
 	// true for unknown agent IDs.
 	IsFileMapReady(agentID int) bool
+
+	// IsShareReady reports whether the agent's network-share storage is
+	// currently usable (network-share feature). Returns true unless a
+	// network_direct agent has EXPLICITLY reported share_ready=false (its mount
+	// is offline). Fail-open with the same unknown-agent semantics as
+	// IsFileMapReady, so non-share and older agents stay dispatch-eligible.
+	IsShareReady(agentID int) bool
+
+	// AgentHeldFiles returns the set of immutable files (wordlists, rules) the
+	// agent currently holds locally, keyed by wire-path (matching
+	// UnitInfo.RequiredFiles). Powers the locality tiebreak in the allocator:
+	// among otherwise-equal candidates, prefer one that already has the job's
+	// files. Fail-open — an unknown agent returns nil/empty (no preference),
+	// never an exclusion.
+	AgentHeldFiles(agentID int) map[string]bool
 }
 
 // Cycle is the scheduler-v2 dispatch pipeline. Holds long-lived
@@ -415,6 +431,15 @@ func (c *Cycle) RunOnce(ctx context.Context) (res CycleResult, retErr error) {
 		return CycleResult{}, nil
 	}
 	defer c.running.Store(false)
+
+	// Storage-migration gate: while a migration is draining or copying, do not
+	// dispatch new work. This is how the maintenance flow drains the fleet
+	// (agents finish their current task and no more are handed out) and stays
+	// drained through the locked copy/validate phases. Cheap in-memory check.
+	if migrationgate.DispatchPaused() {
+		debug.Debug("scheduler-v2: dispatch paused — storage migration in progress (phase=%s)", migrationgate.Phase())
+		return CycleResult{}, nil
+	}
 
 	/*
 	 * Cloud autoscaler signal.
@@ -1082,10 +1107,44 @@ func (c *Cycle) buildUnitInfos(ctx context.Context, units []*models.SchedulingUn
 			CreatedAtNanos:            u.CreatedAt.UnixNano(),
 			MaxNewChunksThisCycle:     maxNew,
 			AllowHighPriorityOverride: p.allowPreemption,
+			RequiredFiles:             unitRequiredFiles(u),
 		})
 		byID[u.ID] = u
 	}
 	return infos, byID, nil
+}
+
+// unitRequiredFiles returns the immutable, shareable files a unit needs, in
+// wire-path form, for the allocator's locality tiebreak (UnitInfo.RequiredFiles).
+// It combines the unit's already-resolved WordlistRefs and RuleFileRefs
+// (populated once at unit creation in job_execution_v2.go — no query needed
+// here) and drops the two ref shapes that are NOT locality-relevant:
+//
+//   - wordlists/clients/… — per-client wordlists an agent fetches per task and
+//     which never live on the share.
+//   - wordlists/association/… — the -a 9 association list, likewise per-task.
+//
+// Both download regardless of agent, so preferring a holder of them would be
+// meaningless. A nil/empty result means "no locality preference," which
+// localityScore treats as score 0 for every agent — identical to pre-WS7
+// behavior.
+func unitRequiredFiles(u *models.SchedulingUnit) []string {
+	if u == nil {
+		return nil
+	}
+	out := make([]string, 0, len(u.WordlistRefs)+len(u.RuleFileRefs))
+	for _, ref := range u.WordlistRefs {
+		if strings.HasPrefix(ref, "wordlists/clients/") || strings.HasPrefix(ref, "wordlists/association/") {
+			continue
+		}
+		out = append(out, ref)
+	}
+	// Rule refs are always shareable (rules/…); include them all.
+	out = append(out, u.RuleFileRefs...)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // intervalCoverageByUnit returns unit_id -> sum of (range_end - range_start)
@@ -1239,6 +1298,14 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 			debug.Debug("scheduler-v2: agent %d file map not ready; skipping this cycle", agentID)
 			continue
 		}
+		// Skip network_direct agents whose share mount is offline (they report
+		// share_ready=false), so their tasks go to a healthy agent until the
+		// mount returns. Fail-open for non-share/older agents (network-share
+		// feature).
+		if !c.wsSender.IsShareReady(agentID) {
+			debug.Debug("scheduler-v2: agent %d network share not ready; skipping this cycle", agentID)
+			continue
+		}
 		live = append(live, agentID)
 	}
 	if len(live) == 0 {
@@ -1265,7 +1332,8 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 	rows, err := c.db.QueryContext(ctx, `
 		SELECT a.id, COALESCE(a.binary_version, ''),
 		       (a.cloud_instance_id IS NOT NULL) AS is_cloud,
-		       COALESCE(GREATEST(0, EXTRACT(EPOCH FROM (ci.ttl_epoch - NOW()))), 0)::int AS cloud_ttl_remaining
+		       COALESCE(GREATEST(0, EXTRACT(EPOCH FROM (ci.ttl_epoch - NOW()))), 0)::int AS cloud_ttl_remaining,
+		       COALESCE(a.storage_tier, '') AS storage_tier
 		FROM agents a
 		LEFT JOIN cloud_instances ci ON ci.id = a.cloud_instance_id
 		WHERE a.id = ANY($1::bigint[])
@@ -1324,7 +1392,8 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 		var ver string
 		var isCloud bool
 		var ttlRemaining int
-		if err := rows.Scan(&id, &ver, &isCloud, &ttlRemaining); err != nil {
+		var storageTier string
+		if err := rows.Scan(&id, &ver, &isCloud, &ttlRemaining, &storageTier); err != nil {
 			return nil, fmt.Errorf("scan idle agent: %w", err)
 		}
 		out = append(out, AgentInfo{
@@ -1333,6 +1402,12 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 			BenchmarkSpeed:       0, // filled later by readAgentSpeeds
 			IsCloud:              isCloud,
 			CloudTTLRemainingSec: ttlRemaining,
+			StorageTier:          storageTier,
+			// HeldFiles comes from the WS handler's in-memory inventory,
+			// not the DB. Fail-open: an agent that hasn't reported an
+			// inventory yet gets nil and simply scores 0 in the locality
+			// tiebreak.
+			HeldFiles: c.wsSender.AgentHeldFiles(id),
 		})
 	}
 

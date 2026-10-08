@@ -8,6 +8,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
@@ -265,9 +266,9 @@ func (s *JobExecutionService) populateSingleUnit(
 	}
 
 	unit := &models.SchedulingUnit{
-		ParentJobID:       jobExec.ID,
-		LayerIndex:        0,
-		Status:            models.SchedulingUnitStatusPending,
+		ParentJobID: jobExec.ID,
+		LayerIndex:  0,
+		Status:      models.SchedulingUnitStatusPending,
 		// Priority and MaxAgents are NOT denormalized onto the unit.
 		// scheduler/cycle.go buildUnitInfos JOINs job_executions live
 		// so operator edits propagate on the next cycle.
@@ -324,9 +325,9 @@ func (s *JobExecutionService) populateIncrementUnits(
 		maskPtr := &mask
 
 		unit := &models.SchedulingUnit{
-			ParentJobID:       jobExec.ID,
-			LayerIndex:        layer.LayerIndex,
-			Status:            models.SchedulingUnitStatusPending,
+			ParentJobID: jobExec.ID,
+			LayerIndex:  layer.LayerIndex,
+			Status:      models.SchedulingUnitStatusPending,
 			// Priority and MaxAgents are read live from job_executions
 			// in buildUnitInfos — see comment in the single-unit branch
 			// and migration 000153.
@@ -414,16 +415,28 @@ func (s *JobExecutionService) resolveRuleRefsForV2(ctx context.Context, ids mode
 	return out, nil
 }
 
-// relPath returns p stripped of the dataDir prefix (plus a leading
-// separator) so the result is what the agent expects. If p doesn't
-// start with dataDir, returns p unchanged — defensive against
-// non-canonical paths.
+// relPath strips the storage-root prefix from an absolute file path so the
+// result is the agent wire path (e.g. "rules/hashcat/best64.rule"). It matches
+// on a path-COMPONENT boundary and tries the network-share root as well as the
+// data dir, because when the storage backend is "share" the resolved file lives
+// under KH_SHARE_DIR — whose path can share a plain string prefix with
+// KH_DATA_DIR (e.g. /var/lib/krakenhashes vs /var/lib/krakenhashes-share). A
+// naive TrimPrefix(dataDir) would then corrupt the share path into
+// "-share/rules/...". The share root is tried first (it's the more specific
+// location when active); client/association files that always live locally fall
+// through to dataDir. A non-canonical path matching neither is returned as-is.
 func relPath(dataDir, p string) string {
-	dataDir = strings.TrimRight(dataDir, "/\\")
-	if !strings.HasPrefix(p, dataDir) {
-		return p
+	for _, base := range []string{storagepaths.ShareDir(), dataDir} {
+		base = strings.TrimRight(base, "/\\")
+		if base == "" {
+			continue
+		}
+		if p == base {
+			return ""
+		}
+		if strings.HasPrefix(p, base+"/") || strings.HasPrefix(p, base+"\\") {
+			return strings.TrimLeft(strings.TrimPrefix(p, base), "/\\")
+		}
 	}
-	rel := strings.TrimPrefix(p, dataDir)
-	rel = strings.TrimLeft(rel, "/\\")
-	return rel
+	return p
 }

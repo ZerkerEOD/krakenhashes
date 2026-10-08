@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,8 +29,15 @@ type JobManager struct {
 	crackBatchesCompleteCallback func(*CrackBatchesComplete)                      // Callback to signal all crack batches sent
 	progressCallback             func(*JobProgress)                               // Legacy callback (deprecated, use statusCallback/crackCallback)
 	outputCallback               func(taskID string, output string, isError bool) // Callback for sending output via websocket
-	fileSync                     *filesync.FileSync
-	hwMonitor                    HardwareMonitor // Interface for hardware monitor
+	// taskLoadingCallback reports pre-first-progress liveness ("task_loading")
+	// while ProcessJobAssignment prepares a task (downloading wordlists/rules/
+	// binary, verifying, decompressing, benchmarking). It bumps the task's
+	// last_activity_at on the backend so the sweeper's startup-grace window
+	// isn't tripped during a long (15-40GB) pull, and carries a phase string
+	// for the admin UI. Nil until wired; always emit via emitTaskLoading.
+	taskLoadingCallback func(taskID, phase, fileName string, bytesDone, bytesTotal int64)
+	fileSync            *filesync.FileSync
+	hwMonitor           HardwareMonitor // Interface for hardware monitor
 
 	// ACK waiting callback for completion acknowledgment (GH Issue #12)
 	// Parameters: taskID, resend function
@@ -62,6 +70,13 @@ type JobManager struct {
 	// refusal is reported as a rejection (not a failure) so the backend
 	// re-dispatches the chunk once the map is ready (GH #61).
 	mapReady atomic.Bool
+
+	// Storage tier config, pushed by the backend via config_update (network-share
+	// feature). storageTier is full_cache | on_demand | network_direct;
+	// networkShareMountPath is the agent-side read-only mount for network_direct.
+	// Guarded by mutex; read on the task ensure* path.
+	storageTier           string
+	networkShareMountPath string
 }
 
 // HardwareMonitor interface for device management
@@ -321,6 +336,219 @@ func (jm *JobManager) SetAckWaitCallback(callback func(taskID string, resendFunc
 	jm.ackWaitCallback = callback
 }
 
+// SetTaskLoadingCallback sets the callback that reports pre-first-progress
+// task liveness ("task_loading") to the backend during ProcessJobAssignment.
+func (jm *JobManager) SetTaskLoadingCallback(callback func(taskID, phase, fileName string, bytesDone, bytesTotal int64)) {
+	jm.mutex.Lock()
+	defer jm.mutex.Unlock()
+	jm.taskLoadingCallback = callback
+}
+
+// SetStorageConfig records the agent's storage tier + network-share mount path
+// (pushed by the backend via config_update). Empty tier means full_cache.
+func (jm *JobManager) SetStorageConfig(tier, mountPath string) {
+	jm.mutex.Lock()
+	defer jm.mutex.Unlock()
+	jm.storageTier = tier
+	jm.networkShareMountPath = mountPath
+}
+
+// StorageTier returns the active tier, defaulting to full_cache.
+func (jm *JobManager) StorageTier() string {
+	jm.mutex.RLock()
+	defer jm.mutex.RUnlock()
+	if jm.storageTier == "" {
+		return "full_cache"
+	}
+	return jm.storageTier
+}
+
+// NetworkShareMountPath returns the configured network_direct mount path.
+func (jm *JobManager) NetworkShareMountPath() string {
+	jm.mutex.RLock()
+	defer jm.mutex.RUnlock()
+	return jm.networkShareMountPath
+}
+
+// immutableFileBase returns the base directory for reading immutable
+// wordlist/rule files. For network_direct it is the configured read-only share
+// mount; for all other tiers it is the local data directory (files arrive over
+// HTTP). Falls back to the data dir if network_direct is set without a mount
+// path (misconfiguration — the task will then fail its verify and be rejected).
+func (jm *JobManager) immutableFileBase() string {
+	if jm.StorageTier() == "network_direct" {
+		if mp := jm.NetworkShareMountPath(); mp != "" {
+			return mp
+		}
+	}
+	return jm.config.DataDirectory
+}
+
+// ImmutableFileBase is the exported accessor for immutableFileBase, so callers
+// outside this package (the benchmark pre-flight in the agent connection layer)
+// can stamp JobTaskAssignment.ImmutableFileBase the same way ExecuteTask does —
+// otherwise a network_direct benchmark falls back to the local data dir and
+// fails on a clean agent that has no local wordlist/rule copies.
+func (jm *JobManager) ImmutableFileBase() string {
+	return jm.immutableFileBase()
+}
+
+// shareStatTimeout bounds a single os.Stat against the network_direct mount so a
+// hung/high-latency share rejects the task fast (→ re-dispatch) instead of
+// hanging the ensure* prep chain.
+const shareStatTimeout = 5 * time.Second
+
+// statWithTimeout runs os.Stat on a goroutine and gives up after d, so a hung
+// mount cannot block the caller. On a truly hung hard mount the inner goroutine
+// stays blocked on the syscall (one per timed-out call) — acceptable versus
+// freezing task prep; soft mounts (the documented default) return on their own
+// timeo. The buffered channel lets a late result be discarded without leaking.
+func statWithTimeout(path string, d time.Duration) (os.FileInfo, error) {
+	type statResult struct {
+		info os.FileInfo
+		err  error
+	}
+	ch := make(chan statResult, 1)
+	go func() {
+		info, err := os.Stat(path)
+		ch <- statResult{info, err}
+	}()
+	select {
+	case r := <-ch:
+		return r.info, r.err
+	case <-time.After(d):
+		return nil, fmt.Errorf("stat %q timed out after %s (mount slow or unreachable)", path, d)
+	}
+}
+
+// verifyImmutableFiles checks that each referenced wordlist/rule file exists on
+// the network_direct mount, without downloading (the share is server-written,
+// read-only to the agent). A missing file returns an error so the connection
+// layer rejects the task and the scheduler re-dispatches it elsewhere — never a
+// crash. Client wordlists (wordlists/clients/...) are skipped: they always come
+// over HTTP, even on network_direct. Each stat is bounded so a hung/slow mount
+// rejects fast rather than hanging prep.
+func (jm *JobManager) verifyImmutableFiles(paths []string, kind string) error {
+	base := jm.immutableFileBase()
+	for _, p := range paths {
+		if strings.HasPrefix(p, "wordlists/clients/") {
+			continue
+		}
+		full, err := resolveDataPath(base, p)
+		if err != nil {
+			return fmt.Errorf("rejecting %s path %q: %w", kind, p, err)
+		}
+		if info, statErr := statWithTimeout(full, shareStatTimeout); statErr != nil || info.Size() == 0 {
+			return fmt.Errorf("%s: %s %q not readable on the mount (base %q): %v", ShareNotReadyMarker, kind, p, base, statErr)
+		}
+	}
+	return nil
+}
+
+// onDemandTargetFreeBytes is the free-space target the on_demand tier evicts
+// toward, configurable via KH_AGENT_ONDEMAND_TARGET_FREE_GB (default 20 GiB).
+func onDemandTargetFreeBytes() uint64 {
+	gb := 20
+	if v := os.Getenv("KH_AGENT_ONDEMAND_TARGET_FREE_GB"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			gb = n
+		}
+	}
+	return uint64(gb) << 30
+}
+
+// evictOnDemandCache frees disk for the on_demand tier by deleting
+// least-recently-used (by mtime) wordlist/rule files that are neither needed by
+// the incoming task nor referenced by a running task. No-op for other tiers or
+// when free space is already above the target. Never evicts client wordlists,
+// the global potfile, or ephemeral filtered lists. Best effort — logged, not
+// fatal; a genuinely too-small disk still surfaces via the download disk guard.
+func (jm *JobManager) evictOnDemandCache(taskPaths []string) {
+	if jm.StorageTier() != "on_demand" {
+		return
+	}
+	target := onDemandTargetFreeBytes()
+	if free, ok := availableDiskBytes(jm.config.DataDirectory); !ok || free >= target {
+		return
+	}
+
+	// Protected set: the incoming task's files + every active task's files.
+	protected := make(map[string]bool)
+	for _, p := range taskPaths {
+		protected[filepath.ToSlash(p)] = true
+	}
+	jm.mutex.RLock()
+	for _, je := range jm.activeJobs {
+		if je == nil || je.Assignment == nil {
+			continue
+		}
+		for _, p := range je.Assignment.WordlistPaths {
+			protected[filepath.ToSlash(p)] = true
+		}
+		for _, p := range je.Assignment.RulePaths {
+			protected[filepath.ToSlash(p)] = true
+		}
+	}
+	jm.mutex.RUnlock()
+
+	type cand struct {
+		path  string
+		rel   string
+		size  int64
+		mtime time.Time
+	}
+	var cands []cand
+	for _, sub := range []string{"wordlists", "rules"} {
+		base := filepath.Join(jm.config.DataDirectory, sub)
+		_ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() {
+				return nil
+			}
+			rel, rErr := filepath.Rel(jm.config.DataDirectory, path)
+			if rErr != nil {
+				return nil
+			}
+			rel = filepath.ToSlash(rel)
+			if protected[rel] {
+				return nil
+			}
+			if strings.Contains(rel, "/clients/") || strings.HasSuffix(rel, "custom/potfile.txt") {
+				return nil
+			}
+			if strings.HasPrefix(filepath.Base(rel), ephemeralWordlistPrefix) {
+				return nil
+			}
+			cands = append(cands, cand{path: path, rel: rel, size: info.Size(), mtime: info.ModTime()})
+			return nil
+		})
+	}
+	// Oldest mtime first (LRU by mtime — atime is unreliable/disabled on most mounts).
+	sort.Slice(cands, func(i, j int) bool { return cands[i].mtime.Before(cands[j].mtime) })
+
+	for _, c := range cands {
+		if free, ok := availableDiskBytes(jm.config.DataDirectory); ok && free >= target {
+			break
+		}
+		if err := os.Remove(c.path); err != nil {
+			debug.Warning("on_demand evict: could not remove %s: %v", c.rel, err)
+			continue
+		}
+		debug.Info("on_demand evict: removed LRU %s (%d bytes) to free space for new lists", c.rel, c.size)
+	}
+}
+
+// emitTaskLoading fires the task_loading callback if one is wired. Safe to
+// call when no callback is set (older wiring / tests) — it no-ops. The
+// backend bumps last_activity_at on receipt so a long prep isn't evicted.
+func (jm *JobManager) emitTaskLoading(taskID, phase, fileName string, bytesDone, bytesTotal int64) {
+	jm.mutex.RLock()
+	cb := jm.taskLoadingCallback
+	jm.mutex.RUnlock()
+	if cb != nil {
+		cb(taskID, phase, fileName, bytesDone, bytesTotal)
+	}
+}
+
 // BeginShutdown flips the shutting-down flag so any subsequent
 // ProcessJobAssignment calls refuse the assignment. Idempotent.
 // Called from main.go's shutdown sequence BEFORE the WS notification
@@ -334,6 +562,14 @@ func (jm *JobManager) BeginShutdown() {
 // it to send a task_assignment_rejected (re-dispatch) frame rather than failing
 // the task. Keep in sync with the check in connection.go.
 const mapNotReadyMarker = "file map not ready"
+
+// ShareNotReadyMarker is embedded in the ProcessJobAssignment error when a
+// network_direct agent can't read a required wordlist/rule off its share mount
+// (the mount is down, or the file isn't there yet). connection.readPump matches
+// on it to send a task_assignment_rejected (re-dispatch elsewhere) frame rather
+// than failing the job — a down mount is transient, not a task failure. Keep in
+// sync with the check in connection.go.
+const ShareNotReadyMarker = "network share not ready"
 
 // MarkFileMapReady lets ProcessJobAssignment start accepting work. Called once
 // the startup MD5 map has been built (or its build has been abandoned, so the
@@ -407,6 +643,41 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 	}
 	jm.mutex.RUnlock()
 
+	// Pre-first-progress liveness. The ensure* chain below downloads and
+	// verifies wordlists/rules/binary (a 15-40GB pull can take many minutes)
+	// and runs the benchmark — all before hashcat starts, so no job_progress
+	// is emitted and the task's last_activity_at would otherwise go stale and
+	// be evicted mid-prep. Emit task_loading immediately and on a ticker so
+	// the backend refreshes last_activity_at (keeping the task inside its
+	// startup-grace window) and can surface the current phase. The ticker
+	// stops the instant this function returns (execution started); from there
+	// hashcat's autotune/first-progress are covered by the startup grace.
+	var prepPhase atomic.Value
+	prepPhase.Store("downloading")
+	jm.emitTaskLoading(assignment.TaskID, "downloading", "", 0, 0)
+	loadingDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(20 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-loadingDone:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				phase, _ := prepPhase.Load().(string)
+				jm.emitTaskLoading(assignment.TaskID, phase, "", 0, 0)
+			}
+		}
+	}()
+	defer close(loadingDone)
+
+	// on_demand tier: evict least-recently-used cached wordlists/rules (not
+	// needed by this or any running task) to make room before downloading this
+	// task's files. No-op for full_cache/network_direct.
+	jm.evictOnDemandCache(append(append([]string{}, assignment.WordlistPaths...), assignment.RulePaths...))
+
 	// Ensure hashlist is available before proceeding
 	err = jm.ensureHashlist(ctx, &assignment)
 	if err != nil {
@@ -466,6 +737,7 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 	}
 
 	// Run benchmark if needed
+	prepPhase.Store("benchmarking")
 	err = jm.ensureBenchmark(ctx, &assignment)
 	if err != nil {
 		console.Warning("Benchmark failed for task %s: %v", assignment.TaskID, err)
@@ -481,6 +753,11 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 		return fmt.Errorf("AGENT_DISK_FULL: only %d MB free on the agent data volume %q (need >= %d MB) — refusing task to avoid a mid-run failure",
 			free/(1<<20), jm.config.DataDirectory, minTaskFreeDiskBytes/(1<<20))
 	}
+
+	// Tell the executor where to read immutable wordlist/rule files from: the
+	// share mount for network_direct, else the local data dir. Set agent-side
+	// (never from the backend payload).
+	assignment.ImmutableFileBase = jm.immutableFileBase()
 
 	// Start job execution
 	process, err := jm.executor.ExecuteTask(ctx, &assignment)
@@ -742,6 +1019,13 @@ func (jm *JobManager) ensureWordlists(ctx context.Context, assignment *JobTaskAs
 	if len(assignment.WordlistPaths) == 0 {
 		return nil
 	}
+
+	// network_direct: read wordlists straight off the mounted share — verify
+	// presence only, never download.
+	if jm.StorageTier() == "network_direct" {
+		return jm.verifyImmutableFiles(assignment.WordlistPaths, "wordlist")
+	}
+
 	if jm.fileSync == nil {
 		debug.Error("File sync is not initialized in job manager")
 		return fmt.Errorf("file sync not initialized")
@@ -821,6 +1105,12 @@ func (jm *JobManager) ensureRules(ctx context.Context, assignment *JobTaskAssign
 	if len(assignment.RulePaths) == 0 {
 		return nil
 	}
+
+	// network_direct: read rules straight off the mounted share — verify only.
+	if jm.StorageTier() == "network_direct" {
+		return jm.verifyImmutableFiles(assignment.RulePaths, "rule")
+	}
+
 	if jm.fileSync == nil {
 		debug.Error("File sync is not initialized in job manager")
 		return fmt.Errorf("file sync not initialized")

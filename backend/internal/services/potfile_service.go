@@ -20,6 +20,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/bits-and-blooms/bloom/v3"
@@ -43,7 +44,6 @@ type PotfileStagingEntry struct {
 type PotfileService struct {
 	db                 *db.DB
 	dataDir            string
-	potfilePath        string
 	systemSettingsRepo *repository.SystemSettingsRepository
 	presetJobRepo      repository.PresetJobRepository
 	wordlistStore      *wordlist.Store
@@ -57,13 +57,13 @@ type PotfileService struct {
 	maxBatchSize       int
 
 	// Bloom filter for efficient duplicate detection (global potfile)
-	bloomFilter  *bloom.BloomFilter
-	bloomMutex   sync.RWMutex
-	lastReload   time.Time
+	bloomFilter *bloom.BloomFilter
+	bloomMutex  sync.RWMutex
+	lastReload  time.Time
 
 	// Client potfile support
-	clientRepo         *repository.ClientRepository
-	clientPotfileRepo  *repository.ClientPotfileRepository
+	clientRepo        *repository.ClientRepository
+	clientPotfileRepo *repository.ClientPotfileRepository
 
 	// Per-client bloom filters (lazy-loaded, LRU cached)
 	clientBloomFilters map[uuid.UUID]*clientBloomEntry
@@ -86,12 +86,9 @@ func NewPotfileService(
 	clientRepo *repository.ClientRepository,
 	clientPotfileRepo *repository.ClientPotfileRepository,
 ) *PotfileService {
-	potfilePath := filepath.Join(dataDir, "wordlists", "custom", "potfile.txt")
-
 	service := &PotfileService{
 		db:                 database,
 		dataDir:            dataDir,
-		potfilePath:        potfilePath,
 		systemSettingsRepo: systemSettingsRepo,
 		presetJobRepo:      presetJobRepo,
 		wordlistStore:      wordlistStore,
@@ -117,10 +114,21 @@ func NewPotfileService(
 	return service
 }
 
+// potfilePathNow resolves the global potfile master path dynamically, so it
+// follows the active storage backend (local data dir, or the network share
+// after an in-process migration) with no re-pointing needed. The potfile is
+// still ALWAYS served to agents over HTTP with the size-snapshot mechanism —
+// the backend only changes where the server keeps the master, never how agents
+// read it. Migration drains all potfile writes before flipping the backend, so
+// this never changes underneath an in-flight append.
+func (s *PotfileService) potfilePathNow() string {
+	return filepath.Join(storagepaths.WordlistsRoot(), "custom", "potfile.txt")
+}
+
 // Start begins the background worker for processing staged entries
 func (s *PotfileService) Start(ctx context.Context) error {
 	debug.Info("Starting pot-file service...")
-	
+
 	// Load settings
 	debug.Debug("Loading pot-file settings...")
 	if err := s.loadSettings(ctx); err != nil {
@@ -199,12 +207,12 @@ func (s *PotfileService) StageBatch(ctx context.Context, entries []PotfileStagin
 
 // InitializePotfile creates the pot-file and its database entries if they don't exist
 func (s *PotfileService) InitializePotfile(ctx context.Context) error {
-	debug.Info("InitializePotfile called, path: %s", s.potfilePath)
+	debug.Info("InitializePotfile called, path: %s", s.potfilePathNow())
 	s.processingMutex.Lock()
 	defer s.processingMutex.Unlock()
 
 	// Ensure directory exists
-	potfileDir := filepath.Dir(s.potfilePath)
+	potfileDir := filepath.Dir(s.potfilePathNow())
 	debug.Debug("Creating pot-file directory if needed: %s", potfileDir)
 	if err := os.MkdirAll(potfileDir, 0755); err != nil {
 		debug.Error("Failed to create pot-file directory: %v", err)
@@ -213,25 +221,25 @@ func (s *PotfileService) InitializePotfile(ctx context.Context) error {
 
 	// Check if pot-file exists
 	fileExists := false
-	if _, err := os.Stat(s.potfilePath); err == nil {
+	if _, err := os.Stat(s.potfilePathNow()); err == nil {
 		fileExists = true
 	}
 
 	// Create pot-file if it doesn't exist
 	if !fileExists {
-		file, err := os.Create(s.potfilePath)
+		file, err := os.Create(s.potfilePathNow())
 		if err != nil {
 			return fmt.Errorf("failed to create pot-file: %w", err)
 		}
-		
+
 		// Write blank first line (null password)
 		if _, err := file.WriteString("\n"); err != nil {
 			file.Close()
 			return fmt.Errorf("failed to write initial blank line: %w", err)
 		}
 		file.Close()
-		
-		debug.Info("Created new pot-file at: %s", s.potfilePath)
+
+		debug.Info("Created new pot-file at: %s", s.potfilePathNow())
 	}
 
 	// Check if wordlist entry exists
@@ -261,7 +269,7 @@ func (s *PotfileService) InitializePotfile(ctx context.Context) error {
 		if err := s.updateSystemSettings(ctx, wordlistID, presetJobID); err != nil {
 			return fmt.Errorf("failed to update system settings: %w", err)
 		}
-		
+
 		// Sync preset job with current wordlist to ensure correct wordlist ID and keyspace
 		if err := s.syncPresetJobWithWordlist(ctx, wordlistID, presetJobID); err != nil {
 			debug.Warning("Failed to sync preset job with wordlist: %v", err)
@@ -280,7 +288,7 @@ func (s *PotfileService) InitializePotfile(ctx context.Context) error {
 
 // GetPotfilePath returns the path to the pot-file
 func (s *PotfileService) GetPotfilePath() string {
-	return s.potfilePath
+	return s.potfilePathNow()
 }
 
 // GetPotfileHistory returns the potfile hash history for agent sync race condition handling
@@ -291,7 +299,7 @@ func (s *PotfileService) GetPotfileHistory() *filehash.PotfileHistory {
 // backgroundWorker processes staged entries periodically
 func (s *PotfileService) backgroundWorker() {
 	defer s.wg.Done()
-	
+
 	ticker := time.NewTicker(s.batchInterval)
 	defer ticker.Stop()
 
@@ -631,7 +639,7 @@ func (s *PotfileService) getStagedEntries(ctx context.Context) ([]potfileStaging
 func (s *PotfileService) loadPotfileIntoMemory() (map[string]bool, error) {
 	passwords := make(map[string]bool)
 
-	file, err := os.Open(s.potfilePath)
+	file, err := os.Open(s.potfilePathNow())
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pot-file: %w", err)
 	}
@@ -652,7 +660,7 @@ func (s *PotfileService) loadPotfileIntoMemory() (map[string]bool, error) {
 
 // appendToPotfile appends new entries to the pot-file
 func (s *PotfileService) appendToPotfile(entries []potfileStagingEntry) ([]int, error) {
-	file, err := os.OpenFile(s.potfilePath, os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(s.potfilePathNow(), os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pot-file for appending: %w", err)
 	}
@@ -714,10 +722,10 @@ func (s *PotfileService) deleteProcessedEntriesInternal(ctx context.Context, ids
 		if end > len(ids) {
 			end = len(ids)
 		}
-		
+
 		batch := ids[i:end]
 		query := `DELETE FROM potfile_staging WHERE id = ANY($1)`
-		
+
 		if _, err := s.db.ExecContext(ctx, query, pq.Array(batch)); err != nil {
 			return fmt.Errorf("failed to delete processed entries: %w", err)
 		}
@@ -734,7 +742,7 @@ func (s *PotfileService) deleteProcessedEntriesInternal(ctx context.Context, ids
 // agent can verify a bounded [0,N) download (via ?bytes=N) instead of chasing the
 // ever-growing tail, which is what caused the permanent MD5-mismatch sync loop.
 func (s *PotfileService) calculatePotfileMD5() (string, int64, error) {
-	file, err := os.Open(s.potfilePath)
+	file, err := os.Open(s.potfilePathNow())
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to open potfile for MD5 calculation: %w", err)
 	}
@@ -765,7 +773,7 @@ func (s *PotfileService) getOrCreatePotfileWordlist(ctx context.Context) (int, e
 	err := s.db.QueryRowContext(ctx, query).Scan(&wordlistID)
 	if err == nil {
 		debug.Info("Found existing pot-file wordlist with ID: %d", wordlistID)
-		
+
 		// Update the MD5 hash and file size for the existing wordlist. Hash and size
 		// describe the same prefix (see calculatePotfileMD5).
 		md5Hash, fileSize, err := s.calculatePotfileMD5()
@@ -781,7 +789,7 @@ func (s *PotfileService) getOrCreatePotfileWordlist(ctx context.Context) (int, e
 			debug.Error("Failed to update pot-file wordlist info: %v", err)
 			// Don't fail completely, just log the error
 		}
-		
+
 		return wordlistID, nil
 	}
 	if err != sql.ErrNoRows {
@@ -813,7 +821,7 @@ func (s *PotfileService) getOrCreatePotfileWordlist(ctx context.Context) (int, e
 		FileName:           "custom/potfile.txt", // Relative path without "wordlists/" prefix
 		MD5Hash:            md5Hash,
 		FileSize:           fileSize,
-		WordCount:          1,         // Start with 1 for the blank line
+		WordCount:          1, // Start with 1 for the blank line
 		CreatedBy:          systemUserID,
 		VerificationStatus: "verified",
 		IsPotfile:          true, // Set the flag during creation
@@ -919,7 +927,7 @@ func (s *PotfileService) syncPresetJobWithWordlist(ctx context.Context, wordlist
 	if err != nil {
 		return fmt.Errorf("failed to get wordlist: %w", err)
 	}
-	
+
 	// Update preset job with correct wordlist ID and keyspace
 	query := `
 		UPDATE preset_jobs 
@@ -928,19 +936,19 @@ func (s *PotfileService) syncPresetJobWithWordlist(ctx context.Context, wordlist
 		    updated_at = NOW()
 		WHERE id = $3
 	`
-	
+
 	wordlistIDs := []string{strconv.Itoa(wordlistID)}
 	wordlistIDsJSON, err := json.Marshal(wordlistIDs)
 	if err != nil {
 		return fmt.Errorf("failed to marshal wordlist IDs: %w", err)
 	}
-	
+
 	_, err = s.db.ExecContext(ctx, query, wordlistIDsJSON, wordlist.WordCount, presetJobID)
 	if err != nil {
 		return fmt.Errorf("failed to update preset job: %w", err)
 	}
-	
-	debug.Info("Synced preset job %s with wordlist %d (keyspace: %d)", 
+
+	debug.Info("Synced preset job %s with wordlist %d (keyspace: %d)",
 		presetJobID, wordlistID, wordlist.WordCount)
 	return nil
 }
@@ -1019,7 +1027,7 @@ func (s *PotfileService) triggerKeyspaceRecalculation(ctx context.Context) {
 
 // countPotfileLines counts the number of lines in the pot-file
 func (s *PotfileService) countPotfileLines() (int64, error) {
-	file, err := os.Open(s.potfilePath)
+	file, err := os.Open(s.potfilePathNow())
 	if err != nil {
 		return 0, fmt.Errorf("failed to open pot-file: %w", err)
 	}
@@ -1043,13 +1051,13 @@ func (s *PotfileService) monitorForBinaryAndCreatePresetJob(ctx context.Context,
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		
+
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
-		
+
 		debug.Info("Starting monitor for binary versions to create pot-file preset job")
 		firstCheck := true
-		
+
 		for {
 			select {
 			case <-ticker.C:
@@ -1059,7 +1067,7 @@ func (s *PotfileService) monitorForBinaryAndCreatePresetJob(ctx context.Context,
 					debug.Info("Pot-file preset job found (ID: %s), stopping monitor", existingJob.ID)
 					return
 				}
-				
+
 				// Try to create the preset job
 				presetJobID, err := s.getOrCreatePotfilePresetJob(ctx, wordlistID)
 				if err != nil {
@@ -1075,14 +1083,14 @@ func (s *PotfileService) monitorForBinaryAndCreatePresetJob(ctx context.Context,
 					debug.Error("Failed to create pot-file preset job: %v", err)
 					continue
 				}
-				
+
 				// Success! Update system settings and stop monitoring
 				debug.Info("Successfully created pot-file preset job with ID: %s", presetJobID)
 				if err := s.updateSystemSettings(ctx, wordlistID, presetJobID); err != nil {
 					debug.Error("Failed to update system settings after creating preset job: %v", err)
 				}
 				return
-				
+
 			case <-s.stopChan:
 				debug.Info("Pot-file preset job monitor stopped due to service shutdown")
 				return
@@ -1107,7 +1115,7 @@ func (s *PotfileService) UpdatePotfileMetadata(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to count potfile lines: %w", err)
 	}
-	
+
 	// Get the potfile wordlist ID from system settings
 	wordlistIDSetting, err := s.systemSettingsRepo.GetSetting(ctx, "potfile_wordlist_id")
 	if err != nil || wordlistIDSetting == nil || wordlistIDSetting.Value == nil || *wordlistIDSetting.Value == "" {
@@ -1138,7 +1146,7 @@ func (s *PotfileService) UpdatePotfileMetadata(ctx context.Context) error {
 	}
 
 	debug.Info("Updated potfile metadata - MD5: %s, Size: %d bytes, Words: %d", md5Hash, fileSize, lineCount)
-	
+
 	// Sync preset job if it exists
 	presetJobSetting, err := s.systemSettingsRepo.GetSetting(ctx, "potfile_preset_job_id")
 	if err == nil && presetJobSetting != nil && presetJobSetting.Value != nil && *presetJobSetting.Value != "" {
@@ -1173,7 +1181,7 @@ func (s *PotfileService) initBloomFilter() error {
 	debug.Info("Loading potfile into bloom filter...")
 
 	// Load existing potfile passwords
-	file, err := os.Open(s.potfilePath)
+	file, err := os.Open(s.potfilePathNow())
 	if err != nil {
 		if os.IsNotExist(err) {
 			debug.Info("Potfile does not exist yet, starting with empty bloom filter")
@@ -1222,7 +1230,7 @@ func (s *PotfileService) isDuplicatePassword(password string) bool {
 
 // linearSearchPassword searches for a password in the potfile (fallback method)
 func (s *PotfileService) linearSearchPassword(password string) bool {
-	file, err := os.Open(s.potfilePath)
+	file, err := os.Open(s.potfilePathNow())
 	if err != nil {
 		return false
 	}

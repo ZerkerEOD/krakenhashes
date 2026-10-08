@@ -75,6 +75,36 @@ func (c Category) IsNotReady() bool {
 	return c == CategoryAgentNotReady
 }
 
+// benchmarkTimeoutMarkers identify a benchmark/speed-test that ran OUT OF TIME
+// rather than producing a definite failure (dead GPU, bad hashlist). This is a
+// narrower question than the transient-category markers: it must match ONLY
+// the timeout shape, because the sole caller (AttributeBenchmarkFailure, for a
+// network_direct agent) uses it to exempt the attempt from the blocklist and
+// job-fail counters — a privilege that must not extend to OOM/watchdog/driver
+// faults, which still need the per-tuple hard cap as a safety valve.
+//
+//   - "benchmark_timeout": the agent's own typed code for a cold-cache benchmark
+//     that didn't finish in the speed-test window.
+//   - the server-side wait message from MarkTimedOutBenchmarksAsFailed
+//     ("Benchmark timed out waiting for agent response").
+//   - the Go context/deadline strings a slow share read surfaces.
+var benchmarkTimeoutMarkers = []string{
+	"benchmark_timeout",
+	"benchmark timed out",
+	"timed out waiting for agent",
+	"context deadline exceeded",
+	"i/o timeout",
+}
+
+// IsBenchmarkTimeout reports whether message describes a benchmark/speed-test
+// that exceeded its window (as opposed to failing outright). Case-insensitive
+// substring. Used to treat a network_direct agent's cold-read-off-a-high-
+// latency-share benchmark timeout as a non-counting transient (WS10 C2.4): the
+// share, not the agent, is slow, so it must never march the job toward a fail.
+func IsBenchmarkTimeout(message string) bool {
+	return containsAny(strings.ToLower(message), benchmarkTimeoutMarkers)
+}
+
 /*
  * agentNotReadyMarkers indicate the agent had not finished provisioning for this
  * job. The typed code is emitted by the agent's benchmark pre-flight; the bare

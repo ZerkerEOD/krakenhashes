@@ -17,6 +17,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/utils"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -982,7 +983,7 @@ func (s *adminPresetJobService) resolveWordlistPath(ctx context.Context, wordlis
 		if wl.ID == int(wordlistID) {
 			// The Name field already contains the relative path from wordlists directory
 			// e.g., "general/crackstation.txt"
-			path := filepath.Join(s.dataDirectory, "wordlists", wl.Name)
+			path := filepath.Join(storagepaths.WordlistsRoot(), wl.Name)
 
 			debug.Log("Found wordlist in database", map[string]interface{}{
 				"wordlist_id": wordlistID,
@@ -1033,7 +1034,7 @@ func (s *adminPresetJobService) resolveRulePath(ctx context.Context, ruleIDStr s
 		if rule.ID == int(ruleID) {
 			// The Name field already contains the relative path from rules directory
 			// e.g., "hashcat/_nsakey.v2.dive.rule"
-			path := filepath.Join(s.dataDirectory, "rules", rule.Name)
+			path := filepath.Join(storagepaths.RulesRoot(), rule.Name)
 
 			debug.Log("Found rule in database", map[string]interface{}{
 				"rule_id":    ruleID,

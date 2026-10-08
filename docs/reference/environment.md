@@ -36,6 +36,17 @@ This document provides a comprehensive reference for all environment variables u
 | `KH_MAX_UPLOAD_SIZE_MB` | integer | `32` | No | Maximum file upload size in megabytes |
 | `KH_HASH_UPLOAD_DIR` | string | `{KH_DATA_DIR}/hashlist_uploads` | No | Directory for storing uploaded hashlists |
 
+### Network Share Storage
+
+Optional. Lets the server keep its wordlists and rules on a mounted network share instead of local disk, so servers (and select agents) don't each need a large SSD. See [Storage Architecture](../admin-guide/resource-management/storage.md#network-share-storage) for the full model.
+
+| Variable | Type | Default | Required | Description |
+|----------|------|---------|----------|-------------|
+| `KH_SHARE_DIR` | string | - | No | In-container path where the network share is mounted (set via docker-compose). When the storage backend is switched to `share`, the server serves `wordlists/` and `rules/` from here. Leave unset for local-only storage |
+| `KH_MIGRATION_DRAIN_FLOOR_SECONDS` | integer | `720` | No | Minimum drain window (seconds) before a local↔share migration locks writes, sized to the agent reconnect back-off. Lower it only in dev (e.g. `10`) |
+
+Whether the server reads wordlists/rules from local disk or the share is **database state** (`storage_backend` = `local`\|`share`), flipped by the in-app migration — not an environment variable. Hashlists, binaries, charsets, uploads and the potfile always stay local. The share is mounted by docker-compose with the operator's own credentials; KrakenHashes stores no share credentials.
+
 ### Directory Structure
 
 The backend automatically creates the following subdirectories under `KH_DATA_DIR`:
@@ -93,6 +104,16 @@ The backend automatically creates the following subdirectories under `KH_DATA_DI
 
 The agent creates the same directory structure as the backend under its data directory.
 
+### Storage Tier
+
+Controls how an agent obtains wordlists/rules. These are a **seed**: they set the agent's *initial* tier/mount, reported to the server at registration; afterwards the admin UI (**Admin → System Settings → Storage**, per agent) is authoritative and re-asserts its value on each reconnect. Equivalent CLI flags are `--storage-tier` and `--network-share-mount-path`. See [agent configuration](../agent-guide/configuration.md#storage-tier-network-share-feature).
+
+| Variable | Type | Default | Required | Description |
+|----------|------|---------|----------|-------------|
+| `KH_STORAGE_TIER` | string | `full_cache` | No | `full_cache` (download & keep all lists), `on_demand` (download per task, evict under disk pressure), or `network_direct` (read lists off a mounted share; on-prem only). An unknown value, or `network_direct` with no mount path, falls back to `full_cache` |
+| `KH_NETWORK_SHARE_MOUNT_PATH` | string | - | No | Read-only mount path the `network_direct` tier reads from (e.g. `/mnt/kh-agent-share`). You must mount the share here yourself before starting the agent; the agent never mounts anything |
+| `KH_AGENT_ONDEMAND_TARGET_FREE_GB` | integer | `20` | No | `on_demand` tier only: free-space target (GiB) below which least-recently-used wordlist/rule files are evicted. Files in use by a running task are never evicted |
+
 ## Docker & Deployment
 
 ### Container Configuration
@@ -110,6 +131,7 @@ The agent creates the same directory structure as the backend under its data dir
 | `LOG_DIR` | string | `/var/log/krakenhashes` | No | Base directory for log files |
 | `KH_CONFIG_DIR_HOST` | string | `/etc/krakenhashes` | No | Host path for config directory |
 | `KH_DATA_DIR_HOST` | string | `/var/lib/krakenhashes` | No | Host path for data directory |
+| `KH_SHARE_DIR_HOST` | string | - | No | Host path (or mounted network-share path) bind-mounted into the backend at `KH_SHARE_DIR`. Set this only when using [network share storage](#network-share-storage) |
 
 ### Port Mappings
 

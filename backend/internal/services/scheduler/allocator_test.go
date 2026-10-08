@@ -474,7 +474,15 @@ func TestAllocator_IncrementJob_ParentCapRespectsActiveAgentCount(t *testing.T) 
 // 4 agents across all 4 layers (one each), not pile them on layer 1.
 // The allocator iterates units in FIFO order; once a layer has taken
 // its share, the next sibling gets the next agent.
-func TestAllocator_IncrementJob_ParentCapDistributesAcrossLayers(t *testing.T) {
+// For an increment job (sibling layer units sharing one parent), the parent's
+// MaxAgents is enforced as a TOTAL across all siblings: it is never multiplied
+// by the layer count. The fill walks layers oldest-first and greedily hands the
+// oldest layer the parent's whole remaining capacity; later layers take what is
+// left (here, nothing). The invariant under test is the parent cap itself —
+// with parent_max=4 and 6 agents available, exactly 4 are placed (2 idle),
+// summed across every layer — not a one-agent-per-layer distribution (which the
+// allocator has never done).
+func TestAllocator_IncrementJob_ParentCapEnforcedAcrossLayers(t *testing.T) {
 	parent := uuid.New()
 	layer1 := uuid.New()
 	layer2 := uuid.New()
@@ -486,23 +494,27 @@ func TestAllocator_IncrementJob_ParentCapDistributesAcrossLayers(t *testing.T) {
 		siblingUnit(layer3, parent, 5, 4, 0, 3),
 		siblingUnit(layer4, parent, 5, 4, 0, 4),
 	}
-	agents := []AgentInfo{agentN(1), agentN(2), agentN(3), agentN(4)}
+	// Six agents against a parent cap of four: the surplus proves the cap holds.
+	agents := []AgentInfo{agentN(1), agentN(2), agentN(3), agentN(4), agentN(5), agentN(6)}
 
 	out := AllocateAgentsByPriority(units, agents, OverflowEnforceMaxAgents, alwaysCompatible)
 	if len(out) != 4 {
-		t.Fatalf("expected 4 allocations (parent_max=4, 4 layers, 4 agents), got %d: %+v", len(out), out)
+		t.Fatalf("expected 4 allocations (parent_max=4 enforced across siblings; 2 of 6 agents idle), got %d: %+v", len(out), out)
 	}
-	// Each layer must have received at least one agent — the fill loop
-	// fills layer 1 first (oldest), but it caps at 1 due to remaining
-	// parent capacity decreasing as agents are placed.
 	bySite := allocationSet(out)
+	total := 0
 	for _, lid := range []uuid.UUID{layer1, layer2, layer3, layer4} {
-		if len(bySite[lid]) == 0 {
-			t.Errorf("layer %s got 0 agents; expected 1", lid)
+		total += len(bySite[lid])
+		if len(bySite[lid]) > 4 {
+			t.Errorf("layer %s got %d agents; no single layer may exceed the parent cap of 4", lid, len(bySite[lid]))
 		}
-		if len(bySite[lid]) > 1 {
-			t.Errorf("layer %s got %d agents; expected 1 (parent cap should prevent piling on layer 1)", lid, len(bySite[lid]))
-		}
+	}
+	if total != 4 {
+		t.Errorf("layers received %d agents total; the parent cap must hold the sum at 4 (not multiply per layer)", total)
+	}
+	// Greedy oldest-first fill: the oldest layer takes the parent's capacity.
+	if got := len(bySite[layer1]); got != 4 {
+		t.Errorf("oldest layer should greedily take the parent's capacity (4), got %d", got)
 	}
 }
 
@@ -510,14 +522,18 @@ func TestAllocator_IncrementJob_ParentCapDistributesAcrossLayers(t *testing.T) {
 // Max-Agents overflow modes (priority-agnostic overflow)
 // ---------------------------------------------------------------------------
 
-// Max-Agents-FIFO: every tier fills to max_agents first (strict caps),
-// then any surplus piles on the OLDEST UNIT OVERALL by created_at,
-// regardless of priority. Distinct from Priority-FIFO (which would dump
-// extras on the oldest within the top tier and starve lower tiers).
+// Max-Agents-FIFO: Phase 1 fills EVERY tier to max_agents (every job gets its
+// baseline, so no tier is starved — the trait that distinguishes it from
+// Priority-FIFO, where the top tier drains first). Phase 2 then routes the
+// surplus FIFO but PRIORITY-RESPECTING: extras pile on the highest-priority
+// unit that still has work (ties broken by oldest created_at within the tier),
+// exceeding that unit's own cap — NOT on the oldest unit overall. Feeding a
+// lower-priority older unit while a higher-priority one still has work was the
+// old, wrong semantic (see allocator.go sortUnitsByPriorityThenCreatedAt).
 func TestAllocator_MaxAgentsFIFO_RespectsCapsThenOverflows(t *testing.T) {
-	// Tier 5: 2 units, both max=2 → 4 cap. Created 100 and 200.
-	// Tier 4: 1 unit,  max=1       → 1 cap. Created 50 (OLDEST overall).
-	// Total cap = 5. With 8 agents, surplus = 3.
+	// Tier 5: 2 units, both max=2 → 4 baseline. Created 100 and 200.
+	// Tier 4: 1 unit,  max=1       → 1 baseline. Created 50 (oldest overall).
+	// Total baseline = 5. With 8 agents, surplus = 3.
 	tier5a := uuid.New()
 	tier5b := uuid.New()
 	tier4 := uuid.New()
@@ -533,27 +549,33 @@ func TestAllocator_MaxAgentsFIFO_RespectsCapsThenOverflows(t *testing.T) {
 
 	out := AllocateAgentsByPriority(units, agents, OverflowMaxAgentsFIFO, alwaysCompatible)
 	if len(out) != 8 {
-		t.Fatalf("expected all 8 agents allocated (cap 5 + 3 overflow), got %d: %+v", len(out), out)
+		t.Fatalf("expected all 8 agents allocated (baseline 5 + 3 overflow), got %d: %+v", len(out), out)
 	}
 	bySite := allocationSet(out)
-	if got := len(bySite[tier5a]); got != 2 {
-		t.Errorf("tier5a should be exactly at cap (2), got %d", got)
+	// The 3 surplus land on the highest-priority, oldest-in-tier unit
+	// (tier5a: p5, created 100), exceeding its own cap of 2.
+	if got := len(bySite[tier5a]); got != 5 {
+		t.Errorf("tier5a (highest priority, oldest in tier) should get baseline 2 + 3 overflow = 5, got %d", got)
 	}
 	if got := len(bySite[tier5b]); got != 2 {
-		t.Errorf("tier5b should be exactly at cap (2), got %d", got)
+		t.Errorf("tier5b should stay at its cap (2), got %d", got)
 	}
-	// tier4 is OLDEST (created 50) — gets its baseline 1 + all 3 extras = 4
-	if got := len(bySite[tier4]); got != 4 {
-		t.Errorf("tier4 (oldest overall) should absorb baseline + 3 overflow = 4, got %d", got)
+	// tier4 is older overall but LOWER priority, so it never absorbs extras
+	// ahead of the higher tier — it stays at its baseline.
+	if got := len(bySite[tier4]); got != 1 {
+		t.Errorf("tier4 (lower priority) should stay at its baseline (1), got %d", got)
 	}
 }
 
-// Max-Agents-FIFO crosses priority tiers: lower-priority oldest unit
-// gets the overflow even though higher-priority units exist. The exact
-// scenario that distinguishes this mode from Priority-FIFO.
-func TestAllocator_MaxAgentsFIFO_CrossesTiers(t *testing.T) {
+// Max-Agents-FIFO Phase 2 does NOT cross priority tiers to feed an older
+// lower-priority unit: after every tier gets its baseline, the surplus lands on
+// the highest-priority unit that still has work — even though a lower-priority
+// unit is older overall. (The inverse — the older lower-priority unit absorbing
+// extras while a higher-priority unit had work — was the old semantic, removed
+// deliberately; see allocator.go sortUnitsByPriorityThenCreatedAt.)
+func TestAllocator_MaxAgentsFIFO_OverflowStaysWithHighestPriority(t *testing.T) {
 	hi := uuid.New() // priority 100, newer
-	lo := uuid.New() // priority 1, older — should absorb extras
+	lo := uuid.New() // priority 1, older
 	units := []UnitInfo{
 		unit(hi, 100, 1, 0, 200),
 		unit(lo, 1, 1, 0, 100),
@@ -565,11 +587,13 @@ func TestAllocator_MaxAgentsFIFO_CrossesTiers(t *testing.T) {
 		t.Fatalf("expected all 5 agents allocated, got %d", len(out))
 	}
 	bySite := allocationSet(out)
-	if got := len(bySite[hi]); got != 1 {
-		t.Errorf("hi-priority unit must stay at cap (1), got %d", got)
+	// Baseline hi=1, lo=1; the 3 surplus go to the highest-priority unit (hi),
+	// exceeding its cap, rather than to the older lower-priority unit.
+	if got := len(bySite[hi]); got != 4 {
+		t.Errorf("hi-priority unit should absorb baseline 1 + 3 overflow = 4, got %d", got)
 	}
-	if got := len(bySite[lo]); got != 4 {
-		t.Errorf("lo-priority unit (oldest overall) should absorb 1 baseline + 3 overflow = 4, got %d", got)
+	if got := len(bySite[lo]); got != 1 {
+		t.Errorf("lo-priority unit should stay at its baseline (1), got %d", got)
 	}
 }
 

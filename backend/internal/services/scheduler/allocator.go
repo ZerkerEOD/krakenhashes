@@ -3,6 +3,7 @@ package scheduler
 import (
 	"sort"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/google/uuid"
 )
 
@@ -215,10 +216,82 @@ func AllocateAgentsByPriority(
 	return allocations
 }
 
+// localityScore rates how well running `unit` on `agent` avoids a file
+// download. It is a pure dispatch TIEBREAK — never a gate — so a higher score
+// only orders otherwise-equal candidates; it never changes priority,
+// max_agents, or overflow fairness, and never excludes an agent. The payoff:
+// a job prefers an agent that already holds (or reads off the share) its
+// 15–40 GB wordlists/rules over one that must download them first.
+//
+//   - A network_direct agent reads every shareable wordlist/rule straight off
+//     the mounted share and downloads nothing, so it scores the FULL
+//     RequiredFiles count — the strongest possible match. getIdleAgents has
+//     already excluded any network_direct agent whose mount is offline (via
+//     IsShareReady), so a scored one can genuinely serve the unit.
+//   - Any other agent scores the number of the unit's RequiredFiles it already
+//     holds locally (HeldFiles).
+//
+// A score of 0 — the agent holds none of the files, its inventory is unknown,
+// or the unit has no shareable files — leaves ordering exactly as it was
+// before WS7: the earliest eligible candidate wins.
+func localityScore(agent AgentInfo, unit UnitInfo) int {
+	if len(unit.RequiredFiles) == 0 {
+		return 0
+	}
+	if agent.StorageTier == models.StorageTierNetworkDirect {
+		return len(unit.RequiredFiles)
+	}
+	if len(agent.HeldFiles) == 0 {
+		return 0
+	}
+	n := 0
+	for _, f := range unit.RequiredFiles {
+		if agent.HeldFiles[f] {
+			n++
+		}
+	}
+	return n
+}
+
+// bestAgentForUnit returns the index into `free` of the agent `u` should take
+// next: among agents that are compatible AND (when capacityGate is true)
+// capacity-eligible, the one with the highest localityScore, ties broken by
+// earliest index so the pre-WS7 pool/FIFO order is preserved wherever locality
+// does not distinguish. Returns -1 when no free agent qualifies.
+//
+// `capacity` is the unit's remaining parent-aware headroom (-1 = unlimited).
+// With capacityGate, a non-cloud agent is ineligible once capacity reaches 0
+// (cloud agents bypass the max_agents budget, matching fillTier's original
+// rule). The overflow paths pass capacityGate=false because they gate per unit
+// through canAcceptMore instead, and pass any capacity value (ignored).
+func bestAgentForUnit(u UnitInfo, free []AgentInfo, capacity int, capacityGate bool, compatible CompatibilityFn) int {
+	best := -1
+	bestScore := -1
+	for j := range free {
+		agent := free[j]
+		if !compatible(u.ID, agent.ID) {
+			continue
+		}
+		if capacityGate && !agent.IsCloud && capacity == 0 {
+			continue
+		}
+		if s := localityScore(agent, u); best == -1 || s > bestScore {
+			best = j
+			bestScore = s
+		}
+	}
+	return best
+}
+
 // fillTier runs the fill phase for one tier: walk each unit in tier
 // order (already FIFO by created_at) and allocate compatible agents up
 // to the parent-aware capacity. Mutates `allocations`, `free`, and
 // `parentAllocated` through the passed pointers / map.
+//
+// Among the compatible, capacity-eligible agents for each unit it takes the
+// best locality match first (bestAgentForUnit) — a pure tiebreak, so when no
+// agent holds the unit's files (all score 0) it degenerates to the original
+// "first eligible agent in pool order," preserving prior behavior.
 //
 // Parent capacity = MaxAgents − in-flight tasks across all sibling
 // units − agents already allocated to this parent elsewhere in the
@@ -247,25 +320,23 @@ func fillTier(
 			}
 		}
 
-		for j := 0; j < len(free); {
+		// Cloud agents bypass the max_agents budget entirely.
+		//
+		// max_agents governs the SHARED on-prem pool — it exists so one job
+		// cannot monopolise the fleet. A rented instance is dedicated to this
+		// job, was paid for by this job's client, and competes with nobody, so
+		// charging it against fleet fairness would mean a job with the default
+		// max_agents=1 and one on-prem agent could never use capacity it had
+		// already been billed for. Cloud concurrency is bounded by budget and
+		// cloud_max_instances instead. bestAgentForUnit encodes the same rule
+		// via its capacityGate: a non-cloud agent is skipped once capacity==0,
+		// a cloud agent is not.
+		for {
+			j := bestAgentForUnit(*u, free, capacity, true, compatible)
+			if j < 0 {
+				break // no compatible, capacity-eligible agent left for this unit
+			}
 			agent := free[j]
-			if !compatible(u.ID, agent.ID) {
-				j++
-				continue
-			}
-			// Cloud agents bypass the max_agents budget entirely.
-			//
-			// max_agents governs the SHARED on-prem pool — it exists so one
-			// job cannot monopolise the fleet. A rented instance is dedicated
-			// to this job, was paid for by this job's client, and competes
-			// with nobody, so charging it against fleet fairness would mean a
-			// job with the default max_agents=1 and one on-prem agent could
-			// never use capacity it had already been billed for. Cloud
-			// concurrency is bounded by budget and cloud_max_instances instead.
-			if !agent.IsCloud && capacity == 0 {
-				j++
-				continue
-			}
 			*allocationsPtr = append(*allocationsPtr, Allocation{UnitID: u.ID, AgentID: agent.ID})
 			free = removeAt(free, j)
 			if !agent.IsCloud {
@@ -309,10 +380,13 @@ func sortUnitsByPriorityThenCreatedAt(units []UnitInfo) []UnitInfo {
 // highest-priority compatible unit, falling back to lower-priority
 // tiers only after the higher tier has no compatible unit accepting
 // more work. The caller passes `units` already sorted by priority DESC
-// then created_at ASC, so a simple "first compatible wins" scan
-// produces priority-respecting routing with FIFO ordering inside each
-// tier. An agent incompatible with every unit is left in the free pool
-// for the next cycle. Mutates the free slice via the pointer.
+// then created_at ASC, so walking units in order and filling each to its
+// canAcceptMore limit produces priority-respecting routing with FIFO ordering
+// inside each tier. Within a unit, bestAgentForUnit takes the best locality
+// match first — a pure tiebreak (all-score-0 → pool order, i.e. the prior
+// "first compatible" behavior). An agent incompatible with every accepting
+// unit is left in the free pool for the next cycle. Mutates the free slice via
+// the pointer.
 func appendGlobalFIFOOverflow(
 	allocations []Allocation,
 	units []UnitInfo,
@@ -327,25 +401,21 @@ func appendGlobalFIFOOverflow(
 	if len(units) == 0 {
 		return allocations
 	}
-	for j := 0; j < len(free); {
-		agent := free[j]
-		placed := false
-		for _, u := range units {
-			if !canAcceptMore(u) {
-				continue
+	for i := range units {
+		u := units[i]
+		for len(free) > 0 && canAcceptMore(u) {
+			j := bestAgentForUnit(u, free, 0, false, compatible)
+			if j < 0 {
+				break // no compatible agent left for this unit; cascade to next
 			}
-			if !compatible(u.ID, agent.ID) {
-				continue
-			}
+			agent := free[j]
 			allocations = append(allocations, Allocation{UnitID: u.ID, AgentID: agent.ID})
 			free = removeAt(free, j)
 			parentAllocated[u.ParentJobID]++
 			unitAllocated[u.ID]++
-			placed = true
-			break
 		}
-		if !placed {
-			j++
+		if len(free) == 0 {
+			break
 		}
 	}
 	return allocations
@@ -386,22 +456,19 @@ func appendGlobalRoundRobinOverflow(
 			exhaustedUnits[u.ID] = true
 			continue
 		}
-		placed := false
-		for j := 0; j < len(free); j++ {
-			agent := free[j]
-			if !compatible(u.ID, agent.ID) {
-				continue
-			}
-			allocations = append(allocations, Allocation{UnitID: u.ID, AgentID: agent.ID})
-			free = removeAt(free, j)
-			parentAllocated[u.ParentJobID]++
-			unitAllocated[u.ID]++
-			placed = true
-			break
-		}
-		if !placed {
+		// Best locality match for this unit's turn; -1 = no compatible agent
+		// left, so the unit is done for this rotation. Tiebreak only — with no
+		// holders it is the earliest compatible agent, the prior behavior.
+		j := bestAgentForUnit(u, free, 0, false, compatible)
+		if j < 0 {
 			exhaustedUnits[u.ID] = true
+			continue
 		}
+		agent := free[j]
+		allocations = append(allocations, Allocation{UnitID: u.ID, AgentID: agent.ID})
+		free = removeAt(free, j)
+		parentAllocated[u.ParentJobID]++
+		unitAllocated[u.ID]++
 	}
 	return allocations
 }
@@ -425,35 +492,31 @@ func appendTierOverflow(
 
 	switch mode {
 	case OverflowFIFO:
-		// Walk tier units oldest-first. For each free agent, find the
-		// oldest unit that still has capacity (canAcceptMore = keyspace
-		// not saturated, increment-job parent cap honored) AND is
-		// compatible with the agent. This is the "cascade to next
-		// oldest when oldest is full" behavior — without it, all extras
-		// pile on tier[0] even when its dispatcher can't use them.
+		// Walk tier units oldest-first; fill each to its capacity
+		// (canAcceptMore = keyspace not saturated, increment-job parent cap
+		// honored) before cascading the surplus to the next-oldest — without
+		// this cascade all extras pile on tier[0] even when its dispatcher
+		// can't use them. Within a unit, bestAgentForUnit takes the best
+		// locality match first; a pure tiebreak, so with nothing held it is
+		// the earliest compatible agent — the prior behavior.
 		if len(tier) == 0 {
 			return allocations
 		}
-		for j := 0; j < len(free); {
-			agent := free[j]
-			placed := false
-			for i := range tier {
-				u := &tier[i]
-				if !canAcceptMore(*u) {
-					continue
+		for i := range tier {
+			u := &tier[i]
+			for len(free) > 0 && canAcceptMore(*u) {
+				j := bestAgentForUnit(*u, free, 0, false, compatible)
+				if j < 0 {
+					break
 				}
-				if !compatible(u.ID, agent.ID) {
-					continue
-				}
+				agent := free[j]
 				allocations = append(allocations, Allocation{UnitID: u.ID, AgentID: agent.ID})
 				free = removeAt(free, j)
 				parentAllocated[u.ParentJobID]++
 				unitAllocated[u.ID]++
-				placed = true
-				break
 			}
-			if !placed {
-				j++
+			if len(free) == 0 {
+				break
 			}
 		}
 		return allocations
@@ -477,22 +540,20 @@ func appendTierOverflow(
 				continue
 			}
 
-			placed := false
-			for j := 0; j < len(free); j++ {
-				agent := free[j]
-				if !compatible(u.ID, agent.ID) {
-					continue
-				}
-				allocations = append(allocations, Allocation{UnitID: u.ID, AgentID: agent.ID})
-				free = removeAt(free, j)
-				parentAllocated[u.ParentJobID]++
-				unitAllocated[u.ID]++
-				placed = true
-				break
-			}
-			if !placed {
+			// Best locality match for this unit's turn; -1 means no compatible
+			// agent remains, so the unit is exhausted for this rotation.
+			// Tiebreak only — degenerates to the earliest compatible agent when
+			// nothing is held.
+			j := bestAgentForUnit(u, free, 0, false, compatible)
+			if j < 0 {
 				exhaustedUnits[u.ID] = true
+				continue
 			}
+			agent := free[j]
+			allocations = append(allocations, Allocation{UnitID: u.ID, AgentID: agent.ID})
+			free = removeAt(free, j)
+			parentAllocated[u.ParentJobID]++
+			unitAllocated[u.ID]++
 		}
 		return allocations
 	}

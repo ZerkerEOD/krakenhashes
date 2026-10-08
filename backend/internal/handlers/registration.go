@@ -16,6 +16,12 @@ type RegistrationRequest struct {
 	ClaimCode string `json:"claim_code"`
 	Hostname  string `json:"hostname"`
 	Version   string `json:"version,omitempty"` // Agent version (optional for backward compatibility)
+	// Seed-only storage config (WS9): the agent's locally-configured storage
+	// tier + read-only mount path. Recorded as this agent's initial values; the
+	// admin UI is authoritative afterwards. Both optional for backward
+	// compatibility (older agents omit them → the server defaults to full_cache).
+	StorageTier           string `json:"storage_tier,omitempty"`
+	NetworkShareMountPath string `json:"network_share_mount_path,omitempty"`
 }
 
 // RegistrationResponse represents the data sent back to the agent after successful registration
@@ -56,10 +62,10 @@ func (h *RegistrationHandler) HandleRegistration(w http.ResponseWriter, r *http.
 		return
 	}
 
-	debug.Debug("Registration request - Claim Code: %s, Hostname: %s, Version: %s", req.ClaimCode, req.Hostname, req.Version)
+	debug.Debug("Registration request - Claim Code: %s, Hostname: %s, Version: %s, StorageTier: %s", req.ClaimCode, req.Hostname, req.Version, req.StorageTier)
 
 	// Register agent with version if provided
-	agent, err := h.agentService.RegisterAgentWithVersion(r.Context(), req.ClaimCode, req.Hostname, req.Version)
+	agent, err := h.agentService.RegisterAgentWithVersion(r.Context(), req.ClaimCode, req.Hostname, req.Version, req.StorageTier, req.NetworkShareMountPath)
 	if err != nil {
 		debug.Error("Failed to register agent: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to register agent: %v", err), http.StatusBadRequest)

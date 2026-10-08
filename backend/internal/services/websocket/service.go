@@ -58,6 +58,7 @@ const (
 	TypeStateSyncResponse       MessageType = "state_sync_response"      // Agent responds with state sync (GH Issue #12)
 	TypeAgentOrphanReport       MessageType = "agent_orphan_report"      // Agent audits an "Already an instance" hashcat collision (Slice C)
 	TypeTaskAssignmentRejected  MessageType = "task_assignment_rejected" // Agent refused an inbound task_assignment (e.g., shutdown in progress)
+	TypeTaskLoading             MessageType = "task_loading"             // Agent is preparing a task (downloading/verifying files, benchmarking) before first progress — bumps last_activity_at
 
 	// Server -> Agent messages
 	TypeTaskAssignment         MessageType = "task_assignment"
@@ -158,6 +159,11 @@ type AgentStatusPayload struct {
 	// dispatch. The readiness is tracked in the handler layer and read by the
 	// scheduler via Handler.IsFileMapReady.
 	FileMapReady *bool `json:"file_map_ready,omitempty"`
+	// ShareReady is the agent's network-share readiness (network-share feature).
+	// Same pointer/fail-open semantics as FileMapReady: nil = never reported =
+	// eligible; only an explicit false (a network_direct agent whose mount is
+	// offline) gates it out, read by the scheduler via Handler.IsShareReady.
+	ShareReady *bool `json:"share_ready,omitempty"`
 }
 
 // AgentUpdateCommandPayload instructs an agent (via its launcher) to

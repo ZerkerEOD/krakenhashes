@@ -79,7 +79,17 @@ KH_TLS_MODE=self-signed
 KH_CERT_KEY_SIZE=4096
 KH_CERT_VALIDITY_DAYS=365
 KH_CA_VALIDITY_DAYS=3650
+
+# Network Share Storage (optional; see below)
+# KH_SHARE_DIR_HOST=/mnt/krakenhashes-share   # Host path of the mounted SMB/NFS share
 ```
+
+!!! tip "Optional: keep wordlists/rules on a network share"
+    The compose file includes a bind mount for an operator-mounted network share. Setting
+    `KH_SHARE_DIR_HOST` to the host path of a mounted SMB/NFS share makes it available to the
+    backend at `KH_SHARE_DIR` (`/var/lib/krakenhashes-share`). Nothing changes until you enable it
+    from **Admin → System Settings → Storage** and migrate; see
+    [Network Share Storage](../admin-guide/resource-management/storage.md#network-share-storage).
 
 ### Service-Specific Configuration
 
@@ -169,6 +179,17 @@ The compose file uses bind mounts for:
 - Logs: `${LOG_DIR:-/var/log/krakenhashes}`
 - Config: `${KH_CONFIG_DIR_HOST:-/etc/krakenhashes}`
 - Data: `${KH_DATA_DIR_HOST:-/var/lib/krakenhashes}`
+- Network share (optional): `${KH_SHARE_DIR_HOST:-/mnt/krakenhashes-share}` → `/var/lib/krakenhashes-share`
+
+### Network Share Storage (optional)
+
+For large deployments, wordlists and rules can live on a network share instead of the local data
+volume. You mount the SMB/NFS share on the host yourself (KrakenHashes stores no share
+credentials), set `KH_SHARE_DIR_HOST` to that host path, and the compose file binds it into the
+backend at `KH_SHARE_DIR`. It remains inactive (local-disk behavior) until enabled and migrated
+from **Admin → System Settings → Storage**. Leaving `KH_SHARE_DIR_HOST` unset binds a harmless
+empty default and keeps local storage. Full details, including per-agent storage tiers and the
+migration flow, are in [Storage Architecture](../admin-guide/resource-management/storage.md#network-share-storage).
 
 ### Backup Strategy
 

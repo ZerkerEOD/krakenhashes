@@ -19,6 +19,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/storagepaths"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
@@ -3181,7 +3182,7 @@ func (s *JobExecutionService) resolveWordlistPath(ctx context.Context, wordlistI
 			if wl.ID == wordlistID {
 				// The Name field already contains the relative path from wordlists directory
 				// e.g., "general/crackstation.txt"
-				path := filepath.Join(s.dataDirectory, "wordlists", wl.Name)
+				path := filepath.Join(storagepaths.WordlistsRoot(), wl.Name)
 
 				debug.Log("Resolved wordlist path", map[string]interface{}{
 					"wordlist_id": wordlistID,
@@ -3196,7 +3197,7 @@ func (s *JobExecutionService) resolveWordlistPath(ctx context.Context, wordlistI
 	}
 
 	// If not a numeric ID, treat as a filename
-	path := filepath.Join(s.dataDirectory, "wordlists", wordlistIDStr)
+	path := filepath.Join(storagepaths.WordlistsRoot(), wordlistIDStr)
 	debug.Log("Resolved wordlist path from string", map[string]interface{}{
 		"wordlist_str": wordlistIDStr,
 		"path":         path,
@@ -3228,7 +3229,7 @@ func (s *JobExecutionService) resolveRulePath(ctx context.Context, ruleIDStr str
 			if rule.ID == ruleID {
 				// The Name field already contains the relative path from rules directory
 				// e.g., "hashcat/_nsakey.v2.dive.rule"
-				path := filepath.Join(s.dataDirectory, "rules", rule.Name)
+				path := filepath.Join(storagepaths.RulesRoot(), rule.Name)
 
 				debug.Log("Resolved rule path", map[string]interface{}{
 					"rule_id":     ruleID,
@@ -3244,7 +3245,7 @@ func (s *JobExecutionService) resolveRulePath(ctx context.Context, ruleIDStr str
 	}
 
 	// If not a numeric ID, treat as a filename
-	path := filepath.Join(s.dataDirectory, "rules", ruleIDStr)
+	path := filepath.Join(storagepaths.RulesRoot(), ruleIDStr)
 	debug.Log("Resolved rule path from string", map[string]interface{}{
 		"rule_str": ruleIDStr,
 		"path":     path,
@@ -3502,7 +3503,7 @@ func (s *JobExecutionService) sweepEphemeralWordlists(ctx context.Context) error
 	}
 
 	for _, e := range toDelete {
-		filePath := filepath.Join(s.dataDirectory, "wordlists", e.fileName)
+		filePath := filepath.Join(storagepaths.WordlistsRoot(), e.fileName)
 		if rmErr := os.Remove(filePath); rmErr != nil && !os.IsNotExist(rmErr) {
 			debug.Error("Failed to remove ephemeral wordlist file %s: %v", filePath, rmErr)
 		}
@@ -3559,7 +3560,7 @@ func (s *JobExecutionService) CleanupEphemeralWordlistsForJob(ctx context.Contex
 	}
 
 	for _, e := range toDelete {
-		filePath := filepath.Join(s.dataDirectory, "wordlists", e.fileName)
+		filePath := filepath.Join(storagepaths.WordlistsRoot(), e.fileName)
 		if rmErr := os.Remove(filePath); rmErr != nil && !os.IsNotExist(rmErr) {
 			debug.Error("Failed to remove ephemeral wordlist file %s: %v", filePath, rmErr)
 		}

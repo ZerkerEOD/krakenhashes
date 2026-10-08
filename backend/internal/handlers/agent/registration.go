@@ -44,7 +44,7 @@ func (h *Handler) HandleRegistration(w http.ResponseWriter, r *http.Request) {
 	debug.Debug("Registration request - Claim Code: %s, Hostname: %s, Version: %s", req.ClaimCode, req.Hostname, req.Version)
 
 	// Register agent with version if provided
-	agent, err := h.agentService.RegisterAgentWithVersion(r.Context(), req.ClaimCode, req.Hostname, req.Version)
+	agent, err := h.agentService.RegisterAgentWithVersion(r.Context(), req.ClaimCode, req.Hostname, req.Version, req.StorageTier, req.NetworkShareMountPath)
 	if err != nil {
 		debug.Error("Agent registration failed: %v", err)
 		http.Error(w, "Registration failed", http.StatusBadRequest)

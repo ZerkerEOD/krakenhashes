@@ -12,9 +12,9 @@ const (
 			name, status, last_heartbeat, version, hardware,
 			os_info, created_by_id, created_at, updated_at, api_key,
 			api_key_created_at, api_key_last_used, last_error, metadata, owner_id,
-			cloud_instance_id
+			cloud_instance_id, storage_tier, network_share_mount_path
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
 		) RETURNING id`
 
 	GetAgentByID = `
@@ -27,6 +27,7 @@ const (
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
 			a.binary_version,
 			a.update_pending, a.target_version, a.update_started_at, a.update_attempts, a.update_error, a.update_last_attempt_at,
+			a.storage_tier, a.network_share_mount_path,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -42,6 +43,7 @@ const (
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
 			a.binary_version,
 			a.update_pending, a.target_version, a.update_started_at, a.update_attempts, a.update_error, a.update_last_attempt_at,
+			a.storage_tier, a.network_share_mount_path,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -105,6 +107,7 @@ const (
 			a.api_key_last_used, a.metadata, a.owner_id, a.extra_parameters, a.is_enabled,
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
 			a.binary_version, a.cloud_instance_id, a.retired_at,
+			a.storage_tier, a.network_share_mount_path,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id

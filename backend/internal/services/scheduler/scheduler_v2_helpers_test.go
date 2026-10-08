@@ -178,6 +178,11 @@ type testTask struct {
 	AgentID *int
 	// UpdatedAt seeds job_tasks.updated_at at INSERT time. Zero means now.
 	UpdatedAt time.Time
+	// LastActivityAt seeds job_tasks.last_activity_at at INSERT time. Zero
+	// means now. The sweeper's heartbeat (running) and startup-grace
+	// (assigned) checks read this column, so eviction tests backdate it to
+	// simulate a silent/preparing agent.
+	LastActivityAt time.Time
 }
 
 // insertTestTask inserts a scheduler-v2 job_tasks row matching spec and returns
@@ -198,6 +203,10 @@ func insertTestTask(t *testing.T, database *db.DB, jobID, unitID uuid.UUID, spec
 	if updatedAt.IsZero() {
 		updatedAt = time.Now()
 	}
+	lastActivityAt := spec.LastActivityAt
+	if lastActivityAt.IsZero() {
+		lastActivityAt = time.Now()
+	}
 
 	taskID := uuid.New()
 	_, err := database.ExecContext(context.Background(), `
@@ -207,20 +216,23 @@ func insertTestTask(t *testing.T, database *db.DB, jobID, unitID uuid.UUID, spec
 			range_start, range_end, restore_point,
 			effective_keyspace_start, effective_keyspace_end,
 			crack_count, is_keyspace_split, created_at, updated_at,
-			expected_crack_count, received_crack_count, batches_complete_signaled
+			expected_crack_count, received_crack_count, batches_complete_signaled,
+			last_activity_at
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7, 60,
 			$6, $7, $8,
 			$9, $10,
 			$11, true, $12, $12,
-			$13, $14, $15
+			$13, $14, $15,
+			$16
 		)
 	`, taskID, jobID, unitID, spec.AgentID, status,
 		spec.RangeStart, spec.RangeEnd, spec.RestorePoint,
 		spec.RangeStart, spec.RangeEnd,
 		spec.CrackCount, updatedAt,
-		spec.ExpectedCrackCount, spec.ReceivedCrackCount, spec.BatchesCompleteSignaled)
+		spec.ExpectedCrackCount, spec.ReceivedCrackCount, spec.BatchesCompleteSignaled,
+		lastActivityAt)
 	if err != nil {
 		t.Fatalf("failed to create test job_task [%d,%d) %s: %v", spec.RangeStart, spec.RangeEnd, status, err)
 	}

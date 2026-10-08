@@ -143,6 +143,28 @@ type Handler struct {
 	// recentRejections/shuttingDown. Only an explicit false gates dispatch.
 	// The entry is cleared on disconnect so a fresh connection must re-report.
 	fileMapReady sync.Map
+
+	// shareReady tracks the last-known network-share readiness each agent
+	// reported on agent_status (network-share feature). Same fail-open
+	// semantics as fileMapReady: absence = READY; only an explicit false (a
+	// network_direct agent whose mount is offline) gates dispatch, until it
+	// reports ready again or disconnects. Keys agentID (int); values bool.
+	shareReady sync.Map
+
+	// agentInventory tracks which immutable files (wordlists, rules) each
+	// agent currently holds on local disk, keyed by the same wire-path form
+	// the scheduler compares against (SchedulingUnit.WordlistRefs /
+	// RuleFileRefs — e.g. "wordlists/general/x.txt", "rules/hashcat/best64.rule").
+	// Keys are agentID (int); values are map[string]bool sets. This feeds the
+	// scheduler-v2 locality tiebreak (AgentHeldFiles): among otherwise-equal
+	// candidates it prefers an agent that already holds the job's files over
+	// one that must first download 15-40 GB. It is a pure optimization —
+	// staleness (a missed on_demand eviction, a not-yet-seen download) only
+	// loses a tiebreak, never mis-routes work. Populated authoritatively from
+	// each file_sync_response snapshot (replace) and incrementally from
+	// download_complete; cleared on disconnect. Absence = "unknown" → empty
+	// set (fail-open, locality score 0).
+	agentInventory sync.Map
 }
 
 // Client represents a connected agent
@@ -520,6 +542,9 @@ func (c *Client) readPump() {
 		case wsservice.TypeTaskAssignmentRejected:
 			c.handler.handleTaskAssignmentRejected(c, &msg)
 
+		case wsservice.TypeTaskLoading:
+			c.handler.handleTaskLoading(c, &msg)
+
 		case wsservice.TypeDownloadProgress:
 			c.handler.handleDownloadProgress(c, &msg)
 
@@ -706,6 +731,11 @@ func (h *Handler) unregisterClient(c *Client) {
 			// a newer connection just reported. A fresh connection then starts
 			// clean and must re-report before it can be gated (GH #61).
 			h.fileMapReady.Delete(c.agent.ID)
+			h.shareReady.Delete(c.agent.ID)
+			// Forget the held-files inventory too: a fresh connection
+			// re-reports its full file list via file_sync_response, so a
+			// stale set can't linger and mislead the locality tiebreak.
+			h.agentInventory.Delete(c.agent.ID)
 		}
 	}
 	h.mu.Unlock()
@@ -964,6 +994,29 @@ func (h *Handler) handleAgentStatusReadiness(client *Client, msg *wsservice.Mess
 	}
 	h.fileMapReady.Store(client.agent.ID, *payload.FileMapReady)
 	debug.Debug("Agent %d: reported file_map_ready=%t", client.agent.ID, *payload.FileMapReady)
+
+	if payload.ShareReady != nil {
+		h.shareReady.Store(client.agent.ID, *payload.ShareReady)
+		debug.Debug("Agent %d: reported share_ready=%t", client.agent.ID, *payload.ShareReady)
+	}
+}
+
+// IsShareReady reports whether the agent is eligible for dispatch with respect
+// to its network-share storage. Fail-open (mirrors IsFileMapReady): true unless
+// the agent's last agent_status explicitly reported share_ready=false — i.e. a
+// network_direct agent whose mount is offline, which is thereby taken out of
+// operation until it reports ready again (or disconnects).
+func (h *Handler) IsShareReady(agentID int) bool {
+	v, ok := h.shareReady.Load(agentID)
+	if !ok {
+		return true // unknown → fail open (eligible)
+	}
+	ready, ok := v.(bool)
+	if !ok {
+		h.shareReady.Delete(agentID)
+		return true
+	}
+	return ready
 }
 
 // IsFileMapReady reports whether the agent is eligible for scheduler-v2
@@ -988,6 +1041,95 @@ func (h *Handler) IsFileMapReady(agentID int) bool {
 		return true
 	}
 	return ready
+}
+
+// AgentHeldFiles returns the set of immutable files (wordlists, rules) the
+// agent is known to hold locally, keyed by wire-path (matching
+// SchedulingUnit.WordlistRefs / RuleFileRefs). Fail-open: an unknown agent —
+// one that has not yet reported a file_sync_response — returns an empty set,
+// so the scheduler-v2 locality tiebreak simply treats it as holding nothing
+// (score 0, no preference) rather than excluding it. The returned map is a
+// copy and safe for the caller to read without locking.
+func (h *Handler) AgentHeldFiles(agentID int) map[string]bool {
+	v, ok := h.agentInventory.Load(agentID)
+	if !ok {
+		return nil
+	}
+	set, ok := v.(map[string]bool)
+	if !ok {
+		h.agentInventory.Delete(agentID)
+		return nil
+	}
+	out := make(map[string]bool, len(set))
+	for k := range set {
+		out[k] = true
+	}
+	return out
+}
+
+// recordAgentInventorySnapshot replaces the agent's held-files set from a full
+// file_sync_response. Only immutable, shareable file types (wordlist, rule)
+// are indexed — those are what the locality tiebreak reasons about; hashlists,
+// binaries and charsets are irrelevant to it. A snapshot is authoritative, so
+// it REPLACES any prior set (an agent that deleted/evicted files no longer
+// reports them here).
+func (h *Handler) recordAgentInventorySnapshot(agentID int, files []wsservice.FileInfo) {
+	set := make(map[string]bool, len(files))
+	for _, f := range files {
+		if wire, ok := agentFileWirePath(f.FileType, f.Name); ok {
+			set[wire] = true
+		}
+	}
+	h.agentInventory.Store(agentID, set)
+}
+
+// addAgentInventoryFile records a single newly-acquired file (download_complete)
+// into the agent's held-files set, creating the set if the agent has not yet
+// sent a snapshot. Incremental and additive; a full snapshot later supersedes it.
+func (h *Handler) addAgentInventoryFile(agentID int, fileType, name string) {
+	wire, ok := agentFileWirePath(fileType, name)
+	if !ok {
+		return
+	}
+	// Load-or-create then mutate under a fresh copy to stay safe against the
+	// snapshot path storing concurrently. The tiebreak tolerates a lost racy
+	// write (corrected on the next sync), so a compare-and-swap loop is
+	// unnecessary; a simple copy-store is enough and keeps AgentHeldFiles's
+	// returned map immutable.
+	existing := h.AgentHeldFiles(agentID) // returns a copy (or nil)
+	if existing == nil {
+		existing = make(map[string]bool, 1)
+	}
+	existing[wire] = true
+	h.agentInventory.Store(agentID, existing)
+}
+
+// agentFileWirePath normalizes an agent-reported (fileType, name) into the
+// wire-path form the scheduler compares against — "wordlists/<rel>" and
+// "rules/<rel>", matching resolveWordlistRefsForV2/relPath. The agent reports
+// Name as a path relative to its type root (e.g. "general/rockyou.txt",
+// "hashcat/best64.rule"), with separators already normalized to '/'
+// (sync.ScanDirectory). Only wordlist and rule types are indexed; everything
+// else returns ok=false. Defensive against a Name that already carries the
+// type prefix or a leading slash.
+func agentFileWirePath(fileType, name string) (string, bool) {
+	name = strings.TrimLeft(strings.ReplaceAll(name, "\\", "/"), "/")
+	if name == "" {
+		return "", false
+	}
+	var prefix string
+	switch fileType {
+	case "wordlist":
+		prefix = "wordlists/"
+	case "rule":
+		prefix = "rules/"
+	default:
+		return "", false
+	}
+	if strings.HasPrefix(name, prefix) {
+		return name, true
+	}
+	return prefix + name, true
 }
 
 // sendInitialConfiguration sends initial configuration to the agent including download settings
@@ -1026,10 +1168,20 @@ func (h *Handler) sendInitialConfiguration(client *Client) {
 		preferredBinaryID = 0
 	}
 
-	// Create configuration payload
+	// Create configuration payload. storage_tier / network_share_mount_path tell
+	// the agent how to obtain wordlists/rules (full_cache | on_demand |
+	// network_direct) and, for network_direct, where the operator mounted the
+	// share. Delivered at (re)connect; a tier change applies on the agent's next
+	// reconnect.
+	storageTier := client.agent.StorageTier
+	if storageTier == "" {
+		storageTier = models.StorageTierFullCache
+	}
 	configPayload := map[string]interface{}{
 		"download_settings":        settings,
 		"preferred_binary_version": preferredBinaryID,
+		"storage_tier":             storageTier,
+		"network_share_mount_path": client.agent.NetworkShareMountPath,
 	}
 
 	payloadBytes, err := json.Marshal(configPayload)
@@ -1188,6 +1340,12 @@ func (h *Handler) handleSyncResponse(client *Client, msg *wsservice.Message) {
 
 	debug.Info("Received file sync response from agent %d: %d files",
 		client.agent.ID, len(payload.Files))
+
+	// Record the agent's held-files inventory from this authoritative
+	// snapshot for the scheduler-v2 locality tiebreak. Done here, before the
+	// callback short-circuit below, so the pre-benchmark inventory check path
+	// updates the index too (it carries the same full file list).
+	h.recordAgentInventorySnapshot(client.agent.ID, payload.Files)
 
 	// Check if there's a registered callback for this agent (pre-benchmark file check)
 	h.inventoryCallbacksMu.RLock()
@@ -2019,6 +2177,42 @@ func (h *Handler) handleTaskAssignmentRejected(client *Client, msg *wsservice.Me
 		client.agent.ID, taskID, result.Truncated, result.Completed, result.Discarded)
 }
 
+// handleTaskLoading records a pre-first-progress liveness ping from an agent
+// that is still preparing a task — downloading/verifying wordlists, rules, or
+// the hashcat binary, decompressing, or benchmarking — before hashcat starts
+// and any job_progress is emitted. It bumps the task's last_activity_at so
+// the scheduler-v2 sweeper's startup-grace window isn't tripped during a long
+// (15-40GB) file pull. Best-effort and fail-open: a parse or DB hiccup just
+// means the task falls back to the (still generous) startup grace measured
+// from dispatch time, exactly as an older agent that sends no pings does.
+func (h *Handler) handleTaskLoading(client *Client, msg *wsservice.Message) {
+	var payload struct {
+		TaskID     string `json:"task_id"`
+		Phase      string `json:"phase"`
+		FileName   string `json:"file_name"`
+		BytesDone  int64  `json:"bytes_done"`
+		BytesTotal int64  `json:"bytes_total"`
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Warning("Agent %d: failed to parse task_loading payload: %v", client.agent.ID, err)
+		return
+	}
+	taskID, err := uuid.Parse(payload.TaskID)
+	if err != nil {
+		debug.Warning("Agent %d: task_loading with malformed task ID %q: %v", client.agent.ID, payload.TaskID, err)
+		return
+	}
+	if h.database == nil {
+		return
+	}
+	if err := scheduler.TouchTaskActivity(client.ctx, h.database, taskID); err != nil {
+		debug.Warning("Agent %d: task_loading activity touch for task %s failed: %v", client.agent.ID, taskID, err)
+		return
+	}
+	debug.Debug("Agent %d: task %s loading (phase=%s file=%s %d/%d bytes)",
+		client.agent.ID, taskID, payload.Phase, payload.FileName, payload.BytesDone, payload.BytesTotal)
+}
+
 // handleAgentShutdown processes graceful shutdown notification from an agent
 func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 	debug.Info("Agent %d: Received graceful shutdown notification", client.agent.ID)
@@ -2290,7 +2484,12 @@ func (h *Handler) handleDownloadComplete(client *Client, msg *wsservice.Message)
 		client.agent.ID, payload.FileName, payload.TotalBytes,
 		payload.MD5Hash, payload.DownloadTime)
 
-	// TODO: Update file sync status in database if needed
+	// Incrementally record the newly-acquired file in the agent's held-files
+	// inventory for the scheduler-v2 locality tiebreak, so an on_demand agent
+	// that just pulled a wordlist is preferred for the next unit needing it
+	// without waiting for a full re-sync. Non-wordlist/rule types are ignored
+	// by agentFileWirePath.
+	h.addAgentInventoryFile(client.agent.ID, payload.FileType, payload.FileName)
 }
 
 // handleDownloadFailed processes download failure notifications from agents

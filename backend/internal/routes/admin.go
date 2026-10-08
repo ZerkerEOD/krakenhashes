@@ -9,6 +9,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/email"
 	adminhandlers "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/auth"
+	networksharehandler "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/networkshare"
 	adminsettings "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/settings"
 	adminuser "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/user"
 	binaryhandler "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/binary"
@@ -122,6 +123,19 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	// Agent auto-update settings routes - Must be before generic {key} route
 	adminRouter.HandleFunc("/settings/agent-update", agentSettingsHandler.GetAgentUpdateSettings).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/settings/agent-update", agentSettingsHandler.UpdateAgentUpdateSettings).Methods(http.MethodPut, http.MethodOptions)
+
+	// Network-share storage settings routes - Must be before generic {key} route
+	networkShareRepo := repository.NewNetworkShareRepository(database)
+	networkShareHandler := networksharehandler.NewHandler(
+		services.NewNetworkShareService(networkShareRepo),
+		services.NewMigrationEngine(database, networkShareRepo),
+	)
+	adminRouter.HandleFunc("/settings/network-share", networkShareHandler.GetConfig).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/settings/network-share", networkShareHandler.UpdateConfig).Methods(http.MethodPut, http.MethodOptions)
+	adminRouter.HandleFunc("/settings/network-share/validate", networkShareHandler.Validate).Methods(http.MethodPost, http.MethodOptions)
+	adminRouter.HandleFunc("/settings/network-share/migrate", networkShareHandler.StartMigration).Methods(http.MethodPost, http.MethodOptions)
+	adminRouter.HandleFunc("/settings/network-share/migration", networkShareHandler.MigrationStatus).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/settings/network-share/migration", networkShareHandler.CancelMigration).Methods(http.MethodDelete, http.MethodOptions)
 
 	// Team settings routes - Must be before generic {key} route
 	SetupAdminTeamRoutes(adminRouter, teamService)

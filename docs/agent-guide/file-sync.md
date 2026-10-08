@@ -6,6 +6,9 @@ This document explains how KrakenHashes agents synchronize files with the backen
 
 KrakenHashes agents need access to the same wordlists and rules as the backend server to perform password cracking operations. The system implements a WebSocket-based file synchronization mechanism to ensure agents have the necessary files.
 
+!!! note "Storage tier changes what gets synced"
+    The full up-front sync described below is the behavior of the default `full_cache` tier. An `on_demand` agent skips the full sync and downloads lists per task (evicting old ones under disk pressure), and a `network_direct` agent downloads **no** wordlists/rules at all — it reads them off a mounted share. See [Per-Agent Storage Tiers](../admin-guide/resource-management/storage.md#per-agent-storage-tiers).
+
 ## Synchronization Process
 
 The file synchronization process follows these steps:

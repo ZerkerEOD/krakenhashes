@@ -87,6 +87,14 @@ const (
 	// for re-dispatch without waiting for the heartbeat timeout.
 	WSTypeTaskAssignmentRejected WSMessageType = "task_assignment_rejected"
 
+	// WSTypeTaskLoading is sent by the agent while it prepares a task
+	// (downloading/verifying/decompressing wordlists, rules, and the
+	// hashcat binary, then benchmarking) before hashcat starts and any
+	// job_progress is emitted. The backend bumps the task's
+	// last_activity_at on receipt so the sweeper's startup-grace window
+	// isn't tripped during a long file pull.
+	WSTypeTaskLoading WSMessageType = "task_loading"
+
 	// Outfile acknowledgment protocol message types
 	WSTypePendingOutfiles        WSMessageType = "pending_outfiles"         // Agent -> Server: report tasks with pending outfiles
 	WSTypeRequestCrackRetransmit WSMessageType = "request_crack_retransmit" // Server -> Agent: request full outfile retransmission
@@ -139,6 +147,15 @@ const (
  * on-prem agent hanging forever, not to bound cloud spend.
  */
 const benchmarkPreflightTimeout = 10 * time.Minute
+
+// Network-share liveness probe cadence/bound (WS10 C1). The probe runs on its
+// own goroutine (monitorShareHealth), never on writePump, and each stat is
+// bounded so a hung/high-latency mount cannot block the agent. shareReady()
+// only reads the cached atomic result.
+const (
+	shareHealthPollInterval = 15 * time.Second
+	shareStatTimeout        = 5 * time.Second
+)
 
 // WSMessage represents a WebSocket message
 type WSMessage struct {
@@ -610,6 +627,13 @@ type Connection struct {
 
 	// Atomic flag to track connection status
 	isConnected atomic.Bool
+
+	// shareHealthy is the last result of the background network-share liveness
+	// probe (monitorShareHealth). shareReady() reads this atomically so it never
+	// does a blocking os.Stat on the hot writePump path — a hung/high-latency
+	// mount can no longer freeze the agent's heartbeat/status. Zero value
+	// (false) means "not yet probed"; only consulted for the network_direct tier.
+	shareHealthy atomic.Bool
 
 	// tlsFailures suppresses duplicate TLS failure reports and duplicate console
 	// guidance, so an unreachable address is explained once rather than every
@@ -1413,6 +1437,17 @@ func (c *Connection) readPump() {
 				}
 			}
 
+			// Storage tier (network-share feature): how this agent obtains
+			// wordlists/rules. Push it to the job manager for the ensure* path.
+			if jm, ok := c.jobManager.(*jobs.JobManager); ok {
+				tier, _ := configPayload["storage_tier"].(string)
+				mountPath, _ := configPayload["network_share_mount_path"].(string)
+				jm.SetStorageConfig(tier, mountPath)
+				if tier != "" && tier != "full_cache" {
+					debug.Info("Storage tier set to %q (mount=%q)", tier, mountPath)
+				}
+			}
+
 			debug.Info("Configuration update processed successfully")
 		case WSTypeFileSyncRequest:
 			// Server requested file list
@@ -1606,7 +1641,8 @@ func (c *Connection) readPump() {
 						// immediately instead of failing the task or waiting for
 						// the heartbeat timeout.
 						if strings.Contains(err.Error(), "shutting down") ||
-							strings.Contains(err.Error(), "file map not ready") {
+							strings.Contains(err.Error(), "file map not ready") ||
+							strings.Contains(err.Error(), jobs.ShareNotReadyMarker) {
 							if sendErr := c.SendTaskAssignmentRejected(assignment.TaskID, err.Error()); sendErr != nil {
 								debug.Error("Failed to send task_assignment_rejected for task %s: %v", assignment.TaskID, sendErr)
 							} else {
@@ -1902,6 +1938,12 @@ func (c *Connection) readPump() {
 				defer cancel()
 
 				jobManager := c.jobManager.(*jobs.JobManager)
+
+				// Stamp the immutable-file base so a network_direct benchmark reads
+				// its wordlists/rules off the mounted share (same as a real task via
+				// ExecuteTask). Without this the executor falls back to the local
+				// data dir and the benchmark fails on a clean share-only agent.
+				assignment.ImmutableFileBase = jobManager.ImmutableFileBase()
 
 				/*
 				 * Fetch anything this benchmark needs and does not have --
@@ -2770,6 +2812,12 @@ func (c *Connection) createAgentStatusMessage() (*WSMessage, error) {
 		// An older agent simply omits this key; the backend treats absence as
 		// "ready" (fail-open) so this never gates existing agents out.
 		"file_map_ready": c.fileMapReady(),
+		// share_ready lets a network_direct agent take itself out of operation
+		// when its network-share mount is offline: the scheduler excludes an
+		// agent reporting false so tasks go elsewhere until the share returns.
+		// Non-share tiers (and older agents that omit the key) report/are treated
+		// as ready (fail-open).
+		"share_ready": c.shareReady(),
 		"environment": map[string]string{
 			"os":       runtime.GOOS,
 			"arch":     runtime.GOARCH,
@@ -2932,6 +2980,7 @@ func (c *Connection) Start() error {
 	go c.maintainConnection()
 	go c.readPump()
 	go c.writePump()
+	go c.monitorShareHealth()
 
 	// Send current task status after initial connection
 	// This ensures the backend knows if we have any running tasks
@@ -2984,6 +3033,38 @@ func (c *Connection) SendTaskAssignmentRejected(taskID, reason string) error {
 		return fmt.Errorf("send timeout / channel blocked")
 	}
 	return nil
+}
+
+// SendTaskLoading reports pre-first-progress liveness for a task the agent
+// is still preparing (downloading/verifying/decompressing files, or
+// benchmarking) before hashcat starts. The backend bumps the task's
+// last_activity_at so the sweeper's startup-grace window isn't tripped
+// during a long file pull, and records the phase for the admin UI. Sent
+// best-effort — a drop is harmless (the startup grace still protects the
+// task; the next ping re-establishes liveness).
+func (c *Connection) SendTaskLoading(taskID, phase, fileName string, bytesDone, bytesTotal int64) {
+	if !c.isConnected.Load() {
+		return
+	}
+	payloadBytes, err := json.Marshal(struct {
+		TaskID     string `json:"task_id"`
+		Phase      string `json:"phase"`
+		FileName   string `json:"file_name,omitempty"`
+		BytesDone  int64  `json:"bytes_done,omitempty"`
+		BytesTotal int64  `json:"bytes_total,omitempty"`
+	}{TaskID: taskID, Phase: phase, FileName: fileName, BytesDone: bytesDone, BytesTotal: bytesTotal})
+	if err != nil {
+		debug.Warning("marshal task_loading for task %s: %v", taskID, err)
+		return
+	}
+	msg := &WSMessage{
+		Type:      WSTypeTaskLoading,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+	if !c.safeSendMessage(msg, 2000) {
+		debug.Debug("task_loading send timeout/blocked for task %s (harmless)", taskID)
+	}
 }
 
 func (c *Connection) SendShutdownNotification(hasTask bool, taskID string, jobID string) {
@@ -3221,6 +3302,85 @@ func (c *Connection) initializeFileSync(apiKey, agentID string) error {
 	go c.monitorDownloadProgress()
 
 	return nil
+}
+
+// shareReady reports whether this agent can currently serve tasks with respect
+// to its storage tier. For network_direct it stats the share mount (a down
+// mount → not ready, so the scheduler routes work elsewhere until it returns).
+// For every other tier it is always ready. Defaults to ready if the job manager
+// isn't wired yet.
+func (c *Connection) shareReady() bool {
+	jm, ok := c.jobManager.(*jobs.JobManager)
+	if !ok {
+		return true
+	}
+	if jm.StorageTier() != "network_direct" {
+		return true
+	}
+	if jm.NetworkShareMountPath() == "" {
+		return false // network_direct without a mount path is unusable
+	}
+	// Read the cached probe result (set by monitorShareHealth). NEVER stat here:
+	// this runs on the writePump goroutine via createAgentStatusMessage, and a
+	// blocking stat on a hung mount would freeze every outbound frame (pings,
+	// status, job_progress), disconnecting the agent. Fail-closed: an unprobed
+	// or down/slow mount reports not-ready, so the scheduler routes work away
+	// while the connection stays alive.
+	return c.shareHealthy.Load()
+}
+
+// monitorShareHealth probes the network_direct mount's liveness on its own
+// goroutine and publishes the result to c.shareHealthy for shareReady() to read.
+// The stat is bounded (shareStatTimeout) so a hung/high-latency mount can never
+// block this goroutine beyond the bound; at most one in-flight stat is allowed,
+// so a permanently-hung hard mount leaks a single blocked goroutine rather than
+// one per tick. Non-network_direct tiers are always healthy (no stat). Exits
+// when the connection's done channel closes.
+func (c *Connection) monitorShareHealth() {
+	var statInFlight atomic.Bool
+
+	eval := func() {
+		jm, ok := c.jobManager.(*jobs.JobManager)
+		if !ok || jm.StorageTier() != "network_direct" {
+			c.shareHealthy.Store(true)
+			return
+		}
+		mp := jm.NetworkShareMountPath()
+		if mp == "" {
+			c.shareHealthy.Store(false)
+			return
+		}
+		// If a previous probe is still blocked on a hung mount, don't pile up
+		// another goroutine — report not-ready until it returns.
+		if !statInFlight.CompareAndSwap(false, true) {
+			c.shareHealthy.Store(false)
+			return
+		}
+		res := make(chan bool, 1) // buffered so a late send never blocks after timeout
+		go func() {
+			info, err := os.Stat(mp)
+			res <- (err == nil && info.IsDir())
+			statInFlight.Store(false)
+		}()
+		select {
+		case ok := <-res:
+			c.shareHealthy.Store(ok)
+		case <-time.After(shareStatTimeout):
+			c.shareHealthy.Store(false) // slow/hung → fail-closed (the stat goroutine clears statInFlight when it eventually returns)
+		}
+	}
+
+	eval() // immediate first probe so the first agent_status carries a real value
+	t := time.NewTicker(shareHealthPollInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-t.C:
+			eval()
+		}
+	}
 }
 
 // markFileMapReady tells the job manager it may start accepting work. Safe to

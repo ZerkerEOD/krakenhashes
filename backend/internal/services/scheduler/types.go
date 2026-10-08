@@ -141,6 +141,16 @@ type UnitInfo struct {
 	// not check it on the victim. Defaults to false (migration 000049),
 	// so preemption is opt-in per job. Allocation is unaffected.
 	AllowHighPriorityOverride bool
+
+	// RequiredFiles is the set of immutable, shareable files this unit needs
+	// on the agent that runs it, in wire-path form ("wordlists/general/x.txt",
+	// "rules/hashcat/best64.rule"). Built by buildUnitInfos from the unit's
+	// WordlistRefs + RuleFileRefs, EXCLUDING per-task-only refs (client and
+	// association wordlists), which every agent downloads regardless and which
+	// never live on the share. Consumed ONLY by localityScore for the
+	// dispatch tiebreak — it never gates allocation, so an empty slice simply
+	// means "no locality preference for this unit." Not persisted.
+	RequiredFiles []string
 }
 
 // AgentInfo is what the allocator needs to know about an agent.
@@ -169,6 +179,21 @@ type AgentInfo struct {
 	// which would strand a claimed keyspace interval until the sweeper
 	// evicted it. Zero for on-prem agents.
 	CloudTTLRemainingSec int
+
+	// StorageTier is the agent's storage mode: full_cache, on_demand, or
+	// network_direct (models.StorageTier*). Used only by localityScore — a
+	// network_direct agent reads every shareable file straight off the mount
+	// and downloads nothing, so it is the strongest locality match for an
+	// on-share job. Empty string = unknown, treated as full_cache (today's
+	// behavior). Does not affect allocation counts or fairness.
+	StorageTier string
+
+	// HeldFiles is the set of immutable files this agent already holds
+	// locally, in the same wire-path form as UnitInfo.RequiredFiles. Sourced
+	// from the WS handler's in-memory inventory index (AgentHeldFiles); nil
+	// for agents that haven't reported an inventory yet. Read only by
+	// localityScore for the dispatch tiebreak; never gates allocation.
+	HeldFiles map[string]bool
 }
 
 // Allocation is one (unit, agent) pair the allocator decided on for this

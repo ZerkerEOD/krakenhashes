@@ -1624,6 +1624,50 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 		return nil
 	}
 
+	/*
+	 * NETWORK_DIRECT SHARE-READ TIMEOUT (WS10 C2.4): a network_direct agent reads
+	 * the wordlist/rules directly off the mounted share before hashcat can emit
+	 * its first benchmark status. On a large uncompressed list over a higher-
+	 * latency mount the cold read can exceed even the ×4-widened benchmark window
+	 * (speedtest.go), surfacing here as a timeout. That is the SHARE being slow,
+	 * not the agent being broken — so, exactly like the not-ready case above, it
+	 * must NOT be counted: not toward the per-tuple hard cap (which would fail the
+	 * job after 10) and not toward the combo blocklist (which would sideline the
+	 * agent after 3). Returns BEFORE RecordFailureAttempt for that reason.
+	 *
+	 * Scoped deliberately narrow (IsBenchmarkTimeout, not category.IsTransient):
+	 * a genuine transient fault on a network_direct agent — OOM, GPU watchdog,
+	 * disk full — still flows through the normal counting path below so the hard
+	 * cap remains a real safety valve. Only the timeout shape is exempt. Ordered
+	 * after the hashlist_fatal / job_config fast-fails so a network_direct agent
+	 * that reports a bad hashlist or mask still fails the job as it should.
+	 *
+	 * A short cooldown (reusing the not-ready AddBlocklistEntry gate) stops the
+	 * agent from re-triggering an expensive multi-GB cold read every 3s cycle. A
+	 * share that keeps timing out even after the widened window is the signal to
+	 * move it to the on_demand/full_cache download tiers (latency guidance).
+	 */
+	if agent.StorageTier == models.StorageTierNetworkDirect && errorclass.IsBenchmarkTimeout(errMsg) {
+		expiresAt := time.Now().Add(benchmarkNetworkDirectTimeoutCooldown)
+		jobScoped := jobExecutionID
+		if _, err := benchmarkRepo.AddBlocklistEntry(
+			ctx, agentID, &jobScoped, attackMode, hashType,
+			fmt.Sprintf("network_direct agent %d benchmark read off the share exceeded the window "+
+				"(hash_type=%d, attack_mode=%d); retrying after %s — not counted as a benchmark failure "+
+				"(move the share to on_demand/full_cache if this persists)",
+				agentID, hashType, int(attackMode), benchmarkNetworkDirectTimeoutCooldown),
+			expiresAt,
+		); err != nil {
+			// Non-fatal: without the cooldown we retry sooner than ideal, which is
+			// still far better than counting the timeout toward a job-fail.
+			debug.Warning("AddBlocklistEntry(network_direct-timeout, agent=%d, job=%s): %v", agentID, jobExecutionID, err)
+		}
+		debug.Info("network_direct agent %d benchmark timed out reading the share for job %s "+
+			"(hash_type=%d, attack_mode=%d); not counting as a benchmark failure, retrying after %s: %s",
+			agentID, jobExecutionID, hashType, int(attackMode), benchmarkNetworkDirectTimeoutCooldown, errMsg)
+		return nil
+	}
+
 	// 4. Upsert failure counter.
 	attempt, err := benchmarkRepo.RecordFailureAttempt(
 		ctx, agentID, jobExecutionID, attackMode, hashType, errMsg,
@@ -1858,6 +1902,19 @@ func (s *JobSchedulingService) benchmarkFailureThreshold(ctx context.Context) in
  * it has no work and recycles it.
  */
 const benchmarkNotReadyCooldown = 2 * time.Minute
+
+/*
+ * benchmarkNetworkDirectTimeoutCooldown backs off a network_direct agent after
+ * its benchmark read off the mounted share exceeded the (already ×4-widened,
+ * WS10 C2.2) speed-test window. Like the not-ready path this is NOT counted as a
+ * failure (the share is slow, not the agent), but without a cooldown the agent
+ * is eligible again on the very next 3-second cycle and each retry re-triggers
+ * an expensive multi-GB cold read off the same slow mount. Two minutes lets the
+ * OS page cache stay warm for a genuine retry while making clear that a share
+ * which keeps timing out even after the widened window should be served through
+ * the on_demand/full_cache download tiers instead (the latency guidance).
+ */
+const benchmarkNetworkDirectTimeoutCooldown = 2 * time.Minute
 
 func (s *JobSchedulingService) benchmarkBlocklistCooldown(ctx context.Context) time.Duration {
 	const defaultCooldown = 24 * time.Hour

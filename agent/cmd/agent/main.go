@@ -40,6 +40,12 @@ type agentConfig struct {
 	dataDir            string // Data directory for binaries, wordlists, rules, and hashlists
 	testMode           bool   // Enable test mode (simulate GPU work without real hardware)
 	ephemeral          bool   // Disposable instance: read config from the environment, never touch .env
+	// Network-share storage (feature/network-share-storage, WS9). Seed-only:
+	// these set the agent's initial tier/mount and are reported to the server at
+	// registration; the admin UI is authoritative afterwards (the backend
+	// re-asserts its value via config_update on every reconnect).
+	storageTier           string // full_cache (default) | on_demand | network_direct
+	networkShareMountPath string // read-only mount path used by the network_direct tier
 }
 
 /*
@@ -211,6 +217,19 @@ func loadConfig(cfg agentConfig) agentConfig {
 		cfg.dataDir = filepath.Join(cwd, "data")
 	}
 
+	// Storage tier + network-share mount path (seed-only; WS9).
+	// Precedence: flag > .env|environment > default. Resolved here so the value
+	// is both persisted to .env (below) and reported to the server at
+	// registration. normalizeStorageConfig clamps a bad combination so a
+	// misconfigured agent still starts.
+	if cfg.storageTier == "" {
+		cfg.storageTier = lookup("KH_STORAGE_TIER")
+	}
+	if cfg.networkShareMountPath == "" {
+		cfg.networkShareMountPath = lookup("KH_NETWORK_SHARE_MOUNT_PATH")
+	}
+	cfg.storageTier, cfg.networkShareMountPath = normalizeStorageConfig(cfg.storageTier, cfg.networkShareMountPath)
+
 	// Reinitialize debug after loading configuration
 	if cfg.debug {
 		os.Setenv("DEBUG", "true")
@@ -241,11 +260,36 @@ func loadConfig(cfg agentConfig) agentConfig {
 	os.Setenv("KH_HOST", cfg.host)
 	os.Setenv("USE_TLS", fmt.Sprintf("%t", cfg.useTLS))
 	os.Setenv("HEARTBEAT_INTERVAL", fmt.Sprintf("%d", cfg.heartbeatInterval))
-	
+
 	debug.Info("Set KH_CONFIG_DIR to: %s", cfg.configDir)
 	debug.Info("Set KH_DATA_DIR to: %s", cfg.dataDir)
 
 	return cfg
+}
+
+// normalizeStorageConfig validates the seed-only storage settings locally so a
+// misconfigured agent still starts (the admin UI is authoritative afterwards).
+// An unknown tier falls back to full_cache; network_direct without a mount path
+// also falls back to full_cache (there is nothing to read from). The mount path
+// is kept only for the network_direct tier, matching the server-side rules.
+func normalizeStorageConfig(tier, mountPath string) (string, string) {
+	tier = strings.ToLower(strings.TrimSpace(tier))
+	mountPath = strings.TrimSpace(mountPath)
+	switch tier {
+	case "", "full_cache":
+		return "full_cache", ""
+	case "on_demand":
+		return "on_demand", ""
+	case "network_direct":
+		if mountPath == "" {
+			debug.Warning("storage tier network_direct requested without a mount path; falling back to full_cache")
+			return "full_cache", ""
+		}
+		return "network_direct", mountPath
+	default:
+		debug.Warning("unknown storage tier %q; falling back to full_cache", tier)
+		return "full_cache", ""
+	}
 }
 
 // updateEnvFile creates or updates the .env file with current configuration
@@ -273,6 +317,8 @@ func updateEnvFile(cfg agentConfig, existingEnv map[string]string, fileExists bo
 		"LOG_LEVEL":                   "DEBUG",
 		"KH_MAX_CONCURRENT_DOWNLOADS": "3",
 		"KH_DOWNLOAD_TIMEOUT":         "1h",
+		"KH_STORAGE_TIER":             cfg.storageTier,
+		"KH_NETWORK_SHARE_MOUNT_PATH": cfg.networkShareMountPath,
 	}
 
 	// Merge with existing values (existing values take precedence for non-command-line settings)
@@ -321,6 +367,14 @@ func updateEnvFile(cfg agentConfig, existingEnv map[string]string, fileExists bo
 		if isFlagPassed("data-dir") {
 			finalEnv["KH_DATA_DIR"] = cfg.dataDir
 		}
+		// Storage settings are already resolved+clamped in loadConfig from
+		// (flag > existing .env > default), so cfg holds the authoritative value.
+		// Persist it unconditionally so the .env never drifts from what the agent
+		// actually runs with (the clamp only downgrades an invalid combination —
+		// network_direct with no mount-path string — so this corrects a genuine
+		// misconfig rather than clobbering a working setup).
+		finalEnv["KH_STORAGE_TIER"] = cfg.storageTier
+		finalEnv["KH_NETWORK_SHARE_MOUNT_PATH"] = cfg.networkShareMountPath
 	} else {
 		// New file, use all values from config
 		finalEnv = newEnv
@@ -363,6 +417,13 @@ LOG_LEVEL=%s
 
 # Test Mode Configuration
 TEST_MODE=%s  # Enable mock mode for testing without GPUs
+
+# Storage Configuration (network-share feature)
+# Storage tier: full_cache (default, download & keep everything) | on_demand | network_direct.
+# Seeds the server at registration; the admin UI is authoritative afterwards.
+KH_STORAGE_TIER=%s
+# Read-only mount path for the network_direct tier (on-prem only), e.g. /mnt/kh-agent-share
+KH_NETWORK_SHARE_MOUNT_PATH=%s
 `,
 		time.Now().Format(time.RFC3339),
 		finalEnv["KH_HOST"],
@@ -378,7 +439,9 @@ TEST_MODE=%s  # Enable mock mode for testing without GPUs
 		finalEnv["HASHCAT_EXTRA_PARAMS"],
 		finalEnv["DEBUG"],
 		getEnvOrDefault(finalEnv, "LOG_LEVEL", "DEBUG"),
-		finalEnv["TEST_MODE"])
+		finalEnv["TEST_MODE"],
+		getEnvOrDefault(finalEnv, "KH_STORAGE_TIER", "full_cache"),
+		finalEnv["KH_NETWORK_SHARE_MOUNT_PATH"])
 
 	// Preserve any extra variables that exist in the original .env but aren't in the template
 	// This includes MOCK_* variables and any other custom configuration
@@ -389,6 +452,7 @@ TEST_MODE=%s  # Enable mock mode for testing without GPUs
 		"KH_PING_PERIOD": true, "KH_MAX_CONCURRENT_DOWNLOADS": true,
 		"KH_DOWNLOAD_TIMEOUT": true, "HASHCAT_EXTRA_PARAMS": true,
 		"DEBUG": true, "LOG_LEVEL": true, "TEST_MODE": true,
+		"KH_STORAGE_TIER": true, "KH_NETWORK_SHARE_MOUNT_PATH": true,
 	}
 
 	if fileExists && len(existingEnv) > 0 {
@@ -514,6 +578,8 @@ func main() {
 	flag.StringVar(&cfg.configDir, "config-dir", "", "Configuration directory for certificates and credentials")
 	flag.StringVar(&cfg.dataDir, "data-dir", "", "Data directory for binaries, wordlists, rules, and hashlists")
 	flag.BoolVar(&cfg.ephemeral, "ephemeral", false, "Disposable instance: read config from environment variables and never read or write .env (also settable via KH_EPHEMERAL)")
+	flag.StringVar(&cfg.storageTier, "storage-tier", "", "Storage tier: full_cache (default), on_demand, or network_direct. Seeds the server at registration; the admin UI is authoritative afterwards (also settable via KH_STORAGE_TIER)")
+	flag.StringVar(&cfg.networkShareMountPath, "network-share-mount-path", "", "Read-only mount path for the network_direct tier, e.g. /mnt/kh-agent-share (also settable via KH_NETWORK_SHARE_MOUNT_PATH)")
 	flag.Parse()
 
 	// Resolve ephemeral mode before anything reads or writes .env.
@@ -559,6 +625,15 @@ func main() {
 	} else {
 		debug.Info("Executable path: %s", execPath)
 		debug.Info("Executable directory: %s", filepath.Dir(execPath))
+
+		// Never-run-from-a-mount guard (network-share feature): the agent binary
+		// must live on local disk. If it sits on a network mount, that mount
+		// vanishing mid-run would take the running process with it. A network
+		// share may back the DATA directory, but never the executable itself.
+		if isNet, ok := jobs.IsNetworkFS(execPath); ok && isNet {
+			debug.Error("Refusing to start: the agent binary at %s is on a network filesystem. Install the agent on local disk; only the data directory may be a network mount.", execPath)
+			os.Exit(1)
+		}
 	}
 
 	// Flag to track if .env file was loaded successfully.
@@ -736,7 +811,7 @@ func main() {
 			console.Status("Registering agent with claim code...")
 
 			// Attempt registration
-			if err := agent.RegisterAgent(cfg.claimCode, urlConfig); err != nil {
+			if err := agent.RegisterAgent(cfg.claimCode, urlConfig, cfg.storageTier, cfg.networkShareMountPath); err != nil {
 				debug.Error("Failed to register agent: %v", err)
 				console.Error("Failed to register agent: %v", err)
 				os.Exit(1)
@@ -768,7 +843,7 @@ func main() {
 		console.Status("Re-registering agent with claim code...")
 
 		// Attempt registration
-		if err := agent.RegisterAgent(cfg.claimCode, urlConfig); err != nil {
+		if err := agent.RegisterAgent(cfg.claimCode, urlConfig, cfg.storageTier, cfg.networkShareMountPath); err != nil {
 			debug.Error("Failed to register agent: %v", err)
 			console.Error("Failed to register agent: %v", err)
 			os.Exit(1)
@@ -831,6 +906,16 @@ func main() {
 			debug.Info("Job manager created successfully with hardware monitor")
 		}
 
+		// Seed the storage tier from local config (flag/env) so the agent reads
+		// from the right place on its very first task, before the backend's first
+		// config_update arrives. Seed-only (WS9): the backend re-asserts its DB
+		// value on every reconnect, so the admin UI stays authoritative. A
+		// full_cache tier needs no seed (it is the JobManager default).
+		if cfg.storageTier != "" && cfg.storageTier != "full_cache" {
+			jobManager.SetStorageConfig(cfg.storageTier, cfg.networkShareMountPath)
+			debug.Info("Seeded storage tier from local config: %s (mount=%s)", cfg.storageTier, cfg.networkShareMountPath)
+		}
+
 		// Set the job manager in the connection
 		conn.SetJobManager(jobManager)
 
@@ -866,7 +951,7 @@ func main() {
 		// Device detection is triggered by config_update message from backend
 		// This ensures the preferred binary version is set before detection runs
 		// Running detection here would cause a race condition with config_update
-		
+
 		// Set up dual callbacks for status and cracks
 		statusCallback := func(status *jobs.JobStatus) {
 			debug.Debug("Job status: Task %s, Progress %.2f%%, Hash rate %d H/s",
@@ -919,6 +1004,16 @@ func main() {
 		}
 		jobManager.SetOutputCallback(outputCallback)
 		debug.Info("Output callback configured to send hashcat output to backend")
+
+		// Set up task_loading callback: pre-first-progress liveness pings while
+		// a task's wordlists/rules/binary download and verify and the benchmark
+		// runs, so the backend refreshes last_activity_at and the sweeper's
+		// startup-grace window isn't tripped during a long (15-40GB) pull.
+		taskLoadingCallback := func(taskID, phase, fileName string, bytesDone, bytesTotal int64) {
+			conn.SendTaskLoading(taskID, phase, fileName, bytesDone, bytesTotal)
+		}
+		jobManager.SetTaskLoadingCallback(taskLoadingCallback)
+		debug.Info("Task loading callback configured for pre-progress liveness")
 
 		// Wire orphan reconciliation: on "Already an instance" detections the
 		// executor reconciles locally (kills foreign PIDs, leaves our own
