@@ -27,6 +27,10 @@ func (h *hashlistHandler) handleConfirmValidation(w http.ResponseWriter, r *http
 		return
 	}
 
+	if !h.requireHashlistAccess(w, ctx, id) {
+		return
+	}
+
 	var body struct {
 		Action string `json:"action"`
 	}
@@ -148,6 +152,10 @@ func (h *hashlistHandler) handleRevalidate(w http.ResponseWriter, r *http.Reques
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		jsonError(w, "Invalid hashlist id", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireHashlistAccess(w, ctx, id) {
 		return
 	}
 
@@ -276,6 +284,10 @@ func (h *hashlistHandler) handleChangeHashlistHashType(w http.ResponseWriter, r 
 		return
 	}
 
+	if !h.requireHashlistAccess(w, ctx, id) {
+		return
+	}
+
 	var body struct {
 		HashTypeID int `json:"hash_type_id"`
 	}
@@ -364,6 +376,10 @@ func (h *hashlistHandler) handleListInvalidHashes(w http.ResponseWriter, r *http
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		jsonError(w, "Invalid hashlist id", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireHashlistAccess(w, ctx, id) {
 		return
 	}
 

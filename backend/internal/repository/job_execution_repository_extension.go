@@ -490,8 +490,43 @@ func (r *JobExecutionRepository) Delete(ctx context.Context, id uuid.UUID) error
 	return nil
 }
 
-// DeleteFinished deletes all completed job executions
+// DeleteFinished deletes all finished (completed/failed/cancelled), non-archived job
+// executions regardless of team. Used when Multi-Team Mode is off or the caller is an admin.
 func (r *JobExecutionRepository) DeleteFinished(ctx context.Context) (int, error) {
+	return r.deleteFinished(ctx, nil)
+}
+
+// DeleteFinishedForTeams deletes finished, non-archived job executions whose hashlist's client is
+// assigned to at least one of teamIDs. An empty team list deletes nothing (fail closed), so a
+// non-admin with no team membership cannot clear anyone's jobs (GH #100).
+func (r *JobExecutionRepository) DeleteFinishedForTeams(ctx context.Context, teamIDs []uuid.UUID) (int, error) {
+	if len(teamIDs) == 0 {
+		return 0, nil
+	}
+	return r.deleteFinished(ctx, teamIDs)
+}
+
+// deleteFinished is the shared implementation. When teamIDs is nil the scope is global; otherwise
+// the finished-job subquery is additionally restricted to hashlists reachable through client_teams.
+func (r *JobExecutionRepository) deleteFinished(ctx context.Context, teamIDs []uuid.UUID) (int, error) {
+	finishedSub := `
+		SELECT je.id FROM job_executions je
+		WHERE je.status IN ('completed', 'failed', 'cancelled') AND je.archived_at IS NULL`
+	var args []interface{}
+	if teamIDs != nil {
+		ids := make([]string, len(teamIDs))
+		for i, id := range teamIDs {
+			ids[i] = id.String()
+		}
+		finishedSub += `
+		  AND je.hashlist_id IN (
+			SELECT h.id FROM hashlists h
+			JOIN client_teams ct ON ct.client_id = h.client_id
+			WHERE ct.team_id = ANY($1::uuid[])
+		  )`
+		args = append(args, pq.Array(ids))
+	}
+
 	// Start transaction
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -499,44 +534,35 @@ func (r *JobExecutionRepository) DeleteFinished(ctx context.Context) (int, error
 	}
 	defer tx.Rollback()
 
-	// Clear any references to finished jobs in the interrupted_by column (exclude archived)
+	// Clear any references to finished jobs in the interrupted_by column
 	_, err = tx.ExecContext(ctx, `
 		UPDATE job_executions
 		SET interrupted_by = NULL
-		WHERE interrupted_by IN (
-			SELECT id FROM job_executions
-			WHERE status IN ('completed', 'failed', 'cancelled') AND archived_at IS NULL
-		)`)
+		WHERE interrupted_by IN (`+finishedSub+`)`, args...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to clear interrupted_by references: %w", err)
 	}
 
-	// Delete related performance metrics (exclude archived)
+	// Delete related performance metrics
 	_, err = tx.ExecContext(ctx, `
 		DELETE FROM job_performance_metrics
-		WHERE job_execution_id IN (
-			SELECT id FROM job_executions
-			WHERE status IN ('completed', 'failed', 'cancelled') AND archived_at IS NULL
-		)`)
+		WHERE job_execution_id IN (`+finishedSub+`)`, args...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete related performance metrics: %w", err)
 	}
 
-	// Delete related tasks (exclude archived)
+	// Delete related tasks
 	_, err = tx.ExecContext(ctx, `
 		DELETE FROM job_tasks
-		WHERE job_execution_id IN (
-			SELECT id FROM job_executions
-			WHERE status IN ('completed', 'failed', 'cancelled') AND archived_at IS NULL
-		)`)
+		WHERE job_execution_id IN (`+finishedSub+`)`, args...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete related job tasks: %w", err)
 	}
 
-	// Delete finished job executions (exclude archived)
+	// Delete finished job executions
 	result, err := tx.ExecContext(ctx, `
 		DELETE FROM job_executions
-		WHERE status IN ('completed', 'failed', 'cancelled') AND archived_at IS NULL`)
+		WHERE id IN (`+finishedSub+`)`, args...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete finished job executions: %w", err)
 	}

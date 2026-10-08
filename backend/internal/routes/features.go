@@ -10,6 +10,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/jobs"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/pot"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/vouchers"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -50,8 +51,13 @@ func SetupAgentRoutes(jwtRouter *mux.Router, agentService *services.AgentService
 	// Retry auto-update route - recover an agent stuck after exhausting attempts
 	jwtRouter.HandleFunc("/agents/{id}/retry-update", agentHandler.RetryUpdate).Methods("POST", "OPTIONS")
 
-	// Force cleanup route - note: this requires admin role middleware to be added separately
+	// Force cleanup route - admin only. It broadcasts a destructive command to an agent's
+	// hashcat process and has no user-facing caller, so the role check lives here (GH #100).
 	jwtRouter.HandleFunc("/agents/{id}/force-cleanup", func(w http.ResponseWriter, r *http.Request) {
+		if !middleware.IsAdminFromContext(r.Context()) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 		// Use the global JobIntegrationManager if available
 		if JobIntegrationManager != nil && JobIntegrationManager.GetWebSocketIntegration() != nil {
 			handler := admin.NewForceCleanupHandler(JobIntegrationManager.GetWebSocketIntegration())

@@ -159,6 +159,10 @@ jobs:
               # handlers/auth and integration_test share the test database and
               # truncate it, which is exactly why -p 1 is required (GH #89).
               #
+              # routes, handlers/jobs, handlers/analytics and handlers/api/team
+              # carry the Multi-Team isolation suites (GH #100); they truncate
+              # the shared database too.
+              #
               # ./internal/services/scheduler is excluded: it has 3 known
               # failures from a genuine spec disagreement about max_agents_fifo
               # overflow (migration 000154's setting description says
@@ -173,6 +177,10 @@ jobs:
                     ./internal/models/... \
                     ./internal/handlers/admin/... \
                     ./internal/handlers/auth/... \
+                    ./internal/handlers/jobs/... \
+                    ./internal/handlers/analytics/... \
+                    ./internal/handlers/api/team/... \
+                    ./internal/routes/... \
                     ./internal/integration_test/... \
                     ./internal/testutil/...
 

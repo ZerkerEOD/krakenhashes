@@ -875,17 +875,23 @@ func (r *BenchmarkRepository) IsBlocklisted(
 	return exists, nil
 }
 
-// ClearBlocklistEntry marks a specific entry as cleared by a user. Returns
-// sql.ErrNoRows if the entry is already cleared or doesn't exist.
+// ClearBlocklistEntry marks a specific entry as cleared by a user. The entry must be scoped to
+// jobExecutionID; global entries (job_execution_id IS NULL) are only clearable when allowGlobal
+// is set (admins). Returns sql.ErrNoRows if no matching active entry exists, so a caller who has
+// access to one job cannot clear entries belonging to another (GH #100).
 func (r *BenchmarkRepository) ClearBlocklistEntry(
 	ctx context.Context,
 	entryID uuid.UUID,
+	jobExecutionID uuid.UUID,
 	clearedBy uuid.UUID,
+	allowGlobal bool,
 ) error {
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE agent_benchmark_blocklist
-		SET cleared_at = CURRENT_TIMESTAMP, cleared_by = $2
-		WHERE id = $1 AND cleared_at IS NULL`, entryID, clearedBy)
+		SET cleared_at = CURRENT_TIMESTAMP, cleared_by = $3
+		WHERE id = $1 AND cleared_at IS NULL
+		  AND (job_execution_id = $2 OR ($4 AND job_execution_id IS NULL))`,
+		entryID, jobExecutionID, clearedBy, allowGlobal)
 	if err != nil {
 		return fmt.Errorf("clear blocklist entry: %w", err)
 	}

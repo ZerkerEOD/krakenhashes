@@ -323,6 +323,23 @@ func (r *AnalyticsRepository) GetQueuedReports(ctx context.Context) ([]*models.A
 }
 
 // GetNextQueuePosition returns the next available queue position
+// CountHashlistsForClient returns how many of the given hashlist IDs exist AND belong to clientID.
+// Callers compare the result against the number of distinct IDs requested to enforce that a
+// report never references another client's (and therefore possibly another team's) hashlists.
+func (r *AnalyticsRepository) CountHashlistsForClient(ctx context.Context, clientID uuid.UUID, hashlistIDs []int64) (int, error) {
+	if len(hashlistIDs) == 0 {
+		return 0, nil
+	}
+	var n int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(DISTINCT id) FROM hashlists WHERE client_id = $1 AND id = ANY($2)`,
+		clientID, pq.Array(hashlistIDs)).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count hashlists for client: %w", err)
+	}
+	return n, nil
+}
+
 func (r *AnalyticsRepository) GetNextQueuePosition(ctx context.Context) (int, error) {
 	query := `
 		SELECT COALESCE(MAX(queue_position), 0) + 1
@@ -644,7 +661,7 @@ func (r *AnalyticsRepository) GetEffectiveHashes(ctx context.Context, hashlistID
 }
 
 // HashWithHashlist is a temporary struct for analytics queries that need hashlist tracking
-type HashWithHashlist struct{
+type HashWithHashlist struct {
 	Hash       models.Hash
 	HashlistID int64
 }

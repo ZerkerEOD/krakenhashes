@@ -1,6 +1,7 @@
 package team
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -201,6 +202,20 @@ func (h *Handler) ListUserTeams(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, response)
 }
 
+// requireTeamMembership returns false (after writing a 404) unless the caller may read teamID's
+// details: teams disabled (shared workspace), a system admin, or a member of that team. 404 is
+// used rather than 403 so team IDs cannot be confirmed by probing (GH #100).
+func (h *Handler) requireTeamMembership(w http.ResponseWriter, ctx context.Context, teamID uuid.UUID) bool {
+	if !middleware.IsTeamsEnabledFromContext(ctx) || middleware.IsAdminFromContext(ctx) {
+		return true
+	}
+	if !middleware.IsUserInTeamFromContext(ctx, teamID) {
+		respondWithError(w, http.StatusNotFound, "Team not found")
+		return false
+	}
+	return true
+}
+
 // GetTeam returns a specific team
 // GET /api/teams/{id}
 func (h *Handler) GetTeam(w http.ResponseWriter, r *http.Request) {
@@ -210,6 +225,10 @@ func (h *Handler) GetTeam(w http.ResponseWriter, r *http.Request) {
 	teamID, err := uuid.Parse(teamIDStr)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid team ID")
+		return
+	}
+
+	if !h.requireTeamMembership(w, ctx, teamID) {
 		return
 	}
 
@@ -263,6 +282,10 @@ func (h *Handler) ListMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.requireTeamMembership(w, ctx, teamID) {
+		return
+	}
+
 	members, err := h.teamService.GetTeamMembers(ctx, teamID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
@@ -295,6 +318,10 @@ func (h *Handler) ListTeamClients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.requireTeamMembership(w, ctx, teamID) {
+		return
+	}
+
 	clients, err := h.teamService.GetClientsForTeam(ctx, teamID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
@@ -313,6 +340,10 @@ func (h *Handler) ListTeamAgents(w http.ResponseWriter, r *http.Request) {
 	teamID, err := uuid.Parse(teamIDStr)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid team ID")
+		return
+	}
+
+	if !h.requireTeamMembership(w, ctx, teamID) {
 		return
 	}
 

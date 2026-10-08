@@ -2227,13 +2227,26 @@ func (h *UserJobsHandler) DeleteFinishedJobs(w http.ResponseWriter, r *http.Requ
 
 	// Sweep ephemeral (__eph__) filtered wordlists owned by terminal jobs first, so the
 	// bulk cascade delete below doesn't orphan their files on disk (GH #40).
-	if err := h.jobExecutionService.SweepEphemeralWordlists(ctx); err != nil {
-		debug.Error("Failed to sweep ephemeral wordlists before deleting finished jobs: %v", err)
-		// Continue; best-effort cleanup
+	// This sweep is intentionally global: it only removes job-owned temporary wordlists that
+	// are already slated for deletion and exposes no data.
+	if h.jobExecutionService != nil {
+		if err := h.jobExecutionService.SweepEphemeralWordlists(ctx); err != nil {
+			debug.Error("Failed to sweep ephemeral wordlists before deleting finished jobs: %v", err)
+			// Continue; best-effort cleanup
+		}
 	}
 
-	// Delete all completed jobs
-	deletedCount, err := h.jobExecRepo.DeleteFinished(ctx)
+	// Delete finished jobs. With Multi-Team Mode on, non-admins only clear jobs on hashlists
+	// their teams can access; an empty team list deletes nothing (GH #100).
+	var (
+		deletedCount int
+		err          error
+	)
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		deletedCount, err = h.jobExecRepo.DeleteFinishedForTeams(ctx, middleware.GetUserTeamIDsFromContext(ctx))
+	} else {
+		deletedCount, err = h.jobExecRepo.DeleteFinished(ctx)
+	}
 	if err != nil {
 		debug.Error("Failed to delete finished jobs: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -2255,6 +2268,11 @@ func (h *UserJobsHandler) ArchiveJob(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check (404 on deny, mirrors DeleteJob)
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
 		return
 	}
 
@@ -2296,6 +2314,11 @@ func (h *UserJobsHandler) UnarchiveJob(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check (404 on deny, mirrors DeleteJob)
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
 		return
 	}
 
@@ -2972,10 +2995,13 @@ func (h *UserJobsHandler) ClearBenchmarkBlocklistEntry(w http.ResponseWriter, r 
 		return
 	}
 
-	if err := h.benchmarkRepo.ClearBlocklistEntry(ctx, entryID, userID); err != nil {
+	// Entries are cleared only within the job the caller was authorised for; global entries
+	// (no job) require admin. Anything else is reported as not found (GH #100).
+	allowGlobal := middleware.IsAdminFromContext(ctx)
+	if err := h.benchmarkRepo.ClearBlocklistEntry(ctx, entryID, jobID, userID, allowGlobal); err != nil {
 		// ClearBlocklistEntry returns sql.ErrNoRows when the entry is already
-		// cleared or doesn't exist — treat both as 404 so the UI can refresh
-		// the list.
+		// cleared, doesn't exist, or is not scoped to this job — treat all as
+		// 404 so the UI can refresh the list.
 		debug.Warning("ClearBlocklistEntry(%s): %v", entryID, err)
 		http.Error(w, "Entry not found or already cleared", http.StatusNotFound)
 		return
