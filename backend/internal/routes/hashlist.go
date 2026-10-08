@@ -1121,12 +1121,6 @@ func (h *hashlistHandler) handleListUserHashlists(w http.ResponseWriter, r *http
 
 func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userID, err := getUserIDFromContext(ctx)
-	if err != nil {
-		jsonError(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	id, err := getInt64FromPath(r, "id")
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -1134,12 +1128,8 @@ func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Team access check - return 404 to prevent enumeration
-	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
-		canAccess, err := h.teamService.CanUserAccessHashlist(ctx, userID, id, false)
-		if err != nil || !canAccess {
-			jsonError(w, "Hashlist not found", http.StatusNotFound)
-			return
-		}
+	if !h.requireHashlistAccess(w, ctx, id) {
+		return
 	}
 
 	hashlist, err := h.hashlistRepo.GetByID(ctx, id)
@@ -1220,12 +1210,6 @@ func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Reque
 
 func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userID, err := getUserIDFromContext(ctx)
-	if err != nil {
-		jsonError(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	id, err := getInt64FromPath(r, "id")
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -1233,12 +1217,8 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 	}
 
 	// Team access check - return 404 to prevent enumeration
-	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
-		canAccess, accessErr := h.teamService.CanUserAccessHashlist(ctx, userID, id, false)
-		if accessErr != nil || !canAccess {
-			jsonError(w, "Hashlist not found", http.StatusNotFound)
-			return
-		}
+	if !h.requireHashlistAccess(w, ctx, id) {
+		return
 	}
 
 	// Parse optional request body for potfile removal options (TWO separate options)
@@ -1499,6 +1479,10 @@ func (h *hashlistHandler) handleGetDeletionProgress(w http.ResponseWriter, r *ht
 		return
 	}
 
+	if !h.requireHashlistAccess(w, ctx, id) {
+		return
+	}
+
 	progress := h.deletionProgressService.GetProgress(id)
 	if progress == nil {
 		// No deletion in progress or recently completed
@@ -1521,6 +1505,10 @@ func (h *hashlistHandler) handleGetProcessingProgress(w http.ResponseWriter, r *
 	id, err := getInt64FromPath(r, "id")
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireHashlistAccess(w, ctx, id) {
 		return
 	}
 
@@ -1677,6 +1665,10 @@ func (h *hashlistHandler) handleArchiveHashlist(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if !h.requireHashlistAccess(w, ctx, id) {
+		return
+	}
+
 	// Check for active jobs
 	hasActive, err := h.hashlistRepo.HasActiveJobs(ctx, id)
 	if err != nil {
@@ -1718,6 +1710,10 @@ func (h *hashlistHandler) handleUnarchiveHashlist(w http.ResponseWriter, r *http
 		return
 	}
 
+	if !h.requireHashlistAccess(w, ctx, id) {
+		return
+	}
+
 	err = h.hashlistRepo.Unarchive(ctx, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -1740,18 +1736,11 @@ func (h *hashlistHandler) handleDownloadHashlist(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Check if request is from an agent or user
-	isAgentRequest := strings.HasPrefix(r.URL.Path, "/agent/")
-
-	if !isAgentRequest {
-		_, err = getUserIDFromContext(ctx)
-		if err != nil {
-			jsonError(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		// Note: Ownership check removed - all authenticated users can download all hashlists
-		// This will change when teams are implemented
-	} // Agent requests are authenticated by AgentAPIKeyMiddleware
+	// Team access check - return 404 to prevent enumeration.
+	// Agent downloads do not go through this handler (see filesync.go /api/agent/hashlists).
+	if !h.requireHashlistAccess(w, ctx, id) {
+		return
+	}
 
 	hashlist, err := h.hashlistRepo.GetByID(ctx, id)
 	if err != nil {
@@ -1764,96 +1753,8 @@ func (h *hashlistHandler) handleDownloadHashlist(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// For agent requests, generate uncracked hashes dynamically from database
-	if isAgentRequest {
-		h.serveUncrackedHashlist(w, r, hashlist)
-		return
-	}
-
-	// For user requests, generate the original format dynamically from the database
+	// Generate the original format dynamically from the database
 	h.serveOriginalHashlist(w, r, hashlist)
-}
-
-// serveUncrackedHashlist generates and streams uncracked hash_value fields for agents
-func (h *hashlistHandler) serveUncrackedHashlist(w http.ResponseWriter, r *http.Request, hashlist *models.HashList) {
-	ctx := r.Context()
-
-	// Set headers for streaming download
-	filename := fmt.Sprintf("%d.hash", hashlist.ID)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Transfer-Encoding", "chunked")
-
-	debug.Debug("Streaming uncracked hashes for agent download [hashlist_id=%d, hash_type=%d]", hashlist.ID, hashlist.HashTypeID)
-
-	// Use buffered writer for much better performance
-	// 256KB buffer with 32KB flush interval reduces flushes from millions to thousands
-	const flushInterval = 32 * 1024 // 32KB flush interval
-	var bytesWritten int
-
-	bufWriter := bufio.NewWriterSize(w, 256*1024) // 256KB buffer
-	defer bufWriter.Flush()
-
-	var err error
-
-	// For LM hashes (hash_type_id 3000), stream unique 16-character halves
-	// LM hashes must be cracked as two separate halves, not as full 32-char hashes
-	if hashlist.HashTypeID == 3000 {
-		err = h.hashRepo.StreamUncrackedLMHashHalvesForHashlist(ctx, hashlist.ID, func(hashHalf string) error {
-			// Write 16-char LM hash half (with newline)
-			n, err := bufWriter.WriteString(hashHalf)
-			if err != nil {
-				return fmt.Errorf("failed to write LM hash half: %w", err)
-			}
-			bufWriter.WriteByte('\n')
-			bytesWritten += n + 1
-
-			// Flush periodically for streaming (every 32KB, not every line)
-			if bytesWritten >= flushInterval {
-				if err := bufWriter.Flush(); err != nil {
-					return fmt.Errorf("failed to flush buffer: %w", err)
-				}
-				if flusher, ok := w.(http.Flusher); ok {
-					flusher.Flush()
-				}
-				bytesWritten = 0
-			}
-
-			return nil
-		})
-	} else {
-		// For non-LM hashes, stream full hash values as before
-		err = h.hashRepo.StreamUncrackedHashValuesForHashlist(ctx, hashlist.ID, func(hashValue string) error {
-			// Write hash_value (with newline)
-			n, err := bufWriter.WriteString(hashValue)
-			if err != nil {
-				return fmt.Errorf("failed to write hash: %w", err)
-			}
-			bufWriter.WriteByte('\n')
-			bytesWritten += n + 1
-
-			// Flush periodically for streaming (every 32KB, not every line)
-			if bytesWritten >= flushInterval {
-				if err := bufWriter.Flush(); err != nil {
-					return fmt.Errorf("failed to flush buffer: %w", err)
-				}
-				if flusher, ok := w.(http.Flusher); ok {
-					flusher.Flush()
-				}
-				bytesWritten = 0
-			}
-
-			return nil
-		})
-	}
-
-	// Final flush is handled by defer bufWriter.Flush()
-	if err != nil {
-		debug.Error("Error streaming uncracked hashes for hashlist %d: %v", hashlist.ID, err)
-		// Can't send error response here as headers are already sent
-	} else {
-		debug.Debug("Successfully streamed uncracked hashes for hashlist %d", hashlist.ID)
-	}
 }
 
 // serveOriginalHashlist generates and serves the original format hashlist from the database
@@ -1950,6 +1851,10 @@ func (h *hashlistHandler) handleGetHashlistHashes(w http.ResponseWriter, r *http
 		return
 	}
 
+	if !h.requireHashlistAccess(w, ctx, id) {
+		return
+	}
+
 	// Check if the hashlist exists
 	_, err = h.hashlistRepo.GetByID(ctx, id)
 	if err != nil {
@@ -1961,9 +1866,6 @@ func (h *hashlistHandler) handleGetHashlistHashes(w http.ResponseWriter, r *http
 		jsonError(w, "Failed to retrieve hashlist", http.StatusInternalServerError)
 		return
 	}
-
-	// Note: Ownership check removed - all authenticated users can access all hashlists
-	// This will change when teams are implemented
 
 	// Parse pagination parameters
 	limit := 500 // Default limit increased to 500 for better UX
@@ -2173,21 +2075,6 @@ func (h *hashlistHandler) handleDeleteHashType(w http.ResponseWriter, r *http.Re
 
 // 2.3. Clients Handlers
 
-func (h *hashlistHandler) handleListClients(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	// Auth middleware ensures user is logged in
-
-	// TODO: Add pagination?
-	clients, err := h.clientRepo.List(ctx)
-	if err != nil {
-		debug.Error("Error listing clients: %v", err)
-		jsonError(w, "Failed to retrieve clients", http.StatusInternalServerError)
-		return
-	}
-
-	jsonResponse(w, http.StatusOK, clients)
-}
-
 func (h *hashlistHandler) handleSearchClients(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	query := r.URL.Query().Get("q")
@@ -2255,115 +2142,6 @@ func (h *hashlistHandler) handleSearchClients(w http.ResponseWriter, r *http.Req
 	}
 
 	jsonResponse(w, http.StatusOK, clients)
-}
-
-func (h *hashlistHandler) handleGetClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	id, err := getUUIDFromPath(r, "id")
-	if err != nil {
-		jsonError(w, "Invalid client ID format", http.StatusBadRequest)
-		return
-	}
-
-	client, err := h.clientRepo.GetByID(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			jsonError(w, "Client not found", http.StatusNotFound)
-		} else {
-			debug.Error("Error getting client %s: %v", id, err)
-			jsonError(w, "Failed to retrieve client", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	jsonResponse(w, http.StatusOK, client)
-}
-
-func (h *hashlistHandler) handleUpdateClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	id, err := getUUIDFromPath(r, "id")
-	if err != nil {
-		jsonError(w, "Invalid client ID format", http.StatusBadRequest)
-		return
-	}
-
-	var updatedClient models.Client
-	if err := json.NewDecoder(r.Body).Decode(&updatedClient); err != nil {
-		jsonError(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if updatedClient.Name == "" {
-		jsonError(w, "Client name is required", http.StatusBadRequest)
-		return
-	}
-
-	// Check if client exists
-	existingClient, err := h.clientRepo.GetByID(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			jsonError(w, "Client not found", http.StatusNotFound)
-		} else {
-			debug.Error("Error checking client %s before update: %v", id, err)
-			jsonError(w, "Failed to retrieve client before update", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Check if the new name conflicts with another client
-	if updatedClient.Name != existingClient.Name {
-		conflictClient, _ := h.clientRepo.GetByName(ctx, updatedClient.Name)
-		if conflictClient != nil {
-			jsonError(w, fmt.Sprintf("Another client with name '%s' already exists", updatedClient.Name), http.StatusConflict)
-			return
-		}
-	}
-
-	// Update fields
-	existingClient.Name = updatedClient.Name
-	existingClient.Description = updatedClient.Description
-	existingClient.ContactInfo = updatedClient.ContactInfo
-	existingClient.UpdatedAt = time.Now()
-
-	err = h.clientRepo.Update(ctx, existingClient)
-	if err != nil {
-		debug.Error("Error updating client %s: %v", id, err)
-		jsonError(w, "Failed to update client", http.StatusInternalServerError)
-		return
-	}
-
-	jsonResponse(w, http.StatusOK, existingClient)
-}
-
-func (h *hashlistHandler) handleDeleteClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	id, err := getUUIDFromPath(r, "id")
-	if err != nil {
-		jsonError(w, "Invalid client ID format", http.StatusBadRequest)
-		return
-	}
-
-	// Check if client exists before deleting
-	_, err = h.clientRepo.GetByID(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			jsonError(w, "Client not found", http.StatusNotFound)
-		} else {
-			debug.Error("Error checking client %s before delete: %v", id, err)
-			jsonError(w, "Failed to retrieve client before deletion", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Delete the client (hashlists referencing it will have client_id set to NULL)
-	err = h.clientRepo.Delete(ctx, id)
-	if err != nil {
-		debug.Error("Error deleting client %s: %v", id, err)
-		jsonError(w, "Failed to delete client", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
 }
 
 // 2.4. Hash Search Handlers
@@ -2474,6 +2252,55 @@ func getUserIDFromContext(ctx context.Context) (uuid.UUID, error) {
 	return userID, nil
 }
 
+// requireHashlistAccess enforces Multi-Team access to a hashlist. It writes the HTTP error and
+// returns false when the caller may not touch hashlistID.
+//   - Teams disabled: shared workspace, no check (matches handleGetHashlist semantics).
+//   - Admin: always allowed.
+//   - Otherwise: the caller must be in a team assigned to the hashlist's client.
+//
+// Denials return 404 (not 403) so hashlist IDs cannot be enumerated.
+func (h *hashlistHandler) requireHashlistAccess(w http.ResponseWriter, ctx context.Context, hashlistID int64) bool {
+	if !middleware.IsTeamsEnabledFromContext(ctx) || middleware.IsAdminFromContext(ctx) {
+		return true
+	}
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		jsonError(w, "Unauthorized", http.StatusUnauthorized)
+		return false
+	}
+	canAccess, err := h.teamService.CanUserAccessHashlist(ctx, userID, hashlistID, false)
+	if err != nil || !canAccess {
+		if err != nil {
+			debug.Warning("Hashlist access check failed for user %s, hashlist %d: %v", userID, hashlistID, err)
+		}
+		jsonError(w, "Hashlist not found", http.StatusNotFound)
+		return false
+	}
+	return true
+}
+
+// requireClientAccess is the client-level counterpart of requireHashlistAccess. Denials return
+// 404 so client UUIDs cannot be confirmed by probing.
+func (h *hashlistHandler) requireClientAccess(w http.ResponseWriter, ctx context.Context, clientID uuid.UUID) bool {
+	if !middleware.IsTeamsEnabledFromContext(ctx) || middleware.IsAdminFromContext(ctx) {
+		return true
+	}
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		jsonError(w, "Unauthorized", http.StatusUnauthorized)
+		return false
+	}
+	canAccess, err := h.teamService.CanUserAccessClient(ctx, userID, clientID, false)
+	if err != nil || !canAccess {
+		if err != nil {
+			debug.Warning("Client access check failed for user %s, client %s: %v", userID, clientID, err)
+		}
+		jsonError(w, "Client not found", http.StatusNotFound)
+		return false
+	}
+	return true
+}
+
 // getUserRoleFromContext extracts user role from context
 func getUserRoleFromContext(ctx context.Context) (string, error) {
 	role, ok := ctx.Value("user_role").(string) // Use the key set in RequireAuth
@@ -2568,6 +2395,17 @@ func (h *hashlistHandler) handleGetAvailableJobs(w http.ResponseWriter, r *http.
 		jsonError(w, "Job functionality not available", http.StatusNotImplemented)
 		return
 	}
+
+	// Team access check before delegating: the jobs handler only verifies the hashlist exists.
+	id, err := getInt64FromPath(r, "id")
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !h.requireHashlistAccess(w, r.Context(), id) {
+		return
+	}
+
 	h.jobsHandler.GetAvailablePresetJobs(w, r)
 }
 
@@ -2577,6 +2415,17 @@ func (h *hashlistHandler) handleCreateJob(w http.ResponseWriter, r *http.Request
 		jsonError(w, "Job functionality not available", http.StatusNotImplemented)
 		return
 	}
+
+	// Team access check before delegating: the jobs handler only verifies the hashlist exists.
+	id, err := getInt64FromPath(r, "id")
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !h.requireHashlistAccess(w, r.Context(), id) {
+		return
+	}
+
 	h.jobsHandler.CreateJobFromHashlist(w, r)
 }
 
@@ -2605,6 +2454,10 @@ func (h *hashlistHandler) handleListAssociationWordlists(w http.ResponseWriter, 
 	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
 	if err != nil {
 		jsonError(w, "Invalid hashlist ID", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireHashlistAccess(w, ctx, hashlistID) {
 		return
 	}
 
@@ -2642,6 +2495,10 @@ func (h *hashlistHandler) handleUploadAssociationWordlist(w http.ResponseWriter,
 	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
 	if err != nil {
 		jsonError(w, "Invalid hashlist ID", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireHashlistAccess(w, ctx, hashlistID) {
 		return
 	}
 
@@ -2767,6 +2624,10 @@ func (h *hashlistHandler) handleGetAssociationWordlist(w http.ResponseWriter, r 
 		return
 	}
 
+	if !h.requireHashlistAccess(w, ctx, wordlist.HashlistID) {
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(wordlist)
 }
@@ -2781,6 +2642,21 @@ func (h *hashlistHandler) handleDeleteAssociationWordlist(w http.ResponseWriter,
 	wordlistID, err := uuid.Parse(wordlistIDStr)
 	if err != nil {
 		jsonError(w, "Invalid wordlist ID", http.StatusBadRequest)
+		return
+	}
+
+	// Resolve the wordlist first so the team check can run against its parent hashlist.
+	wordlist, err := h.associationWordlistManager.Get(ctx, wordlistID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Association wordlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get association wordlist %s: %v", wordlistID, err)
+		jsonError(w, "Failed to get association wordlist", http.StatusInternalServerError)
+		return
+	}
+	if !h.requireHashlistAccess(w, ctx, wordlist.HashlistID) {
 		return
 	}
 
@@ -2809,6 +2685,10 @@ func (h *hashlistHandler) handleListClientWordlists(w http.ResponseWriter, r *ht
 	clientID, err := uuid.Parse(clientIDStr)
 	if err != nil {
 		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireClientAccess(w, ctx, clientID) {
 		return
 	}
 
@@ -2846,6 +2726,10 @@ func (h *hashlistHandler) handleUploadClientWordlist(w http.ResponseWriter, r *h
 	clientID, err := uuid.Parse(clientIDStr)
 	if err != nil {
 		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireClientAccess(w, ctx, clientID) {
 		return
 	}
 
@@ -2931,6 +2815,10 @@ func (h *hashlistHandler) handleGetClientWordlist(w http.ResponseWriter, r *http
 		return
 	}
 
+	if !h.requireClientAccess(w, ctx, clientID) {
+		return
+	}
+
 	wordlistIDStr := vars["wordlist_id"]
 	wordlistID, err := uuid.Parse(wordlistIDStr)
 	if err != nil {
@@ -2969,6 +2857,10 @@ func (h *hashlistHandler) handleDeleteClientWordlist(w http.ResponseWriter, r *h
 	clientID, err := uuid.Parse(clientIDStr)
 	if err != nil {
 		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireClientAccess(w, ctx, clientID) {
 		return
 	}
 
@@ -3022,6 +2914,10 @@ func (h *hashlistHandler) handleGetClientPotfile(w http.ResponseWriter, r *http.
 		return
 	}
 
+	if !h.requireClientAccess(w, ctx, clientID) {
+		return
+	}
+
 	// Verify client exists
 	_, err = h.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
@@ -3057,6 +2953,10 @@ func (h *hashlistHandler) handleDownloadClientWordlist(w http.ResponseWriter, r 
 	clientID, err := uuid.Parse(vars["client_id"])
 	if err != nil {
 		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireClientAccess(w, ctx, clientID) {
 		return
 	}
 
@@ -3100,6 +3000,10 @@ func (h *hashlistHandler) handleDownloadClientPotfile(w http.ResponseWriter, r *
 	clientID, err := uuid.Parse(vars["client_id"])
 	if err != nil {
 		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireClientAccess(w, ctx, clientID) {
 		return
 	}
 
@@ -3150,6 +3054,10 @@ func (h *hashlistHandler) handleDownloadAssociationWordlist(w http.ResponseWrite
 		return
 	}
 
+	if !h.requireHashlistAccess(w, ctx, wordlist.HashlistID) {
+		return
+	}
+
 	filePath, err := h.associationWordlistManager.GetFilePath(ctx, wordlistID)
 	if err != nil {
 		debug.Error("Failed to get file path for association wordlist %s: %v", wordlistID, err)
@@ -3175,6 +3083,10 @@ func (h *hashlistHandler) handleListAssociationWordlistsByClient(w http.Response
 	clientID, err := uuid.Parse(vars["client_id"])
 	if err != nil {
 		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	if !h.requireClientAccess(w, ctx, clientID) {
 		return
 	}
 

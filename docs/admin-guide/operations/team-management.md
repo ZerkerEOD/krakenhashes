@@ -78,6 +78,22 @@ Team  →  Client (via client_teams)  →  Hashlist  →  Job & cracked password
 A hashlist uploaded without a client is private to its uploader even with teams on. Administrators
 always have full access.
 
+The chain is enforced on every route that addresses a hashlist, client, wordlist, potfile, job, or
+team by ID, not only on list and detail pages. A request for something outside the caller's teams
+returns **404**, not 403, so IDs cannot be confirmed by probing. Some consequences for non-admin
+users while Multi-Team Mode is on:
+
+- **Clear finished jobs** (Jobs and Dashboard pages) only removes finished jobs on hashlists the
+  caller's teams can access. A user with no team membership removes nothing.
+- **Benchmark blocklist** entries can be cleared from a job page only for that job. Global entries
+  (not tied to a job) are cleared by administrators only.
+- **Analytics reports** must reference hashlists that belong to the report's client; a request that
+  mixes clients is rejected.
+- **Team detail pages** (overview, members, clients, agents) are visible only to that team's members.
+- **Agent force-cleanup** is administrator-only.
+
+With Multi-Team Mode off none of this applies: the instance is a shared workspace.
+
 ## Managing teams
 
 Open **Teams** in the sidebar. As a system administrator you see a **Team Management** table listing

@@ -74,6 +74,43 @@ func (h *Handler) checkClientAccess(ctx context.Context, clientID uuid.UUID) boo
 	return canAccess
 }
 
+// validateHashlistsBelongToClient enforces that every hashlist ID in a report request belongs to
+// clientID. The client itself has already passed the team access check, so a foreign ID is a
+// malformed request (400) rather than an enumeration concern; the same response is returned for
+// nonexistent and foreign IDs so the caller learns nothing about other clients' hashlists.
+// Returns false after writing the response.
+func (h *Handler) validateHashlistsBelongToClient(w http.ResponseWriter, ctx context.Context, clientID uuid.UUID, hashlistIDs []int64) bool {
+	if len(hashlistIDs) == 0 {
+		return true
+	}
+	uniq := dedupeInt64(hashlistIDs)
+	n, err := h.repo.CountHashlistsForClient(ctx, clientID, uniq)
+	if err != nil {
+		debug.Error("Failed to validate hashlist ownership for client %s: %v", clientID, err)
+		http.Error(w, "Failed to validate hashlists", http.StatusInternalServerError)
+		return false
+	}
+	if n != len(uniq) {
+		http.Error(w, "One or more hashlist_ids do not belong to the specified client", http.StatusBadRequest)
+		return false
+	}
+	return true
+}
+
+// dedupeInt64 returns the distinct values of ids, preserving first-seen order.
+func dedupeInt64(ids []int64) []int64 {
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
 // CreateReport creates a new analytics report and queues it for processing
 // POST /api/analytics/reports
 func (h *Handler) CreateReport(w http.ResponseWriter, r *http.Request) {
@@ -108,6 +145,11 @@ func (h *Handler) CreateReport(w http.ResponseWriter, r *http.Request) {
 	// Validate team access to client
 	if !h.checkClientAccess(r.Context(), req.ClientID) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Every requested hashlist must belong to the (already authorised) client (GH #100)
+	if !h.validateHashlistsBelongToClient(w, r.Context(), req.ClientID, req.HashlistIDs) {
 		return
 	}
 

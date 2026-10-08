@@ -29,6 +29,13 @@ test-auth:
 	@echo "Running authentication tests..."
 	@JWT_SECRET=test-secret go test -v -p 1 -count=1 ./pkg/jwt ./pkg/password ./internal/handlers/auth ./internal/integration_test
 
+# Multi-Team isolation suites (GH #100). DB-backed and they truncate the shared
+# test database, so they run serially like test-auth.
+.PHONY: test-teams
+test-teams:
+	@echo "Running Multi-Team isolation tests..."
+	@go test -v -p 1 -count=1 ./internal/routes ./internal/handlers/jobs ./internal/handlers/analytics ./internal/handlers/api/team
+
 .PHONY: test-integration
 test-integration:
 	@echo "Running integration tests..."

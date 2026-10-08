@@ -68,6 +68,12 @@ func (h *Handler) CreateReportWithBloodhound(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Every requested hashlist must belong to the (already authorised) client. This must run
+	// before GetHashlistAccountRefs, which reads usernames/domains for the given IDs (GH #100).
+	if !h.validateHashlistsBelongToClient(w, r.Context(), clientID, parsed.Fields.HashlistIDs) {
+		return
+	}
+
 	start, end := resolveReportDates(parsed.Fields)
 	if end.Before(start) {
 		http.Error(w, "end_date must be after start_date", http.StatusBadRequest)
