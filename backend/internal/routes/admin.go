@@ -17,6 +17,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/sso"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/gorilla/mux"
@@ -139,6 +140,9 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 
 	// Team settings routes - Must be before generic {key} route
 	SetupAdminTeamRoutes(adminRouter, teamService)
+
+	// Branding settings routes (issue #41) - Must be before generic {key} route
+	adminsettings.NewBrandingSettingsHandler(branding.Default()).RegisterRoutes(adminRouter)
 
 	// General system settings routes for listing and updating individual settings - Must be after specific routes
 	adminRouter.HandleFunc("/settings", systemSettingsHandler.ListSettings).Methods(http.MethodGet, http.MethodOptions)

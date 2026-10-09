@@ -100,7 +100,7 @@ func NewConfig() *Config {
 	}
 
 	// Create data directory and its subdirectories if they don't exist
-	subdirs := []string{"binaries", "wordlists", "rules", "hashlists", "charsets"}
+	subdirs := []string{"binaries", "wordlists", "rules", "hashlists", "charsets", "branding"}
 	for _, subdir := range subdirs {
 		dir := filepath.Join(dataDir, subdir)
 		if err := os.MkdirAll(dir, 0750); err != nil {

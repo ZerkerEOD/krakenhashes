@@ -372,3 +372,72 @@ func (r *SystemSettingsRepository) UpdateAgentUpdateSettings(ctx context.Context
 
 	return nil
 }
+
+// GetBrandingSettings returns the raw branding_* rows keyed by setting name
+// (a nil value means "not configured") together with the most recent
+// updated_at across them, which the branding service exposes as a
+// cache-busting version for the public logo/favicon URLs.
+func (r *SystemSettingsRepository) GetBrandingSettings(ctx context.Context) (map[string]*string, time.Time, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT key, value, updated_at
+		FROM system_settings
+		WHERE key LIKE 'branding_%'`)
+	if err != nil {
+		return nil, time.Time{}, fmt.Errorf("failed to get branding settings: %w", err)
+	}
+	defer rows.Close()
+
+	values := make(map[string]*string)
+	var latest time.Time
+	for rows.Next() {
+		var key string
+		var value *string
+		var updatedAt time.Time
+		if err := rows.Scan(&key, &value, &updatedAt); err != nil {
+			return nil, time.Time{}, fmt.Errorf("failed to scan branding setting row: %w", err)
+		}
+		values[key] = value
+		if updatedAt.After(latest) {
+			latest = updatedAt
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, time.Time{}, fmt.Errorf("error iterating branding setting rows: %w", err)
+	}
+	return values, latest, nil
+}
+
+// UpdateBrandingSettings writes the given branding_* values in one
+// transaction. A nil value stores SQL NULL ("not configured"). Keys are
+// UPDATE-only like SetSetting: a key that was never seeded returns ErrNotFound.
+func (r *SystemSettingsRepository) UpdateBrandingSettings(ctx context.Context, values map[string]*string) error {
+	if len(values) == 0 {
+		return nil
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+	for key, value := range values {
+		if !strings.HasPrefix(key, "branding_") {
+			return fmt.Errorf("refusing to write non-branding key %q", key)
+		}
+		res, err := tx.ExecContext(ctx, `
+			UPDATE system_settings
+			SET value = $1, updated_at = $2
+			WHERE key = $3`, value, now, key)
+		if err != nil {
+			return fmt.Errorf("failed to update setting %s: %w", key, err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("setting %s: %w", key, ErrNotFound)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
+}

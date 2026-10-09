@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Box, Typography, Paper, Link, CircularProgress } from '@mui/material';
 import { getVersionInfo, VersionInfo } from '../api/version';
+import { useBranding } from '../contexts/BrandingContext';
 
 const About: React.FC = () => {
     const { t } = useTranslation('common');
+    const { branding } = useBranding();
     const [versions, setVersions] = useState<VersionInfo | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +42,9 @@ const About: React.FC = () => {
     return (
         <Box sx={{ p: 3 }}>
             <Typography variant="h4" gutterBottom>
-                {t('about.title') as string}
+                {branding.branded
+                    ? (t('about.titleBranded', { appName: branding.app_name }) as string)
+                    : (t('about.title') as string)}
             </Typography>
 
             <Paper sx={{ p: 3, mb: 3 }}>

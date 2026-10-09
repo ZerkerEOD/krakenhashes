@@ -2193,5 +2193,39 @@
       "anAgent": "An agent",
       "action": "Fix in Server Certificate settings"
     }
+  },
+  "branding": {
+    "title": "Branding",
+    "description": "Present this instance under your organisation's name, colours and logo. Everything here applies to the web UI, the browser tab, notification emails ({{ .AppName }}), new authenticator enrolments and analytics PDF exports.",
+    "attributionNote": "The \"powered by KrakenHashes\" attribution is always shown next to a custom name and in exported PDFs. It is added by the server and cannot be removed.",
+    "identity": "Identity and colours",
+    "appName": "Application name",
+    "appNameHelper": "Shown in the header, login page, emails and reports. Leave empty for KrakenHashes.",
+    "pageTitle": "Browser page title",
+    "pageTitleHelper": "Effective title: {{title}}",
+    "primaryColor": "Primary accent colour",
+    "secondaryColor": "Secondary accent colour",
+    "colorHint": "Hex colours (#rrggbb). The dark background stays fixed; pick accents that stay readable on near-black surfaces. The primary colour is also used for rules and bars in PDF reports.",
+    "save": "Save branding",
+    "logo": "Logo",
+    "logoHint": "PNG or JPEG, up to 2 MB and 2048×2048 px. Used in the header, login page and PDF reports (RGB images render best).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG or ICO, up to 512 KB and 512×512 px. Browsers cache icons aggressively; a hard reload may be needed once.",
+    "upload": "Upload",
+    "replace": "Replace",
+    "remove": "Remove",
+    "messages": {
+      "saved": "Branding saved",
+      "uploaded": "Image uploaded",
+      "removed": "Image removed"
+    },
+    "errors": {
+      "loadFailed": "Failed to load branding settings",
+      "saveFailed": "Failed to save branding settings",
+      "uploadFailed": "Failed to upload image",
+      "removeFailed": "Failed to remove image",
+      "invalidHex": "Enter a hex colour like #1e88e5",
+      "tooLarge": "File is too large (max {{max}} KB)"
+    }
   }
 }

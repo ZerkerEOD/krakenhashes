@@ -75,10 +75,8 @@
 
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
 import { Box, CircularProgress } from '@mui/material';
-import theme from './styles/theme';
+import { BrandingProvider } from './contexts/BrandingContext';
 import App from './App';
 
 // Initialize i18n - must be imported before App
@@ -114,10 +112,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
     <React.StrictMode>
         <Suspense fallback={<I18nLoadingFallback />}>
-            <ThemeProvider theme={theme}>
-                <CssBaseline />
+            <BrandingProvider>
                 <App />
-            </ThemeProvider>
+            </BrandingProvider>
         </Suspense>
     </React.StrictMode>
 ); 

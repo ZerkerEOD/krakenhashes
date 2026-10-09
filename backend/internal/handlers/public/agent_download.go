@@ -3,9 +3,11 @@ package public
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/gorilla/mux"
 )
@@ -230,6 +232,7 @@ func (h *AgentDownloadHandler) GetAvailablePlatforms(w http.ResponseWriter, r *h
 func (h *AgentDownloadHandler) DownloadPage(w http.ResponseWriter, r *http.Request) {
 	version := h.binaryService.GetVersion()
 	binaries := h.binaryService.GetAllBinaries()
+	appName := html.EscapeString(branding.AppName(r.Context()))
 
 	// Group binaries by OS
 	grouped := make(map[string][]services.BinaryInfo)
@@ -241,7 +244,7 @@ func (h *AgentDownloadHandler) DownloadPage(w http.ResponseWriter, r *http.Reque
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
-    <title>KrakenHashes Agent Downloads</title>
+    <title>%s Agent Downloads</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
         h1 { color: #333; }
@@ -258,10 +261,10 @@ func (h *AgentDownloadHandler) DownloadPage(w http.ResponseWriter, r *http.Reque
     </style>
 </head>
 <body>
-    <h1>KrakenHashes Agent Downloads</h1>
-    <p class="version">Version: %s</p>
+    <h1>%s Agent Downloads</h1>
+    <p class="version">Version: %s &middot; powered by KrakenHashes</p>
 
-    <div class="platforms">`, version)
+    <div class="platforms">`, appName, appName, version)
 
 	// Add Linux section
 	if linuxBinaries, ok := grouped["linux"]; ok {

@@ -2024,5 +2024,39 @@
       "anAgent": "An agent",
       "action": "Fix in Server Certificate settings"
     }
+  },
+  "branding": {
+    "title": "Huisstijl",
+    "description": "Toon deze instantie onder de naam, kleuren en het logo van uw organisatie. Geldt voor de webinterface, het browsertabblad, notificatie-e-mails ({{ .AppName }}), nieuwe authenticator-registraties en PDF-exports van analytics.",
+    "attributionNote": "De vermelding \"powered by KrakenHashes\" wordt altijd naast een eigen naam en in geëxporteerde PDF's getoond. De server voegt deze toe; ze kan niet worden verwijderd.",
+    "identity": "Identiteit en kleuren",
+    "appName": "Applicatienaam",
+    "appNameHelper": "Zichtbaar in de koptekst, inlogpagina, e-mails en rapporten. Laat leeg voor KrakenHashes.",
+    "pageTitle": "Titel van het browsertabblad",
+    "pageTitleHelper": "Effectieve titel: {{title}}",
+    "primaryColor": "Primaire accentkleur",
+    "secondaryColor": "Secundaire accentkleur",
+    "colorHint": "Hex-kleuren (#rrggbb). De donkere achtergrond blijft vast; kies accenten die leesbaar blijven op bijna zwarte vlakken. De primaire kleur wordt ook gebruikt voor lijnen en balken in PDF-rapporten.",
+    "save": "Huisstijl opslaan",
+    "logo": "Logo",
+    "logoHint": "PNG of JPEG, max. 2 MB en 2048×2048 px. Gebruikt in de koptekst, inlogpagina en PDF-rapporten (RGB-afbeeldingen zien er het best uit).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG of ICO, max. 512 KB en 512×512 px. Browsers cachen iconen sterk; mogelijk is eenmalig een harde herlaadactie nodig.",
+    "upload": "Uploaden",
+    "replace": "Vervangen",
+    "remove": "Verwijderen",
+    "messages": {
+      "saved": "Huisstijl opgeslagen",
+      "uploaded": "Afbeelding geüpload",
+      "removed": "Afbeelding verwijderd"
+    },
+    "errors": {
+      "loadFailed": "Huisstijlinstellingen laden mislukt",
+      "saveFailed": "Huisstijlinstellingen opslaan mislukt",
+      "uploadFailed": "Afbeelding uploaden mislukt",
+      "removeFailed": "Afbeelding verwijderen mislukt",
+      "invalidHex": "Voer een hex-kleur in zoals #1e88e5",
+      "tooLarge": "Bestand is te groot (max. {{max}} KB)"
+    }
   }
 }

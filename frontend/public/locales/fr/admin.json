@@ -2041,5 +2041,39 @@
       "anAgent": "An agent",
       "action": "Fix in Server Certificate settings"
     }
+  },
+  "branding": {
+    "title": "Image de marque",
+    "description": "Présentez cette instance sous le nom, les couleurs et le logo de votre organisation. S'applique à l'interface web, à l'onglet du navigateur, aux e-mails de notification ({{ .AppName }}), aux nouveaux enrôlements d'authentificateur et aux exports PDF d'analytique.",
+    "attributionNote": "La mention « powered by KrakenHashes » est toujours affichée à côté d'un nom personnalisé et dans les PDF exportés. Elle est ajoutée par le serveur et ne peut pas être retirée.",
+    "identity": "Identité et couleurs",
+    "appName": "Nom de l'application",
+    "appNameHelper": "Affiché dans l'en-tête, la page de connexion, les e-mails et les rapports. Laissez vide pour KrakenHashes.",
+    "pageTitle": "Titre de l'onglet du navigateur",
+    "pageTitleHelper": "Titre effectif : {{title}}",
+    "primaryColor": "Couleur d'accent primaire",
+    "secondaryColor": "Couleur d'accent secondaire",
+    "colorHint": "Couleurs hex (#rrggbb). Le fond sombre est fixe ; choisissez des accents lisibles sur des surfaces presque noires. La couleur primaire sert aussi aux filets et barres des rapports PDF.",
+    "save": "Enregistrer",
+    "logo": "Logo",
+    "logoHint": "PNG ou JPEG, jusqu'à 2 Mo et 2048×2048 px. Utilisé dans l'en-tête, la page de connexion et les rapports PDF (les images RVB rendent le mieux).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG ou ICO, jusqu'à 512 Ko et 512×512 px. Les navigateurs mettent les icônes en cache ; un rechargement forcé peut être nécessaire.",
+    "upload": "Téléverser",
+    "replace": "Remplacer",
+    "remove": "Supprimer",
+    "messages": {
+      "saved": "Image de marque enregistrée",
+      "uploaded": "Image téléversée",
+      "removed": "Image supprimée"
+    },
+    "errors": {
+      "loadFailed": "Échec du chargement des paramètres",
+      "saveFailed": "Échec de l'enregistrement des paramètres",
+      "uploadFailed": "Échec du téléversement de l'image",
+      "removeFailed": "Échec de la suppression de l'image",
+      "invalidHex": "Saisissez une couleur hex comme #1e88e5",
+      "tooLarge": "Fichier trop volumineux (max {{max}} Ko)"
+    }
   }
 }

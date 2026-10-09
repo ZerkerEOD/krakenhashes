@@ -15,6 +15,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db/queries"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -23,8 +24,18 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
+// totpIssuer is the name authenticator apps show for NEW enrolments. Existing
+// enrolments are unaffected: the issuer only lives in the otpauth:// URI, never
+// in the stored secret that validation uses.
+func totpIssuer(ctx context.Context) string {
+	if name := branding.AppName(ctx); name != "" {
+		return name
+	}
+	return defaultTOTPIssuer
+}
+
 const (
-	totpIssuer        = "KrakenHashes"
+	defaultTOTPIssuer = "KrakenHashes" // overridden by the configured app name (issue #41)
 	totpDigits        = 6
 	totpPeriod        = 30
 	totpSkew          = 1 // Accept one period before/after
@@ -118,7 +129,7 @@ func (h *Handler) SetupMFAHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		key, err := totp.Generate(totp.GenerateOpts{
-			Issuer:      totpIssuer,
+			Issuer:      totpIssuer(r.Context()),
 			AccountName: user.Email,
 			Secret:      []byte(secret),
 			Digits:      totpDigits,
@@ -140,7 +151,7 @@ func (h *Handler) SetupMFAHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Generate QR code
 		key, err = totp.Generate(totp.GenerateOpts{
-			Issuer:      totpIssuer,
+			Issuer:      totpIssuer(r.Context()),
 			AccountName: user.Email,
 			Secret:      []byte(secret),
 			Digits:      totpDigits,
@@ -966,7 +977,7 @@ func (h *MFAHandler) EnableMFA(w http.ResponseWriter, r *http.Request) {
 
 		// Generate QR code
 		key, err := totp.Generate(totp.GenerateOpts{
-			Issuer:      totpIssuer,
+			Issuer:      totpIssuer(r.Context()),
 			AccountName: basicUser.Email,
 			Secret:      secret, // Use the raw bytes for QR code generation
 			Digits:      totpDigits,

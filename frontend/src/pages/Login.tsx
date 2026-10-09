@@ -57,6 +57,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import { login } from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { useBranding } from '../contexts/BrandingContext';
 import { LoginCredentials } from '../types/auth';
 import { SSOProviderDisplay, EnabledProvidersResponse, SSOLoginResponse } from '../types/sso';
 import { getEnabledProviders, ldapLogin, startSAMLFlow, startOAuthFlow } from '../services/sso';
@@ -70,6 +71,7 @@ const RATE_LIMIT = {
 
 const Login: React.FC = () => {
   const { t } = useTranslation('auth');
+  const { branding } = useBranding();
   const { setAuth, setUser, setUserRole, checkAuthStatus } = useAuth();
   const [credentials, setCredentials] = useState<LoginCredentials>({
     username: '',
@@ -326,13 +328,20 @@ const Login: React.FC = () => {
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
           <img
-            src="/logo.png"
-            alt="KrakenHashes Logo"
-            style={{ height: 80, marginBottom: 16 }}
+            src={branding.logo_url ?? '/logo.png'}
+            alt={branding.branded ? `${branding.app_name} logo` : 'KrakenHashes Logo'}
+            style={{ height: 80, maxWidth: 240, objectFit: 'contain', marginBottom: 16 }}
           />
           <Typography component="h1" variant="h5">
-            {t('login.title') as string}
+            {branding.branded
+              ? (t('login.titleBranded', { appName: branding.app_name }) as string)
+              : (t('login.title') as string)}
           </Typography>
+          {branding.branded && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+              {branding.powered_by}
+            </Typography>
+          )}
         </Box>
         {/* Error Display */}
         {error && (

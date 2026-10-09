@@ -104,6 +104,11 @@ When using "Test and Save":
 ## Email Templates
 Email templates are managed separately from provider configuration.
 
+Every template can use `{{ .AppName }}`, which resolves to the application name configured under
+**Admin → Settings → System Settings → Branding** (or `KrakenHashes` when no custom name is set). The bundled
+templates still say "KrakenHashes" literally; edit them to use the variable if you want branded
+emails. See [Application Branding](branding.md).
+
 ## Best Practices
 
 1. **Provider Selection**

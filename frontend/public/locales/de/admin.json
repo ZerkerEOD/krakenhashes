@@ -2024,5 +2024,39 @@
       "anAgent": "An agent",
       "action": "Fix in Server Certificate settings"
     }
+  },
+  "branding": {
+    "title": "Branding",
+    "description": "Zeigen Sie diese Instanz unter dem Namen, den Farben und dem Logo Ihrer Organisation. Gilt für die Web-UI, den Browser-Tab, Benachrichtigungs-E-Mails ({{ .AppName }}), neue Authenticator-Registrierungen und Analytics-PDF-Exporte.",
+    "attributionNote": "Der Hinweis „powered by KrakenHashes“ wird neben einem eigenen Namen und in exportierten PDFs immer angezeigt. Er wird vom Server hinzugefügt und kann nicht entfernt werden.",
+    "identity": "Identität und Farben",
+    "appName": "Anwendungsname",
+    "appNameHelper": "Erscheint in Kopfzeile, Anmeldeseite, E-Mails und Berichten. Leer lassen für KrakenHashes.",
+    "pageTitle": "Browser-Seitentitel",
+    "pageTitleHelper": "Effektiver Titel: {{title}}",
+    "primaryColor": "Primäre Akzentfarbe",
+    "secondaryColor": "Sekundäre Akzentfarbe",
+    "colorHint": "Hex-Farben (#rrggbb). Der dunkle Hintergrund bleibt fest; wählen Sie Akzente, die auf fast schwarzen Flächen lesbar bleiben. Die Primärfarbe wird auch für Linien und Balken in PDF-Berichten verwendet.",
+    "save": "Branding speichern",
+    "logo": "Logo",
+    "logoHint": "PNG oder JPEG, bis 2 MB und 2048×2048 px. Wird in Kopfzeile, Anmeldeseite und PDF-Berichten verwendet (RGB-Bilder werden am besten dargestellt).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG oder ICO, bis 512 KB und 512×512 px. Browser cachen Icons stark; eventuell ist einmal ein Hard-Reload nötig.",
+    "upload": "Hochladen",
+    "replace": "Ersetzen",
+    "remove": "Entfernen",
+    "messages": {
+      "saved": "Branding gespeichert",
+      "uploaded": "Bild hochgeladen",
+      "removed": "Bild entfernt"
+    },
+    "errors": {
+      "loadFailed": "Branding-Einstellungen konnten nicht geladen werden",
+      "saveFailed": "Branding-Einstellungen konnten nicht gespeichert werden",
+      "uploadFailed": "Bild konnte nicht hochgeladen werden",
+      "removeFailed": "Bild konnte nicht entfernt werden",
+      "invalidHex": "Hex-Farbe wie #1e88e5 eingeben",
+      "tooLarge": "Datei ist zu groß (max. {{max}} KB)"
+    }
   }
 }

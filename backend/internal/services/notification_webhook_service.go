@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 )
 
@@ -101,7 +102,7 @@ func formatDiscordPayload(payload *models.WebhookPayload) ([]byte, error) {
 			"color":       color,
 			"timestamp":   time.Unix(payload.Timestamp, 0).Format(time.RFC3339),
 			"footer": map[string]string{
-				"text": "KrakenHashes Notification",
+				"text": branding.AppName(context.Background()) + " Notification",
 			},
 		}
 
@@ -222,7 +223,7 @@ func formatTeamsPayload(payload *models.WebhookPayload) ([]byte, error) {
 
 	// If no title/message, use event name
 	if title == "" {
-		title = "KrakenHashes Notification"
+		title = branding.AppName(context.Background()) + " Notification"
 	}
 	if message == "" {
 		message = fmt.Sprintf("Event: %s", payload.Event)
@@ -436,12 +437,13 @@ func (s *NotificationWebhookService) TestWebhook(ctx context.Context, url string
 		"platform": string(platform),
 	})
 
+	appName := branding.AppName(ctx)
 	payload := &models.WebhookPayload{
 		Event:     "test",
 		Timestamp: time.Now().Unix(),
 		Data: map[string]interface{}{
-			"title":   "KrakenHashes Webhook Test",
-			"message": "This is a test notification from KrakenHashes. If you see this message, your webhook is configured correctly!",
+			"title":   appName + " Webhook Test",
+			"message": "This is a test notification from " + appName + " (powered by KrakenHashes). If you see this message, your webhook is configured correctly!",
 			"test":    true,
 		},
 	}

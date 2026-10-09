@@ -82,6 +82,7 @@ import {
 import { logout } from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { useTeamFilter } from '../contexts/TeamFilterContext';
+import { useBranding } from '../contexts/BrandingContext';
 import AdminMenu from './AdminMenu';
 import UserMenu from './common/UserMenu';
 import Footer from './Footer';
@@ -127,6 +128,7 @@ const Layout: React.FC<LayoutProps> = () => {
     const { t } = useTranslation('navigation');
     const { t: tCommon } = useTranslation('common');
     const { teamsEnabled } = useTeamFilter();
+    const { branding } = useBranding();
 
     const handleDrawerToggle = (): void => {
         setOpen(!open);
@@ -198,13 +200,29 @@ const Layout: React.FC<LayoutProps> = () => {
                         sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}
                     >
                         <img
-                            src="/logo.png"
-                            alt={tCommon('layout.logoAlt') as string}
-                            style={{ height: 32, marginRight: 12 }}
+                            src={branding.logo_url ?? '/logo.png'}
+                            alt={
+                                branding.branded
+                                    ? (tCommon('layout.logoAltBranded', { appName: branding.app_name }) as string)
+                                    : (tCommon('layout.logoAlt') as string)
+                            }
+                            style={{ height: 32, maxWidth: 160, objectFit: 'contain', marginRight: 12 }}
                         />
-                        <Typography variant="h6" noWrap component="div">
-                            {t('appName') as string}
-                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <Typography variant="h6" noWrap component="div" sx={{ lineHeight: 1.2 }}>
+                                {branding.branded ? branding.app_name : (t('appName') as string)}
+                            </Typography>
+                            {branding.branded && (
+                                <Typography
+                                    variant="caption"
+                                    noWrap
+                                    component="div"
+                                    sx={{ lineHeight: 1, opacity: 0.75 }}
+                                >
+                                    {branding.powered_by}
+                                </Typography>
+                            )}
+                        </Box>
                     </Box>
                     <Box sx={{ flexGrow: 1 }} />
                     <TeamFilter />

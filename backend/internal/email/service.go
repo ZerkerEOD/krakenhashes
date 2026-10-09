@@ -12,6 +12,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db/queries"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/email/providers"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	emailtypes "github.com/ZerkerEOD/krakenhashes/backend/pkg/email"
 )
@@ -481,6 +482,15 @@ func (s *Service) SendTemplatedEmail(ctx context.Context, to string, templateID 
 	template, err := s.GetTemplate(ctx, templateID)
 	if err != nil {
 		return fmt.Errorf("failed to get template: %w", err)
+	}
+
+	// Expose the configured application name as {{ .AppName }} to every
+	// template (issue #41). Callers may still override it explicitly.
+	if data == nil {
+		data = map[string]interface{}{}
+	}
+	if _, ok := data["AppName"]; !ok {
+		data["AppName"] = branding.AppName(ctx)
 	}
 
 	// Parse template

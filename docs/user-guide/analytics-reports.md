@@ -735,7 +735,7 @@ SIDs — so it is safe to share outside the engagement.
 - **External PDF**: an aggregate-only summary safe to share with clients and stakeholders. Recovered plaintext passwords, usernames, hash values, mask examples, password/hash-reuse detail, and common base words are **redacted server-side** — they never leave the server for this document. Use this for anything that leaves your team.
 - **Internal PDF**: the full report, including recovered plaintext passwords, usernames, and hash values. Intended for internal handling only — generating one requires a confirmation and is recorded in the **audit log**. Handle and store it only through approved secure channels.
 
-Both variants are styled with KrakenHashes branding (kraken emblem, cover page, and an `INTERNAL - CONFIDENTIAL` / `EXTERNAL - SUMMARY` classification banner). The downloaded filename encodes the client, classification, and report ID.
+Both variants carry a cover page and an `INTERNAL - CONFIDENTIAL` / `EXTERNAL - SUMMARY` classification banner. By default they are styled with KrakenHashes branding (kraken emblem, red accents); when an administrator has configured [application branding](../admin-guide/system-setup/branding.md), the cover and running header show your organisation's name and logo and the accent colours follow your palette. The "powered by KrakenHashes" footer is always retained. The downloaded filename encodes the client, classification, and report ID.
 
 **Other export options:**
 - **CSV Export**: Export raw analytics data for further analysis (Coming Soon)

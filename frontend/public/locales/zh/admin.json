@@ -2024,5 +2024,39 @@
       "anAgent": "An agent",
       "action": "Fix in Server Certificate settings"
     }
+  },
+  "branding": {
+    "title": "品牌",
+    "description": "以贵组织的名称、颜色和徽标展示此实例。适用于 Web 界面、浏览器标签页、通知邮件（{{ .AppName }}）、新的验证器注册以及分析 PDF 导出。",
+    "attributionNote": "“powered by KrakenHashes” 署名始终显示在自定义名称旁边和导出的 PDF 中。它由服务器添加，无法移除。",
+    "identity": "标识与颜色",
+    "appName": "应用名称",
+    "appNameHelper": "显示在页眉、登录页、邮件和报告中。留空则使用 KrakenHashes。",
+    "pageTitle": "浏览器页面标题",
+    "pageTitleHelper": "实际标题：{{title}}",
+    "primaryColor": "主强调色",
+    "secondaryColor": "次强调色",
+    "colorHint": "十六进制颜色（#rrggbb）。深色背景固定不变；请选择在近黑色表面上仍清晰可读的强调色。主色也用于 PDF 报告中的线条和条形图。",
+    "save": "保存品牌设置",
+    "logo": "徽标",
+    "logoHint": "PNG 或 JPEG，最大 2 MB 和 2048×2048 px。用于页眉、登录页和 PDF 报告（RGB 图像效果最佳）。",
+    "favicon": "网站图标",
+    "faviconHint": "PNG 或 ICO，最大 512 KB 和 512×512 px。浏览器会强缓存图标，可能需要强制刷新一次。",
+    "upload": "上传",
+    "replace": "替换",
+    "remove": "移除",
+    "messages": {
+      "saved": "品牌设置已保存",
+      "uploaded": "图片已上传",
+      "removed": "图片已移除"
+    },
+    "errors": {
+      "loadFailed": "加载品牌设置失败",
+      "saveFailed": "保存品牌设置失败",
+      "uploadFailed": "上传图片失败",
+      "removeFailed": "移除图片失败",
+      "invalidHex": "请输入十六进制颜色，例如 #1e88e5",
+      "tooLarge": "文件过大（最大 {{max}} KB）"
+    }
   }
 }

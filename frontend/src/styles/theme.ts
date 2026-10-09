@@ -85,66 +85,84 @@
 import { createTheme, Theme } from '@mui/material/styles';
 import type {} from '@mui/x-data-grid/themeAugmentation'; // Import augmentation for theme typing
 
-const theme: Theme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: {
-      main: '#ff0000',
-    },
-    background: {
-      default: '#000000',
-      paper: '#121212',
-    },
-    text: {
-      primary: '#ffffff',
-    },
-  },
-  components: {
-    MuiCssBaseline: {
-      styleOverrides: {
-        body: {
-          backgroundColor: '#000000',
-          color: '#ffffff',
-        },
+export const DEFAULT_PRIMARY = '#ff0000';
+
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+export const isHexColor = (value: string | null | undefined): value is string =>
+  typeof value === 'string' && HEX_COLOR.test(value);
+
+/**
+ * Build the application theme. The dark surfaces are fixed brand values; only
+ * the primary / secondary accents are configurable by an admin (issue #41).
+ */
+export const buildTheme = (
+  primary: string = DEFAULT_PRIMARY,
+  secondary?: string | null
+): Theme =>
+  createTheme({
+    palette: {
+      mode: 'dark',
+      primary: {
+        main: isHexColor(primary) ? primary : DEFAULT_PRIMARY,
+      },
+      ...(secondary && isHexColor(secondary) ? { secondary: { main: secondary } } : {}),
+      background: {
+        default: '#000000',
+        paper: '#121212',
+      },
+      text: {
+        primary: '#ffffff',
       },
     },
-    MuiDataGrid: {
-      defaultProps: {
-        // Optional: Set default props if needed, e.g., disable borders globally
-        // border: 0,
-      },
-      styleOverrides: {
-        root: {
-          border: 'none',
-          backgroundColor: '#121212',
-          color: '#ffffff',
-          '& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell': {
-            borderBottom: '1px solid rgba(81, 81, 81, 1)',
-            borderRight: 'none',
-          },
-          '& .MuiDataGrid-columnHeaders': {
-            borderBottom: '1px solid rgba(81, 81, 81, 1)',
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-          },
-          '& .MuiDataGrid-columnHeaderTitle': {
-            fontWeight: 'bold',
-          },
-          '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within, & .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-columnHeader:focus-within': {
-            outline: 'none !important',
-          },
-          '& .MuiDataGrid-row:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-          },
-          '& .MuiIconButton-root': {
-            color: 'inherit',
-          },
-          '& .MuiTablePagination-root': {
-            color: 'inherit',
+    components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          body: {
+            backgroundColor: '#000000',
+            color: '#ffffff',
           },
         },
       },
+      MuiDataGrid: {
+        defaultProps: {
+          // Optional: Set default props if needed, e.g., disable borders globally
+          // border: 0,
+        },
+        styleOverrides: {
+          root: {
+            border: 'none',
+            backgroundColor: '#121212',
+            color: '#ffffff',
+            '& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell': {
+              borderBottom: '1px solid rgba(81, 81, 81, 1)',
+              borderRight: 'none',
+            },
+            '& .MuiDataGrid-columnHeaders': {
+              borderBottom: '1px solid rgba(81, 81, 81, 1)',
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            },
+            '& .MuiDataGrid-columnHeaderTitle': {
+              fontWeight: 'bold',
+            },
+            '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within, & .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-columnHeader:focus-within': {
+              outline: 'none !important',
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            },
+            '& .MuiIconButton-root': {
+              color: 'inherit',
+            },
+            '& .MuiTablePagination-root': {
+              color: 'inherit',
+            },
+          },
+        },
+      },
     },
-  },
-});
+  });
+
+const theme: Theme = buildTheme();
 
 export default theme; 

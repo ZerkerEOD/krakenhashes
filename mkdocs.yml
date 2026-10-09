@@ -132,6 +132,7 @@ nav:
       - Configuration: admin-guide/system-setup/configuration.md
       - SSL/TLS Setup: admin-guide/system-setup/ssl-tls.md
       - Email Configuration: admin-guide/system-setup/email.md
+      - Application Branding: admin-guide/system-setup/branding.md
       - Authentication: admin-guide/system-setup/authentication.md
       - SSO Authentication: admin-guide/system-setup/sso.md
       - Cloud GPU Providers: admin-guide/system-setup/cloud-providers.md
