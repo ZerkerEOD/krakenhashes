@@ -188,7 +188,7 @@ const BrandingSettings: React.FC = () => {
   const { t } = useTranslation('admin');
   const tr = useCallback<Translate>((key, opts) => t(key, opts) as string, [t]);
   const { enqueueSnackbar } = useSnackbar();
-  const { refresh } = useBranding();
+  const { branding, refresh } = useBranding();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -196,9 +196,15 @@ const BrandingSettings: React.FC = () => {
   const [form, setForm] = useState<BrandingSettingsInput>(EMPTY_INPUT);
   const [state, setState] = useState<AdminBranding | null>(null);
 
+  /** Replace everything, including the form (after load or a text-settings save). */
   const apply = useCallback((next: AdminBranding) => {
     setState(next);
     setForm({ ...EMPTY_INPUT, ...next.settings });
+  }, []);
+
+  /** Asset uploads/removals must not discard unsaved name/colour edits. */
+  const applyAssets = useCallback((next: AdminBranding) => {
+    setState(next);
   }, []);
 
   const load = useCallback(async () => {
@@ -245,7 +251,7 @@ const BrandingSettings: React.FC = () => {
   const handleUpload = (kind: BrandingAssetKind) => async (file: File) => {
     setBusyAsset(kind);
     try {
-      apply(await uploadBrandingAsset(kind, file));
+      applyAssets(await uploadBrandingAsset(kind, file));
       await refresh();
       enqueueSnackbar(tr('branding.messages.uploaded'), { variant: 'success' });
     } catch (error) {
@@ -259,7 +265,7 @@ const BrandingSettings: React.FC = () => {
   const handleRemove = (kind: BrandingAssetKind) => async () => {
     setBusyAsset(kind);
     try {
-      apply(await deleteBrandingAsset(kind));
+      applyAssets(await deleteBrandingAsset(kind));
       await refresh();
       enqueueSnackbar(tr('branding.messages.removed'), { variant: 'success' });
     } catch (error) {
@@ -281,8 +287,10 @@ const BrandingSettings: React.FC = () => {
   const effective = state?.effective;
   const previewName = form.app_name.trim() || 'KrakenHashes';
   const previewBase = form.page_title.trim() || previewName;
+  // Mirrors branding.ComposePageTitle on the server; the attribution text itself
+  // is server-supplied (not translatable) so the preview matches what is enforced.
   const previewTitle =
-    previewBase.toLowerCase() === 'krakenhashes' ? 'KrakenHashes' : `${previewBase} · powered by KrakenHashes`;
+    previewBase.toLowerCase() === 'krakenhashes' ? 'KrakenHashes' : `${previewBase} · ${branding.powered_by}`;
 
   return (
     <Box>

@@ -82,7 +82,7 @@ import {
 import { logout } from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { useTeamFilter } from '../contexts/TeamFilterContext';
-import { useBranding } from '../contexts/BrandingContext';
+import { useBranding, fallbackToStockLogo } from '../contexts/BrandingContext';
 import AdminMenu from './AdminMenu';
 import UserMenu from './common/UserMenu';
 import Footer from './Footer';
@@ -207,6 +207,7 @@ const Layout: React.FC<LayoutProps> = () => {
                                     : (tCommon('layout.logoAlt') as string)
                             }
                             style={{ height: 32, maxWidth: 160, objectFit: 'contain', marginRight: 12 }}
+                            onError={fallbackToStockLogo}
                         />
                         <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                             <Typography variant="h6" noWrap component="div" sx={{ lineHeight: 1.2 }}>

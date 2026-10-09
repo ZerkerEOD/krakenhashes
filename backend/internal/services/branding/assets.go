@@ -80,6 +80,44 @@ func isICO(b []byte) bool {
 	return len(b) >= 6 && b[0] == 0 && b[1] == 0 && b[2] == 1 && b[3] == 0
 }
 
+// validateICO walks the ICONDIR directory: at least one entry, every entry's
+// image must lie inside the buffer, and no entry may exceed maxDim. A byte of 0
+// in the entry header means 256 px (the ICO convention). Payloads that merely
+// start with the magic bytes are rejected here instead of being stored and
+// served publicly.
+func validateICO(b []byte, maxDim int) error {
+	if !isICO(b) {
+		return ErrUnsupportedImage
+	}
+	count := int(b[4]) | int(b[5])<<8
+	if count == 0 || count > 64 {
+		return ErrUnsupportedImage
+	}
+	const dirStart, entrySize = 6, 16
+	if len(b) < dirStart+count*entrySize {
+		return ErrUnsupportedImage
+	}
+	for i := 0; i < count; i++ {
+		e := b[dirStart+i*entrySize : dirStart+(i+1)*entrySize]
+		w, h := int(e[0]), int(e[1])
+		if w == 0 {
+			w = 256
+		}
+		if h == 0 {
+			h = 256
+		}
+		if w > maxDim || h > maxDim {
+			return fmt.Errorf("%w: at most %dx%d pixels", ErrImageTooLarge, maxDim, maxDim)
+		}
+		size := int(e[8]) | int(e[9])<<8 | int(e[10])<<16 | int(e[11])<<24
+		offset := int(e[12]) | int(e[13])<<8 | int(e[14])<<16 | int(e[15])<<24
+		if size <= 0 || offset < dirStart+count*entrySize || offset > len(b) || size > len(b)-offset {
+			return ErrUnsupportedImage
+		}
+	}
+	return nil
+}
+
 // validateImage sniffs and decodes the header of an upload and returns the
 // extension to store it under.
 func validateImage(kind AssetKind, data []byte) (string, error) {
@@ -110,6 +148,9 @@ func validateImage(kind AssetKind, data []byte) (string, error) {
 		}
 		return "jpg", nil
 	case kind == Favicon && isICO(data):
+		if err := validateICO(data, kind.maxDim()); err != nil {
+			return "", err
+		}
 		return "ico", nil
 	}
 	return "", ErrUnsupportedImage
@@ -180,6 +221,8 @@ func (s *Service) SaveAsset(ctx context.Context, kind AssetKind, data []byte) (B
 	if s == nil {
 		return Defaults(), ErrNotConfigured
 	}
+	s.assetMu.Lock()
+	defer s.assetMu.Unlock()
 
 	raw, _, err := s.store.GetBrandingSettings(ctx)
 	if err != nil {
@@ -218,6 +261,9 @@ func (s *Service) RemoveAsset(ctx context.Context, kind AssetKind) (Branding, er
 	if s == nil {
 		return Defaults(), ErrNotConfigured
 	}
+	s.assetMu.Lock()
+	defer s.assetMu.Unlock()
+
 	raw, _, err := s.store.GetBrandingSettings(ctx)
 	if err != nil {
 		return Defaults(), err

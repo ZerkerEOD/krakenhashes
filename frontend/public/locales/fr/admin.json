@@ -2044,7 +2044,7 @@
   },
   "branding": {
     "title": "Image de marque",
-    "description": "Présentez cette instance sous le nom, les couleurs et le logo de votre organisation. S'applique à l'interface web, à l'onglet du navigateur, aux e-mails de notification ({{ .AppName }}), aux nouveaux enrôlements d'authentificateur et aux exports PDF d'analytique.",
+    "description": "Présentez cette instance sous le nom, les couleurs et le logo de votre organisation. S'applique à l'interface web, à l'onglet du navigateur, aux e-mails de notification (via la variable de modèle AppName), aux nouveaux enrôlements d'authentificateur et aux exports PDF d'analytique.",
     "attributionNote": "La mention « powered by KrakenHashes » est toujours affichée à côté d'un nom personnalisé et dans les PDF exportés. Elle est ajoutée par le serveur et ne peut pas être retirée.",
     "identity": "Identité et couleurs",
     "appName": "Nom de l'application",

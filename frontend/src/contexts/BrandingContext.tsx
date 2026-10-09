@@ -56,6 +56,18 @@ const applyFavicon = (url: string | null) => {
   (originalIconLinks ?? []).forEach((el) => head.appendChild(el.cloneNode(true)));
 };
 
+/**
+ * onError handler for <img> tags that show the configured logo: if the
+ * configured URL fails to load, fall back to the bundled logo once. The marker
+ * attribute stops a failing /logo.png from re-triggering the fallback.
+ */
+export const fallbackToStockLogo = (event: React.SyntheticEvent<HTMLImageElement>) => {
+  const img = event.currentTarget;
+  if (img.dataset.fallback === '1') return;
+  img.dataset.fallback = '1';
+  img.src = '/logo.png';
+};
+
 export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [branding, setBranding] = useState<PublicBranding>(DEFAULT_BRANDING);
   const [loaded, setLoaded] = useState(false);
@@ -65,8 +77,10 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const next = await getPublicBranding();
       setBranding(next);
     } catch (error) {
-      console.warn('Branding unavailable, using defaults:', error);
-      setBranding(DEFAULT_BRANDING);
+      // Keep whatever is currently shown: the initial state already holds the
+      // defaults, and after a successful admin save a transient fetch failure
+      // must not snap the open UI back to stock branding.
+      console.warn('Branding unavailable, keeping current branding:', error);
     } finally {
       setLoaded(true);
     }

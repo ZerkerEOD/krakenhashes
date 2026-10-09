@@ -57,7 +57,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import { login } from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
-import { useBranding } from '../contexts/BrandingContext';
+import { useBranding, fallbackToStockLogo } from '../contexts/BrandingContext';
 import { LoginCredentials } from '../types/auth';
 import { SSOProviderDisplay, EnabledProvidersResponse, SSOLoginResponse } from '../types/sso';
 import { getEnabledProviders, ldapLogin, startSAMLFlow, startOAuthFlow } from '../services/sso';
@@ -329,8 +329,13 @@ const Login: React.FC = () => {
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
           <img
             src={branding.logo_url ?? '/logo.png'}
-            alt={branding.branded ? `${branding.app_name} logo` : 'KrakenHashes Logo'}
+            alt={
+              branding.branded
+                ? (t('layout.logoAltBranded', { ns: 'common', appName: branding.app_name }) as string)
+                : (t('layout.logoAlt', { ns: 'common' }) as string)
+            }
             style={{ height: 80, maxWidth: 240, objectFit: 'contain', marginBottom: 16 }}
+            onError={fallbackToStockLogo}
           />
           <Typography component="h1" variant="h5">
             {branding.branded

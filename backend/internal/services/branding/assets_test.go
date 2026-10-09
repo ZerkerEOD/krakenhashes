@@ -40,8 +40,8 @@ func jpegBytes(t *testing.T, w, h int) []byte {
 }
 
 func icoBytes() []byte {
-	// Minimal ICONDIR header + one directory entry; enough for sniffing.
-	return append([]byte{0, 0, 1, 0, 1, 0}, make([]byte, 16)...)
+	// A structurally valid single-entry ICO (see realICO); a bare header is now rejected.
+	return realICO(16, 16)
 }
 
 func TestValidateImage(t *testing.T) {
@@ -187,5 +187,51 @@ func TestPDFBranding(t *testing.T) {
 	var nilSvc *Service
 	if nilSvc.PDFBranding(ctx) != nil {
 		t.Fatal("nil service should yield nil branding")
+	}
+}
+
+// realICO builds a syntactically valid single-entry ICO of the given pixel size.
+func realICO(w, h int) []byte {
+	bw, bh := byte(w), byte(h)
+	if w == 256 {
+		bw = 0
+	}
+	if h == 256 {
+		bh = 0
+	}
+	img := make([]byte, 40) // a bogus BITMAPINFOHEADER-sized blob is enough for the directory walk
+	hdr := []byte{0, 0, 1, 0, 1, 0, bw, bh, 0, 0, 1, 0, 32, 0}
+	size := len(img)
+	offset := 6 + 16
+	hdr = append(hdr, byte(size), byte(size>>8), byte(size>>16), byte(size>>24))
+	hdr = append(hdr, byte(offset), byte(offset>>8), byte(offset>>16), byte(offset>>24))
+	return append(hdr, img...)
+}
+
+func TestValidateICO(t *testing.T) {
+	if _, err := validateImage(Favicon, realICO(32, 32)); err != nil {
+		t.Fatalf("valid ico rejected: %v", err)
+	}
+	if _, err := validateImage(Favicon, realICO(256, 256)); err != nil {
+		t.Fatalf("256px ico (encoded as 0) rejected: %v", err)
+	}
+	// Magic bytes only, no directory: rejected.
+	if _, err := validateImage(Favicon, []byte{0, 0, 1, 0, 1, 0}); !errors.Is(err, ErrUnsupportedImage) {
+		t.Fatalf("header-only ico: got %v", err)
+	}
+	// Zero entries.
+	if _, err := validateImage(Favicon, append([]byte{0, 0, 1, 0, 0, 0}, make([]byte, 32)...)); !errors.Is(err, ErrUnsupportedImage) {
+		t.Fatalf("zero-entry ico: got %v", err)
+	}
+	// Entry pointing past the buffer.
+	bad := realICO(16, 16)
+	bad[6+8] = 0xff // size low byte -> far larger than the payload
+	if _, err := validateImage(Favicon, bad); !errors.Is(err, ErrUnsupportedImage) {
+		t.Fatalf("out-of-bounds entry: got %v", err)
+	}
+	// Arbitrary bytes behind the magic.
+	junk := append([]byte{0, 0, 1, 0, 1, 0}, []byte("<script>alert(1)</script>")...)
+	if _, err := validateImage(Favicon, junk); !errors.Is(err, ErrUnsupportedImage) {
+		t.Fatalf("junk ico: got %v", err)
 	}
 }

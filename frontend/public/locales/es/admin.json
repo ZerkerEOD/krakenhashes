@@ -2027,7 +2027,7 @@
   },
   "branding": {
     "title": "Marca",
-    "description": "Presente esta instancia con el nombre, los colores y el logotipo de su organización. Se aplica a la interfaz web, la pestaña del navegador, los correos de notificación ({{ .AppName }}), las nuevas inscripciones de autenticador y las exportaciones PDF de analítica.",
+    "description": "Presente esta instancia con el nombre, los colores y el logotipo de su organización. Se aplica a la interfaz web, la pestaña del navegador, los correos de notificación (mediante la variable de plantilla AppName), las nuevas inscripciones de autenticador y las exportaciones PDF de analítica.",
     "attributionNote": "La atribución «powered by KrakenHashes» se muestra siempre junto a un nombre personalizado y en los PDF exportados. La añade el servidor y no se puede eliminar.",
     "identity": "Identidad y colores",
     "appName": "Nombre de la aplicación",

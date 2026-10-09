@@ -89,7 +89,12 @@ func (h *BrandingSettingsHandler) uploadAsset(kind branding.AssetKind) http.Hand
 		// Multipart framing adds a little overhead on top of the file itself.
 		r.Body = http.MaxBytesReader(w, r.Body, limit+64<<10)
 		if err := r.ParseMultipartForm(limit); err != nil {
-			httputil.RespondWithError(w, http.StatusRequestEntityTooLarge, "Upload exceeds the size limit")
+			var tooBig *http.MaxBytesError
+			if errors.As(err, &tooBig) {
+				httputil.RespondWithError(w, http.StatusRequestEntityTooLarge, "Upload exceeds the size limit")
+			} else {
+				httputil.RespondWithError(w, http.StatusBadRequest, "Invalid multipart upload")
+			}
 			return
 		}
 		file, _, err := r.FormFile("file")

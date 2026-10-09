@@ -2027,7 +2027,7 @@
   },
   "branding": {
     "title": "Huisstijl",
-    "description": "Toon deze instantie onder de naam, kleuren en het logo van uw organisatie. Geldt voor de webinterface, het browsertabblad, notificatie-e-mails ({{ .AppName }}), nieuwe authenticator-registraties en PDF-exports van analytics.",
+    "description": "Toon deze instantie onder de naam, kleuren en het logo van uw organisatie. Geldt voor de webinterface, het browsertabblad, notificatie-e-mails (via de sjabloonvariabele AppName), nieuwe authenticator-registraties en PDF-exports van analytics.",
     "attributionNote": "De vermelding \"powered by KrakenHashes\" wordt altijd naast een eigen naam en in geëxporteerde PDF's getoond. De server voegt deze toe; ze kan niet worden verwijderd.",
     "identity": "Identiteit en kleuren",
     "appName": "Applicatienaam",

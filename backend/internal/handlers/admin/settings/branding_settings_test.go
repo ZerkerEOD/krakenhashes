@@ -150,8 +150,8 @@ func TestBrandingUploads(t *testing.T) {
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=zzz")
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusBadRequest && rec.Code != http.StatusRequestEntityTooLarge {
-		t.Fatalf("missing field: status %d", rec.Code)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("malformed multipart: status %d, want 400", rec.Code)
 	}
 
 	rec = httptest.NewRecorder()

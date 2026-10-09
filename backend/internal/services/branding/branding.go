@@ -43,6 +43,9 @@ const (
 	SubDir = "branding"
 
 	cacheTTL = 30 * time.Second
+	// errorCacheTTL bounds how often a failing store is retried by the
+	// unauthenticated endpoints during an outage.
+	errorCacheTTL = 5 * time.Second
 )
 
 // AllKeys lists every branding setting key.
@@ -96,6 +99,11 @@ type Service struct {
 	mu       sync.RWMutex
 	cached   *Branding
 	cachedAt time.Time
+	cacheTTL time.Duration // TTL of the current cache entry (shorter after a store error)
+
+	// assetMu serialises SaveAsset/RemoveAsset so two concurrent uploads cannot
+	// both read the same "previous" file and orphan one of them on disk.
+	assetMu sync.Mutex
 }
 
 // New creates a service storing assets under <dataDir>/branding.
@@ -142,7 +150,7 @@ func (s *Service) Resolve(ctx context.Context) (Branding, error) {
 		return Defaults(), nil
 	}
 	s.mu.RLock()
-	if s.cached != nil && time.Since(s.cachedAt) < s.ttl {
+	if s.cached != nil && time.Since(s.cachedAt) < s.cacheTTL {
 		b := *s.cached
 		s.mu.RUnlock()
 		return b, nil
@@ -152,13 +160,22 @@ func (s *Service) Resolve(ctx context.Context) (Branding, error) {
 	raw, updatedAt, err := s.store.GetBrandingSettings(ctx)
 	if err != nil {
 		debug.Error("branding: failed to load settings, using defaults: %v", err)
-		return Defaults(), err
+		// Negative cache: keep serving defaults for a few seconds instead of
+		// hitting the failing store on every anonymous request.
+		d := Defaults()
+		s.mu.Lock()
+		s.cached = &d
+		s.cachedAt = time.Now()
+		s.cacheTTL = errorCacheTTL
+		s.mu.Unlock()
+		return d, err
 	}
 	b := resolve(raw, updatedAt)
 
 	s.mu.Lock()
 	s.cached = &b
 	s.cachedAt = time.Now()
+	s.cacheTTL = s.ttl
 	s.mu.Unlock()
 	return b, nil
 }

@@ -232,7 +232,9 @@ func (h *AgentDownloadHandler) GetAvailablePlatforms(w http.ResponseWriter, r *h
 func (h *AgentDownloadHandler) DownloadPage(w http.ResponseWriter, r *http.Request) {
 	version := h.binaryService.GetVersion()
 	binaries := h.binaryService.GetAllBinaries()
-	appName := html.EscapeString(branding.AppName(r.Context()))
+	brand, _ := branding.Default().Resolve(r.Context())
+	appName := html.EscapeString(brand.AppName)
+	pageTitle := html.EscapeString(brand.PageTitle) // carries the enforced attribution suffix
 
 	// Group binaries by OS
 	grouped := make(map[string][]services.BinaryInfo)
@@ -244,7 +246,7 @@ func (h *AgentDownloadHandler) DownloadPage(w http.ResponseWriter, r *http.Reque
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
-    <title>%s Agent Downloads</title>
+    <title>Agent Downloads · %s</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
         h1 { color: #333; }
@@ -264,7 +266,7 @@ func (h *AgentDownloadHandler) DownloadPage(w http.ResponseWriter, r *http.Reque
     <h1>%s Agent Downloads</h1>
     <p class="version">Version: %s &middot; powered by KrakenHashes</p>
 
-    <div class="platforms">`, appName, appName, version)
+    <div class="platforms">`, pageTitle, appName, version)
 
 	// Add Linux section
 	if linuxBinaries, ok := grouped["linux"]; ok {

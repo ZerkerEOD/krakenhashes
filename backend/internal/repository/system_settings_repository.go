@@ -381,7 +381,7 @@ func (r *SystemSettingsRepository) GetBrandingSettings(ctx context.Context) (map
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT key, value, updated_at
 		FROM system_settings
-		WHERE key LIKE 'branding_%'`)
+		WHERE key LIKE 'branding\_%' ESCAPE '\'`)
 	if err != nil {
 		return nil, time.Time{}, fmt.Errorf("failed to get branding settings: %w", err)
 	}

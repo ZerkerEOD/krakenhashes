@@ -207,3 +207,26 @@ func TestComposePageTitle(t *testing.T) {
 		t.Errorf("custom: %q", got)
 	}
 }
+
+func TestResolveNegativeCacheOnStoreError(t *testing.T) {
+	fs := newFakeStore()
+	fs.failRead = errors.New("db down")
+	svc := New(fs, t.TempDir())
+	ctx := context.Background()
+	if _, err := svc.Resolve(ctx); err == nil {
+		t.Fatal("expected error on first resolve")
+	}
+	// The store is still failing, but the cached defaults are served without a
+	// second query (no error) for errorCacheTTL.
+	b, err := svc.Resolve(ctx)
+	if err != nil || b.AppName != DefaultAppName {
+		t.Fatalf("expected cached defaults without error, got %+v %v", b, err)
+	}
+	// Once the store recovers and the cache is dropped, real values flow again.
+	fs.failRead = nil
+	fs.values[KeyAppName] = sp("Recovered")
+	svc.Invalidate()
+	if b, _ := svc.Resolve(ctx); b.AppName != "Recovered" {
+		t.Fatalf("expected recovered value, got %+v", b)
+	}
+}

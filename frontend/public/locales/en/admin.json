@@ -2196,7 +2196,7 @@
   },
   "branding": {
     "title": "Branding",
-    "description": "Present this instance under your organisation's name, colours and logo. Everything here applies to the web UI, the browser tab, notification emails ({{ .AppName }}), new authenticator enrolments and analytics PDF exports.",
+    "description": "Present this instance under your organisation's name, colours and logo. Everything here applies to the web UI, the browser tab, notification emails (through the AppName template variable), new authenticator enrolments and analytics PDF exports.",
     "attributionNote": "The \"powered by KrakenHashes\" attribution is always shown next to a custom name and in exported PDFs. It is added by the server and cannot be removed.",
     "identity": "Identity and colours",
     "appName": "Application name",

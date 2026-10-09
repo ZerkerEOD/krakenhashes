@@ -2027,7 +2027,7 @@
   },
   "branding": {
     "title": "Branding",
-    "description": "Zeigen Sie diese Instanz unter dem Namen, den Farben und dem Logo Ihrer Organisation. Gilt für die Web-UI, den Browser-Tab, Benachrichtigungs-E-Mails ({{ .AppName }}), neue Authenticator-Registrierungen und Analytics-PDF-Exporte.",
+    "description": "Zeigen Sie diese Instanz unter dem Namen, den Farben und dem Logo Ihrer Organisation. Gilt für die Web-UI, den Browser-Tab, Benachrichtigungs-E-Mails (über die Vorlagenvariable AppName), neue Authenticator-Registrierungen und Analytics-PDF-Exporte.",
     "attributionNote": "Der Hinweis „powered by KrakenHashes“ wird neben einem eigenen Namen und in exportierten PDFs immer angezeigt. Er wird vom Server hinzugefügt und kann nicht entfernt werden.",
     "identity": "Identität und Farben",
     "appName": "Anwendungsname",

@@ -23,9 +23,10 @@ that stay readable on near-black surfaces.
 
 The **"powered by KrakenHashes"** attribution is mandatory and is enforced by the server:
 
-- The browser title is always `<your title> · powered by KrakenHashes`. The suffix is appended on
-  every read and stripped from whatever is typed into the title field, so it cannot be removed or
-  doubled.
+- With a custom name or title, the browser title is `<your title> · powered by KrakenHashes`. The
+  suffix is appended on every read and stripped from whatever is typed into the title field, so it
+  cannot be removed or doubled. With no custom name or title the browser title is simply
+  `KrakenHashes`.
 - The header, login page and footer show the attribution line whenever a custom name or logo is set.
 - Every analytics PDF keeps the Kraken emblem and "powered by KrakenHashes" in the page footer,
   regardless of the logo and name shown on the cover.

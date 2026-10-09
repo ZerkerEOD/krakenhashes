@@ -2027,7 +2027,7 @@
   },
   "branding": {
     "title": "品牌",
-    "description": "以贵组织的名称、颜色和徽标展示此实例。适用于 Web 界面、浏览器标签页、通知邮件（{{ .AppName }}）、新的验证器注册以及分析 PDF 导出。",
+    "description": "以贵组织的名称、颜色和徽标展示此实例。适用于 Web 界面、浏览器标签页、通知邮件（通过模板变量 AppName）、新的验证器注册以及分析 PDF 导出。",
     "attributionNote": "“powered by KrakenHashes” 署名始终显示在自定义名称旁边和导出的 PDF 中。它由服务器添加，无法移除。",
     "identity": "标识与颜色",
     "appName": "应用名称",

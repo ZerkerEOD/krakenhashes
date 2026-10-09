@@ -57,21 +57,21 @@ func DetectWebhookPlatform(url string) WebhookPlatform {
 }
 
 // FormatPayloadForPlatform formats the payload for the detected platform
-func FormatPayloadForPlatform(platform WebhookPlatform, payload *models.WebhookPayload) ([]byte, error) {
+func FormatPayloadForPlatform(ctx context.Context, platform WebhookPlatform, payload *models.WebhookPayload) ([]byte, error) {
 	switch platform {
 	case PlatformDiscord:
-		return formatDiscordPayload(payload)
+		return formatDiscordPayload(ctx, payload)
 	case PlatformSlack:
 		return formatSlackPayload(payload)
 	case PlatformTeams:
-		return formatTeamsPayload(payload)
+		return formatTeamsPayload(ctx, payload)
 	default:
 		return json.Marshal(payload)
 	}
 }
 
 // formatDiscordPayload formats payload for Discord webhooks
-func formatDiscordPayload(payload *models.WebhookPayload) ([]byte, error) {
+func formatDiscordPayload(ctx context.Context, payload *models.WebhookPayload) ([]byte, error) {
 	title, _ := payload.Data["title"].(string)
 	message, _ := payload.Data["message"].(string)
 	username, _ := payload.Data["username"].(string)
@@ -102,7 +102,7 @@ func formatDiscordPayload(payload *models.WebhookPayload) ([]byte, error) {
 			"color":       color,
 			"timestamp":   time.Unix(payload.Timestamp, 0).Format(time.RFC3339),
 			"footer": map[string]string{
-				"text": branding.AppName(context.Background()) + " Notification",
+				"text": branding.AppName(ctx) + " Notification",
 			},
 		}
 
@@ -215,7 +215,7 @@ func formatSlackPayload(payload *models.WebhookPayload) ([]byte, error) {
 }
 
 // formatTeamsPayload formats payload for Microsoft Teams webhooks
-func formatTeamsPayload(payload *models.WebhookPayload) ([]byte, error) {
+func formatTeamsPayload(ctx context.Context, payload *models.WebhookPayload) ([]byte, error) {
 	title, _ := payload.Data["title"].(string)
 	message, _ := payload.Data["message"].(string)
 	username, _ := payload.Data["username"].(string)
@@ -223,7 +223,7 @@ func formatTeamsPayload(payload *models.WebhookPayload) ([]byte, error) {
 
 	// If no title/message, use event name
 	if title == "" {
-		title = branding.AppName(context.Background()) + " Notification"
+		title = branding.AppName(ctx) + " Notification"
 	}
 	if message == "" {
 		message = fmt.Sprintf("Event: %s", payload.Event)
@@ -294,7 +294,7 @@ func (s *NotificationWebhookService) Send(
 ) error {
 	// Detect platform and format payload accordingly
 	platform := DetectWebhookPlatform(url)
-	body, err := FormatPayloadForPlatform(platform, payload)
+	body, err := FormatPayloadForPlatform(ctx, platform, payload)
 	if err != nil {
 		return fmt.Errorf("failed to format payload for platform %s: %w", platform, err)
 	}
