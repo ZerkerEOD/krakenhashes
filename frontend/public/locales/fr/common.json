@@ -122,7 +122,8 @@
     "versionUnavailable": "Version indisponible"
   },
   "layout": {
-    "logoAlt": "Logo KrakenHashes"
+    "logoAlt": "Logo KrakenHashes",
+    "logoAltBranded": "Logo {{appName}}"
   },
   "table": {
     "noResults": "Aucun résultat trouvé",
@@ -148,7 +149,8 @@
     },
     "errors": {
       "fetchFailed": "Impossible de récupérer les informations de version"
-    }
+    },
+    "titleBranded": "À propos de {{appName}}"
   },
   "hexPassword": {
     "tag": "HEX",

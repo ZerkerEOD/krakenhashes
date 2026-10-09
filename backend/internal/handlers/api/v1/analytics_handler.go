@@ -16,6 +16,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/analytics/pdf"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/bloodhound"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -326,7 +327,7 @@ func (h *AnalyticsHandler) ExportReport(w http.ResponseWriter, r *http.Request) 
 	if class == pdf.External {
 		data = pdf.BuildExternalAnalytics(report.AnalyticsData)
 	}
-	pdfBytes, err := h.pdfGen.Generate(report, client, data, class)
+	pdfBytes, err := h.pdfGen.Generate(report, client, data, class, branding.Default().PDFBranding(r.Context()))
 	if err != nil {
 		debug.Error("v1 analytics: pdf generation failed: %v", err)
 		sendAPIError(w, "Failed to generate PDF", "INTERNAL_ERROR", http.StatusInternalServerError)

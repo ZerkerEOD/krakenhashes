@@ -122,7 +122,8 @@
     "versionUnavailable": "版本不可用"
   },
   "layout": {
-    "logoAlt": "KrakenHashes 徽标"
+    "logoAlt": "KrakenHashes 徽标",
+    "logoAltBranded": "{{appName}} 徽标"
   },
   "table": {
     "noResults": "未找到结果",
@@ -148,7 +149,8 @@
     },
     "errors": {
       "fetchFailed": "获取版本信息失败"
-    }
+    },
+    "titleBranded": "关于 {{appName}}"
   },
   "hexPassword": {
     "tag": "HEX",

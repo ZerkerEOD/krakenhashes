@@ -43,6 +43,25 @@ const (
 	pageBreakTrigger = pageHeight - footerReserve
 )
 
+// orgLogoImageName is the fpdf-registered name for an organisation logo.
+const orgLogoImageName = "org-logo"
+
+// RGB is a 0-255 colour triple.
+type RGB struct{ R, G, B int }
+
+// Branding carries the optional organisation identity applied to the cover
+// and running header (GitHub issue #41). Every field is optional; the zero
+// value (or a nil *Branding) renders the stock KrakenHashes document. The
+// footer attribution is NOT configurable and always reads
+// "powered by KrakenHashes" next to the kraken emblem.
+type Branding struct {
+	OrgName   string // "" -> "KrakenHashes"
+	Logo      []byte // nil -> embedded emblem
+	LogoType  string // "PNG" or "JPEG"
+	Accent    *RGB   // nil -> brand red
+	Secondary *RGB   // nil -> Accent
+}
+
 // Generator renders analytics reports to PDF. It is stateless and safe to reuse.
 type Generator struct{}
 
@@ -51,16 +70,24 @@ func NewGenerator() *Generator { return &Generator{} }
 
 // renderer carries per-document rendering state.
 type renderer struct {
-	pdf   *fpdf.Fpdf
-	tr    func(string) string // UTF-8 -> cp1252 translator for core fonts
-	class Classification
+	pdf      *fpdf.Fpdf
+	tr       func(string) string // UTF-8 -> cp1252 translator for core fonts
+	class    Classification
+	orgName  string
+	logoName string // registered image used for the brand mark; emblem when no org logo
+	accent   RGB
+	second   RGB
 }
 
 // Generate renders the given analytics data as a PDF and returns the bytes.
 // data must already be redacted when class == External (see BuildExternalAnalytics).
-func (g *Generator) Generate(report *models.AnalyticsReport, client *models.Client, data *models.AnalyticsData, class Classification) ([]byte, error) {
+// brand may be nil for the stock KrakenHashes styling.
+func (g *Generator) Generate(report *models.AnalyticsReport, client *models.Client, data *models.AnalyticsData, class Classification, brand *Branding) ([]byte, error) {
 	if data == nil {
 		return nil, fmt.Errorf("analytics data is nil")
+	}
+	if brand == nil {
+		brand = &Branding{}
 	}
 
 	pdf := fpdf.New("P", "mm", "A4", "")
@@ -68,15 +95,42 @@ func (g *Generator) Generate(report *models.AnalyticsReport, client *models.Clie
 	pdf.SetAutoPageBreak(true, footerReserve)
 	pdf.AliasNbPages("")
 
-	// Register the brand emblem once; the cover and running header place it by name.
+	// Register the brand emblem once; the footer always places it by name, and
+	// the cover / running header fall back to it when no org logo is set.
 	if len(emblemPNG) > 0 {
 		pdf.RegisterImageOptionsReader(emblemImageName, fpdf.ImageOptions{ImageType: "PNG"}, bytes.NewReader(emblemPNG))
 	}
 
 	r := &renderer{
-		pdf:   pdf,
-		tr:    pdf.UnicodeTranslatorFromDescriptor(""),
-		class: class,
+		pdf:      pdf,
+		tr:       pdf.UnicodeTranslatorFromDescriptor(""),
+		class:    class,
+		orgName:  strings.TrimSpace(brand.OrgName),
+		logoName: emblemImageName,
+		accent:   RGB{255, 0, 0},
+	}
+	if r.orgName == "" {
+		r.orgName = "KrakenHashes"
+	}
+	if brand.Accent != nil {
+		r.accent = *brand.Accent
+	}
+	r.second = r.accent
+	if brand.Secondary != nil {
+		r.second = *brand.Secondary
+	}
+	if len(brand.Logo) > 0 {
+		imgType := strings.ToUpper(brand.LogoType)
+		if imgType == "JPG" {
+			imgType = "JPEG"
+		}
+		pdf.RegisterImageOptionsReader(orgLogoImageName, fpdf.ImageOptions{ImageType: imgType}, bytes.NewReader(brand.Logo))
+		if pdf.Err() {
+			// e.g. an interlaced PNG, which fpdf cannot embed: keep the emblem.
+			pdf.ClearError()
+		} else {
+			r.logoName = orgLogoImageName
+		}
 	}
 
 	r.installHeaderFooter()
@@ -99,13 +153,18 @@ func (g *Generator) Generate(report *models.AnalyticsReport, client *models.Clie
 // white text only on dark/red fills; near-black text only on white/light fills;
 // pure red is reserved for the emblem, rules, bars and the section accent (never
 // used as body text on black); white text on red uses a deepened red for AA contrast.
+//
+// With custom branding (Branding.Accent / Secondary) the accent colour follows
+// the organisation's primary colour and subtitle rules its secondary colour;
+// the dark surfaces, classification banners and severity chips never change.
 
-func (r *renderer) brandFill()      { r.pdf.SetFillColor(18, 18, 18) }     // near-black (#121212)
-func (r *renderer) accentFill()     { r.pdf.SetFillColor(255, 0, 0) }      // brand red (#ff0000): rules, bars, accents
-func (r *renderer) headerRowFill()  { r.pdf.SetFillColor(236, 239, 241) } // light gray (table headers on white pages)
-func (r *renderer) zebraFill()      { r.pdf.SetFillColor(247, 249, 250) } // very light gray
+func (r *renderer) brandFill()      { r.pdf.SetFillColor(18, 18, 18) }                         // near-black (#121212)
+func (r *renderer) accentFill()     { r.pdf.SetFillColor(r.accent.R, r.accent.G, r.accent.B) } // primary accent: rules, bars, section accents
+func (r *renderer) secondaryFill()  { r.pdf.SetFillColor(r.second.R, r.second.G, r.second.B) } // secondary accent: subtitle rules
+func (r *renderer) headerRowFill()  { r.pdf.SetFillColor(236, 239, 241) }                      // light gray (table headers on white pages)
+func (r *renderer) zebraFill()      { r.pdf.SetFillColor(247, 249, 250) }                      // very light gray
 func (r *renderer) whiteText()      { r.pdf.SetTextColor(255, 255, 255) }
-func (r *renderer) darkText()       { r.pdf.SetTextColor(17, 17, 17) }    // near-black (#111)
+func (r *renderer) darkText()       { r.pdf.SetTextColor(17, 17, 17) } // near-black (#111)
 func (r *renderer) mutedText()      { r.pdf.SetTextColor(110, 110, 110) }
 func (r *renderer) resetDrawColor() { r.pdf.SetDrawColor(200, 200, 200) }
 
@@ -124,6 +183,36 @@ func (r *renderer) emblem(x, y, w float64) {
 		return
 	}
 	r.pdf.ImageOptions(emblemImageName, x, y, w, 0, false, fpdf.ImageOptions{ImageType: "PNG"}, 0, "")
+}
+
+// brandMark draws the organisation logo (or the emblem when none is set) inside
+// a maxW x maxH box anchored at (x, y), preserving aspect ratio. It returns the
+// rendered width so callers can position text after it.
+func (r *renderer) brandMark(x, y, maxW, maxH float64) float64 {
+	if r.logoName == emblemImageName {
+		if len(emblemPNG) == 0 {
+			return 0
+		}
+		// The emblem is square; keep the legacy placement exactly.
+		w := maxW
+		if maxH < w {
+			w = maxH
+		}
+		r.emblem(x, y, w)
+		return w
+	}
+	info := r.pdf.GetImageInfo(r.logoName)
+	if info == nil || info.Width() <= 0 || info.Height() <= 0 {
+		r.emblem(x, y, maxW)
+		return maxW
+	}
+	w, h := maxW, maxW*info.Height()/info.Width()
+	if h > maxH {
+		h = maxH
+		w = maxH * info.Width() / info.Height()
+	}
+	r.pdf.ImageOptions(r.logoName, x, y+(maxH-h)/2, w, h, false, fpdf.ImageOptions{}, 0, "")
+	return w
 }
 
 func (r *renderer) classLabel() string {
@@ -148,12 +237,12 @@ func (r *renderer) installHeaderFooter() {
 		if r.pdf.PageNo() == 1 {
 			return // cover page has its own banner
 		}
-		// Left: small emblem + wordmark.
-		r.emblem(pageMarginLeft, 5.5, 5)
+		// Left: small brand mark (org logo or emblem) + wordmark.
+		markW := r.brandMark(pageMarginLeft, 5.5, 12, 5)
 		r.darkText()
 		r.pdf.SetFont("Helvetica", "B", 8)
-		r.pdf.SetXY(pageMarginLeft+6.5, 6.5)
-		r.pdf.CellFormat(70, 5, r.s("KrakenHashes"), "", 0, "L", false, 0, "")
+		r.pdf.SetXY(pageMarginLeft+markW+1.5, 6.5)
+		r.pdf.CellFormat(70, 5, r.s(r.orgName), "", 0, "L", false, 0, "")
 		// Right: classification chip.
 		r.classBannerFill()
 		r.whiteText()
@@ -189,22 +278,23 @@ func (r *renderer) renderCover(report *models.AnalyticsReport, client *models.Cl
 	p := r.pdf
 	p.AddPage()
 
-	// Brand band: near-black with the kraken emblem + wordmark, red accent rule beneath.
+	// Brand band: near-black with the brand mark (org logo or emblem) + wordmark,
+	// accent rule beneath.
 	const bandH = 52.0
 	const emblemSize = 30.0
 	r.brandFill()
 	p.Rect(0, 0, 210, bandH, "F")
-	r.emblem(pageMarginLeft, (bandH-emblemSize)/2, emblemSize)
-	textX := pageMarginLeft + emblemSize + 8
-	textW := contentWidth - emblemSize - 8
+	markW := r.brandMark(pageMarginLeft, (bandH-emblemSize)/2, 60, emblemSize)
+	textX := pageMarginLeft + markW + 8
+	textW := contentWidth - markW - 8
 	r.whiteText()
 	p.SetFont("Helvetica", "B", 30)
 	p.SetXY(textX, 15)
-	p.CellFormat(textW, 12, r.s("KrakenHashes"), "", 1, "L", false, 0, "")
+	p.CellFormat(textW, 12, r.s(r.orgName), "", 1, "L", false, 0, "")
 	p.SetFont("Helvetica", "", 12)
 	p.SetX(textX)
 	p.CellFormat(textW, 8, r.s("Password Analysis Report"), "", 1, "L", false, 0, "")
-	// Red accent rule beneath the band.
+	// Accent rule beneath the band.
 	r.accentFill()
 	p.Rect(0, bandH, 210, 1.5, "F")
 
@@ -297,7 +387,7 @@ func (r *renderer) sectionTitle(title string) {
 
 func (r *renderer) subTitle(title string) {
 	r.ensureSpace(10)
-	r.accentFill()
+	r.secondaryFill()
 	r.pdf.SetFont("Helvetica", "B", 10)
 	r.darkText()
 	r.pdf.SetX(pageMarginLeft)

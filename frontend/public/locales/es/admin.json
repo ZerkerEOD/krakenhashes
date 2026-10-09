@@ -2024,5 +2024,39 @@
       "anAgent": "An agent",
       "action": "Fix in Server Certificate settings"
     }
+  },
+  "branding": {
+    "title": "Marca",
+    "description": "Presente esta instancia con el nombre, los colores y el logotipo de su organización. Se aplica a la interfaz web, la pestaña del navegador, los correos de notificación (mediante la variable de plantilla AppName), las nuevas inscripciones de autenticador y las exportaciones PDF de analítica.",
+    "attributionNote": "La atribución «powered by KrakenHashes» se muestra siempre junto a un nombre personalizado y en los PDF exportados. La añade el servidor y no se puede eliminar.",
+    "identity": "Identidad y colores",
+    "appName": "Nombre de la aplicación",
+    "appNameHelper": "Se muestra en la cabecera, la página de inicio de sesión, los correos y los informes. Déjelo vacío para KrakenHashes.",
+    "pageTitle": "Título de la pestaña del navegador",
+    "pageTitleHelper": "Título efectivo: {{title}}",
+    "primaryColor": "Color de acento primario",
+    "secondaryColor": "Color de acento secundario",
+    "colorHint": "Colores hex (#rrggbb). El fondo oscuro es fijo; elija acentos legibles sobre superficies casi negras. El color primario también se usa para líneas y barras en los informes PDF.",
+    "save": "Guardar marca",
+    "logo": "Logotipo",
+    "logoHint": "PNG o JPEG, hasta 2 MB y 2048×2048 px. Se usa en la cabecera, la página de inicio de sesión y los informes PDF (las imágenes RGB se ven mejor).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG o ICO, hasta 512 KB y 512×512 px. Los navegadores cachean los iconos; puede hacer falta una recarga forzada.",
+    "upload": "Subir",
+    "replace": "Reemplazar",
+    "remove": "Eliminar",
+    "messages": {
+      "saved": "Marca guardada",
+      "uploaded": "Imagen subida",
+      "removed": "Imagen eliminada"
+    },
+    "errors": {
+      "loadFailed": "No se pudieron cargar los ajustes de marca",
+      "saveFailed": "No se pudieron guardar los ajustes de marca",
+      "uploadFailed": "No se pudo subir la imagen",
+      "removeFailed": "No se pudo eliminar la imagen",
+      "invalidHex": "Introduzca un color hex como #1e88e5",
+      "tooLarge": "El archivo es demasiado grande (máx. {{max}} KB)"
+    }
   }
 }

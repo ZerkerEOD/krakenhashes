@@ -21,6 +21,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/tls"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -161,6 +162,8 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	presetJobRepo := repository.NewPresetJobRepository(sqlDB)
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
 	systemSettingsRepo := repository.NewSystemSettingsRepository(database)
+	// Process-wide branding (issue #41); must precede public + admin route setup.
+	branding.Configure(systemSettingsRepo, appConfig.DataDir)
 	workflowRepo := repository.NewJobWorkflowRepository(sqlDB)
 	fileRepository := repository.NewFileRepository(database, appConfig.DataDir)
 	hashRepo := repository.NewHashRepository(database)

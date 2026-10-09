@@ -16,6 +16,7 @@ import AgentDownloadSettings from '../../components/admin/AgentDownloadSettings'
 import AgentAutoUpdateSettings from '../../components/admin/AgentAutoUpdateSettings';
 import NotificationSettings from '../../components/admin/NotificationSettings';
 import NetworkShareSettings from '../../components/admin/NetworkShareSettings';
+import BrandingSettings from '../../components/admin/BrandingSettings';
 import { useSnackbar } from 'notistack';
 import { getDefaultClientRetentionSetting, updateDefaultClientRetentionSetting } from '../../services/api';
 
@@ -239,6 +240,9 @@ export const AdminSettings = () => {
           </Box>
           <Box sx={{ mt: 4 }}>
             <NetworkShareSettings />
+          </Box>
+          <Box sx={{ mt: 4 }}>
+            <BrandingSettings />
           </Box>
         </TabPanel>
         <TabPanel value={currentTab} index={5}>

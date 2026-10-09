@@ -15,6 +15,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/analytics/pdf"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -303,7 +304,7 @@ func (h *Handler) ExportReport(w http.ResponseWriter, r *http.Request) {
 		data = pdf.BuildExternalAnalytics(report.AnalyticsData)
 	}
 
-	pdfBytes, err := h.pdfGen.Generate(report, client, data, class)
+	pdfBytes, err := h.pdfGen.Generate(report, client, data, class, branding.Default().PDFBranding(r.Context()))
 	if err != nil {
 		debug.Error("Failed to generate analytics PDF: %v", err)
 		http.Error(w, "Failed to generate PDF", http.StatusInternalServerError)

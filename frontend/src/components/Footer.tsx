@@ -17,6 +17,7 @@ import {
 } from '@mui/icons-material';
 import DiscordIcon from './icons/DiscordIcon';
 import { getVersionInfo } from '../api/version';
+import { useBranding } from '../contexts/BrandingContext';
 
 interface FooterProps {
   drawerOpen: boolean;
@@ -24,6 +25,7 @@ interface FooterProps {
 
 const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
   const { t } = useTranslation('common');
+  const { branding } = useBranding();
   const [version, setVersion] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const theme = useTheme();
@@ -51,7 +53,9 @@ const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
   }, []);
 
   const currentYear = new Date().getFullYear();
-  const copyrightText = `© 2024-${currentYear} ZerkerEOD`;
+  const copyrightText = branding.branded
+    ? `© 2024-${currentYear} ZerkerEOD · ${branding.powered_by}`
+    : `© 2024-${currentYear} ZerkerEOD`;
 
   return (
     <Box

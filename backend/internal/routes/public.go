@@ -12,6 +12,7 @@ import (
 	authhandler "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/public"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/sso"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/tls"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -52,6 +53,14 @@ func SetupPublicRoutes(apiRouter *mux.Router, database *db.DB, agentService *ser
 	// Version endpoint - publicly accessible
 	publicRouter.HandleFunc("/version", handlers.GetVersion).Methods("GET", "OPTIONS")
 	debug.Info("Configured version endpoint: /version")
+
+	// Branding endpoints - publicly accessible so the login page can render the
+	// configured name, colours, logo and favicon before authentication.
+	brandingHandler := public.NewBrandingHandler(branding.Default())
+	publicRouter.HandleFunc("/branding", brandingHandler.Get).Methods("GET", "OPTIONS")
+	publicRouter.HandleFunc("/branding/logo", brandingHandler.Logo).Methods("GET", "OPTIONS")
+	publicRouter.HandleFunc("/branding/favicon", brandingHandler.Favicon).Methods("GET", "OPTIONS")
+	debug.Info("Configured branding endpoints: /branding, /branding/logo, /branding/favicon")
 
 	// Agent registration endpoint
 	registrationHandler := handlers.NewRegistrationHandler(agentService, appConfig, tlsProvider)

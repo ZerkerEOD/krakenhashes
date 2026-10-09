@@ -12,6 +12,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db/queries"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/email/providers"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/branding"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	emailtypes "github.com/ZerkerEOD/krakenhashes/backend/pkg/email"
 )
@@ -322,17 +323,17 @@ func (s *Service) ListTemplates(ctx context.Context, templateType *emailtypes.Te
 // GetTemplateByType retrieves a template by its type
 func (s *Service) GetTemplateByType(ctx context.Context, templateType string) (*emailtypes.Template, error) {
 	debug.Info("[EmailService] Getting template by type: %s", templateType)
-	
+
 	var template emailtypes.Template
 	query := `SELECT id, template_type, name, subject, html_content, text_content, created_at, updated_at, last_modified_by 
 	          FROM email_templates WHERE template_type = $1 LIMIT 1`
-	
+
 	err := s.db.QueryRowContext(ctx, query, templateType).Scan(
 		&template.ID, &template.TemplateType, &template.Name,
 		&template.Subject, &template.HTMLContent, &template.TextContent,
 		&template.CreatedAt, &template.UpdatedAt, &template.LastModifiedBy,
 	)
-	
+
 	if err == sql.ErrNoRows {
 		debug.Info("[EmailService] No template found with type: %s", templateType)
 		return nil, ErrTemplateNotFound
@@ -341,7 +342,7 @@ func (s *Service) GetTemplateByType(ctx context.Context, templateType string) (*
 		debug.Error("[EmailService] Failed to get template by type: %v", err)
 		return nil, err
 	}
-	
+
 	return &template, nil
 }
 
@@ -481,6 +482,15 @@ func (s *Service) SendTemplatedEmail(ctx context.Context, to string, templateID 
 	template, err := s.GetTemplate(ctx, templateID)
 	if err != nil {
 		return fmt.Errorf("failed to get template: %w", err)
+	}
+
+	// Expose the configured application name as {{ .AppName }} to every
+	// template (issue #41). Callers may still override it explicitly.
+	if data == nil {
+		data = map[string]interface{}{}
+	}
+	if _, ok := data["AppName"]; !ok {
+		data["AppName"] = branding.AppName(ctx)
 	}
 
 	// Parse template

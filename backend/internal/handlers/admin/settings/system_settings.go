@@ -172,6 +172,12 @@ func (h *SystemSettingsHandler) ListSettings(w http.ResponseWriter, r *http.Requ
 var guardedSettingKeys = map[string]string{
 	"tls_additional_ip_addresses": "PUT /api/admin/tls/sans",
 	"tls_additional_dns_names":    "PUT /api/admin/tls/sans",
+	"branding_app_name":           "PUT /api/admin/settings/branding",
+	"branding_page_title":         "PUT /api/admin/settings/branding",
+	"branding_primary_color":      "PUT /api/admin/settings/branding",
+	"branding_secondary_color":    "PUT /api/admin/settings/branding",
+	"branding_logo_file":          "POST /api/admin/settings/branding/logo",
+	"branding_favicon_file":       "POST /api/admin/settings/branding/favicon",
 }
 
 func (h *SystemSettingsHandler) UpdateSetting(w http.ResponseWriter, r *http.Request) {

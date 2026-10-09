@@ -65,6 +65,7 @@ When setting up KrakenHashes for the first time, follow this sequence:
 2. [SSL/TLS Setup](system-setup/ssl-tls.md)
 3. [Email Configuration](system-setup/email.md)
 4. [Authentication Settings](system-setup/authentication.md)
+5. [Application Branding](system-setup/branding.md)
 
 ### :material-account-cog: **Daily Operations**
 - [User Management](operations/users.md)

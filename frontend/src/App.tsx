@@ -40,9 +40,7 @@
 
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline, CircularProgress, Box } from '@mui/material';
-import theme from './styles/theme';
+import { CircularProgress, Box } from '@mui/material';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -114,8 +112,6 @@ const App: React.FC = () => {
     <AuthProvider>
       <TeamFilterProvider>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
             <SnackbarProvider maxSnack={3}>
               <NotificationProvider>
               <DeletionProgressProvider>
@@ -194,7 +190,6 @@ const App: React.FC = () => {
               </DeletionProgressProvider>
               </NotificationProvider>
             </SnackbarProvider>
-          </ThemeProvider>
         </QueryClientProvider>
       </TeamFilterProvider>
     </AuthProvider>
