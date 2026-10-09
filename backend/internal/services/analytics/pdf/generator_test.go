@@ -16,15 +16,15 @@ import (
 func testReport() (*models.AnalyticsReport, *models.Client) {
 	now := time.Now()
 	return &models.AnalyticsReport{
-		ID:             uuid.New(),
-		StartDate:      now.AddDate(0, -1, 0),
-		EndDate:        now,
-		TotalHashlists: 2,
-		TotalHashes:    1000,
-		CompletedAt:    &now,
-	}, &models.Client{
-		Name: "Test Client",
-	}
+			ID:             uuid.New(),
+			StartDate:      now.AddDate(0, -1, 0),
+			EndDate:        now,
+			TotalHashlists: 2,
+			TotalHashes:    1000,
+			CompletedAt:    &now,
+		}, &models.Client{
+			Name: "Test Client",
+		}
 }
 
 func testLogoPNG(t *testing.T) []byte {
