@@ -261,11 +261,11 @@ func (r *SystemSettingsRepository) UpdateAgentDownloadSettings(ctx context.Conte
 
 	// Update each setting
 	settingMap := map[string]string{
-		"agent_max_concurrent_downloads":      strconv.Itoa(settings.MaxConcurrentDownloads),
-		"agent_download_timeout_minutes":      strconv.Itoa(settings.DownloadTimeoutMinutes),
-		"agent_download_retry_attempts":       strconv.Itoa(settings.DownloadRetryAttempts),
+		"agent_max_concurrent_downloads":           strconv.Itoa(settings.MaxConcurrentDownloads),
+		"agent_download_timeout_minutes":           strconv.Itoa(settings.DownloadTimeoutMinutes),
+		"agent_download_retry_attempts":            strconv.Itoa(settings.DownloadRetryAttempts),
 		"agent_download_progress_interval_seconds": strconv.Itoa(settings.ProgressIntervalSeconds),
-		"agent_download_chunk_size_mb":        strconv.Itoa(settings.ChunkSizeMB),
+		"agent_download_chunk_size_mb":             strconv.Itoa(settings.ChunkSizeMB),
 	}
 
 	now := time.Now()
@@ -348,10 +348,10 @@ func (r *SystemSettingsRepository) UpdateAgentUpdateSettings(ctx context.Context
 	defer tx.Rollback()
 
 	settingMap := map[string]string{
-		"agent_auto_update_enabled":            strconv.FormatBool(settings.AutoUpdateEnabled),
-		"agent_update_max_concurrent":          strconv.Itoa(settings.MaxConcurrent),
-		"agent_update_health_timeout_seconds":  strconv.Itoa(settings.HealthTimeoutSeconds),
-		"agent_update_max_attempts":            strconv.Itoa(settings.MaxAttempts),
+		"agent_auto_update_enabled":           strconv.FormatBool(settings.AutoUpdateEnabled),
+		"agent_update_max_concurrent":         strconv.Itoa(settings.MaxConcurrent),
+		"agent_update_health_timeout_seconds": strconv.Itoa(settings.HealthTimeoutSeconds),
+		"agent_update_max_attempts":           strconv.Itoa(settings.MaxAttempts),
 	}
 
 	now := time.Now()

@@ -323,17 +323,17 @@ func (s *Service) ListTemplates(ctx context.Context, templateType *emailtypes.Te
 // GetTemplateByType retrieves a template by its type
 func (s *Service) GetTemplateByType(ctx context.Context, templateType string) (*emailtypes.Template, error) {
 	debug.Info("[EmailService] Getting template by type: %s", templateType)
-	
+
 	var template emailtypes.Template
 	query := `SELECT id, template_type, name, subject, html_content, text_content, created_at, updated_at, last_modified_by 
 	          FROM email_templates WHERE template_type = $1 LIMIT 1`
-	
+
 	err := s.db.QueryRowContext(ctx, query, templateType).Scan(
 		&template.ID, &template.TemplateType, &template.Name,
 		&template.Subject, &template.HTMLContent, &template.TextContent,
 		&template.CreatedAt, &template.UpdatedAt, &template.LastModifiedBy,
 	)
-	
+
 	if err == sql.ErrNoRows {
 		debug.Info("[EmailService] No template found with type: %s", templateType)
 		return nil, ErrTemplateNotFound
@@ -342,7 +342,7 @@ func (s *Service) GetTemplateByType(ctx context.Context, templateType string) (*
 		debug.Error("[EmailService] Failed to get template by type: %v", err)
 		return nil, err
 	}
-	
+
 	return &template, nil
 }
 
