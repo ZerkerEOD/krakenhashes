@@ -21,15 +21,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TableContainer,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
   CircularProgress,
-  IconButton,
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Edit as EditIcon,
@@ -42,9 +36,11 @@ import {
   updateEmailTemplate,
   deleteEmailTemplate
 } from '../../../services/api';
+import { useToast } from '../../../components/ui/toast';
+import { DataTable, useConfirm } from '../../../components/ui';
 
 interface TemplateEditorProps {
-  onNotification: (message: string, severity: 'success' | 'error') => void;
+  onNotification?: (message: string, severity: 'success' | 'error') => void;
 }
 
 interface Template {
@@ -159,8 +155,15 @@ const sampleData: Record<string, Record<string, string>> = {
   },
 };
 
-export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }) => {
+export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification: onNotificationProp }) => {
   const { t } = useTranslation('admin');
+  const toast = useToast();
+  const confirm = useConfirm();
+  const onNotification = useCallback(
+    (message: string, severity: 'success' | 'error') =>
+      onNotificationProp ? onNotificationProp(message, severity) : toast[severity](message),
+    [onNotificationProp, toast]
+  );
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
@@ -313,6 +316,12 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
     return content;
   };
 
+  const templateColumns: GridColDef<Template>[] = [
+    { field: 'name', headerName: t('emailSettings.templates.table.name') as string, flex: 1, minWidth: 160 },
+    { field: 'templateType', headerName: t('emailSettings.templates.table.type') as string, flex: 1, minWidth: 160 },
+    { field: 'subject', headerName: t('emailSettings.templates.table.subject') as string, flex: 1.5, minWidth: 200 },
+  ];
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" p={3}>
@@ -430,13 +439,13 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
                 height: '100%', 
                 maxHeight: '500px', 
                 overflow: 'auto',
-                backgroundColor: '#1a1a1a',
-                color: '#ffffff',
-                '& a': { color: '#4fc3f7' },
+                bgcolor: 'surface.sunken',
+                color: 'text.primary',
+                '& a': { color: 'primary.main' },
                 '& *': { maxWidth: '100%' }
               }}
             >
-              <Typography variant="subtitle2" gutterBottom sx={{ color: '#ffffff' }}>
+              <Typography variant="subtitle2" gutterBottom color="text.primary">
                 {t('emailSettings.templates.preview')}
               </Typography>
               <Box 
@@ -484,41 +493,38 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
         </Button>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t('emailSettings.templates.table.name')}</TableCell>
-              <TableCell>{t('emailSettings.templates.table.type')}</TableCell>
-              <TableCell>{t('emailSettings.templates.table.subject')}</TableCell>
-              <TableCell align="right">{t('emailSettings.templates.table.actions')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {templates.map((template) => (
-              <TableRow key={template.id}>
-                <TableCell>{template.name}</TableCell>
-                <TableCell>{template.templateType}</TableCell>
-                <TableCell>{template.subject}</TableCell>
-                <TableCell align="right">
-                  <IconButton
-                    onClick={() => handleEditTemplate(template)}
-                    size="small"
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton
-                    onClick={() => handleDeleteTemplate(template.id!)}
-                    size="small"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <DataTable<Template>
+        rows={templates}
+        columns={templateColumns}
+        getRowId={(r) => r.id ?? `${r.templateType}-${r.name}`}
+        pagination={false}
+        sorting={{ mode: 'client', initial: [{ field: 'name', sort: 'asc' }] }}
+        onRowClick={(r) => handleEditTemplate(r)}
+        rowActions={() => [
+          {
+            key: 'edit',
+            label: t('emailSettings.templates.buttons.edit', 'Edit') as string,
+            icon: <EditIcon fontSize="small" />,
+            onClick: (r) => handleEditTemplate(r),
+          },
+          {
+            key: 'delete',
+            label: t('emailSettings.templates.buttons.delete', 'Delete') as string,
+            icon: <DeleteIcon fontSize="small" />,
+            danger: true,
+            onClick: async (r) => {
+              const ok = await confirm({
+                title: t('emailSettings.templates.buttons.delete', 'Delete') as string,
+                message: r.name,
+                severity: 'danger',
+                confirmLabel: t('emailSettings.templates.buttons.delete', 'Delete') as string,
+              });
+              if (ok) handleDeleteTemplate(r.id!);
+            },
+          },
+        ]}
+        tableKey="email-templates"
+      />
     </Box>
   );
 }; 

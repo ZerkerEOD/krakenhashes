@@ -18,7 +18,6 @@ import {
   DialogContentText,
   DialogActions,
   CircularProgress,
-  Snackbar,
 } from '@mui/material';
 import {
   Replay as RetryIcon,
@@ -27,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { AnalyticsReport } from '../../types/analytics';
 import analyticsService from '../../services/analytics';
+import { useToast } from '../ui';
 import OverviewSection from './OverviewSection';
 import WindowsHashSection from './WindowsHashSection';
 import LengthDistributionSection from './LengthDistributionSection';
@@ -63,15 +63,14 @@ export default function AnalyticsReportDisplay({
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [exporting, setExporting] = useState<null | 'internal' | 'external'>(null);
   const [confirmInternalOpen, setConfirmInternalOpen] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const toast = useToast();
 
   const runExport = async (type: 'internal' | 'external') => {
     setExporting(type);
-    setExportError(null);
     try {
       await analyticsService.exportReportPdf(report.id, type);
     } catch (err) {
-      setExportError(t('pdfExport.error'));
+      toast.error(t('pdfExport.error'));
     } finally {
       setExporting(null);
     }
@@ -240,17 +239,6 @@ export default function AnalyticsReportDisplay({
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Snackbar
-        open={exportError !== null}
-        autoHideDuration={6000}
-        onClose={() => setExportError(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="error" onClose={() => setExportError(null)}>
-          {exportError}
-        </Alert>
-      </Snackbar>
 
       {/* Overview Section - Full Width */}
       <OverviewSection

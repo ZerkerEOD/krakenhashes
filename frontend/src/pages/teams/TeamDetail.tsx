@@ -5,14 +5,6 @@ import {
   Button,
   Tabs,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
   Chip,
   Dialog,
   DialogTitle,
@@ -26,16 +18,16 @@ import {
   CircularProgress,
   Autocomplete,
   Alert,
-  DialogContentText,
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import LinkIcon from '@mui/icons-material/Link';
 import SecurityIcon from '@mui/icons-material/Security';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useSnackbar } from 'notistack';
+import { useParams } from 'react-router-dom';
+import { useTranslation, Trans } from 'react-i18next';
+import { DataTable, EntityLink, PageHeader, StatusChip, useToast, useConfirm } from '../../components/ui';
 import { Team, TeamMember, TeamRole, UserSearchResult, TeamAgentTrust, TeamNameOnly, TeamAgent } from '../../types/team';
 import { Client } from '../../types/client';
 import { teamsService } from '../../services/teams';
@@ -49,14 +41,18 @@ interface TabPanelProps {
   value: number;
 }
 
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
   <div hidden={value !== index}>{value === index && <Box sx={{ pt: 2 }}>{children}</Box>}</div>
 );
 
 export const TeamDetail: React.FC = () => {
   const { teamId } = useParams<{ teamId: string }>();
-  const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const { t } = useTranslation('admin');
+  const tr = (k: string, o?: any) => t(k, o) as string;
+  const toast = useToast();
+  const confirm = useConfirm();
   const { userRole } = useAuth();
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -92,25 +88,14 @@ export const TeamDetail: React.FC = () => {
   const [addTrustOpen, setAddTrustOpen] = useState(false);
   const [selectedTrustTeam, setSelectedTrustTeam] = useState<TeamNameOnly | null>(null);
 
-  // Confirmation dialog state
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmMessage, setConfirmMessage] = useState('');
-  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
-
-  const showConfirm = (message: string, action: () => void) => {
-    setConfirmMessage(message);
-    setConfirmAction(() => action);
-    setConfirmOpen(true);
-  };
-
-  const handleConfirm = () => {
-    setConfirmOpen(false);
-    confirmAction?.();
-  };
-
-  const handleConfirmClose = () => {
-    setConfirmOpen(false);
-    setConfirmAction(null);
+  const showConfirm = async (message: string, action: () => void) => {
+    const ok = await confirm({
+      title: tr('teams.detail.confirmActionTitle'),
+      message,
+      severity: 'danger',
+      confirmLabel: tr('common.confirm'),
+    });
+    if (ok) action();
   };
 
   // Permission checks
@@ -140,7 +125,7 @@ export const TeamDetail: React.FC = () => {
       setAgents(agentsData || []);
     } catch (error) {
       console.error('Failed to load team data:', error);
-      enqueueSnackbar('Failed to load team data', { variant: 'error' });
+      toast.error(tr('teams.detail.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -184,23 +169,23 @@ export const TeamDetail: React.FC = () => {
       setSearchQuery('');
       setNewMemberRole('member');
       await loadTeamData();
-      enqueueSnackbar('Member added successfully', { variant: 'success' });
+      toast.success(tr('teams.detail.messages.memberAdded'));
     } catch (error) {
       console.error('Failed to add member:', error);
-      enqueueSnackbar('Failed to add member', { variant: 'error' });
+      toast.error(tr('teams.detail.errors.addMemberFailed'));
     }
   };
 
   const handleRemoveMember = (userId: string) => {
     if (!teamId) return;
-    showConfirm('Are you sure you want to remove this member?', async () => {
+    showConfirm(tr('teams.detail.confirm.removeMember'), async () => {
       try {
         await teamsService.removeMember(teamId, userId);
         await loadTeamData();
-        enqueueSnackbar('Member removed', { variant: 'success' });
+        toast.success(tr('teams.detail.messages.memberRemoved'));
       } catch (error) {
         console.error('Failed to remove member:', error);
-        enqueueSnackbar('Failed to remove member', { variant: 'error' });
+        toast.error(tr('teams.detail.errors.removeMemberFailed'));
       }
     });
   };
@@ -211,10 +196,10 @@ export const TeamDetail: React.FC = () => {
     try {
       await teamsService.updateMemberRole(teamId, userId, { role: newRole });
       await loadTeamData();
-      enqueueSnackbar('Role updated', { variant: 'success' });
+      toast.success(tr('teams.detail.messages.roleUpdated'));
     } catch (error) {
       console.error('Failed to update role:', error);
-      enqueueSnackbar('Failed to update role', { variant: 'error' });
+      toast.error(tr('teams.detail.errors.updateRoleFailed'));
     }
   };
 
@@ -234,10 +219,10 @@ export const TeamDetail: React.FC = () => {
       await teamsService.updateTeam(teamId, { name: editName.trim(), description: editDescription.trim() });
       setEditDialogOpen(false);
       await loadTeamData();
-      enqueueSnackbar('Team updated successfully', { variant: 'success' });
+      toast.success(tr('teams.detail.messages.teamUpdated'));
     } catch (error) {
       console.error('Failed to update team:', error);
-      enqueueSnackbar('Failed to update team', { variant: 'error' });
+      toast.error(tr('teams.detail.errors.updateTeamFailed'));
     } finally {
       setSaving(false);
     }
@@ -255,7 +240,7 @@ export const TeamDetail: React.FC = () => {
       setAllClients(allClientsData.filter((c: Client) => !assignedIds.has(c.id)));
     } catch (error) {
       console.error('Failed to load clients:', error);
-      enqueueSnackbar('Failed to load clients', { variant: 'error' });
+      toast.error(tr('teams.detail.errors.loadClientsFailed'));
     } finally {
       setLoadingClients(false);
     }
@@ -269,25 +254,25 @@ export const TeamDetail: React.FC = () => {
       setAssignClientOpen(false);
       setSelectedClient(null);
       await loadTeamData();
-      enqueueSnackbar('Client assigned to team', { variant: 'success' });
+      toast.success(tr('teams.detail.messages.clientAssigned'));
     } catch (error) {
       console.error('Failed to assign client:', error);
-      enqueueSnackbar('Failed to assign client', { variant: 'error' });
+      toast.error(tr('teams.detail.errors.assignClientFailed'));
     }
   };
 
   const handleRemoveClient = (clientId: string, clientName: string) => {
     if (!teamId) return;
     showConfirm(
-      `Are you sure you want to remove "${clientName}" from this team? Team members will lose access to this client's data.`,
+      tr('teams.detail.confirm.removeClient', { name: clientName }),
       async () => {
         try {
           await teamsService.removeClient(teamId, clientId);
           await loadTeamData();
-          enqueueSnackbar('Client removed from team', { variant: 'success' });
+          toast.success(tr('teams.detail.messages.clientRemoved'));
         } catch (error) {
           console.error('Failed to remove client:', error);
-          enqueueSnackbar('Failed to remove client', { variant: 'error' });
+          toast.error(tr('teams.detail.errors.removeClientFailed'));
         }
       }
     );
@@ -301,10 +286,10 @@ export const TeamDetail: React.FC = () => {
       const names = await teamsService.listAllTeamNames();
       // Filter out current team and already trusted teams
       const trustedIds = new Set(trustedTeams.map(t => t.trusted_team_id));
-      setAllTeamNames(names.filter(t => t.id !== teamId && !trustedIds.has(t.id)));
+      setAllTeamNames(names.filter(nm => nm.id !== teamId && !trustedIds.has(nm.id)));
     } catch (error) {
       console.error('Failed to load team names:', error);
-      enqueueSnackbar('Failed to load team names', { variant: 'error' });
+      toast.error(tr('teams.detail.errors.loadTeamNamesFailed'));
     }
   };
 
@@ -316,29 +301,162 @@ export const TeamDetail: React.FC = () => {
       setAddTrustOpen(false);
       setSelectedTrustTeam(null);
       await loadTeamData();
-      enqueueSnackbar('Trust relationship added', { variant: 'success' });
+      toast.success(tr('teams.detail.messages.trustAdded'));
     } catch (error) {
       console.error('Failed to add trust:', error);
-      enqueueSnackbar('Failed to add trust relationship', { variant: 'error' });
+      toast.error(tr('teams.detail.errors.addTrustFailed'));
     }
   };
 
   const handleRemoveTrust = (trustedTeamId: string) => {
     if (!teamId) return;
     showConfirm(
-      'Remove this trust relationship? Agents from this team will no longer be able to run your jobs.',
+      tr('teams.detail.confirm.removeTrust'),
       async () => {
         try {
           await teamsService.removeTrust(teamId, trustedTeamId);
           await loadTeamData();
-          enqueueSnackbar('Trust relationship removed', { variant: 'success' });
+          toast.success(tr('teams.detail.messages.trustRemoved'));
         } catch (error) {
           console.error('Failed to remove trust:', error);
-          enqueueSnackbar('Failed to remove trust relationship', { variant: 'error' });
+          toast.error(tr('teams.detail.errors.removeTrustFailed'));
         }
       }
     );
   };
+
+  const memberColumns: GridColDef<TeamMember>[] = [
+    {
+      field: 'username',
+      headerName: tr('teams.detail.columns.username'),
+      flex: 1,
+      minWidth: 140,
+      renderCell: (p) => <EntityLink type="user" id={p.row.user_id} label={p.row.username} />,
+    },
+    { field: 'email', headerName: tr('teams.detail.columns.email'), flex: 1.2, minWidth: 180 },
+    {
+      field: 'role',
+      headerName: tr('teams.detail.columns.role'),
+      width: 150,
+      renderCell: (p) =>
+        canManageMembers ? (
+          <Box onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <Select
+              size="small"
+              value={p.row.role}
+              onChange={(e) => handleUpdateRole(p.row.user_id, e.target.value as TeamRole)}
+            >
+              <MenuItem value="member">{tr('teams.detail.roles.member')}</MenuItem>
+              <MenuItem value="admin">{tr('teams.detail.roles.admin')}</MenuItem>
+            </Select>
+          </Box>
+        ) : (
+          <Chip
+            label={p.row.role === 'admin' ? tr('teams.detail.roles.admin') : tr('teams.detail.roles.member')}
+            color={p.row.role === 'admin' ? 'primary' : 'default'}
+            size="small"
+          />
+        ),
+    },
+    {
+      field: 'joined_at',
+      headerName: tr('teams.detail.columns.joined'),
+      width: 130,
+      valueFormatter: (v) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
+  ];
+
+  const clientColumns: GridColDef<Client>[] = [
+    {
+      field: 'name',
+      headerName: tr('teams.detail.columns.clientName'),
+      flex: 1,
+      minWidth: 160,
+      renderCell: (p) => <EntityLink type="client" id={p.row.id} label={p.row.name} />,
+    },
+    {
+      field: 'description',
+      headerName: tr('teams.detail.columns.description'),
+      flex: 2,
+      minWidth: 200,
+      valueFormatter: (v) => (v as string) || '-',
+    },
+  ];
+
+  const trustColumns: GridColDef<TeamAgentTrust>[] = [
+    {
+      field: 'trusted_name',
+      headerName: tr('teams.detail.columns.trustedTeam'),
+      flex: 1,
+      minWidth: 180,
+      valueGetter: (_v, row) => row.trusted_name || row.trusted_team_id,
+      renderCell: (p) => (
+        <EntityLink type="team" id={p.row.trusted_team_id} label={p.row.trusted_name || p.row.trusted_team_id} />
+      ),
+    },
+    {
+      field: 'created_at',
+      headerName: tr('teams.detail.columns.trustedSince'),
+      width: 150,
+      valueFormatter: (v) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
+  ];
+
+  const agentColumns: GridColDef<TeamAgent>[] = [
+    {
+      field: 'name',
+      headerName: tr('teams.detail.columns.agentName'),
+      flex: 1,
+      minWidth: 160,
+      renderCell: (p) => <EntityLink type="agent" id={p.row.id} label={p.row.name} />,
+    },
+    {
+      field: 'status',
+      headerName: tr('teams.detail.columns.status'),
+      width: 130,
+      renderCell: (p) => <StatusChip entity="agent" status={p.row.status} />,
+    },
+    {
+      field: 'version',
+      headerName: tr('teams.detail.columns.version'),
+      width: 130,
+      valueFormatter: (v) => (v ? formatAgentVersion(v as string) : '-'),
+    },
+    {
+      field: 'owner_username',
+      headerName: tr('teams.detail.columns.owner'),
+      flex: 1,
+      minWidth: 140,
+      valueGetter: (_v, row) => row.owner_username || tr('teams.detail.systemOwner'),
+      renderCell: (p) =>
+        p.row.owner_id && p.row.owner_id !== SYSTEM_USER_ID ? (
+          <EntityLink type="user" id={p.row.owner_id} label={p.row.owner_username || p.row.owner_id} />
+        ) : (
+          <span>{p.row.owner_username || tr('teams.detail.systemOwner')}</span>
+        ),
+    },
+    {
+      field: 'source',
+      headerName: tr('teams.detail.columns.source'),
+      flex: 1,
+      minWidth: 200,
+      valueGetter: (_v, row) =>
+        row.source === 'direct' ? tr('teams.detail.source.direct') : tr('teams.detail.source.trusted', { team: row.source_team_name || '' }),
+      renderCell: (p) =>
+        p.row.source === 'direct' ? (
+          <Chip label={tr('teams.detail.source.direct')} color="primary" size="small" variant="outlined" />
+        ) : (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip label={tr('teams.detail.source.trustedBadge')} color="secondary" size="small" variant="outlined" />
+            {p.row.source_team_id ? (
+              <EntityLink type="team" id={p.row.source_team_id} label={p.row.source_team_name || tr('teams.detail.source.unknown')} />
+            ) : (
+              <span>{p.row.source_team_name || tr('teams.detail.source.unknown')}</span>
+            )}
+          </Box>
+        ),
+    },
+  ];
 
   if (loading) {
     return (
@@ -351,42 +469,33 @@ export const TeamDetail: React.FC = () => {
   if (!team) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography>Team not found</Typography>
+        <Typography>{tr('teams.detail.notFound')}</Typography>
       </Box>
     );
   }
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/teams')}
-            sx={{ mb: 1 }}
-          >
-            Back to Teams
-          </Button>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {team.name}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {team.description || 'No description'}
-          </Typography>
-        </Box>
-        {canEditTeam && (
-          <Button variant="outlined" startIcon={<EditIcon />} onClick={handleEditOpen}>
-            Edit Team
-          </Button>
-        )}
-      </Box>
+      <PageHeader
+        title={team.name}
+        description={team.description || tr('teams.detail.noDescription')}
+        backTo="/teams"
+        breadcrumbs={[{ label: tr('teams.detail.breadcrumb'), to: '/teams' }, { label: team.name }]}
+        actions={
+          canEditTeam && (
+            <Button variant="outlined" startIcon={<EditIcon />} onClick={handleEditOpen}>
+              {tr('teams.detail.editTeam')}
+            </Button>
+          )
+        }
+      />
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-          <Tab label={`Members (${members.length})`} />
-          <Tab label={`Clients (${clients.length})`} />
-          <Tab label={`Trusted Teams (${trustedTeams.length})`} />
-          <Tab label={`Agents (${agents.length})`} />
+          <Tab label={tr('teams.detail.tabs.members', { count: members.length })} />
+          <Tab label={tr('teams.detail.tabs.clients', { count: clients.length })} />
+          <Tab label={tr('teams.detail.tabs.trustedTeams', { count: trustedTeams.length })} />
+          <Tab label={tr('teams.detail.tabs.agents', { count: agents.length })} />
         </Tabs>
       </Box>
 
@@ -399,69 +508,33 @@ export const TeamDetail: React.FC = () => {
               startIcon={<PersonAddIcon />}
               onClick={() => setAddMemberOpen(true)}
             >
-              Add Member
+              {tr('teams.detail.addMember')}
             </Button>
           </Box>
         )}
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Username</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell>Joined</TableCell>
-                {canManageMembers && <TableCell align="right">Actions</TableCell>}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {members.map((member) => (
-                <TableRow key={member.user_id}>
-                  <TableCell>{member.username}</TableCell>
-                  <TableCell>{member.email}</TableCell>
-                  <TableCell>
-                    {canManageMembers ? (
-                      <Select
-                        size="small"
-                        value={member.role}
-                        onChange={(e) => handleUpdateRole(member.user_id, e.target.value as TeamRole)}
-                      >
-                        <MenuItem value="member">Member</MenuItem>
-                        <MenuItem value="admin">Admin</MenuItem>
-                      </Select>
-                    ) : (
-                      <Chip
-                        label={member.role === 'admin' ? 'Admin' : 'Member'}
-                        color={member.role === 'admin' ? 'primary' : 'default'}
-                        size="small"
-                      />
-                    )}
-                  </TableCell>
-                  <TableCell>{new Date(member.joined_at).toLocaleDateString()}</TableCell>
-                  {canManageMembers && (
-                    <TableCell align="right">
-                      <IconButton
-                        color="error"
-                        onClick={() => handleRemoveMember(member.user_id)}
-                        size="small"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-              {members.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={canManageMembers ? 5 : 4} align="center">
-                    No members in this team
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <DataTable<TeamMember>
+          rows={members}
+          columns={memberColumns}
+          getRowId={(r) => r.user_id}
+          pagination={{ mode: 'client', initialPageSize: 25 }}
+          sorting={{ mode: 'client', initial: [{ field: 'username', sort: 'asc' }] }}
+          rowActions={
+            canManageMembers
+              ? () => [
+                  {
+                    key: 'remove',
+                    label: tr('teams.detail.rowActions.removeMember'),
+                    icon: <DeleteIcon fontSize="small" />,
+                    danger: true,
+                    onClick: (r) => handleRemoveMember(r.user_id),
+                  },
+                ]
+              : undefined
+          }
+          emptyState={{ title: tr('teams.detail.empty.noMembers') }}
+          tableKey="team-members"
+        />
       </TabPanel>
 
       {/* Clients Tab */}
@@ -473,59 +546,39 @@ export const TeamDetail: React.FC = () => {
               startIcon={<LinkIcon />}
               onClick={handleAssignClientOpen}
             >
-              Assign Client
+              {tr('teams.detail.assignClient')}
             </Button>
           </Box>
         )}
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Client Name</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {clients.map((client) => (
-                <TableRow key={client.id}>
-                  <TableCell>{client.name}</TableCell>
-                  <TableCell>{client.description || '-'}</TableCell>
-                  <TableCell align="right">
-                    <Button size="small" onClick={() => navigate(`/clients/${client.id}`)}>
-                      View
-                    </Button>
-                    {canManageClients && (
-                      <IconButton
-                        color="error"
-                        onClick={() => handleRemoveClient(client.id, client.name)}
-                        size="small"
-                        title="Remove client from team"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {clients.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3} align="center">
-                    No clients assigned to this team
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <DataTable<Client>
+          rows={clients}
+          columns={clientColumns}
+          getRowId={(r) => r.id}
+          pagination={{ mode: 'client', initialPageSize: 25 }}
+          sorting={{ mode: 'client', initial: [{ field: 'name', sort: 'asc' }] }}
+          rowActions={
+            canManageClients
+              ? () => [
+                  {
+                    key: 'remove',
+                    label: tr('teams.detail.rowActions.removeClientFromTeam'),
+                    icon: <DeleteIcon fontSize="small" />,
+                    danger: true,
+                    onClick: (r) => handleRemoveClient(r.id, r.name),
+                  },
+                ]
+              : undefined
+          }
+          emptyState={{ title: tr('teams.detail.empty.noClients') }}
+          tableKey="team-clients"
+        />
       </TabPanel>
 
       {/* Trusted Teams Tab */}
       <TabPanel value={tabValue} index={2}>
         <Alert severity="info" sx={{ mb: 2 }}>
-          Trusting another team allows their agents to run your team's jobs. This is a one-way relationship
-          &mdash; trusting Team B does not give your agents access to Team B's jobs.
+          {tr('teams.detail.trustInfo')}
         </Alert>
         {canManageTrust && (
           <Box sx={{ mb: 2 }}>
@@ -534,122 +587,67 @@ export const TeamDetail: React.FC = () => {
               startIcon={<SecurityIcon />}
               onClick={handleAddTrustOpen}
             >
-              Add Trust
+              {tr('teams.detail.addTrust')}
             </Button>
           </Box>
         )}
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Trusted Team</TableCell>
-                <TableCell>Trusted Since</TableCell>
-                {canManageTrust && <TableCell align="right">Actions</TableCell>}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {trustedTeams.map((trust) => (
-                <TableRow key={trust.trusted_team_id}>
-                  <TableCell>{trust.trusted_name || trust.trusted_team_id}</TableCell>
-                  <TableCell>{new Date(trust.created_at).toLocaleDateString()}</TableCell>
-                  {canManageTrust && (
-                    <TableCell align="right">
-                      <IconButton
-                        color="error"
-                        onClick={() => handleRemoveTrust(trust.trusted_team_id)}
-                        size="small"
-                        title="Remove trust"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-              {trustedTeams.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={canManageTrust ? 3 : 2} align="center">
-                    No trusted teams. Only system agents and this team's own agents can run jobs.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <DataTable<TeamAgentTrust>
+          rows={trustedTeams}
+          columns={trustColumns}
+          getRowId={(r) => r.trusted_team_id}
+          pagination={false}
+          sorting={{ mode: 'client' }}
+          rowActions={
+            canManageTrust
+              ? () => [
+                  {
+                    key: 'remove',
+                    label: tr('teams.detail.rowActions.removeTrust'),
+                    icon: <DeleteIcon fontSize="small" />,
+                    danger: true,
+                    onClick: (r) => handleRemoveTrust(r.trusted_team_id),
+                  },
+                ]
+              : undefined
+          }
+          emptyState={{ title: tr('teams.detail.empty.noTrustedTeams') }}
+          tableKey="team-trust"
+        />
       </TabPanel>
 
       {/* Agents Tab */}
       <TabPanel value={tabValue} index={3}>
         <Alert severity="info" sx={{ mb: 2 }}>
-          <strong>Direct</strong> agents are owned by members of this team.{' '}
-          <strong>Trusted</strong> agents come from teams you have established trust relationships with.
+          <Trans
+            t={t}
+            i18nKey="teams.detail.agentsInfo"
+            components={{ strong: <strong /> }}
+          />
         </Alert>
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Agent Name</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Version</TableCell>
-                <TableCell>Owner</TableCell>
-                <TableCell>Source</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {agents.map((agent) => (
-                <TableRow key={agent.id}>
-                  <TableCell>{agent.name}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={agent.status}
-                      color={
-                        agent.status === 'online'
-                          ? 'success'
-                          : agent.status === 'offline'
-                            ? 'default'
-                            : 'warning'
-                      }
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{agent.version ? formatAgentVersion(agent.version) : '-'}</TableCell>
-                  <TableCell>{agent.owner_username || 'System'}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={
-                        agent.source === 'direct'
-                          ? 'Direct'
-                          : `Trusted — ${agent.source_team_name || 'Unknown'}`
-                      }
-                      color={agent.source === 'direct' ? 'primary' : 'secondary'}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {agents.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    No agents accessible to this team. Add team members with agents or establish trust relationships.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <DataTable<TeamAgent>
+          rows={agents}
+          columns={agentColumns}
+          getRowId={(r) => r.id}
+          pagination={{ mode: 'client', initialPageSize: 25 }}
+          sorting={{ mode: 'client', initial: [{ field: 'name', sort: 'asc' }] }}
+          emptyState={{
+            title: tr('teams.detail.empty.noAgents'),
+            description: tr('teams.detail.empty.noAgentsHint'),
+          }}
+          tableKey="team-agents"
+        />
       </TabPanel>
 
       {/* Edit Team Dialog */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Team</DialogTitle>
+        <DialogTitle>{tr('teams.detail.dialogs.editTeam.title')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Team Name"
+            label={tr('teams.detail.dialogs.editTeam.nameLabel')}
             fullWidth
             required
             value={editName}
@@ -657,7 +655,7 @@ export const TeamDetail: React.FC = () => {
           />
           <TextField
             margin="dense"
-            label="Description"
+            label={tr('teams.detail.dialogs.editTeam.descriptionLabel')}
             fullWidth
             multiline
             rows={3}
@@ -666,16 +664,16 @@ export const TeamDetail: React.FC = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setEditDialogOpen(false)}>{tr('teams.detail.dialogs.cancel')}</Button>
           <Button onClick={handleEditSave} variant="contained" disabled={!editName.trim() || saving}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? tr('teams.detail.dialogs.editTeam.savingButton') : tr('teams.detail.dialogs.editTeam.saveButton')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Add Member Dialog */}
       <Dialog open={addMemberOpen} onClose={() => setAddMemberOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Team Member</DialogTitle>
+        <DialogTitle>{tr('teams.detail.dialogs.addMember.title')}</DialogTitle>
         <DialogContent>
           <Autocomplete
             options={searchResults}
@@ -687,84 +685,70 @@ export const TeamDetail: React.FC = () => {
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Search users"
+                label={tr('teams.detail.dialogs.addMember.searchLabel')}
                 margin="dense"
-                placeholder="Type at least 2 characters..."
+                placeholder={tr('teams.detail.dialogs.addMember.searchPlaceholder')}
               />
             )}
-            noOptionsText={searchQuery.length < 2 ? 'Type to search...' : 'No users found'}
+            noOptionsText={searchQuery.length < 2 ? tr('teams.detail.dialogs.addMember.typeToSearch') : tr('teams.detail.dialogs.addMember.noUsersFound')}
           />
           <FormControl fullWidth margin="dense">
-            <InputLabel>Role</InputLabel>
+            <InputLabel>{tr('teams.detail.dialogs.addMember.roleLabel')}</InputLabel>
             <Select
               value={newMemberRole}
-              label="Role"
+              label={tr('teams.detail.dialogs.addMember.roleLabel')}
               onChange={(e) => setNewMemberRole(e.target.value as TeamRole)}
             >
-              <MenuItem value="member">Member</MenuItem>
-              <MenuItem value="admin">Admin (Team Manager)</MenuItem>
+              <MenuItem value="member">{tr('teams.detail.roles.member')}</MenuItem>
+              <MenuItem value="admin">{tr('teams.detail.roles.adminManager')}</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddMemberOpen(false)}>Cancel</Button>
+          <Button onClick={() => setAddMemberOpen(false)}>{tr('teams.detail.dialogs.cancel')}</Button>
           <Button onClick={handleAddMember} variant="contained" disabled={!selectedUser}>
-            Add Member
+            {tr('teams.detail.dialogs.addMember.addButton')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Add Trust Dialog */}
       <Dialog open={addTrustOpen} onClose={() => setAddTrustOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Trusted Team</DialogTitle>
+        <DialogTitle>{tr('teams.detail.dialogs.addTrust.title')}</DialogTitle>
         <DialogContent>
           <Alert severity="info" sx={{ mb: 2 }}>
-            Agents owned by members of the trusted team will be allowed to run this team's jobs.
+            {tr('teams.detail.dialogs.addTrust.info')}
           </Alert>
           <Autocomplete
             options={allTeamNames}
-            getOptionLabel={(option) => `${option.name} (${option.agent_count} agent${option.agent_count !== 1 ? 's' : ''})`}
+            getOptionLabel={(option) => tr('teams.detail.dialogs.addTrust.optionLabel', { name: option.name, count: option.agent_count })}
             value={selectedTrustTeam}
             onChange={(_, value) => setSelectedTrustTeam(value)}
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Select team to trust"
+                label={tr('teams.detail.dialogs.addTrust.selectLabel')}
                 margin="dense"
-                placeholder="Search teams..."
+                placeholder={tr('teams.detail.dialogs.addTrust.searchPlaceholder')}
               />
             )}
-            noOptionsText="No teams available"
+            noOptionsText={tr('teams.detail.dialogs.addTrust.noTeamsAvailable')}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddTrustOpen(false)}>Cancel</Button>
+          <Button onClick={() => setAddTrustOpen(false)}>{tr('teams.detail.dialogs.cancel')}</Button>
           <Button onClick={handleAddTrust} variant="contained" disabled={!selectedTrustTeam}>
-            Add Trust
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Confirmation Dialog */}
-      <Dialog open={confirmOpen} onClose={handleConfirmClose} maxWidth="xs" fullWidth>
-        <DialogTitle>Confirm Action</DialogTitle>
-        <DialogContent>
-          <DialogContentText>{confirmMessage}</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleConfirmClose}>Cancel</Button>
-          <Button onClick={handleConfirm} variant="contained" color="error">
-            Confirm
+            {tr('teams.detail.addTrust')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Assign Client Dialog */}
       <Dialog open={assignClientOpen} onClose={() => setAssignClientOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Assign Client to Team</DialogTitle>
+        <DialogTitle>{tr('teams.detail.dialogs.assignClient.title')}</DialogTitle>
         <DialogContent>
           <Alert severity="info" sx={{ mb: 2 }}>
-            Assigning a client grants all team members access to this client's hashlists, jobs, and cracked data.
+            {tr('teams.detail.dialogs.assignClient.info')}
           </Alert>
           {loadingClients ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
@@ -791,19 +775,19 @@ export const TeamDetail: React.FC = () => {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Select client"
+                  label={tr('teams.detail.dialogs.assignClient.selectLabel')}
                   margin="dense"
-                  placeholder="Search clients..."
+                  placeholder={tr('teams.detail.dialogs.assignClient.searchPlaceholder')}
                 />
               )}
-              noOptionsText="No unassigned clients available"
+              noOptionsText={tr('teams.detail.dialogs.assignClient.noClientsAvailable')}
             />
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAssignClientOpen(false)}>Cancel</Button>
+          <Button onClick={() => setAssignClientOpen(false)}>{tr('teams.detail.dialogs.cancel')}</Button>
           <Button onClick={handleAssignClient} variant="contained" disabled={!selectedClient}>
-            Assign Client
+            {tr('teams.detail.assignClient')}
           </Button>
         </DialogActions>
       </Dialog>

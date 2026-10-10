@@ -144,6 +144,9 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	// Branding settings routes (issue #41) - Must be before generic {key} route
 	adminsettings.NewBrandingSettingsHandler(branding.Default()).RegisterRoutes(adminRouter)
 
+	// Settings hub status - Must be before generic {key} route (handler wired in main.go)
+	registerSettingsStatusRoute(adminRouter)
+
 	// General system settings routes for listing and updating individual settings - Must be after specific routes
 	adminRouter.HandleFunc("/settings", systemSettingsHandler.ListSettings).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/settings/{key}", systemSettingsHandler.GetSetting).Methods(http.MethodGet, http.MethodOptions)

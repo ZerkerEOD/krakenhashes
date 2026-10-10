@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -17,7 +18,7 @@ import {
   SelectChangeEvent,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { useSnackbar } from 'notistack';
+import { useToast } from '../ui/toast';
 import { AddBinaryRequest, UploadBinaryRequest, addBinary, uploadBinary } from '../../services/binary';
 
 interface AddBinaryFormProps {
@@ -36,6 +37,7 @@ const extractVersionFromFileName = (fileName: string): string => {
 };
 
 const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) => {
+  const { t } = useTranslation('admin');
   const [sourceMode, setSourceMode] = useState<'url' | 'upload'>('url');
   const [formData, setFormData] = useState({
     binary_type: 'hashcat' as 'hashcat' | 'john',
@@ -48,7 +50,7 @@ const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) =>
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,7 +134,7 @@ const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) =>
         await addBinary(request);
       } else {
         if (!selectedFile) {
-          enqueueSnackbar('Please select a file to upload', { variant: 'error' });
+          toast.error(t('binaryManagement.form.selectFileRequired') as string);
           return;
         }
         const request: UploadBinaryRequest = {
@@ -147,11 +149,11 @@ const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) =>
         await uploadBinary(request);
       }
 
-      enqueueSnackbar('Binary added successfully', { variant: 'success' });
+      toast.success(t('binaryManagement.messages.addSuccess') as string);
       onSuccess();
     } catch (error) {
       console.error('Error adding binary:', error);
-      enqueueSnackbar(error instanceof Error ? error.message : 'Failed to add binary', { variant: 'error' });
+      toast.error(error instanceof Error ? error.message : (t('binaryManagement.messages.addFailed') as string));
     } finally {
       setIsSubmitting(false);
     }
@@ -159,27 +161,27 @@ const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) =>
 
   return (
     <form onSubmit={handleSubmit}>
-      <DialogTitle>Add New Binary</DialogTitle>
+      <DialogTitle>{t('binaryManagement.form.addDialogTitle')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           {/* Source Mode Toggle */}
           <FormControl fullWidth>
-            <InputLabel id="source-mode-label">Source</InputLabel>
+            <InputLabel id="source-mode-label">{t('binaryManagement.form.sourceLabel')}</InputLabel>
             <Select
               labelId="source-mode-label"
               value={sourceMode}
-              label="Source"
+              label={t('binaryManagement.form.sourceLabel') as string}
               onChange={handleSourceModeChange}
             >
-              <MenuItem value="url">Download from URL</MenuItem>
-              <MenuItem value="upload">Upload File</MenuItem>
+              <MenuItem value="url">{t('binaryManagement.form.downloadFromUrl')}</MenuItem>
+              <MenuItem value="upload">{t('binaryManagement.form.uploadFile')}</MenuItem>
             </Select>
           </FormControl>
 
           {/* Binary Type - John disabled */}
           <TextField
             select
-            label="Binary Type"
+            label={t('binaryManagement.form.binaryTypeLabel')}
             name="binary_type"
             value={formData.binary_type}
             onChange={handleChange}
@@ -188,14 +190,14 @@ const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) =>
           >
             <MenuItem value="hashcat">Hashcat</MenuItem>
             <MenuItem value="john" disabled>
-              John the Ripper (support pending)
+              {t('binaryManagement.form.johnPending')}
             </MenuItem>
           </TextField>
 
           {/* Compression Type */}
           <TextField
             select
-            label="Compression Type"
+            label={t('binaryManagement.form.compressionTypeLabel')}
             name="compression_type"
             value={formData.compression_type}
             onChange={handleChange}
@@ -211,14 +213,14 @@ const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) =>
           {/* Source-specific field: URL or File Upload */}
           {sourceMode === 'url' ? (
             <TextField
-              label="Source URL"
+              label={t('binaryManagement.form.sourceUrlLabel')}
               name="source_url"
               value={formData.source_url}
               onChange={handleChange}
               required
               fullWidth
               type="url"
-              helperText="URL to download the binary (e.g., https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)"
+              helperText={t('binaryManagement.form.sourceUrlHelp') as string}
             />
           ) : (
             <Box>
@@ -236,45 +238,45 @@ const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) =>
                 fullWidth
                 sx={{ height: 56, justifyContent: 'flex-start', pl: 2 }}
               >
-                {selectedFile ? selectedFile.name : 'Select Archive File'}
+                {selectedFile ? selectedFile.name : t('binaryManagement.form.selectArchiveFile')}
               </Button>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                Upload a .7z, .zip, .tar.gz, or .tar.xz archive containing the binary
+                {t('binaryManagement.form.uploadHelp')}
               </Typography>
             </Box>
           )}
 
           {/* File Name */}
           <TextField
-            label="File Name"
+            label={t('binaryManagement.form.fileNameLabel')}
             name="file_name"
             value={formData.file_name}
             onChange={handleChange}
             required
             fullWidth
-            helperText="Auto-filled from URL/file, but can be modified if needed"
+            helperText={t('binaryManagement.form.fileNameHelp') as string}
           />
 
           {/* Version */}
           <TextField
-            label="Version"
+            label={t('binaryManagement.form.versionLabel')}
             name="version"
             value={formData.version}
             onChange={handleChange}
             fullWidth
-            helperText="Auto-detected from filename. Override for custom builds."
+            helperText={t('binaryManagement.form.versionHelp') as string}
           />
 
           {/* Description */}
           <TextField
-            label="Description"
+            label={t('binaryManagement.form.descriptionLabel')}
             name="description"
             value={formData.description}
             onChange={handleChange}
             fullWidth
             multiline
             rows={2}
-            helperText="Optional notes about this binary (e.g., custom build details)"
+            helperText={t('binaryManagement.form.descriptionHelp') as string}
           />
 
           {/* Set as Default */}
@@ -286,13 +288,13 @@ const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) =>
                 onChange={handleChange}
               />
             }
-            label="Set as default binary"
+            label={t('binaryManagement.form.setAsDefault') as string}
           />
         </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
@@ -300,7 +302,7 @@ const AddBinaryForm: React.FC<AddBinaryFormProps> = ({ onSuccess, onCancel }) =>
           disabled={isSubmitting || (sourceMode === 'upload' && !selectedFile)}
           startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
         >
-          {sourceMode === 'url' ? 'Add Binary' : 'Upload Binary'}
+          {sourceMode === 'url' ? t('binaryManagement.addBinary') : t('binaryManagement.form.uploadBinarySubmit')}
         </Button>
       </DialogActions>
     </form>

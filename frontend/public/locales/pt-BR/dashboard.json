@@ -154,11 +154,45 @@
     "viewAll": "Todos os jobs",
     "empty": "Nada em execução",
     "emptyHint": "Inicie um job a partir de uma hashlist.",
-    "goHashlists": "Ir para hashlists"
+    "goHashlists": "Ir para hashlists",
+    "recentTitle": "Jobs",
+    "recentSubtitle": "Ativos primeiro, depois os concluídos recentemente",
+    "recentEmpty": "Nenhum job ainda"
   },
   "welcomeUser": "Bem-vindo de volta, {{name}}",
   "autoRefresh": {
     "on": "Ativo",
     "off": "Pausado"
+  },
+  "view": {
+    "label": "Visualização do painel",
+    "mine": "Meus",
+    "teams": "Minhas equipes",
+    "all": "Todos"
+  },
+  "attention": {
+    "title": "Requer atenção",
+    "allClear": "Tudo certo",
+    "allClearHint": "Nada está falhando nem aguardando sua ação.",
+    "kind": {
+      "job_failed": "Job com falha: {{name}}",
+      "job_blocked": "Job aguardando: {{name}}",
+      "hashlist_error": "Falha ao processar a hashlist: {{name}}",
+      "hashlist_awaiting_decision": "A hashlist precisa da sua revisão: {{name}}",
+      "hashlist_stuck": "Hashlist travada no processamento: {{name}}",
+      "agent_error": "Erro do agente: {{name}}",
+      "agent_update_failed": "Falha na atualização do agente: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Hashes quebrados ao longo do tempo",
+    "subtitle_many": "{{count}} hashes quebrados nos últimos {{days}} dias",
+    "subtitle_one": "{{count}} hash quebrado nos últimos {{days}} dias",
+    "subtitle_other": "{{count}} hashes quebrados nos últimos {{days}} dias",
+    "tooltip_many": "{{count}} hashes quebrados",
+    "tooltip_one": "{{count}} hash quebrado",
+    "tooltip_other": "{{count}} hashes quebrados",
+    "topHashlists": "Principais hashlists da semana",
+    "noCracksWeek": "Nenhum hash quebrado nos últimos 7 dias"
   }
 }

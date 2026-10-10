@@ -154,11 +154,41 @@
     "viewAll": "Tất cả công việc",
     "empty": "Không có gì đang chạy",
     "emptyHint": "Bắt đầu một công việc từ danh sách hash.",
-    "goHashlists": "Đi đến danh sách hash"
+    "goHashlists": "Đi đến danh sách hash",
+    "recentTitle": "Công việc",
+    "recentSubtitle": "Đang hoạt động trước, sau đó là vừa hoàn tất",
+    "recentEmpty": "Chưa có công việc nào"
   },
   "welcomeUser": "Chào mừng bạn trở lại, {{name}}",
   "autoRefresh": {
     "on": "Trực tiếp",
     "off": "Tạm dừng"
+  },
+  "view": {
+    "label": "Chế độ xem bảng điều khiển",
+    "mine": "Của tôi",
+    "teams": "Nhóm của tôi",
+    "all": "Tất cả"
+  },
+  "attention": {
+    "title": "Cần chú ý",
+    "allClear": "Mọi thứ ổn",
+    "allClearHint": "Không có gì bị lỗi hoặc đang chờ bạn xử lý.",
+    "kind": {
+      "job_failed": "Công việc thất bại: {{name}}",
+      "job_blocked": "Công việc đang chờ: {{name}}",
+      "hashlist_error": "Không xử lý được danh sách hash: {{name}}",
+      "hashlist_awaiting_decision": "Danh sách hash cần bạn xem xét: {{name}}",
+      "hashlist_stuck": "Danh sách hash bị kẹt khi xử lý: {{name}}",
+      "agent_error": "Lỗi agent: {{name}}",
+      "agent_update_failed": "Cập nhật agent thất bại: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Số hash bẻ khóa theo thời gian",
+    "subtitle_other": "{{count}} hash đã bẻ khóa trong {{days}} ngày qua",
+    "tooltip_other": "{{count}} hash đã bẻ khóa",
+    "topHashlists": "Danh sách hash nổi bật tuần này",
+    "noCracksWeek": "Không có hash nào được bẻ khóa trong 7 ngày qua"
   }
 }

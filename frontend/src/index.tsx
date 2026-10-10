@@ -77,6 +77,7 @@ import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Box, CircularProgress } from '@mui/material';
 import { BrandingProvider } from './contexts/BrandingContext';
+import { ThemeModeProvider } from './contexts/ThemeModeContext';
 import App from './App';
 
 // Initialize i18n - must be imported before App
@@ -111,10 +112,12 @@ const root = ReactDOM.createRoot(rootElement);
 // Render application with strict mode, theme, and i18n Suspense
 root.render(
     <React.StrictMode>
-        <Suspense fallback={<I18nLoadingFallback />}>
+        <ThemeModeProvider>
             <BrandingProvider>
-                <App />
+                <Suspense fallback={<I18nLoadingFallback />}>
+                    <App />
+                </Suspense>
             </BrandingProvider>
-        </Suspense>
+        </ThemeModeProvider>
     </React.StrictMode>
 ); 

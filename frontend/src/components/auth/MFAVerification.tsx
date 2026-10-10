@@ -14,6 +14,7 @@ import {
   Alert,
 } from '@mui/material';
 import KeyIcon from '@mui/icons-material/Key';
+import { useTranslation } from 'react-i18next';
 import { verifyMFA, beginPasskeyAuthentication, finishPasskeyAuthentication } from '../../services/auth';
 import {
   isWebAuthnSupported,
@@ -38,6 +39,7 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
   onError,
   expiresAt,
 }) => {
+  const { t } = useTranslation('auth');
   const [code, setCode] = useState('');
   const [method, setMethod] = useState(preferredMethod);
   const [loading, setLoading] = useState(false);
@@ -87,7 +89,7 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
         onSuccess(response.token);
       } else {
         setRemainingAttempts(response.remainingAttempts ?? remainingAttempts - 1);
-        const errorMessage = response.message || 'Passkey authentication failed';
+        const errorMessage = response.message || (t('mfaVerification.errors.passkeyFailed') as string);
         setPasskeyError(errorMessage);
         onError(errorMessage);
       }
@@ -117,10 +119,10 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
         setLoading(true);
         const response = await verifyMFA(sessionToken, '', 'request_email');
         if (!response.success) {
-          onError(response.message || 'Failed to send email code');
+          onError(response.message || (t('mfaVerification.errors.sendEmailCodeFailed') as string));
         }
       } catch (error) {
-        onError(error instanceof Error ? error.message : 'Failed to send email code');
+        onError(error instanceof Error ? error.message : (t('mfaVerification.errors.sendEmailCodeFailed') as string));
       } finally {
         setLoading(false);
       }
@@ -144,11 +146,11 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
         onSuccess(response.token);
       } else {
         setRemainingAttempts(response.remainingAttempts ?? remainingAttempts - 1);
-        onError(response.message || `Invalid code. ${response.remainingAttempts} attempts remaining.`);
+        onError(response.message || (t('mfaVerification.errors.invalidCodeAttemptsRemaining', { count: response.remainingAttempts }) as string));
         setCode(''); // Clear code on failed attempt
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Verification failed';
+      const message = error instanceof Error ? error.message : (t('mfaVerification.errors.verificationFailed') as string);
       onError(message);
       if (message.includes('No backup codes available')) {
         // Remove backup from available methods if no codes are available
@@ -185,10 +187,10 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
       case 'email':
         return (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Please enter the verification code sent to your email.
+            {t('mfaVerification.instructions.email')}
             {expiresAt && (
               <Typography variant="body2" sx={{ mt: 1 }}>
-                Code expires at: {new Date(expiresAt).toLocaleTimeString()}
+                {t('mfaVerification.instructions.codeExpiresAt', { time: new Date(expiresAt).toLocaleTimeString() })}
               </Typography>
             )}
           </Alert>
@@ -196,22 +198,22 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
       case 'authenticator':
         return (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Please enter the code from your authenticator app.
+            {t('mfaVerification.instructions.authenticator')}
           </Alert>
         );
       case 'backup':
         return (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            Please enter one of your backup codes. Note that each backup code can only be used once.
+            {t('mfaVerification.instructions.backup')}
           </Alert>
         );
       case 'passkey':
         return (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Use your passkey (security key, fingerprint, or device) to authenticate.
+            {t('mfaVerification.instructions.passkey')}
             {!webAuthnSupported && (
               <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-                WebAuthn is not supported in this browser. Please use a different method.
+                {t('mfaVerification.instructions.webAuthnUnsupported')}
               </Typography>
             )}
           </Alert>
@@ -224,13 +226,13 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
   const getMethodDisplayName = (m: string) => {
     switch (m) {
       case 'email':
-        return 'Email Code';
+        return t('mfaVerification.methods.email') as string;
       case 'authenticator':
-        return 'Authenticator App';
+        return t('mfaVerification.methods.authenticator') as string;
       case 'backup':
-        return 'Backup Code';
+        return t('mfaVerification.methods.backup') as string;
       case 'passkey':
-        return 'Passkey';
+        return t('mfaVerification.methods.passkey') as string;
       default:
         return m;
     }
@@ -252,10 +254,10 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
         disabled={loading || !webAuthnSupported}
         sx={{ mt: 2, mb: 2, py: 1.5, px: 4 }}
       >
-        {loading ? <CircularProgress size={24} /> : 'Authenticate with Passkey'}
+        {loading ? <CircularProgress size={24} /> : t('mfaVerification.authenticateWithPasskey')}
       </Button>
       <Typography variant="body2" color="text.secondary">
-        Your browser will prompt you to use your passkey.
+        {t('mfaVerification.passkeyBrowserPrompt')}
       </Typography>
     </Box>
   );
@@ -267,12 +269,12 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
         margin="normal"
         required
         fullWidth
-        label={method === 'backup' ? 'Backup Code' : 'Verification Code'}
+        label={method === 'backup' ? t('mfaVerification.fields.backupCodeLabel') : t('mfaVerification.fields.verificationCodeLabel')}
         value={code}
         onChange={(e) => setCode(e.target.value)}
         disabled={loading}
         autoFocus
-        placeholder={method === 'backup' ? 'Enter 8-character backup code' : 'Enter verification code'}
+        placeholder={method === 'backup' ? (t('mfaVerification.fields.backupCodePlaceholder') as string) : (t('mfaVerification.fields.verificationCodePlaceholder') as string)}
         inputProps={{
           maxLength: method === 'backup' ? 8 : 6,
           pattern: '[0-9]*'
@@ -283,7 +285,7 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
         color={remainingAttempts <= 1 ? "error" : "warning"}
         sx={{ mt: 1 }}
       >
-        {remainingAttempts} {remainingAttempts === 1 ? 'attempt' : 'attempts'} remaining
+        {t('mfaVerification.attemptsRemaining', { count: remainingAttempts })}
       </Typography>
 
       <Button
@@ -294,7 +296,7 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
         disabled={loading || !code || (method === 'backup' ? code.length !== 8 : code.length !== 6)}
         onClick={handleSubmit}
       >
-        {loading ? <CircularProgress size={24} /> : 'Verify'}
+        {loading ? <CircularProgress size={24} /> : t('mfaVerification.verify')}
       </Button>
     </>
   );
@@ -303,18 +305,18 @@ const MFAVerification: React.FC<MFAVerificationProps> = ({
     <Card>
       <CardContent>
         <Typography variant="h6" gutterBottom>
-          Two-Factor Authentication Required
+          {t('mfaVerification.title')}
         </Typography>
 
         {getMethodInstructions()}
 
         {availableMethods.length > 1 && (
           <FormControl fullWidth margin="normal">
-            <InputLabel>Authentication Method</InputLabel>
+            <InputLabel>{t('mfaVerification.authenticationMethod')}</InputLabel>
             <Select
               value={method}
               onChange={(e) => handleMethodChange(e.target.value)}
-              label="Authentication Method"
+              label={t('mfaVerification.authenticationMethod')}
             >
               {availableMethods.map((m) => (
                 <MenuItem key={m} value={m}>

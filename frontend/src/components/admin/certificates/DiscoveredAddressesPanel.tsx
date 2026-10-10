@@ -1,22 +1,10 @@
 import React from 'react';
-import {
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Chip, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import { useTranslation } from 'react-i18next';
+import { DataTable, EntityLink } from '../../ui';
 import { DiscoveredAddress, DiscoverySource } from '../../../types/serverCertificate';
 
 interface DiscoveredAddressesPanelProps {
@@ -63,6 +51,76 @@ const DiscoveredAddressesPanel: React.FC<DiscoveredAddressesPanelProps> = ({
       return new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime();
     });
 
+  const columns: GridColDef<DiscoveredAddress>[] = [
+    {
+      field: 'address',
+      headerName: t('serverCertificate.discovered.address') as string,
+      flex: 1,
+      minWidth: 180,
+      renderCell: (p) => (
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body2" sx={{ fontFamily: (theme) => theme.typography.monoFamily }}>
+            {p.row.address}
+          </Typography>
+          {p.row.status === 'pending_reissue' && (
+            <Chip size="small" color="info" label={t('serverCertificate.discovered.pending') as string} />
+          )}
+        </Stack>
+      ),
+    },
+    {
+      field: 'sources',
+      headerName: t('serverCertificate.discovered.source') as string,
+      flex: 1,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (p) => (
+        <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5, py: 0.5 }}>
+          {p.row.sources.map((source) => (
+            <Tooltip key={source} title={t(`serverCertificate.discovered.sourceHelp.${source}`) as string}>
+              <Chip
+                size="small"
+                color={sourceColor(source)}
+                label={t(`serverCertificate.discovered.sources.${source}`) as string}
+              />
+            </Tooltip>
+          ))}
+        </Stack>
+      ),
+    },
+    {
+      field: 'last_agent_name',
+      headerName: t('serverCertificate.discovered.reportedBy') as string,
+      flex: 1,
+      minWidth: 160,
+      renderCell: (p) =>
+        p.row.last_agent_id ? (
+          <EntityLink type="agent" id={p.row.last_agent_id} label={p.row.last_agent_name ?? `#${p.row.last_agent_id}`} />
+        ) : (
+          <Typography variant="body2" color="text.secondary" noWrap>
+            {p.row.last_agent_name ?? p.row.last_user_agent ?? '—'}
+          </Typography>
+        ),
+    },
+    {
+      field: 'last_seen_at',
+      headerName: t('serverCertificate.discovered.lastSeen') as string,
+      width: 110,
+      renderCell: (p) => (
+        <Typography variant="body2" color="text.secondary">
+          {relativeTime(p.row.last_seen_at)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'hit_count',
+      headerName: t('serverCertificate.discovered.hits') as string,
+      width: 80,
+      align: 'right',
+      headerAlign: 'right',
+    },
+  ];
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="subtitle1" gutterBottom>
@@ -72,100 +130,34 @@ const DiscoveredAddressesPanel: React.FC<DiscoveredAddressesPanelProps> = ({
         {t('serverCertificate.discovered.help') as string}
       </Typography>
 
-      {visible.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          {t('serverCertificate.discovered.empty') as string}
-        </Typography>
-      ) : (
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('serverCertificate.discovered.address') as string}</TableCell>
-                <TableCell>{t('serverCertificate.discovered.source') as string}</TableCell>
-                <TableCell>{t('serverCertificate.discovered.reportedBy') as string}</TableCell>
-                <TableCell>{t('serverCertificate.discovered.lastSeen') as string}</TableCell>
-                <TableCell align="right">{t('serverCertificate.discovered.hits') as string}</TableCell>
-                <TableCell align="right">{t('serverCertificate.discovered.actions') as string}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visible.map((item) => (
-                <TableRow key={item.id} hover>
-                  <TableCell>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {item.address}
-                      </Typography>
-                      {item.status === 'pending_reissue' && (
-                        <Chip
-                          size="small"
-                          color="info"
-                          label={t('serverCertificate.discovered.pending') as string}
-                        />
-                      )}
-                    </Stack>
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                      {item.sources.map((source) => (
-                        <Tooltip
-                          key={source}
-                          title={t(`serverCertificate.discovered.sourceHelp.${source}`) as string}
-                        >
-                          <Chip
-                            size="small"
-                            color={sourceColor(source)}
-                            label={t(`serverCertificate.discovered.sources.${source}`) as string}
-                          />
-                        </Tooltip>
-                      ))}
-                    </Stack>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 220 }}>
-                      {item.last_agent_name ?? item.last_user_agent ?? '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {relativeTime(item.last_seen_at)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">{item.hit_count}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                      <Tooltip title={item.allowed ? '' : item.rejection_reason ?? ''}>
-                        <span>
-                          <Button
-                            size="small"
-                            startIcon={<AddIcon />}
-                            disabled={disabled || !item.allowed || item.status === 'pending_reissue'}
-                            onClick={() => onAdd(item)}
-                          >
-                            {t('serverCertificate.discovered.add') as string}
-                          </Button>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title={t('serverCertificate.discovered.dismiss') as string}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={disabled}
-                            onClick={() => onDismiss(item.id)}
-                          >
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
-      )}
+      <DataTable<DiscoveredAddress>
+        flat
+        rows={visible}
+        columns={columns}
+        getRowId={(r) => r.id}
+        pagination={false}
+        sorting={false}
+        rowActions={(item) => [
+          {
+            key: 'add',
+            label: t('serverCertificate.discovered.add') as string,
+            icon: <AddIcon fontSize="small" />,
+            disabled: disabled || !item.allowed || item.status === 'pending_reissue',
+            tooltip: item.allowed ? undefined : item.rejection_reason ?? undefined,
+            placement: 'inline',
+            onClick: (r) => onAdd(r),
+          },
+          {
+            key: 'dismiss',
+            label: t('serverCertificate.discovered.dismiss') as string,
+            icon: <CloseIcon fontSize="small" />,
+            disabled,
+            placement: 'inline',
+            onClick: (r) => onDismiss(r.id),
+          },
+        ]}
+        emptyState={{ title: t('serverCertificate.discovered.empty') as string }}
+      />
     </Paper>
   );
 };

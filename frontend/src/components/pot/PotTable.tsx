@@ -1,31 +1,14 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  Typography,
-  CircularProgress,
-  Alert,
-  MenuItem,
-  FormControl,
-  Select,
-  InputLabel,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
-  TextField,
-  InputAdornment,
-  IconButton,
-  Tooltip,
   Chip,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -34,12 +17,14 @@ import {
   FilterList as FilterListIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
+import type { GridColDef } from '@mui/x-data-grid';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
-import { useSnackbar } from 'notistack';
 import { CrackedHash, PotResponse } from '../../services/pot';
 import CrackedPassword from '../common/CrackedPassword';
 import { toPotfilePlain } from '../../utils/hexPlain';
+import { DataTable, useToast } from '../ui';
 
 interface PotTableProps {
   title: string;
@@ -51,188 +36,123 @@ interface PotTableProps {
   contextId?: string;
 }
 
+type DownloadFormat = 'hash-pass' | 'user-pass' | 'user' | 'pass' | 'domain-user' | 'domain-user-pass' | 'potfile';
+
+/** A cell value that copies itself on click. `translate="no"` keeps browser translators off sensitive data. */
+const CopyCell: React.FC<{ title: string; onCopy: () => void; mono?: boolean; children: React.ReactNode }> = ({ title, onCopy, mono, children }) => (
+  <Tooltip title={title}>
+    <Box
+      component="span"
+      role="button"
+      tabIndex={0}
+      translate="no"
+      className="notranslate"
+      onClick={(e) => {
+        e.stopPropagation();
+        onCopy();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          onCopy();
+        }
+      }}
+      sx={{
+        cursor: 'pointer',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        ...(mono ? { fontFamily: (th: any) => th.typography.monoFamily, fontSize: '0.875rem' } : {}),
+        '&:hover': { textDecoration: 'underline' },
+      }}
+    >
+      {children}
+    </Box>
+  </Tooltip>
+);
+
 export default function PotTable({ title, fetchData, filterParam, filterValue, contextType, contextName, contextId }: PotTableProps) {
   const { t } = useTranslation('pot');
-  const [data, setData] = useState<CrackedHash[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(500);
-  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = useState(100);
 
-  // Server-side search state
-  const [searchInput, setSearchInput] = useState('');      // What user types in search bar
-  const [activeSearch, setActiveSearch] = useState('');    // Search term sent to server
-  const [isSearching, setIsSearching] = useState(false);   // Loading state for search
-
-  // Client-side filter state (filters current page)
+  // Server-side search: what the user types vs. what was submitted.
+  const [searchInput, setSearchInput] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
+  // Client-side filter over the current page.
   const [filterTerm, setFilterTerm] = useState('');
-
-  const [openAllConfirm, setOpenAllConfirm] = useState(false);
-  const [hasUsernameData, setHasUsernameData] = useState(false);
-  const [hasDomainData, setHasDomainData] = useState(false);
-  const [checkedForUsernames, setCheckedForUsernames] = useState(false);
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
-  const { enqueueSnackbar } = useSnackbar();
 
-  // Request ID to prevent stale responses from overwriting newer data
-  const requestIdRef = useRef(0);
+  // The pages recreate `fetchData` freely; keep the latest in a ref so it doesn't churn the query key.
+  const fetchRef = useRef(fetchData);
+  useEffect(() => {
+    fetchRef.current = fetchData;
+  }, [fetchData]);
 
-  const pageSizeOptions = [500, 1000, 1500, 2000, -1];
+  const query = useQuery({
+    queryKey: ['pot', contextType, contextId ?? contextName, filterValue ?? '', page, pageSize, activeSearch],
+    queryFn: () => fetchRef.current(pageSize, page * pageSize, activeSearch || undefined),
+    placeholderData: keepPreviousData,
+  });
 
-  const loadData = useCallback(async () => {
-    // Increment request ID to track this specific request
-    const currentRequestId = ++requestIdRef.current;
+  useEffect(() => {
+    if (query.isError) toast.error(t('errors.loadFailed') as string);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.isError]);
 
-    try {
-      setLoading(true);
-      setIsSearching(activeSearch !== '');
-      setError(null);
+  const data = useMemo(() => query.data?.hashes ?? [], [query.data]);
+  const totalCount = query.data?.total_count ?? 0;
+  const isSearching = query.isFetching && activeSearch !== '';
+  const hasUsernameData = data.some((h) => h.username && h.username.trim() !== '');
 
-      const limit = rowsPerPage === -1 ? 999999 : rowsPerPage;
-      const offset = page * (rowsPerPage === -1 ? 0 : rowsPerPage);
-
-      // Pass search parameter if active
-      const response = await fetchData(limit, offset, activeSearch || undefined);
-
-      // Only update state if this is still the most recent request
-      if (currentRequestId !== requestIdRef.current) {
-        console.log('Ignoring stale response', { currentRequestId, latestId: requestIdRef.current });
-        return;
-      }
-
-      setData(response.hashes);
-      setTotalCount(response.total_count);
-
-      // Check if any hash has username or domain data
-      const hasUsername = response.hashes.some(hash => hash.username && hash.username.trim() !== '');
-      const hasDomain = response.hashes.some(hash => hash.domain && hash.domain.trim() !== '');
-      setHasUsernameData(hasUsername);
-      setHasDomainData(hasDomain);
-    } catch (err) {
-      // Only show error if this is still the most recent request
-      if (currentRequestId !== requestIdRef.current) {
-        return;
-      }
-      console.error('Error loading pot data:', err);
-      setError(t('errors.loadFailed') as string);
-      enqueueSnackbar(t('errors.loadFailed') as string, { variant: 'error' });
-    } finally {
-      // Only update loading state if this is still the most recent request
-      if (currentRequestId === requestIdRef.current) {
-        setLoading(false);
-        setIsSearching(false);
-      }
-    }
-  }, [page, rowsPerPage, fetchData, activeSearch, enqueueSnackbar]);
-
-  // Handle search submission (button click or Enter key)
   const handleSearch = useCallback(() => {
-    const trimmedSearch = searchInput.trim();
-    if (trimmedSearch !== activeSearch) {
-      setActiveSearch(trimmedSearch);
-      setPage(0);  // Reset to first page on new search
-      setFilterTerm('');  // Clear local filter when doing server search
+    const trimmed = searchInput.trim();
+    if (trimmed !== activeSearch) {
+      setActiveSearch(trimmed);
+      setPage(0);
+      setFilterTerm('');
     }
   }, [searchInput, activeSearch]);
 
-  // Handle Enter key in search input
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  // Clear search and reset to normal view
   const handleClearSearch = useCallback(() => {
     setSearchInput('');
     setActiveSearch('');
     setPage(0);
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const copyToClipboard = useCallback(
+    (text: string) => {
+      navigator.clipboard.writeText(text);
+      toast.success(t('notifications.copiedToClipboard') as string);
+    },
+    [t, toast]
+  );
 
-  // Check for username data in the entire dataset on mount
-  useEffect(() => {
-    if (!checkedForUsernames && totalCount > 0) {
-      // Make a quick request to check if any usernames exist
-      // We'll check the current data, and if we don't find any, we could make a separate call
-      // For now, let's just check current data and set it as checked
-      setCheckedForUsernames(true);
-    }
-  }, [totalCount, checkedForUsernames]);
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newRowsPerPage = parseInt(event.target.value, 10);
-    
-    if (newRowsPerPage === -1) {
-      setOpenAllConfirm(true);
-    } else {
-      setRowsPerPage(newRowsPerPage);
-      setPage(0);
-    }
-  };
-
-  const handleConfirmAll = () => {
-    setRowsPerPage(-1);
-    setPage(0);
-    setOpenAllConfirm(false);
-    enqueueSnackbar(t('dialogs.loadingAll') as string, { variant: 'info' });
-  };
-
-  const handleCancelAll = () => {
-    setOpenAllConfirm(false);
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    enqueueSnackbar(t('notifications.copiedToClipboard') as string, { variant: 'success' });
-  };
-
-  const downloadFormat = async (format: 'hash-pass' | 'user-pass' | 'user' | 'pass' | 'domain-user' | 'domain-user-pass' | 'potfile') => {
+  const downloadFormat = async (format: DownloadFormat) => {
     try {
       setDownloadingFormat(format);
-
-      // Build the download URL based on context
       let url = '';
-      if (contextType === 'master') {
-        url = `/api/pot/download/${format}`;
-      } else if (contextType === 'hashlist' && contextId) {
-        url = `/api/pot/hashlist/${contextId}/download/${format}`;
-      } else if (contextType === 'client' && contextId) {
-        url = `/api/pot/client/${contextId}/download/${format}`;
-      } else if (contextType === 'job' && contextId) {
-        url = `/api/pot/job/${contextId}/download/${format}`;
-      }
+      if (contextType === 'master') url = `/api/pot/download/${format}`;
+      else if (contextType === 'hashlist' && contextId) url = `/api/pot/hashlist/${contextId}/download/${format}`;
+      else if (contextType === 'client' && contextId) url = `/api/pot/client/${contextId}/download/${format}`;
+      else if (contextType === 'job' && contextId) url = `/api/pot/job/${contextId}/download/${format}`;
 
       const response = await api.get(url, { responseType: 'blob' });
-
-      // Create blob and download
       const blob = new Blob([response.data], { type: 'text/plain' });
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
 
-      // Get filename from Content-Disposition header or use default
       const contentDisposition = response.headers['content-disposition'];
       let filename = `${contextName}-${format}.lst`;
       if (contentDisposition) {
-        // RFC-compliant regex for filename extraction
-        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"])(.*?)\2|[^;\n]*)/i);
-        if (filenameMatch && filenameMatch[3]) {
-          filename = filenameMatch[3];
-        } else {
-          // Fallback for unquoted filenames
-          const fallbackMatch = contentDisposition.match(/filename=([^;\n]*)/i);
-          if (fallbackMatch && fallbackMatch[1]) {
-            filename = fallbackMatch[1].trim();
-          }
+        const m = contentDisposition.match(/filename[^;=\n]*=((['"])(.*?)\2|[^;\n]*)/i);
+        if (m && m[3]) filename = m[3];
+        else {
+          const fallback = contentDisposition.match(/filename=([^;\n]*)/i);
+          if (fallback && fallback[1]) filename = fallback[1].trim();
         }
       }
 
@@ -241,21 +161,30 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
-
-      enqueueSnackbar(t('export.downloaded', { filename }) as string, { variant: 'success' });
+      toast.success(t('export.downloaded', { filename }) as string);
     } catch (err) {
       console.error('Error downloading format:', err);
-      enqueueSnackbar(t('export.downloadFailed') as string, { variant: 'error' });
+      toast.error(t('export.downloadFailed') as string);
     } finally {
       setDownloadingFormat(null);
     }
   };
 
+  const filteredData = useMemo(() => {
+    if (!filterTerm) return data;
+    const f = filterTerm.toLowerCase();
+    return data.filter(
+      (h) =>
+        h.original_hash.toLowerCase().includes(f) ||
+        h.password.toLowerCase().includes(f) ||
+        (h.username && h.username.toLowerCase().includes(f)) ||
+        (h.domain && h.domain.toLowerCase().includes(f))
+    );
+  }, [data, filterTerm]);
+
   const exportData = () => {
-    const exportText = data
-      .map(hash => `${hash.original_hash}:${toPotfilePlain(hash.password)}`)
-      .join('\n');
-    
+    // Exports the rows currently shown (current page after the local filter).
+    const exportText = filteredData.map((h) => `${h.original_hash}:${toPotfilePlain(h.password)}`).join('\n');
     const blob = new Blob([exportText], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -265,319 +194,210 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-    
-    enqueueSnackbar(t('notifications.exported') as string, { variant: 'success' });
+    toast.success(t('notifications.exported') as string);
   };
 
-  // Client-side filtering (on current page data)
-  const filteredData = data.filter(hash => {
-    if (!filterTerm) return true;
-    const filterLower = filterTerm.toLowerCase();
-    return (
-      hash.original_hash.toLowerCase().includes(filterLower) ||
-      hash.password.toLowerCase().includes(filterLower) ||
-      (hash.username && hash.username.toLowerCase().includes(filterLower)) ||
-      (hash.domain && hash.domain.toLowerCase().includes(filterLower))
-    );
-  });
+  const columns = useMemo<GridColDef<CrackedHash>[]>(
+    () => [
+      {
+        field: 'original_hash',
+        headerName: t('columns.originalHash') as string,
+        flex: 3,
+        minWidth: 240,
+        renderCell: (p) => (
+          <Box
+            component="span"
+            translate="no"
+            className="notranslate"
+            sx={{ fontFamily: (th: any) => th.typography.monoFamily, fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            title={p.row.original_hash}
+          >
+            {p.row.original_hash}
+          </Box>
+        ),
+      },
+      {
+        field: 'domain',
+        headerName: t('columns.domain') as string,
+        flex: 1,
+        minWidth: 110,
+        renderCell: (p) =>
+          p.row.domain ? (
+            <CopyCell title={t('tooltips.copyDomain') as string} onCopy={() => copyToClipboard(p.row.domain!)}>
+              {p.row.domain}
+            </CopyCell>
+          ) : (
+            '-'
+          ),
+      },
+      {
+        field: 'username',
+        headerName: t('columns.username') as string,
+        flex: 1,
+        minWidth: 110,
+        renderCell: (p) =>
+          p.row.username ? (
+            <CopyCell title={t('tooltips.copyUsername') as string} onCopy={() => copyToClipboard(p.row.username!)}>
+              {p.row.username}
+            </CopyCell>
+          ) : (
+            '-'
+          ),
+      },
+      {
+        field: 'password',
+        headerName: t('columns.password') as string,
+        flex: 1,
+        minWidth: 120,
+        renderCell: (p) => (
+          <CopyCell title={t('tooltips.copyPassword') as string} onCopy={() => copyToClipboard(p.row.password)} mono>
+            <CrackedPassword password={p.row.password} />
+          </CopyCell>
+        ),
+      },
+      {
+        field: 'hash_type_id',
+        headerName: t('columns.hashType') as string,
+        width: 100,
+      },
+    ],
+    [t, copyToClipboard]
+  );
 
-  if (loading && data.length === 0) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        {error}
-      </Alert>
-    );
-  }
+  const exportButtons: { format: DownloadFormat; label: string; needsUser?: boolean; color?: 'secondary' }[] = [
+    { format: 'hash-pass', label: t('export.hashPass') as string },
+    { format: 'user-pass', label: t('export.userPass') as string, needsUser: true },
+    { format: 'user', label: t('export.username') as string, needsUser: true },
+    { format: 'pass', label: t('export.password') as string },
+    { format: 'domain-user', label: t('export.domainUser') as string, needsUser: true },
+    { format: 'domain-user-pass', label: t('export.domainUserPass') as string, needsUser: true },
+    { format: 'potfile', label: t('export.potfile') as string, color: 'secondary' },
+  ];
 
   return (
-    <Paper sx={{ width: '100%', mb: 2 }}>
-      <Box sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-          <Typography variant="h6" component="div">
-            {title}
-            {filterParam && filterValue && (
-              <Typography variant="body2" color="text.secondary">
-                {t('filter.filteredBy', { param: filterParam, value: filterValue }) as string}
-              </Typography>
-            )}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Server-side search bar with button inside */}
-            <TextField
-              size="small"
-              placeholder={t('search.placeholder') as string}
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              disabled={isSearching}
-              sx={{ minWidth: 250 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color={activeSearch ? 'primary' : 'inherit'} />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    {activeSearch && (
-                      <IconButton
-                        size="small"
-                        onClick={handleClearSearch}
-                        sx={{ mr: 0.5 }}
-                      >
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={handleSearch}
-                      disabled={isSearching || searchInput === activeSearch}
-                      sx={{ minWidth: 'auto', px: 1.5 }}
-                    >
-                      {isSearching ? <CircularProgress size={16} color="inherit" /> : t('search.button') as string}
-                    </Button>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            {/* Client-side filter for current page */}
-            <TextField
-              size="small"
-              placeholder={t('search.filterPlaceholder') as string}
-              value={filterTerm}
-              onChange={(e) => setFilterTerm(e.target.value)}
-              sx={{ minWidth: 180 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterListIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <Tooltip title={t('export.exportVisible') as string}>
-              <IconButton onClick={exportData} disabled={filteredData.length === 0}>
-                <DownloadIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
-
-        {/* Active search indicator */}
-        {activeSearch && (
-          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip
-              label={`Search: "${activeSearch}"`}
-              onDelete={handleClearSearch}
-              color="primary"
-              variant="outlined"
-              size="small"
-            />
-            <Typography variant="body2" color="text.secondary">
-              {t('search.resultsFound', { count: totalCount }) as string}
-            </Typography>
-          </Box>
-        )}
-        
-        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+    <Box sx={{ width: '100%', mb: 2 }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+        {exportButtons.map((b) => (
           <Button
+            key={b.format}
             size="small"
             variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => downloadFormat('hash-pass')}
-            disabled={downloadingFormat !== null}
+            color={b.color}
+            startIcon={downloadingFormat === b.format ? <CircularProgress size={14} color="inherit" /> : <DownloadIcon />}
+            onClick={() => void downloadFormat(b.format)}
+            disabled={downloadingFormat !== null || (b.needsUser && !hasUsernameData)}
           >
-            {t('export.hashPass') as string}
+            {b.label}
           </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => downloadFormat('user-pass')}
-            disabled={downloadingFormat !== null || !hasUsernameData}
-          >
-            {t('export.userPass') as string}
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => downloadFormat('user')}
-            disabled={downloadingFormat !== null || !hasUsernameData}
-          >
-            {t('export.username') as string}
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => downloadFormat('pass')}
-            disabled={downloadingFormat !== null}
-          >
-            {t('export.password') as string}
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => downloadFormat('domain-user')}
-            disabled={downloadingFormat !== null || !hasUsernameData}
-          >
-            {t('export.domainUser') as string}
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => downloadFormat('domain-user-pass')}
-            disabled={downloadingFormat !== null || !hasUsernameData}
-          >
-            {t('export.domainUserPass') as string}
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => downloadFormat('potfile')}
-            disabled={downloadingFormat !== null}
-            color="secondary"
-          >
-            {t('export.potfile') as string}
-          </Button>
-        </Box>
-        
-        <TableContainer>
-          <Table size="small" aria-label="cracked hashes table" sx={{ tableLayout: 'fixed' }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ width: '45%' }}>{t('columns.originalHash') as string}</TableCell>
-                <TableCell sx={{ width: '12%' }}>{t('columns.domain') as string}</TableCell>
-                <TableCell sx={{ width: '12%' }}>{t('columns.username') as string}</TableCell>
-                <TableCell sx={{ width: '12%' }}>{t('columns.password') as string}</TableCell>
-                <TableCell sx={{ width: '9%' }}>{t('columns.hashType') as string}</TableCell>
-                <TableCell sx={{ width: '10%' }} align="center">{t('columns.actions') as string}</TableCell>
-              </TableRow>
-            </TableHead>
-            {/* translate="no" prevents browser translation services from translating sensitive data */}
-            <TableBody translate="no" className="notranslate">
-              {filteredData.map((hash) => (
-                <TableRow key={hash.id} hover>
-                  <TableCell sx={{
-                    fontFamily: 'monospace',
-                    fontSize: '0.875rem',
-                    overflow: 'auto',
-                    whiteSpace: 'nowrap',
-                    maxWidth: 0
-                  }}>
-                    {hash.original_hash}
-                  </TableCell>
-                  {hash.domain ? (
-                    <Tooltip title={t('tooltips.copyDomain') as string}>
-                      <TableCell
-                        onClick={() => copyToClipboard(hash.domain!)}
-                        sx={{
-                          cursor: 'pointer',
-                          '&:hover': {
-                            backgroundColor: 'action.hover',
-                            textDecoration: 'underline',
-                          },
-                        }}
-                      >
-                        {hash.domain}
-                      </TableCell>
-                    </Tooltip>
-                  ) : (
-                    <TableCell>-</TableCell>
-                  )}
-                  {hash.username ? (
-                    <Tooltip title={t('tooltips.copyUsername') as string}>
-                      <TableCell
-                        onClick={() => copyToClipboard(hash.username!)}
-                        sx={{
-                          cursor: 'pointer',
-                          '&:hover': {
-                            backgroundColor: 'action.hover',
-                            textDecoration: 'underline',
-                          },
-                        }}
-                      >
-                        {hash.username}
-                      </TableCell>
-                    </Tooltip>
-                  ) : (
-                    <TableCell>-</TableCell>
-                  )}
-                  <Tooltip title={t('tooltips.copyPassword') as string}>
-                    <TableCell
-                      onClick={() => copyToClipboard(hash.password)}
-                      sx={{
-                        fontFamily: 'monospace',
-                        fontSize: '0.875rem',
-                        cursor: 'pointer',
-                        '&:hover': {
-                          backgroundColor: 'action.hover',
-                          textDecoration: 'underline',
-                        },
-                      }}
-                    >
-                      <CrackedPassword password={hash.password} />
-                    </TableCell>
-                  </Tooltip>
-                  <TableCell>{hash.hash_type_id}</TableCell>
-                  <TableCell align="center">
-                    <Tooltip title={t('tooltips.copyHash') as string}>
-                      <IconButton
-                        size="small"
-                        onClick={() => copyToClipboard(`${hash.original_hash}:${toPotfilePlain(hash.password)}`)}
-                      >
-                        <CopyIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        
-        <TablePagination
-          rowsPerPageOptions={pageSizeOptions.map(size => ({
-            label: size === -1 ? t('pagination.all') as string : size.toString(),
-            value: size,
-          }))}
-          component="div"
-          count={totalCount}
-          rowsPerPage={rowsPerPage === -1 ? totalCount : rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
-        />
+        ))}
       </Box>
 
-      <Dialog open={openAllConfirm} onClose={handleCancelAll}>
-        <DialogTitle>{t('dialogs.loadAllTitle') as string}</DialogTitle>
-        <DialogContent>
-          <Typography>
-            {t('dialogs.loadAllMessage', { value: totalCount.toLocaleString() }) as string}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCancelAll}>{t('dialogs.cancel') as string}</Button>
-          <Button onClick={handleConfirmAll} variant="contained" color="primary">
-            {t('dialogs.loadAll') as string}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Paper>
+      <DataTable<CrackedHash>
+        rows={filteredData}
+        columns={columns}
+        loading={query.isLoading}
+        fetching={query.isFetching && !query.isLoading}
+        error={query.error ? (t('errors.loadFailed') as string) : undefined}
+        onRetry={() => void query.refetch()}
+        pagination={{
+          mode: 'server',
+          page,
+          pageSize,
+          rowCount: totalCount,
+          pageSizeOptions: [25, 50, 100],
+          onChange: (m) => {
+            if (m.pageSize !== pageSize) setPage(0);
+            else setPage(m.page);
+            setPageSize(m.pageSize);
+          },
+        }}
+        sorting={false}
+        toolbar={{
+          title,
+          subtitle:
+            filterParam && filterValue ? (t('filter.filteredBy', { param: filterParam, value: filterValue }) as string) : undefined,
+          filters: (
+            <>
+              <TextField
+                size="small"
+                placeholder={t('search.placeholder') as string}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearch();
+                }}
+                disabled={isSearching}
+                sx={{ minWidth: 250 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color={activeSearch ? 'primary' : 'inherit'} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {activeSearch && (
+                        <IconButton size="small" onClick={handleClearSearch} sx={{ mr: 0.5 }} aria-label="clear search">
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={handleSearch}
+                        disabled={isSearching || searchInput === activeSearch}
+                        sx={{ minWidth: 'auto', px: 1.5 }}
+                      >
+                        {isSearching ? <CircularProgress size={16} color="inherit" /> : (t('search.button') as string)}
+                      </Button>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <TextField
+                size="small"
+                placeholder={t('search.filterPlaceholder') as string}
+                value={filterTerm}
+                onChange={(e) => setFilterTerm(e.target.value)}
+                sx={{ minWidth: 180 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterListIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              {activeSearch && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip label={`Search: "${activeSearch}"`} onDelete={handleClearSearch} color="primary" variant="outlined" size="small" />
+                  <Typography variant="body2" color="text.secondary">
+                    {t('search.resultsFound', { count: totalCount }) as string}
+                  </Typography>
+                </Box>
+              )}
+            </>
+          ),
+          actions: (
+            <Tooltip title={t('export.exportVisible') as string}>
+              <span>
+                <IconButton onClick={exportData} disabled={filteredData.length === 0} aria-label={t('export.exportVisible') as string}>
+                  <DownloadIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+          ),
+        }}
+        rowActions={() => [
+          {
+            key: 'copy',
+            label: t('tooltips.copyHash') as string,
+            icon: <CopyIcon fontSize="small" />,
+            onClick: (r) => copyToClipboard(`${r.original_hash}:${toPotfilePlain(r.password)}`),
+          },
+        ]}
+        aria-label="cracked hashes table"
+      />
+    </Box>
   );
 }

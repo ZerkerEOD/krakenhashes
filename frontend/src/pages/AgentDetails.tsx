@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -21,12 +21,6 @@ import {
   Grid,
   Switch,
   FormControlLabel,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Select,
   MenuItem,
   FormControl,
@@ -35,20 +29,20 @@ import {
   Button,
   CircularProgress,
   Alert,
-  IconButton,
   Chip,
   Card,
   CardContent,
   LinearProgress,
 } from '@mui/material';
-import {
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  ArrowBack as ArrowBackIcon,
-  BugReport as BugReportIcon,
-} from '@mui/icons-material';
+import { BugReport as BugReportIcon } from '@mui/icons-material';
+import type { GridColDef } from '@mui/x-data-grid';
+import { DataTable, EntityLink, PageHeader, StatusChip, useToast } from '../components/ui';
+import { useLiveQuery } from '../hooks/useLiveQuery';
+import { qk } from '../services/queryKeys';
 import { api } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
+import i18n from '../i18n';
+import { dateFnsLocaleFor } from '../i18n/locales';
 import { useAuth } from '../contexts/AuthContext';
 import { useTeamFilter } from '../contexts/TeamFilterContext';
 import DeviceMetricsChart from '../components/agent/DeviceMetricsChart';
@@ -83,6 +77,8 @@ interface Agent {
   };
   createdAt: string;
   apiKey?: string;
+  /** Assigned owner's username (JOIN on owner_id); absent for system/ownerless agents. */
+  ownerUsername?: string;
   metadata?: {
     lastAction?: string;
     lastActionTime?: string;
@@ -158,19 +154,6 @@ interface AgentActivity {
 // Formats an optional 0-100 percentage for display, or an em dash when absent.
 const formatPct = (v?: number): string => (v != null ? `${v.toFixed(2)}%` : '—');
 
-// Maps a diagnostic reason_code to a human-readable label for the agent page.
-const DIAG_REASON_LABELS: Record<string, string> = {
-  no_compatible_job: 'No compatible job',
-  blocklisted: 'Benchmark blocklisted',
-  benchmarking: 'Running a benchmark',
-  outside_schedule: 'Outside scheduled hours',
-  agent_disabled: 'Agent disabled',
-  shutting_down: 'Shutting down',
-  rejection_cooldown: 'Task-rejection cooldown',
-  no_schedulable_work: 'No jobs have work to dispatch',
-  at_capacity: 'Compatible jobs at capacity',
-};
-
 interface DeviceData {
   deviceId: number;
   deviceName: string;
@@ -182,10 +165,24 @@ interface DeviceData {
   };
 }
 
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+
 const AgentDetails: React.FC = () => {
   const { t } = useTranslation('agents');
+  // Maps a diagnostic reason_code to a human-readable label for the agent page.
+  const DIAG_REASON_LABELS: Record<string, string> = {
+    no_compatible_job: t('diagReasons.noCompatibleJob') as string,
+    blocklisted: t('diagReasons.blocklisted') as string,
+    benchmarking: t('diagReasons.benchmarking') as string,
+    outside_schedule: t('diagReasons.outsideSchedule') as string,
+    agent_disabled: t('diagReasons.agentDisabled') as string,
+    shutting_down: t('diagReasons.shuttingDown') as string,
+    rejection_cooldown: t('diagReasons.rejectionCooldown') as string,
+    no_schedulable_work: t('diagReasons.noSchedulableWork') as string,
+    at_capacity: t('diagReasons.atCapacity') as string,
+  };
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const toast = useToast();
   const { userRole } = useAuth();
   const { teamsEnabled } = useTeamFilter();
   const canChangeOwner = !teamsEnabled || userRole === 'admin';
@@ -194,17 +191,15 @@ const AgentDetails: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   
   // Monitoring state
-  const [deviceMetrics, setDeviceMetrics] = useState<DeviceData[]>([]);
-  const [metricsLoading, setMetricsLoading] = useState(false);
   const [timeRange, setTimeRange] = useState('10m');
-  const [metricsInterval, setMetricsInterval] = useState<NodeJS.Timeout | null>(null);
   
   // Use ref to store all metrics data to avoid re-renders
   const metricsDataRef = useRef<Map<number, DeviceData>>(new Map());
   const lastFetchTimeRef = useRef<number>(0);
+  // The time range the accumulated metrics belong to; a change resets the buffer.
+  const metricsRangeRef = useRef<string | null>(null);
   
   // Form state
   const [isEnabled, setIsEnabled] = useState(true);
@@ -228,8 +223,17 @@ const AgentDetails: React.FC = () => {
   const [debugStatus, setDebugStatus] = useState<AgentDebugStatus | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
 
-  // Runtime activity: current task/job + "why idle" diagnostics.
-  const [activity, setActivity] = useState<AgentActivity | null>(null);
+  // Runtime activity: current task/job + "why idle" diagnostics. Non-fatal:
+  // on error the activity card just doesn't render.
+  const { data: activityData } = useLiveQuery<AgentActivity>(
+    {
+      queryKey: qk.agents.activity(id ?? ''),
+      queryFn: async () => (await api.get(`/api/agents/${id}/activity`)).data,
+      enabled: !!id,
+    },
+    { tier: 'fast', enabled: !!id }
+  );
+  const activity: AgentActivity | null = activityData ?? null;
 
   useEffect(() => {
     fetchAgentDetails();
@@ -238,51 +242,7 @@ const AgentDetails: React.FC = () => {
     }
   }, [id, canChangeOwner]);
 
-  // Poll the agent's runtime activity (current work + idle reasons).
-  useEffect(() => {
-    if (!id) return;
-    fetchActivity();
-    const interval = setInterval(fetchActivity, 10000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
   
-  // Fetch device metrics periodically
-  useEffect(() => {
-    if (agent && devices.length > 0) {
-      // Clear data when time range changes
-      metricsDataRef.current.clear();
-      lastFetchTimeRef.current = 0;
-      
-      // Initial fetch
-      fetchDeviceMetrics(true);
-      
-      // Set up interval for updates every 5 seconds
-      const interval = setInterval(() => {
-        fetchDeviceMetrics(false);
-      }, 5000);
-      
-      setMetricsInterval(interval);
-      
-      // Cleanup on unmount or when dependencies change
-      return () => {
-        if (interval) {
-          clearInterval(interval);
-        }
-      };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, devices, timeRange]);
-
-  const fetchActivity = async () => {
-    try {
-      const res = await api.get(`/api/agents/${id}/activity`);
-      setActivity(res.data);
-    } catch (err) {
-      // Non-fatal: the activity card just won't render. Don't disrupt the page.
-      console.error('Failed to fetch agent activity:', err);
-    }
-  };
 
   const fetchAgentDetails = async () => {
     try {
@@ -360,12 +320,11 @@ const AgentDetails: React.FC = () => {
       await toggleAgentDebug(agent.id, !debugStatus?.enabled);
       // Refresh debug status after a short delay to allow agent to respond
       setTimeout(() => fetchDebugStatus(agent.id), 1000);
-      setSuccess(debugStatus?.enabled
+      toast.success(debugStatus?.enabled
         ? t('messages.debugModeDisabled') as string
         : t('messages.debugModeEnabled') as string);
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || (t('errors.toggleDebugFailed') as string));
+      toast.error(err.response?.data?.error || (t('errors.toggleDebugFailed') as string));
     } finally {
       setDebugLoading(false);
     }
@@ -383,75 +342,64 @@ const AgentDetails: React.FC = () => {
     }
   }, [timeRange]);
 
-  const fetchDeviceMetrics = useCallback(async (isInitialFetch = false) => {
-    if (!id) return;
-    
-    try {
-      // Only show loading on initial fetch
-      if (isInitialFetch) {
-        setMetricsLoading(true);
-      }
-
-      // For initial fetch or when time range changes, fetch all data
-      // Otherwise, only fetch new data since last update
-      const params: any = {
-        timeRange,
-        metrics: 'temperature,utilization,fanspeed,hashrate'
-      };
-      
-      // If not initial fetch and we have a last fetch time, only get new data
-      if (!isInitialFetch && lastFetchTimeRef.current > 0) {
-        params.since = new Date(lastFetchTimeRef.current).toISOString();
-      }
-      
-      const response = await api.get(`/api/agents/${id}/metrics`, { params });
-      
-      if (response.data && response.data.devices) {
-        const now = Date.now();
-        const timeWindowMs = getTimeRangeMs();
-        const cutoffTime = now - timeWindowMs;
-        
-        // Process new data
-        response.data.devices.forEach((device: DeviceData) => {
-          const existingDevice = metricsDataRef.current.get(device.deviceId);
-          
-          if (!existingDevice) {
-            // New device, add it
-            metricsDataRef.current.set(device.deviceId, device);
-          } else {
-            // Merge metrics for existing device
-            Object.keys(device.metrics).forEach(metricType => {
-              if (!existingDevice.metrics[metricType]) {
-                existingDevice.metrics[metricType] = [];
-              }
-              
-              // Add new metrics
-              const newMetrics = device.metrics[metricType] || [];
-              existingDevice.metrics[metricType].push(...newMetrics);
-              
-              // Remove old metrics outside the time window
-              existingDevice.metrics[metricType] = existingDevice.metrics[metricType]
-                .filter(m => m.timestamp >= cutoffTime)
-                .sort((a, b) => a.timestamp - b.timestamp);
-            });
-          }
-        });
-        
-        // Update last fetch time
-        lastFetchTimeRef.current = now;
-        
-        // Convert map to array and update state
-        const updatedDevices = Array.from(metricsDataRef.current.values());
-        setDeviceMetrics(updatedDevices);
-      }
-    } catch (err: any) {
-      console.error('Failed to fetch device metrics:', err);
-    } finally {
-      if (isInitialFetch) {
-        setMetricsLoading(false);
-      }
+  // Incremental metrics fetch: the first call for a time range pulls the whole
+  // window, later polls only ask for points since the last fetch and merge them
+  // into the buffer (trimming anything that fell out of the window).
+  const fetchDeviceMetrics = useCallback(async (): Promise<DeviceData[]> => {
+    if (metricsRangeRef.current !== timeRange) {
+      metricsDataRef.current.clear();
+      lastFetchTimeRef.current = 0;
+      metricsRangeRef.current = timeRange;
     }
+    const isInitialFetch = lastFetchTimeRef.current === 0;
+
+    const params: any = {
+      timeRange,
+      metrics: 'temperature,utilization,fanspeed,hashrate'
+    };
+    if (!isInitialFetch) {
+      params.since = new Date(lastFetchTimeRef.current).toISOString();
+    }
+
+    const response = await api.get(`/api/agents/${id}/metrics`, { params });
+
+    if (response.data && response.data.devices) {
+      const now = Date.now();
+      const cutoffTime = now - getTimeRangeMs();
+
+      response.data.devices.forEach((device: DeviceData) => {
+        const existingDevice = metricsDataRef.current.get(device.deviceId);
+        if (!existingDevice) {
+          metricsDataRef.current.set(device.deviceId, device);
+        } else {
+          Object.keys(device.metrics).forEach(metricType => {
+            if (!existingDevice.metrics[metricType]) {
+              existingDevice.metrics[metricType] = [];
+            }
+            const newMetrics = device.metrics[metricType] || [];
+            existingDevice.metrics[metricType].push(...newMetrics);
+            existingDevice.metrics[metricType] = existingDevice.metrics[metricType]
+              .filter(m => m.timestamp >= cutoffTime)
+              .sort((a, b) => a.timestamp - b.timestamp);
+          });
+        }
+      });
+
+      lastFetchTimeRef.current = now;
+    }
+    return Array.from(metricsDataRef.current.values());
   }, [id, timeRange, getTimeRangeMs]);
+
+  const metricsEnabled = !!id && !!agent && devices.length > 0;
+  const { data: deviceMetricsData } = useLiveQuery<DeviceData[]>(
+    {
+      queryKey: qk.agents.metrics(id ?? '', timeRange),
+      queryFn: fetchDeviceMetrics,
+      enabled: metricsEnabled,
+    },
+    { tier: 'fast', enabled: metricsEnabled }
+  );
+  const deviceMetrics: DeviceData[] = deviceMetricsData ?? [];
 
   const handleToggleDevice = async (deviceId: number) => {
     try {
@@ -465,10 +413,9 @@ const AgentDetails: React.FC = () => {
         [deviceId]: newState
       }));
 
-      setSuccess(t('messages.deviceStatusUpdated') as string);
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success(t('messages.deviceStatusUpdated') as string);
     } catch (err: any) {
-      setError(err.response?.data?.error || (t('errors.updateDeviceFailed') as string));
+      toast.error(err.response?.data?.error || (t('errors.updateDeviceFailed') as string));
     }
   };
 
@@ -487,11 +434,9 @@ const AgentDetails: React.FC = () => {
         )
       );
 
-      setSuccess(t('messages.runtimeUpdated', { runtime }) as string);
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success(t('messages.runtimeUpdated', { runtime }) as string);
     } catch (err: any) {
-      setError(err.response?.data?.error || (t('errors.updateRuntimeFailed') as string));
-      setTimeout(() => setError(''), 5000);
+      toast.error(err.response?.data?.error || (t('errors.updateRuntimeFailed') as string));
     }
   };
 
@@ -501,10 +446,9 @@ const AgentDetails: React.FC = () => {
       await toggleAgentScheduling(agent!.id, enabled, timezone);
       setSchedulingEnabled(enabled);
       setScheduleTimezone(timezone);
-      setSuccess(t('messages.schedulingSettingsUpdated') as string);
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success(t('messages.schedulingSettingsUpdated') as string);
     } catch (err: any) {
-      setError(err.response?.data?.error || (t('errors.toggleSchedulingFailed') as string));
+      toast.error(err.response?.data?.error || (t('errors.toggleSchedulingFailed') as string));
     }
   };
 
@@ -512,10 +456,9 @@ const AgentDetails: React.FC = () => {
     try {
       const result = await bulkUpdateAgentSchedules(agent!.id, scheduleDTOs);
       setSchedules(result.schedules);
-      setSuccess(t('messages.schedulesUpdated') as string);
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success(t('messages.schedulesUpdated') as string);
     } catch (err: any) {
-      setError(err.response?.data?.error || (t('errors.updateSchedulesFailed') as string));
+      toast.error(err.response?.data?.error || (t('errors.updateSchedulesFailed') as string));
       throw err; // Re-throw to let the component handle it
     }
   };
@@ -524,10 +467,9 @@ const AgentDetails: React.FC = () => {
     try {
       await deleteAgentSchedule(agent!.id, dayOfWeek);
       setSchedules(schedules.filter(s => s.dayOfWeek !== dayOfWeek));
-      setSuccess(t('messages.scheduleRemoved') as string);
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success(t('messages.scheduleRemoved') as string);
     } catch (err: any) {
-      setError(err.response?.data?.error || (t('errors.deleteScheduleFailed') as string));
+      toast.error(err.response?.data?.error || (t('errors.deleteScheduleFailed') as string));
     }
   };
 
@@ -541,11 +483,10 @@ const AgentDetails: React.FC = () => {
         ownerId: ownerId || null,
         extraParameters: extraParameters.trim()
       });
-      setSuccess(t('messages.agentStatusUpdated') as string);
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success(t('messages.agentStatusUpdated') as string);
     } catch (err: any) {
       console.error('Failed to update agent status:', err);
-      setError(err.response?.data?.error || (t('errors.updateAgentStatusFailed') as string));
+      toast.error(err.response?.data?.error || (t('errors.updateAgentStatusFailed') as string));
       // Revert on error
       setIsEnabled(!newValue);
     }
@@ -561,10 +502,9 @@ const AgentDetails: React.FC = () => {
         ownerId: newOwnerId || null,
         extraParameters: extraParameters.trim()
       });
-      setSuccess(t('messages.agentOwnerUpdated') as string);
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success(t('messages.agentOwnerUpdated') as string);
     } catch (err: any) {
-      setError(err.response?.data?.error || (t('errors.updateAgentOwnerFailed') as string));
+      toast.error(err.response?.data?.error || (t('errors.updateAgentOwnerFailed') as string));
       // Revert on error
       setOwnerId(previousOwnerId);
     }
@@ -591,10 +531,9 @@ const AgentDetails: React.FC = () => {
           ownerId: ownerId || null,
           extraParameters: value.trim()
         });
-        setSuccess(t('messages.extraParametersUpdated') as string);
-        setTimeout(() => setSuccess(''), 3000);
+        toast.success(t('messages.extraParametersUpdated') as string);
       } catch (err: any) {
-        setError(err.response?.data?.error || (t('errors.updateExtraParametersFailed') as string));
+        toast.error(err.response?.data?.error || (t('errors.updateExtraParametersFailed') as string));
       } finally {
         setParametersSaving(false);
       }
@@ -613,12 +552,11 @@ const AgentDetails: React.FC = () => {
         extraParameters: extraParameters.trim(),
         binaryVersion: newBinaryVersion
       });
-      setSuccess(newBinaryVersion !== 'default'
+      toast.success(newBinaryVersion !== 'default'
         ? t('messages.binaryVersionSet', { version: newBinaryVersion }) as string
         : t('messages.binaryResetToDefault') as string);
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || (t('errors.updateBinaryFailed') as string));
+      toast.error(err.response?.data?.error || (t('errors.updateBinaryFailed') as string));
       // Revert on error
       setBinaryVersion(oldVersion);
     }
@@ -647,16 +585,14 @@ const AgentDetails: React.FC = () => {
     // and the catch below would revert the tier, hiding the field again (the
     // "rebound").
     if (newTier === 'network_direct' && !networkShareMountPath.trim()) {
-      setError('');
-      setSuccess('Enter the read-only mount path on this agent host, then it saves automatically.');
+      toast.info(t('storage.messages.enterMountPathHint') as string);
       return;
     }
     try {
       await saveStorageSettings(newTier, networkShareMountPath);
-      setSuccess('Storage tier updated');
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success(t('storage.messages.tierUpdated') as string);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update storage tier');
+      toast.error(err.response?.data?.error || (t('storage.messages.tierUpdateFailed') as string));
       setStorageTier(old);
     }
   };
@@ -668,12 +604,76 @@ const AgentDetails: React.FC = () => {
     }
     try {
       await saveStorageSettings(storageTier, networkShareMountPath);
-      setSuccess('Mount path updated');
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success(t('storage.messages.mountPathUpdated') as string);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update mount path');
+      toast.error(err.response?.data?.error || (t('storage.messages.mountPathUpdateFailed') as string));
     }
   };
+
+  const deviceColumns: GridColDef<AgentDevice>[] = [
+    { field: 'device_id', headerName: t('hardware.deviceId') as string, width: 100 },
+    { field: 'device_type', headerName: t('hardware.type') as string, width: 110 },
+    { field: 'device_name', headerName: t('hardware.name') as string, flex: 1, minWidth: 200 },
+    {
+      field: 'selected_runtime',
+      headerName: t('hardware.runtime') as string,
+      width: 170,
+      renderCell: (p) => (
+        <Box onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} sx={{ py: 0.5 }}>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <Select
+              value={p.row.selected_runtime || ''}
+              onChange={(e) => handleRuntimeChange(p.row.device_id, e.target.value)}
+              displayEmpty
+            >
+              {p.row.runtime_options?.map((option) => (
+                <MenuItem key={option.backend} value={option.backend}>
+                  {option.backend} #{option.device_id}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      ),
+    },
+    {
+      field: 'specs',
+      headerName: t('hardware.specs') as string,
+      flex: 1,
+      minWidth: 200,
+      sortable: false,
+      renderCell: (p) => {
+        const opt = p.row.runtime_options?.find((o) => o.backend === p.row.selected_runtime);
+        if (!opt) return null;
+        return (
+          <Box sx={{ py: 0.5 }}>
+            <Typography variant="caption" display="block">
+              {opt.processors} cores, {opt.clock} MHz, {opt.memory_total} MB
+            </Typography>
+            {opt.pci_address && (
+              <Typography variant="caption" display="block" color="text.secondary">
+                PCI {opt.pci_address}
+              </Typography>
+            )}
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'enabled',
+      headerName: t('fields.enabled') as string,
+      width: 100,
+      renderCell: (p) => (
+        <Box onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <Switch
+            checked={deviceStates[p.row.device_id] || false}
+            onChange={() => handleToggleDevice(p.row.device_id)}
+            color="primary"
+          />
+        </Box>
+      ),
+    },
+  ];
 
   if (loading) {
     return (
@@ -694,17 +694,14 @@ const AgentDetails: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box mb={3}>
-        <IconButton onClick={() => navigate('/agents')} sx={{ mr: 2 }}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h4" component="span">
-          {t('details.title') as string}
-        </Typography>
-      </Box>
+      <PageHeader
+        title={t('details.title') as string}
+        description={agent.name}
+        backTo="/agents"
+        status={<StatusChip entity="agent" status={agent.status} />}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
       {/* Current work / Why-idle: live view of what the agent is doing or why it isn't */}
       {activity && (
@@ -712,28 +709,32 @@ const AgentDetails: React.FC = () => {
           <CardContent>
             {activity.currentTask ? (
               <>
-                <Typography variant="h6" gutterBottom>Current Work</Typography>
+                <Typography variant="h6" gutterBottom>{t('activity.currentWork') as string}</Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="body2" color="text.secondary">Job</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('activity.job') as string}</Typography>
                     <Typography variant="body1">
-                      {activity.jobExecution?.name || activity.currentTask.job_execution_id}
+                      <EntityLink
+                        type="job"
+                        id={activity.currentTask.job_execution_id}
+                        label={activity.jobExecution?.name || activity.currentTask.job_execution_id}
+                      />
                     </Typography>
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Typography variant="body2" color="text.secondary">Task status</Typography>
-                    <Chip size="small" label={activity.currentTask.status} color="primary" />
+                    <Typography variant="body2" color="text.secondary">{t('activity.taskStatus') as string}</Typography>
+                    <StatusChip entity="task" status={activity.currentTask.status} />
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Typography variant="body2" color="text.secondary">Job progress</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('activity.jobProgress') as string}</Typography>
                     <Typography variant="body1">{formatPct(activity.jobExecution?.overall_progress_percent)}</Typography>
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Typography variant="body2" color="text.secondary">Task progress</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('activity.taskProgress') as string}</Typography>
                     <Typography variant="body1">{formatPct(activity.currentTask.progress_percent)}</Typography>
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Typography variant="body2" color="text.secondary">Keyspace range</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('activity.keyspaceRange') as string}</Typography>
                     <Typography variant="body1">
                       {activity.currentTask.keyspace_start != null && activity.currentTask.keyspace_end != null
                         ? `${activity.currentTask.keyspace_start.toLocaleString()} – ${activity.currentTask.keyspace_end.toLocaleString()}`
@@ -741,18 +742,18 @@ const AgentDetails: React.FC = () => {
                     </Typography>
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Typography variant="body2" color="text.secondary">Started</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('activity.started') as string}</Typography>
                     <Typography variant="body1">
                       {activity.currentTask.started_at
-                        ? formatDistanceToNow(new Date(activity.currentTask.started_at), { addSuffix: true })
+                        ? formatDistanceToNow(new Date(activity.currentTask.started_at), { addSuffix: true, locale: dateFnsLocaleFor(i18n.language) })
                         : '—'}
                     </Typography>
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Typography variant="body2" color="text.secondary">Last checkpoint</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('activity.lastCheckpoint') as string}</Typography>
                     <Typography variant="body1">
                       {activity.currentTask.last_checkpoint
-                        ? formatDistanceToNow(new Date(activity.currentTask.last_checkpoint), { addSuffix: true })
+                        ? formatDistanceToNow(new Date(activity.currentTask.last_checkpoint), { addSuffix: true, locale: dateFnsLocaleFor(i18n.language) })
                         : '—'}
                     </Typography>
                   </Grid>
@@ -761,11 +762,20 @@ const AgentDetails: React.FC = () => {
             ) : (activity.recentFailures && activity.recentFailures.length > 0) ||
                 (activity.diagnostics && activity.diagnostics.length > 0) ? (
               <>
-                <Typography variant="h6" gutterBottom>Why this agent isn't working</Typography>
+                <Typography variant="h6" gutterBottom>{t('activity.whyNotWorking') as string}</Typography>
                 {activity.recentFailures && activity.recentFailures.length > 0 && (
                   <Alert severity="error" sx={{ mb: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Recent tasks are failing ({activity.recentFailures.length} in the last few minutes)
+                      {t('activity.recentFailuresAlert', { count: activity.recentFailures.length })}
+                    </Typography>
+                    <Typography variant="body2">
+                      {t('activity.lastFailedJob') as string}{' '}
+                      <EntityLink
+                        type="job"
+                        id={activity.recentFailures[0].job_execution_id}
+                        label={activity.recentFailures[0].job_execution_id.slice(0, 8)}
+                        mono
+                      />
                     </Typography>
                     {activity.recentFailures[0].error_message && (
                       <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
@@ -774,7 +784,9 @@ const AgentDetails: React.FC = () => {
                     )}
                     {activity.recentFailures[0].completed_at && (
                       <Typography variant="caption" color="text.secondary">
-                        last failure {formatDistanceToNow(new Date(activity.recentFailures[0].completed_at), { addSuffix: true })}
+                        {t('activity.lastFailureTime', {
+                          time: formatDistanceToNow(new Date(activity.recentFailures[0].completed_at), { addSuffix: true, locale: dateFnsLocaleFor(i18n.language) }),
+                        })}
                       </Typography>
                     )}
                   </Alert>
@@ -790,18 +802,17 @@ const AgentDetails: React.FC = () => {
                     </Typography>
                     {d.detail && <Typography variant="body2">{d.detail}</Typography>}
                     <Typography variant="caption" color="text.secondary">
-                      last seen {formatDistanceToNow(new Date(d.last_seen), { addSuffix: true })}
-                      {d.count > 1 ? ` · ${d.count.toLocaleString()} occurrences` : ''}
+                      {t('activity.lastSeenTime', { time: formatDistanceToNow(new Date(d.last_seen), { addSuffix: true, locale: dateFnsLocaleFor(i18n.language) }) })}
+                      {d.count > 1 ? t('activity.occurrencesSuffix', { count: d.count, countDisplay: d.count.toLocaleString() }) : ''}
                     </Typography>
                   </Alert>
                 ))}
               </>
             ) : (
               <>
-                <Typography variant="h6" gutterBottom>Current Work</Typography>
+                <Typography variant="h6" gutterBottom>{t('activity.currentWork') as string}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  This agent is idle. No scheduling diagnostics in the last few minutes — it may be offline,
-                  disabled, or simply waiting for work.
+                  {t('activity.idleNoDiagnostics') as string}
                 </Typography>
               </>
             )}
@@ -849,7 +860,7 @@ const AgentDetails: React.FC = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>Storage tier</Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>{t('storage.title') as string}</Typography>
                 <TextField
                   select
                   fullWidth
@@ -858,27 +869,27 @@ const AgentDetails: React.FC = () => {
                   onChange={(e) => handleStorageTierChange(e.target.value)}
                   helperText={
                     storageTier === 'full_cache'
-                      ? 'Downloads and keeps all wordlists/rules locally (fastest to start).'
+                      ? (t('storage.helperText.fullCache') as string)
                       : storageTier === 'on_demand'
-                      ? 'Downloads per task over HTTP and evicts least-recently-used lists under disk pressure.'
-                      : 'Reads wordlists/rules directly from a network share mounted on this agent host (no local copy).'
+                      ? (t('storage.helperText.onDemand') as string)
+                      : (t('storage.helperText.networkDirect') as string)
                   }
                 >
-                  <MenuItem value="full_cache">Full cache — keep all lists</MenuItem>
-                  <MenuItem value="on_demand">On demand — download + LRU evict</MenuItem>
-                  <MenuItem value="network_direct">Network direct — read from mounted share</MenuItem>
+                  <MenuItem value="full_cache">{t('storage.tiers.fullCache') as string}</MenuItem>
+                  <MenuItem value="on_demand">{t('storage.tiers.onDemand') as string}</MenuItem>
+                  <MenuItem value="network_direct">{t('storage.tiers.networkDirect') as string}</MenuItem>
                 </TextField>
                 {storageTier === 'network_direct' && (
                   <TextField
                     fullWidth
                     size="small"
                     sx={{ mt: 2 }}
-                    label="Network share mount path (read-only, on the agent host)"
+                    label={t('storage.mountPathLabel') as string}
                     value={networkShareMountPath}
                     onChange={(e) => setNetworkShareMountPath(e.target.value)}
                     onBlur={handleMountPathSave}
                     placeholder="/mnt/krakenhashes-share"
-                    helperText="The operator mounts the share here on this agent's host; the agent only reads from it. Credentials are entered by the operator, never sent by the server."
+                    helperText={t('storage.mountPathHelper') as string}
                   />
                 )}
               </Grid>
@@ -894,7 +905,7 @@ const AgentDetails: React.FC = () => {
                     </>
                   ) : (
                     agent.lastHeartbeat ?
-                      formatDistanceToNow(new Date(agent.lastHeartbeat), { addSuffix: true }) :
+                      formatDistanceToNow(new Date(agent.lastHeartbeat), { addSuffix: true, locale: dateFnsLocaleFor(i18n.language) }) :
                       t('common.never') as string
                   )}
                 </Typography>
@@ -923,8 +934,17 @@ const AgentDetails: React.FC = () => {
                   <>
                     <Typography variant="body2" color="text.secondary">{t('fields.owner') as string}</Typography>
                     <Typography variant="body1">
-                      {agent?.createdBy?.username || t('common.none') as string}
+                      {agent.ownerId && agent.ownerId !== SYSTEM_USER_ID ? (
+                        <EntityLink type="user" id={agent.ownerId} label={agent.ownerUsername || agent.ownerId} />
+                      ) : (
+                        t('fields.systemOwner', 'System') as string
+                      )}
                     </Typography>
+                    {agent.createdBy?.username && (
+                      <Typography variant="caption" color="text.secondary">
+                        {t('fields.registeredBy', { name: agent.createdBy.username, defaultValue: 'Registered by {{name}}' }) as string}
+                      </Typography>
+                    )}
                   </>
                 )}
               </Grid>
@@ -966,19 +986,7 @@ const AgentDetails: React.FC = () => {
             <Typography variant="h6" gutterBottom>{t('status.updateStatus') as string}</Typography>
 
             <Box sx={{ mb: 2 }}>
-              <Chip
-                label={t(`labels.${agent.status}`, { ns: 'common' }) as string}
-                color={
-                  agent.status === 'active'
-                    ? 'success'
-                    : agent.status === 'error'
-                      ? 'error'
-                      : agent.status === 'updating'
-                        ? 'info'
-                        : 'default'
-                }
-                size="small"
-              />
+              <StatusChip entity="agent" status={agent.status} />
             </Box>
 
             <Typography variant="body2" color="text.secondary">{t('status.currentVersion') as string}</Typography>
@@ -1100,73 +1108,15 @@ const AgentDetails: React.FC = () => {
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>{t('sections.hardwareConfiguration') as string}</Typography>
 
-            {devices.length === 0 ? (
-              <Typography color="text.secondary">{t('messages.noDevicesDetected') as string}</Typography>
-            ) : (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t('hardware.deviceId') as string}</TableCell>
-                      <TableCell>{t('hardware.type') as string}</TableCell>
-                      <TableCell>{t('hardware.name') as string}</TableCell>
-                      <TableCell>{t('hardware.runtime') as string}</TableCell>
-                      <TableCell>{t('hardware.specs') as string}</TableCell>
-                      <TableCell>{t('fields.enabled') as string}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {devices.map((device) => (
-                      <TableRow key={device.id}>
-                        <TableCell>{device.device_id}</TableCell>
-                        <TableCell>{device.device_type}</TableCell>
-                        <TableCell>{device.device_name}</TableCell>
-                        <TableCell>
-                          <FormControl size="small" sx={{ minWidth: 120 }}>
-                            <Select
-                              value={device.selected_runtime || ''}
-                              onChange={(e) => handleRuntimeChange(device.device_id, e.target.value)}
-                              displayEmpty
-                            >
-                              {device.runtime_options?.map((option) => (
-                                <MenuItem key={option.backend} value={option.backend}>
-                                  {option.backend} #{option.device_id}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const opt = device.runtime_options?.find(o => o.backend === device.selected_runtime);
-                            if (!opt) return null;
-                            return (
-                              <>
-                                <Typography variant="caption" display="block">
-                                  {opt.processors} cores, {opt.clock} MHz, {opt.memory_total} MB
-                                </Typography>
-                                {opt.pci_address && (
-                                  <Typography variant="caption" display="block" color="text.secondary">
-                                    PCI {opt.pci_address}
-                                  </Typography>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={deviceStates[device.device_id] || false}
-                            onChange={() => handleToggleDevice(device.device_id)}
-                            color="primary"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
+            <DataTable<AgentDevice>
+              flat
+              rows={devices}
+              columns={deviceColumns}
+              getRowId={(r) => r.id}
+              pagination={false}
+              sorting={false}
+              emptyState={{ title: t('messages.noDevicesDetected') as string }}
+            />
           </Paper>
         </Grid>
 

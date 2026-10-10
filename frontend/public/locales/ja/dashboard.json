@@ -154,11 +154,41 @@
     "viewAll": "すべてのジョブ",
     "empty": "実行中のものはありません",
     "emptyHint": "ハッシュリストからジョブを開始してください。",
-    "goHashlists": "ハッシュリストに移動"
+    "goHashlists": "ハッシュリストに移動",
+    "recentTitle": "ジョブ",
+    "recentSubtitle": "実行中を先に、次に最近完了したもの",
+    "recentEmpty": "ジョブはまだありません"
   },
   "welcomeUser": "おかえりなさい、{{name}} さん",
   "autoRefresh": {
     "on": "ライブ",
     "off": "一時停止"
+  },
+  "view": {
+    "label": "ダッシュボード表示",
+    "mine": "自分",
+    "teams": "自分のチーム",
+    "all": "すべて"
+  },
+  "attention": {
+    "title": "要対応",
+    "allClear": "問題なし",
+    "allClearHint": "失敗しているものや、対応を待っているものはありません。",
+    "kind": {
+      "job_failed": "ジョブ失敗: {{name}}",
+      "job_blocked": "ジョブ待機中: {{name}}",
+      "hashlist_error": "ハッシュリストの処理に失敗: {{name}}",
+      "hashlist_awaiting_decision": "ハッシュリストの確認が必要: {{name}}",
+      "hashlist_stuck": "ハッシュリストの処理が停止: {{name}}",
+      "agent_error": "エージェントエラー: {{name}}",
+      "agent_update_failed": "エージェントの更新に失敗: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "クラックの推移",
+    "subtitle_other": "過去 {{days}} 日間に {{count}} 件をクラック",
+    "tooltip_other": "{{count}} 件クラック",
+    "topHashlists": "今週のトップハッシュリスト",
+    "noCracksWeek": "過去 7 日間にクラックはありません"
   }
 }

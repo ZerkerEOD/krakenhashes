@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Box, Typography, Paper, CircularProgress, Alert, Chip, IconButton, Tooltip,
+    Box, Typography, CircularProgress, Alert, Chip,
     Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
     FormControl, InputLabel, Select, MenuItem, FormHelperText
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { DataTable, EntityLink, PageHeader } from '../../components/ui';
+import { ROUTES } from '../../constants/routes';
 import EditIcon from '@mui/icons-material/Edit';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -12,9 +14,14 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { useSnackbar } from 'notistack';
+import { useToast } from '../../components/ui/toast';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import i18n from '../../i18n';
+import { dateFnsLocaleFor } from '../../i18n/locales';
+
+/** date-fns locale for the current UI language. */
+const dateLocale = () => dateFnsLocaleFor(i18n.language);
 import { useTranslation } from 'react-i18next';
 
 import { User } from '../../types/user';
@@ -26,6 +33,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const UserList: React.FC = () => {
     const { t } = useTranslation('admin');
+    const [search, setSearch] = useState('');
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -48,7 +56,7 @@ const UserList: React.FC = () => {
     const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
     const [deleteUsername, setDeleteUsername] = useState<string>('');
 
-    const { enqueueSnackbar } = useSnackbar();
+    const toast = useToast();
     const { userRole } = useAuth();
     const navigate = useNavigate();
 
@@ -61,11 +69,11 @@ const UserList: React.FC = () => {
         } catch (err) {
             console.error("Failed to fetch users:", err);
             setError(t('users.errors.loadFailed') as string);
-            enqueueSnackbar(t('users.errors.loadFailed') as string, { variant: 'error' });
+            toast.error(t('users.errors.loadFailed') as string);
         } finally {
             setLoading(false);
         }
-    }, [enqueueSnackbar]);
+    }, [toast]);
 
     useEffect(() => {
         if (userRole === 'admin') { 
@@ -87,11 +95,11 @@ const UserList: React.FC = () => {
         setActionLoading(userId);
         try {
             await enableAdminUser(userId);
-            enqueueSnackbar(t('users.messages.enableSuccess') as string, { variant: 'success' });
+            toast.success(t('users.messages.enableSuccess') as string);
             fetchUsers(); // Refresh list
         } catch (err) {
             console.error('Failed to enable user:', err);
-            enqueueSnackbar(t('users.errors.enableFailed') as string, { variant: 'error' });
+            toast.error(t('users.errors.enableFailed') as string);
         } finally {
             setActionLoading(null);
         }
@@ -99,21 +107,21 @@ const UserList: React.FC = () => {
 
     const handleDisableUser = async () => {
         if (!disableUserId || !disableReason.trim()) {
-            enqueueSnackbar(t('users.errors.reasonRequired') as string, { variant: 'warning' });
+            toast.warning(t('users.errors.reasonRequired') as string);
             return;
         }
 
         setActionLoading(disableUserId);
         try {
             await disableAdminUser(disableUserId, { reason: disableReason });
-            enqueueSnackbar(t('users.messages.disableSuccess') as string, { variant: 'success' });
+            toast.success(t('users.messages.disableSuccess') as string);
             fetchUsers(); // Refresh list
             setDisableDialogOpen(false);
             setDisableUserId(null);
             setDisableReason('');
         } catch (err) {
             console.error('Failed to disable user:', err);
-            enqueueSnackbar(t('users.errors.disableFailed') as string, { variant: 'error' });
+            toast.error(t('users.errors.disableFailed') as string);
         } finally {
             setActionLoading(null);
         }
@@ -136,7 +144,7 @@ const UserList: React.FC = () => {
         setActionLoading(deleteUserId);
         try {
             await deleteAdminUser(deleteUserId);
-            enqueueSnackbar(t('users.messages.deleteSuccess') as string, { variant: 'success' });
+            toast.success(t('users.messages.deleteSuccess') as string);
             fetchUsers(); // Refresh list
             setDeleteDialogOpen(false);
             setDeleteUserId(null);
@@ -144,7 +152,7 @@ const UserList: React.FC = () => {
         } catch (err: any) {
             console.error('Failed to delete user:', err);
             const message = err.response?.data?.error || t('users.errors.deleteFailed') as string;
-            enqueueSnackbar(message, { variant: 'error' });
+            toast.error(message);
         } finally {
             setActionLoading(null);
         }
@@ -218,7 +226,7 @@ const UserList: React.FC = () => {
                 role: formData.role
             });
             
-            enqueueSnackbar(t('users.messages.createSuccess') as string, { variant: 'success' });
+            toast.success(t('users.messages.createSuccess') as string);
             setCreateDialogOpen(false);
             setFormData({
                 username: '',
@@ -231,7 +239,7 @@ const UserList: React.FC = () => {
         } catch (err: any) {
             console.error('Failed to create user:', err);
             const message = err.response?.data?.error || t('users.errors.createFailed') as string;
-            enqueueSnackbar(message, { variant: 'error' });
+            toast.error(message);
         } finally {
             setCreateLoading(false);
         }
@@ -240,18 +248,19 @@ const UserList: React.FC = () => {
     const formatDate = (dateString?: string) => {
         if (!dateString) return '-';
         try {
-            return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+            return format(new Date(dateString), 'MMM dd, yyyy HH:mm', { locale: dateLocale() });
         } catch {
             return '-';
         }
     };
 
-    const columns: GridColDef[] = [
+    const columns: GridColDef<User>[] = [
         {
             field: 'username',
             headerName: t('users.columns.username') as string,
             flex: 1,
-            minWidth: 150
+            minWidth: 150,
+            renderCell: (params: GridRenderCellParams) => <EntityLink type="user" id={params.row.id} label={params.value} />,
         },
         {
             field: 'email',
@@ -342,124 +351,53 @@ const UserList: React.FC = () => {
             width: 180,
             renderCell: (params: GridRenderCellParams) => formatDate(params.value as string)
         },
-        {
-            field: 'actions',
-            headerName: t('users.columns.actions') as string,
-            width: 180,
-            sortable: false,
-            renderCell: (params: GridRenderCellParams) => {
-                const user = params.row as User;
-                const isLoading = actionLoading === user.id;
-                const isSystemUser = user.role === 'system';
-
-                return (
-                    <Box>
-                        <Tooltip title={t('users.actions.edit') as string}>
-                            <IconButton
-                                size="small"
-                                onClick={() => navigate(`/admin/users/${user.id}`)}
-                                disabled={isLoading}
-                            >
-                                <EditIcon fontSize="small" />
-                            </IconButton>
-                        </Tooltip>
-
-                        {user.accountEnabled ? (
-                            <Tooltip title={t('users.actions.disable') as string}>
-                                <IconButton
-                                    size="small"
-                                    onClick={() => openDisableDialog(user.id)}
-                                    disabled={isLoading || isSystemUser}
-                                    color="error"
-                                >
-                                    {isLoading ? <CircularProgress size={16} /> : <LockIcon fontSize="small" />}
-                                </IconButton>
-                            </Tooltip>
-                        ) : (
-                            <Tooltip title={t('users.actions.enable') as string}>
-                                <IconButton
-                                    size="small"
-                                    onClick={() => handleEnableUser(user.id)}
-                                    disabled={isLoading}
-                                    color="success"
-                                >
-                                    {isLoading ? <CircularProgress size={16} /> : <LockOpenIcon fontSize="small" />}
-                                </IconButton>
-                            </Tooltip>
-                        )}
-
-                        <Tooltip title={isSystemUser ? t('users.actions.cannotDeleteSystem') as string : t('users.actions.delete') as string}>
-                            <span>
-                                <IconButton
-                                    size="small"
-                                    onClick={() => openDeleteDialog(user.id, user.username)}
-                                    disabled={isLoading || isSystemUser}
-                                    color="error"
-                                >
-                                    <DeleteIcon fontSize="small" />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
-                    </Box>
-                );
-            }
-        }
     ];
 
-    if (loading) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <CircularProgress />
-            </Box>
-        );
-    }
+    const q = search.trim().toLowerCase();
+    const visibleUsers = q ? users.filter((u) => [u.username, u.email].some((v) => (v || '').toLowerCase().includes(q))) : users;
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-                <Box>
-                    <Typography variant="h4" component="h1" gutterBottom>
-                        {t('users.title')}
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        {t('users.description')}
-                    </Typography>
-                </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => setCreateDialogOpen(true)}
-                >
-                    {t('users.addUser')}
-                </Button>
-            </Box>
-            
-            <Paper sx={{ p: 2, mt: 3 }}>
-                {error && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
-                        {error}
-                    </Alert>
-                )}
-                
-                <DataGrid
-                    rows={users}
-                    columns={columns}
-                    initialState={{
-                        pagination: {
-                            paginationModel: { pageSize: 10 }
-                        }
-                    }}
-                    pageSizeOptions={[10, 25, 50]}
-                    autoHeight
-                    disableRowSelectionOnClick
-                    getRowId={(row) => row.id}
-                    sx={{
-                        '& .MuiDataGrid-row': {
-                            cursor: 'pointer'
-                        }
-                    }}
-                />
-            </Paper>
+            <PageHeader
+                title={t('users.title') as string}
+                description={t('users.description') as string}
+                actions={
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateDialogOpen(true)}>
+                        {t('users.addUser')}
+                    </Button>
+                }
+            />
+
+            <DataTable<User>
+                rows={visibleUsers}
+                columns={columns}
+                loading={loading}
+                error={error && users.length === 0 ? error : undefined}
+                pagination={{ mode: 'client', initialPageSize: 25 }}
+                sorting={{ mode: 'client', initial: [{ field: 'username', sort: 'asc' }] }}
+                tableKey="users"
+                rowLinkTo={(row) => ROUTES.admin.user(row.id)}
+                toolbar={{ search: { value: search, onChange: setSearch, placeholder: t('users.search', 'Search users') as string } }}
+                rowActions={(user) => {
+                    const busy = actionLoading === user.id;
+                    const isSystemUser = user.role === 'system';
+                    return [
+                        user.accountEnabled
+                            ? { key: 'disable', label: t('users.actions.disable') as string, icon: <LockIcon fontSize="small" />, danger: true, disabled: busy || isSystemUser, onClick: (u: User) => openDisableDialog(u.id) }
+                            : { key: 'enable', label: t('users.actions.enable') as string, icon: <LockOpenIcon fontSize="small" />, disabled: busy, onClick: (u: User) => void handleEnableUser(u.id) },
+                        { key: 'edit', label: t('users.actions.edit') as string, icon: <EditIcon fontSize="small" />, disabled: busy, onClick: (u: User) => navigate(ROUTES.admin.user(u.id)) },
+                        {
+                            key: 'delete',
+                            label: (isSystemUser ? t('users.actions.cannotDeleteSystem') : t('users.actions.delete')) as string,
+                            icon: <DeleteIcon fontSize="small" />,
+                            danger: true,
+                            placement: 'menu' as const,
+                            disabled: busy || isSystemUser,
+                            onClick: (u: User) => openDeleteDialog(u.id, u.username),
+                        },
+                    ];
+                }}
+            />
 
             {/* Create User Dialog */}
             <Dialog

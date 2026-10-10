@@ -15,6 +15,7 @@ import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
 import { CloudBudgetPolicy } from '../../../types/cloud';
 import { getDefaultBudgetPolicy, updateDefaultBudgetPolicy } from '../../../services/cloud';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 
 const apiError = (err: any, fallback: string): string =>
   err?.response?.data?.error || err?.message || fallback;
@@ -56,6 +57,14 @@ const CloudBudgetPolicySettings: React.FC = () => {
     },
     onError: (err: any) => setFormError(apiError(err, t('cloud.policy.saveFailed') as string)),
   });
+
+  // Explicit-Apply area: the ladder is validated as a whole, so warn before leaving mid-edit.
+  const dirty =
+    !!policy &&
+    !!data &&
+    (JSON.stringify(policy) !== JSON.stringify(data) ||
+      notifyEnabled !== (data.notify_pct !== null && data.notify_pct !== undefined));
+  const { dialog: unsavedDialog } = useUnsavedChangesGuard(dirty);
 
   const handleSave = () => {
     if (!policy) return;
@@ -113,13 +122,7 @@ const CloudBudgetPolicySettings: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        {t('cloud.policy.title') as string}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {t('cloud.policy.description') as string}
-      </Typography>
-
+      {unsavedDialog}
       {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
 
       <Grid container spacing={2}>

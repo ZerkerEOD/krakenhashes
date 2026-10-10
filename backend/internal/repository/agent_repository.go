@@ -135,6 +135,7 @@ func (r *AgentRepository) GetByID(ctx context.Context, id int) (*models.Agent, e
 	var hardwareJSON, osInfoJSON, metadataJSON []byte
 	var createdByUser models.User
 	var ownerID sql.NullString
+	var ownerUsername sql.NullString
 
 	err := r.db.QueryRowContext(ctx, queries.GetAgentByID, id).Scan(
 		&agent.ID,
@@ -177,12 +178,16 @@ func (r *AgentRepository) GetByID(ctx context.Context, id int) (*models.Agent, e
 		&createdByUser.Username,
 		&createdByUser.Email,
 		&createdByUser.Role,
+		&ownerUsername,
 	)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("agent not found: %d", id)
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+	if ownerUsername.Valid && ownerUsername.String != "" {
+		agent.OwnerUsername = &ownerUsername.String
 	}
 
 	// Unmarshal hardware JSON
@@ -416,6 +421,7 @@ func (r *AgentRepository) List(ctx context.Context, filters map[string]interface
 		var hardwareJSON, osInfoJSON, metadataJSON []byte
 		var createdByUser models.User
 		var ownerID sql.NullString
+		var ownerUsername sql.NullString
 
 		err := rows.Scan(
 			&agent.ID,
@@ -458,10 +464,14 @@ func (r *AgentRepository) List(ctx context.Context, filters map[string]interface
 			&createdByUser.Username,
 			&createdByUser.Email,
 			&createdByUser.Role,
+			&ownerUsername,
 		)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan agent: %w", err)
+		}
+		if ownerUsername.Valid && ownerUsername.String != "" {
+			agent.OwnerUsername = &ownerUsername.String
 		}
 
 		// Unmarshal hardware JSON
@@ -517,6 +527,8 @@ func (r *AgentRepository) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (
 		JOIN users u ON a.created_by_id = u.id
 		WHERE a.owner_id = $1 OR (a.owner_id IS NULL AND a.created_by_id = $1)
 		ORDER BY a.name ASC`
+	// NOTE: os_info may be NULL for agents that never completed registration;
+	// the unmarshal below is guarded for that case.
 
 	rows, err := r.db.QueryContext(ctx, query, ownerID)
 	if err != nil {
@@ -568,9 +580,11 @@ func (r *AgentRepository) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (
 			return nil, fmt.Errorf("failed to unmarshal hardware: %w", err)
 		}
 
-		// Unmarshal OS info JSON
-		if err := json.Unmarshal(osInfoJSON, &agent.OSInfo); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal OS info: %w", err)
+		// Unmarshal OS info JSON (NULL for agents that never reported it)
+		if len(osInfoJSON) > 0 {
+			if err := json.Unmarshal(osInfoJSON, &agent.OSInfo); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal OS info: %w", err)
+			}
 		}
 
 		// Unmarshal metadata JSON

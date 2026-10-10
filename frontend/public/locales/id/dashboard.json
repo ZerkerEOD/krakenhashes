@@ -154,11 +154,41 @@
     "viewAll": "Semua job",
     "empty": "Tidak ada yang berjalan",
     "emptyHint": "Mulai job dari hashlist.",
-    "goHashlists": "Buka hashlist"
+    "goHashlists": "Buka hashlist",
+    "recentTitle": "Job",
+    "recentSubtitle": "Yang aktif dulu, lalu yang baru selesai",
+    "recentEmpty": "Belum ada job"
   },
   "welcomeUser": "Selamat datang kembali, {{name}}",
   "autoRefresh": {
     "on": "Langsung",
     "off": "Dijeda"
+  },
+  "view": {
+    "label": "Tampilan dasbor",
+    "mine": "Milik saya",
+    "teams": "Tim saya",
+    "all": "Semua"
+  },
+  "attention": {
+    "title": "Perlu perhatian",
+    "allClear": "Semua aman",
+    "allClearHint": "Tidak ada yang gagal atau menunggu tindakan Anda.",
+    "kind": {
+      "job_failed": "Job gagal: {{name}}",
+      "job_blocked": "Job menunggu: {{name}}",
+      "hashlist_error": "Hashlist gagal diproses: {{name}}",
+      "hashlist_awaiting_decision": "Hashlist perlu Anda tinjau: {{name}}",
+      "hashlist_stuck": "Hashlist macet saat diproses: {{name}}",
+      "agent_error": "Kesalahan agent: {{name}}",
+      "agent_update_failed": "Pembaruan agent gagal: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Hash ter-crack dari waktu ke waktu",
+    "subtitle_other": "{{count}} hash ter-crack dalam {{days}} hari terakhir",
+    "tooltip_other": "{{count}} hash ter-crack",
+    "topHashlists": "Hashlist teratas minggu ini",
+    "noCracksWeek": "Tidak ada hash yang ter-crack dalam 7 hari terakhir"
   }
 }

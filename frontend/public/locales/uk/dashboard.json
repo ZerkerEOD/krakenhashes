@@ -154,11 +154,47 @@
     "viewAll": "Усі завдання",
     "empty": "Нічого не виконується",
     "emptyHint": "Розпочніть завдання зі списку хешів.",
-    "goHashlists": "Перейти до списків хешів"
+    "goHashlists": "Перейти до списків хешів",
+    "recentTitle": "Завдання",
+    "recentSubtitle": "Спочатку активні, потім нещодавно завершені",
+    "recentEmpty": "Завдань ще немає"
   },
   "welcomeUser": "З поверненням, {{name}}",
   "autoRefresh": {
     "on": "Наживо",
     "off": "Призупинено"
+  },
+  "view": {
+    "label": "Вигляд панелі",
+    "mine": "Мої",
+    "teams": "Мої команди",
+    "all": "Усі"
+  },
+  "attention": {
+    "title": "Потребує уваги",
+    "allClear": "Усе гаразд",
+    "allClearHint": "Нічого не збоїть і не чекає на ваші дії.",
+    "kind": {
+      "job_failed": "Завдання завершилося помилкою: {{name}}",
+      "job_blocked": "Завдання очікує: {{name}}",
+      "hashlist_error": "Не вдалося обробити список хешів: {{name}}",
+      "hashlist_awaiting_decision": "Список хешів потребує вашої перевірки: {{name}}",
+      "hashlist_stuck": "Обробка списку хешів зависла: {{name}}",
+      "agent_error": "Помилка агента: {{name}}",
+      "agent_update_failed": "Не вдалося оновити агент: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Зламані хеші за днями",
+    "subtitle_few": "{{count}} зламані хеші за останні {{days}} дн.",
+    "subtitle_many": "{{count}} зламаних хешів за останні {{days}} дн.",
+    "subtitle_one": "{{count}} зламаний хеш за останні {{days}} дн.",
+    "subtitle_other": "{{count}} зламаного хешу за останні {{days}} дн.",
+    "tooltip_few": "{{count}} зламані хеші",
+    "tooltip_many": "{{count}} зламаних хешів",
+    "tooltip_one": "{{count}} зламаний хеш",
+    "tooltip_other": "{{count}} зламаного хешу",
+    "topHashlists": "Найкращі списки хешів цього тижня",
+    "noCracksWeek": "За останні 7 днів зламаних хешів немає"
   }
 }

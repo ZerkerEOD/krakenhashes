@@ -6,7 +6,10 @@ const (
 		SELECT min_password_length, require_uppercase, require_lowercase,
 			require_numbers, require_special_chars, max_failed_attempts,
 			lockout_duration_minutes, require_mfa, jwt_expiry_minutes,
-			display_timezone, notification_aggregation_minutes
+			display_timezone, notification_aggregation_minutes,
+			COALESCE(token_cleanup_interval_seconds, 60),
+			COALESCE(max_concurrent_sessions, 0),
+			COALESCE(session_absolute_timeout_hours, 0)
 		FROM auth_settings
 		LIMIT 1`
 
@@ -22,7 +25,10 @@ const (
 			require_mfa = $8,
 			jwt_expiry_minutes = $9,
 			display_timezone = $10,
-			notification_aggregation_minutes = $11
+			notification_aggregation_minutes = $11,
+			token_cleanup_interval_seconds = $12,
+			max_concurrent_sessions = $13,
+			session_absolute_timeout_hours = $14
 		WHERE id = (SELECT id FROM auth_settings LIMIT 1)`
 
 	// Additional MFA settings queries

@@ -27,18 +27,18 @@ import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
-import { useSnackbar } from 'notistack';
+import { useToast } from '../ui/toast';
 import { useTranslation } from 'react-i18next';
 import { getJobDefaultsForUsers } from '../../services/jobSettings';
 import { teamsService } from '../../services/teams';
 import { Team } from '../../types/team';
 
 // Create schema function to dynamically set client requirement
-const createSchema = (requireClient: boolean) => {
+const createSchema = (requireClient: boolean, t: (key: string) => string) => {
   const baseSchema = z.object({
-    name: z.string().min(1, 'Name is required'),
+    name: z.string().min(1, t('upload.errors.nameRequired')),
     description: z.string().optional(),
-    hashTypeId: z.number().min(0, 'Hash type is required'),
+    hashTypeId: z.number().min(0, t('upload.errors.hashTypeRequired')),
     clientName: z.string().nullish(),
     excludeFromPotfile: z.boolean().optional(),
     excludeFromClientPotfile: z.boolean().optional(),
@@ -48,7 +48,7 @@ const createSchema = (requireClient: boolean) => {
     return baseSchema.refine(
       (data) => data.clientName !== null && data.clientName !== undefined && data.clientName.trim() !== '',
       {
-        message: 'Client is required',
+        message: t('upload.errors.clientRequired'),
         path: ['clientName'],
       }
     );
@@ -101,9 +101,11 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const toast = useToast();
+  const { t } = useTranslation('hashlists');
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(createSchema(requireClient)),
+    resolver: zodResolver(createSchema(requireClient, t)),
     defaultValues: {
       name: '',
       description: '',
@@ -119,9 +121,6 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
     .split('\n')
     .filter(line => line.trim().length > 0)
     .length;
-
-  const { enqueueSnackbar } = useSnackbar();
-  const { t } = useTranslation('hashlists');
 
   // Detect executable files by reading magic bytes (file signatures)
   // MIME types are unreliable — browsers often report application/octet-stream for binaries
@@ -154,7 +153,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
 
       // Block executable files using magic bytes detection
       if (await isExecutableFile(selectedFile)) {
-        enqueueSnackbar(t('upload.executableBlocked'), { variant: 'error' });
+        toast.error(t('upload.executableBlocked') as string);
         return;
       }
 
@@ -269,7 +268,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         const blob = new Blob([pastedHashes], { type: 'text/plain' });
         fileToUpload = new File([blob], 'pasted_hashes.txt', { type: 'text/plain' });
       } else {
-        throw new Error('No hashes to upload');
+        throw new Error(t('upload.errors.noHashesToUpload') as string);
       }
 
       const formData = new FormData();
@@ -328,7 +327,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       if (response.data?.validation_status === 'awaiting_decision' && response.data?.id) {
         setValidationPreview({
           hashlistId: response.data.id,
-          hashlistName: response.data.name || 'Hashlist',
+          hashlistName: response.data.name || (t('detail.fallbackHashlistName') as string),
           currentHashTypeId: response.data.hash_type_id ?? 0,
           totalInputLines: response.data.total_input_lines ?? 0,
           validCount: response.data.valid_count ?? 0,
@@ -342,7 +341,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
 
       // Non-blocking notice for hash types with no validator coverage.
       if (response.data?.validation_notice) {
-        enqueueSnackbar(response.data.validation_notice, { variant: 'info', persist: false });
+        toast.info(response.data.validation_notice);
       }
 
       // The backend returns the created hashlist data
@@ -369,13 +368,13 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       if (data?.error) {
         msg = data.error;
       } else if (status) {
-        msg = `Upload failed (HTTP ${status})`;
+        msg = t('upload.errors.uploadFailedWithStatus', { status }) as string;
       } else if (error?.message) {
-        msg = `Upload failed: ${error.message}`;
+        msg = t('upload.errors.uploadFailedWithMessage', { message: error.message }) as string;
       } else {
-        msg = 'Upload failed (unknown error)';
+        msg = t('upload.errors.uploadFailedUnknown') as string;
       }
-      enqueueSnackbar(msg, { variant: 'error', persist: true });
+      toast.error(msg);
       setUploadProgress(0);
     }
   });
@@ -384,7 +383,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
     // Creating a new client while the user belongs to more than one team
     // requires an explicit team so it isn't silently filed under the wrong one.
     if (newClientData && userTeams.length > 1 && !newClientData.teamId) {
-      enqueueSnackbar('Please select a team for the new client.', { variant: 'error' });
+      toast.error(t('upload.selectTeamForNewClient') as string);
       return;
     }
     uploadMutation.mutate(data);
@@ -405,7 +404,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         render={({ field }) => (
           <TextField
             {...field}
-            label="Hashlist Name"
+            label={t('upload.name') as string}
             fullWidth
             margin="normal"
             error={!!errors.name}
@@ -417,7 +416,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       <HashTypeSelect
         control={control}
         name="hashTypeId"
-        label="Hash Type"
+        label={t('upload.hashType') as string}
       />
 
       <Controller
@@ -426,7 +425,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         render={({ field }) => (
           <TextField
             {...field}
-            label="Description"
+            label={t('upload.description') as string}
             fullWidth
             margin="normal"
             multiline
@@ -459,20 +458,20 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       {/* Mode Toggle */}
       <Box sx={{ mt: 3, mb: 2 }}>
         <Typography variant="subtitle2" gutterBottom>
-          Upload Method
+          {t('upload.methodLabel') as string}
         </Typography>
         <ToggleButtonGroup
           value={uploadMode}
           exclusive
           onChange={(e, newMode) => newMode && setUploadMode(newMode)}
-          aria-label="upload mode"
+          aria-label={t('upload.methodAriaLabel') as string}
           size="small"
         >
-          <ToggleButton value="file" aria-label="file upload">
-            Upload File
+          <ToggleButton value="file" aria-label={t('upload.fileAriaLabel') as string}>
+            {t('upload.uploadFile') as string}
           </ToggleButton>
-          <ToggleButton value="paste" aria-label="paste hashes">
-            Paste Hashes
+          <ToggleButton value="paste" aria-label={t('upload.pasteAriaLabel') as string}>
+            {t('upload.pasteHashes') as string}
           </ToggleButton>
         </ToggleButtonGroup>
       </Box>
@@ -498,16 +497,16 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
               <Box>
                 <Typography>{file.name}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {(file.size / 1024).toFixed(2)} KB
+                  {t('upload.fileSizeKB', { size: (file.size / 1024).toFixed(2) }) as string}
                 </Typography>
               </Box>
             ) : isDragActive ? (
-              <Typography>Drop the hashlist file here...</Typography>
+              <Typography>{t('upload.dropHere') as string}</Typography>
             ) : (
               <>
-                <Typography>Drag and drop a hashlist file, or click to select</Typography>
+                <Typography>{t('upload.dragAndDrop') as string}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  All file types accepted except executables
+                  {t('upload.allFileTypesExceptExecutables') as string}
                 </Typography>
               </>
             )}
@@ -518,32 +517,32 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         <Box sx={{ my: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
             <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
-              Paste Hashes
+              {t('upload.pasteHashes') as string}
             </Typography>
             {hashCount > 0 && (
               <Chip
-                label={`${hashCount} hash${hashCount !== 1 ? 'es' : ''}`}
+                label={t('upload.hashCount', { count: hashCount }) as string}
                 size="small"
                 color="primary"
                 sx={{ mr: 1 }}
               />
             )}
             {pastedHashes && (
-              <IconButton size="small" onClick={handleClearPaste} title="Clear">
+              <IconButton size="small" onClick={handleClearPaste} title={t('upload.clear') as string}>
                 <ClearIcon fontSize="small" />
               </IconButton>
             )}
           </Box>
           <TextField
-            label="Paste hashes here (one per line)"
+            label={t('upload.pasteHashesLabel') as string}
             multiline
             rows={10}
             fullWidth
             value={pastedHashes}
             onChange={(e) => setPastedHashes(e.target.value)}
-            placeholder="Enter hashes, one per line...&#10;&#10;Example:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592"
+            placeholder={t('upload.pasteHashesPlaceholder') as string}
             variant="outlined"
-            helperText={hashCount > 0 ? `${hashCount} hash${hashCount !== 1 ? 'es' : ''} detected` : 'Paste your hashes above, one per line'}
+            helperText={hashCount > 0 ? (t('upload.hashCountDetected', { count: hashCount }) as string) : (t('upload.pasteHashesHelper') as string)}
           />
         </Box>
       )}
@@ -569,20 +568,20 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
                     onChange={(e) => field.onChange(e.target.checked)}
                   />
                 }
-                label="Exclude from global potfile"
+                label={t('upload.excludeFromGlobalPotfile') as string}
                 sx={{ mt: 2 }}
               />
             )}
           />
           <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1 }}>
-            Cracked passwords from this hashlist won't be saved to the global potfile
+            {t('upload.excludeFromGlobalPotfileHelper') as string}
           </Typography>
         </>
       )}
 
       {!potfileGloballyEnabled && (
         <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 2 }}>
-          Note: Global potfile is currently disabled by admin settings.
+          {t('upload.globalPotfileDisabledNotice') as string}
         </Typography>
       )}
 
@@ -600,20 +599,20 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
                     onChange={(e) => field.onChange(e.target.checked)}
                   />
                 }
-                label="Exclude from client potfile"
+                label={t('upload.excludeFromClientPotfile') as string}
                 sx={{ mt: 1 }}
               />
             )}
           />
           <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
-            Cracked passwords from this hashlist won't be saved to the client-specific potfile
+            {t('upload.excludeFromClientPotfileHelper') as string}
           </Typography>
         </>
       )}
 
       {!clientPotfilesSystemEnabled && (
         <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 1, mb: 2 }}>
-          Note: Client potfiles are disabled by admin settings.
+          {t('upload.clientPotfilesDisabledNotice') as string}
         </Typography>
       )}
 
@@ -623,32 +622,32 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         disabled={uploadMutation.isPending || !hasValidInput}
         sx={{ mt: 2 }}
       >
-        {uploadMutation.isPending ? 'Uploading...' : 'Upload Hashlist'}
+        {uploadMutation.isPending ? (t('upload.uploading') as string) : (t('upload.uploadButtonLabel') as string)}
       </Button>
 
       {uploadMutation.isError && (
         <Typography color="error" sx={{ mt: 2 }}>
-          Error uploading hashlist: {(uploadMutation.error as Error)?.message || 'An unknown error occurred'}
+          {t('upload.errors.uploadErrorPrefix', { message: (uploadMutation.error as Error)?.message || (t('upload.errors.unknownError') as string) }) as string}
         </Typography>
       )}
 
       {/* Detection Dialog */}
       <Dialog open={showLinkDialog} onClose={() => setShowLinkDialog(false)}>
-        <DialogTitle>LM/NTLM Hashes Detected</DialogTitle>
+        <DialogTitle>{t('upload.linkDialog.title') as string}</DialogTitle>
         <DialogContent>
           <Typography variant="body1" gutterBottom>
-            Detected pwdump format file with:
+            {t('upload.linkDialog.detected') as string}
           </Typography>
           <Box component="ul" sx={{ mt: 1 }}>
-            <li><Typography variant="body2">{detectionResult?.lm_count || 0} LM hashes (non-blank)</Typography></li>
-            <li><Typography variant="body2">{detectionResult?.ntlm_count || 0} NTLM hashes</Typography></li>
-            <li><Typography variant="body2">{detectionResult?.blank_lm_count || 0} blank LM hashes (empty password - will be skipped)</Typography></li>
+            <li><Typography variant="body2">{t('upload.linkDialog.lmCount', { count: detectionResult?.lm_count || 0 }) as string}</Typography></li>
+            <li><Typography variant="body2">{t('upload.linkDialog.ntlmCount', { count: detectionResult?.ntlm_count || 0 }) as string}</Typography></li>
+            <li><Typography variant="body2">{t('upload.linkDialog.blankLmCount', { count: detectionResult?.blank_lm_count || 0 }) as string}</Typography></li>
           </Box>
           <Typography variant="body2" sx={{ mt: 2 }}>
-            Would you like to create two linked hashlists for separate cracking workflows?
+            {t('upload.linkDialog.question') as string}
           </Typography>
           <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 1 }}>
-            This will create "{control._formValues.name}-LM" and "{control._formValues.name}-NTLM" hashlists that are linked together.
+            {t('upload.linkDialog.explanation', { lmName: `${control._formValues.name}-LM`, ntlmName: `${control._formValues.name}-NTLM` }) as string}
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -656,13 +655,13 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
             setShowLinkDialog(false);
             setCreateLinked(false);
           }}>
-            Upload as Single List
+            {t('upload.linkDialog.uploadSingle') as string}
           </Button>
           <Button variant="contained" onClick={() => {
             setShowLinkDialog(false);
             setCreateLinked(true);
           }}>
-            Create Linked Lists
+            {t('upload.linkDialog.createLinked') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -693,7 +692,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         }}
         onCancel={() => {
           setValidationPreview(null);
-          enqueueSnackbar('Upload cancelled. Fix the file and try again.', { variant: 'info' });
+          toast.info(t('upload.validationCancelled') as string);
         }}
       />
     </Box>

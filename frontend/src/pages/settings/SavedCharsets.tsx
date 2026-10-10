@@ -5,14 +5,6 @@ import {
   Button,
   CircularProgress,
   Alert,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
   Chip,
   Dialog,
   DialogTitle,
@@ -27,7 +19,10 @@ import {
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, UploadFile as UploadFileIcon } from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
+import type { GridColDef } from '@mui/x-data-grid';
+import { useTranslation } from 'react-i18next';
+import { DataTable, EntityLink, PageHeader, useConfirm, useToast } from '../../components/ui';
+import { teamsService } from '../../services/teams';
 import { CustomCharset, CustomCharsetFormData } from '../../types/customCharsets';
 import {
   listAccessibleCharsets,
@@ -38,9 +33,11 @@ import {
 } from '../../services/customCharsetService';
 import { validateCharsetDefinition, validateHexCharsetDefinition } from '../../utils/charsetUtils';
 
-const SavedCharsetsPage: React.FC = () => {
+const SavedCharsetsPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
+  const confirm = useConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dialog state
@@ -55,7 +52,7 @@ const SavedCharsetsPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const { data: charsets, isLoading, error } = useQuery<CustomCharset[], Error>({
+  const { data: charsets, isLoading, isFetching, error, refetch } = useQuery<CustomCharset[], Error>({
     queryKey: ['accessibleCharsets'],
     queryFn: listAccessibleCharsets,
   });
@@ -63,7 +60,7 @@ const SavedCharsetsPage: React.FC = () => {
   const createMutation = useMutation<CustomCharset, Error, CustomCharsetFormData>({
     mutationFn: createUserCharset,
     onSuccess: () => {
-      enqueueSnackbar('Charset created successfully', { variant: 'success' });
+      toast.success(t('savedCharsets.messages.createSuccess') as string);
       queryClient.invalidateQueries({ queryKey: ['accessibleCharsets'] });
       handleCloseDialog();
     },
@@ -75,7 +72,7 @@ const SavedCharsetsPage: React.FC = () => {
   const uploadMutation = useMutation<CustomCharset, Error, FormData>({
     mutationFn: uploadUserCharsetFile,
     onSuccess: () => {
-      enqueueSnackbar('File charset uploaded successfully', { variant: 'success' });
+      toast.success(t('savedCharsets.messages.uploadSuccess') as string);
       queryClient.invalidateQueries({ queryKey: ['accessibleCharsets'] });
       handleCloseDialog();
     },
@@ -87,7 +84,7 @@ const SavedCharsetsPage: React.FC = () => {
   const updateMutation = useMutation<CustomCharset, Error, { id: string; data: CustomCharsetFormData }>({
     mutationFn: ({ id, data }) => updateUserCharset(id, data),
     onSuccess: () => {
-      enqueueSnackbar('Charset updated successfully', { variant: 'success' });
+      toast.success(t('savedCharsets.messages.updateSuccess') as string);
       queryClient.invalidateQueries({ queryKey: ['accessibleCharsets'] });
       handleCloseDialog();
     },
@@ -99,11 +96,11 @@ const SavedCharsetsPage: React.FC = () => {
   const deleteMutation = useMutation<void, Error, string>({
     mutationFn: deleteUserCharset,
     onSuccess: () => {
-      enqueueSnackbar('Charset deleted successfully', { variant: 'success' });
+      toast.success(t('savedCharsets.messages.deleteSuccess') as string);
       queryClient.invalidateQueries({ queryKey: ['accessibleCharsets'] });
     },
     onError: (err: Error) => {
-      enqueueSnackbar(`Failed to delete charset: ${err.message}`, { variant: 'error' });
+      toast.error(t('savedCharsets.errors.deleteFailed', { message: err.message }) as string);
     },
   });
 
@@ -142,11 +139,11 @@ const SavedCharsetsPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.name.endsWith('.hcchr')) {
-        setFormError('Only .hcchr files are allowed');
+        setFormError(t('savedCharsets.errors.onlyHcchrAllowed') as string);
         return;
       }
       if (file.size > 1023) {
-        setFormError('File too large (max 1023 bytes — hashcat read buffer limit)');
+        setFormError(t('savedCharsets.errors.fileTooLarge') as string);
         return;
       }
       setSelectedFile(file);
@@ -159,7 +156,7 @@ const SavedCharsetsPage: React.FC = () => {
 
   const handleSubmit = () => {
     if (!formData.name.trim()) {
-      setFormError('Name is required');
+      setFormError(t('savedCharsets.errors.nameRequired') as string);
       return;
     }
 
@@ -168,7 +165,7 @@ const SavedCharsetsPage: React.FC = () => {
         updateMutation.mutate({ id: editingCharset.id, data: { ...formData, definition: '' } });
       } else {
         if (!formData.definition.trim()) {
-          setFormError('Definition is required');
+          setFormError(t('savedCharsets.errors.definitionRequired') as string);
           return;
         }
         const validationError = validateCharsetDefinition(formData.definition);
@@ -180,7 +177,7 @@ const SavedCharsetsPage: React.FC = () => {
       }
     } else if (createMode === 'file') {
       if (!selectedFile) {
-        setFormError('Please select a .hcchr file');
+        setFormError(t('savedCharsets.errors.selectFile') as string);
         return;
       }
       const fd = new FormData();
@@ -190,7 +187,7 @@ const SavedCharsetsPage: React.FC = () => {
       uploadMutation.mutate(fd);
     } else {
       if (!formData.definition.trim()) {
-        setFormError('Definition is required');
+        setFormError(t('savedCharsets.errors.definitionRequired') as string);
         return;
       }
       const validationError = formData.is_hex
@@ -204,14 +201,18 @@ const SavedCharsetsPage: React.FC = () => {
     }
   };
 
-  const handleDelete = (charset: CustomCharset) => {
+  const handleDelete = async (charset: CustomCharset) => {
     if (charset.scope === 'global') {
-      enqueueSnackbar('Global charsets can only be deleted by admins in the admin panel', { variant: 'warning' });
+      toast.warning(t('savedCharsets.errors.globalDeleteForbidden') as string);
       return;
     }
-    if (window.confirm('Are you sure you want to delete this charset?')) {
-      deleteMutation.mutate(charset.id);
-    }
+    const ok = await confirm({
+      title: t('savedCharsets.dialogs.delete.title') as string,
+      message: t('savedCharsets.dialogs.delete.confirmation', { name: charset.name }) as string,
+      severity: 'danger',
+      confirmLabel: t('common.delete') as string,
+    });
+    if (ok) deleteMutation.mutate(charset.id);
   };
 
   // Separate charsets by scope for display
@@ -219,139 +220,171 @@ const SavedCharsetsPage: React.FC = () => {
   const userCharsets = charsets?.filter(c => c.scope === 'user') || [];
   const teamCharsets = charsets?.filter(c => c.scope === 'team') || [];
 
+  // Team names for team-scoped charsets (owner_id is the team id); only fetched when needed.
+  const { data: myTeams = [] } = useQuery({
+    queryKey: ['teams', 'mine'],
+    queryFn: () => teamsService.listUserTeams(),
+    enabled: teamCharsets.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+  const teamName = (id?: string) => myTeams.find((tm) => tm.id === id)?.name;
+
   const isMutating = createMutation.isPending || updateMutation.isPending || uploadMutation.isPending;
 
   const renderCharsetValue = (charset: CustomCharset) => {
     if (charset.charset_type === 'file') {
       return (
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-          <Chip label="File" size="small" color="info" />
-          <Chip label={`${charset.byte_count} unique bytes`} size="small" variant="outlined" sx={{ fontFamily: 'monospace' }} />
+          <Chip label={t('savedCharsets.typeLabels.file') as string} size="small" color="info" />
+          <Chip label={t('savedCharsets.uniqueBytes', { count: charset.byte_count }) as string} size="small" variant="outlined" sx={{ fontFamily: (theme) => theme.typography.monoFamily }} />
         </Box>
       );
     }
     return (
       <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-        {charset.is_hex && <Chip label="Hex" size="small" color="warning" />}
+        {charset.is_hex && <Chip label={t('savedCharsets.typeLabels.hex') as string} size="small" color="warning" />}
         <Chip
-          label={charset.is_hex ? `${Math.floor((charset.definition?.length || 0) / 2)} bytes` : charset.definition}
+          label={charset.is_hex ? (t('savedCharsets.hexBytes', { count: Math.floor((charset.definition?.length || 0) / 2) }) as string) : charset.definition}
           size="small"
           variant="outlined"
-          sx={{ fontFamily: 'monospace' }}
+          sx={{ fontFamily: (theme) => theme.typography.monoFamily }}
         />
       </Box>
     );
   };
 
-  const renderCharsetTable = (charsetList: CustomCharset[], showActions: boolean) => (
-    <Table>
-      <TableHead>
-        <TableRow>
-          <TableCell>Name</TableCell>
-          <TableCell>Definition / Info</TableCell>
-          <TableCell>Description</TableCell>
-          <TableCell>Created</TableCell>
-          {showActions && <TableCell align="right">Actions</TableCell>}
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {charsetList.length === 0 && (
-          <TableRow>
-            <TableCell colSpan={showActions ? 5 : 4} align="center">
-              No charsets in this category.
-            </TableCell>
-          </TableRow>
-        )}
-        {charsetList.map((charset) => (
-          <TableRow key={charset.id}>
-            <TableCell component="th" scope="row">{charset.name}</TableCell>
-            <TableCell>{renderCharsetValue(charset)}</TableCell>
-            <TableCell>{charset.description || '—'}</TableCell>
-            <TableCell>{new Date(charset.created_at).toLocaleString()}</TableCell>
-            {showActions && (
-              <TableCell align="right">
-                <IconButton onClick={() => handleOpenEdit(charset)} disabled={deleteMutation.isPending}>
-                  <EditIcon />
-                </IconButton>
-                <IconButton onClick={() => handleDelete(charset)} disabled={deleteMutation.isPending}>
-                  <DeleteIcon />
-                </IconButton>
-              </TableCell>
-            )}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+  const buildColumns = (withTeam: boolean): GridColDef<CustomCharset>[] => [
+    { field: 'name', headerName: t('savedCharsets.columns.name') as string, flex: 1, minWidth: 160 },
+    ...(withTeam
+      ? [
+          {
+            field: 'owner_id',
+            headerName: t('savedCharsets.columns.team') as string,
+            flex: 0.8,
+            minWidth: 140,
+            valueGetter: (_v: unknown, row: CustomCharset) => teamName(row.owner_id) || row.owner_id || '',
+            renderCell: (p: { row: CustomCharset }) => (
+              <EntityLink type="team" id={p.row.owner_id} label={teamName(p.row.owner_id) || (t('savedCharsets.columns.team') as string)} />
+            ),
+          } as GridColDef<CustomCharset>,
+        ]
+      : []),
+    {
+      field: 'definition',
+      headerName: t('savedCharsets.columns.definition') as string,
+      flex: 1.2,
+      minWidth: 200,
+      sortable: false,
+      renderCell: (p) => renderCharsetValue(p.row),
+    },
+    {
+      field: 'description',
+      headerName: t('savedCharsets.columns.description') as string,
+      flex: 1.5,
+      minWidth: 200,
+      valueFormatter: (v) => (v as string) || '—',
+    },
+    {
+      field: 'created_at',
+      headerName: t('savedCharsets.columns.created') as string,
+      width: 180,
+      valueGetter: (_v, row) => (row.created_at ? new Date(row.created_at).getTime() : 0),
+      valueFormatter: (v) => (v ? new Date(Number(v)).toLocaleString() : ''),
+    },
+  ];
+
+  const renderCharsetTable = (
+    charsetList: CustomCharset[],
+    showActions: boolean,
+    title: string,
+    tableKey: string,
+    subtitle?: string,
+    withTeam = false
+  ) => (
+    <Box sx={{ mb: 3 }}>
+      <DataTable<CustomCharset>
+        rows={charsetList}
+        columns={buildColumns(withTeam)}
+        getRowId={(r) => r.id}
+        loading={isLoading}
+        fetching={(isFetching && !isLoading) || deleteMutation.isPending}
+        error={error ? new Error(`Failed to load charsets: ${error.message}`) : undefined}
+        onRetry={() => refetch()}
+        pagination={charsetList.length > 25 ? { mode: 'client', initialPageSize: 25 } : false}
+        hideFooter={charsetList.length <= 25}
+        sorting={{ mode: 'client' }}
+        toolbar={{ title, subtitle }}
+        rowActions={
+          showActions
+            ? () => [
+                {
+                  key: 'edit',
+                  label: t('savedCharsets.rowActions.edit') as string,
+                  icon: <EditIcon fontSize="small" />,
+                  disabled: deleteMutation.isPending,
+                  onClick: (c) => handleOpenEdit(c),
+                },
+                {
+                  key: 'delete',
+                  label: t('savedCharsets.rowActions.delete') as string,
+                  icon: <DeleteIcon fontSize="small" />,
+                  danger: true,
+                  disabled: deleteMutation.isPending,
+                  onClick: (c) => handleDelete(c),
+                },
+              ]
+            : undefined
+        }
+        emptyState={{ title: t('savedCharsets.empty') as string }}
+        tableKey={tableKey}
+      />
+    </Box>
+  );
+
+  const createButton = (
+    <Button
+      variant="contained"
+      startIcon={<AddIcon />}
+      onClick={handleOpenCreate}
+      disabled={deleteMutation.isPending}
+    >
+      {t('savedCharsets.createCharset')}
+    </Button>
   );
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Saved Charsets
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Manage your personal custom charsets for use in mask-based attacks.
-            Supports inline definitions and binary .hcchr charset files.
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpenCreate}
-          disabled={deleteMutation.isPending}
-        >
-          Create Charset
-        </Button>
-      </Box>
-
-      {isLoading && <CircularProgress />}
-      {error && <Alert severity="error">Failed to load charsets: {error.message}</Alert>}
-
-      {!isLoading && !error && charsets && (
-        <>
-          {/* Personal Charsets */}
-          <Typography variant="h6" sx={{ mb: 1, mt: 2 }}>
-            My Charsets
-          </Typography>
-          <TableContainer component={Paper} sx={{ mb: 3 }}>
-            {renderCharsetTable(userCharsets, true)}
-          </TableContainer>
-
-          {/* Team Charsets (if any) */}
-          {teamCharsets.length > 0 && (
-            <>
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                Team Charsets
-              </Typography>
-              <TableContainer component={Paper} sx={{ mb: 3 }}>
-                {renderCharsetTable(teamCharsets, false)}
-              </TableContainer>
-            </>
-          )}
-
-          {/* Global Charsets (read-only) */}
-          {globalCharsets.length > 0 && (
-            <>
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                Global Charsets
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                These charsets are managed by admins and available to everyone.
-              </Typography>
-              <TableContainer component={Paper}>
-                {renderCharsetTable(globalCharsets, false)}
-              </TableContainer>
-            </>
-          )}
-        </>
+    <Box sx={{ p: embedded ? 0 : 3 }}>
+      {embedded ? (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>{createButton}</Box>
+      ) : (
+        <PageHeader
+          title={t('savedCharsets.title') as string}
+          description={t('savedCharsets.description') as string}
+          actions={createButton}
+        />
       )}
+
+      {/* Personal Charsets */}
+      {renderCharsetTable(userCharsets, true, t('savedCharsets.sections.mine') as string, 'saved-charsets-mine')}
+
+      {/* Team Charsets (if any) */}
+      {teamCharsets.length > 0 &&
+        renderCharsetTable(teamCharsets, false, t('savedCharsets.sections.team') as string, 'saved-charsets-team', undefined, true)}
+
+      {/* Global Charsets (read-only) */}
+      {globalCharsets.length > 0 &&
+        renderCharsetTable(
+          globalCharsets,
+          false,
+          t('savedCharsets.sections.global') as string,
+          'saved-charsets-global',
+          t('savedCharsets.sections.globalSubtitle') as string
+        )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editingCharset ? 'Edit Charset' : 'Create Personal Charset'}
+          {editingCharset ? t('savedCharsets.dialogs.edit.title') : t('savedCharsets.dialogs.create.title')}
         </DialogTitle>
         <DialogContent>
           {formError && (
@@ -368,10 +401,10 @@ const SavedCharsetsPage: React.FC = () => {
                 onChange={(_, v) => v && setCreateMode(v)}
                 size="small"
               >
-                <ToggleButton value="inline">Inline Definition</ToggleButton>
+                <ToggleButton value="inline">{t('savedCharsets.dialogs.modeToggle.inline')}</ToggleButton>
                 <ToggleButton value="file">
                   <UploadFileIcon sx={{ mr: 0.5 }} fontSize="small" />
-                  File Upload (.hcchr)
+                  {t('savedCharsets.dialogs.modeToggle.file')}
                 </ToggleButton>
               </ToggleButtonGroup>
             </Box>
@@ -379,32 +412,32 @@ const SavedCharsetsPage: React.FC = () => {
 
           <TextField
             autoFocus
-            label="Name"
+            label={t('savedCharsets.dialogs.fields.name')}
             value={formData.name}
             onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
             fullWidth
             margin="normal"
             required
-            placeholder="e.g., DES Full Charset"
+            placeholder={t('savedCharsets.dialogs.fields.namePlaceholder') as string}
           />
 
           {(createMode === 'inline' && !editingCharset) || (editingCharset && editingCharset.charset_type !== 'file') ? (
             <>
               <TextField
-                label="Definition"
+                label={t('savedCharsets.dialogs.fields.definition')}
                 value={formData.definition}
                 onChange={(e) => setFormData(prev => ({ ...prev, definition: e.target.value }))}
                 fullWidth
                 margin="normal"
                 required
-                placeholder={formData.is_hex ? 'e.g., 41424344 (hex byte pairs)' : 'e.g., ?u?d or abcdef0123456789'}
+                placeholder={formData.is_hex ? (t('savedCharsets.dialogs.fields.definitionPlaceholderHex') as string) : (t('savedCharsets.dialogs.fields.definitionPlaceholderPlain') as string)}
                 helperText={formData.is_hex
-                  ? `Hex byte pairs — each pair = one charset byte. ${formData.definition ? Math.floor(formData.definition.length / 2) + ' bytes' : ''}`
-                  : 'Hashcat charset definition. Use ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H or literal characters.'}
+                  ? t('savedCharsets.dialogs.fields.definitionHelperHex', { bytes: formData.definition ? (t('savedCharsets.dialogs.fields.definitionHelperHexBytes', { count: Math.floor(formData.definition.length / 2) }) as string) : '' })
+                  : t('savedCharsets.dialogs.fields.definitionHelperPlain')}
                 sx={{ '& input': { fontFamily: 'monospace' } }}
               />
               {!editingCharset && (
-                <Tooltip title="When enabled, the definition is interpreted as hex byte pairs (e.g., 41424344 = bytes A, B, C, D). Jobs using this charset will auto-inject --hex-charset.">
+                <Tooltip title={t('savedCharsets.dialogs.fields.hexTooltip') as string}>
                   <FormControlLabel
                     control={
                       <Checkbox
@@ -413,7 +446,7 @@ const SavedCharsetsPage: React.FC = () => {
                         size="small"
                       />
                     }
-                    label="Hex-encoded definition"
+                    label={t('savedCharsets.dialogs.fields.hexLabel') as string}
                   />
                 </Tooltip>
               )}
@@ -434,39 +467,39 @@ const SavedCharsetsPage: React.FC = () => {
                 startIcon={<UploadFileIcon />}
                 onClick={() => fileInputRef.current?.click()}
               >
-                {selectedFile ? selectedFile.name : 'Select .hcchr File'}
+                {selectedFile ? selectedFile.name : t('savedCharsets.dialogs.fields.selectFile')}
               </Button>
               {selectedFile && (
                 <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                  {selectedFile.size} bytes
+                  {t('savedCharsets.dialogs.fields.fileSizeBytes', { count: selectedFile.size })}
                 </Typography>
               )}
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Binary charset file containing raw byte values (max 1023 bytes, up to 256 unique bytes).
+                {t('savedCharsets.dialogs.fields.fileHelperText')}
               </Typography>
             </Box>
           )}
 
           {editingCharset && editingCharset.charset_type === 'file' && (
             <Alert severity="info" sx={{ mt: 2 }}>
-              File charset: {editingCharset.byte_count} unique bytes. Only name and description can be edited.
+              {t('savedCharsets.dialogs.fields.fileCharsetInfo', { count: editingCharset.byte_count })}
             </Alert>
           )}
 
           <TextField
-            label="Description"
+            label={t('savedCharsets.dialogs.fields.description')}
             value={formData.description}
             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
             fullWidth
             margin="normal"
             multiline
             rows={2}
-            placeholder="Optional description of what this charset is used for"
+            placeholder={t('savedCharsets.dialogs.fields.descriptionPlaceholder') as string}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog} disabled={isMutating}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleSubmit}
@@ -474,7 +507,7 @@ const SavedCharsetsPage: React.FC = () => {
             disabled={isMutating}
             startIcon={isMutating ? <CircularProgress size={20} /> : undefined}
           >
-            {editingCharset ? 'Update' : createMode === 'file' ? 'Upload' : 'Create'}
+            {editingCharset ? t('savedCharsets.dialogs.update') : createMode === 'file' ? t('savedCharsets.dialogs.upload') : t('common.create')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Paper,
@@ -41,6 +42,7 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
   onReset,
   loading,
 }) => {
+  const { t } = useTranslation('admin');
   const [expanded, setExpanded] = React.useState(true);
 
   const statusOptions = ['pending', 'running', 'completed', 'cancelled', 'failed', 'paused'];
@@ -76,8 +78,8 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <FilterListIcon color="action" />
-          <Typography variant="subtitle1">Filters</Typography>
-          {hasActiveFilters && <Chip label="Active" color="primary" size="small" />}
+          <Typography variant="subtitle1">{t('jobAnalytics.filters.title')}</Typography>
+          {hasActiveFilters && <Chip label={t('jobAnalytics.filters.active') as string} color="primary" size="small" />}
         </Box>
         <IconButton onClick={() => setExpanded(!expanded)} size="small">
           {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -88,7 +90,7 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
               <TextField
-                label="Date Start"
+                label={t('jobAnalytics.filters.dateStart')}
                 type="date"
                 size="small"
                 fullWidth
@@ -99,7 +101,7 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <TextField
-                label="Date End"
+                label={t('jobAnalytics.filters.dateEnd')}
                 type="date"
                 size="small"
                 fullWidth
@@ -110,13 +112,13 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
-                <InputLabel>Attack Mode</InputLabel>
+                <InputLabel>{t('jobAnalytics.benchmarkChart.attackMode')}</InputLabel>
                 <Select
                   value={filter.attack_mode !== undefined ? String(filter.attack_mode) : ''}
                   onChange={handleSelectChange('attack_mode')}
-                  label="Attack Mode"
+                  label={t('jobAnalytics.benchmarkChart.attackMode') as string}
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">{t('jobAnalytics.benchmarkChart.all')}</MenuItem>
                   {filterOptions?.attack_modes?.map(am => (
                     <MenuItem key={am.value} value={String(am.value)}>{am.label}</MenuItem>
                   ))}
@@ -125,13 +127,13 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
-                <InputLabel>Hash Type</InputLabel>
+                <InputLabel>{t('jobAnalytics.benchmarkChart.hashType')}</InputLabel>
                 <Select
                   value={filter.hash_type !== undefined ? String(filter.hash_type) : ''}
                   onChange={handleSelectChange('hash_type')}
-                  label="Hash Type"
+                  label={t('jobAnalytics.benchmarkChart.hashType') as string}
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">{t('jobAnalytics.benchmarkChart.all')}</MenuItem>
                   {filterOptions?.hash_types?.map(ht => (
                     <MenuItem key={ht.id} value={String(ht.id)}>{ht.name} ({ht.id})</MenuItem>
                   ))}
@@ -140,13 +142,13 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
-                <InputLabel>Agent</InputLabel>
+                <InputLabel>{t('jobAnalytics.benchmarkChart.agent')}</InputLabel>
                 <Select
                   value={filter.agent_id !== undefined ? String(filter.agent_id) : ''}
                   onChange={handleSelectChange('agent_id')}
-                  label="Agent"
+                  label={t('jobAnalytics.benchmarkChart.agent') as string}
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">{t('jobAnalytics.benchmarkChart.all')}</MenuItem>
                   {filterOptions?.agents?.map(a => (
                     <MenuItem key={a.id} value={String(a.id)}>{a.name}</MenuItem>
                   ))}
@@ -155,13 +157,13 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
-                <InputLabel>Hashlist</InputLabel>
+                <InputLabel>{t('jobAnalytics.filters.hashlist')}</InputLabel>
                 <Select
                   value={filter.hashlist_id !== undefined ? String(filter.hashlist_id) : ''}
                   onChange={handleSelectChange('hashlist_id')}
-                  label="Hashlist"
+                  label={t('jobAnalytics.filters.hashlist') as string}
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">{t('jobAnalytics.benchmarkChart.all')}</MenuItem>
                   {filterOptions?.hashlists?.map(h => (
                     <MenuItem key={h.id} value={String(h.id)}>{h.name}</MenuItem>
                   ))}
@@ -170,12 +172,12 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
+                <InputLabel>{t('jobAnalytics.filters.status')}</InputLabel>
                 <Select
                   multiple
                   value={filter.status || []}
                   onChange={handleStatusChange}
-                  input={<OutlinedInput label="Status" />}
+                  input={<OutlinedInput label={t('jobAnalytics.filters.status') as string} />}
                   renderValue={(selected) => (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {(selected as string[]).map(value => (
@@ -193,7 +195,7 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
             <Grid item xs={12} sm={6} md={3}>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <TextField
-                  label="Min Keyspace"
+                  label={t('jobAnalytics.filters.minKeyspace')}
                   type="number"
                   size="small"
                   fullWidth
@@ -201,7 +203,7 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
                   onChange={handleNumberChange('min_keyspace')}
                 />
                 <TextField
-                  label="Max Keyspace"
+                  label={t('jobAnalytics.filters.maxKeyspace')}
                   type="number"
                   size="small"
                   fullWidth
@@ -218,7 +220,7 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
               onClick={onReset}
               disabled={!hasActiveFilters}
             >
-              Reset
+              {t('jobAnalytics.filters.reset')}
             </Button>
             <Button
               variant="contained"
@@ -226,7 +228,7 @@ const JobAnalyticsFilters: React.FC<JobAnalyticsFiltersProps> = ({
               onClick={onApply}
               disabled={loading}
             >
-              Apply
+              {t('jobAnalytics.filters.apply')}
             </Button>
           </Box>
         </Box>

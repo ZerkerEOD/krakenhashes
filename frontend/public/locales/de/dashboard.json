@@ -154,11 +154,43 @@
     "viewAll": "Alle Aufträge",
     "empty": "Nichts läuft",
     "emptyHint": "Starten Sie einen Auftrag aus einer Hashliste.",
-    "goHashlists": "Zu den Hashlisten"
+    "goHashlists": "Zu den Hashlisten",
+    "recentTitle": "Aufträge",
+    "recentSubtitle": "Aktive zuerst, dann kürzlich abgeschlossene",
+    "recentEmpty": "Noch keine Aufträge"
   },
   "welcomeUser": "Willkommen zurück, {{name}}",
   "autoRefresh": {
     "on": "Live",
     "off": "Pausiert"
+  },
+  "view": {
+    "label": "Dashboard-Ansicht",
+    "mine": "Meine",
+    "teams": "Meine Teams",
+    "all": "Alle"
+  },
+  "attention": {
+    "title": "Handlungsbedarf",
+    "allClear": "Alles in Ordnung",
+    "allClearHint": "Nichts schlägt fehl oder wartet auf Sie.",
+    "kind": {
+      "job_failed": "Auftrag fehlgeschlagen: {{name}}",
+      "job_blocked": "Auftrag wartet: {{name}}",
+      "hashlist_error": "Hashliste konnte nicht verarbeitet werden: {{name}}",
+      "hashlist_awaiting_decision": "Hashliste muss von Ihnen geprüft werden: {{name}}",
+      "hashlist_stuck": "Hashliste hängt in der Verarbeitung: {{name}}",
+      "agent_error": "Agent-Fehler: {{name}}",
+      "agent_update_failed": "Agent-Aktualisierung fehlgeschlagen: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Geknackte Hashes im Zeitverlauf",
+    "subtitle_one": "{{count}} geknackter Hash in den letzten {{days}} Tagen",
+    "subtitle_other": "{{count}} geknackte Hashes in den letzten {{days}} Tagen",
+    "tooltip_one": "{{count}} geknackter Hash",
+    "tooltip_other": "{{count}} geknackte Hashes",
+    "topHashlists": "Top-Hashlisten dieser Woche",
+    "noCracksWeek": "Keine geknackten Hashes in den letzten 7 Tagen"
   }
 }

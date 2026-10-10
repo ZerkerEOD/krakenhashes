@@ -1,37 +1,22 @@
-import React, { useState } from 'react';
-import {
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  TableSortLabel,
-  Typography,
-  Box,
-  Chip,
-  Collapse,
-  IconButton,
-  Skeleton,
-  LinearProgress,
-} from '@mui/material';
-import {
-  KeyboardArrowDown as ExpandIcon,
-  KeyboardArrowUp as CollapseIcon,
-} from '@mui/icons-material';
-import { JobAnalyticsEntry, TaskSegment, TimelinePoint } from '../../../types/jobAnalytics';
+import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Box, LinearProgress, Skeleton, Typography } from '@mui/material';
+import type { GridColDef, GridSortModel } from '@mui/x-data-grid';
+import { useQuery } from '@tanstack/react-query';
+import { JobAnalyticsEntry, TaskSegment } from '../../../types/jobAnalytics';
 import { jobAnalyticsService } from '../../../services/jobAnalytics';
+import { DataTable, EntityLink, SimpleTable, StatusChip } from '../../ui';
 
 interface JobExecutionTableProps {
   jobs: JobAnalyticsEntry[] | undefined;
   total: number;
+  /** 1-based. */
   page: number;
   pageSize: number;
   sortBy: string;
   sortOrder: string;
   loading: boolean;
+  /** 1-based. */
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onSortChange: (sortBy: string, sortOrder: string) => void;
@@ -63,115 +48,46 @@ const formatKeyspace = (ks: number): string => {
   return String(ks);
 };
 
-const attackModeLabels: Record<number, string> = {
-  0: 'Straight',
-  1: 'Combination',
-  3: 'Brute-force',
-  6: 'Hybrid WL+Mask',
-  7: 'Hybrid Mask+WL',
-  9: 'Association',
-};
+const fmtDate = (v: string | null) => (v ? new Date(v).toLocaleString() : '-');
 
-const statusColor = (status: string): 'success' | 'error' | 'warning' | 'info' | 'default' => {
-  switch (status) {
-    case 'completed': return 'success';
-    case 'failed': return 'error';
-    case 'running': return 'info';
-    case 'cancelled': return 'warning';
-    case 'paused': return 'warning';
-    default: return 'default';
-  }
-};
+/** Per-task breakdown of one job, loaded when its detail drawer opens. */
+const JobTimelineDetail: React.FC<{ jobId: string }> = ({ jobId }) => {
+  const { t } = useTranslation('admin');
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'job-analytics', 'timeline', jobId],
+    queryFn: () => jobAnalyticsService.getJobTimeline(jobId),
+  });
+  const tasks = data?.tasks || [];
+  const metrics = data?.metrics || [];
 
-interface SortableColumns {
-  id: string;
-  label: string;
-  sortable: boolean;
-  align?: 'left' | 'right' | 'center';
-}
-
-const columns: SortableColumns[] = [
-  { id: 'expand', label: '', sortable: false },
-  { id: 'name', label: 'Name', sortable: true },
-  { id: 'attack_mode', label: 'Attack', sortable: true },
-  { id: 'hash_type_name', label: 'Hash Type', sortable: true },
-  { id: 'status', label: 'Status', sortable: true },
-  { id: 'duration_seconds', label: 'Duration', sortable: true, align: 'right' },
-  { id: 'avg_speed', label: 'Avg Speed', sortable: true, align: 'right' },
-  { id: 'total_cracks', label: 'Cracks', sortable: true, align: 'right' },
-  { id: 'effective_keyspace', label: 'Keyspace', sortable: true, align: 'right' },
-  { id: 'unique_agents', label: 'Agents', sortable: true, align: 'right' },
-  { id: 'overall_progress_percent', label: 'Progress', sortable: true, align: 'right' },
-];
-
-interface ExpandedRowProps {
-  jobId: string;
-}
-
-const ExpandedRow: React.FC<ExpandedRowProps> = ({ jobId }) => {
-  const [tasks, setTasks] = React.useState<TaskSegment[]>([]);
-  const [metrics, setMetrics] = React.useState<TimelinePoint[]>([]);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    jobAnalyticsService.getJobTimeline(jobId).then(data => {
-      if (!cancelled) {
-        setTasks(data.tasks || []);
-        setMetrics(data.metrics || []);
-        setLoading(false);
-      }
-    }).catch(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [jobId]);
-
-  if (loading) {
-    return (
-      <Box sx={{ p: 2 }}>
-        <Skeleton variant="rectangular" height={100} />
-      </Box>
-    );
-  }
+  if (isLoading) return <Skeleton variant="rectangular" height={100} />;
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box>
       <Typography variant="subtitle2" gutterBottom>
-        Task Breakdown ({tasks.length} tasks, {metrics.length} metric points)
+        {t('jobAnalytics.jobExecution.taskBreakdown', {
+          tasksPhrase: t('jobAnalytics.jobExecution.taskCount', { count: tasks.length }),
+          metricsPhrase: t('jobAnalytics.jobExecution.metricPointCount', { count: metrics.length }),
+        })}
       </Typography>
-      {tasks.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">No task data available</Typography>
-      ) : (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Agent</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Avg Speed</TableCell>
-              <TableCell align="right">Benchmark</TableCell>
-              <TableCell align="right">Cracks</TableCell>
-              <TableCell>Started</TableCell>
-              <TableCell>Completed</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {tasks.map(task => (
-              <TableRow key={task.task_id}>
-                <TableCell>{task.agent_name} (#{task.agent_id})</TableCell>
-                <TableCell>
-                  <Chip label={task.status} size="small" color={statusColor(task.status)} variant="outlined" />
-                </TableCell>
-                <TableCell align="right">{formatSpeed(task.average_speed)}</TableCell>
-                <TableCell align="right">{formatSpeed(task.benchmark_speed)}</TableCell>
-                <TableCell align="right">{task.crack_count}</TableCell>
-                <TableCell>{task.started_at ? new Date(task.started_at).toLocaleString() : '-'}</TableCell>
-                <TableCell>{task.completed_at ? new Date(task.completed_at).toLocaleString() : '-'}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      <SimpleTable<TaskSegment>
+        rows={tasks}
+        getRowKey={(r) => r.task_id}
+        emptyState={{ title: t('jobAnalytics.jobExecution.noTaskData') as string }}
+        columns={[
+          {
+            field: 'agent',
+            headerName: t('jobAnalytics.benchmarkChart.agent') as string,
+            render: (r) => <EntityLink type="agent" id={r.agent_id} label={`${r.agent_name} (#${r.agent_id})`} />,
+          },
+          { field: 'status', headerName: t('jobAnalytics.benchmarkHistory.columns.status') as string, render: (r) => <StatusChip entity="task" status={r.status} /> },
+          { field: 'average_speed', headerName: t('jobAnalytics.summary.avgSpeed') as string, align: 'right', render: (r) => formatSpeed(r.average_speed) },
+          { field: 'benchmark_speed', headerName: t('jobAnalytics.jobExecution.columns.benchmark') as string, align: 'right', render: (r) => formatSpeed(r.benchmark_speed) },
+          { field: 'crack_count', headerName: t('jobAnalytics.successRate.columns.cracks') as string, align: 'right' },
+          { field: 'started_at', headerName: t('jobAnalytics.jobExecution.columns.started') as string, render: (r) => fmtDate(r.started_at) },
+          { field: 'completed_at', headerName: t('jobAnalytics.jobExecution.columns.completed') as string, render: (r) => fmtDate(r.completed_at) },
+        ]}
+      />
     </Box>
   );
 };
@@ -188,123 +104,128 @@ const JobExecutionTable: React.FC<JobExecutionTableProps> = ({
   onPageSizeChange,
   onSortChange,
 }) => {
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const { t } = useTranslation('admin');
+  const attackModeLabels: Record<number, string> = useMemo(
+    () => ({
+      0: t('jobAnalytics.attackModes.straight') as string,
+      1: t('jobAnalytics.attackModes.combination') as string,
+      3: t('jobAnalytics.attackModes.bruteforce') as string,
+      6: t('jobAnalytics.attackModes.hybridWlMask') as string,
+      7: t('jobAnalytics.attackModes.hybridMaskWl') as string,
+      9: t('jobAnalytics.attackModes.association') as string,
+    }),
+    [t]
+  );
+  const columns = useMemo<GridColDef<JobAnalyticsEntry>[]>(
+    () => [
+      {
+        field: 'name',
+        headerName: t('jobAnalytics.jobExecution.columns.name') as string,
+        flex: 1.6,
+        minWidth: 200,
+        renderCell: (p) => (
+          <Box sx={{ minWidth: 0, py: 0.5 }}>
+            <Typography variant="body2" noWrap>
+              <EntityLink type="job" id={p.row.id} label={p.row.name} />
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap component="div">
+              <EntityLink type="hashlist" id={p.row.hashlist_id} label={p.row.hashlist_name} color="inherit" />
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: 'attack_mode',
+        headerName: t('jobAnalytics.jobExecution.columns.attack') as string,
+        width: 110,
+        valueFormatter: (v: number) => attackModeLabels[v] || (t('jobAnalytics.attackModes.modeNumber', { mode: v }) as string),
+      },
+      {
+        field: 'hash_type_name',
+        headerName: t('jobAnalytics.benchmarkChart.hashType') as string,
+        flex: 1,
+        minWidth: 150,
+        renderCell: (p) => (
+          <Typography variant="body2" sx={{ whiteSpace: 'normal', lineHeight: 1.3 }}>
+            {p.value}
+          </Typography>
+        ),
+      },
+      {
+        field: 'status',
+        headerName: t('jobAnalytics.benchmarkHistory.columns.status') as string,
+        width: 120,
+        renderCell: (p) => <StatusChip entity="job" status={p.row.status} />,
+      },
+      {
+        field: 'duration_seconds',
+        headerName: t('jobAnalytics.jobExecution.columns.duration') as string,
+        type: 'number',
+        width: 100,
+        valueFormatter: (v: number | null) => formatDuration(v),
+      },
+      { field: 'avg_speed', headerName: t('jobAnalytics.summary.avgSpeed') as string, type: 'number', width: 120, valueFormatter: (v: number) => formatSpeed(v) },
+      { field: 'total_cracks', headerName: t('jobAnalytics.successRate.columns.cracks') as string, type: 'number', width: 90 },
+      { field: 'effective_keyspace', headerName: t('jobAnalytics.jobExecution.columns.keyspace') as string, type: 'number', width: 100, valueFormatter: (v: number) => formatKeyspace(v) },
+      { field: 'unique_agents', headerName: t('jobAnalytics.jobExecution.columns.agents') as string, type: 'number', width: 80 },
+      {
+        field: 'overall_progress_percent',
+        headerName: t('jobAnalytics.jobExecution.columns.progress') as string,
+        type: 'number',
+        width: 130,
+        renderCell: (p) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end', width: '100%' }}>
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(p.row.overall_progress_percent, 100)}
+              sx={{ width: 60, height: 6, borderRadius: 3 }}
+            />
+            <Typography variant="caption">{p.row.overall_progress_percent.toFixed(0)}%</Typography>
+          </Box>
+        ),
+      },
+    ],
+    [t, attackModeLabels]
+  );
 
-  const handleSort = (columnId: string) => {
-    const isAsc = sortBy === columnId && sortOrder === 'asc';
-    onSortChange(columnId, isAsc ? 'desc' : 'asc');
-  };
+  const sortModel: GridSortModel = sortBy ? [{ field: sortBy, sort: sortOrder === 'asc' ? 'asc' : 'desc' }] : [];
 
   return (
-    <Paper sx={{ mb: 3 }}>
-      <Typography variant="h6" sx={{ p: 2, pb: 0 }}>Job Execution Details</Typography>
-      <TableContainer>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              {columns.map(col => (
-                <TableCell key={col.id} align={col.align || 'left'}>
-                  {col.sortable ? (
-                    <TableSortLabel
-                      active={sortBy === col.id}
-                      direction={sortBy === col.id ? (sortOrder as 'asc' | 'desc') : 'asc'}
-                      onClick={() => handleSort(col.id)}
-                    >
-                      {col.label}
-                    </TableSortLabel>
-                  ) : col.label}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: pageSize }).map((_, i) => (
-                <TableRow key={i}>
-                  {columns.map(col => (
-                    <TableCell key={col.id}><Skeleton variant="text" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : !jobs || jobs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} align="center">
-                  <Typography color="text.secondary" sx={{ py: 4 }}>
-                    No jobs found for the selected filters
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              jobs.map(job => (
-                <React.Fragment key={job.id}>
-                  <TableRow
-                    hover
-                    sx={{ cursor: 'pointer', '& > *': { borderBottom: expandedRow === job.id ? 'unset' : undefined } }}
-                    onClick={() => setExpandedRow(expandedRow === job.id ? null : job.id)}
-                  >
-                    <TableCell padding="checkbox">
-                      <IconButton size="small">
-                        {expandedRow === job.id ? <CollapseIcon /> : <ExpandIcon />}
-                      </IconButton>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                        {job.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {job.hashlist_name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{attackModeLabels[job.attack_mode] || `Mode ${job.attack_mode}`}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
-                        {job.hash_type_name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={job.status} size="small" color={statusColor(job.status)} />
-                    </TableCell>
-                    <TableCell align="right">{formatDuration(job.duration_seconds)}</TableCell>
-                    <TableCell align="right">{formatSpeed(job.avg_speed)}</TableCell>
-                    <TableCell align="right">{job.total_cracks}</TableCell>
-                    <TableCell align="right">{formatKeyspace(job.effective_keyspace)}</TableCell>
-                    <TableCell align="right">{job.unique_agents}</TableCell>
-                    <TableCell align="right">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={Math.min(job.overall_progress_percent, 100)}
-                          sx={{ width: 60, height: 6, borderRadius: 3 }}
-                        />
-                        <Typography variant="caption">
-                          {job.overall_progress_percent.toFixed(0)}%
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={columns.length}>
-                      <Collapse in={expandedRow === job.id} timeout="auto" unmountOnExit>
-                        <ExpandedRow jobId={job.id} />
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <TablePagination
-        component="div"
-        count={total}
-        page={page - 1}
-        onPageChange={(_, newPage) => onPageChange(newPage + 1)}
-        rowsPerPage={pageSize}
-        onRowsPerPageChange={(e) => onPageSizeChange(parseInt(e.target.value, 10))}
-        rowsPerPageOptions={[10, 25, 50]}
-      />
-    </Paper>
+    <DataTable<JobAnalyticsEntry>
+      rows={jobs ?? []}
+      columns={columns}
+      loading={loading && !jobs?.length}
+      fetching={loading && Boolean(jobs?.length)}
+      pagination={{
+        mode: 'server',
+        page: page - 1,
+        pageSize,
+        rowCount: total,
+        pageSizeOptions: [10, 25, 50],
+        onChange: (m) => {
+          if (m.pageSize !== pageSize) onPageSizeChange(m.pageSize);
+          else onPageChange(m.page + 1);
+        },
+      }}
+      sorting={{
+        mode: 'server',
+        model: sortModel,
+        onChange: (m) => {
+          const s = m[0];
+          if (s?.sort) onSortChange(s.field, s.sort);
+        },
+      }}
+      toolbar={{ title: t('jobAnalytics.jobExecution.title') as string }}
+      detail={{
+        mode: 'drawer',
+        drawerTitle: (row) => row.name,
+        drawerWidth: 720,
+        render: (row) => <JobTimelineDetail jobId={row.id} />,
+      }}
+      emptyState={{ title: t('jobAnalytics.jobExecution.empty') as string }}
+      gridProps={{ sortingOrder: ['asc', 'desc'] }}
+      sx={{ mb: 3 }}
+    />
   );
 };
 

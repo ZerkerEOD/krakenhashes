@@ -154,11 +154,43 @@
     "viewAll": "Alle taken",
     "empty": "Niets actief",
     "emptyHint": "Start een taak vanuit een hashlijst.",
-    "goHashlists": "Naar hashlijsten"
+    "goHashlists": "Naar hashlijsten",
+    "recentTitle": "Taken",
+    "recentSubtitle": "Actieve eerst, daarna recent voltooide",
+    "recentEmpty": "Nog geen taken"
   },
   "welcomeUser": "Welkom terug, {{name}}",
   "autoRefresh": {
     "on": "Live",
     "off": "Gepauzeerd"
+  },
+  "view": {
+    "label": "Dashboardweergave",
+    "mine": "Mijn",
+    "teams": "Mijn teams",
+    "all": "Alle"
+  },
+  "attention": {
+    "title": "Vereist aandacht",
+    "allClear": "Alles in orde",
+    "allClearHint": "Er mislukt niets en er wacht niets op u.",
+    "kind": {
+      "job_failed": "Taak mislukt: {{name}}",
+      "job_blocked": "Taak wacht: {{name}}",
+      "hashlist_error": "Hashlijst kon niet worden verwerkt: {{name}}",
+      "hashlist_awaiting_decision": "Hashlijst vereist uw controle: {{name}}",
+      "hashlist_stuck": "Hashlijst blijft hangen bij verwerking: {{name}}",
+      "agent_error": "Agentfout: {{name}}",
+      "agent_update_failed": "Agent-update mislukt: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Gekraakte hashes in de tijd",
+    "subtitle_one": "{{count}} gekraakte hash in de afgelopen {{days}} dagen",
+    "subtitle_other": "{{count}} gekraakte hashes in de afgelopen {{days}} dagen",
+    "tooltip_one": "{{count}} gekraakte hash",
+    "tooltip_other": "{{count}} gekraakte hashes",
+    "topHashlists": "Top-hashlijsten deze week",
+    "noCracksWeek": "Geen gekraakte hashes in de afgelopen 7 dagen"
   }
 }

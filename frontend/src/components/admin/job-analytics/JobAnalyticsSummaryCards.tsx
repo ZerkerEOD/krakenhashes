@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Grid, Paper, Typography, Box, Skeleton } from '@mui/material';
 import {
   WorkOutline as JobsIcon,
@@ -47,34 +48,40 @@ interface CardData {
 }
 
 const JobAnalyticsSummaryCards: React.FC<JobAnalyticsSummaryCardsProps> = ({ summary, loading }) => {
+  const { t } = useTranslation('admin');
   const cards: CardData[] = summary ? [
     {
-      title: 'Total Jobs',
+      title: t('jobAnalytics.summary.totalJobs') as string,
       value: formatNumber(summary.total_jobs),
-      subtitle: `${formatNumber(summary.completed_jobs)} completed, ${formatNumber(summary.failed_jobs)} failed`,
+      subtitle: t('jobAnalytics.summary.totalJobsSubtitle', {
+        completed: formatNumber(summary.completed_jobs),
+        failed: formatNumber(summary.failed_jobs),
+      }) as string,
       icon: <JobsIcon sx={{ fontSize: 40 }} />,
-      color: '#1976d2',
+      color: 'primary.main',
     },
     {
-      title: 'Total Cracks',
+      title: t('jobAnalytics.summary.totalCracks') as string,
       value: formatNumber(summary.total_cracks),
-      subtitle: `Across all filtered jobs`,
+      subtitle: t('jobAnalytics.summary.totalCracksSubtitle') as string,
       icon: <CracksIcon sx={{ fontSize: 40 }} />,
-      color: '#2e7d32',
+      color: 'success.main',
     },
     {
-      title: 'Avg Speed',
+      title: t('jobAnalytics.summary.avgSpeed') as string,
       value: formatSpeed(summary.average_speed),
-      subtitle: 'Average hash rate per job',
+      subtitle: t('jobAnalytics.summary.avgSpeedSubtitle') as string,
       icon: <SpeedIcon sx={{ fontSize: 40 }} />,
-      color: '#ed6c02',
+      color: 'warning.main',
     },
     {
-      title: 'Avg Duration',
+      title: t('jobAnalytics.summary.avgDuration') as string,
       value: formatDuration(summary.average_duration_seconds),
-      subtitle: `${formatNumber(summary.total_keyspace_processed)} keys processed`,
+      subtitle: t('jobAnalytics.summary.avgDurationSubtitle', {
+        keys: formatNumber(summary.total_keyspace_processed),
+      }) as string,
       icon: <DurationIcon sx={{ fontSize: 40 }} />,
-      color: '#9c27b0',
+      color: 'secondary.main',
     },
   ] : [];
 

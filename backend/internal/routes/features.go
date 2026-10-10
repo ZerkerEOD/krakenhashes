@@ -18,9 +18,14 @@ import (
 )
 
 // SetupDashboardRoutes configures dashboard-related routes
-func SetupDashboardRoutes(jwtRouter *mux.Router) {
-	jwtRouter.HandleFunc("/dashboard", dashboard.GetDashboard).Methods("GET", "OPTIONS")
-	debug.Info("Configured dashboard endpoint: /dashboard")
+func SetupDashboardRoutes(jwtRouter *mux.Router, database *db.DB) {
+	h := dashboard.NewHandler(repository.NewDashboardRepository(database), repository.NewAgentRepository(database))
+	jwtRouter.HandleFunc("/dashboard/stats", h.GetStats).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/dashboard/recent-cracks", h.GetRecentCracks).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/dashboard/agent-health", h.GetAgentHealth).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/dashboard/attention", h.GetAttention).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/dashboard/crack-trend", h.GetCrackTrend).Methods("GET", "OPTIONS")
+	debug.Info("Configured dashboard endpoints: /dashboard/stats, /dashboard/recent-cracks, /dashboard/agent-health, /dashboard/attention, /dashboard/crack-trend")
 }
 
 // SetupJobRoutes configures job-related routes

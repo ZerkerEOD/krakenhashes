@@ -13,22 +13,24 @@ import (
 func (r *JobTaskRepository) GetAllTasksByJobExecution(ctx context.Context, jobExecutionID uuid.UUID) ([]models.JobTask, error) {
 	query := `
 		SELECT
-			id, job_execution_id, agent_id, status, keyspace_start, keyspace_end,
-			keyspace_processed, benchmark_speed, chunk_duration,
-			COALESCE(crack_count, 0) as crack_count,
-			COALESCE(detailed_status, 'pending') as detailed_status,
-			COALESCE(retry_count, 0) as retry_count,
-			error_message,
-			failure_reason,
-			created_at, started_at, completed_at, updated_at,
-			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed,
-			progress_percent, average_speed
-		FROM job_tasks
-		WHERE job_execution_id = $1
+			jt.id, jt.job_execution_id, jt.agent_id, jt.status, jt.keyspace_start, jt.keyspace_end,
+			jt.keyspace_processed, jt.benchmark_speed, jt.chunk_duration,
+			COALESCE(jt.crack_count, 0) as crack_count,
+			COALESCE(jt.detailed_status, 'pending') as detailed_status,
+			COALESCE(jt.retry_count, 0) as retry_count,
+			jt.error_message,
+			jt.failure_reason,
+			jt.created_at, jt.started_at, jt.completed_at, jt.updated_at,
+			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
+			jt.progress_percent, jt.average_speed,
+			ag.name AS agent_name
+		FROM job_tasks jt
+		LEFT JOIN agents ag ON ag.id = jt.agent_id
+		WHERE jt.job_execution_id = $1
 		ORDER BY
 			CASE
-				WHEN status = 'completed' THEN completed_at
-				ELSE created_at
+				WHEN jt.status = 'completed' THEN jt.completed_at
+				ELSE jt.created_at
 			END DESC`
 
 	rows, err := r.db.QueryContext(ctx, query, jobExecutionID)
@@ -50,6 +52,7 @@ func (r *JobTaskRepository) GetAllTasksByJobExecution(ctx context.Context, jobEx
 			&task.CreatedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 			&task.ProgressPercent, &task.AverageSpeed,
+			&task.AgentName,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job task: %w", err)

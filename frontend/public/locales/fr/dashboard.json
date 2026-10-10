@@ -154,11 +154,45 @@
     "viewAll": "Tous les Jobs",
     "empty": "Rien ne s'exécute",
     "emptyHint": "Démarrer un Job depuis une Hashlist.",
-    "goHashlists": "Aller aux Hashlists"
+    "goHashlists": "Aller aux Hashlists",
+    "recentTitle": "Jobs",
+    "recentSubtitle": "Actifs d'abord, puis récemment terminés",
+    "recentEmpty": "Aucun job pour l'instant"
   },
   "welcomeUser": "Bienvenue, {{name}}",
   "autoRefresh": {
     "on": "En direct",
     "off": "En pause"
+  },
+  "view": {
+    "label": "Vue du tableau de bord",
+    "mine": "Les miens",
+    "teams": "Mes équipes",
+    "all": "Tout"
+  },
+  "attention": {
+    "title": "Nécessite votre attention",
+    "allClear": "Tout est en ordre",
+    "allClearHint": "Rien n'échoue ni n'attend votre intervention.",
+    "kind": {
+      "job_failed": "Job en échec : {{name}}",
+      "job_blocked": "Job en attente : {{name}}",
+      "hashlist_error": "Échec du traitement de la hashlist : {{name}}",
+      "hashlist_awaiting_decision": "La hashlist nécessite votre vérification : {{name}}",
+      "hashlist_stuck": "Hashlist bloquée en traitement : {{name}}",
+      "agent_error": "Erreur de l'agent : {{name}}",
+      "agent_update_failed": "Échec de la mise à jour de l'agent : {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Hashes cassés dans le temps",
+    "subtitle_many": "{{count}} hashes cassés au cours des {{days}} derniers jours",
+    "subtitle_one": "{{count}} hash cassé au cours des {{days}} derniers jours",
+    "subtitle_other": "{{count}} hashes cassés au cours des {{days}} derniers jours",
+    "tooltip_many": "{{count}} hashes cassés",
+    "tooltip_one": "{{count}} hash cassé",
+    "tooltip_other": "{{count}} hashes cassés",
+    "topHashlists": "Hashlists les plus productives cette semaine",
+    "noCracksWeek": "Aucun hash cassé au cours des 7 derniers jours"
   }
 }

@@ -849,6 +849,24 @@ func main() {
 	if routes.AdminRouter != nil {
 		adminsettings.NewCertificateHandler(certService).RegisterRoutes(routes.AdminRouter)
 		debug.Info("Configured TLS certificate admin routes: /api/admin/tls/*")
+
+		// Settings hub status: one probe per settings area (email, certificate,
+		// SSO, binaries, cloud, storage, webhook). Attached here for the same
+		// reason as the certificate handler: it needs services SetupAdminRoutes
+		// never sees.
+		statusHandler := adminsettings.NewStatusHandler(adminsettings.StatusDeps{
+			DB:                 dbWrapper,
+			Certs:              certService,
+			SSORepo:            repository.NewSSORepository(dbWrapper),
+			Binaries:           binaryManager,
+			CloudProviders:     cloudProviderRepo,
+			SystemSettingsRepo: systemSettingsRepo,
+			NetworkShare:       services.NewNetworkShareService(repository.NewNetworkShareRepository(dbWrapper)),
+		})
+		// The route is reserved in SetupAdminRoutes (ahead of /settings/{key});
+		// this only plugs in the handler.
+		routes.SetSettingsStatusHandler(http.HandlerFunc(statusHandler.GetStatus))
+		debug.Info("Configured settings status route: /api/admin/settings/status")
 	} else {
 		debug.Warning("Admin router unavailable - TLS certificate admin API not registered")
 	}

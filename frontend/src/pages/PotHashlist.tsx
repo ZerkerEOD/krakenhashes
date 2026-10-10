@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Box, Button, Alert, CircularProgress } from '@mui/material';
+import { Box, Button, Alert, CircularProgress } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
+import { EntityLink, PageHeader } from '../components/ui';
+import { ROUTES } from '../constants/routes';
 import PotTable from '../components/pot/PotTable';
 import { potService } from '../services/pot';
 import { api } from '../services/api';
@@ -40,7 +42,7 @@ export default function PotHashlist() {
   };
 
   const handleBack = () => {
-    navigate('/pot');
+    navigate(id ? ROUTES.hashlist(id!) : ROUTES.pot);
   };
 
   if (loading) {
@@ -59,7 +61,7 @@ export default function PotHashlist() {
         <Alert severity="error">{error}</Alert>
         <Box sx={{ mt: 2 }}>
           <Button startIcon={<ArrowBackIcon />} onClick={handleBack}>
-            {t('navigation.backToAll') as string}
+            {t('navigation.backToSource') as string}
           </Button>
         </Box>
       </Box>
@@ -68,22 +70,20 @@ export default function PotHashlist() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={handleBack}
-          sx={{ mb: 2 }}
-        >
-          {t('navigation.backToAll') as string}
-        </Button>
-
-        <Typography variant="h4" component="h1" gutterBottom>
-          {t('hashlist.title') as string}
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          {t('hashlist.description', { hashlistName }) as string}
-        </Typography>
-      </Box>
+      <PageHeader
+        title={t('hashlist.title') as string}
+        description={
+          <>
+            {t('sourceLabel.hashlist', 'Hashlist') as string}:{' '}
+            <EntityLink type="hashlist" id={id} label={hashlistName || id} />
+          </>
+        }
+        backTo={ROUTES.hashlist(id!)}
+        breadcrumbs={[
+          { label: t('breadcrumb', 'Cracked hashes') as string, to: ROUTES.pot },
+          { label: hashlistName || id, to: ROUTES.hashlist(id!) },
+        ]}
+      />
 
       <PotTable
         title={t('hashlist.tableTitle', { hashlistName }) as string}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -12,18 +12,14 @@ import {
   DialogTitle,
   Pagination,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation, Trans } from 'react-i18next';
 import { api } from '../../services/api';
+import { SimpleTable, SimpleColumn } from '../ui';
 
 export interface ValidationInvalidEntry {
   id?: number;
@@ -87,6 +83,7 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
 }) => {
   // Counters etc. start from the props (the initial upload outcome) but get
   // replaced if the user re-validates with a different hash type.
+  const { t } = useTranslation('hashlists');
   const [snapshot, setSnapshot] = useState<RevalidatedSnapshot | null>(null);
   const totalInputLines = snapshot?.totalInputLines ?? propTotalInputLines;
   const validCount = snapshot?.validCount ?? propValidCount;
@@ -110,6 +107,32 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
     enabled: open,
     staleTime: 5 * 60 * 1000,
   });
+
+  const invalidColumns: SimpleColumn<ValidationInvalidEntry>[] = useMemo(() => [
+    { field: 'line_number', headerName: t('validationPreview.columns.line') as string, width: 80 },
+    {
+      field: 'content',
+      headerName: t('validationPreview.columns.hashTruncated') as string,
+      render: (row) => (
+        <Tooltip title={row.content} arrow placement="top-start">
+          <Box
+            component="code"
+            sx={{
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: 480,
+              fontFamily: (th) => th.typography.monoFamily,
+            }}
+          >
+            {row.content}
+          </Box>
+        </Tooltip>
+      ),
+    },
+    { field: 'reason', headerName: t('validationPreview.columns.reason') as string, width: 320 },
+  ], [t]);
 
   // Reset state when reopened with a fresh hashlist.
   useEffect(() => {
@@ -135,7 +158,7 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
   const currentHashTypeName =
     snapshot?.hashTypeName ??
     hashTypes.find((h) => h.id === currentHashTypeId)?.name ??
-    `mode ${currentHashTypeId}`;
+    (t('validationPreview.modeFallback', { id: currentHashTypeId }) as string);
 
   const totalPages = Math.max(1, Math.ceil(invalidCount / PAGE_SIZE));
 
@@ -150,7 +173,7 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
       setItems(resp.data?.items ?? []);
       setPage(nextPage);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || 'Failed to load invalid hashes');
+      setError(e?.response?.data?.error || e?.message || (t('validationPreview.errors.loadInvalidHashesFailed') as string));
     } finally {
       setLoading(false);
     }
@@ -165,7 +188,13 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
       if (action === 'proceed') onProceed();
       else onCancel();
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || `Failed to ${action}`);
+      setError(
+        e?.response?.data?.error ||
+          e?.message ||
+          (action === 'proceed'
+            ? (t('validationPreview.errors.proceedFailed') as string)
+            : (t('validationPreview.errors.cancelFailed') as string))
+      );
     } finally {
       setSubmitting(null);
     }
@@ -198,7 +227,7 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
       setItems(data.sample_invalid ?? []);
       setPage(1);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || 'Re-validation failed');
+      setError(e?.response?.data?.error || e?.message || (t('validationPreview.errors.revalidationFailed') as string));
     } finally {
       setSubmitting(null);
     }
@@ -208,43 +237,53 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
 
   return (
     <Dialog open={open} maxWidth="lg" fullWidth onClose={() => undefined}>
-      <DialogTitle>Hash validation: review malformed lines</DialogTitle>
+      <DialogTitle>{t('validationPreview.title') as string}</DialogTitle>
       <DialogContent>
         <Alert severity={allInvalid ? 'error' : 'warning'} sx={{ mb: 2 }}>
           {allInvalid ? (
             <>
               <Typography variant="body1">
-                <strong>None</strong> of the {totalInputLines.toLocaleString()} lines in{' '}
-                <em>{hashlistName}</em> match <strong>{currentHashTypeName}</strong>. The hash type
-                selection is probably wrong.
+                <Trans
+                  t={t}
+                  i18nKey="validationPreview.allInvalid.body1"
+                  values={{ totalLines: totalInputLines.toLocaleString(), hashlistName, hashTypeName: currentHashTypeName }}
+                  components={{ strong: <strong />, em: <em /> }}
+                />
               </Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>
-                Pick the correct type below and click <strong>Re-validate</strong> — the file stays
-                uploaded, so you don't need to start over.
+                <Trans t={t} i18nKey="validationPreview.allInvalid.body2" components={{ strong: <strong /> }} />
               </Typography>
             </>
           ) : (
             <Typography variant="body1">
-              <strong>{invalidCount.toLocaleString()}</strong> of{' '}
-              <strong>{totalInputLines.toLocaleString()}</strong> lines in{' '}
-              <em>{hashlistName}</em> failed validation and will be skipped if you proceed.{' '}
-              <strong>{validCount.toLocaleString()}</strong> valid hashes will be imported.
+              <Trans
+                t={t}
+                i18nKey="validationPreview.notAllInvalid.body"
+                values={{
+                  invalidCount: invalidCount.toLocaleString(),
+                  totalLines: totalInputLines.toLocaleString(),
+                  hashlistName,
+                  validCount: validCount.toLocaleString(),
+                }}
+                components={{ strong: <strong />, em: <em /> }}
+              />
             </Typography>
           )}
           {truncated && (
             <Typography variant="body2" sx={{ mt: 1 }}>
-              The first 10,000 invalid lines are recorded for review; additional invalid lines
-              exist in the file but are not listed here.
+              {t('validationPreview.truncatedNotice') as string}
             </Typography>
           )}
         </Alert>
 
         {!allInvalid && (
           <DialogContentText sx={{ mb: 2 }}>
-            Choose <strong>Proceed with valid only</strong> to import the{' '}
-            {validCount.toLocaleString()} valid hashes (listed bad lines will be ignored), or{' '}
-            <strong>Cancel & fix</strong> to delete this upload so you can correct the source file
-            and try again.
+            <Trans
+              t={t}
+              i18nKey="validationPreview.chooseActionText"
+              values={{ validCount: validCount.toLocaleString() }}
+              components={{ strong: <strong /> }}
+            />
           </DialogContentText>
         )}
 
@@ -253,13 +292,13 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
             <Autocomplete
               fullWidth
               options={hashTypes}
-              getOptionLabel={(o) => `${o.id} — ${o.name}`}
+              getOptionLabel={(o) => t('validationPreview.hashTypeOptionLabel', { id: o.id, name: o.name }) as string}
               isOptionEqualToValue={(a, b) => a.id === b.id}
               value={selectedHashType}
               onChange={(_, v) => setSelectedHashType(v)}
               disabled={submitting !== null}
               renderInput={(params) => (
-                <TextField {...params} label="Hash type" size="small" />
+                <TextField {...params} label={t('validationPreview.hashTypeLabel') as string} size="small" />
               )}
             />
             <Button
@@ -273,7 +312,7 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
               }
               sx={{ minWidth: 180 }}
             >
-              {submitting === 'revalidate' ? 'Re-validating…' : 'Re-validate'}
+              {submitting === 'revalidate' ? (t('validationPreview.revalidating') as string) : (t('validationPreview.revalidateButton') as string)}
             </Button>
           </Stack>
         )}
@@ -284,55 +323,20 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
           </Alert>
         )}
 
-        <TableContainer sx={{ maxHeight: 480 }}>
-          <Table size="small" stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ width: 80 }}>Line</TableCell>
-                <TableCell>Hash (truncated)</TableCell>
-                <TableCell sx={{ width: 320 }}>Reason</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={3} align="center">
-                    <CircularProgress size={20} />
-                  </TableCell>
-                </TableRow>
-              ) : items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} align="center">
-                    No invalid lines to display.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((row) => (
-                  <TableRow key={`${row.line_number}-${row.id ?? ''}`}>
-                    <TableCell>{row.line_number}</TableCell>
-                    <TableCell>
-                      <Tooltip title={row.content} arrow placement="top-start">
-                        <Box
-                          component="code"
-                          sx={{
-                            display: 'block',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: 480,
-                          }}
-                        >
-                          {row.content}
-                        </Box>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>{row.reason}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <CircularProgress size={20} />
+          </Box>
+        ) : (
+          <SimpleTable
+            rows={items}
+            columns={invalidColumns}
+            getRowKey={(row) => `${row.line_number}-${row.id ?? ''}`}
+            stickyHeader
+            maxHeight={480}
+            emptyState={{ title: t('validationPreview.noInvalidLines') as string }}
+          />
+        )}
 
         {invalidCount > PAGE_SIZE && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
@@ -352,7 +356,7 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
           onClick={() => handleConfirm('cancel')}
           disabled={submitting !== null}
         >
-          {submitting === 'cancel' ? 'Cancelling…' : 'Cancel & fix'}
+          {submitting === 'cancel' ? (t('validationPreview.cancelling') as string) : (t('validationPreview.cancelAndFix') as string)}
         </Button>
         {!allInvalid && (
           <Button
@@ -362,8 +366,8 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
             disabled={submitting !== null}
           >
             {submitting === 'proceed'
-              ? 'Starting…'
-              : `Proceed with ${validCount.toLocaleString()} valid hashes`}
+              ? (t('validationPreview.starting') as string)
+              : (t('validationPreview.proceedButton', { validCount: validCount.toLocaleString() }) as string)}
           </Button>
         )}
       </DialogActions>

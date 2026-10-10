@@ -1,22 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
+import React, { useState } from 'react';
+import { Alert, Box, Button, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import HashTypeTable from './HashTypeTable';
 import HashTypeDialog from './HashTypeDialog';
+import { PageHeader, useConfirm, useToast } from '../../ui';
 import { HashType, HashTypeCreateRequest, HashTypeUpdateRequest } from '../../../types/hashType';
 import {
   getHashTypes,
@@ -27,15 +16,14 @@ import {
 
 const HashTypeManager: React.FC = () => {
   const { t } = useTranslation('admin');
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedHashType, setSelectedHashType] = useState<HashType | null>(null);
-  const [hashTypeToDelete, setHashTypeToDelete] = useState<HashType | null>(null);
 
   // Fetch hash types
-  const { data: hashTypes = [], isLoading, error } = useQuery<HashType[], Error>({
+  const { data: hashTypes = [], isLoading, isFetching, error, refetch } = useQuery<HashType[], Error>({
     queryKey: ['hashTypes'],
     queryFn: () => getHashTypes(false),
   });
@@ -45,13 +33,13 @@ const HashTypeManager: React.FC = () => {
     mutationFn: createHashType,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hashTypes'] });
-      enqueueSnackbar(t('hashTypes.messages.createSuccess') as string, { variant: 'success' });
+      toast.success(t('hashTypes.messages.createSuccess') as string);
       setDialogOpen(false);
       setSelectedHashType(null);
     },
     onError: (error: any) => {
       const message = error.response?.data?.error || t('hashTypes.messages.createFailed') as string;
-      enqueueSnackbar(message, { variant: 'error' });
+      toast.error(message);
     },
   });
 
@@ -60,32 +48,13 @@ const HashTypeManager: React.FC = () => {
     mutationFn: ({ id, data }) => updateHashType(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hashTypes'] });
-      enqueueSnackbar(t('hashTypes.messages.updateSuccess') as string, { variant: 'success' });
+      toast.success(t('hashTypes.messages.updateSuccess') as string);
       setDialogOpen(false);
       setSelectedHashType(null);
     },
     onError: (error: any) => {
       const message = error.response?.data?.error || t('hashTypes.messages.updateFailed') as string;
-      enqueueSnackbar(message, { variant: 'error' });
-    },
-  });
-
-  // Delete mutation
-  const deleteMutation = useMutation<void, Error, number>({
-    mutationFn: deleteHashType,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hashTypes'] });
-      enqueueSnackbar(t('hashTypes.messages.deleteSuccess') as string, { variant: 'success' });
-      setDeleteDialogOpen(false);
-      setHashTypeToDelete(null);
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.error || t('hashTypes.messages.deleteFailed') as string;
-      if (message.includes('still referenced')) {
-        enqueueSnackbar(t('hashTypes.messages.deleteInUse') as string, { variant: 'error' });
-      } else {
-        enqueueSnackbar(message, { variant: 'error' });
-      }
+      toast.error(message);
     },
   });
 
@@ -99,9 +68,40 @@ const HashTypeManager: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const handleDelete = (hashType: HashType) => {
-    setHashTypeToDelete(hashType);
-    setDeleteDialogOpen(true);
+  // Confirm, then delete inside the dialog; failures show inline in the dialog.
+  const handleDelete = async (hashType: HashType) => {
+    const ok = await confirm({
+      title: t('hashTypes.confirmDelete.title') as string,
+      message: (
+        <>
+          <Typography component="span" variant="body2">
+            {t('common.dialogs.confirmDeleteNamed', { name: `${hashType.name} (ID: ${hashType.id})` }) as string}
+          </Typography>
+          {hashType.is_enabled && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              {t('hashTypes.confirmDelete.warning') as string}
+            </Alert>
+          )}
+        </>
+      ),
+      severity: 'danger',
+      confirmLabel: t('hashTypes.confirmDelete.delete') as string,
+      cancelLabel: t('hashTypes.confirmDelete.cancel') as string,
+      action: async () => {
+        try {
+          await deleteHashType(hashType.id);
+        } catch (error: any) {
+          const message: string = error?.response?.data?.error || (t('hashTypes.messages.deleteFailed') as string);
+          throw new Error(
+            message.includes('still referenced') ? (t('hashTypes.messages.deleteInUse') as string) : message
+          );
+        }
+      },
+    });
+    if (ok) {
+      queryClient.invalidateQueries({ queryKey: ['hashTypes'] });
+      toast.success(t('hashTypes.messages.deleteSuccess') as string);
+    }
   };
 
   const handleSave = async (data: HashTypeCreateRequest | HashTypeUpdateRequest, id?: number) => {
@@ -112,54 +112,27 @@ const HashTypeManager: React.FC = () => {
     }
   };
 
-  const confirmDelete = () => {
-    if (hashTypeToDelete) {
-      deleteMutation.mutate(hashTypeToDelete.id);
-    }
-  };
-
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">
-          {t('hashTypes.messages.loadFailed')}
-        </Alert>
-      </Box>
-    );
-  }
-
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {t('hashTypes.title')}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {t('hashTypes.description')}
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleAdd}
-        >
-          {t('hashTypes.addHashType')}
-        </Button>
-      </Box>
+      <PageHeader
+        title={t('hashTypes.title') as string}
+        description={t('hashTypes.description') as string}
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
+            {t('hashTypes.addHashType') as string}
+          </Button>
+        }
+      />
 
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <HashTypeTable
-          hashTypes={hashTypes}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          loading={isLoading}
-        />
-      )}
+      <HashTypeTable
+        hashTypes={hashTypes}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        loading={isLoading}
+        fetching={isFetching && !isLoading}
+        error={error ? new Error(t('hashTypes.messages.loadFailed') as string) : undefined}
+        onRetry={() => refetch()}
+      />
 
       <HashTypeDialog
         open={dialogOpen}
@@ -171,46 +144,8 @@ const HashTypeManager: React.FC = () => {
         hashType={selectedHashType}
         existingIds={hashTypes.map(ht => ht.id)}
       />
-
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => {
-          setDeleteDialogOpen(false);
-          setHashTypeToDelete(null);
-        }}
-      >
-        <DialogTitle>{t('hashTypes.confirmDelete.title')}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {t('common.dialogs.confirmDeleteNamed', { name: `${hashTypeToDelete?.name} (ID: ${hashTypeToDelete?.id})` })}
-            {hashTypeToDelete?.is_enabled && (
-              <Alert severity="warning" sx={{ mt: 2 }}>
-                {t('hashTypes.confirmDelete.warning')}
-              </Alert>
-            )}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setDeleteDialogOpen(false);
-              setHashTypeToDelete(null);
-            }}
-          >
-            {t('hashTypes.confirmDelete.cancel')}
-          </Button>
-          <Button
-            onClick={confirmDelete}
-            color="error"
-            variant="contained"
-            disabled={deleteMutation.isPending}
-          >
-            {deleteMutation.isPending ? t('hashTypes.confirmDelete.deleting') : t('hashTypes.confirmDelete.delete')}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };
 
-export default HashTypeManager; 
+export default HashTypeManager;

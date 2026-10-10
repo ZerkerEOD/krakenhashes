@@ -1,28 +1,13 @@
-import React, { useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Chip,
-  Tooltip,
-  TextField,
-  Box,
-  TablePagination,
-  Typography,
-  Checkbox,
-} from '@mui/material';
+import React, { useMemo, useState } from 'react';
+import { Box, Chip, Tooltip, Typography } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningIcon from '@mui/icons-material/Warning';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import BoltIcon from '@mui/icons-material/Bolt';
-import SearchIcon from '@mui/icons-material/Search';
+import type { GridColDef } from '@mui/x-data-grid';
 import { useTranslation } from 'react-i18next';
+import { DataTable } from '../../ui';
 import { HashType } from '../../../types/hashType';
 
 interface HashTypeTableProps {
@@ -30,182 +15,176 @@ interface HashTypeTableProps {
   onEdit: (hashType: HashType) => void;
   onDelete: (hashType: HashType) => void;
   loading?: boolean;
+  fetching?: boolean;
+  error?: unknown;
+  onRetry?: () => void;
 }
 
+const truncateText = (text: string | null | undefined, maxLength: number = 50): string => {
+  if (!text) return '';
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+};
+
+/** Hash type catalogue with client-side search, sort and pagination. */
 const HashTypeTable: React.FC<HashTypeTableProps> = ({
   hashTypes,
   onEdit,
   onDelete,
   loading = false,
+  fetching,
+  error,
+  onRetry,
 }) => {
   const { t } = useTranslation('admin');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredHashTypes = hashTypes.filter((ht) => {
+  const filteredHashTypes = useMemo(() => {
     const search = searchTerm.toLowerCase();
-    return (
-      ht.id.toString().includes(search) ||
-      ht.name.toLowerCase().includes(search) ||
-      (ht.description && ht.description.toLowerCase().includes(search))
+    return hashTypes.filter(
+      (ht) =>
+        ht.id.toString().includes(search) ||
+        ht.name.toLowerCase().includes(search) ||
+        (ht.description && ht.description.toLowerCase().includes(search))
     );
-  });
+  }, [hashTypes, searchTerm]);
 
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const paginatedHashTypes = filteredHashTypes.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
-
-  const truncateText = (text: string | null | undefined, maxLength: number = 50): string => {
-    if (!text) return '';
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-  };
+  const columns: GridColDef<HashType>[] = [
+    {
+      field: 'id',
+      headerName: t('hashTypes.table.id') as string,
+      type: 'number',
+      width: 100,
+      align: 'left',
+      headerAlign: 'left',
+      renderCell: (p) => (
+        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+          {p.row.id}
+        </Typography>
+      ),
+    },
+    {
+      field: 'name',
+      headerName: t('hashTypes.table.name') as string,
+      flex: 1.2,
+      minWidth: 200,
+      renderCell: (p) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2">{p.row.name}</Typography>
+          {p.row.id === 1000 && (
+            <Tooltip title={t('hashTypes.tooltips.requiresProcessing') as string}>
+              <Chip label={t('hashTypes.tooltips.processing') as string} size="small" color="info" icon={<BoltIcon />} />
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+    {
+      field: 'description',
+      headerName: t('hashTypes.table.description') as string,
+      flex: 1.5,
+      minWidth: 200,
+      renderCell: (p) => (
+        <Tooltip title={p.row.description || ''} arrow>
+          <Typography variant="body2" noWrap sx={{ cursor: p.row.description ? 'help' : 'default' }}>
+            {truncateText(p.row.description)}
+          </Typography>
+        </Tooltip>
+      ),
+    },
+    {
+      field: 'example',
+      headerName: t('hashTypes.table.example') as string,
+      flex: 1,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (p) => (
+        <Tooltip title={p.row.example || ''} arrow>
+          <Typography
+            variant="body2"
+            noWrap
+            sx={{
+              fontFamily: (theme) => theme.typography.monoFamily,
+              fontSize: '0.85rem',
+              cursor: p.row.example ? 'help' : 'default',
+            }}
+          >
+            {truncateText(p.row.example, 30)}
+          </Typography>
+        </Tooltip>
+      ),
+    },
+    {
+      field: 'slow',
+      headerName: t('hashTypes.table.slow') as string,
+      type: 'boolean',
+      width: 80,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (p) =>
+        p.row.slow ? (
+          <Tooltip title={t('hashTypes.tooltips.slowAlgorithm') as string}>
+            <WarningIcon color="warning" fontSize="small" />
+          </Tooltip>
+        ) : null,
+    },
+    {
+      field: 'is_salted',
+      headerName: t('hashTypes.table.salted') as string,
+      type: 'boolean',
+      width: 80,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (p) =>
+        p.row.is_salted ? (
+          <Tooltip title={t('hashTypes.tooltips.salted') as string}>
+            <WaterDropIcon color="info" fontSize="small" />
+          </Tooltip>
+        ) : null,
+    },
+  ];
 
   return (
-    <Box>
-      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-        <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
-        <TextField
-          placeholder={t('hashTypes.searchPlaceholder') as string}
-          variant="outlined"
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ flexGrow: 1, maxWidth: 400 }}
-        />
-        <Typography variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
-          {t('hashTypes.hashTypesFound', { count: filteredHashTypes.length })}
-        </Typography>
-      </Box>
-
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell width="100">{t('hashTypes.table.id')}</TableCell>
-              <TableCell>{t('hashTypes.table.name')}</TableCell>
-              <TableCell>{t('hashTypes.table.description')}</TableCell>
-              <TableCell>{t('hashTypes.table.example')}</TableCell>
-              <TableCell align="center" width="80">{t('hashTypes.table.slow')}</TableCell>
-              <TableCell align="center" width="80">{t('hashTypes.table.salted')}</TableCell>
-              <TableCell align="center" width="120">{t('hashTypes.table.actions')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  {t('hashTypes.table.loading')}
-                </TableCell>
-              </TableRow>
-            ) : paginatedHashTypes.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  {t('hashTypes.table.noResults')}
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedHashTypes.map((hashType) => (
-                <TableRow key={hashType.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                      {hashType.id}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2">{hashType.name}</Typography>
-                      {hashType.id === 1000 && (
-                        <Tooltip title={t('hashTypes.tooltips.requiresProcessing') as string}>
-                          <Chip
-                            label={t('hashTypes.tooltips.processing') as string}
-                            size="small"
-                            color="info"
-                            icon={<BoltIcon />}
-                          />
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title={hashType.description || ''} arrow>
-                      <Typography variant="body2" sx={{ cursor: hashType.description ? 'help' : 'default' }}>
-                        {truncateText(hashType.description)}
-                      </Typography>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title={hashType.example || ''} arrow>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontFamily: 'monospace',
-                          fontSize: '0.85rem',
-                          cursor: hashType.example ? 'help' : 'default',
-                        }}
-                      >
-                        {truncateText(hashType.example, 30)}
-                      </Typography>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell align="center">
-                    {hashType.slow && (
-                      <Tooltip title={t('hashTypes.tooltips.slowAlgorithm') as string}>
-                        <WarningIcon color="warning" fontSize="small" />
-                      </Tooltip>
-                    )}
-                  </TableCell>
-                  <TableCell align="center">
-                    {hashType.is_salted && (
-                      <Tooltip title={t('hashTypes.tooltips.salted') as string}>
-                        <WaterDropIcon color="info" fontSize="small" />
-                      </Tooltip>
-                    )}
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => onEdit(hashType)}
-                      color="primary"
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => onDelete(hashType)}
-                      color="error"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <TablePagination
-        rowsPerPageOptions={[10, 25, 50, 100]}
-        component="div"
-        count={filteredHashTypes.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
-      />
-    </Box>
+    <DataTable<HashType>
+      rows={filteredHashTypes}
+      columns={columns}
+      getRowId={(r) => r.id}
+      loading={loading}
+      fetching={fetching}
+      error={error}
+      onRetry={onRetry}
+      pagination={{ mode: 'client', initialPageSize: 25 }}
+      sorting={{ mode: 'client', initial: [{ field: 'id', sort: 'asc' }] }}
+      toolbar={{
+        search: {
+          value: searchTerm,
+          onChange: setSearchTerm,
+          placeholder: t('hashTypes.searchPlaceholder') as string,
+          debounceMs: 150,
+        },
+        filters: (
+          <Typography variant="body2" color="text.secondary">
+            {t('hashTypes.hashTypesFound', { count: filteredHashTypes.length }) as string}
+          </Typography>
+        ),
+      }}
+      rowActions={() => [
+        {
+          key: 'edit',
+          label: t('common.edit') as string,
+          icon: <EditIcon fontSize="small" />,
+          onClick: (ht) => onEdit(ht),
+        },
+        {
+          key: 'delete',
+          label: t('common.delete') as string,
+          icon: <DeleteIcon fontSize="small" />,
+          danger: true,
+          onClick: (ht) => onDelete(ht),
+        },
+      ]}
+      emptyState={{ title: t('hashTypes.table.noResults') as string }}
+      tableKey="admin-hash-types"
+    />
   );
 };
 

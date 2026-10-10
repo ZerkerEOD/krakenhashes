@@ -154,11 +154,43 @@
     "viewAll": "Tüm işler",
     "empty": "Hiçbir şey çalışmıyor",
     "emptyHint": "Hash listesinden bir iş başlatın.",
-    "goHashlists": "Hash listelerine git"
+    "goHashlists": "Hash listelerine git",
+    "recentTitle": "İşler",
+    "recentSubtitle": "Önce etkin olanlar, sonra yakın zamanda bitenler",
+    "recentEmpty": "Henüz iş yok"
   },
   "welcomeUser": "Tekrar hoş geldiniz, {{name}}",
   "autoRefresh": {
     "on": "Canlı",
     "off": "Duraklatılmış"
+  },
+  "view": {
+    "label": "Pano görünümü",
+    "mine": "Benim",
+    "teams": "Takımlarım",
+    "all": "Tümü"
+  },
+  "attention": {
+    "title": "Dikkat gerektiriyor",
+    "allClear": "Her şey yolunda",
+    "allClearHint": "Başarısız olan veya sizi bekleyen bir şey yok.",
+    "kind": {
+      "job_failed": "İş başarısız oldu: {{name}}",
+      "job_blocked": "İş bekliyor: {{name}}",
+      "hashlist_error": "Hash listesi işlenemedi: {{name}}",
+      "hashlist_awaiting_decision": "Hash listesi incelemenizi bekliyor: {{name}}",
+      "hashlist_stuck": "Hash listesi işlenirken takıldı: {{name}}",
+      "agent_error": "Ajan hatası: {{name}}",
+      "agent_update_failed": "Ajan güncellemesi başarısız oldu: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Zaman içinde kırılan hash'ler",
+    "subtitle_one": "Son {{days}} günde {{count}} hash kırıldı",
+    "subtitle_other": "Son {{days}} günde {{count}} hash kırıldı",
+    "tooltip_one": "{{count}} kırılan hash",
+    "tooltip_other": "{{count}} kırılan hash",
+    "topHashlists": "Bu haftanın öne çıkan hash listeleri",
+    "noCracksWeek": "Son 7 günde kırılan hash yok"
   }
 }

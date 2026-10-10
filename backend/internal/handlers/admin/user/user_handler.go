@@ -97,27 +97,27 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Validate password against policy
 	passwordErrors := []string{}
-	
+
 	if len(createData.Password) < authSettings.MinPasswordLength {
 		passwordErrors = append(passwordErrors, fmt.Sprintf("Password must be at least %d characters long", authSettings.MinPasswordLength))
 	}
-	
+
 	if authSettings.RequireUppercase && !strings.ContainsAny(createData.Password, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
 		passwordErrors = append(passwordErrors, "Password must contain at least one uppercase letter")
 	}
-	
+
 	if authSettings.RequireLowercase && !strings.ContainsAny(createData.Password, "abcdefghijklmnopqrstuvwxyz") {
 		passwordErrors = append(passwordErrors, "Password must contain at least one lowercase letter")
 	}
-	
+
 	if authSettings.RequireNumbers && !strings.ContainsAny(createData.Password, "0123456789") {
 		passwordErrors = append(passwordErrors, "Password must contain at least one number")
 	}
-	
+
 	if authSettings.RequireSpecialChars && !strings.ContainsAny(createData.Password, "!@#$%^&*(),.?\":{}|<>") {
 		passwordErrors = append(passwordErrors, "Password must contain at least one special character")
 	}
-	
+
 	if len(passwordErrors) > 0 {
 		httputil.RespondWithError(w, http.StatusBadRequest, strings.Join(passwordErrors, "; "))
 		return
@@ -258,6 +258,19 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	user.PasswordHash = ""
 	user.MFASecret = ""
 	user.BackupCodes = nil
+
+	// Team memberships for the user detail page. Best effort: a failure here
+	// must not hide the rest of the user record.
+	if h.db != nil {
+		if teams, terr := repository.NewTeamRepository(h.db).GetTeamsForUser(r.Context(), userID); terr == nil {
+			user.Teams = make([]models.Team, 0, len(teams))
+			for _, tw := range teams {
+				user.Teams = append(user.Teams, tw.Team)
+			}
+		} else {
+			debug.Warning("Failed to load teams for user %s: %v", userID, terr)
+		}
+	}
 
 	httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{"data": user})
 }
@@ -421,7 +434,7 @@ func (h *UserHandler) DisableUser(w http.ResponseWriter, r *http.Request) {
 		httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to get admin ID")
 		return
 	}
-	
+
 	adminID, err := uuid.Parse(adminIDStr)
 	if err != nil {
 		debug.Error("Failed to parse admin ID: %v", err)

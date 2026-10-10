@@ -5,6 +5,8 @@
 // Agent debug status from backend
 export interface AgentDebugStatus {
   agent_id: number;
+  /** Display name, when the backend could resolve it. */
+  agent_name?: string;
   enabled: boolean;
   level: string;
   file_logging_enabled: boolean;

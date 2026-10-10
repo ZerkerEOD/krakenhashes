@@ -1,277 +1,46 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Box, Tabs, Tab, Typography, Paper, TextField, Alert, CircularProgress, IconButton } from '@mui/material';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { useTranslation } from 'react-i18next';
-import { EmailSettings } from './EmailSettings';
-import { useAuth } from '../../contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import AuthSettings from '../../components/admin/AuthSettings';
-import BinaryManagement from '../../components/admin/BinaryManagement';
-import SystemSettings from '../../components/admin/SystemSettings';
-import { HashTypeManager } from '../../components/admin/HashTypeManager';
-import JobExecutionSettings from '../../components/admin/JobExecutionSettings';
-import MonitoringSettings from '../../components/admin/MonitoringSettings';
-import AgentDownloadSettings from '../../components/admin/AgentDownloadSettings';
-import AgentAutoUpdateSettings from '../../components/admin/AgentAutoUpdateSettings';
-import NotificationSettings from '../../components/admin/NotificationSettings';
-import NetworkShareSettings from '../../components/admin/NetworkShareSettings';
-import BrandingSettings from '../../components/admin/BrandingSettings';
-import { useSnackbar } from 'notistack';
-import { getDefaultClientRetentionSetting, updateDefaultClientRetentionSetting } from '../../services/api';
+import React, { Suspense } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { SettingsLoading } from '../../components/settings/fields';
+import ErrorBoundary from '../../components/ui/ErrorBoundary';
+import { ROUTES } from '../../constants/routes';
+import SettingsLayout from './SettingsLayout';
+import SettingsHub from './SettingsHub';
+import { settingsNav } from './settingsNav';
 
-// Lazy load SSO Settings to avoid circular dependency
-const SSOSettingsPage = lazy(() => import('../admin/SSOSettings'));
-// Lazy too: the cloud tab pulls in three sub-panels most admins never open.
-const CloudSettings = lazy(() => import('../../components/admin/cloud/CloudSettings'));
-const ServerCertificateSettings = lazy(
-  () => import('../../components/admin/certificates/ServerCertificateSettings')
-);
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-const TabPanel = (props: TabPanelProps) => {
-  const { children, value, index, ...other } = props;
-
+/**
+ * Admin settings: a left-rail layout whose routes are generated from
+ * `settingsNav`. Mounted at /admin/settings/* by App.tsx.
+ */
+export const AdminSettings: React.FC = () => {
+  const abs = (group: string, section?: string) => ROUTES.admin.settingsSection(group, section);
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`admin-settings-tabpanel-${index}`}
-      aria-labelledby={`admin-settings-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-};
-
-// --- Client Settings Component ---
-const ClientSettingsTab: React.FC = () => {
-  const { t } = useTranslation('admin');
-  const [retentionMonths, setRetentionMonths] = useState<string>('');
-  const [initialLoading, setInitialLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const { enqueueSnackbar } = useSnackbar();
-  const retentionRef = useRef<string>('');
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      setInitialLoading(true);
-      setError(null);
-      try {
-        const response = await getDefaultClientRetentionSetting();
-        if (response && response.data && response.data.data) {
-          const apiValue = response.data.data.value;
-          const valueToSet = String(apiValue ?? '0');
-          setRetentionMonths(valueToSet);
-          retentionRef.current = valueToSet;
-        } else {
-          console.error('[ClientSettingsTab] Invalid response structure:', response);
-          setError('Failed to process settings from server.');
-          setRetentionMonths('0');
-          retentionRef.current = '0';
-        }
-      } catch (err) {
-        console.error("Failed to fetch client retention settings:", err);
-        setError('Failed to load settings. Please try again.');
-        setRetentionMonths('0');
-        retentionRef.current = '0';
-      } finally {
-        setInitialLoading(false);
-      }
-    };
-    fetchSettings();
-  }, []);
-
-  // Keep ref in sync
-  useEffect(() => {
-    retentionRef.current = retentionMonths;
-  }, [retentionMonths]);
-
-  const handleBlurSave = async () => {
-    setError(null);
-    const valueToSave = retentionRef.current.trim();
-    const numericValue = parseInt(valueToSave, 10);
-
-    if (isNaN(numericValue) || numericValue < 0) {
-      setError(t('clientSettings.errors.invalidRetention') as string);
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await updateDefaultClientRetentionSetting({ value: numericValue.toString() });
-      enqueueSnackbar(t('clientSettings.messages.updateSuccess') as string, { variant: 'success' });
-    } catch (err: any) {
-      console.error("Failed to update client retention settings:", err);
-      const message = err.response?.data?.error || t('clientSettings.errors.saveFailed') as string;
-      setError(message);
-      enqueueSnackbar(message, { variant: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Box>
-      <Typography variant="h6" gutterBottom>
-        {t('clientSettings.title') as string}
-      </Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {initialLoading ? (
-        <CircularProgress />
-      ) : (
-        <Box component="form" noValidate autoComplete="off">
-          <TextField
-            fullWidth
-            type="number"
-            label={t('clientSettings.retentionPeriod') as string}
-            value={retentionMonths}
-            onChange={(e) => setRetentionMonths(e.target.value)}
-            onBlur={handleBlurSave}
-            disabled={saving}
-            helperText={t('clientSettings.retentionHelperText') as string}
-            margin="normal"
-            InputProps={{
-              inputProps: {
-                  min: 0
+    <Routes>
+      <Route element={<SettingsLayout />}>
+        <Route index element={<SettingsHub />} />
+        {settingsNav.flatMap((g) => [
+          <Route key={g.id} path={g.path} element={<Navigate to={abs(g.path, g.sections[0].path)} replace />} />,
+          ...g.sections.map((s) => (
+            <Route
+              key={s.id}
+              path={s.nested ? `${g.path}/${s.path}/*` : `${g.path}/${s.path}`}
+              element={
+                <ErrorBoundary compact>
+                  <Suspense fallback={<SettingsLoading />}>
+                    <s.Component />
+                  </Suspense>
+                </ErrorBoundary>
               }
-          }}
-          />
-        </Box>
-      )}
-    </Box>
+            />
+          )),
+        ])}
+        {/* Legacy standalone email pages */}
+        <Route path="email" element={<Navigate to={abs('integrations', 'email')} replace />} />
+        <Route path="email/provider" element={<Navigate to={abs('integrations', 'email')} replace />} />
+        <Route path="email/templates" element={<Navigate to={`${abs('integrations', 'email')}/templates`} replace />} />
+        <Route path="*" element={<Navigate to={ROUTES.admin.settings} replace />} />
+      </Route>
+    </Routes>
   );
 };
-// --- End Client Settings Component ---
 
-/** Number of tabs rendered below; bounds the restored tab index. */
-const TAB_COUNT = 12;
-
-export const AdminSettings = () => {
-  const { t } = useTranslation('admin');
-  const [currentTab, setCurrentTab] = useState(() => {
-    const savedTab = localStorage.getItem('adminSettingsTab');
-    const initialTab = savedTab ? parseInt(savedTab, 10) : 0;
-    // Keep this bound in step with the number of <Tab> entries below. A stale
-    // bound silently drops the last tab from restoration: it stays clickable,
-    // but reopening the page always lands back on tab 0.
-    return initialTab >= 0 && initialTab < TAB_COUNT ? initialTab : 0;
-  });
-
-  const { userRole } = useAuth();
-
-  // Redirect if not admin
-  if (userRole !== 'admin') {
-    return <Navigate to="/" replace />;
-  }
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setCurrentTab(newValue);
-    localStorage.setItem('adminSettingsTab', newValue.toString());
-  };
-
-  return (
-    <Box sx={{ width: '100%', p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        {t('title') as string}
-      </Typography>
-
-      <Paper sx={{ width: '100%', mt: 3 }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs
-            value={currentTab}
-            onChange={handleTabChange}
-            aria-label="admin settings tabs"
-            variant="scrollable"
-            scrollButtons="auto"
-            allowScrollButtonsMobile
-            sx={{
-              '& .MuiTabs-scrollButtons': {
-                '&.Mui-disabled': {
-                  opacity: 0.3,
-                },
-              },
-            }}
-          >
-            <Tab label={t('tabs.emailSettings') as string} />
-            <Tab label={t('tabs.authenticationSettings') as string} />
-            <Tab label={t('tabs.ssoSettings') as string} />
-            <Tab label={t('tabs.binaryManagement') as string} />
-            <Tab label={t('tabs.systemSettings') as string} />
-            <Tab label={t('tabs.hashTypes') as string} />
-            <Tab label={t('tabs.jobExecution') as string} />
-            <Tab label={t('tabs.monitoring') as string} />
-            <Tab label={t('tabs.agentDownloads') as string} />
-            <Tab label={t('tabs.notifications') as string} />
-            <Tab label={t('tabs.cloudProvisioning') as string} />
-            <Tab label={t('tabs.serverCertificate') as string} />
-          </Tabs>
-        </Box>
-
-        <TabPanel value={currentTab} index={0}>
-          <EmailSettings />
-        </TabPanel>
-        <TabPanel value={currentTab} index={1}>
-          <AuthSettings />
-        </TabPanel>
-        <TabPanel value={currentTab} index={2}>
-          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
-            <SSOSettingsPage />
-          </Suspense>
-        </TabPanel>
-        <TabPanel value={currentTab} index={3}>
-          <BinaryManagement />
-        </TabPanel>
-        <TabPanel value={currentTab} index={4}>
-          <SystemSettings />
-          <Box sx={{ mt: 4 }}>
-            <ClientSettingsTab />
-          </Box>
-          <Box sx={{ mt: 4 }}>
-            <NetworkShareSettings />
-          </Box>
-          <Box sx={{ mt: 4 }}>
-            <BrandingSettings />
-          </Box>
-        </TabPanel>
-        <TabPanel value={currentTab} index={5}>
-          <HashTypeManager />
-        </TabPanel>
-        <TabPanel value={currentTab} index={6}>
-          <JobExecutionSettings />
-        </TabPanel>
-        <TabPanel value={currentTab} index={7}>
-          <MonitoringSettings />
-        </TabPanel>
-        <TabPanel value={currentTab} index={8}>
-          <AgentDownloadSettings />
-          <AgentAutoUpdateSettings />
-        </TabPanel>
-        <TabPanel value={currentTab} index={9}>
-          <NotificationSettings />
-        </TabPanel>
-        <TabPanel value={currentTab} index={10}>
-          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
-            <CloudSettings />
-          </Suspense>
-        </TabPanel>
-        <TabPanel value={currentTab} index={11}>
-          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
-            <ServerCertificateSettings />
-          </Suspense>
-        </TabPanel>
-      </Paper>
-    </Box>
-  );
-}; 
+export default AdminSettings;

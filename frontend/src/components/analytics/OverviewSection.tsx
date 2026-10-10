@@ -9,17 +9,15 @@ import {
   Grid,
   Card,
   CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Box,
   Tabs,
   Tab,
 } from '@mui/material';
-import { AnalyticsReport, AnalyticsData, DomainStats } from '../../types/analytics';
+import { AnalyticsReport, AnalyticsData, DomainStats, HashModeStats } from '../../types/analytics';
+import { SimpleTable, SimpleColumn } from '../ui';
+
+/** Hash-mode row, plus the synthetic totals row (rendered bold). */
+type HashModeRow = Pick<HashModeStats, 'mode_id' | 'mode_name' | 'total' | 'cracked' | 'percentage'> & { isTotal?: boolean };
 
 interface OverviewSectionProps {
   report: AnalyticsReport;
@@ -59,12 +57,45 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
     return index >= 0 ? index + 1 : 0;
   };
 
+  const domainColumns: SimpleColumn<DomainStats>[] = [
+    { field: 'domain', headerName: t('columns.domain') },
+    { field: 'total_hashes', headerName: t('columns.totalHashes'), align: 'right', render: (d) => d.total_hashes.toLocaleString() },
+    { field: 'cracked_hashes', headerName: t('columns.cracked'), align: 'right', render: (d) => d.cracked_hashes.toLocaleString() },
+    { field: 'crack_percentage', headerName: t('columns.percentage'), align: 'right', render: (d) => `${d.crack_percentage.toFixed(2)}%` },
+  ];
+
+  const hashModeRows: HashModeRow[] = [
+    ...filteredData.overview.hash_modes,
+    {
+      mode_id: -1,
+      mode_name: t('labels.total'),
+      total: filteredStats.total_hashes,
+      cracked: filteredStats.total_cracked,
+      percentage: filteredStats.crack_percentage,
+      isTotal: true,
+    },
+  ];
+
+  const bold = (r: HashModeRow, node: React.ReactNode) => (r.isTotal ? <strong>{node}</strong> : node);
+
+  const hashModeColumns: SimpleColumn<HashModeRow>[] = [
+    { field: 'mode_name', headerName: t('columns.hashType'), render: (r) => bold(r, r.mode_name) },
+    { field: 'total', headerName: t('columns.totalHashes'), align: 'right', render: (r) => bold(r, r.total.toLocaleString()) },
+    { field: 'cracked', headerName: t('columns.cracked'), align: 'right', render: (r) => bold(r, r.cracked.toLocaleString()) },
+    {
+      field: 'percentage',
+      headerName: t('columns.percentage'),
+      align: 'right',
+      render: (r) => bold(r, `${r.percentage.toFixed(2)}%`),
+    },
+  ];
+
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       {/* Domain Tabs - Only show if there are multiple domains */}
       {domains.length > 0 && (
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs value={getCurrentTabValue()} onChange={handleTabChange} aria-label="Domain filter tabs">
+          <Tabs value={getCurrentTabValue()} onChange={handleTabChange} aria-label={t('labels.domainFilterTabs') as string}>
             <Tab label={t('tabs.all')} />
             {domains.map((domainStat) => (
               <Tab key={domainStat.domain} label={domainStat.domain} />
@@ -74,7 +105,9 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
       )}
 
       <Typography variant="h5" gutterBottom>
-        {t('sections.overview')}{selectedDomain ? ` - ${selectedDomain}` : ''}
+        {selectedDomain
+          ? t('sections.overviewWithDomain', { base: t('sections.overview'), domain: selectedDomain })
+          : t('sections.overview')}
       </Typography>
 
       {/* Summary Cards */}
@@ -135,28 +168,7 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
           <Typography variant="h6" gutterBottom>
             {t('sections.domainBreakdown')}
           </Typography>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('columns.domain')}</TableCell>
-                  <TableCell align="right">{t('columns.totalHashes')}</TableCell>
-                  <TableCell align="right">{t('columns.cracked')}</TableCell>
-                  <TableCell align="right">{t('columns.percentage')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {domains.map((domainStat) => (
-                  <TableRow key={domainStat.domain}>
-                    <TableCell>{domainStat.domain}</TableCell>
-                    <TableCell align="right">{domainStat.total_hashes.toLocaleString()}</TableCell>
-                    <TableCell align="right">{domainStat.cracked_hashes.toLocaleString()}</TableCell>
-                    <TableCell align="right">{domainStat.crack_percentage.toFixed(2)}%</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <SimpleTable rows={domains} getRowKey={(d) => d.domain} columns={domainColumns} dense={false} />
         </Box>
       )}
 
@@ -165,43 +177,7 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
         <Typography variant="h6" gutterBottom>
           {t('sections.hashModeBreakdown')}
         </Typography>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('columns.hashType')}</TableCell>
-                <TableCell align="right">{t('columns.totalHashes')}</TableCell>
-                <TableCell align="right">{t('columns.cracked')}</TableCell>
-                <TableCell align="right">{t('columns.percentage')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredData.overview.hash_modes.map((stat) => (
-                <TableRow key={stat.mode_id}>
-                  <TableCell>{stat.mode_name}</TableCell>
-                  <TableCell align="right">{stat.total.toLocaleString()}</TableCell>
-                  <TableCell align="right">{stat.cracked.toLocaleString()}</TableCell>
-                  <TableCell align="right">{stat.percentage.toFixed(2)}%</TableCell>
-                </TableRow>
-              ))}
-              {/* Totals Row */}
-              <TableRow sx={{ fontWeight: 'bold', backgroundColor: 'action.hover' }}>
-                <TableCell>
-                  <strong>{t('labels.total')}</strong>
-                </TableCell>
-                <TableCell align="right">
-                  <strong>{filteredStats.total_hashes.toLocaleString()}</strong>
-                </TableCell>
-                <TableCell align="right">
-                  <strong>{filteredStats.total_cracked.toLocaleString()}</strong>
-                </TableCell>
-                <TableCell align="right">
-                  <strong>{crackPercentage}%</strong>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <SimpleTable rows={hashModeRows} getRowKey={(r) => (r.isTotal ? 'total' : r.mode_id)} columns={hashModeColumns} dense={false} getRowSx={(r) => (r.isTotal ? { bgcolor: 'action.hover' } : undefined)} />
       </Box>
     </Paper>
   );

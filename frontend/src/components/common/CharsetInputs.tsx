@@ -12,6 +12,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { Clear as ClearIcon } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { CustomCharset } from '../../types/customCharsets';
 import { calculateMaskKeyspace, formatKeyspace, resolveCharsetSize, validateHexCharsetDefinition } from '../../utils/charsetUtils';
 
@@ -36,6 +37,7 @@ const CharsetInputs: React.FC<CharsetInputsProps> = ({
   hexCharset = false,
   onHexCharsetChange,
 }) => {
+  const { t } = useTranslation('common');
   const [keyspaceEstimate, setKeyspaceEstimate] = useState<number>(0);
   const [charsetSizes, setCharsetSizes] = useState<Record<string, number>>({});
 
@@ -165,10 +167,10 @@ const CharsetInputs: React.FC<CharsetInputsProps> = ({
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="subtitle2" color="text.secondary">
-          Custom Charsets (optional - define ?1 through ?4 for use in mask)
+          {t('charsetInputs.subtitle')}
         </Typography>
         {onHexCharsetChange && (
-          <Tooltip title="When enabled, inline charset definitions are interpreted as hex byte pairs (e.g., 41424344 = ABCD). File charsets are unaffected.">
+          <Tooltip title={t('charsetInputs.hexTooltip') as string}>
             <FormControlLabel
               control={
                 <Switch
@@ -177,7 +179,7 @@ const CharsetInputs: React.FC<CharsetInputsProps> = ({
                   onChange={(e) => onHexCharsetChange(e.target.checked)}
                 />
               }
-              label={<Typography variant="caption">Hex-encoded charsets</Typography>}
+              label={<Typography variant="caption">{t('charsetInputs.hexEncodedLabel')}</Typography>}
               sx={{ ml: 1, mr: 0 }}
             />
           </Tooltip>
@@ -195,8 +197,8 @@ const CharsetInputs: React.FC<CharsetInputsProps> = ({
                   // File charset selected — show read-only display
                   <Box sx={{ flex: 1 }}>
                     <TextField
-                      label={`Charset ${slot} (-${slot})`}
-                      value={`[File: ${fileCharset.name} — ${fileCharset.byte_count} bytes]`}
+                      label={t('charsetInputs.charsetSlotLabel', { slot })}
+                      value={t('charsetInputs.fileValue', { name: fileCharset.name, count: fileCharset.byte_count })}
                       fullWidth
                       size="small"
                       InputProps={{
@@ -209,25 +211,31 @@ const CharsetInputs: React.FC<CharsetInputsProps> = ({
                       }}
                       helperText={
                         usedSlots.has(slot)
-                          ? `${fileCharset.byte_count} unique bytes`
-                          : `${fileCharset.byte_count} unique bytes (not referenced in mask)`
+                          ? t('charsetInputs.fileHelperUsed', { count: fileCharset.byte_count })
+                          : t('charsetInputs.fileHelperUnused', { count: fileCharset.byte_count })
                       }
                       sx={{ flex: 1, '& input': { fontFamily: 'monospace' } }}
                     />
                   </Box>
                 ) : (
                   <TextField
-                    label={`Charset ${slot} (-${slot})`}
+                    label={t('charsetInputs.charsetSlotLabel', { slot })}
                     value={customCharsets[slot] || ''}
                     onChange={(e) => handleCharsetChange(slot, e.target.value)}
                     fullWidth
                     size="small"
-                    placeholder={hexCharset ? 'e.g., 41424344 (hex byte pairs)' : 'e.g., ?u?d or abcdef0123456789'}
+                    placeholder={hexCharset ? (t('charsetInputs.placeholderHex') as string) : (t('charsetInputs.placeholderPlain') as string)}
                     helperText={
                       getInlineError(slot) ||
                       (charsetSizes[slot]
-                        ? `${charsetSizes[slot]} ${hexCharset ? 'bytes' : 'chars'}${usedSlots.has(slot) ? '' : ' (not referenced in mask)'}`
-                        : usedSlots.has(slot) ? 'Referenced in mask but not defined' : undefined)
+                        ? (hexCharset
+                            ? (usedSlots.has(slot)
+                                ? t('charsetInputs.inlineHelperBytes', { count: charsetSizes[slot] })
+                                : t('charsetInputs.inlineHelperBytesUnused', { count: charsetSizes[slot] }))
+                            : (usedSlots.has(slot)
+                                ? t('charsetInputs.inlineHelperChars', { count: charsetSizes[slot] })
+                                : t('charsetInputs.inlineHelperCharsUnused', { count: charsetSizes[slot] })))
+                        : usedSlots.has(slot) ? t('charsetInputs.referencedNotDefined') : undefined)
                     }
                     error={(usedSlots.has(slot) && !customCharsets[slot]) || !!getInlineError(slot)}
                     sx={{ flex: 1 }}
@@ -240,7 +248,7 @@ const CharsetInputs: React.FC<CharsetInputsProps> = ({
                     getOptionLabel={(option) => option.name}
                     onChange={(_, value) => handleSavedCharsetSelect(slot, value)}
                     renderInput={(params) => (
-                      <TextField {...params} label="Saved" size="small" />
+                      <TextField {...params} label={t('charsetInputs.savedLabel')} size="small" />
                     )}
                     renderOption={(props, option) => {
                       const isIncompatible = option.charset_type !== 'file' && option.is_hex !== hexCharset;
@@ -250,19 +258,19 @@ const CharsetInputs: React.FC<CharsetInputsProps> = ({
                             <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
                               <Typography variant="body2">{option.name}</Typography>
                               {option.charset_type === 'file' && (
-                                <Chip label="File" size="small" color="info" sx={{ height: 18, fontSize: '0.65rem' }} />
+                                <Chip label={t('charsetInputs.typeLabels.file') as string} size="small" color="info" sx={{ height: 18, fontSize: '0.65rem' }} />
                               )}
                               {option.is_hex && (
-                                <Chip label="Hex" size="small" color="warning" sx={{ height: 18, fontSize: '0.65rem' }} />
+                                <Chip label={t('charsetInputs.typeLabels.hex') as string} size="small" color="warning" sx={{ height: 18, fontSize: '0.65rem' }} />
                               )}
                             </Box>
                             <Typography variant="caption" color="text.secondary">
                               {option.charset_type === 'file'
-                                ? `${option.byte_count} unique bytes`
+                                ? t('charsetInputs.optionUniqueBytes', { count: option.byte_count })
                                 : option.is_hex
-                                  ? `${Math.floor((option.definition?.length || 0) / 2)} bytes (hex)`
+                                  ? t('charsetInputs.optionBytesHex', { count: Math.floor((option.definition?.length || 0) / 2) })
                                   : option.definition}
-                              {isIncompatible && (option.is_hex ? ' — will enable hex mode' : ' — will disable hex mode')}
+                              {isIncompatible && (option.is_hex ? t('charsetInputs.willEnableHex') : t('charsetInputs.willDisableHex'))}
                             </Typography>
                           </Box>
                         </li>
@@ -281,7 +289,7 @@ const CharsetInputs: React.FC<CharsetInputsProps> = ({
       {mask && keyspaceEstimate > 0 && (
         <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
           <Chip
-            label={`Estimated keyspace: ${formatKeyspace(keyspaceEstimate)}`}
+            label={t('charsetInputs.estimatedKeyspace', { value: formatKeyspace(keyspaceEstimate) })}
             color="info"
             size="small"
             variant="outlined"
@@ -289,7 +297,11 @@ const CharsetInputs: React.FC<CharsetInputsProps> = ({
           {Object.entries(charsetSizes).map(([slot, size]) => (
             <Chip
               key={slot}
-              label={`?${slot} = ${size} ${hexCharset && !fileCharsetByteCounts[slot] ? 'bytes' : 'chars'}`}
+              label={
+                hexCharset && !fileCharsetByteCounts[slot]
+                  ? t('charsetInputs.slotSizeBytes', { slot, size })
+                  : t('charsetInputs.slotSizeChars', { slot, size })
+              }
               size="small"
               variant="outlined"
             />

@@ -1,4 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
+import { useToast } from '../ui/toast';
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import {
   Alert,
   Box,
@@ -15,13 +18,11 @@ import {
   LinearProgress,
   MenuItem,
   Paper,
-  Snackbar,
   Stack,
   Switch,
   TextField,
   Typography,
 } from '@mui/material';
-import StorageIcon from '@mui/icons-material/Storage';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import {
@@ -71,7 +72,13 @@ const formatBytes = (n: number): string => {
   return `${v.toFixed(1)} ${units[i]}`;
 };
 
+// Escape markup-significant characters so a value interpolated into a <Trans>
+// string renders as text (Trans unescapes these entities back for display).
+const escapeForTrans = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 const NetworkShareSettings: React.FC = () => {
+  const { t } = useTranslation('admin');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -90,7 +97,11 @@ const NetworkShareSettings: React.FC = () => {
   const [optionsText, setOptionsText] = useState('');
 
   const [validation, setValidation] = useState<NetworkShareValidationResult | null>(null);
-  const [snack, setSnack] = useState<{ msg: string; severity: 'success' | 'error' } | null>(null);
+  const toast = useToast();
+  const setSnack = useCallback(
+    (n: { msg: string; severity: 'success' | 'error' }) => toast[n.severity](n.msg),
+    [toast]
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [migration, setMigration] = useState<MigrationProgress | null>(null);
@@ -124,11 +135,11 @@ const NetworkShareSettings: React.FC = () => {
         }
       }
     } catch (e: any) {
-      setLoadError(e?.response?.data?.error || e?.message || 'Failed to load network share config');
+      setLoadError(e?.response?.data?.error || e?.message || (t('networkShare.toast.loadFailed') as string));
     } finally {
       setLoading(false);
     }
-  }, [applyConfig]);
+  }, [applyConfig, t]);
 
   useEffect(() => {
     load();
@@ -164,10 +175,10 @@ const NetworkShareSettings: React.FC = () => {
     try {
       const p = await startMigration(migrateDirection);
       setMigration(p);
-      setSnack({ msg: 'Migration started.', severity: 'success' });
+      setSnack({ msg: t('networkShare.toast.migrationStarted') as string, severity: 'success' });
     } catch (e: any) {
       setSnack({
-        msg: e?.response?.data?.error || 'Failed to start migration',
+        msg: e?.response?.data?.error || (t('networkShare.toast.startFailed') as string),
         severity: 'error',
       });
     } finally {
@@ -180,12 +191,12 @@ const NetworkShareSettings: React.FC = () => {
     try {
       const p = await cancelMigration();
       setMigration(p);
-      setSnack({ msg: 'Migration canceled — storage left unchanged.', severity: 'success' });
+      setSnack({ msg: t('networkShare.toast.migrationCanceled') as string, severity: 'success' });
       // Refresh config so the locked UI releases once the engine unwinds.
       load();
     } catch (e: any) {
       setSnack({
-        msg: e?.response?.data?.error || 'Failed to cancel migration',
+        msg: e?.response?.data?.error || (t('networkShare.toast.cancelFailed') as string),
         severity: 'error',
       });
     } finally {
@@ -205,10 +216,10 @@ const NetworkShareSettings: React.FC = () => {
         mount_options: textToOptions(optionsText),
       });
       applyConfig(updated);
-      setSnack({ msg: 'Network share configuration saved.', severity: 'success' });
+      setSnack({ msg: t('networkShare.toast.saved') as string, severity: 'success' });
     } catch (e: any) {
       setSnack({
-        msg: e?.response?.data?.error || 'Failed to save configuration',
+        msg: e?.response?.data?.error || (t('networkShare.toast.saveFailed') as string),
         severity: 'error',
       });
     } finally {
@@ -225,18 +236,34 @@ const NetworkShareSettings: React.FC = () => {
       setHealth(res.mounted);
       if (res.share_dir) setShareDir(res.share_dir);
       setSnack({
-        msg: res.ok ? 'Share validated successfully.' : 'Share validation reported problems.',
+        msg: res.ok
+          ? (t('networkShare.toast.validated') as string)
+          : (t('networkShare.toast.validationProblems') as string),
         severity: res.ok ? 'success' : 'error',
       });
     } catch (e: any) {
       setSnack({
-        msg: e?.response?.data?.error || 'Validation failed to run',
+        msg: e?.response?.data?.error || (t('networkShare.toast.validationFailed') as string),
         severity: 'error',
       });
     } finally {
       setValidating(false);
     }
   };
+
+  // Explicit-Apply area: warn before leaving with unsaved edits.
+  const dirty = useMemo(() => {
+    if (!config) return false;
+    return (
+      shareType !== (config.share_type === 'nfs' ? 'nfs' : 'smb') ||
+      name !== (config.name || '') ||
+      enabled !== !!config.enabled ||
+      serverHost !== (config.server_host || '') ||
+      shareName !== (config.share_name || '') ||
+      optionsText !== optionsToText(config.mount_options || {})
+    );
+  }, [config, shareType, name, enabled, serverHost, shareName, optionsText]);
+  const { dialog: unsavedDialog } = useUnsavedChangesGuard(dirty);
 
   // Build the read-only mount command an operator runs on a network_direct
   // agent host. Credentials are placeholders — the server never provides them.
@@ -281,18 +308,9 @@ const NetworkShareSettings: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <StorageIcon color="primary" />
-        <Typography variant="h5" component="h2">
-          Network Share Storage
-        </Typography>
-      </Box>
+      {unsavedDialog}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Store wordlists and rules on a network share so the server doesn't need a large local disk.
-        The operator mounts the share on the server host (via docker-compose, as{' '}
-        <code>KH_SHARE_DIR</code>) and on any network-direct agent host; KrakenHashes only reads the
-        mounted path — it never connects to the share itself or stores its credentials. Cloud GPU
-        agents don't mount the share: they download wordlists/rules from the server over the VPN.
+        <Trans t={t} i18nKey="networkShare.intro" components={{ code: <code /> }} />
       </Typography>
 
       {loadError && (
@@ -303,29 +321,26 @@ const NetworkShareSettings: React.FC = () => {
 
       {migrationInProgress && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          A migration is in progress ({config?.migration_state}). Configuration is locked until it
-          completes.
+          {t('networkShare.migrationLocked', { state: config?.migration_state })}
         </Alert>
       )}
 
       {/* Section A: Server storage mount — read-only status + lifecycle actions */}
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Typography variant="subtitle1" gutterBottom>
-          Server storage mount
+          {t('networkShare.server.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          The server reads wordlists and rules from this operator-mounted path (set in docker-compose
-          as <code>KH_SHARE_DIR</code>). KrakenHashes does not connect to the share itself — mounting
-          is the operator's responsibility.
+          <Trans t={t} i18nKey="networkShare.server.description" components={{ code: <code /> }} />
         </Typography>
 
         <Stack spacing={1.5} sx={{ mb: 2 }}>
           <Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              Mounted path (read-only)
+              {t('networkShare.server.mountedPath')}
             </Typography>
             <Typography variant="body2">
-              <code>{shareDir || 'KH_SHARE_DIR not set — mount the share in docker-compose'}</code>
+              <code>{shareDir || t('networkShare.server.shareDirNotSet')}</code>
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
@@ -334,24 +349,32 @@ const NetworkShareSettings: React.FC = () => {
               color={config?.storage_backend === 'share' ? 'primary' : 'default'}
               label={
                 config?.storage_backend === 'share'
-                  ? 'Serving from: network share'
-                  : 'Serving from: local disk'
+                  ? t('networkShare.server.servingFromShare')
+                  : t('networkShare.server.servingFromLocal')
               }
             />
             <Chip
               size="small"
               icon={health ? <CheckCircleIcon /> : <ErrorIcon />}
               color={health ? 'success' : 'warning'}
-              label={health ? 'Share reachable' : 'Share not mounted'}
+              label={
+                health
+                  ? t('networkShare.server.shareReachable')
+                  : t('networkShare.server.shareNotMounted')
+              }
             />
             {config && config.migration_state !== 'idle' && (
-              <Chip size="small" color="info" label={`Migration: ${config.migration_state}`} />
+              <Chip size="small" color="info" label={t('networkShare.server.migrationChip', { state: config.migration_state })} />
             )}
           </Stack>
           {config?.last_validated_at && (
             <Typography variant="caption" color="text.secondary">
-              Last validated {new Date(config.last_validated_at).toLocaleString()}
-              {config.last_validation_error ? ` — ${config.last_validation_error}` : ' — OK'}
+              {t('networkShare.server.lastValidated', {
+                date: new Date(config.last_validated_at).toLocaleString(),
+              })}
+              {config.last_validation_error
+                ? ` — ${config.last_validation_error}`
+                : ` — ${t('networkShare.server.validatedOk')}`}
             </Typography>
           )}
         </Stack>
@@ -364,37 +387,52 @@ const NetworkShareSettings: React.FC = () => {
               disabled={migrationInProgress}
             />
           }
-          label="Enable network share"
+          label={t('networkShare.server.enable')}
         />
 
         <Divider sx={{ my: 2 }} />
 
         <Stack direction="row" spacing={2}>
           <Button variant="contained" onClick={handleSave} disabled={saving || migrationInProgress}>
-            {saving ? 'Saving…' : 'Save configuration'}
+            {saving ? t('networkShare.server.saving') : t('networkShare.server.save')}
           </Button>
           <Button
             variant="outlined"
             onClick={handleValidate}
             disabled={validating || migrationInProgress}
           >
-            {validating ? 'Validating…' : 'Validate server mount'}
+            {validating ? t('networkShare.server.validating') : t('networkShare.server.validate')}
           </Button>
         </Stack>
 
         {validation && (
           <Alert severity={validation.ok ? 'success' : 'error'} sx={{ mt: 2 }}>
             <Typography variant="body2">
-              Mount path: <code>{validation.share_dir || '(unset)'}</code>
+              <Trans
+                t={t}
+                i18nKey="networkShare.validation.mountPath"
+                shouldUnescape
+                values={{
+                  path: escapeForTrans(validation.share_dir || (t('networkShare.validation.unset') as string)),
+                }}
+                components={{ code: <code /> }}
+              />
             </Typography>
             {validation.error ? (
               <Typography variant="body2">{validation.error}</Typography>
             ) : (
               <Typography variant="body2">
-                Mounted: {validation.mounted ? 'yes' : 'no'} · Writable:{' '}
-                {validation.writable ? 'yes' : 'no'} · Free: {formatBytes(validation.free_bytes)} ·
-                Write: {validation.write_mbps.toFixed(1)} MB/s · Read:{' '}
-                {validation.read_mbps.toFixed(1)} MB/s
+                {t('networkShare.validation.summary', {
+                  mounted: validation.mounted
+                    ? t('networkShare.validation.yes')
+                    : t('networkShare.validation.no'),
+                  writable: validation.writable
+                    ? t('networkShare.validation.yes')
+                    : t('networkShare.validation.no'),
+                  free: formatBytes(validation.free_bytes),
+                  write: validation.write_mbps.toFixed(1),
+                  read: validation.read_mbps.toFixed(1),
+                })}
               </Typography>
             )}
           </Alert>
@@ -402,25 +440,24 @@ const NetworkShareSettings: React.FC = () => {
 
         <Divider sx={{ my: 3 }} />
         <Typography variant="subtitle2" gutterBottom>
-          Data migration
+          {t('networkShare.migration.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Copy existing wordlists and rules {migrateDirection === 'to_share' ? 'onto the network share' : 'back to local disk'} and switch the
-          active storage backend. This is a maintenance operation: new jobs stop dispatching while
-          the fleet drains, then wordlist/rule uploads are frozen and files are copied and
-          checksum-verified before the switch. Depending on data size this can take a long time and
-          the server will be unavailable for uploads and new jobs meanwhile. Client and association
-          wordlists, binaries, charsets and hashlists always stay local.
+          {migrateDirection === 'to_share'
+            ? t('networkShare.migration.descriptionToShare')
+            : t('networkShare.migration.descriptionToLocal')}
         </Typography>
 
         {migrationInProgress && migration ? (
           <Box>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
               <CircularProgress size={18} />
-              <Chip size="small" color="info" label={`Phase: ${migration.phase}`} />
+              <Chip size="small" color="info" label={t('networkShare.migration.phase', { phase: migration.phase })} />
               {migration.direction && (
                 <Typography variant="caption" color="text.secondary">
-                  {migration.direction === 'to_share' ? 'local → share' : 'share → local'}
+                  {migration.direction === 'to_share'
+                    ? t('networkShare.migration.directionToShare')
+                    : t('networkShare.migration.directionToLocal')}
                 </Typography>
               )}
             </Stack>
@@ -431,9 +468,11 @@ const NetworkShareSettings: React.FC = () => {
               <>
                 <LinearProgress />
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Waiting for {migration.agents_busy} task(s) to finish
+                  {t('networkShare.migration.waitingTasks', { count: migration.agents_busy })}
                   {migration.drain_deadline
-                    ? ` — earliest lock ${new Date(migration.drain_deadline).toLocaleTimeString()}`
+                    ? t('networkShare.migration.earliestLock', {
+                        time: new Date(migration.drain_deadline).toLocaleTimeString(),
+                      })
                     : ''}
                 </Typography>
               </>
@@ -448,8 +487,12 @@ const NetworkShareSettings: React.FC = () => {
                   }
                 />
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  {migration.files_done}/{migration.files_total} files · {formatBytes(migration.bytes_done)} /{' '}
-                  {formatBytes(migration.bytes_total)}
+                  {t('networkShare.migration.filesProgress', {
+                    done: migration.files_done,
+                    total: migration.files_total,
+                    bytesDone: formatBytes(migration.bytes_done),
+                    bytesTotal: formatBytes(migration.bytes_total),
+                  })}
                   {migration.throughput_mbps > 0 ? ` · ${migration.throughput_mbps.toFixed(1)} MB/s` : ''}
                   {migration.current_file ? ` · ${migration.current_file}` : ''}
                 </Typography>
@@ -463,22 +506,20 @@ const NetworkShareSettings: React.FC = () => {
                 onClick={handleCancelMigration}
                 disabled={canceling}
               >
-                {canceling ? 'Canceling…' : 'Abort migration'}
+                {canceling ? t('networkShare.migration.canceling') : t('networkShare.migration.abort')}
               </Button>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                Stops the migration at its next checkpoint (useful if the share is slow or hung).
-                Storage is left on its current backend and dispatch resumes; already-copied files
-                remain and are reused if you retry.
+                {t('networkShare.migration.abortHelp')}
               </Typography>
             </Box>
           </Box>
         ) : (
           <Stack spacing={2}>
             {migration?.phase === 'completed' && (
-              <Alert severity="success">{migration.message || 'Migration complete.'}</Alert>
+              <Alert severity="success">{migration.message || t('networkShare.migration.complete')}</Alert>
             )}
             {migration?.phase === 'failed' && (
-              <Alert severity="error">{migration.error || migration.message || 'Migration failed.'}</Alert>
+              <Alert severity="error">{migration.error || migration.message || t('networkShare.migration.failed')}</Alert>
             )}
             <Box>
               <Button
@@ -488,12 +529,12 @@ const NetworkShareSettings: React.FC = () => {
                 disabled={starting || !config?.enabled || !health}
               >
                 {migrateDirection === 'to_share'
-                  ? 'Migrate wordlists & rules to the share'
-                  : 'Migrate back to local disk'}
+                  ? t('networkShare.migration.migrateToShare')
+                  : t('networkShare.migration.migrateToLocal')}
               </Button>
               {(!config?.enabled || !health) && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Enable the share and confirm it validates before migrating.
+                  {t('networkShare.migration.enableFirst')}
                 </Typography>
               )}
             </Box>
@@ -504,44 +545,41 @@ const NetworkShareSettings: React.FC = () => {
       {/* Section B: On-prem agent mount command — coordinate fields only */}
       <Paper variant="outlined" sx={{ p: 3, mt: 3 }}>
         <Typography variant="subtitle1" gutterBottom>
-          On-prem agent mount command (optional)
+          {t('networkShare.agent.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          These fields are used <b>only</b> to generate the mount command for on-prem agents set to the{' '}
-          <b>network_direct</b> tier. The server (above) and cloud GPU agents do <b>not</b> use them —
-          cloud agents download over the VPN. They are non-secret; credentials are never stored or
-          sent.
+          <Trans t={t} i18nKey="networkShare.agent.description" components={{ b: <b /> }} />
         </Typography>
 
         <Stack spacing={2} sx={{ maxWidth: 640 }}>
           <TextField
             select
-            label="Protocol"
+            label={t('networkShare.agent.protocol')}
             value={shareType}
             onChange={(e) => setShareType(e.target.value as 'smb' | 'nfs')}
             disabled={migrationInProgress}
-            helperText="SMB is the most portable across Windows/macOS/Linux agents; NFS works well over the VPN with a read-only export."
+            helperText={t('networkShare.agent.protocolHelp')}
           >
-            <MenuItem value="smb">SMB / CIFS</MenuItem>
-            <MenuItem value="nfs">NFS</MenuItem>
+            <MenuItem value="smb">{t('networkShare.agent.smb')}</MenuItem>
+            <MenuItem value="nfs">{t('networkShare.agent.nfs')}</MenuItem>
           </TextField>
           <TextField
-            label="Share host agents mount from (VPN address)"
+            label={t('networkShare.agent.host')}
             value={serverHost}
             onChange={(e) => setServerHost(e.target.value)}
             placeholder="10.8.0.1"
             disabled={migrationInProgress}
-            helperText="The share's address as agents reach it over the VPN — not a server setting (the server uses its mounted path above)."
+            helperText={t('networkShare.agent.hostHelp')}
           />
           <TextField
-            label={shareType === 'nfs' ? 'Export path' : 'Share name'}
+            label={shareType === 'nfs' ? t('networkShare.agent.exportPath') : t('networkShare.agent.shareName')}
             value={shareName}
             onChange={(e) => setShareName(e.target.value)}
             placeholder={shareType === 'nfs' ? '/export/krakenhashes' : 'krakenhashes'}
             disabled={migrationInProgress}
           />
           <TextField
-            label="Mount options (one key=value per line)"
+            label={t('networkShare.agent.mountOptions')}
             value={optionsText}
             onChange={(e) => setOptionsText(e.target.value)}
             multiline
@@ -552,8 +590,7 @@ const NetworkShareSettings: React.FC = () => {
         </Stack>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
-          Run this on the agent host, then set that agent's Storage tier to “Network direct” with the
-          mount path on its Agent page:
+          {t('networkShare.agent.runThis')}
         </Typography>
         <Box
           component="pre"
@@ -569,70 +606,58 @@ const NetworkShareSettings: React.FC = () => {
           {mountCommand}
         </Box>
         <Alert severity="warning" sx={{ mt: 2 }}>
-          Replace <code>&lt;MOUNT_PATH&gt;</code>
-          {shareType !== 'nfs' && (
-            <>
-              , <code>&lt;USERNAME&gt;</code> and <code>&lt;PASSWORD&gt;</code>
-            </>
-          )}{' '}
-          before running — the command still contains placeholders.
+          <Trans
+            t={t}
+            i18nKey={shareType !== 'nfs' ? 'networkShare.agent.replaceSmb' : 'networkShare.agent.replaceNfs'}
+            shouldUnescape
+            components={{ code: <code /> }}
+          />
         </Alert>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          The command includes <code>soft</code>
-          {shareType === 'nfs' && (
-            <>
-              , <code>timeo</code> and <code>retrans</code>
-            </>
-          )}{' '}
-          so the mount fails fast if the share is slow or drops, instead of hanging
-          (the kernel's <code>hard</code> default). This pairs with the agent's fail-closed
-          share check, which reroutes work when the mount isn't readable.{' '}
-          <b>network_direct</b> is for low-latency/LAN-adjacent shares — put remote or
-          high-latency shares on the <b>on_demand</b>/<b>full_cache</b> download tiers instead.
-          Override any option by setting it above.
+          <Trans
+            t={t}
+            i18nKey={shareType === 'nfs' ? 'networkShare.agent.softNfs' : 'networkShare.agent.softSmb'}
+            components={{ code: <code />, b: <b /> }}
+          />
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          macOS: use <code>mount_smbfs</code> (SMB) or <code>mount -t nfs</code> (NFS). Windows: use{' '}
-          <code>net use</code> against <code>\\{serverHost || '&lt;HOST&gt;'}\{shareName || '&lt;SHARE&gt;'}</code>. The agent only ever reads from the mount. These fields are saved with{' '}
-          <b>Save configuration</b> above.
+          <Trans
+            t={t}
+            i18nKey="networkShare.agent.otherOs"
+            shouldUnescape
+            values={{
+              uncPath: escapeForTrans(`\\\\${serverHost || '<HOST>'}\\${shareName || '<SHARE>'}`),
+            }}
+            components={{ code: <code />, b: <b /> }}
+          />
         </Typography>
       </Paper>
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-        <DialogTitle>Start data migration?</DialogTitle>
+        <DialogTitle>{t('networkShare.confirm.title')}</DialogTitle>
         <DialogContent>
           <DialogContentText component="div">
-            This will:
+            {t('networkShare.confirm.intro')}
             <ul>
-              <li>Stop dispatching new jobs and wait for running tasks to finish (up to ~12 minutes for agents to reconnect, longer if long jobs are running).</li>
-              <li>Freeze wordlist/rule uploads and serve a maintenance page while files are copied and checksum-verified.</li>
-              <li>Switch the active storage backend to{' '}
-                {migrateDirection === 'to_share' ? 'the network share' : 'local disk'} when finished.</li>
+              <li>{t('networkShare.confirm.step1')}</li>
+              <li>{t('networkShare.confirm.step2')}</li>
+              <li>
+                {migrateDirection === 'to_share'
+                  ? t('networkShare.confirm.step3ToShare')
+                  : t('networkShare.confirm.step3ToLocal')}
+              </li>
             </ul>
-            Paused jobs resume automatically afterward. If anything fails, storage is left unchanged
-            and the server stays operational.
+            {t('networkShare.confirm.outro')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setConfirmOpen(false)}>{t('networkShare.confirm.cancel')}</Button>
           <Button onClick={handleMigrate} variant="contained" color="warning">
-            Start migration
+            {t('networkShare.confirm.start')}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={5000}
-        onClose={() => setSnack(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {snack ? (
-          <Alert severity={snack.severity} onClose={() => setSnack(null)} sx={{ width: '100%' }}>
-            {snack.msg}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
     </Box>
   );
 };

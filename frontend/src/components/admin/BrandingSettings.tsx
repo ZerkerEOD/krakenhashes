@@ -1,30 +1,16 @@
 /**
- * BrandingSettings — Admin → Settings → System Settings → Branding (GitHub issue #41).
+ * BrandingSettings — Admin → Settings → General → Branding (GitHub issue #41).
  *
  * Application name, page title, primary / secondary accent colours and the
- * logo / favicon uploads. The "powered by KrakenHashes" attribution is enforced
- * by the backend and only displayed here; it cannot be edited.
+ * logo / favicon uploads. Text and colour fields autosave individually by
+ * merging into the last loaded settings. The "powered by KrakenHashes"
+ * attribution is enforced by the backend and only displayed here.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Grid,
-  IconButton,
-  InputAdornment,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import React, { useRef, useState } from 'react';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Grid, Typography } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ClearIcon from '@mui/icons-material/Clear';
-import SaveIcon from '@mui/icons-material/Save';
-import { useSnackbar } from 'notistack';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   AdminBranding,
@@ -36,75 +22,38 @@ import {
   uploadBrandingAsset,
 } from '../../services/branding';
 import { useBranding } from '../../contexts/BrandingContext';
-import { DEFAULT_PRIMARY, isHexColor } from '../../styles/theme';
+import { DEFAULT_PRIMARY, DEFAULT_SECONDARY } from '../../styles/tokens';
+import GroupSettingsProvider from '../settings/GroupSettingsProvider';
+import { ColorSetting, Panel, TextSetting, useSettingsCtx } from '../settings/fields';
+import { useToast } from '../ui/toast';
+import { getErrorMessage } from '../../utils/errors';
+import { qk } from '../../services/queryKeys';
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 const FAVICON_MAX_BYTES = 512 * 1024;
 
-const EMPTY_INPUT: BrandingSettingsInput = {
-  app_name: '',
-  page_title: '',
-  primary_color: '',
-  secondary_color: '',
-};
-
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
 
-const errorMessage = (error: unknown, fallback: string): string => {
-  const data = (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data;
-  return data?.error || data?.message || fallback;
+type BrandingGroup = {
+  app_name: string;
+  page_title: string;
+  primary_color: string;
+  secondary_color: string;
+  /** Effective (resolved) asset URLs; no field binds to this. */
+  _effective: AdminBranding['effective'];
 };
 
-interface ColorFieldProps {
-  label: string;
-  value: string;
-  fallback: string;
-  helper: string;
-  onChange: (value: string) => void;
-}
+const QUERY_KEY = qk.admin.group('branding');
 
-/** Text field with a native colour swatch and a clear button. */
-const ColorField: React.FC<ColorFieldProps> = ({ label, value, fallback, helper, onChange }) => {
-  const invalid = value !== '' && !isHexColor(value);
-  return (
-    <TextField
-      fullWidth
-      label={label}
-      value={value}
-      placeholder={fallback}
-      onChange={(e) => onChange(e.target.value.trim())}
-      error={invalid}
-      helperText={invalid ? helper : undefined}
-      inputProps={{ maxLength: 7, spellCheck: false }}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <input
-              type="color"
-              aria-label={label}
-              value={isHexColor(value) ? value : fallback}
-              onChange={(e) => onChange(e.target.value)}
-              style={{
-                width: 28,
-                height: 28,
-                padding: 0,
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-              }}
-            />
-          </InputAdornment>
-        ),
-        endAdornment: value ? (
-          <InputAdornment position="end">
-            <IconButton size="small" aria-label="clear" onClick={() => onChange('')}>
-              <ClearIcon fontSize="small" />
-            </IconButton>
-          </InputAdornment>
-        ) : undefined,
-      }}
-    />
-  );
+const loadBranding = async (): Promise<BrandingGroup> => {
+  const admin = await getBrandingSettings();
+  return {
+    app_name: admin.settings.app_name ?? '',
+    page_title: admin.settings.page_title ?? '',
+    primary_color: admin.settings.primary_color ?? '',
+    secondary_color: admin.settings.secondary_color ?? '',
+    _effective: admin.effective,
+  };
 };
 
 interface AssetCardProps {
@@ -125,14 +74,14 @@ const AssetCard: React.FC<AssetCardProps> = ({
   kind, title, hint, currentUrl, fallbackUrl, accept, maxBytes, busy, onUpload, onRemove, t,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
     if (file.size > maxBytes) {
-      enqueueSnackbar(t('branding.errors.tooLarge', { max: Math.round(maxBytes / 1024) }), { variant: 'error' });
+      toast.error(t('branding.errors.tooLarge', { max: Math.round(maxBytes / 1024) }));
       return;
     }
     onUpload(file);
@@ -151,7 +100,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
             mb: 2,
             p: 1,
             borderRadius: 1,
-            bgcolor: 'background.default',
+            bgcolor: 'surface.sunken',
             border: '1px dashed',
             borderColor: 'divider',
           }}
@@ -184,79 +133,75 @@ const AssetCard: React.FC<AssetCardProps> = ({
   );
 };
 
+/** Name, title and colours; reads the live drafts so the title preview tracks typing. */
+const IdentityFields: React.FC<{ t: Translate }> = ({ t }) => {
+  const { values } = useSettingsCtx();
+  const { branding } = useBranding();
+  const previewName = (values.app_name ?? '').trim() || 'KrakenHashes';
+  const previewBase = (values.page_title ?? '').trim() || previewName;
+  // Mirrors branding.ComposePageTitle on the server; the attribution text itself
+  // is server-supplied (not translatable) so the preview matches what is enforced.
+  const previewTitle =
+    previewBase.toLowerCase() === 'krakenhashes' ? 'KrakenHashes' : `${previewBase} · ${branding.powered_by}`;
+
+  return (
+    <Panel title={t('branding.identity')} caption={t('branding.colorHint')}>
+      <Grid item xs={12} md={6}>
+        <TextSetting settingKey="app_name" label={t('branding.appName')} placeholder="KrakenHashes" maxLength={64} helper={t('branding.appNameHelper')} />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <TextSetting
+          settingKey="page_title"
+          label={t('branding.pageTitle')}
+          placeholder={previewName}
+          maxLength={120}
+          helper={t('branding.pageTitleHelper', { title: previewTitle })}
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <ColorSetting settingKey="primary_color" label={t('branding.primaryColor')} fallback={DEFAULT_PRIMARY} helper={t('branding.errors.invalidHex')} />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <ColorSetting settingKey="secondary_color" label={t('branding.secondaryColor')} fallback={DEFAULT_SECONDARY} helper={t('branding.errors.invalidHex')} />
+      </Grid>
+    </Panel>
+  );
+};
+
 const BrandingSettings: React.FC = () => {
   const { t } = useTranslation('admin');
-  const tr = useCallback<Translate>((key, opts) => t(key, opts) as string, [t]);
-  const { enqueueSnackbar } = useSnackbar();
-  const { branding, refresh } = useBranding();
-
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const tr: Translate = (key, opts) => t(key, opts) as string;
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { refresh } = useBranding();
   const [busyAsset, setBusyAsset] = useState<BrandingAssetKind | null>(null);
-  const [form, setForm] = useState<BrandingSettingsInput>(EMPTY_INPUT);
-  const [state, setState] = useState<AdminBranding | null>(null);
 
-  /** Replace everything, including the form (after load or a text-settings save). */
-  const apply = useCallback((next: AdminBranding) => {
-    setState(next);
-    setForm({ ...EMPTY_INPUT, ...next.settings });
-  }, []);
+  const saveField = async (key: keyof BrandingGroup & string, value: BrandingGroup[keyof BrandingGroup], current: BrandingGroup) => {
+    if (key === '_effective') return;
+    const input: BrandingSettingsInput = {
+      app_name: current.app_name,
+      page_title: current.page_title,
+      primary_color: current.primary_color,
+      secondary_color: current.secondary_color,
+      [key]: value,
+    };
+    await updateBrandingSettings(input);
+    await refresh();
+  };
 
-  /** Asset uploads/removals must not discard unsaved name/colour edits. */
-  const applyAssets = useCallback((next: AdminBranding) => {
-    setState(next);
-  }, []);
-
-  const load = useCallback(async () => {
-    try {
-      apply(await getBrandingSettings());
-    } catch (error) {
-      console.error('Failed to load branding settings:', error);
-      enqueueSnackbar(tr('branding.errors.loadFailed'), { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [apply, enqueueSnackbar, tr]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const colorsValid =
-    (form.primary_color === '' || isHexColor(form.primary_color)) &&
-    (form.secondary_color === '' || isHexColor(form.secondary_color));
-
-  const dirty =
-    state !== null &&
-    (form.app_name !== state.settings.app_name ||
-      form.page_title !== state.settings.page_title ||
-      form.primary_color !== state.settings.primary_color ||
-      form.secondary_color !== state.settings.secondary_color);
-
-  const handleSave = async () => {
-    if (!colorsValid) return;
-    setSaving(true);
-    try {
-      apply(await updateBrandingSettings(form));
-      await refresh();
-      enqueueSnackbar(tr('branding.messages.saved'), { variant: 'success' });
-    } catch (error) {
-      console.error('Failed to save branding settings:', error);
-      enqueueSnackbar(errorMessage(error, tr('branding.errors.saveFailed')), { variant: 'error' });
-    } finally {
-      setSaving(false);
-    }
+  const afterAssetChange = async () => {
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    await refresh();
   };
 
   const handleUpload = (kind: BrandingAssetKind) => async (file: File) => {
     setBusyAsset(kind);
     try {
-      applyAssets(await uploadBrandingAsset(kind, file));
-      await refresh();
-      enqueueSnackbar(tr('branding.messages.uploaded'), { variant: 'success' });
+      await uploadBrandingAsset(kind, file);
+      await afterAssetChange();
+      toast.success(tr('branding.messages.uploaded'));
     } catch (error) {
-      console.error(`Failed to upload branding ${kind}:`, error);
-      enqueueSnackbar(errorMessage(error, tr('branding.errors.uploadFailed')), { variant: 'error' });
+      toast.error(getErrorMessage(error) || tr('branding.errors.uploadFailed'));
     } finally {
       setBusyAsset(null);
     }
@@ -265,139 +210,60 @@ const BrandingSettings: React.FC = () => {
   const handleRemove = (kind: BrandingAssetKind) => async () => {
     setBusyAsset(kind);
     try {
-      applyAssets(await deleteBrandingAsset(kind));
-      await refresh();
-      enqueueSnackbar(tr('branding.messages.removed'), { variant: 'success' });
+      await deleteBrandingAsset(kind);
+      await afterAssetChange();
+      toast.success(tr('branding.messages.removed'));
     } catch (error) {
-      console.error(`Failed to remove branding ${kind}:`, error);
-      enqueueSnackbar(errorMessage(error, tr('branding.errors.removeFailed')), { variant: 'error' });
+      toast.error(getErrorMessage(error) || tr('branding.errors.removeFailed'));
     } finally {
       setBusyAsset(null);
     }
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  const effective = state?.effective;
-  const previewName = form.app_name.trim() || 'KrakenHashes';
-  const previewBase = form.page_title.trim() || previewName;
-  // Mirrors branding.ComposePageTitle on the server; the attribution text itself
-  // is server-supplied (not translatable) so the preview matches what is enforced.
-  const previewTitle =
-    previewBase.toLowerCase() === 'krakenhashes' ? 'KrakenHashes' : `${previewBase} · ${branding.powered_by}`;
-
   return (
-    <Box>
-      <Typography variant="h6" gutterBottom>{tr('branding.title')}</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {tr('branding.description')}
-      </Typography>
-      <Alert severity="info" sx={{ mb: 3 }}>{tr('branding.attributionNote')}</Alert>
-
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="subtitle1" gutterBottom>{tr('branding.identity')}</Typography>
-          <Grid container spacing={2}>
+    <GroupSettingsProvider<BrandingGroup>
+      queryKey={QUERY_KEY}
+      load={loadBranding}
+      saveField={saveField}
+      render={(data) => (
+        <Box>
+          <Alert severity="info" sx={{ mb: 3 }}>{tr('branding.attributionNote')}</Alert>
+          <Grid container spacing={3}>
+            <IdentityFields t={tr} />
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label={tr('branding.appName')}
-                value={form.app_name}
-                placeholder="KrakenHashes"
-                inputProps={{ maxLength: 64 }}
-                helperText={tr('branding.appNameHelper')}
-                onChange={(e) => setForm({ ...form, app_name: e.target.value })}
+              <AssetCard
+                kind="logo"
+                title={tr('branding.logo')}
+                hint={tr('branding.logoHint')}
+                currentUrl={data._effective?.logo_url ?? null}
+                fallbackUrl="/logo.png"
+                accept="image/png,image/jpeg"
+                maxBytes={LOGO_MAX_BYTES}
+                busy={busyAsset === 'logo'}
+                onUpload={handleUpload('logo')}
+                onRemove={handleRemove('logo')}
+                t={tr}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label={tr('branding.pageTitle')}
-                value={form.page_title}
-                placeholder={previewName}
-                inputProps={{ maxLength: 120 }}
-                helperText={tr('branding.pageTitleHelper', { title: previewTitle })}
-                onChange={(e) => setForm({ ...form, page_title: e.target.value })}
+              <AssetCard
+                kind="favicon"
+                title={tr('branding.favicon')}
+                hint={tr('branding.faviconHint')}
+                currentUrl={data._effective?.favicon_url ?? null}
+                fallbackUrl="/favicon-32x32.png"
+                accept="image/png,image/x-icon,image/vnd.microsoft.icon,.ico"
+                maxBytes={FAVICON_MAX_BYTES}
+                busy={busyAsset === 'favicon'}
+                onUpload={handleUpload('favicon')}
+                onRemove={handleRemove('favicon')}
+                t={tr}
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <ColorField
-                label={tr('branding.primaryColor')}
-                value={form.primary_color}
-                fallback={DEFAULT_PRIMARY}
-                helper={tr('branding.errors.invalidHex')}
-                onChange={(v) => setForm({ ...form, primary_color: v })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <ColorField
-                label={tr('branding.secondaryColor')}
-                value={form.secondary_color}
-                fallback="#9c27b0"
-                helper={tr('branding.errors.invalidHex')}
-                onChange={(v) => setForm({ ...form, secondary_color: v })}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="caption" color="text.secondary">{tr('branding.colorHint')}</Typography>
             </Grid>
           </Grid>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-            <Tooltip title={!colorsValid ? tr('branding.errors.invalidHex') : ''}>
-              <span>
-                <Button
-                  variant="contained"
-                  startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
-                  disabled={saving || !dirty || !colorsValid}
-                  onClick={handleSave}
-                >
-                  {tr('branding.save')}
-                </Button>
-              </span>
-            </Tooltip>
-          </Box>
-        </CardContent>
-      </Card>
-
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <AssetCard
-            kind="logo"
-            title={tr('branding.logo')}
-            hint={tr('branding.logoHint')}
-            currentUrl={effective?.logo_url ?? null}
-            fallbackUrl="/logo.png"
-            accept="image/png,image/jpeg"
-            maxBytes={LOGO_MAX_BYTES}
-            busy={busyAsset === 'logo'}
-            onUpload={handleUpload('logo')}
-            onRemove={handleRemove('logo')}
-            t={tr}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <AssetCard
-            kind="favicon"
-            title={tr('branding.favicon')}
-            hint={tr('branding.faviconHint')}
-            currentUrl={effective?.favicon_url ?? null}
-            fallbackUrl="/favicon-32x32.png"
-            accept="image/png,image/x-icon,image/vnd.microsoft.icon,.ico"
-            maxBytes={FAVICON_MAX_BYTES}
-            busy={busyAsset === 'favicon'}
-            onUpload={handleUpload('favicon')}
-            onRemove={handleRemove('favicon')}
-            t={tr}
-          />
-        </Grid>
-      </Grid>
-    </Box>
+        </Box>
+      )}
+    />
   );
 };
 

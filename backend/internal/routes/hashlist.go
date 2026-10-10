@@ -250,6 +250,7 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	clientRouter.HandleFunc("/bulk-assign-team", clientHandler.BulkAssignTeam).Methods(http.MethodPost)
 	clientRouter.HandleFunc("", clientHandler.CreateClient).Methods(http.MethodPost)
 	clientRouter.HandleFunc("/{id:[0-9a-fA-F-]+}", clientHandler.GetClient).Methods(http.MethodGet)
+	clientRouter.HandleFunc("/{id:[0-9a-fA-F-]+}/overview", clientHandler.GetClientOverview).Methods(http.MethodGet)
 	clientRouter.HandleFunc("/{id:[0-9a-fA-F-]+}", clientHandler.UpdateClient).Methods(http.MethodPut)
 	clientRouter.HandleFunc("/{id:[0-9a-fA-F-]+}", clientHandler.DeleteClient).Methods(http.MethodDelete)
 
@@ -978,16 +979,26 @@ func (h *hashlistHandler) handleListHashlists(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	// Apply team filter when teams are enabled and user is not admin
-	// Strict team boundaries: only show hashlists whose client is in the user's teams
-	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
-		params.TeamsEnabled = true
-		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
-		if teamIDs != nil {
-			params.TeamIDs = teamIDs
+	// Strict team boundaries when teams are enabled: only hashlists whose client
+	// is in the caller's teams. ?team_id= narrows to one team (admin or member;
+	// otherwise ignored). Admins see everything unless they pass ?scope=teams.
+	// A nil TeamIDs with TeamsEnabled → ListWithTeamFilter returns empty (fail-closed).
+	if middleware.IsTeamsEnabledFromContext(ctx) {
+		isAdmin := middleware.IsAdminFromContext(ctx)
+		var selected []uuid.UUID
+		if param := queryVals.Get("team_id"); param != "" {
+			if teamID, err := uuid.Parse(param); err == nil && (isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID)) {
+				selected = []uuid.UUID{teamID}
+			}
 		}
-		// If teamIDs is nil (middleware error), TeamsEnabled is still true
-		// → ListWithTeamFilter returns empty (fail-closed)
+		switch {
+		case selected != nil:
+			params.TeamsEnabled = true
+			params.TeamIDs = selected
+		case !isAdmin || queryVals.Get("scope") == "teams":
+			params.TeamsEnabled = true
+			params.TeamIDs = middleware.GetUserTeamIDsFromContext(ctx)
+		}
 	}
 
 	// Fetch data from repository using team-aware query

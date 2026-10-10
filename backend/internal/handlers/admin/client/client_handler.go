@@ -250,6 +250,56 @@ func (h *ClientHandler) GetClient(w http.ResponseWriter, r *http.Request) {
 	httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{"data": client})
 }
 
+// ClientOverviewResponse is GET /clients/{id}/overview: the client plus the
+// aggregate numbers the detail page shows above its tables.
+type ClientOverviewResponse struct {
+	Client *models.Client                 `json:"client"`
+	Teams  []models.Team                  `json:"teams"`
+	Stats  repository.ClientOverviewStats `json:"stats"`
+}
+
+// GetClientOverview returns a client with its teams and summary statistics.
+// Access is gated exactly like GetClient (404 for clients outside the caller's teams).
+func (h *ClientHandler) GetClientOverview(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	clientID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid client ID format")
+		return
+	}
+	if status, msg := h.checkClientAccess(ctx, clientID); status != 0 {
+		httputil.RespondWithError(w, status, msg)
+		return
+	}
+	client, err := h.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			httputil.RespondWithError(w, http.StatusNotFound, "Client not found")
+		} else {
+			debug.Error("Failed to get client %s: %v", clientID, err)
+			httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve client")
+		}
+		return
+	}
+	stats, err := h.clientRepo.GetOverviewStats(ctx, clientID)
+	if err != nil {
+		debug.Error("Failed to get client overview stats %s: %v", clientID, err)
+		httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve client statistics")
+		return
+	}
+	teams := []models.Team{}
+	if h.clientTeamRepo != nil {
+		if list, terr := h.clientTeamRepo.GetTeamsForClient(ctx, clientID); terr == nil && list != nil {
+			teams = list
+		} else if terr != nil {
+			debug.Warning("Failed to get teams for client %s: %v", clientID, terr)
+		}
+	}
+	httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"data": ClientOverviewResponse{Client: client, Teams: teams, Stats: stats},
+	})
+}
+
 // UpdateClient godoc
 // @Summary Update an existing client
 // @Description Modifies details of an existing client.

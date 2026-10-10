@@ -1,24 +1,14 @@
-import React, { useState } from 'react';
-import {
-  Box,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Typography,
-  LinearProgress,
-  Chip,
-  TablePagination,
-  CircularProgress,
-  Alert,
-} from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { Box, LinearProgress, Typography } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
-import { useNavigate } from 'react-router-dom';
+import { viewParams, DashboardView } from '../../services/dashboard';
+import { qk } from '../../services/queryKeys';
+import { useLiveQuery } from '../../hooks/useLiveQuery';
+import { ROUTES } from '../../constants/routes';
+import { DataTable, EntityLink, SectionCard, StatusChip, readTablePrefs } from '../ui';
 
 interface Hashlist {
   id: string;
@@ -38,187 +28,135 @@ interface UserHashlistsResponse {
   offset: number;
 }
 
-export default function HashlistOverview() {
+export interface HashlistOverviewProps {
+  /** Dashboard view: `mine` lists the user's own hashlists, `teams`/`all` the team-scoped list. */
+  view?: DashboardView;
+  /** The app-bar team (sent as `team_id` for mine/teams). */
+  teamId?: string | null;
+}
+
+const TABLE_KEY = 'dashboard.hashlists';
+const PAGE_SIZES = [5, 10, 25];
+
+const crackPercentage = (h: Hashlist) => (h.total_hashes > 0 ? Math.round((h.cracked_hashes / h.total_hashes) * 100) : 0);
+
+/** Dashboard widget: hashlists in the selected view with crack progress (server-paginated). */
+export default function HashlistOverview({ view = 'mine', teamId }: HashlistOverviewProps = {}) {
   const { t } = useTranslation('dashboard');
-  const navigate = useNavigate();
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const { data: response, isLoading, error } = useQuery<UserHashlistsResponse>({
-    queryKey: ['userHashlists', page, rowsPerPage],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        limit: rowsPerPage.toString(),
-        offset: (page * rowsPerPage).toString(),
-      });
-      const res = await api.get<UserHashlistsResponse>(`/api/user/hashlists?${params}`);
-      return res.data;
-    },
-    refetchInterval: 5000, // Auto-refresh every 5 seconds like the jobs table
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = readTablePrefs(TABLE_KEY).pageSize;
+    return saved && PAGE_SIZES.includes(saved) ? saved : PAGE_SIZES[0];
   });
+  useEffect(() => setPage(0), [view, teamId]);
 
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
+  const query = useLiveQuery<UserHashlistsResponse>(
+    {
+      queryKey: qk.dashboard.hashlists(view, { teamId: teamId ?? '', page, pageSize }),
+      queryFn: async () => {
+        const params: Record<string, string | number> = { ...viewParams(view, teamId), limit: pageSize, offset: page * pageSize };
+        // Mine = hashlists I uploaded; teams/all = the team-scoped hashlist list.
+        const url = view === 'mine' ? '/api/user/hashlists' : '/api/hashlists';
+        const res = await api.get<UserHashlistsResponse>(url, { params });
+        return res.data;
+      },
+      placeholderData: keepPreviousData,
+    },
+    { tier: 'fast' }
+  );
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  const hashlists = query.data?.data || [];
+  const totalCount = query.data?.total_count || 0;
 
-  const crackPercentage = (hashlist: Hashlist) => {
-    return hashlist.total_hashes > 0 
-      ? Math.round((hashlist.cracked_hashes / hashlist.total_hashes) * 100)
-      : 0;
-  };
-
-  if (isLoading) {
-    return (
-      <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <Typography variant="h6" gutterBottom>
-          {t('hashlistOverview.title')}
-        </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
-          <CircularProgress />
-        </Box>
-      </Paper>
-    );
-  }
-
-  if (error) {
-    return (
-      <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" gutterBottom>
-          {t('hashlistOverview.title')}
-        </Typography>
-        <Alert severity="error">
-          {t('hashlistOverview.loadError')}
-        </Alert>
-      </Paper>
-    );
-  }
-
-  const hashlists = response?.data || [];
-  const totalCount = response?.total_count || 0;
+  const columns = useMemo<GridColDef<Hashlist>[]>(
+    () => [
+      {
+        field: 'name',
+        headerName: t('hashlistOverview.columns.name') as string,
+        flex: 1.4,
+        minWidth: 160,
+        renderCell: (p) => <EntityLink type="hashlist" id={p.row.id} label={p.row.name} />,
+      },
+      {
+        field: 'clientName',
+        headerName: t('hashlistOverview.columns.client') as string,
+        flex: 1,
+        minWidth: 120,
+        renderCell: (p) =>
+          p.row.client_id && p.row.clientName ? (
+            <EntityLink type="client" id={p.row.client_id} label={p.row.clientName} />
+          ) : (
+            p.row.clientName || '-'
+          ),
+      },
+      {
+        field: 'status',
+        headerName: t('hashlistOverview.columns.status') as string,
+        width: 120,
+        renderCell: (p) => (
+          <StatusChip entity="hashlist" status={p.row.status} label={t(`hashlistOverview.status.${p.row.status}`) as string} />
+        ),
+      },
+      {
+        field: 'total_hashes',
+        headerName: t('hashlistOverview.columns.total') as string,
+        type: 'number',
+        width: 110,
+        valueFormatter: (v: number) => (v ?? 0).toLocaleString(),
+      },
+      {
+        field: 'cracked_hashes',
+        headerName: t('hashlistOverview.columns.cracked') as string,
+        type: 'number',
+        width: 110,
+        renderCell: (p) => <EntityLink type="pot_hashlist" id={p.row.id} label={(p.row.cracked_hashes ?? 0).toLocaleString()} />,
+      },
+      {
+        field: 'progress',
+        headerName: t('hashlistOverview.columns.progress') as string,
+        width: 160,
+        renderCell: (p) => {
+          const pct = crackPercentage(p.row);
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+              <LinearProgress variant="determinate" value={pct} sx={{ flexGrow: 1, height: 6, borderRadius: 3 }} />
+              <Typography variant="caption" sx={{ minWidth: 35 }}>
+                {pct}%
+              </Typography>
+            </Box>
+          );
+        },
+      },
+    ],
+    [t]
+  );
 
   return (
-    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h6" gutterBottom>
-        {t('hashlistOverview.title')}
-      </Typography>
-      
-      {hashlists.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          {t('hashlistOverview.noHashlists')}
-        </Typography>
-      ) : (
-        <>
-          <TableContainer sx={{ flexGrow: 1 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('hashlistOverview.columns.name')}</TableCell>
-                  <TableCell>{t('hashlistOverview.columns.client')}</TableCell>
-                  <TableCell>{t('hashlistOverview.columns.status')}</TableCell>
-                  <TableCell align="right">{t('hashlistOverview.columns.total')}</TableCell>
-                  <TableCell align="right">{t('hashlistOverview.columns.cracked')}</TableCell>
-                  <TableCell>{t('hashlistOverview.columns.progress')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {hashlists.map((hashlist) => (
-                  <TableRow key={hashlist.id}>
-                    <TableCell>
-                      <Typography
-                        component="span"
-                        sx={{
-                          cursor: 'pointer',
-                          color: 'primary.main',
-                          '&:hover': {
-                            textDecoration: 'underline'
-                          }
-                        }}
-                        onClick={() => navigate(`/hashlists/${hashlist.id}`)}
-                      >
-                        {hashlist.name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {hashlist.client_id && hashlist.clientName ? (
-                        <Typography
-                          component="span"
-                          sx={{
-                            cursor: 'pointer',
-                            color: 'primary.main',
-                            '&:hover': {
-                              textDecoration: 'underline'
-                            }
-                          }}
-                          onClick={() => navigate(`/pot/client/${hashlist.client_id}`)}
-                        >
-                          {hashlist.clientName}
-                        </Typography>
-                      ) : (
-                        hashlist.clientName || '-'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={t(`hashlistOverview.status.${hashlist.status}`)}
-                        size="small"
-                        color={
-                          hashlist.status === 'ready' ? 'success' :
-                          hashlist.status === 'error' ? 'error' :
-                          'primary'
-                        }
-                      />
-                    </TableCell>
-                    <TableCell align="right">{hashlist.total_hashes.toLocaleString()}</TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        component="span"
-                        sx={{
-                          cursor: 'pointer',
-                          color: 'primary.main',
-                          '&:hover': {
-                            textDecoration: 'underline'
-                          }
-                        }}
-                        onClick={() => navigate(`/pot/hashlist/${hashlist.id}`)}
-                      >
-                        {hashlist.cracked_hashes.toLocaleString()}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={crackPercentage(hashlist)} 
-                          sx={{ flexGrow: 1, height: 6 }}
-                        />
-                        <Typography variant="caption" sx={{ minWidth: 35 }}>
-                          {crackPercentage(hashlist)}%
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          
-          <TablePagination
-            component="div"
-            count={totalCount}
-            page={page}
-            onPageChange={handleChangePage}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={[5, 10, 25]}
-            labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
-          />
-        </>
-      )}
-    </Paper>
+    <SectionCard title={t('hashlistOverview.title')} flush>
+      <DataTable<Hashlist>
+        flat
+        rows={hashlists}
+        columns={columns}
+        loading={query.isLoading}
+        fetching={query.isFetching && !query.isLoading}
+        error={query.error ? (t('hashlistOverview.loadError') as string) : undefined}
+        onRetry={() => void query.refetch()}
+        pagination={{
+          mode: 'server',
+          page,
+          pageSize,
+          rowCount: totalCount,
+          pageSizeOptions: PAGE_SIZES,
+          onChange: (m) => {
+            setPage(m.pageSize !== pageSize ? 0 : m.page);
+            setPageSize(m.pageSize);
+          },
+        }}
+        tableKey={TABLE_KEY}
+        sorting={false}
+        rowLinkTo={(row) => ROUTES.hashlist(row.id)}
+        emptyState={{ title: t('hashlistOverview.noHashlists') as string }}
+      />
+    </SectionCard>
   );
 }

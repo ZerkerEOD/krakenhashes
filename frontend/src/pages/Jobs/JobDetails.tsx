@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -6,13 +6,6 @@ import {
   Typography,
   Paper,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
   Chip,
   CircularProgress,
   Alert,
@@ -20,13 +13,13 @@ import {
   Skeleton,
   TextField,
   IconButton,
-  Link,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import {
   ArrowBack,
   Edit as EditIcon,
@@ -36,21 +29,44 @@ import {
   CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { getJobDetails, getJobLayers, api } from '../../services/api';
-import { JobDetailsResponse, JobTask, JobIncrementLayerWithStats } from '../../types/jobs';
+import { JobDetailsResponse, JobTask, JobIncrementLayerWithStats, EntityRef, UserRef } from '../../types/jobs';
+import { DataTable, EntityLink, PageHeader, SimpleTable, StatusChip, useToast, useConfirm } from '../../components/ui';
+import { useLiveQuery } from '../../hooks/useLiveQuery';
+import { qk } from '../../services/queryKeys';
 import JobProgressBar from '../../components/JobProgressBar';
 import BenchmarkBlocklistPanel from '../../components/jobs/BenchmarkBlocklistPanel';
 import CloudProjectionDialog from '../../components/jobs/CloudProjectionDialog';
-import { useSnackbar } from 'notistack';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
 import { provisionInstanceForJob } from '../../services/cloud';
+
+/** Task as returned on the job detail payload (agent_name joined server-side). */
+type TaskRow = JobTask & { agent_name?: string };
+
+/** Job detail payload plus the entity references the backend now joins in. */
+type JobDetailsData = Omit<JobDetailsResponse, 'tasks'> & {
+  tasks: TaskRow[];
+  client?: EntityRef | null;
+  preset_job?: EntityRef | null;
+  workflow?: EntityRef | null;
+  created_by?: UserRef | null;
+};
+
+interface InfoRow {
+  key: string;
+  label: React.ReactNode;
+  value: React.ReactNode;
+  mono?: boolean;
+}
+
+const ACTIVE_JOB_STATUSES = ['pending', 'running', 'paused'];
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 const JobDetails: React.FC = () => {
   const { t } = useTranslation('jobs');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
-  
-  const [jobData, setJobData] = useState<JobDetailsResponse | null>(null);
+  const toast = useToast();
+  const confirm = useConfirm();
   const [projectionOpen, setProjectionOpen] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
 
@@ -62,22 +78,23 @@ const JobDetails: React.FC = () => {
    */
   const handleProvisionNow = async () => {
     if (!id) return;
-    if (!window.confirm(t('cloud.cloudBurst.provisionConfirm') as string)) return;
+    const ok = await confirm({
+      title: t('cloud.cloudBurst.provisionNow') as string,
+      message: t('cloud.cloudBurst.provisionConfirm') as string,
+      confirmLabel: t('cloud.cloudBurst.provisionNow') as string,
+    });
+    if (!ok) return;
     setProvisioning(true);
     try {
       await provisionInstanceForJob(id);
-      enqueueSnackbar(t('cloud.cloudBurst.provisionRequested') as string, { variant: 'success' });
+      toast.success(t('cloud.cloudBurst.provisionRequested') as string);
     } catch (err: any) {
-      enqueueSnackbar(
-        err?.response?.data?.error || (t('cloud.cloudBurst.provisionFailed') as string),
-        { variant: 'error' }
-      );
+      toast.error(err?.response?.data?.error || (t('cloud.cloudBurst.provisionFailed') as string));
     } finally {
       setProvisioning(false);
     }
   };
-  const [layers, setLayers] = useState<JobIncrementLayerWithStats[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Action errors (save failures); load errors come from the query below.
   const [error, setError] = useState<string | null>(null);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [maxPriority, setMaxPriority] = useState<number>(1000); // Default to 1000
@@ -95,76 +112,46 @@ const JobDetails: React.FC = () => {
   const [forceCompleteDialogOpen, setForceCompleteDialogOpen] = useState(false);
   const [forceCompleting, setForceCompleting] = useState(false);
 
-  // Completed tasks pagination state
-  const [completedTasksPage, setCompletedTasksPage] = useState(0);
-  const [completedTasksPageSize, setCompletedTasksPageSize] = useState(25);
-  
-  // Refs to track current state for polling
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const currentStatusRef = useRef<string>('');
-  const isEditingRef = useRef<boolean>(false);
+  const isEditing = editingPriority || editingMaxAgents || editingChunkSize;
 
-  // Update editing ref when editing state changes
-  useEffect(() => {
-    isEditingRef.current = editingPriority || editingMaxAgents || editingChunkSize;
-  }, [editingPriority, editingMaxAgents, editingChunkSize]);
-  
-  // Update status ref when job data changes
-  useEffect(() => {
-    if (jobData) {
-      currentStatusRef.current = jobData.status;
-    }
-  }, [jobData?.status]);
-  
-  // Fetch job details
-  const fetchJobDetails = useCallback(async () => {
-    if (!id) return;
-
-    // Don't fetch if user is editing
-    if (isEditingRef.current) {
-      return;
-    }
-
-    try {
-      const data = await getJobDetails(id);
-      console.log('[JobDetails] Job data received:', {
-        id: data.id,
-        increment_mode: data.increment_mode,
-        has_increment_mode: !!(data.increment_mode && data.increment_mode !== 'off')
-      });
-      setJobData(data);
-
-      // Fetch layers if this is an increment mode job
-      if (data.increment_mode && data.increment_mode !== 'off') {
-        console.log('[JobDetails] Fetching layers for increment mode job');
-        try {
-          const layersData = await getJobLayers(id);
-          console.log('[JobDetails] Layers received:', layersData);
-          // Handle null/undefined response - always ensure layers is an array
-          setLayers(layersData || []);
-        } catch (layerErr) {
-          console.error('[JobDetails] Failed to fetch increment layers:', layerErr);
-          // Don't fail the whole page if layers fail to load
-          setLayers([]);
+  // Job details (+ increment layers). Polls at the `live` tier while the job is
+  // still active, auto-refresh is on and no inline editor is open.
+  const jobQuery = useLiveQuery<{ job: JobDetailsData; layers: JobIncrementLayerWithStats[] }>(
+    {
+      queryKey: [...qk.jobs.detail(id ?? ''), 'with-layers'],
+      queryFn: async () => {
+        const data: JobDetailsData = await getJobDetails(id as string);
+        let layersData: JobIncrementLayerWithStats[] = [];
+        if (data.increment_mode && data.increment_mode !== 'off') {
+          try {
+            // Handle null/undefined response - always ensure layers is an array
+            layersData = (await getJobLayers(id as string)) || [];
+          } catch (layerErr) {
+            // Don't fail the whole page if layers fail to load
+            console.error('[JobDetails] Failed to fetch increment layers:', layerErr);
+          }
         }
-      } else {
-        console.log('[JobDetails] Not an increment job, skipping layers');
-        setLayers([]);
-      }
-
-      setError(null);
-    } catch (err) {
-      console.error('Failed to fetch job details:', err);
-      setError(t('errors.loadDetailsFailed'));
-    } finally {
-      setLoading(false);
+        return { job: data, layers: layersData };
+      },
+      enabled: !!id,
+    },
+    {
+      tier: 'live',
+      enabled: autoRefreshEnabled && !isEditing,
+      when: (d) => !!d && ACTIVE_JOB_STATUSES.includes(d.job.status),
     }
-  }, [id, t]);
+  );
+  const jobData: JobDetailsData | null = jobQuery.data?.job ?? null;
+  const layers: JobIncrementLayerWithStats[] = jobQuery.data?.layers ?? [];
+  const loading = jobQuery.isLoading;
+  const loadError = jobQuery.isError ? (t('errors.loadDetailsFailed') as string) : null;
+  const { refetch } = jobQuery;
+  const fetchJobDetails = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
-  // Initial fetch
+  // Fetch max priority setting
   useEffect(() => {
-    fetchJobDetails();
-    // Fetch max priority setting
     getMaxPriorityForUsers()
       .then(config => {
         setMaxPriority(config.max_priority);
@@ -173,45 +160,8 @@ const JobDetails: React.FC = () => {
         console.error('Failed to fetch max priority:', err);
         // Keep default of 1000 if fetch fails
       });
-  }, [fetchJobDetails]);
+  }, []);
   
-  // Setup and manage polling
-  useEffect(() => {
-    // Clear any existing interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-    
-    // Determine if we should poll
-    const shouldPoll = jobData && 
-                      ['pending', 'running', 'paused'].includes(jobData.status) &&
-                      autoRefreshEnabled &&
-                      !isEditingRef.current;
-    
-    if (shouldPoll) {
-      // Set up polling interval
-      const interval = setInterval(() => {
-        // Check conditions again inside the interval
-        const activeStatuses = ['pending', 'running', 'paused'];
-        if (activeStatuses.includes(currentStatusRef.current) &&
-            !isEditingRef.current &&
-            autoRefreshEnabled) {
-          fetchJobDetails();
-        }
-      }, 2000);
-      
-      pollingIntervalRef.current = interval;
-    }
-    
-    // Cleanup on unmount or when dependencies change
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, [jobData?.status, autoRefreshEnabled, fetchJobDetails]);
 
   // Handle priority edit
   const handleEditPriority = () => {
@@ -226,7 +176,7 @@ const JobDetails: React.FC = () => {
     // Validate priority before saving
     const priorityValue = parseInt(tempPriority) || 0;
     if (priorityValue < 0 || priorityValue > maxPriority) {
-      enqueueSnackbar(t('validation.priorityRange', { max: maxPriority }), { variant: 'error' });
+      toast.error(t('validation.priorityRange', { max: maxPriority }));
       return;
     }
 
@@ -262,7 +212,7 @@ const JobDetails: React.FC = () => {
     // Validate max agents before saving (0 = unlimited)
     const maxAgentsValue = parseInt(tempMaxAgents) || 0;
     if (maxAgentsValue < 0) {
-      enqueueSnackbar(t('validation.maxAgentsPositive'), { variant: 'error' });
+      toast.error(t('validation.maxAgentsPositive'));
       return;
     }
 
@@ -298,11 +248,11 @@ const JobDetails: React.FC = () => {
     // Validate chunk size before saving
     const chunkSizeValue = parseInt(tempChunkSize) || 0;
     if (chunkSizeValue < 5) {
-      enqueueSnackbar(t('validation.chunkSizeMin'), { variant: 'error' });
+      toast.error(t('validation.chunkSizeMin'));
       return;
     }
     if (chunkSizeValue > 86400) {
-      enqueueSnackbar(t('validation.chunkSizeMax'), { variant: 'error' });
+      toast.error(t('validation.chunkSizeMax'));
       return;
     }
 
@@ -311,10 +261,7 @@ const JobDetails: React.FC = () => {
       const response = await api.patch(`/api/jobs/${id}`, { chunk_size_seconds: chunkSizeValue });
 
       // Show success notification with specific message
-      enqueueSnackbar(response.data?.message || t('success.chunkSizeUpdated'), {
-        variant: 'success',
-        autoHideDuration: 5000,
-      });
+      toast.success(response.data?.message || t('success.chunkSizeUpdated'), { autoHideDuration: 5000 });
 
       await fetchJobDetails();
       setEditingChunkSize(false);
@@ -330,10 +277,7 @@ const JobDetails: React.FC = () => {
         errorMessage = err.message;
       }
 
-      enqueueSnackbar(errorMessage, {
-        variant: 'error',
-        autoHideDuration: 5000,
-      });
+      toast.error(errorMessage, { autoHideDuration: 5000 });
     } finally {
       setSaving(false);
     }
@@ -353,11 +297,11 @@ const JobDetails: React.FC = () => {
       await api.post(`/api/jobs/${id}/force-complete`);
       await fetchJobDetails();
       setForceCompleteDialogOpen(false);
-      enqueueSnackbar(t('success.forceCompleted'), { variant: 'success' });
+      toast.success(t('success.forceCompleted'));
     } catch (err: any) {
       console.error('Failed to force complete job:', err);
       const errorMessage = err.response?.data?.message || t('errors.forceCompleteFailed');
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      toast.error(errorMessage);
     } finally {
       setForceCompleting(false);
     }
@@ -605,21 +549,6 @@ const JobDetails: React.FC = () => {
     };
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'running': return 'success';
-      case 'pending': return 'warning';
-      case 'reconnect_pending': return 'warning';
-      case 'processing': return 'info';  // Blue - hashcat done, saving to DB
-      case 'processing_error': return 'warning';  // Orange - processing issue
-      case 'completed': return 'info';
-      case 'failed': return 'error';
-      case 'cancelled': return 'default';
-      case 'paused': return 'warning';
-      default: return 'default';
-    }
-  };
-
   const getAttackModeName = (mode?: number): string => {
     if (mode === undefined) return t('common.notAvailable');
     const modes: Record<number, string> = {
@@ -634,114 +563,92 @@ const JobDetails: React.FC = () => {
   };
 
   // Render attack configuration rows based on attack mode
-  const renderAttackConfigRows = () => {
-    if (!jobData) return null;
+  const renderAttackConfigRows = (): InfoRow[] => {
+    if (!jobData) return [];
 
-    const rows: JSX.Element[] = [];
+    const rows: InfoRow[] = [];
     const attackMode = jobData.attack_mode;
 
     switch (attackMode) {
       case 0: // Dictionary/Straight
         if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
           rows.push(
-            <TableRow key="wordlists">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.wordlists')}</TableCell>
-              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
-            </TableRow>
+            { key: 'wordlists', label: t('details.wordlists'), value: jobData.wordlist_names.join(', ') }
           );
         }
         if (jobData.rule_names && jobData.rule_names.length > 0) {
           rows.push(
-            <TableRow key="rules">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.rules')}</TableCell>
-              <TableCell>{jobData.rule_names.join(', ')}</TableCell>
-            </TableRow>
+            { key: 'rules', label: t('details.rules'), value: jobData.rule_names.join(', ') }
           );
         }
         // Splitting mode for dictionary attacks
         rows.push(
-          <TableRow key="splitting-mode">
-            <TableCell sx={{ fontWeight: 'bold' }}>{t('details.splittingMode')}</TableCell>
-            <TableCell>
-              <Chip
+          { key: 'splitting-mode', label: t('details.splittingMode'), value: (
+              <>
+                <Chip
                 label={t('common.keyspace')}
                 size="small"
                 color="default"
                 variant="outlined"
               />
-            </TableCell>
-          </TableRow>
+              </>
+            ) }
         );
         break;
 
       case 1: // Combination
         if (jobData.wordlist_names && jobData.wordlist_names.length >= 2) {
           rows.push(
-            <TableRow key="first-wordlist">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.firstWordlist')}</TableCell>
-              <TableCell>{jobData.wordlist_names[0]}</TableCell>
-            </TableRow>
+            { key: 'first-wordlist', label: t('details.firstWordlist'), value: jobData.wordlist_names[0] }
           );
           rows.push(
-            <TableRow key="second-wordlist">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.secondWordlist')}</TableCell>
-              <TableCell>{jobData.wordlist_names[1]}</TableCell>
-            </TableRow>
+            { key: 'second-wordlist', label: t('details.secondWordlist'), value: jobData.wordlist_names[1] }
           );
         } else if (jobData.wordlist_names && jobData.wordlist_names.length === 1) {
           rows.push(
-            <TableRow key="wordlist">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.wordlist')}</TableCell>
-              <TableCell>{jobData.wordlist_names[0]}</TableCell>
-            </TableRow>
+            { key: 'wordlist', label: t('details.wordlist'), value: jobData.wordlist_names[0] }
           );
         }
         // Splitting mode for combination attacks
         rows.push(
-          <TableRow key="splitting-mode">
-            <TableCell sx={{ fontWeight: 'bold' }}>{t('details.splittingMode')}</TableCell>
-            <TableCell>
-              <Chip
+          { key: 'splitting-mode', label: t('details.splittingMode'), value: (
+              <>
+                <Chip
                 label={t('common.keyspace')}
                 size="small"
                 color="default"
                 variant="outlined"
               />
-            </TableCell>
-          </TableRow>
+              </>
+            ) }
         );
         break;
 
       case 3: // Brute-force/Mask
         if (jobData.mask) {
           rows.push(
-            <TableRow key="mask">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.mask')}</TableCell>
-              <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
-            </TableRow>
+            { key: 'mask', label: t('details.mask'), value: jobData.mask, mono: true }
           );
         }
         if (jobData.increment_mode && jobData.increment_mode !== 'off') {
           rows.push(
-            <TableRow key="increment-mode">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.incrementMode')}</TableCell>
-              <TableCell>
+            { key: 'increment-mode', label: t('details.incrementMode'), value: (
+              <>
                 <Chip
                   label={jobData.increment_mode === 'increment' ? t('details.increment') : t('details.incrementInverse')}
                   size="small"
                   color="info"
                   variant="outlined"
                 />
-              </TableCell>
-            </TableRow>
+              </>
+            ) }
           );
           rows.push(
-            <TableRow key="increment-range">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.incrementRange')}</TableCell>
-              <TableCell>
+            { key: 'increment-range', label: t('details.incrementRange'), value: (
+              <>
                 {jobData.increment_min ?? 1} - {jobData.increment_max ?? (jobData.mask?.length || t('common.notAvailable'))}
-              </TableCell>
-            </TableRow>
+              </>
+            ) }
           );
         }
         break;
@@ -749,18 +656,12 @@ const JobDetails: React.FC = () => {
       case 6: // Hybrid Wordlist + Mask
         if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
           rows.push(
-            <TableRow key="wordlists">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.wordlists')}</TableCell>
-              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
-            </TableRow>
+            { key: 'wordlists', label: t('details.wordlists'), value: jobData.wordlist_names.join(', ') }
           );
         }
         if (jobData.mask) {
           rows.push(
-            <TableRow key="mask">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.maskSuffix')}</TableCell>
-              <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
-            </TableRow>
+            { key: 'mask', label: t('details.maskSuffix'), value: jobData.mask, mono: true }
           );
         }
         break;
@@ -768,18 +669,12 @@ const JobDetails: React.FC = () => {
       case 7: // Hybrid Mask + Wordlist
         if (jobData.mask) {
           rows.push(
-            <TableRow key="mask">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.maskPrefix')}</TableCell>
-              <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
-            </TableRow>
+            { key: 'mask', label: t('details.maskPrefix'), value: jobData.mask, mono: true }
           );
         }
         if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
           rows.push(
-            <TableRow key="wordlists">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.wordlists')}</TableCell>
-              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
-            </TableRow>
+            { key: 'wordlists', label: t('details.wordlists'), value: jobData.wordlist_names.join(', ') }
           );
         }
         break;
@@ -787,18 +682,12 @@ const JobDetails: React.FC = () => {
       case 9: // Association
         if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
           rows.push(
-            <TableRow key="association-wordlist">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.associationHints')}</TableCell>
-              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
-            </TableRow>
+            { key: 'association-wordlist', label: t('details.associationHints'), value: jobData.wordlist_names.join(', ') }
           );
         }
         if (jobData.rule_names && jobData.rule_names.length > 0) {
           rows.push(
-            <TableRow key="rules">
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.rules')}</TableCell>
-              <TableCell>{jobData.rule_names.join(', ')}</TableCell>
-            </TableRow>
+            { key: 'rules', label: t('details.rules'), value: jobData.rule_names.join(', ') }
           );
         }
         break;
@@ -817,11 +706,11 @@ const JobDetails: React.FC = () => {
     );
   }
 
-  if (error && !jobData) {
+  if (loadError && !jobData) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+          {loadError}
         </Alert>
         <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)}>
           {t('common.back')}
@@ -859,67 +748,491 @@ const JobDetails: React.FC = () => {
     task.status === 'completed' || task.status === 'processing'
   );
 
-  // Paginate completed tasks
-  const paginatedCompletedTasks = completedTasks.slice(
-    completedTasksPage * completedTasksPageSize,
-    (completedTasksPage + 1) * completedTasksPageSize
-  );
-
   const totalKeyspace = Number(jobData.effective_keyspace || 0);
 
   // Calculate estimated completion once for efficiency
   const estimatedCompletion = jobData ? calculateEstimatedCompletion() : { timeRemaining: '', estimatedDate: '' };
 
+  const isActiveJob = ACTIVE_JOB_STATUSES.includes(jobData.status);
+  const displayedError = error ?? (jobData ? loadError : null);
+
+  const renderAgent = (task: TaskRow) =>
+    task.agent_id ? (
+      <EntityLink type="agent" id={task.agent_id} label={task.agent_name || `#${task.agent_id}`} />
+    ) : (
+      (t('common.unassigned') as string)
+    );
+
+  const renderCracks = (count: number) =>
+    count > 0 ? <EntityLink type="pot_job" id={jobData.id} label={String(count)} /> : count;
+
+  const renderKeyspaceRange = (task: TaskRow) =>
+    `${formatKeyspace(task.effective_keyspace_start || task.keyspace_start)} - ${formatKeyspace(
+      task.effective_keyspace_end || task.keyspace_end
+    )}`;
+
+  const editableValue = (
+    editing: boolean,
+    display: React.ReactNode,
+    temp: string,
+    setTemp: (v: string) => void,
+    onSave: () => void,
+    onCancel: () => void,
+    onEdit: () => void,
+    helperText: string,
+    width: number
+  ) =>
+    editing ? (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <TextField
+          type="number"
+          value={temp}
+          onChange={(e) => setTemp(e.target.value)}
+          size="small"
+          sx={{ width }}
+          disabled={saving}
+          helperText={helperText}
+        />
+        <IconButton onClick={onSave} disabled={saving} size="small" title={t('tooltips.save')}>
+          <SaveIcon />
+        </IconButton>
+        <IconButton onClick={onCancel} disabled={saving} size="small" title={t('tooltips.cancel')}>
+          <CancelIcon />
+        </IconButton>
+      </Box>
+    ) : (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {display}
+        <IconButton onClick={onEdit} size="small">
+          <EditIcon />
+        </IconButton>
+      </Box>
+    );
+
+  const createdBy = jobData.created_by;
+  const infoRows: InfoRow[] = [
+    { key: 'id', label: t('common.id'), value: jobData.id, mono: true },
+    { key: 'name', label: t('common.name'), value: jobData.name },
+    { key: 'status', label: t('common.status'), value: <StatusChip entity="job" status={jobData.status} /> },
+    ...(jobData.client
+      ? [{ key: 'client', label: t('details.client', 'Client'), value: <EntityLink type="client" id={jobData.client.id} label={jobData.client.name} /> }]
+      : []),
+    ...(jobData.preset_job
+      ? [{ key: 'preset', label: t('details.presetJob', 'Preset Job'), value: <EntityLink type="preset_job" id={jobData.preset_job.id} label={jobData.preset_job.name} /> }]
+      : []),
+    ...(jobData.workflow
+      ? [{ key: 'workflow', label: t('details.workflow', 'Workflow'), value: <EntityLink type="workflow" id={jobData.workflow.id} label={jobData.workflow.name} /> }]
+      : []),
+    ...(createdBy
+      ? [{
+          key: 'created-by',
+          label: t('details.createdBy', 'Created By'),
+          value:
+            createdBy.id && createdBy.id !== SYSTEM_USER_ID ? (
+              <EntityLink type="user" id={createdBy.id} label={createdBy.username} />
+            ) : (
+              createdBy.username || (t('details.system', 'System') as string)
+            ),
+        }]
+      : []),
+    {
+      key: 'priority',
+      label: t('details.priority'),
+      value: editableValue(
+        editingPriority,
+        jobData.priority,
+        tempPriority,
+        setTempPriority,
+        handleSavePriority,
+        handleCancelPriority,
+        handleEditPriority,
+        t('details.priorityRange', { max: maxPriority }) as string,
+        100
+      ),
+    },
+    {
+      key: 'max-agents',
+      label: t('common.maxAgents'),
+      value: editableValue(
+        editingMaxAgents,
+        jobData.max_agents,
+        tempMaxAgents,
+        setTempMaxAgents,
+        handleSaveMaxAgents,
+        handleCancelMaxAgents,
+        handleEditMaxAgents,
+        t('details.maxAgentsHint') as string,
+        100
+      ),
+    },
+    ...(jobData.cloud_burst_enabled
+      ? [{
+          key: 'cloud-burst',
+          label: t('cloud.cloudBurst.badge'),
+          value: (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip size="small" color="info" label={t('cloud.cloudBurst.badge')} />
+              {jobData.cloud_max_instances
+                ? t('cloud.cloudBurst.maxInstances') + ': ' + jobData.cloud_max_instances
+                : null}
+              {/* Answers "will this finish before the budget runs out?"
+                  before any money is spent. */}
+              <Button size="small" onClick={() => setProjectionOpen(true)}>
+                {t('cloud.projection.title')}
+              </Button>
+              {/*
+                * Rent one instance now, bypassing the autoscaler.
+                *
+                * The autoscaler applies the SOFT rules — minimum
+                * starvation, skip-if-finishing-soon — and will not act
+                * while any on-prem agent is idle. That is right for
+                * automatic spending and wrong for an operator who has
+                * decided they want capacity now, and it makes teardown
+                * and provider testing nearly impossible to exercise
+                * deliberately. The hard rails (window, per-job cap,
+                * budget, consent) still apply.
+                */}
+              <Button size="small" color="warning" disabled={provisioning} onClick={handleProvisionNow}>
+                {t('cloud.cloudBurst.provisionNow')}
+              </Button>
+            </Box>
+          ),
+        }]
+      : []),
+    {
+      key: 'chunk-size',
+      label: t('common.chunkSize'),
+      value: editableValue(
+        editingChunkSize,
+        formatChunkSize(jobData.chunk_size_seconds),
+        tempChunkSize,
+        setTempChunkSize,
+        handleSaveChunkSize,
+        handleCancelChunkSize,
+        handleEditChunkSize,
+        t('details.chunkSizeHint') as string,
+        120
+      ),
+    },
+    {
+      key: 'hashlist',
+      label: t('common.hashlist'),
+      value: (
+        <>
+          <EntityLink type="hashlist" id={jobData.hashlist_id} label={jobData.hashlist_name} />{' '}
+          ({t('common.id')}: {jobData.hashlist_id})
+        </>
+      ),
+    },
+    { key: 'hash-type', label: t('common.hashType'), value: jobData.hash_type != null ? jobData.hash_type : t('common.notAvailable') },
+    { key: 'attack-mode', label: t('common.attackMode'), value: getAttackModeName(jobData.attack_mode) },
+    // Attack configuration rows based on attack mode
+    ...renderAttackConfigRows(),
+    ...(jobData.additional_args
+      ? [{ key: 'additional-args', label: t('jobs:details.additionalArgs', 'Additional Arguments'), value: jobData.additional_args, mono: true }]
+      : []),
+    { key: 'keyspace', label: t('common.keyspace'), value: formatKeyspace(jobData.base_keyspace) },
+    { key: 'effective-keyspace', label: t('common.effectiveKeyspace'), value: formatKeyspace(jobData.effective_keyspace) },
+    { key: 'processed-keyspace', label: t('common.processedKeyspace'), value: formatKeyspace(jobData.processed_keyspace) },
+    { key: 'dispatched-keyspace', label: t('common.dispatchedKeyspace'), value: formatKeyspace(jobData.dispatched_keyspace) },
+    { key: 'progress', label: t('common.progress'), value: `${jobData.overall_progress_percent?.toFixed(2) || 0}%` },
+    { key: 'cracks', label: t('common.cracksFound'), value: renderCracks(jobData.cracked_count) },
+    { key: 'created-at', label: t('common.createdAt'), value: formatDate(jobData.created_at) },
+    { key: 'started-at', label: t('common.startedAt'), value: formatDate(jobData.started_at) },
+    { key: 'time-remaining', label: t('details.timeRemaining'), value: estimatedCompletion.timeRemaining },
+    { key: 'estimated-completion', label: t('details.estimatedCompletion'), value: estimatedCompletion.estimatedDate },
+    { key: 'cracking-completed-at', label: t('details.crackingCompletedAt'), value: formatDate(jobData.cracking_completed_at) },
+    { key: 'completed-at', label: t('common.completedAt'), value: formatDate(jobData.completed_at) },
+    ...(jobData.started_at
+      ? [{ key: 'total-running-time', label: t('details.totalRunningTime'), value: calculateTotalRunningTime() }]
+      : []),
+    ...(jobData.error_message
+      ? [{
+          key: 'error',
+          label: t('common.error'),
+          value: (
+            <Alert severity="error" sx={{ py: 0.5 }}>
+              {jobData.error_message}
+            </Alert>
+          ),
+        }]
+      : []),
+  ];
+
+  const layerColumns: GridColDef<JobIncrementLayerWithStats>[] = [
+    { field: 'layer_index', headerName: t('details.layerTable.layer') as string, width: 80 },
+    {
+      field: 'mask',
+      headerName: t('details.layerTable.mask') as string,
+      flex: 1,
+      minWidth: 120,
+      renderCell: (p) => (
+        <Box component="span" sx={{ fontFamily: (theme) => theme.typography.monoFamily }}>
+          {p.row.mask}
+        </Box>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: t('details.layerTable.status') as string,
+      width: 120,
+      renderCell: (p) => <StatusChip entity="job" status={p.row.status} />,
+    },
+    {
+      field: 'base_keyspace',
+      headerName: t('details.layerTable.keyspace') as string,
+      width: 110,
+      renderCell: (p) => formatKeyspace(p.row.base_keyspace),
+    },
+    {
+      field: 'effective_keyspace',
+      headerName: t('details.layerTable.effectiveKeyspace') as string,
+      width: 190,
+      renderCell: (p) => (
+        <>
+          {formatKeyspace(p.row.effective_keyspace)}
+          {!p.row.is_accurate_keyspace && (
+            <Chip label={t('details.estimatedKeyspace')} size="small" color="warning" variant="outlined" sx={{ ml: 1 }} />
+          )}
+        </>
+      ),
+    },
+    {
+      field: 'overall_progress_percent',
+      headerName: t('details.layerTable.progress') as string,
+      width: 100,
+      renderCell: (p) => `${p.row.overall_progress_percent?.toFixed(2) || 0}%`,
+    },
+    {
+      field: 'tasks',
+      headerName: t('details.layerTable.tasks') as string,
+      flex: 1,
+      minWidth: 200,
+      sortable: false,
+      renderCell: (p) => (
+        <>
+          {p.row.running_tasks || 0} {t('details.layerTable.running')} / {p.row.total_tasks || 0} {t('details.layerTable.total')}
+          {p.row.failed_tasks != null && p.row.failed_tasks > 0 && (
+            <Chip label={t('details.layerTable.failed', { count: p.row.failed_tasks })} size="small" color="error" sx={{ ml: 1 }} />
+          )}
+        </>
+      ),
+    },
+    {
+      field: 'crack_count',
+      headerName: t('details.layerTable.cracks') as string,
+      width: 90,
+      renderCell: (p) => renderCracks(p.row.crack_count ?? 0),
+    },
+  ];
+
+  const agentColumn: GridColDef<TaskRow> = {
+    field: 'agent_id',
+    headerName: t('details.activeTasksTable.agentId') as string,
+    width: 160,
+    valueGetter: (_v, row) => row.agent_name || (row.agent_id ? `#${row.agent_id}` : ''),
+    renderCell: (p) => renderAgent(p.row),
+  };
+  const taskIdColumn: GridColDef<TaskRow> = {
+    field: 'id',
+    headerName: t('details.activeTasksTable.taskId') as string,
+    width: 300,
+    renderCell: (p) => (
+      <Box component="span" sx={{ fontFamily: (theme) => theme.typography.monoFamily, fontSize: '0.75rem' }}>
+        {p.row.id}
+      </Box>
+    ),
+  };
+  const cracksColumn = (headerName: string): GridColDef<TaskRow> => ({
+    field: 'crack_count',
+    headerName,
+    width: 100,
+    renderCell: (p) => renderCracks(p.row.crack_count),
+  });
+
+  const activeTaskColumns: GridColDef<TaskRow>[] = [
+    agentColumn,
+    taskIdColumn,
+    {
+      field: 'status',
+      headerName: t('common.status') as string,
+      width: 140,
+      renderCell: (p) => <StatusChip entity="task" status={p.row.status} />,
+    },
+    {
+      field: 'keyspace_range',
+      headerName: t('details.activeTasksTable.keyspaceRange') as string,
+      flex: 1,
+      minWidth: 160,
+      sortable: false,
+      renderCell: (p) => renderKeyspaceRange(p.row),
+    },
+    {
+      field: 'progress_percent',
+      headerName: t('details.activeTasksTable.progress') as string,
+      width: 100,
+      renderCell: (p) => {
+        const pct = p.row.progress_percent ?? 0;
+        const shown = p.row.status === 'running' ? Math.min(pct, 99.99) : pct;
+        return `${shown.toFixed(2)}%`;
+      },
+    },
+    {
+      field: 'benchmark_speed',
+      headerName: t('details.activeTasksTable.currentSpeed') as string,
+      width: 130,
+      renderCell: (p) => formatSpeed(p.row.benchmark_speed),
+    },
+    cracksColumn(t('details.activeTasksTable.cracks') as string),
+  ];
+
+  const failedTaskColumns: GridColDef<TaskRow>[] = [
+    { ...agentColumn, headerName: t('details.failedTasksTable.agentId') as string },
+    { ...taskIdColumn, headerName: t('details.failedTasksTable.taskId') as string },
+    {
+      field: 'status',
+      headerName: t('details.failedTasksTable.status') as string,
+      width: 140,
+      renderCell: (p) => <StatusChip entity="task" status={p.row.status} />,
+    },
+    {
+      field: 'retry_count',
+      headerName: t('details.failedTasksTable.retryCount') as string,
+      width: 100,
+      valueGetter: (_v, row) => row.retry_count || 0,
+    },
+    {
+      field: 'error_message',
+      headerName: t('details.failedTasksTable.errorMessage') as string,
+      flex: 1,
+      minWidth: 240,
+      valueGetter: (_v, row) => row.error_message || row.failure_reason || (t('common.noErrorMessage') as string),
+      renderCell: (p) => (
+        <Typography variant="body2" sx={{ whiteSpace: 'normal', py: 0.5 }}>
+          {p.value as string}
+        </Typography>
+      ),
+    },
+    {
+      field: 'updated_at',
+      headerName: t('details.failedTasksTable.lastUpdated') as string,
+      width: 180,
+      renderCell: (p) => formatDate(p.row.updated_at),
+    },
+    // Actions column removed: per-task Retry no longer applies in scheduler-v2.
+    // Every dispatch is a fresh task with a new UUID; "retrying" a failed task
+    // can't reuse the same task ID — it would just create another orphan.
+    // Job-level retry (clone/recreate the job) is the v2 primitive.
+  ];
+
+  const completedTaskColumns: GridColDef<TaskRow>[] = [
+    { ...agentColumn, headerName: t('details.completedTasksTable.agentId') as string },
+    { ...taskIdColumn, headerName: t('details.completedTasksTable.taskId') as string },
+    {
+      field: 'completed_at',
+      headerName: t('details.completedTasksTable.completedAt') as string,
+      width: 180,
+      renderCell: (p) => formatDate(p.row.completed_at),
+    },
+    {
+      field: 'keyspace_range',
+      headerName: t('details.activeTasksTable.keyspaceRange') as string,
+      flex: 1,
+      minWidth: 160,
+      sortable: false,
+      renderCell: (p) => renderKeyspaceRange(p.row),
+    },
+    {
+      field: 'progress_percent',
+      headerName: t('details.completedTasksTable.finalProgress') as string,
+      width: 110,
+      renderCell: (p) => `${p.row.progress_percent?.toFixed(2) || 100}%`,
+    },
+    {
+      field: 'average_speed',
+      headerName: t('details.completedTasksTable.averageSpeed') as string,
+      width: 130,
+      renderCell: (p) => formatSpeed(p.row.average_speed || p.row.benchmark_speed),
+    },
+    cracksColumn(t('details.completedTasksTable.cracksFound') as string),
+  ];
+
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => navigate(-1)}
-          >
-            {t('common.back')}
-          </Button>
-          <Typography variant="h4" component="h1">
-            {t('details.pageTitle')}
-          </Typography>
-          <Chip
-            label={jobData.status}
-            color={getStatusColor(jobData.status) as any}
-            size="small"
-          />
-          {['pending', 'running', 'paused'].includes(jobData.status) && (
-            <Chip
-              label={autoRefreshEnabled && !isEditingRef.current ? t('details.autoRefreshOn') : t('details.autoRefreshPaused')}
-              color={autoRefreshEnabled && !isEditingRef.current ? 'success' : 'warning'}
-              size="small"
-              variant="outlined"
-            />
-          )}
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {(jobData.status === 'running' || jobData.status === 'pending') && (
-            <Button
-              variant="contained"
-              color="warning"
-              startIcon={<CheckCircleIcon />}
-              onClick={() => setForceCompleteDialogOpen(true)}
-              size="small"
-            >
-              {t('details.forceComplete')}
-            </Button>
-          )}
-          <IconButton onClick={fetchJobDetails} disabled={loading} title={t('details.refreshNow')}>
-            <RefreshIcon />
-          </IconButton>
-        </Box>
-      </Box>
+      <PageHeader
+        title={t('details.pageTitle')}
+        backTo="/jobs"
+        status={
+          <>
+            <StatusChip entity="job" status={jobData.status} />
+            {isActiveJob && (
+              <Chip
+                label={autoRefreshEnabled && !isEditing ? t('details.autoRefreshOn') : t('details.autoRefreshPaused')}
+                color={autoRefreshEnabled && !isEditing ? 'success' : 'warning'}
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </>
+        }
+        description={
+          <>
+            {jobData.name}
+            {jobData.client && (
+              <>
+                {' · '}
+                {t('details.client', 'Client')}:{' '}
+                <EntityLink type="client" id={jobData.client.id} label={jobData.client.name} />
+              </>
+            )}
+            {jobData.preset_job && (
+              <>
+                {' · '}
+                {t('details.presetJob', 'Preset Job')}:{' '}
+                <EntityLink type="preset_job" id={jobData.preset_job.id} label={jobData.preset_job.name} />
+              </>
+            )}
+            {jobData.workflow && (
+              <>
+                {' · '}
+                {t('details.workflow', 'Workflow')}:{' '}
+                <EntityLink type="workflow" id={jobData.workflow.id} label={jobData.workflow.name} />
+              </>
+            )}
+            {createdBy && createdBy.id && createdBy.id !== SYSTEM_USER_ID && (
+              <>
+                {' · '}
+                {t('details.createdBy', 'Created By')}:{' '}
+                <EntityLink type="user" id={createdBy.id} label={createdBy.username} />
+              </>
+            )}
+          </>
+        }
+        actions={
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {(jobData.status === 'running' || jobData.status === 'pending') && (
+              <Button
+                variant="contained"
+                color="warning"
+                startIcon={<CheckCircleIcon />}
+                onClick={() => setForceCompleteDialogOpen(true)}
+                size="small"
+              >
+                {t('details.forceComplete')}
+              </Button>
+            )}
+            <IconButton onClick={fetchJobDetails} disabled={jobQuery.isFetching} title={t('details.refreshNow')}>
+              <RefreshIcon />
+            </IconButton>
+          </Box>
+        }
+      />
 
       {/* Error Alert */}
-      {error && (
+      {displayedError && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
+          {displayedError}
         </Alert>
       )}
 
@@ -955,274 +1268,37 @@ const JobDetails: React.FC = () => {
         </Box>
       )}
 
-      {/* Job Information Table */}
+      {/* Job Information */}
       <Paper sx={{ mb: 3 }}>
         <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6">{t('details.jobInformation')}</Typography>
         </Box>
-        <TableContainer>
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>{t('common.id')}</TableCell>
-                <TableCell>{jobData.id}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.name')}</TableCell>
-                <TableCell>{jobData.name}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.status')}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={jobData.status}
-                    color={getStatusColor(jobData.status) as any}
-                    size="small"
-                  />
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('details.priority')}</TableCell>
-                <TableCell>
-                  {editingPriority ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TextField
-                        type="number"
-                        value={tempPriority}
-                        onChange={(e) => setTempPriority(e.target.value)}
-                        size="small"
-                        sx={{ width: 100 }}
-                        disabled={saving}
-                        helperText={t('details.priorityRange', { max: maxPriority })}
-                      />
-                      <IconButton onClick={handleSavePriority} disabled={saving} size="small" title={t('tooltips.save')}>
-                        <SaveIcon />
-                      </IconButton>
-                      <IconButton onClick={handleCancelPriority} disabled={saving} size="small" title={t('tooltips.cancel')}>
-                        <CancelIcon />
-                      </IconButton>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {jobData.priority}
-                      <IconButton onClick={handleEditPriority} size="small">
-                        <EditIcon />
-                      </IconButton>
-                    </Box>
-                  )}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.maxAgents')}</TableCell>
-                <TableCell>
-                  {editingMaxAgents ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TextField
-                        type="number"
-                        value={tempMaxAgents}
-                        onChange={(e) => setTempMaxAgents(e.target.value)}
-                        size="small"
-                        sx={{ width: 100 }}
-                        disabled={saving}
-                        helperText={t('details.maxAgentsHint')}
-                      />
-                      <IconButton onClick={handleSaveMaxAgents} disabled={saving} size="small" title={t('tooltips.save')}>
-                        <SaveIcon />
-                      </IconButton>
-                      <IconButton onClick={handleCancelMaxAgents} disabled={saving} size="small" title={t('tooltips.cancel')}>
-                        <CancelIcon />
-                      </IconButton>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {jobData.max_agents}
-                      <IconButton onClick={handleEditMaxAgents} size="small">
-                        <EditIcon />
-                      </IconButton>
-                    </Box>
-                  )}
-                </TableCell>
-              </TableRow>
-              {jobData.cloud_burst_enabled && (
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>{t('cloud.cloudBurst.badge')}</TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip size="small" color="info" label={t('cloud.cloudBurst.badge')} />
-                      {jobData.cloud_max_instances
-                        ? t('cloud.cloudBurst.maxInstances') + ': ' + jobData.cloud_max_instances
-                        : null}
-                      {/* Answers "will this finish before the budget runs out?"
-                          before any money is spent. */}
-                      <Button size="small" onClick={() => setProjectionOpen(true)}>
-                        {t('cloud.projection.title')}
-                      </Button>
-                      {/*
-                        * Rent one instance now, bypassing the autoscaler.
-                        *
-                        * The autoscaler applies the SOFT rules — minimum
-                        * starvation, skip-if-finishing-soon — and will not act
-                        * while any on-prem agent is idle. That is right for
-                        * automatic spending and wrong for an operator who has
-                        * decided they want capacity now, and it makes teardown
-                        * and provider testing nearly impossible to exercise
-                        * deliberately. The hard rails (window, per-job cap,
-                        * budget, consent) still apply.
-                        */}
-                      <Button
-                        size="small"
-                        color="warning"
-                        disabled={provisioning}
-                        onClick={handleProvisionNow}
-                      >
-                        {t('cloud.cloudBurst.provisionNow')}
-                      </Button>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              )}
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.chunkSize')}</TableCell>
-                <TableCell>
-                  {editingChunkSize ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TextField
-                        type="number"
-                        value={tempChunkSize}
-                        onChange={(e) => setTempChunkSize(e.target.value)}
-                        size="small"
-                        sx={{ width: 120 }}
-                        disabled={saving}
-                        helperText={t('details.chunkSizeHint')}
-                      />
-                      <IconButton onClick={handleSaveChunkSize} disabled={saving} size="small" title={t('tooltips.save')}>
-                        <SaveIcon />
-                      </IconButton>
-                      <IconButton onClick={handleCancelChunkSize} disabled={saving} size="small" title={t('tooltips.cancel')}>
-                        <CancelIcon />
-                      </IconButton>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {formatChunkSize(jobData.chunk_size_seconds)}
-                      <IconButton onClick={handleEditChunkSize} size="small">
-                        <EditIcon />
-                      </IconButton>
-                    </Box>
-                  )}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.hashlist')}</TableCell>
-                <TableCell>
-                  <Link
-                    component="button"
-                    onClick={() => navigate(`/hashlists/${jobData.hashlist_id}`)}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    {jobData.hashlist_name}
-                  </Link>
-                  {' '}({t('common.id')}: {jobData.hashlist_id})
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.hashType')}</TableCell>
-                <TableCell>{jobData.hash_type != null ? jobData.hash_type : t('common.notAvailable')}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.attackMode')}</TableCell>
-                <TableCell>{getAttackModeName(jobData.attack_mode)}</TableCell>
-              </TableRow>
-              {/* Attack configuration rows based on attack mode */}
-              {renderAttackConfigRows()}
-              {jobData.additional_args && (
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>{t('jobs:details.additionalArgs', 'Additional Arguments')}</TableCell>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.additional_args}</TableCell>
-                </TableRow>
-              )}
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.keyspace')}</TableCell>
-                <TableCell>{formatKeyspace(jobData.base_keyspace)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.effectiveKeyspace')}</TableCell>
-                <TableCell>
-                  {formatKeyspace(jobData.effective_keyspace)}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.processedKeyspace')}</TableCell>
-                <TableCell>{formatKeyspace(jobData.processed_keyspace)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.dispatchedKeyspace')}</TableCell>
-                <TableCell>{formatKeyspace(jobData.dispatched_keyspace)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.progress')}</TableCell>
-                <TableCell>{jobData.overall_progress_percent?.toFixed(2) || 0}%</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.cracksFound')}</TableCell>
-                <TableCell>
-                  {jobData.cracked_count > 0 ? (
-                    <Link
-                      component="button"
-                      variant="body2"
-                      onClick={() => navigate(`/pot/job/${jobData.id}`)}
-                      sx={{ fontWeight: 'medium' }}
-                    >
-                      {jobData.cracked_count}
-                    </Link>
-                  ) : (
-                    jobData.cracked_count
-                  )}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.createdAt')}</TableCell>
-                <TableCell>{formatDate(jobData.created_at)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.startedAt')}</TableCell>
-                <TableCell>{formatDate(jobData.started_at)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('details.timeRemaining')}</TableCell>
-                <TableCell>{estimatedCompletion.timeRemaining}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('details.estimatedCompletion')}</TableCell>
-                <TableCell>{estimatedCompletion.estimatedDate}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('details.crackingCompletedAt')}</TableCell>
-                <TableCell>{formatDate(jobData.cracking_completed_at)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.completedAt')}</TableCell>
-                <TableCell>{formatDate(jobData.completed_at)}</TableCell>
-              </TableRow>
-              {jobData.started_at && (
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>{t('details.totalRunningTime')}</TableCell>
-                  <TableCell>{calculateTotalRunningTime()}</TableCell>
-                </TableRow>
-              )}
-              {jobData.error_message && (
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>{t('common.error')}</TableCell>
-                  <TableCell>
-                    <Alert severity="error" sx={{ py: 0.5 }}>
-                      {jobData.error_message}
-                    </Alert>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <SimpleTable<InfoRow>
+          rows={infoRows}
+          getRowKey={(r) => r.key}
+          dense={false}
+          sx={{ '& thead': { display: 'none' } }}
+          columns={[
+            {
+              field: 'label',
+              headerName: '',
+              width: '30%',
+              render: (r) => <Box component="span" sx={{ fontWeight: 'bold' }}>{r.label}</Box>,
+            },
+            {
+              field: 'value',
+              headerName: '',
+              render: (r) =>
+                r.mono ? (
+                  <Box component="span" sx={{ fontFamily: (theme) => theme.typography.monoFamily }}>
+                    {r.value}
+                  </Box>
+                ) : (
+                  r.value
+                ),
+            },
+          ]}
+        />
       </Paper>
 
       {/* Increment Layers Table */}
@@ -1233,76 +1309,14 @@ const JobDetails: React.FC = () => {
               {t('details.incrementLayers', { count: layers.length })}
             </Typography>
           </Box>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('details.layerTable.layer')}</TableCell>
-                  <TableCell>{t('details.layerTable.mask')}</TableCell>
-                  <TableCell>{t('details.layerTable.status')}</TableCell>
-                  <TableCell>{t('details.layerTable.keyspace')}</TableCell>
-                  <TableCell>{t('details.layerTable.effectiveKeyspace')}</TableCell>
-                  <TableCell>{t('details.layerTable.progress')}</TableCell>
-                  <TableCell>{t('details.layerTable.tasks')}</TableCell>
-                  <TableCell>{t('details.layerTable.cracks')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {layers.map((layer) => (
-                  <TableRow key={layer.id}>
-                    <TableCell>{layer.layer_index}</TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace' }}>{layer.mask}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={layer.status}
-                        color={getStatusColor(layer.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{formatKeyspace(layer.base_keyspace)}</TableCell>
-                    <TableCell>
-                      {formatKeyspace(layer.effective_keyspace)}
-                      {!layer.is_accurate_keyspace && (
-                        <Chip
-                          label={t('details.estimatedKeyspace')}
-                          size="small"
-                          color="warning"
-                          variant="outlined"
-                          sx={{ ml: 1 }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>{layer.overall_progress_percent?.toFixed(2) || 0}%</TableCell>
-                    <TableCell>
-                      {layer.running_tasks || 0} {t('details.layerTable.running')} / {layer.total_tasks || 0} {t('details.layerTable.total')}
-                      {layer.failed_tasks != null && layer.failed_tasks > 0 && (
-                        <Chip
-                          label={t('details.layerTable.failed', { count: layer.failed_tasks })}
-                          size="small"
-                          color="error"
-                          sx={{ ml: 1 }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {(layer.crack_count ?? 0) > 0 ? (
-                        <Link
-                          component="button"
-                          variant="body2"
-                          onClick={() => navigate(`/pot/job/${jobData.id}`)}
-                          sx={{ fontWeight: 'medium' }}
-                        >
-                          {layer.crack_count}
-                        </Link>
-                      ) : (
-                        layer.crack_count ?? 0
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <DataTable<JobIncrementLayerWithStats>
+            flat
+            rows={layers}
+            columns={layerColumns}
+            getRowId={(r) => r.id}
+            pagination={false}
+            sorting={{ mode: 'client' }}
+          />
         </Paper>
       )}
 
@@ -1326,69 +1340,16 @@ const JobDetails: React.FC = () => {
             {t('details.activeTasks', { count: activeTasks.length })}
           </Typography>
         </Box>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('details.activeTasksTable.agentId')}</TableCell>
-                <TableCell>{t('details.activeTasksTable.taskId')}</TableCell>
-                <TableCell>{t('common.status')}</TableCell>
-                <TableCell>{t('details.activeTasksTable.keyspaceRange')}</TableCell>
-                <TableCell>{t('details.activeTasksTable.progress')}</TableCell>
-                <TableCell>{t('details.activeTasksTable.currentSpeed')}</TableCell>
-                <TableCell>{t('details.activeTasksTable.cracks')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {activeTasks.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    <Typography color="text.secondary" sx={{ py: 2 }}>
-                      {t('details.noActiveTasks')}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                activeTasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell>{task.agent_id || t('common.unassigned')}</TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', padding: '6px 8px' }}>{task.id}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={task.status} 
-                        color={getStatusColor(task.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {formatKeyspace(task.effective_keyspace_start || task.keyspace_start)} - {formatKeyspace(task.effective_keyspace_end || task.keyspace_end)}
-                    </TableCell>
-                    <TableCell>{(() => {
-                      const p = task.progress_percent ?? 0;
-                      const shown = task.status === 'running' ? Math.min(p, 99.99) : p;
-                      return shown.toFixed(2);
-                    })()}%</TableCell>
-                    <TableCell>{formatSpeed(task.benchmark_speed)}</TableCell>
-                    <TableCell>
-                      {task.crack_count > 0 ? (
-                        <Link
-                          component="button"
-                          variant="body2"
-                          onClick={() => navigate(`/pot/job/${jobData.id}`)}
-                          sx={{ fontWeight: 'medium' }}
-                        >
-                          {task.crack_count}
-                        </Link>
-                      ) : (
-                        task.crack_count
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <DataTable<TaskRow>
+          flat
+          rows={activeTasks}
+          columns={activeTaskColumns}
+          getRowId={(r) => r.id}
+          fetching={jobQuery.isFetching && !jobQuery.isLoading}
+          pagination={activeTasks.length > 100 ? { mode: 'client', initialPageSize: 100 } : false}
+          sorting={{ mode: 'client' }}
+          emptyState={{ title: t('details.noActiveTasks') as string }}
+        />
       </Paper>
 
       {/* Failed Tasks Table */}
@@ -1399,50 +1360,15 @@ const JobDetails: React.FC = () => {
               {t('details.failedTasks', { count: failedTasks.length })}
             </Typography>
           </Box>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('details.failedTasksTable.agentId')}</TableCell>
-                  <TableCell>{t('details.failedTasksTable.taskId')}</TableCell>
-                  <TableCell>{t('details.failedTasksTable.status')}</TableCell>
-                  <TableCell>{t('details.failedTasksTable.retryCount')}</TableCell>
-                  <TableCell>{t('details.failedTasksTable.errorMessage')}</TableCell>
-                  <TableCell>{t('details.failedTasksTable.lastUpdated')}</TableCell>
-                  {/* Actions column removed: per-task Retry no longer applies in scheduler-v2.
-                      Every dispatch is a fresh task with a new UUID; "retrying" a failed task
-                      can't reuse the same task ID — it would just create another orphan.
-                      Job-level retry (clone/recreate the job) is the v2 primitive. */}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {failedTasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell>{task.agent_id || t('common.unassigned')}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                        {task.id}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={task.status}
-                        color="error"
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{task.retry_count || 0}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ maxWidth: 300 }}>
-                        {task.error_message || task.failure_reason || t('common.noErrorMessage')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{formatDate(task.updated_at)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <DataTable<TaskRow>
+            flat
+            rows={failedTasks}
+            columns={failedTaskColumns}
+            getRowId={(r) => r.id}
+            pagination={{ mode: 'client', initialPageSize: 25 }}
+            sorting={{ mode: 'client', initial: [{ field: 'updated_at', sort: 'desc' }] }}
+            tableKey="job-failed-tasks"
+          />
         </Paper>
       )}
 
@@ -1454,76 +1380,16 @@ const JobDetails: React.FC = () => {
               {t('details.completedTasks', { count: completedTasks.length })}
             </Typography>
           </Box>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('details.completedTasksTable.agentId')}</TableCell>
-                  <TableCell>{t('details.completedTasksTable.taskId')}</TableCell>
-                  <TableCell>{t('details.completedTasksTable.completedAt')}</TableCell>
-                  <TableCell>{t('details.activeTasksTable.keyspaceRange')}</TableCell>
-                  <TableCell>{t('details.completedTasksTable.finalProgress')}</TableCell>
-                  <TableCell>{t('details.completedTasksTable.averageSpeed')}</TableCell>
-                  <TableCell>{t('details.completedTasksTable.cracksFound')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginatedCompletedTasks.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      <Typography color="text.secondary" sx={{ py: 2 }}>
-                        {t('details.noCompletedTasks')}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedCompletedTasks.map((task) => (
-                    <TableRow key={task.id}>
-                      <TableCell>{task.agent_id || t('common.unassigned')}</TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', padding: '6px 8px' }}>{task.id}</TableCell>
-                      <TableCell>{formatDate(task.completed_at)}</TableCell>
-                      <TableCell>
-                        {formatKeyspace(task.effective_keyspace_start || task.keyspace_start)} - {formatKeyspace(task.effective_keyspace_end || task.keyspace_end)}
-                      </TableCell>
-                      <TableCell>{task.progress_percent?.toFixed(2) || 100}%</TableCell>
-                      <TableCell>{formatSpeed(task.average_speed || task.benchmark_speed)}</TableCell>
-                      <TableCell>
-                        {task.crack_count > 0 ? (
-                          <Link
-                            component="button"
-                            variant="body2"
-                            onClick={() => navigate(`/pot/job/${jobData.id}`)}
-                            sx={{ fontWeight: 'medium' }}
-                          >
-                            {task.crack_count}
-                          </Link>
-                        ) : (
-                          task.crack_count
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          {completedTasks.length > completedTasksPageSize && (
-            <TablePagination
-              rowsPerPageOptions={[25, 50, 100, 200]}
-              component="div"
-              count={completedTasks.length}
-              rowsPerPage={completedTasksPageSize}
-              page={completedTasksPage}
-              onPageChange={(event, newPage) => setCompletedTasksPage(newPage)}
-              onRowsPerPageChange={(event) => {
-                setCompletedTasksPageSize(parseInt(event.target.value, 10));
-                setCompletedTasksPage(0);
-              }}
-              showFirstButton
-              showLastButton
-              labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
-            />
-          )}
+          <DataTable<TaskRow>
+            flat
+            rows={completedTasks}
+            columns={completedTaskColumns}
+            getRowId={(r) => r.id}
+            pagination={{ mode: 'client', initialPageSize: 25, pageSizeOptions: [25, 50, 100] }}
+            sorting={{ mode: 'client' }}
+            emptyState={{ title: t('details.noCompletedTasks') as string }}
+            tableKey="job-completed-tasks"
+          />
         </Paper>
       )}
 

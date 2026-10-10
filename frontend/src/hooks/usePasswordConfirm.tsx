@@ -9,6 +9,7 @@ import {
   TextField,
   Box
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 interface PasswordConfirmDialogState {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const initialState: PasswordConfirmDialogState = {
 };
 
 export const usePasswordConfirm = () => {
+  const { t } = useTranslation('common');
   const [dialogState, setDialogState] = useState<PasswordConfirmDialogState>(initialState);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -40,7 +42,7 @@ export const usePasswordConfirm = () => {
 
   const handleConfirm = useCallback(() => {
     if (!password.trim()) {
-      setError('Password is required');
+      setError(t('passwordConfirm.passwordRequired') as string);
       return;
     }
 
@@ -50,7 +52,7 @@ export const usePasswordConfirm = () => {
     setDialogState(initialState);
     setPassword('');
     setError('');
-  }, [dialogState, password]);
+  }, [dialogState, password, t]);
 
   const showPasswordConfirm = useCallback((title: string, message: string): Promise<string | null> => {
     return new Promise<string | null>((resolve) => {
@@ -82,7 +84,7 @@ export const usePasswordConfirm = () => {
             autoFocus
             fullWidth
             type="password"
-            label="Current Password"
+            label={t('passwordConfirm.currentPasswordLabel')}
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
@@ -101,14 +103,14 @@ export const usePasswordConfirm = () => {
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} color="primary">
-          Cancel
+          {t('buttons.cancel')}
         </Button>
         <Button onClick={handleConfirm} color="primary" variant="contained">
-          Confirm
+          {t('buttons.confirm')}
         </Button>
       </DialogActions>
     </Dialog>
-  ), [dialogState, password, error, handleClose, handleConfirm]);
+  ), [dialogState, password, error, handleClose, handleConfirm, t]);
 
   return { showPasswordConfirm, PasswordConfirmDialog };
 };

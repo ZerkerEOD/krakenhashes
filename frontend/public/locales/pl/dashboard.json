@@ -154,11 +154,47 @@
     "viewAll": "Wszystkie zadania",
     "empty": "Brak uruchomionych zadań",
     "emptyHint": "Uruchom zadanie z listy haszy.",
-    "goHashlists": "Przejdź do list haszy"
+    "goHashlists": "Przejdź do list haszy",
+    "recentTitle": "Zadania",
+    "recentSubtitle": "Najpierw aktywne, potem niedawno zakończone",
+    "recentEmpty": "Brak zadań"
   },
   "welcomeUser": "Witaj ponownie, {{name}}",
   "autoRefresh": {
     "on": "Na żywo",
     "off": "Zatrzymane"
+  },
+  "view": {
+    "label": "Widok pulpitu",
+    "mine": "Moje",
+    "teams": "Moje zespoły",
+    "all": "Wszystkie"
+  },
+  "attention": {
+    "title": "Wymaga uwagi",
+    "allClear": "Wszystko w porządku",
+    "allClearHint": "Nic nie kończy się błędem ani nie czeka na Ciebie.",
+    "kind": {
+      "job_failed": "Zadanie nie powiodło się: {{name}}",
+      "job_blocked": "Zadanie oczekuje: {{name}}",
+      "hashlist_error": "Nie udało się przetworzyć listy haszy: {{name}}",
+      "hashlist_awaiting_decision": "Lista haszy wymaga Twojej weryfikacji: {{name}}",
+      "hashlist_stuck": "Przetwarzanie listy haszy utknęło: {{name}}",
+      "agent_error": "Błąd agenta: {{name}}",
+      "agent_update_failed": "Aktualizacja agenta nie powiodła się: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Złamane hasze w czasie",
+    "subtitle_few": "{{count}} złamane hasze w ostatnich {{days}} dniach",
+    "subtitle_many": "{{count}} złamanych haszy w ostatnich {{days}} dniach",
+    "subtitle_one": "{{count}} złamany hasz w ostatnich {{days}} dniach",
+    "subtitle_other": "{{count}} złamanego hasza w ostatnich {{days}} dniach",
+    "tooltip_few": "{{count}} złamane hasze",
+    "tooltip_many": "{{count}} złamanych haszy",
+    "tooltip_one": "{{count}} złamany hasz",
+    "tooltip_other": "{{count}} złamanego hasza",
+    "topHashlists": "Najlepsze listy haszy w tym tygodniu",
+    "noCracksWeek": "Brak złamanych haszy w ostatnich 7 dniach"
   }
 }

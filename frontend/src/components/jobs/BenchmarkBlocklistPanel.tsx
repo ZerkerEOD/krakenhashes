@@ -1,23 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Button,
-  Chip,
-  CircularProgress,
-  Alert,
-  Tooltip,
-} from '@mui/material';
+import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button, Chip, CircularProgress, Tooltip, Typography } from '@mui/material';
 import { Replay as ReplayIcon } from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
+import type { GridColDef } from '@mui/x-data-grid';
 import { api } from '../../services/api';
+import { useLiveQuery } from '../../hooks/useLiveQuery';
+import { DataTable, EntityLink, SectionCard, useToast } from '../ui';
+import { getErrorMessage } from '../../utils/errors';
 
 // Kept in sync with blocklistEntryDTO in backend/internal/handlers/jobs/user_jobs.go.
 interface BlocklistEntry {
@@ -39,9 +28,9 @@ interface Props {
   jobId: string;
 }
 
-const formatRelativeFuture = (iso: string): string => {
+const formatRelativeFuture = (iso: string, expiredLabel: string): string => {
   const diffMs = new Date(iso).getTime() - Date.now();
-  if (diffMs <= 0) return 'expired';
+  if (diffMs <= 0) return expiredLabel;
   const mins = Math.round(diffMs / 60000);
   if (mins < 60) return `${mins}m`;
   const hrs = Math.floor(mins / 60);
@@ -51,128 +40,142 @@ const formatRelativeFuture = (iso: string): string => {
 };
 
 const BenchmarkBlocklistPanel: React.FC<Props> = ({ jobId }) => {
-  const { enqueueSnackbar } = useSnackbar();
-  const [entries, setEntries] = useState<BlocklistEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { t } = useTranslation('jobs');
+  const toast = useToast();
   const [clearingId, setClearingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchEntries = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const resp = await api.get<BlocklistEntry[]>(`/api/jobs/${jobId}/benchmark-blocklist`);
-      setEntries(resp.data || []);
-    } catch (e: any) {
-      setError(e?.response?.data || e?.message || 'Failed to load blocklist');
-    } finally {
-      setLoading(false);
-    }
-  }, [jobId]);
-
-  useEffect(() => {
-    fetchEntries();
-    // Refresh every 60s so expired entries drop off without a manual reload.
-    const t = setInterval(fetchEntries, 60_000);
-    return () => clearInterval(t);
-  }, [fetchEntries]);
+  // Refresh every 60s (slow tier) so expired entries drop off without a manual reload.
+  const query = useLiveQuery(
+    {
+      queryKey: ['jobs', 'detail', jobId, 'benchmark-blocklist'],
+      queryFn: async () => (await api.get<BlocklistEntry[]>(`/api/jobs/${jobId}/benchmark-blocklist`)).data || [],
+    },
+    { tier: 'slow' }
+  );
+  const entries = useMemo(() => query.data ?? [], [query.data]);
 
   const handleRetry = async (entryId: string) => {
     setClearingId(entryId);
     try {
       await api.post(`/api/jobs/${jobId}/benchmark-blocklist/${entryId}/clear`);
-      enqueueSnackbar('Blocklist entry cleared — scheduler will retry on next cycle', { variant: 'success' });
-      await fetchEntries();
-    } catch (e: any) {
-      const msg = e?.response?.data || e?.message || 'Failed to clear entry';
-      enqueueSnackbar(`Failed to clear: ${msg}`, { variant: 'error' });
+      toast.success(t('benchmarkBlocklist.clearSuccess') as string);
+      await query.refetch();
+    } catch (e) {
+      toast.error(
+        t('benchmarkBlocklist.clearFailedPrefix', {
+          error: getErrorMessage(e) || (t('benchmarkBlocklist.clearFailedDefault') as string),
+        }) as string
+      );
     } finally {
       setClearingId(null);
     }
   };
 
+  const columns = useMemo<GridColDef<BlocklistEntry>[]>(
+    () => [
+      {
+        field: 'agent_id',
+        headerName: t('benchmarkBlocklist.columns.agent') as string,
+        flex: 1,
+        minWidth: 160,
+        renderCell: (p) => (
+          <EntityLink
+            type="agent"
+            id={p.row.agent_id}
+            label={p.row.agent_name ? `${p.row.agent_name} (#${p.row.agent_id})` : `#${p.row.agent_id}`}
+          />
+        ),
+      },
+      {
+        field: 'job_execution_id',
+        headerName: t('benchmarkBlocklist.columns.scope') as string,
+        width: 110,
+        renderCell: (p) =>
+          p.row.job_execution_id ? (
+            <Chip size="small" label={t('benchmarkBlocklist.scope.thisJob') as string} color="warning" variant="outlined" />
+          ) : (
+            <Chip size="small" label={t('benchmarkBlocklist.scope.global') as string} color="error" variant="outlined" />
+          ),
+      },
+      {
+        field: 'hash_type',
+        headerName: t('benchmarkBlocklist.columns.hashMode') as string,
+        width: 120,
+        renderCell: (p) => (
+          <Typography component="span" sx={{ fontFamily: (th: any) => th.typography.monoFamily, fontSize: '0.8rem' }}>
+            {p.row.hash_type} / {p.row.attack_mode}
+          </Typography>
+        ),
+      },
+      { field: 'failure_count', headerName: t('benchmarkBlocklist.columns.failures') as string, width: 90, valueFormatter: (v: number | undefined) => v ?? '—' },
+      {
+        field: 'reason',
+        headerName: t('benchmarkBlocklist.columns.reason') as string,
+        flex: 2,
+        minWidth: 200,
+        renderCell: (p) => (
+          <Tooltip title={p.row.last_error || p.row.reason}>
+            <Typography variant="body2" noWrap>
+              {p.row.reason}
+            </Typography>
+          </Tooltip>
+        ),
+      },
+      {
+        field: 'expires_at',
+        headerName: t('benchmarkBlocklist.columns.expires') as string,
+        width: 100,
+        valueFormatter: (v: string) => formatRelativeFuture(v, t('benchmarkBlocklist.expired') as string),
+      },
+      {
+        field: 'action',
+        headerName: t('benchmarkBlocklist.columns.action') as string,
+        width: 140,
+        align: 'right',
+        headerAlign: 'right',
+        sortable: false,
+        renderCell: (p) => (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={clearingId === p.row.id ? <CircularProgress size={14} /> : <ReplayIcon />}
+            disabled={clearingId !== null}
+            onClick={() => void handleRetry(p.row.id)}
+          >
+            {t('benchmarkBlocklist.retryNow')}
+          </Button>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [clearingId, t]
+  );
+
   // Hide the panel entirely when there's nothing to show — no value in a
   // "no entries" message on every job detail page.
-  if (!loading && entries.length === 0 && !error) {
+  if (!query.isLoading && entries.length === 0 && !query.error) {
     return null;
   }
 
   return (
-    <Paper sx={{ mt: 3 }}>
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box>
-          <Typography variant="h6">Benchmark Cooldowns</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Agents currently blocklisted from benchmarking this job after repeated failures. Clear an entry to retry on the next scheduling cycle.
-          </Typography>
-        </Box>
-        {loading && <CircularProgress size={20} />}
-      </Box>
-      {error && (
-        <Box sx={{ p: 2 }}>
-          <Alert severity="error">{error}</Alert>
-        </Box>
-      )}
-      <TableContainer>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Agent</TableCell>
-              <TableCell>Scope</TableCell>
-              <TableCell>Hash / Mode</TableCell>
-              <TableCell>Failures</TableCell>
-              <TableCell>Reason</TableCell>
-              <TableCell>Expires</TableCell>
-              <TableCell align="right">Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {entries.map((e) => (
-              <TableRow key={e.id}>
-                <TableCell>
-                  {e.agent_name ? `${e.agent_name} (#${e.agent_id})` : `#${e.agent_id}`}
-                </TableCell>
-                <TableCell>
-                  {e.job_execution_id ? (
-                    <Chip size="small" label="this job" color="warning" variant="outlined" />
-                  ) : (
-                    <Chip size="small" label="global" color="error" variant="outlined" />
-                  )}
-                </TableCell>
-                <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                  {e.hash_type} / {e.attack_mode}
-                </TableCell>
-                <TableCell>
-                  {e.failure_count ?? '—'}
-                </TableCell>
-                <TableCell>
-                  <Tooltip title={e.last_error || e.reason}>
-                    <Typography
-                      variant="body2"
-                      sx={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    >
-                      {e.reason}
-                    </Typography>
-                  </Tooltip>
-                </TableCell>
-                <TableCell>{formatRelativeFuture(e.expires_at)}</TableCell>
-                <TableCell align="right">
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={clearingId === e.id ? <CircularProgress size={14} /> : <ReplayIcon />}
-                    disabled={clearingId !== null}
-                    onClick={() => handleRetry(e.id)}
-                  >
-                    Retry now
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Paper>
+    <SectionCard
+      title={t('benchmarkBlocklist.title') as string}
+      subtitle={t('benchmarkBlocklist.subtitle') as string}
+      loading={query.isFetching}
+      flush
+      sx={{ mt: 3 }}
+    >
+      <DataTable<BlocklistEntry>
+        flat
+        rows={entries}
+        columns={columns}
+        loading={query.isLoading}
+        error={query.error ? getErrorMessage(query.error) || (t('benchmarkBlocklist.loadFailed') as string) : undefined}
+        onRetry={() => void query.refetch()}
+        pagination={false}
+        sorting={false}
+      />
+    </SectionCard>
   );
 };
 

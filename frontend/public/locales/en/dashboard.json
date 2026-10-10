@@ -154,11 +154,43 @@
     "viewAll": "All jobs",
     "empty": "Nothing running",
     "emptyHint": "Start a job from a hashlist.",
-    "goHashlists": "Go to hashlists"
+    "goHashlists": "Go to hashlists",
+    "recentTitle": "Jobs",
+    "recentSubtitle": "Active first, then recently finished",
+    "recentEmpty": "No jobs yet"
   },
   "welcomeUser": "Welcome back, {{name}}",
   "autoRefresh": {
     "on": "Live",
     "off": "Paused"
+  },
+  "view": {
+    "label": "Dashboard view",
+    "mine": "Mine",
+    "teams": "My teams",
+    "all": "All"
+  },
+  "attention": {
+    "title": "Needs attention",
+    "allClear": "All clear",
+    "allClearHint": "Nothing is failing or waiting on you.",
+    "kind": {
+      "job_failed": "Job failed: {{name}}",
+      "job_blocked": "Job waiting: {{name}}",
+      "hashlist_error": "Hashlist failed to process: {{name}}",
+      "hashlist_awaiting_decision": "Hashlist needs your review: {{name}}",
+      "hashlist_stuck": "Hashlist stuck processing: {{name}}",
+      "agent_error": "Agent error: {{name}}",
+      "agent_update_failed": "Agent update failed: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Cracks over time",
+    "subtitle_one": "{{count}} crack in the last {{days}} days",
+    "subtitle_other": "{{count}} cracks in the last {{days}} days",
+    "tooltip_one": "{{count}} crack",
+    "tooltip_other": "{{count}} cracks",
+    "topHashlists": "Top hashlists this week",
+    "noCracksWeek": "No cracks in the last 7 days"
   }
 }

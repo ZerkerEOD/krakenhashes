@@ -1,57 +1,34 @@
 /**
- * App - Root application component with routing and authentication
- * 
- * Features:
- *   - Protected routes
- *   - Authentication state management
- *   - Theme provider
- *   - Global layout
- * 
- * Dependencies:
- *   - react-router-dom for routing
- *   - @mui/material for theming
- *   - ./services/auth for authentication
- *   - ./components/* for page components
- * 
- * Error Scenarios:
- *   - Authentication failures
- *   - Route access errors
- *   - Component loading errors
- *   - Theme initialization failures
- * 
- * Usage Example:
- * ```tsx
- * // In index.tsx
- * ReactDOM.render(
- *   <React.StrictMode>
- *     <App />
- *   </React.StrictMode>,
- *   document.getElementById('root')
- * );
- * ```
- * 
- * Performance Considerations:
- *   - Lazy loading of routes
- *   - Optimized authentication checks
- *   - Memoized theme provider
- * 
- * @returns {JSX.Element} Root application component
+ * App - root component: provider stack and the route table.
+ *
+ * Routing uses a data router (`createBrowserRouter`) so pages can use
+ * `useBlocker` for unsaved-changes guards. Every page is lazy and wrapped in a
+ * `RouteBoundary` (page-shaped skeleton while loading, error state with retry
+ * if it throws, fade on entry).
  */
-
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { CircularProgress, Box } from '@mui/material';
+import React, { lazy } from 'react';
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Navigate,
+  Outlet,
+  Route,
+  RouterProvider,
+  useLocation,
+} from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
 import Layout from './components/Layout';
-import PrivateRoute from './components/PrivateRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TeamFilterProvider } from './contexts/TeamFilterContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { DeletionProgressProvider } from './contexts/DeletionProgressContext';
-import { SnackbarProvider, useSnackbar } from 'notistack';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-// Create a client instance
-const queryClient = new QueryClient();
+import { PollingProvider } from './contexts/PollingContext';
+import { queryClient } from './services/queryClient';
+import { ToastProvider } from './components/ui/toast';
+import { ConfirmProvider } from './components/ui/ConfirmProvider';
+import RouteBoundary from './components/ui/RouteBoundary';
+import PageSkeleton, { PageSkeletonVariant } from './components/ui/PageSkeleton';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Lazy load pages
 const LoginPage = lazy(() => import('./pages/Login'));
@@ -64,7 +41,7 @@ const RulesManagementPage = lazy(() => import('./pages/RulesManagement'));
 const HashlistsPage = lazy(() => import('./pages/Hashlists'));
 const HashlistDetailViewPage = lazy(() => import('./components/hashlist/HashlistDetailView'));
 const AboutPage = lazy(() => import('./pages/About'));
-const ProfileSettingsPage = lazy(() => import('./pages/settings/ProfileSettings'));
+const UserSettingsPage = lazy(() => import('./pages/settings/UserSettings'));
 const AgentDetailsPage = lazy(() => import('./pages/AgentDetails'));
 const PotPage = lazy(() => import('./pages/Pot'));
 const PotHashlistPage = lazy(() => import('./pages/PotHashlist'));
@@ -72,170 +49,148 @@ const PotClientPage = lazy(() => import('./pages/PotClient'));
 const PotJobPage = lazy(() => import('./pages/PotJob'));
 const AnalyticsPage = lazy(() => import('./pages/Analytics'));
 const NotificationCenterPage = lazy(() => import('./pages/Notifications/NotificationCenter'));
-
-// Lazy load pages - Clients page moved to regular auth section
-const ClientsPage = lazy(() => import('./pages/AdminClients').then(module => ({ default: module.AdminClients })));
-
-// Lazy load Team Pages
+const ClientsPage = lazy(() => import('./pages/AdminClients').then((m) => ({ default: m.AdminClients })));
 const TeamListPage = lazy(() => import('./pages/teams/TeamList'));
+const ClientDetailPage = lazy(() => import('./pages/clients/ClientDetail'));
 const TeamDetailPage = lazy(() => import('./pages/teams/TeamDetail'));
 
-// Lazy load Admin Pages
+// Admin pages
 const PresetJobListPage = lazy(() => import('./pages/admin/PresetJobList'));
 const PresetJobFormPage = lazy(() => import('./pages/admin/PresetJobForm'));
 const JobWorkflowListPage = lazy(() => import('./pages/admin/JobWorkflowList'));
 const JobWorkflowFormPage = lazy(() => import('./pages/admin/JobWorkflowForm'));
-const AdminAuthSettingsPage = lazy(() => import('./pages/admin/AuthSettings'));
-const AdminSSOSettingsPage = lazy(() => import('./pages/admin/SSOSettings'));
 const AdminUserListPage = lazy(() => import('./pages/admin/UserList'));
 const AdminUserDetailPage = lazy(() => import('./pages/admin/UserDetail'));
-const AdminSettingsIndexPage = lazy(() => import('./pages/AdminSettings').then(module => ({ default: module.AdminSettings })));
-const AdminEmailSettingsIndexPage = lazy(() => import('./pages/AdminSettings/EmailSettings').then(module => ({ default: module.EmailSettings })));
-const AdminEmailProviderConfigPage = lazy(() => import('./pages/AdminSettings/EmailSettings/ProviderConfig').then(module => ({ default: module.ProviderConfig })));
-const AdminEmailTemplateEditorPage = lazy(() => import('./pages/AdminSettings/EmailSettings/TemplateEditor').then(module => ({ default: module.TemplateEditor })));
+const AdminSettingsIndexPage = lazy(() => import('./pages/AdminSettings').then((m) => ({ default: m.AdminSettings })));
 const CustomCharsetListPage = lazy(() => import('./pages/admin/CustomCharsetList'));
 const DiagnosticsPage = lazy(() => import('./pages/admin/Diagnostics'));
 const AdminAuditLogPage = lazy(() => import('./pages/AdminAuditLog'));
 const JobAnalyticsPage = lazy(() => import('./pages/admin/JobAnalytics'));
 const CloudFleetPage = lazy(() => import('./pages/admin/CloudFleet'));
-const SavedCharsetsPage = lazy(() => import('./pages/settings/SavedCharsets'));
+const BinariesPage = lazy(() => import('./pages/admin/Binaries'));
+const HashTypesPage = lazy(() => import('./pages/admin/HashTypes'));
+const VouchersPage = lazy(() => import('./pages/admin/Vouchers'));
 
-const App: React.FC = () => {
-  // Use snackbar for notifications
-  const { enqueueSnackbar } = useSnackbar();
-
-  const handleNotification = (message: string, variant: 'success' | 'error' | 'warning' | 'info') => {
-    enqueueSnackbar(message, { variant });
-  };
-
-  return (
-    <AuthProvider>
-      <TeamFilterProvider>
-        <QueryClientProvider client={queryClient}>
-            <SnackbarProvider maxSnack={3}>
-              <NotificationProvider>
-              <DeletionProgressProvider>
-              <Router>
-                <Suspense fallback={
-                  <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-                    <CircularProgress />
-                  </Box>
-                }>
-                <Routes>
-                  <Route path="/login" element={<LoginPage />} />
-
-                  {/* Authenticated Routes */}
-                  <Route element={<RequireAuth><Layout /></RequireAuth>}>
-                    <Route path="/dashboard" element={<DashboardPage />} />
-                    <Route path="/jobs" element={<JobsPage />} />
-                    <Route path="/jobs/:id" element={<JobDetails />} />
-                    <Route path="/agents" element={<AgentManagementPage />} />
-                    <Route path="/agents/:id" element={<AgentDetailsPage />} />
-                    <Route path="/hashlists" element={<HashlistsPage />} />
-                    <Route path="/hashlists/:id" element={<HashlistDetailViewPage />} />
-                    <Route path="/wordlists" element={<WordlistsManagementPage />} />
-                    <Route path="/rules" element={<RulesManagementPage />} />
-                    <Route path="/clients" element={<ClientsPage />} />
-                    <Route path="/analytics" element={<AnalyticsPage />} />
-                    <Route path="/pot" element={<PotPage />} />
-                    <Route path="/pot/hashlist/:id" element={<PotHashlistPage />} />
-                    <Route path="/pot/client/:id" element={<PotClientPage />} />
-                    <Route path="/pot/job/:id" element={<PotJobPage />} />
-                    <Route path="/teams" element={<TeamListPage />} />
-                    <Route path="/teams/:teamId" element={<TeamDetailPage />} />
-                    <Route path="/about" element={<AboutPage />} />
-                    <Route path="/settings/profile" element={<ProfileSettingsPage />} />
-                    <Route path="/settings/charsets" element={<SavedCharsetsPage />} />
-                    <Route path="/notifications" element={<NotificationCenterPage />} />
-
-                    {/* Admin Section Routes */}
-                    <Route path="/admin" element={<RequireAdmin><Outlet /></RequireAdmin>}>
-                      <Route index element={<Navigate to="auth-settings" replace />} />
-                      <Route path="custom-charsets" element={<CustomCharsetListPage />} />
-                      <Route path="preset-jobs" element={<PresetJobListPage />} />
-                      <Route path="preset-jobs/new" element={<PresetJobFormPage />} />
-                      <Route path="preset-jobs/:presetJobId/edit" element={<PresetJobFormPage />} />
-                      <Route path="job-workflows" element={<JobWorkflowListPage />} />
-                      <Route path="job-workflows/new" element={<JobWorkflowFormPage />} />
-                      <Route path="job-workflows/:jobWorkflowId/edit" element={<JobWorkflowFormPage />} />
-                      <Route path="auth-settings" element={<AdminAuthSettingsPage />} />
-                      <Route path="sso-settings" element={<AdminSSOSettingsPage />} />
-                      <Route path="users" element={<AdminUserListPage />} />
-                      <Route path="users/:id" element={<AdminUserDetailPage />} />
-                      <Route path="settings" element={<AdminSettingsIndexPage />} />
-                      <Route path="settings/email" element={<AdminEmailSettingsIndexPage />} />
-                <Route 
-                        path="settings/email/provider" 
-                        element={<AdminEmailProviderConfigPage onNotification={handleNotification} />} 
-                      />
-                <Route
-                        path="settings/email/templates"
-                        element={<AdminEmailTemplateEditorPage onNotification={handleNotification} />}
-                      />
-                      <Route path="diagnostics" element={<DiagnosticsPage />} />
-                      <Route path="audit-log" element={<AdminAuditLogPage />} />
-                      <Route path="job-analytics" element={<JobAnalyticsPage />} />
-                      <Route path="cloud/fleet" element={<CloudFleetPage />} />
-                    </Route>
-
-                    {/* Catch-all for authenticated users */}
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                  </Route>
-
-                  {/* Redirect root based on auth */}
-                  <Route path="/" element={<AuthRedirect />} />
-                </Routes>
-                </Suspense>
-              </Router>
-              </DeletionProgressProvider>
-              </NotificationProvider>
-            </SnackbarProvider>
-        </QueryClientProvider>
-      </TeamFilterProvider>
-    </AuthProvider>
-  );
-};
+/** Wrap a lazy page in its route boundary with the matching skeleton shape. */
+const page = (Component: React.LazyExoticComponent<React.ComponentType<any>>, skeleton: PageSkeletonVariant = 'list') => (
+  <RouteBoundary skeleton={skeleton}>
+    <Component />
+  </RouteBoundary>
+);
 
 // Helper component to redirect from root based on authentication status
-const AuthRedirect = () => {
+const AuthRedirect: React.FC = () => {
   const { isAuth, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
-  
-  return <Navigate to={isAuth ? "/dashboard" : "/login"} replace />;
+  if (isLoading) return <PageSkeleton variant="dashboard" />;
+  return <Navigate to={isAuth ? '/dashboard' : '/login'} replace />;
 };
 
-// Define RequireAuth and RequireAdmin components
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuth, isLoading } = useAuth();
   const location = useLocation();
-
-  if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (!isAuth) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
+  if (isLoading) return <PageSkeleton variant="dashboard" />;
+  if (!isAuth) return <Navigate to="/login" state={{ from: location }} replace />;
   return <>{children}</>;
 };
 
 const RequireAdmin: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { userRole } = useAuth();
-  if (userRole !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
-  }
+  if (userRole !== 'admin') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 };
 
-export default App; 
+/**
+ * Root route element: the provider stack that needs router context sits here,
+ * everything else is mounted once around the RouterProvider.
+ */
+const RootShell: React.FC = () => (
+  <ErrorBoundary>
+    <Outlet />
+  </ErrorBoundary>
+);
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<RootShell />}>
+      <Route path="/login" element={page(LoginPage, 'form')} />
+
+      {/* Authenticated routes */}
+      <Route element={<RequireAuth><Layout /></RequireAuth>}>
+        <Route path="/dashboard" element={page(DashboardPage, 'dashboard')} />
+        <Route path="/jobs" element={page(JobsPage)} />
+        <Route path="/jobs/:id" element={page(JobDetails, 'detail')} />
+        <Route path="/agents" element={page(AgentManagementPage)} />
+        <Route path="/agents/:id" element={page(AgentDetailsPage, 'detail')} />
+        <Route path="/hashlists" element={page(HashlistsPage)} />
+        <Route path="/hashlists/:id" element={page(HashlistDetailViewPage, 'detail')} />
+        <Route path="/wordlists" element={page(WordlistsManagementPage)} />
+        <Route path="/rules" element={page(RulesManagementPage)} />
+        <Route path="/clients" element={page(ClientsPage)} />
+        <Route path="/clients/:id" element={page(ClientDetailPage, 'detail')} />
+        <Route path="/analytics" element={page(AnalyticsPage, 'detail')} />
+        <Route path="/pot" element={page(PotPage)} />
+        <Route path="/pot/hashlist/:id" element={page(PotHashlistPage)} />
+        <Route path="/pot/client/:id" element={page(PotClientPage)} />
+        <Route path="/pot/job/:id" element={page(PotJobPage)} />
+        <Route path="/teams" element={page(TeamListPage)} />
+        <Route path="/teams/:teamId" element={page(TeamDetailPage, 'detail')} />
+        <Route path="/about" element={page(AboutPage, 'form')} />
+        <Route path="/settings/*" element={page(UserSettingsPage, 'settings')} />
+        <Route path="/notifications" element={page(NotificationCenterPage)} />
+
+        {/* Admin section */}
+        <Route path="/admin" element={<RequireAdmin><Outlet /></RequireAdmin>}>
+          <Route index element={<Navigate to="settings" replace />} />
+          <Route path="custom-charsets" element={page(CustomCharsetListPage)} />
+          <Route path="preset-jobs" element={page(PresetJobListPage)} />
+          <Route path="preset-jobs/new" element={page(PresetJobFormPage, 'form')} />
+          <Route path="preset-jobs/:presetJobId/edit" element={page(PresetJobFormPage, 'form')} />
+          <Route path="job-workflows" element={page(JobWorkflowListPage)} />
+          <Route path="job-workflows/new" element={page(JobWorkflowFormPage, 'form')} />
+          <Route path="job-workflows/:jobWorkflowId/edit" element={page(JobWorkflowFormPage, 'form')} />
+          <Route path="users" element={page(AdminUserListPage)} />
+          <Route path="users/:id" element={page(AdminUserDetailPage, 'detail')} />
+          <Route path="settings/*" element={page(AdminSettingsIndexPage, 'settings')} />
+          {/* Legacy standalone pages now live inside Admin Settings */}
+          <Route path="auth-settings" element={<Navigate to="/admin/settings" replace />} />
+          <Route path="sso-settings" element={<Navigate to="/admin/settings" replace />} />
+          <Route path="diagnostics" element={page(DiagnosticsPage, 'detail')} />
+          <Route path="audit-log" element={page(AdminAuditLogPage)} />
+          <Route path="job-analytics" element={page(JobAnalyticsPage, 'dashboard')} />
+          <Route path="cloud/fleet" element={page(CloudFleetPage)} />
+          <Route path="binaries" element={page(BinariesPage)} />
+          <Route path="hash-types" element={page(HashTypesPage)} />
+          <Route path="vouchers" element={page(VouchersPage)} />
+        </Route>
+
+        {/* Catch-all for authenticated users */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
+
+      {/* Redirect root based on auth */}
+      <Route path="/" element={<AuthRedirect />} />
+    </Route>
+  )
+);
+
+const App: React.FC = () => (
+  <AuthProvider>
+    <TeamFilterProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <ConfirmProvider>
+            <NotificationProvider>
+              <DeletionProgressProvider>
+                <PollingProvider>
+                  <RouterProvider router={router} fallbackElement={<PageSkeleton variant="dashboard" />} />
+                </PollingProvider>
+              </DeletionProgressProvider>
+            </NotificationProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </QueryClientProvider>
+    </TeamFilterProvider>
+  </AuthProvider>
+);
+
+export default App;

@@ -25,9 +25,11 @@ import { SelectChangeEvent } from '@mui/material/Select';
 import EditIcon from '@mui/icons-material/Edit';
 import { useTranslation } from 'react-i18next';
 import { getEmailConfig, updateEmailConfig, testEmailConfig } from '../../../services/api';
+import { useToast } from '../../../components/ui/toast';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 
 interface ProviderConfigProps {
-  onNotification: (message: string, severity: 'success' | 'error') => void;
+  onNotification?: (message: string, severity: 'success' | 'error') => void;
 }
 
 interface EmailProviderConfig {
@@ -60,8 +62,14 @@ const defaultConfig: EmailProviderConfig = {
 
 type ViewMode = 'view' | 'edit' | 'create';
 
-export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }) => {
+export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification: onNotificationProp }) => {
   const { t } = useTranslation('admin');
+  const toast = useToast();
+  const onNotification = useCallback(
+    (message: string, severity: 'success' | 'error') =>
+      onNotificationProp ? onNotificationProp(message, severity) : toast[severity](message),
+    [onNotificationProp, toast]
+  );
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<ViewMode>('create');
   const [savedConfig, setSavedConfig] = useState<EmailProviderConfig | null>(null);
@@ -74,23 +82,6 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
     try {
       console.debug('[ProviderConfig] Loading configuration...');
       setLoading(true);
-
-      // Check for unsaved edits in sessionStorage first
-      const savedEditState = sessionStorage.getItem('email-config-editing');
-      if (savedEditState) {
-        try {
-          const { config: savedCfg, mode: savedMode, savedConfig: savedSaved } = JSON.parse(savedEditState);
-          console.debug('[ProviderConfig] Restoring unsaved edits from sessionStorage');
-          setConfig(savedCfg);
-          setMode(savedMode);
-          setSavedConfig(savedSaved);
-          setLoading(false);
-          return; // Don't reload from API
-        } catch (e) {
-          console.error('[ProviderConfig] Failed to parse saved edit state:', e);
-          sessionStorage.removeItem('email-config-editing');
-        }
-      }
 
       // Load from API
       const response = await getEmailConfig();
@@ -152,19 +143,10 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
     loadConfig();
   }, [loadConfig]);
 
-  // Persist editing state to sessionStorage when in edit/create mode
-  useEffect(() => {
-    if (mode === 'edit' || mode === 'create') {
-      const stateToSave = {
-        config,
-        mode,
-        savedConfig,
-      };
-      sessionStorage.setItem('email-config-editing', JSON.stringify(stateToSave));
-    } else if (mode === 'view') {
-      sessionStorage.removeItem('email-config-editing');
-    }
-  }, [config, mode, savedConfig]);
+  // Explicit-Apply area: the form is only "dirty" relative to what editing started from.
+  const editBaseline = mode === 'edit' ? { ...(savedConfig ?? defaultConfig), apiKey: '' } : defaultConfig;
+  const dirty = mode !== 'view' && !loading && JSON.stringify(config) !== JSON.stringify(editBaseline);
+  const { dialog: unsavedDialog } = useUnsavedChangesGuard(dirty);
 
   const handleChange = (field: keyof EmailProviderConfig) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent
@@ -240,7 +222,6 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
 
   const handleCancel = () => {
     console.debug('[ProviderConfig] Canceling configuration');
-    sessionStorage.removeItem('email-config-editing');
     if (savedConfig) {
       setConfig(savedConfig);
       setMode('view');
@@ -346,8 +327,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       await updateEmailConfig(payload);
       onNotification(t('emailSettings.provider.messages.saveSuccess'), 'success');
 
-      // Clear sessionStorage and reload config to switch to view mode
-      sessionStorage.removeItem('email-config-editing');
+      // Reload config to switch to view mode
       await loadConfig();
 
       if (withTest) {
@@ -682,6 +662,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
 
   return (
     <Box>
+      {unsavedDialog}
       {mode === 'view' ? renderViewMode() : renderFormMode()}
 
       {/* Test Email Dialog */}

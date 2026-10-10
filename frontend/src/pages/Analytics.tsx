@@ -8,7 +8,7 @@
  *   - Display comprehensive password analytics
  *   - Queue management and status tracking
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -20,37 +20,25 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  Card,
-  CardContent,
-  CardHeader,
   Divider,
   Tab,
   Tabs,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Checkbox,
   Chip,
-  LinearProgress,
-  AlertTitle,
-  Tooltip,
 } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
+import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import {
   Add as AddIcon,
-  Refresh as RefreshIcon,
   Delete as DeleteIcon,
   Replay as RetryIcon,
   Visibility as VisibilityIcon,
 } from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
 import analyticsService from '../services/analytics';
 import { AnalyticsReport, CreateAnalyticsReportRequest, HashlistSummary } from '../types/analytics';
 import { api } from '../services/api';
 import { getJobDefaultsForUsers } from '../services/jobSettings';
+import { DataTable, EntityLink, PageHeader, StatusChip, useConfirm, useToast } from '../components/ui';
+import { useLiveQuery } from '../hooks/useLiveQuery';
 
 // Import display components
 import AnalyticsReportDisplay from '../components/analytics/AnalyticsReportDisplay';
@@ -59,6 +47,20 @@ interface Client {
   id: string;
   name: string;
 }
+
+/** Native date input styled from theme tokens so it reads correctly in light and dark mode. */
+const dateFieldSx = (th: Theme) => ({
+  '& .MuiInputBase-root': {
+    backgroundColor: th.palette.surface.sunken,
+  },
+  '& input[type="date"]': {
+    colorScheme: th.palette.mode,
+  },
+  '& input[type="date"]::-webkit-calendar-picker-indicator': {
+    filter: th.palette.mode === 'dark' ? 'invert(1)' : 'none',
+    cursor: 'pointer',
+  },
+});
 
 export default function Analytics() {
   const { t } = useTranslation('analytics');
@@ -78,12 +80,12 @@ export default function Analytics() {
   const [clientReports, setClientReports] = useState<AnalyticsReport[]>([]);
   const [currentReport, setCurrentReport] = useState<AnalyticsReport | null>(null);
   const [reportStatus, setReportStatus] = useState<string>('');
-  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
   const [availableHashlists, setAvailableHashlists] = useState<HashlistSummary[]>([]);
   const [selectedHashlistIds, setSelectedHashlistIds] = useState<Set<number>>(new Set());
   const [hashlistsLoading, setHashlistsLoading] = useState(false);
   const [bloodhoundFiles, setBloodhoundFiles] = useState<File[]>([]);
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   // Helper function to format dates
   const formatDate = (date: Date | string, formatStr: string): string => {
@@ -119,24 +121,31 @@ export default function Analytics() {
     });
   }, []);
 
-  // Poll for report status when viewing a report
-  useEffect(() => {
-    if (currentReport && (currentReport.status === 'queued' || currentReport.status === 'processing')) {
-      const interval = setInterval(() => {
-        fetchReportStatus(currentReport.id);
-      }, 5000); // Poll every 5 seconds
-      setPollInterval(interval);
-
-      return () => {
-        if (interval) clearInterval(interval);
-      };
-    } else {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        setPollInterval(null);
-      }
+  // Poll for report status while the viewed report is queued or processing
+  const pollReportId =
+    currentReport && (currentReport.status === 'queued' || currentReport.status === 'processing')
+      ? currentReport.id
+      : null;
+  const reportPoll = useLiveQuery(
+    {
+      queryKey: ['analytics', 'report-status', pollReportId],
+      queryFn: () => analyticsService.getReport(pollReportId as string),
+      enabled: Boolean(pollReportId),
+      // No cache: a retried report must not briefly resurrect its previous "failed" snapshot.
+      gcTime: 0,
+    },
+    {
+      tier: 'fast',
+      when: (d) => !d || (d.status !== 'completed' && d.status !== 'failed'),
     }
-  }, [currentReport?.id, currentReport?.status]);
+  );
+
+  useEffect(() => {
+    if (!pollReportId || !reportPoll.data || reportPoll.data.report?.id !== pollReportId) return;
+    setReportStatus(reportPoll.data.status);
+    setCurrentReport(reportPoll.data.report);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportPoll.data]);
 
   // Auto-load hashlists when client + dates are set
   useEffect(() => {
@@ -202,7 +211,7 @@ export default function Analytics() {
       setClients(response.data);
     } catch (error) {
       console.error('Error fetching clients:', error);
-      enqueueSnackbar(t('messages.failedLoadClients') as string, { variant: 'error' });
+      toast.error(t('messages.failedLoadClients') as string);
     }
   };
 
@@ -213,27 +222,9 @@ export default function Analytics() {
       setClientReports(reports);
     } catch (error) {
       console.error('Error fetching client reports:', error);
-      enqueueSnackbar(t('messages.failedLoadReports') as string, { variant: 'error' });
+      toast.error(t('messages.failedLoadReports') as string);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchReportStatus = async (reportId: string) => {
-    try {
-      const response = await analyticsService.getReport(reportId);
-      setReportStatus(response.status);
-      setCurrentReport(response.report);
-
-      // Stop polling if completed or failed
-      if (response.status === 'completed' || response.status === 'failed') {
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          setPollInterval(null);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching report status:', error);
     }
   };
 
@@ -325,12 +316,12 @@ export default function Analytics() {
 
   const handleGenerateReport = async () => {
     if (!selectedClient) {
-      enqueueSnackbar(t('messages.selectClient') as string, { variant: 'warning' });
+      toast.warning(t('messages.selectClient') as string);
       return;
     }
 
     if (availableHashlists.length > 0 && selectedHashlistIds.size === 0) {
-      enqueueSnackbar(t('messages.selectHashlists') as string, { variant: 'warning' });
+      toast.warning(t('messages.selectHashlists') as string);
       return;
     }
 
@@ -370,10 +361,10 @@ export default function Analytics() {
       setBloodhoundFiles([]);
       setCurrentReport(report);
       setReportStatus('queued');
-      enqueueSnackbar(t('messages.reportQueued', { position: report.queue_position }) as string, { variant: 'success' });
+      toast.success(t('messages.reportQueued', { position: report.queue_position }) as string);
     } catch (error: any) {
       console.error('Error generating report:', error);
-      enqueueSnackbar(error.response?.data?.error || t('messages.failedGenerateReport') as string, { variant: 'error' });
+      toast.error(error.response?.data?.error || (t('messages.failedGenerateReport') as string));
     } finally {
       setLoading(false);
     }
@@ -387,16 +378,23 @@ export default function Analytics() {
       setReportStatus(response.status);
     } catch (error) {
       console.error('Error viewing report:', error);
-      enqueueSnackbar(t('messages.failedLoadReport') as string, { variant: 'error' });
+      toast.error(t('messages.failedLoadReport') as string);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteReport = async (reportId: string) => {
+    const ok = await confirm({
+      title: t('actions.deleteReport') as string,
+      message: t('messages.confirmDeleteReport', 'Delete this analytics report? This cannot be undone.') as string,
+      severity: 'danger',
+      confirmLabel: t('actions.delete') as string,
+    });
+    if (!ok) return;
     try {
       await analyticsService.deleteReport(reportId);
-      enqueueSnackbar(t('messages.reportDeleted') as string, { variant: 'success' });
+      toast.success(t('messages.reportDeleted') as string);
       if (selectedClient) {
         fetchClientReports(selectedClient);
       }
@@ -406,7 +404,7 @@ export default function Analytics() {
       }
     } catch (error) {
       console.error('Error deleting report:', error);
-      enqueueSnackbar(t('messages.failedDeleteReport') as string, { variant: 'error' });
+      toast.error(t('messages.failedDeleteReport') as string);
     }
   };
 
@@ -415,38 +413,99 @@ export default function Analytics() {
       const report = await analyticsService.retryReport(reportId);
       setCurrentReport(report);
       setReportStatus('queued');
-      enqueueSnackbar(t('messages.reportQueuedRetry', { position: report.queue_position }) as string, { variant: 'success' });
+      toast.success(t('messages.reportQueuedRetry', { position: report.queue_position }) as string);
     } catch (error) {
       console.error('Error retrying report:', error);
-      enqueueSnackbar(t('messages.failedRetryReport') as string, { variant: 'error' });
+      toast.error(t('messages.failedRetryReport') as string);
     }
   };
 
-  const getStatusChip = (status: string) => {
-    const statusColors: Record<string, any> = {
-      queued: { color: 'info', label: t('status.queued') },
-      processing: { color: 'warning', label: t('status.processing') },
-      completed: { color: 'success', label: t('status.completed') },
-      failed: { color: 'error', label: t('status.failed') },
-    };
+  const reportColumns: GridColDef<AnalyticsReport>[] = [
+    {
+      field: 'start_date',
+      headerName: t('table.dateRange') as string,
+      flex: 1.4,
+      minWidth: 220,
+      renderCell: (p) =>
+        `${formatDate(p.row.start_date, 'MMM d, yyyy')} - ${formatDate(p.row.end_date, 'MMM d, yyyy')}`,
+    },
+    {
+      field: 'created_at',
+      headerName: t('table.generatedOn') as string,
+      flex: 1,
+      minWidth: 170,
+      renderCell: (p) => formatDate(p.row.created_at, 'MMM d, yyyy HH:mm'),
+    },
+    {
+      field: 'status',
+      headerName: t('table.status') as string,
+      width: 130,
+      renderCell: (p) => (
+        <StatusChip
+          entity="job"
+          status={p.row.status}
+          label={t(`status.${p.row.status}`, { defaultValue: p.row.status }) as string}
+        />
+      ),
+    },
+    {
+      field: 'total_hashes',
+      headerName: t('table.hashes') as string,
+      type: 'number',
+      width: 120,
+      valueFormatter: (v) => (v == null ? '' : Number(v).toLocaleString()),
+    },
+    {
+      field: 'total_cracked',
+      headerName: t('table.cracked') as string,
+      type: 'number',
+      width: 120,
+      valueFormatter: (v) => (v == null ? '' : Number(v).toLocaleString()),
+    },
+  ];
 
-    const config = statusColors[status] || { color: 'default', label: status };
-    return <Chip label={config.label as string} color={config.color} size="small" />;
-  };
+  const hashlistColumns: GridColDef<HashlistSummary>[] = [
+    {
+      field: 'name',
+      headerName: t('hashlistSelection.name') as string,
+      flex: 1.5,
+      minWidth: 180,
+      renderCell: (p) => <EntityLink type="hashlist" id={p.row.id} label={p.row.name} />,
+    },
+    { field: 'hash_type_name', headerName: t('hashlistSelection.hashType') as string, flex: 1, minWidth: 140 },
+    {
+      field: 'total_hashes',
+      headerName: t('hashlistSelection.hashes') as string,
+      type: 'number',
+      width: 110,
+      valueFormatter: (v) => (v == null ? '' : Number(v).toLocaleString()),
+    },
+    {
+      field: 'cracked_hashes',
+      headerName: t('hashlistSelection.cracked') as string,
+      type: 'number',
+      width: 110,
+      valueFormatter: (v) => (v == null ? '' : Number(v).toLocaleString()),
+    },
+    {
+      field: 'archived_at',
+      headerName: t('hashlistSelection.status') as string,
+      width: 120,
+      renderCell: (p) => (
+        <StatusChip
+          entity="generic"
+          variant="outlined"
+          status={p.row.archived_at ? 'inactive' : 'active'}
+          label={(p.row.archived_at ? t('hashlistSelection.archived') : t('hashlistSelection.active')) as string}
+        />
+      ),
+    },
+  ];
 
   return (
       <Box sx={{ p: 3 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <Box>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {t('title') as string}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {t('description') as string}
-            </Typography>
-          </Box>
-        </Box>
+        <PageHeader title={t('title') as string} description={t('description') as string} />
 
         {/* Client Selection */}
         <Paper sx={{ p: 3, mb: 3 }}>
@@ -488,14 +547,14 @@ export default function Analytics() {
                 {/* Date Preset Chips */}
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                    Quick Select
+                    {t('form.quickSelect') as string}
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {[
-                      { key: 'lastMonth', label: 'Last Month' },
-                      { key: 'lastQuarter', label: 'Last Quarter' },
-                      { key: 'last6Months', label: 'Last 6 Months' },
-                      { key: 'lastYear', label: 'Last Year' },
+                      { key: 'lastMonth', label: t('form.datePresets.lastMonth') as string },
+                      { key: 'lastQuarter', label: t('form.datePresets.lastQuarter') as string },
+                      { key: 'last6Months', label: t('form.datePresets.last6Months') as string },
+                      { key: 'lastYear', label: t('form.datePresets.lastYear') as string },
                     ].map((preset) => (
                       <Chip
                         key={preset.key}
@@ -509,10 +568,10 @@ export default function Analytics() {
                     ))}
                     <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
                     {[
-                      { key: 'priorMonth', label: 'Prior Month' },
-                      { key: 'priorQuarter', label: 'Prior Quarter' },
-                      { key: 'prior6Months', label: 'Prior 6 Months' },
-                      { key: 'priorYear', label: 'Prior Year' },
+                      { key: 'priorMonth', label: t('form.datePresets.priorMonth') as string },
+                      { key: 'priorQuarter', label: t('form.datePresets.priorQuarter') as string },
+                      { key: 'prior6Months', label: t('form.datePresets.prior6Months') as string },
+                      { key: 'priorYear', label: t('form.datePresets.priorYear') as string },
                     ].map((preset) => (
                       <Chip
                         key={preset.key}
@@ -536,18 +595,7 @@ export default function Analytics() {
                       value={startDate}
                       onChange={(e) => { setStartDate(e.target.value); setActivePreset(null); }}
                       InputLabelProps={{ shrink: true }}
-                      sx={{
-                        '& .MuiInputBase-root': {
-                          backgroundColor: '#121212',
-                        },
-                        '& input[type="date"]': {
-                          colorScheme: 'dark',
-                        },
-                        '& input[type="date"]::-webkit-calendar-picker-indicator': {
-                          filter: 'invert(1)',
-                          cursor: 'pointer',
-                        },
-                      }}
+                      sx={dateFieldSx}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -558,18 +606,7 @@ export default function Analytics() {
                       value={endDate}
                       onChange={(e) => { setEndDate(e.target.value); setActivePreset(null); }}
                       InputLabelProps={{ shrink: true }}
-                      sx={{
-                        '& .MuiInputBase-root': {
-                          backgroundColor: '#121212',
-                        },
-                        '& input[type="date"]': {
-                          colorScheme: 'dark',
-                        },
-                        '& input[type="date"]::-webkit-calendar-picker-indicator': {
-                          filter: 'invert(1)',
-                          cursor: 'pointer',
-                        },
-                      }}
+                      sx={dateFieldSx}
                     />
                   </Grid>
                   {/* Hashlist Selection - auto-loaded after client + dates */}
@@ -578,7 +615,11 @@ export default function Analytics() {
                       <Paper variant="outlined" sx={{ p: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="subtitle2">
-                            {t('hashlistSelection.title') as string} ({selectedHashlistIds.size}/{availableHashlists.length})
+                            {t('hashlistSelection.titleWithCount', {
+                              title: t('hashlistSelection.title'),
+                              selected: selectedHashlistIds.size,
+                              total: availableHashlists.length,
+                            })}
                           </Typography>
                           <Box>
                             <Button size="small" onClick={handleSelectAllHashlists} disabled={hashlistsLoading}>
@@ -599,52 +640,23 @@ export default function Analytics() {
                             {t('hashlistSelection.noHashlists') as string}
                           </Alert>
                         ) : (
-                          <TableContainer sx={{ maxHeight: 300 }}>
-                            <Table size="small" stickyHeader>
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell padding="checkbox" />
-                                  <TableCell>{t('hashlistSelection.name') as string}</TableCell>
-                                  <TableCell>{t('hashlistSelection.hashType') as string}</TableCell>
-                                  <TableCell align="right">{t('hashlistSelection.hashes') as string}</TableCell>
-                                  <TableCell align="right">{t('hashlistSelection.cracked') as string}</TableCell>
-                                  <TableCell>{t('hashlistSelection.status') as string}</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {availableHashlists.map((hl) => (
-                                  <TableRow
-                                    key={hl.id}
-                                    hover
-                                    onClick={() => handleToggleHashlist(hl.id)}
-                                    sx={{
-                                      cursor: 'pointer',
-                                      opacity: hl.archived_at ? 0.6 : 1,
-                                    }}
-                                  >
-                                    <TableCell padding="checkbox">
-                                      <Checkbox
-                                        checked={selectedHashlistIds.has(hl.id)}
-                                        onChange={() => handleToggleHashlist(hl.id)}
-                                        size="small"
-                                      />
-                                    </TableCell>
-                                    <TableCell>{hl.name}</TableCell>
-                                    <TableCell>{hl.hash_type_name}</TableCell>
-                                    <TableCell align="right">{hl.total_hashes.toLocaleString()}</TableCell>
-                                    <TableCell align="right">{hl.cracked_hashes.toLocaleString()}</TableCell>
-                                    <TableCell>
-                                      {hl.archived_at ? (
-                                        <Chip label={t('hashlistSelection.archived') as string} size="small" color="default" variant="outlined" />
-                                      ) : (
-                                        <Chip label={t('hashlistSelection.active') as string} size="small" color="success" variant="outlined" />
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
+                          <DataTable<HashlistSummary>
+                            flat
+                            rows={availableHashlists}
+                            columns={hashlistColumns}
+                            getRowId={(r) => r.id}
+                            pagination={false}
+                            sorting={{ mode: 'client' }}
+                            hideFooter
+                            height={availableHashlists.length > 6 ? 300 : 'auto'}
+                            selection={{
+                              model: Array.from(selectedHashlistIds) as GridRowId[],
+                              onChange: (ids) => setSelectedHashlistIds(new Set(ids.map((id) => Number(id)))),
+                            }}
+                            onRowClick={(row) => handleToggleHashlist(row.id)}
+                            rowClassName={(row) => (row.archived_at ? 'kh-archived' : '')}
+                            sx={{ '& .kh-archived': { opacity: 0.6 } }}
+                          />
                         )}
                       </Paper>
                     </Grid>
@@ -663,7 +675,7 @@ export default function Analytics() {
                   <Grid item xs={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                       <Button variant="outlined" component="label">
-                        Attach BloodHound Dump (optional)
+                        {t('bloodhoundUpload.attachButton') as string}
                         <input
                           type="file"
                           hidden
@@ -679,18 +691,16 @@ export default function Analytics() {
                           <Typography variant="body2" color="text.secondary">
                             {bloodhoundFiles.length === 1
                               ? bloodhoundFiles[0].name
-                              : `${bloodhoundFiles.length} files selected`}
+                              : t('bloodhoundUpload.filesSelected', { count: bloodhoundFiles.length })}
                           </Typography>
                           <Button size="small" color="inherit" onClick={() => setBloodhoundFiles([])}>
-                            Clear
+                            {t('bloodhoundUpload.clear') as string}
                           </Button>
                         </>
                       )}
                     </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                      Upload a SharpHound .zip (or BloodHound .json files) to enrich the report with
-                      AD-privilege analysis. The dump is processed in memory and never stored — re-upload
-                      to re-analyze.
+                      {t('bloodhoundUpload.helperText') as string}
                     </Typography>
                   </Grid>
                   <Grid item xs={12}>
@@ -715,67 +725,41 @@ export default function Analytics() {
                   <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
                     <CircularProgress />
                   </Box>
-                ) : clientReports.length === 0 ? (
-                  <Alert severity="info">{t('table.noReports') as string}</Alert>
                 ) : (
-                  <TableContainer>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>{t('table.dateRange') as string}</TableCell>
-                          <TableCell>{t('table.generatedOn') as string}</TableCell>
-                          <TableCell>{t('table.status') as string}</TableCell>
-                          <TableCell align="right">{t('table.hashes') as string}</TableCell>
-                          <TableCell align="right">{t('table.cracked') as string}</TableCell>
-                          <TableCell align="right">{t('table.actions') as string}</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {clientReports.map((report) => (
-                          <TableRow key={report.id}>
-                            <TableCell>
-                              {formatDate(report.start_date, 'MMM d, yyyy')} - {formatDate(report.end_date, 'MMM d, yyyy')}
-                            </TableCell>
-                            <TableCell>{formatDate(report.created_at, 'MMM d, yyyy HH:mm')}</TableCell>
-                            <TableCell>{getStatusChip(report.status)}</TableCell>
-                            <TableCell align="right">{report.total_hashes.toLocaleString()}</TableCell>
-                            <TableCell align="right">{report.total_cracked.toLocaleString()}</TableCell>
-                            <TableCell align="right">
-                              <Tooltip title={t('actions.viewReport') as string}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleViewReport(report.id)}
-                                  color="primary"
-                                >
-                                  <VisibilityIcon />
-                                </IconButton>
-                              </Tooltip>
-                              {report.status === 'failed' && (
-                                <Tooltip title={t('actions.retryReport') as string}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleRetryReport(report.id)}
-                                    color="warning"
-                                  >
-                                    <RetryIcon />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                              <Tooltip title={t('actions.deleteReport') as string}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleDeleteReport(report.id)}
-                                  color="error"
-                                >
-                                  <DeleteIcon />
-                                </IconButton>
-                              </Tooltip>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                  <DataTable<AnalyticsReport>
+                    flat
+                    rows={clientReports}
+                    columns={reportColumns}
+                    getRowId={(r) => r.id}
+                    pagination={{ mode: 'client', initialPageSize: 25 }}
+                    sorting={{ mode: 'client', initial: [{ field: 'created_at', sort: 'desc' }] }}
+                    onRowClick={(row) => handleViewReport(row.id)}
+                    rowActionsInlineLimit={3}
+                    rowActions={(row) => [
+                      {
+                        key: 'view',
+                        label: t('actions.viewReport') as string,
+                        icon: <VisibilityIcon fontSize="small" />,
+                        onClick: (r) => handleViewReport(r.id),
+                      },
+                      {
+                        key: 'retry',
+                        label: t('actions.retryReport') as string,
+                        icon: <RetryIcon fontSize="small" />,
+                        hidden: row.status !== 'failed',
+                        onClick: (r) => handleRetryReport(r.id),
+                      },
+                      {
+                        key: 'delete',
+                        label: t('actions.deleteReport') as string,
+                        icon: <DeleteIcon fontSize="small" />,
+                        danger: true,
+                        onClick: (r) => handleDeleteReport(r.id),
+                      },
+                    ]}
+                    emptyState={{ title: t('table.noReports') as string }}
+                    tableKey="analytics-reports"
+                  />
                 )}
               </Box>
             )}

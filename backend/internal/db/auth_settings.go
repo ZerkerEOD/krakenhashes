@@ -24,6 +24,9 @@ func (db *DB) GetAuthSettings() (*models.AuthSettings, error) {
 		&settings.JWTExpiryMinutes,
 		&settings.DisplayTimezone,
 		&settings.NotificationAggregationMinutes,
+		&settings.TokenCleanupIntervalSeconds,
+		&settings.MaxConcurrentSessions,
+		&settings.SessionAbsoluteTimeoutHours,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get auth settings: %w", err)
@@ -45,6 +48,9 @@ func (db *DB) UpdateAuthSettings(settings *models.AuthSettings) error {
 		settings.JWTExpiryMinutes,
 		settings.DisplayTimezone,
 		settings.NotificationAggregationMinutes,
+		settings.TokenCleanupIntervalSeconds,
+		settings.MaxConcurrentSessions,
+		settings.SessionAbsoluteTimeoutHours,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update auth settings: %w", err)

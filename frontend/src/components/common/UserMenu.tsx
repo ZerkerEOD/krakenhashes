@@ -20,6 +20,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { logout } from '../../services/auth';
 import LanguageSelector from './LanguageSelector';
+import ThemeModeToggle from '../settings/ThemeModeToggle';
+import { ROUTES } from '../../constants/routes';
 
 const UserMenu: React.FC = () => {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -27,6 +29,7 @@ const UserMenu: React.FC = () => {
     const navigate = useNavigate();
     const open = Boolean(anchorEl);
     const { t } = useTranslation('navigation');
+    const { t: tCommon } = useTranslation('common');
 
     // Cleanup on unmount to prevent stale menu state
     useEffect(() => {
@@ -57,14 +60,14 @@ const UserMenu: React.FC = () => {
         setAnchorEl(null); // Immediately close the menu
         // Small delay to ensure menu animation completes before navigation
         setTimeout(() => {
-            navigate('/settings/profile');
+            navigate(ROUTES.settingsProfile);
         }, 100);
     };
 
     const handleSavedCharsets = () => {
         setAnchorEl(null);
         setTimeout(() => {
-            navigate('/settings/charsets');
+            navigate(ROUTES.settingsCharsets);
         }, 100);
     };
 
@@ -79,7 +82,7 @@ const UserMenu: React.FC = () => {
                     textTransform: 'none',
                     minWidth: 100,
                     '&:hover': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                        backgroundColor: 'action.hover',
                     },
                 }}
                 startIcon={<PersonIcon />}
@@ -91,12 +94,9 @@ const UserMenu: React.FC = () => {
                 open={open}
                 onClose={handleClose}
                 PaperProps={{
-                    elevation: 0,
-                    sx: {
+                                sx: {
                         overflow: 'visible',
-                        filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
                         mt: 1.5,
-                        backgroundColor: 'background.paper',
                         '& .MuiMenuItem-root': {
                             minWidth: 200,
                         },
@@ -110,6 +110,13 @@ const UserMenu: React.FC = () => {
                         {user?.email || 'user@example.com'}
                     </Typography>
                 </MenuItem>
+                <Divider />
+                <Box sx={{ px: 2, py: 1 }}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                        {tCommon('theme.appearance') as string}
+                    </Typography>
+                    <ThemeModeToggle />
+                </Box>
                 <Divider />
                 <MenuItem onClick={handleSettings}>
                     <ListItemIcon>

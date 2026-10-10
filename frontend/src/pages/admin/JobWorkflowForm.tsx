@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { EntityLink } from '../../components/ui';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -499,7 +500,8 @@ const JobWorkflowFormPage: React.FC = () => {
                                     primary={
                                       <Box display="flex" alignItems="center" gap={1}>
                                         <Typography variant="h6" component="span">
-                                          {index + 1}. {job.name}
+                                          {index + 1}.{' '}
+                                          <EntityLink type="preset_job" id={job.id} label={job.name} newTab color="inherit" />
                                         </Typography>
                                         {workflowStep?.preset_job_priority !== undefined && (
                                           <Chip

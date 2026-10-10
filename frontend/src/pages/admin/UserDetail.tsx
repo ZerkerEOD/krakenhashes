@@ -1,13 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    Box, Typography, Paper, TextField, Button, CircularProgress,
+    Box, Typography, TextField, Button, CircularProgress,
     Alert, Grid, Card, CardContent, Divider, Chip, IconButton,
     Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel,
     Checkbox, List, ListItem, ListItemText, ListItemIcon, Select,
-    MenuItem, FormControl, InputLabel, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, Badge, Tooltip
+    MenuItem, FormControl, InputLabel, Badge, Tooltip
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
+import { useQuery } from '@tanstack/react-query';
+import GroupsIcon from '@mui/icons-material/Groups';
+import { DataTable, EntityLink, SimpleTable, StatusChip } from '../../components/ui';
+import { api } from '../../services/api';
+import type { Agent } from '../../types/agent';
+import { formatAgentVersion } from '../../utils/agentVersion';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import LockResetIcon from '@mui/icons-material/LockReset';
@@ -25,6 +31,11 @@ import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import { useSnackbar, closeSnackbar } from 'notistack';
 import { format, formatDistanceToNow } from 'date-fns';
+import i18n from '../../i18n';
+import { dateFnsLocaleFor } from '../../i18n/locales';
+
+/** date-fns locale for the current UI language. */
+const dateLocale = () => dateFnsLocaleFor(i18n.language);
 import { useTranslation } from 'react-i18next';
 
 import { User, LoginAttempt, ActiveSession } from '../../types/user';
@@ -43,7 +54,7 @@ import {
     getAdminUserApiKeyInfo,
     revokeAdminUserApiKey
 } from '../../services/api';
-import { ApiKeyInfo } from '../../types/user';
+import { ApiKeyInfo, Team as UserTeam } from '../../types/user';
 
 const UserDetail: React.FC = () => {
     const { t } = useTranslation('admin');
@@ -363,10 +374,18 @@ const UserDetail: React.FC = () => {
         }
     };
 
+    // Agents owned by this user (admin sees every agent; filter client-side).
+    const agentsQuery = useQuery({
+        queryKey: ['agents'],
+        queryFn: async () => (await api.get<Agent[]>('/api/agents')).data || [],
+        enabled: !!id,
+    });
+    const ownedAgents = (agentsQuery.data || []).filter((a) => a.ownerId === id);
+
     const formatDate = (dateString?: string) => {
         if (!dateString) return t('common.never') as string;
         try {
-            return format(new Date(dateString), 'MMM dd, yyyy HH:mm:ss');
+            return format(new Date(dateString), 'MMM dd, yyyy HH:mm:ss', { locale: dateLocale() });
         } catch {
             return t('common.invalidDate') as string;
         }
@@ -375,7 +394,7 @@ const UserDetail: React.FC = () => {
     const formatRelativeTime = (dateString?: string) => {
         if (!dateString) return t('common.never') as string;
         try {
-            return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+            return formatDistanceToNow(new Date(dateString), { locale: dateLocale(), addSuffix: true });
         } catch {
             return t('common.invalidDate') as string;
         }
@@ -395,6 +414,108 @@ const UserDetail: React.FC = () => {
             </Box>
         );
     }
+
+    const sessionColumns: GridColDef<ActiveSession>[] = [
+        { field: 'ipAddress', headerName: t('users.detail.sessions.ipAddress') as string, width: 150 },
+        {
+            field: 'userAgent',
+            headerName: t('users.detail.sessions.deviceBrowser') as string,
+            flex: 1,
+            minWidth: 200,
+            renderCell: (p) => (
+                <Tooltip title={p.row.userAgent}>
+                    <Typography variant="body2" noWrap>
+                        {p.row.userAgent}
+                    </Typography>
+                </Tooltip>
+            ),
+        },
+        {
+            field: 'lastActiveAt',
+            headerName: t('users.detail.sessions.lastActive') as string,
+            width: 160,
+            renderCell: (p) => formatRelativeTime(p.row.lastActiveAt),
+        },
+        {
+            field: 'createdAt',
+            headerName: t('users.detail.created') as string,
+            width: 190,
+            renderCell: (p) => formatDate(p.row.createdAt),
+        },
+    ];
+
+    const attemptColumns: GridColDef<LoginAttempt>[] = [
+        {
+            field: 'attempted_at',
+            headerName: t('users.detail.loginAttempts.timestamp') as string,
+            width: 190,
+            renderCell: (p) => formatDate(p.row.attempted_at),
+        },
+        {
+            field: 'provider_type',
+            headerName: t('users.columns.provider') as string,
+            width: 130,
+            renderCell: (p) => (
+                <Chip size="small" label={p.row.provider_type || t('users.columns.providerLocal')} variant="outlined" />
+            ),
+        },
+        { field: 'ip_address', headerName: t('users.detail.sessions.ipAddress') as string, width: 150 },
+        {
+            field: 'success',
+            headerName: t('users.columns.status') as string,
+            width: 130,
+            renderCell: (p) => (
+                <Chip
+                    size="small"
+                    icon={p.row.success ? <CheckCircleIcon /> : <CancelIcon />}
+                    label={p.row.success ? t('users.detail.loginAttempts.success') : t('users.detail.loginAttempts.failed')}
+                    color={p.row.success ? 'success' : 'error'}
+                />
+            ),
+        },
+        {
+            field: 'failure_reason',
+            headerName: t('users.detail.loginAttempts.failureReason') as string,
+            flex: 1,
+            minWidth: 160,
+            renderCell: (p) =>
+                p.row.failure_reason ? (
+                    <Typography variant="body2" color="error" sx={{ fontWeight: 'bold' }}>
+                        {p.row.failure_reason.replace(/_/g, ' ')}
+                    </Typography>
+                ) : (
+                    '-'
+                ),
+        },
+    ];
+
+    const agentColumns: GridColDef<Agent>[] = [
+        {
+            field: 'name',
+            headerName: t('users.detail.agentName', 'Agent') as string,
+            flex: 1,
+            minWidth: 150,
+            renderCell: (p) => <EntityLink type="agent" id={p.row.id} label={p.row.name || `#${p.row.id}`} />,
+        },
+        {
+            field: 'status',
+            headerName: t('users.columns.status') as string,
+            width: 120,
+            renderCell: (p) => <StatusChip entity="agent" status={p.row.status} />,
+        },
+        {
+            field: 'version',
+            headerName: t('users.detail.agentVersion', 'Version') as string,
+            width: 130,
+            valueFormatter: (v) => (v ? formatAgentVersion(v as string) : '-'),
+        },
+        {
+            field: 'lastHeartbeat',
+            headerName: t('users.detail.agentLastSeen', 'Last Seen') as string,
+            width: 150,
+            renderCell: (p) => formatRelativeTime(p.row.lastHeartbeat),
+        },
+    ];
 
     if (error || !user) {
         return (
@@ -711,6 +832,61 @@ const UserDetail: React.FC = () => {
                 </Grid>
             </Grid>
 
+            {/* Teams & Owned Agents */}
+            <Grid container spacing={3} sx={{ mt: 0 }}>
+                <Grid item xs={12} md={5}>
+                    <Card sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                <GroupsIcon />
+                                <Typography variant="h6">{t('users.detail.teams', 'Teams')}</Typography>
+                            </Box>
+                            <Divider sx={{ mb: 2 }} />
+                            <SimpleTable<UserTeam>
+                                rows={user.teams || []}
+                                getRowKey={(r) => r.id}
+                                columns={[
+                                    {
+                                        field: 'name',
+                                        headerName: t('users.detail.teamName', 'Team'),
+                                        render: (r) => <EntityLink type="team" id={r.id} label={r.name} />,
+                                    },
+                                    {
+                                        field: 'description',
+                                        headerName: t('users.detail.teamDescription', 'Description'),
+                                        render: (r) => r.description || '-',
+                                    },
+                                ]}
+                                emptyState={{ title: t('users.detail.noTeams', 'Not a member of any team') as string }}
+                            />
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid item xs={12} md={7}>
+                    <Card sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                <DevicesIcon />
+                                <Typography variant="h6">{t('users.detail.ownedAgents', 'Owned Agents')}</Typography>
+                            </Box>
+                            <Divider sx={{ mb: 2 }} />
+                            <DataTable<Agent>
+                                flat
+                                rows={ownedAgents}
+                                columns={agentColumns}
+                                getRowId={(r) => r.id}
+                                loading={agentsQuery.isLoading}
+                                error={agentsQuery.error}
+                                onRetry={() => agentsQuery.refetch()}
+                                pagination={false}
+                                sorting={{ mode: 'client', initial: [{ field: 'name', sort: 'asc' }] }}
+                                emptyState={{ title: t('users.detail.noOwnedAgents', 'This user owns no agents') as string }}
+                            />
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
+
             {/* Active Sessions Section */}
             <Card sx={{ mt: 3 }}>
                 <CardContent>
@@ -738,55 +914,25 @@ const UserDetail: React.FC = () => {
                     </Box>
                     <Divider sx={{ mb: 2 }} />
 
-                    {sessionsLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                            <CircularProgress size={24} />
-                        </Box>
-                    ) : sessions.length === 0 ? (
-                        <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-                            {t('users.detail.noActiveSessions')}
-                        </Typography>
-                    ) : (
-                        <TableContainer>
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell>{t('users.detail.sessions.ipAddress')}</TableCell>
-                                        <TableCell>{t('users.detail.sessions.deviceBrowser')}</TableCell>
-                                        <TableCell>{t('users.detail.sessions.lastActive')}</TableCell>
-                                        <TableCell>{t('users.detail.created')}</TableCell>
-                                        <TableCell align="right">{t('users.columns.actions')}</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {sessions.map((session) => (
-                                        <TableRow key={session.id}>
-                                            <TableCell>{session.ipAddress}</TableCell>
-                                            <TableCell>
-                                                <Tooltip title={session.userAgent}>
-                                                    <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                                                        {session.userAgent}
-                                                    </Typography>
-                                                </Tooltip>
-                                            </TableCell>
-                                            <TableCell>{formatRelativeTime(session.lastActiveAt)}</TableCell>
-                                            <TableCell>{formatDate(session.createdAt)}</TableCell>
-                                            <TableCell align="right">
-                                                <IconButton
-                                                    size="small"
-                                                    color="error"
-                                                    onClick={() => setTerminateSessionId(session.id)}
-                                                    title={t('users.actions.terminateSession') as string}
-                                                >
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
+                    <DataTable<ActiveSession>
+                        flat
+                        rows={sessions}
+                        columns={sessionColumns}
+                        getRowId={(r) => r.id}
+                        loading={sessionsLoading}
+                        pagination={false}
+                        sorting={{ mode: 'client', initial: [{ field: 'lastActiveAt', sort: 'desc' }] }}
+                        rowActions={() => [
+                            {
+                                key: 'terminate',
+                                label: t('users.actions.terminateSession') as string,
+                                icon: <DeleteIcon fontSize="small" />,
+                                danger: true,
+                                onClick: (r) => setTerminateSessionId(r.id),
+                            },
+                        ]}
+                        emptyState={{ title: t('users.detail.noActiveSessions') as string }}
+                    />
                 </CardContent>
             </Card>
 
@@ -826,65 +972,17 @@ const UserDetail: React.FC = () => {
                     </Box>
                     <Divider sx={{ mb: 2 }} />
 
-                    {attemptsLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                            <CircularProgress size={24} />
-                        </Box>
-                    ) : filteredAttempts.length === 0 ? (
-                        <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-                            {t('users.detail.noLoginAttempts')}
-                        </Typography>
-                    ) : (
-                        <TableContainer>
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell>{t('users.detail.loginAttempts.timestamp')}</TableCell>
-                                        <TableCell>{t('users.columns.provider')}</TableCell>
-                                        <TableCell>{t('users.detail.sessions.ipAddress')}</TableCell>
-                                        <TableCell>{t('users.columns.status')}</TableCell>
-                                        <TableCell>{t('users.detail.loginAttempts.failureReason')}</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {filteredAttempts.map((attempt) => (
-                                        <TableRow key={attempt.id}>
-                                            <TableCell>{formatDate(attempt.attempted_at)}</TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    size="small"
-                                                    label={attempt.provider_type || t('users.columns.providerLocal')}
-                                                    variant="outlined"
-                                                />
-                                            </TableCell>
-                                            <TableCell>{attempt.ip_address}</TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    size="small"
-                                                    icon={attempt.success ? <CheckCircleIcon /> : <CancelIcon />}
-                                                    label={attempt.success ? t('users.detail.loginAttempts.success') : t('users.detail.loginAttempts.failed')}
-                                                    color={attempt.success ? 'success' : 'error'}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                {attempt.failure_reason ? (
-                                                    <Typography
-                                                        variant="body2"
-                                                        color="error"
-                                                        sx={{ fontWeight: 'bold' }}
-                                                    >
-                                                        {attempt.failure_reason.replace(/_/g, ' ')}
-                                                    </Typography>
-                                                ) : (
-                                                    '-'
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
+                    <DataTable<LoginAttempt>
+                        flat
+                        rows={filteredAttempts}
+                        columns={attemptColumns}
+                        getRowId={(r) => r.id}
+                        loading={attemptsLoading}
+                        pagination={{ mode: 'client', initialPageSize: 25 }}
+                        sorting={{ mode: 'client', initial: [{ field: 'attempted_at', sort: 'desc' }] }}
+                        emptyState={{ title: t('users.detail.noLoginAttempts') as string }}
+                        tableKey="admin-user-login-attempts"
+                    />
                 </CardContent>
             </Card>
 

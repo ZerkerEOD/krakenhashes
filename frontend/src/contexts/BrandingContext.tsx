@@ -10,6 +10,9 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { buildTheme } from '../styles/theme';
+import i18n from '../i18n';
+import { muiLocaleFor } from '../i18n/locales';
+import { useThemeMode } from './ThemeModeContext';
 import { DEFAULT_BRANDING, PublicBranding, getPublicBranding } from '../services/branding';
 
 interface BrandingContextType {
@@ -96,9 +99,24 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     applyFavicon(branding.favicon_url);
   }, [branding.page_title, branding.favicon_url]);
 
+  const { mode } = useThemeMode();
+  // Read the language from the i18n instance (not useTranslation) because this
+  // provider sits above the app's Suspense boundary.
+  const [language, setLanguage] = useState<string>(i18n.language);
+  useEffect(() => {
+    const onChange = (lng: string) => {
+      setLanguage(lng);
+      document.documentElement.lang = lng;
+    };
+    document.documentElement.lang = i18n.language || 'en';
+    i18n.on('languageChanged', onChange);
+    return () => {
+      i18n.off('languageChanged', onChange);
+    };
+  }, []);
   const theme = useMemo(
-    () => buildTheme(branding.primary_color, branding.secondary_color),
-    [branding.primary_color, branding.secondary_color]
+    () => buildTheme(mode, branding.primary_color, branding.secondary_color, muiLocaleFor(language)),
+    [mode, branding.primary_color, branding.secondary_color, language]
   );
 
   const value = useMemo(() => ({ branding, loaded, refresh }), [branding, loaded, refresh]);

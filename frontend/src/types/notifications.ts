@@ -158,11 +158,6 @@ export interface UpdateGlobalWebhookSettingsRequest {
   custom_headers?: string;
 }
 
-// Agent offline settings
-export interface AgentOfflineSettings {
-  buffer_minutes: number;
-}
-
 // WebSocket message types
 export type WSMessageType =
   | 'notification'

@@ -44,7 +44,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DownloadIcon from '@mui/icons-material/Download';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { useSnackbar } from 'notistack';
+import { useToast } from '../../components/ui/toast';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -71,7 +71,7 @@ import {
   getProviderTypeLabel
 } from '../../services/sso';
 
-const SSOSettingsPage: React.FC = () => {
+const SSOSettingsPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { t } = useTranslation('admin');
   const [settings, setSettings] = useState<SSOSettings | null>(null);
   const [providers, setProviders] = useState<SSOProvider[]>([]);
@@ -84,7 +84,7 @@ const SSOSettingsPage: React.FC = () => {
   const [providerToDelete, setProviderToDelete] = useState<SSOProvider | null>(null);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
 
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -99,11 +99,11 @@ const SSOSettingsPage: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to fetch SSO data:', err);
       setError(err.message || t('ssoSettings.messages.loadFailed') as string);
-      enqueueSnackbar(t('ssoSettings.messages.loadFailed') as string, { variant: 'error' });
+      toast.error(t('ssoSettings.messages.loadFailed') as string);
     } finally {
       setLoading(false);
     }
-  }, [enqueueSnackbar, t]);
+  }, [toast, t]);
 
   useEffect(() => {
     fetchData();
@@ -117,9 +117,9 @@ const SSOSettingsPage: React.FC = () => {
       const update: SSOSettingsUpdate = { [field]: value };
       await updateSSOSettings(update);
       setSettings({ ...settings, [field]: value });
-      enqueueSnackbar(t('ssoSettings.messages.settingsUpdated') as string, { variant: 'success' });
+      toast.success(t('ssoSettings.messages.settingsUpdated') as string);
     } catch (err: any) {
-      enqueueSnackbar(err.message || t('ssoSettings.messages.updateFailed') as string, { variant: 'error' });
+      toast.error(err.message || t('ssoSettings.messages.updateFailed') as string);
     } finally {
       setSaving(false);
     }
@@ -136,7 +136,7 @@ const SSOSettingsPage: React.FC = () => {
       setEditingProvider(fullProvider);
       setProviderDialogOpen(true);
     } catch (err: any) {
-      enqueueSnackbar(err.message || t('ssoSettings.messages.loadProviderFailed') as string, { variant: 'error' });
+      toast.error(err.message || t('ssoSettings.messages.loadProviderFailed') as string);
     }
   };
 
@@ -151,9 +151,9 @@ const SSOSettingsPage: React.FC = () => {
     try {
       await deleteSSOProvider(providerToDelete.id);
       setProviders(providers.filter(p => p.id !== providerToDelete.id));
-      enqueueSnackbar(t('ssoSettings.messages.providerDeleted') as string, { variant: 'success' });
+      toast.success(t('ssoSettings.messages.providerDeleted') as string);
     } catch (err: any) {
-      enqueueSnackbar(err.message || t('ssoSettings.messages.deleteFailed') as string, { variant: 'error' });
+      toast.error(err.message || t('ssoSettings.messages.deleteFailed') as string);
     } finally {
       setDeleteDialogOpen(false);
       setProviderToDelete(null);
@@ -165,12 +165,12 @@ const SSOSettingsPage: React.FC = () => {
     try {
       const result = await testSSOProvider(providerId);
       if (result.success) {
-        enqueueSnackbar(t('ssoSettings.messages.testSuccess') as string, { variant: 'success' });
+        toast.success(t('ssoSettings.messages.testSuccess') as string);
       } else {
-        enqueueSnackbar(result.message || t('ssoSettings.messages.testFailed') as string, { variant: 'error' });
+        toast.error(result.message || t('ssoSettings.messages.testFailed') as string);
       }
     } catch (err: any) {
-      enqueueSnackbar(err.message || t('ssoSettings.messages.testFailed') as string, { variant: 'error' });
+      toast.error(err.message || t('ssoSettings.messages.testFailed') as string);
     } finally {
       setTestingProvider(null);
     }
@@ -196,13 +196,13 @@ const SSOSettingsPage: React.FC = () => {
         a.download = `sp-certificate-${providerId}.pem`;
         a.click();
         URL.revokeObjectURL(url);
-        enqueueSnackbar(t('ssoSettings.messages.certificateDownloaded') as string, { variant: 'success' });
+        toast.success(t('ssoSettings.messages.certificateDownloaded') as string);
       } else {
-        enqueueSnackbar(t('ssoSettings.messages.certificateNotFound') as string, { variant: 'error' });
+        toast.error(t('ssoSettings.messages.certificateNotFound') as string);
       }
     } catch (error) {
       console.error('Failed to download certificate:', error);
-      enqueueSnackbar(t('ssoSettings.messages.certificateDownloadFailed') as string, { variant: 'error' });
+      toast.error(t('ssoSettings.messages.certificateDownloadFailed') as string);
     }
   };
 
@@ -210,15 +210,15 @@ const SSOSettingsPage: React.FC = () => {
     try {
       if (editingProvider) {
         await updateSSOProvider(editingProvider.id, data as UpdateSSOProviderRequest);
-        enqueueSnackbar(t('ssoSettings.messages.providerUpdated') as string, { variant: 'success' });
+        toast.success(t('ssoSettings.messages.providerUpdated') as string);
       } else {
         await createSSOProvider(data as CreateSSOProviderRequest);
-        enqueueSnackbar(t('ssoSettings.messages.providerCreated') as string, { variant: 'success' });
+        toast.success(t('ssoSettings.messages.providerCreated') as string);
       }
       setProviderDialogOpen(false);
       fetchData();
     } catch (err: any) {
-      enqueueSnackbar(err.message || t('ssoSettings.messages.saveProviderFailed') as string, { variant: 'error' });
+      toast.error(err.message || t('ssoSettings.messages.saveProviderFailed') as string);
     }
   };
 
@@ -253,17 +253,19 @@ const SSOSettingsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {t('ssoSettings.pageTitle') as string}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {t('ssoSettings.pageDescription') as string}
-          </Typography>
+    <Box sx={{ p: embedded ? 0 : 3 }}>
+      {!embedded && (
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+          <Box>
+            <Typography variant="h4" component="h1" gutterBottom>
+              {t('ssoSettings.pageTitle') as string}
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              {t('ssoSettings.pageDescription') as string}
+            </Typography>
+          </Box>
         </Box>
-      </Box>
+      )}
 
       {/* Ephemeral Encryption Key Warning */}
       {settings?.encryption_key_ephemeral && (
@@ -276,15 +278,15 @@ const SSOSettingsPage: React.FC = () => {
             {t('ssoSettings.warnings.ephemeralKeyInstructions') as string}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <code style={{ padding: '4px 8px', backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 4 }}>
+            <Box component="code" sx={{ px: 1, py: 0.5, bgcolor: 'action.selected', borderRadius: 1, fontFamily: (theme) => theme.typography.monoFamily }}>
               openssl rand -base64 32
-            </code>
+            </Box>
             <Tooltip title={t('ssoSettings.warnings.ephemeralKeyCopied') as string}>
               <IconButton
                 size="small"
                 onClick={() => {
                   navigator.clipboard.writeText('openssl rand -base64 32');
-                  enqueueSnackbar(t('ssoSettings.warnings.ephemeralKeyCopied') as string, { variant: 'success' });
+                  toast.success(t('ssoSettings.warnings.ephemeralKeyCopied') as string);
                 }}
               >
                 <ContentCopyIcon fontSize="small" />
@@ -295,9 +297,9 @@ const SSOSettingsPage: React.FC = () => {
             {t('ssoSettings.warnings.ephemeralKeyAddToEnv') as string}
           </Typography>
           <Box sx={{ mt: 0.5 }}>
-            <code style={{ padding: '4px 8px', backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 4 }}>
+            <Box component="code" sx={{ px: 1, py: 0.5, bgcolor: 'action.selected', borderRadius: 1, fontFamily: (theme) => theme.typography.monoFamily }}>
               {t('ssoSettings.warnings.ephemeralKeyEnvExample') as string}
-            </code>
+            </Box>
           </Box>
         </Alert>
       )}

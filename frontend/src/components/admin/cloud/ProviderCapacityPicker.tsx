@@ -9,16 +9,13 @@ import {
   CircularProgress,
   Link,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Tooltip,
   Typography,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useTranslation } from 'react-i18next';
+import { SimpleTable } from '../../ui';
+import type { SimpleColumn } from '../../ui';
 
 import { getCloudCapacity } from '../../../services/cloud';
 import {
@@ -368,94 +365,90 @@ const ProviderCapacityPicker: React.FC<Props> = ({
 
       {report && (
         <Paper variant="outlined" sx={{ overflowX: 'auto', mb: 1 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox" />
-                <TableCell>{report.placement_label}</TableCell>
-                {hardwareColumns.map((hw) => (
-                  <TableCell key={hw} align="center">
-                    {hw}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {report.placements.map((pc) => {
-                const placementSelected = selected.has(pc.id);
-                return (
-                  <TableRow key={pc.id} hover>
-                    <TableCell padding="checkbox">
-                      <Tooltip title={pc.usable ? '' : (t('cloud.providers.zones.unusable') as string)}>
-                        <span>
-                          <Checkbox
-                            size="small"
-                            checked={placementSelected}
-                            disabled={!pc.usable}
-                            onChange={(e) => togglePlacement(pc, e.target.checked)}
-                          />
-                        </span>
+          <SimpleTable<PlacementCapacity>
+            rows={report.placements}
+            getRowKey={(pc) => pc.id}
+            columns={[
+              {
+                field: '__select',
+                headerName: '',
+                width: 48,
+                render: (pc) => (
+                  <Tooltip title={pc.usable ? '' : (t('cloud.providers.zones.unusable') as string)}>
+                    <span>
+                      <Checkbox
+                        size="small"
+                        checked={selected.has(pc.id)}
+                        disabled={!pc.usable}
+                        onChange={(e) => togglePlacement(pc, e.target.checked)}
+                      />
+                    </span>
+                  </Tooltip>
+                ),
+              },
+              {
+                field: 'name',
+                headerName: report.placement_label,
+                render: (pc) => (
+                  <>
+                    <Typography variant="body2">{pc.name}</Typography>
+                    {pc.id !== pc.name && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {pc.id}
+                      </Typography>
+                    )}
+                    {pc.detail && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {pc.detail}
+                      </Typography>
+                    )}
+                    {has('score') && pc.score ? (
+                      <Tooltip title={t('cloud.providers.zones.combinedScoreHelp') as string}>
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          color={scoreColor(pc.score)}
+                          label={t('cloud.providers.zones.combinedScore', { score: pc.score }) as string}
+                          sx={{ height: 18, fontSize: '0.65rem', mt: 0.5 }}
+                        />
                       </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{pc.name}</Typography>
-                      {pc.id !== pc.name && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {pc.id}
-                        </Typography>
-                      )}
-                      {pc.detail && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {pc.detail}
-                        </Typography>
-                      )}
-                      {has('score') && pc.score ? (
-                        <Tooltip title={t('cloud.providers.zones.combinedScoreHelp') as string}>
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            color={scoreColor(pc.score)}
-                            label={t('cloud.providers.zones.combinedScore', { score: pc.score }) as string}
-                            sx={{ height: 18, fontSize: '0.65rem', mt: 0.5 }}
-                          />
-                        </Tooltip>
-                      ) : null}
-                      {pc.notes?.map((n, i) => (
-                        <Typography key={i} variant="caption" color="warning.main" display="block">
-                          {n}
-                        </Typography>
-                      ))}
-                    </TableCell>
-                    {hardwareColumns.map((hw) => {
-                      const cell = pc.hardware.find((c) => c.id === hw);
-                      const offered = cell?.offered ?? false;
-                      return (
-                        <TableCell key={hw} align="center">
-                          {!offered ? (
-                            <Tooltip title={t('cloud.providers.zones.notOffered') as string}>
-                              <Typography variant="caption" color="text.disabled">
-                                —
-                              </Typography>
-                            </Tooltip>
-                          ) : (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <Checkbox
-                                size="small"
-                                checked={isHardwareSelected(pc, hw)}
-                                disabled={!pc.usable}
-                                onChange={(e) => toggleHardware(pc, hw, e.target.checked)}
-                              />
-                              {renderCellSignals(cell)}
-                            </Box>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                    ) : null}
+                    {pc.notes?.map((n, i) => (
+                      <Typography key={i} variant="caption" color="warning.main" display="block">
+                        {n}
+                      </Typography>
+                    ))}
+                  </>
+                ),
+              },
+              ...hardwareColumns.map<SimpleColumn<PlacementCapacity>>((hw) => ({
+                field: hw,
+                headerName: hw,
+                align: 'center',
+                render: (pc) => {
+                  const cell = pc.hardware.find((c) => c.id === hw);
+                  const offered = cell?.offered ?? false;
+                  return !offered ? (
+                    <Tooltip title={t('cloud.providers.zones.notOffered') as string}>
+                      <Typography variant="caption" color="text.disabled">
+                        —
+                      </Typography>
+                    </Tooltip>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <Checkbox
+                        size="small"
+                        checked={isHardwareSelected(pc, hw)}
+                        disabled={!pc.usable}
+                        onChange={(e) => toggleHardware(pc, hw, e.target.checked)}
+                      />
+                      {renderCellSignals(cell)}
+                    </Box>
+                  );
+                },
+              })),
+            ]}
+          />
         </Paper>
       )}
 

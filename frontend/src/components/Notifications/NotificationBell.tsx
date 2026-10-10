@@ -24,9 +24,15 @@ import {
   DoneAll as DoneAllIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { entityRoute } from '../../constants/routes';
 import { useTranslation } from 'react-i18next';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
+import i18n from '../../i18n';
+import { dateFnsLocaleFor } from '../../i18n/locales';
+
+/** date-fns locale for the current UI language. */
+const dateLocale = () => dateFnsLocaleFor(i18n.language);
 import type { Notification, NotificationType } from '../../types/notifications';
 
 // Get icon for notification type
@@ -85,19 +91,11 @@ export const NotificationBell: React.FC = () => {
     // Navigate to source if available
     if (notification.source_type && notification.source_id) {
       handleClose();
-      switch (notification.source_type) {
-        case 'job':
-          navigate(`/jobs/${notification.source_id}`);
-          break;
-        case 'agent':
-          navigate(`/agents/${notification.source_id}`);
-          break;
-        case 'hashlist':
-          navigate(`/hashlists/${notification.source_id}`);
-          break;
-        default:
-          navigate('/notifications');
-      }
+      navigate(
+        entityRoute(notification.source_type, notification.source_id, {
+          parentJobId: (notification.data as any)?.job_id ?? (notification.data as any)?.job_execution_id,
+        })
+      );
     }
   };
 
@@ -215,7 +213,7 @@ export const NotificationBell: React.FC = () => {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {formatDistanceToNow(new Date(notification.created_at), {
+                      {formatDistanceToNow(new Date(notification.created_at), { locale: dateLocale(),
                         addSuffix: true,
                       })}
                     </Typography>

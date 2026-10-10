@@ -154,11 +154,45 @@
     "viewAll": "Tutti i job",
     "empty": "Nessun job in corso",
     "emptyHint": "Avvia un job da un hashlist.",
-    "goHashlists": "Vai agli hashlist"
+    "goHashlists": "Vai agli hashlist",
+    "recentTitle": "Job",
+    "recentSubtitle": "Prima quelli attivi, poi quelli completati di recente",
+    "recentEmpty": "Ancora nessun job"
   },
   "welcomeUser": "Bentornato/a, {{name}}",
   "autoRefresh": {
     "on": "In tempo reale",
     "off": "In pausa"
+  },
+  "view": {
+    "label": "Vista della dashboard",
+    "mine": "Miei",
+    "teams": "I miei team",
+    "all": "Tutti"
+  },
+  "attention": {
+    "title": "Richiede attenzione",
+    "allClear": "Tutto a posto",
+    "allClearHint": "Nulla sta fallendo o è in attesa di un tuo intervento.",
+    "kind": {
+      "job_failed": "Job non riuscito: {{name}}",
+      "job_blocked": "Job in attesa: {{name}}",
+      "hashlist_error": "Elaborazione della hashlist non riuscita: {{name}}",
+      "hashlist_awaiting_decision": "La hashlist richiede la tua revisione: {{name}}",
+      "hashlist_stuck": "Hashlist bloccata in elaborazione: {{name}}",
+      "agent_error": "Errore dell'agent: {{name}}",
+      "agent_update_failed": "Aggiornamento dell'agent non riuscito: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Hash craccati nel tempo",
+    "subtitle_many": "{{count}} hash craccati negli ultimi {{days}} giorni",
+    "subtitle_one": "{{count}} hash craccato negli ultimi {{days}} giorni",
+    "subtitle_other": "{{count}} hash craccati negli ultimi {{days}} giorni",
+    "tooltip_many": "{{count}} hash craccati",
+    "tooltip_one": "{{count}} hash craccato",
+    "tooltip_other": "{{count}} hash craccati",
+    "topHashlists": "Hashlist principali della settimana",
+    "noCracksWeek": "Nessun hash craccato negli ultimi 7 giorni"
   }
 }

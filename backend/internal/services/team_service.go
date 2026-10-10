@@ -836,13 +836,15 @@ func (s *TeamService) ListAllTeamNames(ctx context.Context) ([]models.TeamNameOn
 
 // TeamAgentInfo represents an agent accessible to a team, with source info
 type TeamAgentInfo struct {
-	ID             int    `json:"id"`
-	Name           string `json:"name"`
-	Status         string `json:"status"`
-	Version        string `json:"version"`
-	OwnerUsername  string `json:"owner_username,omitempty"`
-	Source         string `json:"source"`                        // "direct" or "trusted"
-	SourceTeamName string `json:"source_team_name,omitempty"`
+	ID             int        `json:"id"`
+	Name           string     `json:"name"`
+	Status         string     `json:"status"`
+	Version        string     `json:"version"`
+	OwnerID        *uuid.UUID `json:"owner_id,omitempty"`
+	OwnerUsername  string     `json:"owner_username,omitempty"`
+	Source         string     `json:"source"` // "direct" or "trusted"
+	SourceTeamID   *uuid.UUID `json:"source_team_id,omitempty"`
+	SourceTeamName string     `json:"source_team_name,omitempty"`
 }
 
 // GetTeamAgents returns all agents accessible to a team, including trusted team agents
@@ -864,6 +866,7 @@ func (s *TeamService) GetTeamAgents(ctx context.Context, teamID uuid.UUID) ([]Te
 			Name:          a.Name,
 			Status:        a.Status,
 			Version:       a.Version,
+			OwnerID:       a.OwnerID,
 			OwnerUsername: a.OwnerUsername,
 			Source:        "direct",
 		})
@@ -893,13 +896,16 @@ func (s *TeamService) GetTeamAgents(ctx context.Context, teamID uuid.UUID) ([]Te
 				continue // Already listed as direct agent
 			}
 			seen[a.ID] = struct{}{}
+			sourceID := trustedID
 			result = append(result, TeamAgentInfo{
 				ID:             a.ID,
 				Name:           a.Name,
 				Status:         a.Status,
 				Version:        a.Version,
+				OwnerID:        a.OwnerID,
 				OwnerUsername:  a.OwnerUsername,
 				Source:         "trusted",
+				SourceTeamID:   &sourceID,
 				SourceTeamName: teamName,
 			})
 		}

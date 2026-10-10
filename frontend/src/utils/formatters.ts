@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 /**
  * Utility functions for formatting data
  */
@@ -94,6 +95,38 @@ export const formatAttackMode = (mode: number | string): string => {
 };
 
 // Export all formatters as a single object for easier importing
+/** "yyyy-MM-dd HH:mm" in local time; "-" for empty or unparseable input. */
+export const formatDateTime = (value?: string | number | Date | null): string => {
+  if (value === null || value === undefined || value === '') return '-';
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return '-';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/** Compact relative time ("3 min. ago") in the UI language, falling back to the date after 30 days. */
+export const formatRelativeTime = (value?: string | number | Date | null): string => {
+  if (value === null || value === undefined || value === '') return '-';
+  const d = value instanceof Date ? value : new Date(value);
+  const ms = Date.now() - d.getTime();
+  if (isNaN(ms)) return '-';
+  let rtf: Intl.RelativeTimeFormat;
+  try {
+    rtf = new Intl.RelativeTimeFormat(i18n.language || 'en', { numeric: 'auto', style: 'short' });
+  } catch {
+    rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'short' });
+  }
+  const s = Math.round(ms / 1000);
+  if (s < 45) return rtf.format(0, 'second');
+  const m = Math.round(s / 60);
+  if (m < 60) return rtf.format(-m, 'minute');
+  const h = Math.round(m / 60);
+  if (h < 24) return rtf.format(-h, 'hour');
+  const days = Math.round(h / 24);
+  if (days <= 30) return rtf.format(-days, 'day');
+  return formatDateTime(d);
+};
+
 export const formatters = {
   formatFileSize,
   formatHashRate,

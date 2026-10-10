@@ -2,6 +2,7 @@ package routes
 
 import (
 	"database/sql"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"net/http"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -30,7 +31,7 @@ func SetupDiagnosticsRoutes(router *mux.Router, sqlDB *sql.DB, wsHandler *wshand
 	diagnosticService := diagnostic.NewDiagnosticService(sqlDB, wsHandler, logsDir)
 
 	// Create the handler
-	diagnosticHandler := admindiagnostics.NewDiagnosticHandler(diagnosticService, wsHandler)
+	diagnosticHandler := admindiagnostics.NewDiagnosticHandler(diagnosticService, wsHandler, repository.NewAgentRepository(database))
 
 	// Create admin diagnostics subrouter (requires admin authentication)
 	// Note: We use /api/admin/diagnostics because SetupDiagnosticsRoutes is called with root router

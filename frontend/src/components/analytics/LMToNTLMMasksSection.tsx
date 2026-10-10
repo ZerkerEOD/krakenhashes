@@ -3,45 +3,41 @@
  * Displays generated hashcat masks from cracked LM passwords
  * to assist in cracking the case-sensitive NTLM versions
  */
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
   Paper,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Chip,
   Alert,
   Button,
   Grid,
   Card,
   CardContent,
-  TablePagination,
 } from '@mui/material';
 import {
   VpnKey as MaskIcon,
   Download as DownloadIcon,
   TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
+import { SimpleTable, SimpleColumn } from '../ui';
+
+interface LMToNTLMMask {
+  mask: string;
+  lm_pattern: string;
+  count: number;
+  percentage: number;
+  match_percentage: number;
+  estimated_keyspace: number;
+  example_lm: string;
+}
 
 interface LMToNTLMMaskData {
   total_lm_cracked: number;
   total_masks_generated: number;
   total_estimated_keyspace: number;
-  masks: Array<{
-    mask: string;
-    lm_pattern: string;
-    count: number;
-    percentage: number;
-    match_percentage: number;
-    estimated_keyspace: number;
-    example_lm: string;
-  }>;
+  masks: LMToNTLMMask[];
 }
 
 interface LMToNTLMMasksSectionProps {
@@ -50,16 +46,10 @@ interface LMToNTLMMasksSectionProps {
 
 export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps) {
   const { t } = useTranslation('analytics');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage] = useState(50);
 
   if (!data || data.total_masks_generated === 0 || !data.masks || data.masks.length === 0) {
     return null;
   }
-
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
 
   const handleExportHCMask = () => {
     // Generate .hcmask file format
@@ -108,7 +98,49 @@ export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps
 
   const formatPercentage = (value: number) => value.toFixed(2) + '%';
 
-  const paginatedMasks = data.masks.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const columns: SimpleColumn<LMToNTLMMask>[] = [
+    {
+      field: 'mask',
+      headerName: t('columns.mask'),
+      mono: true,
+      render: (item) => <strong>{item.mask}</strong>,
+    },
+    {
+      field: 'lm_pattern',
+      headerName: t('columns.lmPattern'),
+      render: (item) => <Chip label={item.lm_pattern} size="small" variant="outlined" />,
+    },
+    { field: 'count', headerName: t('columns.count'), align: 'right', render: (item) => item.count.toLocaleString() },
+    {
+      field: 'match_percentage',
+      headerName: (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+          <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
+          {t('columns.matchPercentage')}
+        </Box>
+      ),
+      align: 'right',
+      render: (item) => (
+        <Chip
+          label={formatPercentage(item.match_percentage)}
+          size="small"
+          color={item.match_percentage > 10 ? 'success' : item.match_percentage > 5 ? 'warning' : 'default'}
+          sx={{ fontWeight: 'bold' }}
+        />
+      ),
+    },
+    {
+      field: 'estimated_keyspace',
+      headerName: t('columns.estimatedKeyspace'),
+      align: 'right',
+      render: (item) => (
+        <Typography variant="body2" color="text.secondary" component="span">
+          {formatKeyspace(item.estimated_keyspace)}
+        </Typography>
+      ),
+    },
+    { field: 'example_lm', headerName: t('columns.exampleLm'), mono: true },
+  ];
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
@@ -168,72 +200,7 @@ export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps
       </Grid>
 
       {/* Masks Table */}
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t('columns.mask')}</TableCell>
-              <TableCell>{t('columns.lmPattern')}</TableCell>
-              <TableCell align="right">{t('columns.count')}</TableCell>
-              <TableCell align="right">
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                  <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                  {t('columns.matchPercentage')}
-                </Box>
-              </TableCell>
-              <TableCell align="right">{t('columns.estimatedKeyspace')}</TableCell>
-              <TableCell>{t('columns.exampleLm')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginatedMasks.map((item, idx) => (
-              <TableRow key={idx}>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-                    {item.mask}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip label={item.lm_pattern} size="small" variant="outlined" />
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2">{item.count.toLocaleString()}</Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <Chip
-                    label={formatPercentage(item.match_percentage)}
-                    size="small"
-                    color={item.match_percentage > 10 ? 'success' : item.match_percentage > 5 ? 'warning' : 'default'}
-                    sx={{ fontWeight: 'bold' }}
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" color="text.secondary">
-                    {formatKeyspace(item.estimated_keyspace)}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                    {item.example_lm}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Pagination */}
-      <TablePagination
-        component="div"
-        count={data.masks.length}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        rowsPerPageOptions={[50]}
-        labelDisplayedRows={({ from, to, count }) => t('pagination.masks', { from, to, count })}
-        labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
-      />
+      <SimpleTable rows={data.masks} columns={columns} dense={false} maxRows={50} />
 
       {data.masks.length > 50 && (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>

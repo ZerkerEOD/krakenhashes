@@ -59,6 +59,8 @@ export interface TaskSegment {
 export interface SuccessRateEntry {
   display_name: string;
   is_preset: boolean;
+  /** Preset job UUID when `is_preset` (omitted otherwise). */
+  preset_id?: string;
   preset_name: string;
   attack_mode: number;
   attack_mode_label: string;

@@ -49,7 +49,7 @@ func (r *JobExecutionRepository) HasActiveJobsUsingRule(ctx context.Context, rul
 // GetNonCompletedJobsUsingWordlist retrieves all non-completed jobs using the specified wordlist
 func (r *JobExecutionRepository) GetNonCompletedJobsUsingWordlist(ctx context.Context, wordlistID string) ([]models.DeletionImpactJob, error) {
 	query := `
-		SELECT je.id, je.name, je.status, COALESCE(h.name, '') as hashlist_name
+		SELECT je.id, je.name, je.status, je.hashlist_id, COALESCE(h.name, '') as hashlist_name
 		FROM job_executions je
 		LEFT JOIN hashlists h ON h.id = je.hashlist_id
 		WHERE je.status IN ('pending', 'running', 'failed')
@@ -65,7 +65,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsUsingWordlist(ctx context.Co
 	jobs := []models.DeletionImpactJob{}
 	for rows.Next() {
 		var job models.DeletionImpactJob
-		if err := rows.Scan(&job.ID, &job.Name, &job.Status, &job.HashlistName); err != nil {
+		if err := rows.Scan(&job.ID, &job.Name, &job.Status, &job.HashlistID, &job.HashlistName); err != nil {
 			debug.Error("Error scanning job row: %v", err)
 			return nil, fmt.Errorf("failed to scan job row: %w", err)
 		}
@@ -83,7 +83,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsUsingWordlist(ctx context.Co
 // GetNonCompletedJobsUsingRule retrieves all non-completed jobs using the specified rule
 func (r *JobExecutionRepository) GetNonCompletedJobsUsingRule(ctx context.Context, ruleID string) ([]models.DeletionImpactJob, error) {
 	query := `
-		SELECT je.id, je.name, je.status, COALESCE(h.name, '') as hashlist_name
+		SELECT je.id, je.name, je.status, je.hashlist_id, COALESCE(h.name, '') as hashlist_name
 		FROM job_executions je
 		LEFT JOIN hashlists h ON h.id = je.hashlist_id
 		WHERE je.status IN ('pending', 'running', 'failed')
@@ -99,7 +99,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsUsingRule(ctx context.Contex
 	jobs := []models.DeletionImpactJob{}
 	for rows.Next() {
 		var job models.DeletionImpactJob
-		if err := rows.Scan(&job.ID, &job.Name, &job.Status, &job.HashlistName); err != nil {
+		if err := rows.Scan(&job.ID, &job.Name, &job.Status, &job.HashlistID, &job.HashlistName); err != nil {
 			debug.Error("Error scanning job row: %v", err)
 			return nil, fmt.Errorf("failed to scan job row: %w", err)
 		}

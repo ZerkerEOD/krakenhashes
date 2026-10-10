@@ -6,6 +6,17 @@
 export type JobStatus = 'preparing' | 'pending' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 // Job summary for list views
+/** Reference to another entity, for links ({id, name}). */
+export interface EntityRef {
+  id: string;
+  name: string;
+}
+
+export interface UserRef {
+  id: string;
+  username: string;
+}
+
 export interface JobSummary {
   id: string;
   name: string;
@@ -25,6 +36,10 @@ export interface JobSummary {
   completed_at?: string;
   archived_at?: string;
   created_by_username?: string;
+  client?: EntityRef;
+  preset_job?: EntityRef;
+  workflow?: EntityRef;
+  created_by?: UserRef;
   error_message?: string;
   // Enhanced chunking fields
   effective_keyspace?: string; // NUMERIC on the backend (base × rules × salts can exceed 2^53); sent as a decimal string
@@ -45,9 +60,9 @@ export interface PaginationInfo {
 
 // Job detail for detailed views
 export interface JobDetail extends JobSummary {
-  workflow_id?: number;
+  workflow_id?: string;
   workflow_name?: string;
-  client_id?: number;
+  client_id?: string;
   client_name?: string;
   hashlist_count: number;
   hashlist_cracked: number;

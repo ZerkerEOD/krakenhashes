@@ -14,24 +14,18 @@ import {
   DialogActions,
   TextField,
   CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
   Alert,
   Link,
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import GroupsIcon from '@mui/icons-material/Groups';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { useSnackbar } from 'notistack';
+import { useTranslation, Trans } from 'react-i18next';
+import { DataTable, EntityLink, PageHeader, useToast, useConfirm } from '../../components/ui';
 import { Team, CreateTeamRequest } from '../../types/team';
 import { teamsService, adminTeamsService } from '../../services/teams';
 import { useTeamFilter } from '../../contexts/TeamFilterContext';
@@ -39,8 +33,11 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export const TeamList: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('admin');
+  const tr = (k: string, o?: any) => t(k, o) as string;
   const { refreshTeams } = useTeamFilter();
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
+  const confirm = useConfirm();
   const { userRole } = useAuth();
   const isSystemAdmin = userRole === 'admin';
 
@@ -66,7 +63,7 @@ export const TeamList: React.FC = () => {
       setTeams(data || []);
     } catch (error) {
       console.error('Failed to load teams:', error);
-      enqueueSnackbar('Failed to load teams', { variant: 'error' });
+      toast.error(tr('teams.list.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -88,28 +85,32 @@ export const TeamList: React.FC = () => {
       setNewTeam({ name: '', description: '' });
       await loadTeams();
       await refreshTeams();
-      enqueueSnackbar('Team created successfully', { variant: 'success' });
+      toast.success(tr('teams.list.messages.createSuccess'));
     } catch (error) {
       console.error('Failed to create team:', error);
-      enqueueSnackbar('Failed to create team', { variant: 'error' });
+      toast.error(tr('teams.list.errors.createFailed'));
     } finally {
       setCreating(false);
     }
   };
 
   const handleDeleteTeam = async (teamId: string, teamName: string) => {
-    if (!window.confirm(`Are you sure you want to delete team "${teamName}"? This will remove all team memberships and client assignments.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: tr('teams.list.dialogs.delete.title'),
+      message: tr('teams.list.dialogs.delete.confirmation', { name: teamName }),
+      severity: 'danger',
+      confirmLabel: tr('common.delete'),
+    });
+    if (!ok) return;
 
     try {
       await adminTeamsService.deleteTeam(teamId);
       await loadTeams();
       await refreshTeams();
-      enqueueSnackbar('Team deleted successfully', { variant: 'success' });
+      toast.success(tr('teams.list.messages.deleteSuccess'));
     } catch (error) {
       console.error('Failed to delete team:', error);
-      enqueueSnackbar('Failed to delete team', { variant: 'error' });
+      toast.error(tr('teams.list.errors.deleteFailed'));
     }
   };
 
@@ -129,116 +130,107 @@ export const TeamList: React.FC = () => {
       setEditDialogOpen(false);
       setEditTeam(null);
       await loadTeams();
-      enqueueSnackbar('Team updated successfully', { variant: 'success' });
+      toast.success(tr('teams.list.messages.updateSuccess'));
     } catch (error) {
       console.error('Failed to update team:', error);
-      enqueueSnackbar('Failed to update team', { variant: 'error' });
+      toast.error(tr('teams.list.errors.updateFailed'));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const columns: GridColDef<Team>[] = [
+    {
+      field: 'name',
+      headerName: tr('teams.list.columns.name'),
+      flex: 1,
+      minWidth: 160,
+      renderCell: (p) => <EntityLink type="team" id={p.row.id} label={p.row.name} />,
+    },
+    {
+      field: 'description',
+      headerName: tr('teams.list.columns.description'),
+      flex: 1.5,
+      minWidth: 180,
+      valueFormatter: (v) => (v as string) || '-',
+    },
+    { field: 'member_count', headerName: tr('teams.list.columns.members'), width: 100, type: 'number', valueGetter: (_v, row) => row.member_count || 0 },
+    { field: 'client_count', headerName: tr('teams.list.columns.clients'), width: 100, type: 'number', valueGetter: (_v, row) => row.client_count || 0 },
+    { field: 'hashlist_count', headerName: tr('teams.list.columns.hashlists'), width: 100, type: 'number', valueGetter: (_v, row) => row.hashlist_count || 0 },
+    { field: 'agent_count', headerName: tr('teams.list.columns.agents'), width: 100, type: 'number', valueGetter: (_v, row) => row.agent_count || 0 },
+    {
+      field: 'created_at',
+      headerName: tr('teams.list.columns.created'),
+      width: 130,
+      valueFormatter: (v) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
+  ];
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {isSystemAdmin ? 'Team Management' : 'My Teams'}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {isSystemAdmin ? 'Manage all teams in the system' : 'Teams you are a member of'}
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          Create Team
-        </Button>
-      </Box>
+      <PageHeader
+        title={isSystemAdmin ? tr('teams.list.title') : tr('teams.list.titleMine')}
+        description={isSystemAdmin ? tr('teams.list.description') : tr('teams.list.descriptionMine')}
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateDialogOpen(true)}>
+            {tr('teams.list.createTeam')}
+          </Button>
+        }
+      />
 
       {isSystemAdmin && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          To assign multiple clients to a team at once, use the bulk assignment feature on the{' '}
-          <Link component={RouterLink} to="/clients">Client Management</Link> page.
+          <Trans
+            t={t}
+            i18nKey="teams.list.bulkAssignHint"
+            components={{ link: <Link component={RouterLink} to="/clients" /> }}
+          />
         </Alert>
       )}
 
       {/* Admin view: table layout */}
       {isSystemAdmin ? (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Team Name</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell>Members</TableCell>
-                <TableCell>Clients</TableCell>
-                <TableCell>Hashlists</TableCell>
-                <TableCell>Agents</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {teams.map((team) => (
-                <TableRow key={team.id}>
-                  <TableCell>{team.name}</TableCell>
-                  <TableCell>{team.description || '-'}</TableCell>
-                  <TableCell>{team.member_count || 0}</TableCell>
-                  <TableCell>{team.client_count || 0}</TableCell>
-                  <TableCell>{team.hashlist_count || 0}</TableCell>
-                  <TableCell>{team.agent_count || 0}</TableCell>
-                  <TableCell>{new Date(team.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      color="primary"
-                      onClick={() => navigate(`/teams/${team.id}`)}
-                      size="small"
-                      title="Manage team"
-                    >
-                      <ManageAccountsIcon />
-                    </IconButton>
-                    <IconButton
-                      color="default"
-                      onClick={() => handleEditOpen(team)}
-                      size="small"
-                      title="Edit team"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      onClick={() => handleDeleteTeam(team.id, team.name)}
-                      size="small"
-                      title="Delete team"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {teams.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    No teams found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <DataTable<Team>
+          rows={teams}
+          columns={columns}
+          getRowId={(r) => r.id}
+          loading={loading}
+          onRetry={loadTeams}
+          pagination={{ mode: 'client', initialPageSize: 25 }}
+          sorting={{ mode: 'client', initial: [{ field: 'name', sort: 'asc' }] }}
+          rowLinkTo={(r) => `/teams/${r.id}`}
+          rowActions={() => [
+            {
+              key: 'manage',
+              label: tr('teams.list.rowActions.manage'),
+              icon: <ManageAccountsIcon fontSize="small" />,
+              onClick: (r) => navigate(`/teams/${r.id}`),
+            },
+            {
+              key: 'edit',
+              label: tr('teams.list.rowActions.edit'),
+              icon: <EditIcon fontSize="small" />,
+              onClick: (r) => handleEditOpen(r),
+            },
+            {
+              key: 'delete',
+              label: tr('teams.list.rowActions.delete'),
+              icon: <DeleteIcon fontSize="small" />,
+              danger: true,
+              onClick: (r) => handleDeleteTeam(r.id, r.name),
+            },
+          ]}
+          rowActionsInlineLimit={3}
+          emptyState={{ title: tr('teams.list.empty') }}
+          tableKey="admin-teams"
+        />
       ) : (
         /* Regular user view: card layout */
+        loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
         <Grid container spacing={3}>
           {teams.map((team) => (
             <Grid item xs={12} sm={6} md={4} key={team.id}>
@@ -248,25 +240,25 @@ export const TeamList: React.FC = () => {
                     <GroupsIcon color="primary" />
                     <Typography variant="h6">{team.name}</Typography>
                     {team.user_role === 'admin' && (
-                      <Chip label="Admin" size="small" color="primary" />
+                      <Chip label={tr('teams.detail.roles.admin')} size="small" color="primary" />
                     )}
                   </Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {team.description || 'No description'}
+                    {team.description || tr('teams.detail.noDescription')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {team.member_count || 0} member{(team.member_count || 0) !== 1 ? 's' : ''}
+                    {tr('teams.list.memberCount', { count: team.member_count || 0 })}
                     {' \u00B7 '}
-                    {team.client_count || 0} client{(team.client_count || 0) !== 1 ? 's' : ''}
+                    {tr('teams.list.clientCount', { count: team.client_count || 0 })}
                     {' \u00B7 '}
-                    {team.hashlist_count || 0} hashlist{(team.hashlist_count || 0) !== 1 ? 's' : ''}
+                    {tr('teams.list.hashlistCount', { count: team.hashlist_count || 0 })}
                     {' \u00B7 '}
-                    {team.agent_count || 0} agent{(team.agent_count || 0) !== 1 ? 's' : ''}
+                    {tr('teams.list.agentCount', { count: team.agent_count || 0 })}
                   </Typography>
                 </CardContent>
                 <CardActions>
                   <Button size="small" onClick={() => navigate(`/teams/${team.id}`)}>
-                    View Details
+                    {tr('teams.list.viewDetails')}
                   </Button>
                 </CardActions>
               </Card>
@@ -277,22 +269,23 @@ export const TeamList: React.FC = () => {
             <Grid item xs={12}>
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography color="text.secondary">
-                  You are not a member of any teams yet.
+                  {tr('teams.list.emptyMine')}
                 </Typography>
               </Box>
             </Grid>
           )}
         </Grid>
+        )
       )}
 
       {/* Create Team Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create New Team</DialogTitle>
+        <DialogTitle>{tr('teams.list.dialogs.create.title')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Team Name"
+            label={tr('teams.list.dialogs.create.nameLabel')}
             fullWidth
             required
             value={newTeam.name}
@@ -300,7 +293,7 @@ export const TeamList: React.FC = () => {
           />
           <TextField
             margin="dense"
-            label="Description"
+            label={tr('teams.list.dialogs.create.descriptionLabel')}
             fullWidth
             multiline
             rows={3}
@@ -309,25 +302,25 @@ export const TeamList: React.FC = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateDialogOpen(false)}>{tr('common.cancel')}</Button>
           <Button
             onClick={handleCreateTeam}
             variant="contained"
             disabled={!newTeam.name || creating}
           >
-            {creating ? 'Creating...' : 'Create'}
+            {creating ? tr('teams.list.dialogs.create.creatingButton') : tr('common.create')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Team Dialog (admin only) */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Team</DialogTitle>
+        <DialogTitle>{tr('teams.detail.dialogs.editTeam.title')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Team Name"
+            label={tr('teams.detail.dialogs.editTeam.nameLabel')}
             fullWidth
             required
             value={editName}
@@ -335,7 +328,7 @@ export const TeamList: React.FC = () => {
           />
           <TextField
             margin="dense"
-            label="Description"
+            label={tr('teams.detail.dialogs.editTeam.descriptionLabel')}
             fullWidth
             multiline
             rows={3}
@@ -344,9 +337,9 @@ export const TeamList: React.FC = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setEditDialogOpen(false)}>{tr('common.cancel')}</Button>
           <Button onClick={handleEditSave} variant="contained" disabled={!editName.trim() || saving}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? tr('teams.detail.dialogs.editTeam.savingButton') : tr('teams.detail.dialogs.editTeam.saveButton')}
           </Button>
         </DialogActions>
       </Dialog>

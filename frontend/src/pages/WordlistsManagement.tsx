@@ -8,21 +8,12 @@
  *   - Delete wordlists
  *   - Enable/disable wordlists
  */
-import React, { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
   Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TableSortLabel,
-  IconButton,
   Chip,
   Dialog,
   DialogTitle,
@@ -31,19 +22,10 @@ import {
   DialogActions,
   TextField,
   MenuItem,
-  Grid,
   Divider,
-  Switch,
-  FormControlLabel,
   CircularProgress,
   Alert,
   Tooltip,
-  InputAdornment,
-  Toolbar,
-  alpha,
-  Tab,
-  Tabs,
-  Checkbox,
   FormControl,
   InputLabel,
   Select,
@@ -54,20 +36,25 @@ import {
   Edit as EditIcon,
   Refresh as RefreshIcon,
   CloudDownload as DownloadIcon,
-  Search as SearchIcon,
   Add as AddIcon,
-  Check as CheckIcon,
-  Clear as ClearIcon,
-  Verified as VerifiedIcon,
   FilterAlt as FilterAltIcon,
   Autorenew as AutorenewIcon
 } from '@mui/icons-material';
+import type { GridColDef } from '@mui/x-data-grid';
 import FileUpload from '../components/common/FileUpload';
-import { Wordlist, WordlistStatus, WordlistType, DeletionImpact, WordlistFilter } from '../types/wordlists';
+import { Wordlist, WordlistType, DeletionImpact, WordlistFilter } from '../types/wordlists';
 import * as wordlistService from '../services/wordlists';
 import FilterCriteriaForm, { isFilterEmpty } from '../components/wordlists/FilterCriteriaForm';
-import { useSnackbar } from 'notistack';
+import { DataTable, EntityLink, PageHeader, StatusChip, useToast } from '../components/ui';
 import { formatFileSize, formatAttackMode } from '../utils/formatters';
+
+const TYPE_FILTERS: { value: '' | WordlistType; labelKey: string }[] = [
+  { value: '', labelKey: 'wordlists.tabs.all' },
+  { value: WordlistType.GENERAL, labelKey: 'wordlists.tabs.general' },
+  { value: WordlistType.SPECIALIZED, labelKey: 'wordlists.tabs.specialized' },
+  { value: WordlistType.TARGETED, labelKey: 'wordlists.tabs.targeted' },
+  { value: WordlistType.CUSTOM, labelKey: 'wordlists.tabs.custom' },
+];
 
 export default function WordlistsManagement() {
   const { t } = useTranslation('admin');
@@ -82,10 +69,8 @@ export default function WordlistsManagement() {
   const [descriptionEdit, setDescriptionEdit] = useState('');
   const [wordlistTypeEdit, setWordlistTypeEdit] = useState<WordlistType>(WordlistType.GENERAL);
   const [formatEdit, setFormatEdit] = useState('plaintext');
-  const [tabValue, setTabValue] = useState(0);
-  const [sortBy, setSortBy] = useState<keyof Wordlist>('updated_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const { enqueueSnackbar } = useSnackbar();
+  const [typeFilter, setTypeFilter] = useState<'' | WordlistType>('');
+  const toast = useToast();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedWordlistType, setSelectedWordlistType] = useState<WordlistType>(WordlistType.GENERAL);
   const [isLoading, setIsLoading] = useState(false);
@@ -119,15 +104,15 @@ export default function WordlistsManagement() {
       setCreatingFilter(true);
       await wordlistService.createFilteredWordlist({
         parent_wordlist_id: parseInt(filterParent.id, 10),
-        name: filterName.trim() || `${filterParent.name} (filtered)`,
+        name: filterName.trim() || (t('wordlists.filtered.namePlaceholder', { name: filterParent.name }) as string),
         filter: filterCriteria,
       });
-      enqueueSnackbar('Filtered wordlist is being generated', { variant: 'success' });
+      toast.success(t('wordlists.filtered.messages.generating') as string);
       setFilterDialogOpen(false);
       fetchWordlists();
     } catch (err: any) {
-      const msg = err?.response?.data?.error || 'Failed to create filtered wordlist';
-      enqueueSnackbar(msg, { variant: 'error' });
+      const msg = err?.response?.data?.error || (t('wordlists.filtered.messages.createFailed') as string);
+      toast.error(msg);
     } finally {
       setCreatingFilter(false);
     }
@@ -147,10 +132,10 @@ export default function WordlistsManagement() {
   const handleRegenerateFiltered = async (id: string) => {
     try {
       await wordlistService.regenerateFilteredWordlist(id);
-      enqueueSnackbar('Started full regeneration of filtered wordlist', { variant: 'info' });
+      toast.info(t('wordlists.filtered.messages.regenerating') as string);
       fetchWordlists();
     } catch (err) {
-      enqueueSnackbar('Failed to regenerate filtered wordlist', { variant: 'error' });
+      toast.error(t('wordlists.filtered.messages.regenerateFailed') as string);
     }
   };
 
@@ -173,11 +158,11 @@ export default function WordlistsManagement() {
     } catch (err) {
       console.error('Error fetching wordlists:', err);
       setError(t('wordlists.errors.loadFailed') as string);
-      enqueueSnackbar(t('wordlists.errors.loadFailed') as string, { variant: 'error' });
+      toast.error(t('wordlists.errors.loadFailed') as string);
     } finally {
       setLoading(false);
     }
-  }, [enqueueSnackbar, t]);
+  }, [toast, t]);
 
   useEffect(() => {
     fetchWordlists();
@@ -232,9 +217,9 @@ export default function WordlistsManagement() {
 
         // Check if the response indicates a duplicate wordlist
         if (response.data.duplicate) {
-          enqueueSnackbar(t('wordlists.messages.duplicateWordlist', { name: response.data.name }) as string, { variant: 'info' });
+          toast.info(t('wordlists.messages.duplicateWordlist', { name: response.data.name }) as string);
         } else {
-          enqueueSnackbar(t('wordlists.messages.uploadSuccess') as string, { variant: 'success' });
+          toast.success(t('wordlists.messages.uploadSuccess') as string);
         }
 
         setUploadDialogOpen(false);
@@ -248,7 +233,7 @@ export default function WordlistsManagement() {
       console.debug('[Wordlist Upload] Authentication cookies after upload:', document.cookie);
     } catch (error) {
       console.error('Error uploading wordlist:', error);
-      enqueueSnackbar(t('wordlists.errors.uploadFailed') as string, { variant: 'error' });
+      toast.error(t('wordlists.errors.uploadFailed') as string);
     } finally {
       setIsLoading(false);
     }
@@ -258,13 +243,13 @@ export default function WordlistsManagement() {
   const handleDelete = async (id: string, name: string, confirmId?: number) => {
     try {
       await wordlistService.deleteWordlist(id, confirmId);
-      enqueueSnackbar(t('wordlists.messages.deleteSuccess', { name }) as string, { variant: 'success' });
+      toast.success(t('wordlists.messages.deleteSuccess', { name }) as string);
       fetchWordlists();
     } catch (err: any) {
       console.error('Error deleting wordlist:', err);
       // Extract error message from axios response
       const errorMessage = err.response?.data?.error || t('wordlists.errors.deleteFailed') as string;
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      toast.error(errorMessage);
     } finally {
       closeDeleteDialog();
     }
@@ -318,7 +303,7 @@ export default function WordlistsManagement() {
       document.body.removeChild(link);
     } catch (err) {
       console.error('Error downloading wordlist:', err);
-      enqueueSnackbar(t('wordlists.errors.downloadFailed') as string, { variant: 'error' });
+      toast.error(t('wordlists.errors.downloadFailed') as string);
     }
   };
 
@@ -337,13 +322,13 @@ export default function WordlistsManagement() {
     try {
       setLoading(true);
       const response = await wordlistService.refreshWordlist(id);
-      enqueueSnackbar(t('wordlists.messages.refreshSuccess') as string, { variant: 'success' });
+      toast.success(t('wordlists.messages.refreshSuccess') as string);
       // Refresh the wordlist data
       fetchWordlists();
     } catch (err: any) {
       console.error('Error refreshing wordlist:', err);
       const errorMessage = err.response?.data?.error || t('wordlists.errors.refreshFailed') as string;
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -367,83 +352,29 @@ export default function WordlistsManagement() {
       });
 
       console.debug('[Wordlist Edit] Update successful:', response);
-      enqueueSnackbar(t('wordlists.messages.updateSuccess') as string, { variant: 'success' });
+      toast.success(t('wordlists.messages.updateSuccess') as string);
       setOpenEditDialog(false);
       fetchWordlists();
     } catch (err: any) {
       console.error('[Wordlist Edit] Error updating wordlist:', err);
 
       if (err.response?.status === 401) {
-        enqueueSnackbar(t('wordlists.errors.sessionExpired') as string, { variant: 'error' });
+        toast.error(t('wordlists.errors.sessionExpired') as string);
       } else {
-        enqueueSnackbar(t('wordlists.errors.updateFailed', { error: err.response?.data?.message || err.message }) as string, { variant: 'error' });
+        toast.error(t('wordlists.errors.updateFailed', { error: err.response?.data?.message || err.message }) as string);
       }
     }
   };
 
-  // Handle sort change
-  const handleSortChange = (column: keyof Wordlist) => {
-    if (sortBy === column) {
-      // If already sorting by this column, toggle order
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Otherwise, sort by this column in ascending order
-      setSortBy(column);
-      setSortOrder('asc');
-    }
-  };
-
-  // Render sort label
-  const renderSortLabel = (column: keyof Wordlist, label: string) => {
-    return (
-      <TableSortLabel
-        active={sortBy === column}
-        direction={sortBy === column ? sortOrder : 'asc'}
-        onClick={() => handleSortChange(column)}
-      >
-        {label}
-      </TableSortLabel>
-    );
-  };
-
-  // Filter and sort wordlists
-  const filteredWordlists = wordlists
-    .filter(wordlist => {
-      // Filter by search term
-      const matchesSearch = wordlist.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           wordlist.description.toLowerCase().includes(searchTerm.toLowerCase());
-
-      // Filter by tab
-      if (tabValue === 0) return matchesSearch; // All
-      if (tabValue === 1) return matchesSearch && wordlist.wordlist_type === WordlistType.GENERAL;
-      if (tabValue === 2) return matchesSearch && wordlist.wordlist_type === WordlistType.SPECIALIZED;
-      if (tabValue === 3) return matchesSearch && wordlist.wordlist_type === WordlistType.TARGETED;
-      if (tabValue === 4) return matchesSearch && wordlist.wordlist_type === WordlistType.CUSTOM;
-
-      return matchesSearch;
-    })
-    .sort((a, b) => {
-      // Handle special cases for non-string fields
-      if (sortBy === 'file_size' || sortBy === 'word_count') {
-        return sortOrder === 'asc'
-          ? a[sortBy] - b[sortBy]
-          : b[sortBy] - a[sortBy];
-      }
-
-      // Handle date fields
-      if (sortBy === 'created_at' || sortBy === 'updated_at' || sortBy === 'last_verified_at') {
-        const dateA = new Date(a[sortBy] || 0).getTime();
-        const dateB = new Date(b[sortBy] || 0).getTime();
-        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-      }
-
-      // Default string comparison
-      const valueA = String(a[sortBy] || '').toLowerCase();
-      const valueB = String(b[sortBy] || '').toLowerCase();
-      return sortOrder === 'asc'
-        ? valueA.localeCompare(valueB)
-        : valueB.localeCompare(valueA);
+  // Filter by search term and type tab (sorting is handled by the table)
+  const filteredWordlists = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return wordlists.filter((wordlist) => {
+      const matchesSearch = wordlist.name.toLowerCase().includes(term) ||
+        (wordlist.description || '').toLowerCase().includes(term);
+      return matchesSearch && (!typeFilter || wordlist.wordlist_type === typeFilter);
     });
+  }, [wordlists, searchTerm, typeFilter]);
 
   // Render status chip based on verification status
   const renderStatusChip = (status: string, missingSince?: string) => {
@@ -451,40 +382,104 @@ export default function WordlistsManagement() {
     // failure is not, so label it distinctly when missing_since is set.
     if (status === 'failed' && missingSince) {
       return (
-        <Tooltip title={t('wordlists.status.missingSince', { date: new Date(missingSince).toLocaleString() }) as string}>
-          <Chip label={t('wordlists.status.missing') as string} color="error" size="small" />
-        </Tooltip>
+        <StatusChip
+          entity="verification"
+          status={status}
+          label={t('wordlists.status.missing') as string}
+          tooltip={t('wordlists.status.missingSince', { date: new Date(missingSince).toLocaleString() }) as string}
+        />
       );
     }
-    switch (status) {
-      case 'verified':
-        return <Chip label={t('wordlists.status.verified') as string} color="success" size="small" />;
-      case 'pending':
-        return <Chip label={t('wordlists.status.pending') as string} color="warning" size="small" />;
-      case 'failed':
-        return <Chip label={t('wordlists.status.failed') as string} color="error" size="small" />;
-      default:
-        return <Chip label={status} color="default" size="small" />;
-    }
+    return <StatusChip entity="verification" status={status} />;
   };
+
+  const columns: GridColDef<Wordlist>[] = [
+    {
+      field: 'name',
+      headerName: t('wordlists.columns.name') as string,
+      flex: 2,
+      minWidth: 240,
+      renderCell: (p) => {
+        const wordlist = p.row;
+        return (
+          <Box sx={{ py: 1, minWidth: 0 }}>
+            <Typography variant="body2" fontWeight="medium" component="div">
+              {wordlist.name}
+              {wordlist.parent_wordlist_id && (
+                <Chip label={t('wordlists.filtered.badge') as string} size="small" color="info" variant="outlined" sx={{ ml: 1 }} />
+              )}
+              {wordlist.parent_wordlist_id && wordlist.verification_status === 'pending' && (
+                <Tooltip title={t('wordlists.filtered.regeneratingTooltip') as string}>
+                  <Chip label={t('wordlists.filtered.regeneratingBadge') as string} size="small" color="info" sx={{ ml: 1 }} />
+                </Tooltip>
+              )}
+              {wordlist.is_stale && wordlist.verification_status !== 'pending' && (
+                <Tooltip title={t('wordlists.filtered.staleTooltip') as string}>
+                  <Chip label={t('wordlists.filtered.staleBadge') as string} size="small" color="warning" sx={{ ml: 1 }} />
+                </Tooltip>
+              )}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {wordlist.description || t('wordlists.noDescription') as string}
+            </Typography>
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'verification_status',
+      headerName: t('wordlists.columns.status') as string,
+      width: 150,
+      renderCell: (p) => renderStatusChip(p.row.verification_status, p.row.missing_since),
+    },
+    {
+      field: 'wordlist_type',
+      headerName: t('wordlists.columns.type') as string,
+      width: 130,
+      renderCell: (p) => (
+        <Chip
+          label={p.row.wordlist_type}
+          size="small"
+          color="primary"
+          variant="outlined"
+          sx={{ textTransform: 'capitalize' }}
+        />
+      ),
+    },
+    {
+      field: 'file_size',
+      headerName: t('wordlists.columns.size') as string,
+      type: 'number',
+      width: 110,
+      valueFormatter: (v) => formatFileSize(Number(v) || 0),
+    },
+    {
+      field: 'word_count',
+      headerName: t('wordlists.columns.wordCount') as string,
+      type: 'number',
+      width: 130,
+      valueFormatter: (v) => (Number(v) || 0).toLocaleString(),
+    },
+    {
+      field: 'updated_at',
+      headerName: t('wordlists.columns.updated') as string,
+      width: 130,
+      valueGetter: (_v, row) => (row.updated_at ? new Date(row.updated_at).getTime() : 0),
+      valueFormatter: (v) => (v ? new Date(Number(v)).toLocaleDateString() : ''),
+    },
+  ];
 
   return (
     <Box sx={{ p: 3 }}>
-      <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {t('wordlists.title') as string}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {t('wordlists.description') as string}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+      <PageHeader
+        title={t('wordlists.title') as string}
+        description={t('wordlists.description') as string}
+        actions={
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setUploadDialogOpen(true)}
-              sx={{ mr: 1 }}
               disabled={isLoading}
             >
               {t('wordlists.uploadWordlist') as string}
@@ -493,7 +488,6 @@ export default function WordlistsManagement() {
               variant="outlined"
               startIcon={<FilterAltIcon />}
               onClick={openFilterDialog}
-              sx={{ mr: 1 }}
               disabled={isLoading}
             >
               Filtered Wordlist
@@ -505,212 +499,90 @@ export default function WordlistsManagement() {
             >
               {t('wordlists.refresh') as string}
             </Button>
-          </Grid>
-        </Grid>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Paper sx={{ mb: 3, overflow: 'hidden' }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs
-              value={tabValue}
-              onChange={(_, newValue) => setTabValue(newValue)}
-              aria-label="wordlist tabs"
-            >
-              <Tab label={t('wordlists.tabs.all') as string} id="tab-0" />
-              <Tab label={t('wordlists.tabs.general') as string} id="tab-1" />
-              <Tab label={t('wordlists.tabs.specialized') as string} id="tab-2" />
-              <Tab label={t('wordlists.tabs.targeted') as string} id="tab-3" />
-              <Tab label={t('wordlists.tabs.custom') as string} id="tab-4" />
-            </Tabs>
           </Box>
+        }
+      />
 
-          <Toolbar
-            sx={{
-              pl: { sm: 2 },
-              pr: { xs: 1, sm: 1 },
-              display: 'flex',
-              justifyContent: 'center'
-            }}
-          >
-            <TextField
-              margin="dense"
-              placeholder={t('wordlists.searchPlaceholder') as string}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearchTerm('')}>
-                      <ClearIcon />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-              size="small"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ width: { xs: '100%', sm: '60%', md: '40%' } }}
-            />
-          </Toolbar>
-
-          <Divider />
-
-          <TableContainer>
-            <Table sx={{ minWidth: 650 }} aria-label="wordlists table">
-              <TableHead>
-                <TableRow>
-                  <TableCell>
-                    {renderSortLabel('name', t('wordlists.columns.name') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('verification_status', t('wordlists.columns.status') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('wordlist_type', t('wordlists.columns.type') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('file_size', t('wordlists.columns.size') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('word_count', t('wordlists.columns.wordCount') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('updated_at', t('wordlists.columns.updated') as string)}
-                  </TableCell>
-                  <TableCell align="right">{t('wordlists.columns.actions') as string}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                      <CircularProgress size={40} />
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        {t('wordlists.loading') as string}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredWordlists.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                      <Typography variant="body1">
-                        {t('wordlists.noWordlistsFound') as string}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {searchTerm ? t('wordlists.tryDifferentSearch') as string : t('wordlists.uploadToGetStarted') as string}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredWordlists.map((wordlist) => (
-                    <TableRow key={wordlist.id}>
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            {wordlist.name}
-                            {wordlist.parent_wordlist_id && (
-                              <Chip label="Filtered" size="small" color="info" variant="outlined" sx={{ ml: 1 }} />
-                            )}
-                            {wordlist.parent_wordlist_id && wordlist.verification_status === 'pending' && (
-                              <Tooltip title="The parent changed; this filtered wordlist is regenerating (only the new entries are re-filtered when possible).">
-                                <Chip label="Regenerating…" size="small" color="info" sx={{ ml: 1 }} />
-                              </Tooltip>
-                            )}
-                            {wordlist.is_stale && wordlist.verification_status !== 'pending' && (
-                              <Tooltip title="Parent wordlist changed since this was generated. Filtered wordlists regenerate automatically when their parent changes; you can also regenerate now.">
-                                <Chip label="Stale" size="small" color="warning" sx={{ ml: 1 }} />
-                              </Tooltip>
-                            )}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {wordlist.description || t('wordlists.noDescription') as string}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        {renderStatusChip(wordlist.verification_status, wordlist.missing_since)}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={wordlist.wordlist_type}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          sx={{ textTransform: 'capitalize' }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {formatFileSize(wordlist.file_size)}
-                      </TableCell>
-                      <TableCell>
-                        {wordlist.word_count.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(wordlist.updated_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell align="right">
-                        {wordlist.is_potfile && (
-                          <Tooltip title={t('wordlists.tooltips.refreshMetadata') as string}>
-                            <IconButton
-                              onClick={() => handleRefreshWordlist(wordlist.id)}
-                              color="primary"
-                            >
-                              <RefreshIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {wordlist.parent_wordlist_id && (
-                          <Tooltip title="Force a full regenerate from the parent wordlist. Filtered wordlists already regenerate automatically when their parent changes.">
-                            <span>
-                              <IconButton
-                                color={wordlist.is_stale ? 'warning' : 'default'}
-                                onClick={() => setRegenConfirm(wordlist)}
-                                disabled={wordlist.verification_status === 'pending'}
-                              >
-                                <AutorenewIcon />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        )}
-                        <Tooltip title={t('wordlists.tooltips.download') as string}>
-                          <IconButton
-                            onClick={() => handleDownload(wordlist.id, wordlist.name)}
-                            disabled={wordlist.verification_status !== 'verified'}
-                          >
-                            <DownloadIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('wordlists.tooltips.edit') as string}>
-                          <IconButton
-                            onClick={() => handleEditClick(wordlist)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('wordlists.tooltips.delete') as string}>
-                          <IconButton
-                            color="error"
-                            onClick={() => openDeleteDialog(wordlist.id, wordlist.name)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+      <DataTable<Wordlist>
+        rows={filteredWordlists}
+        columns={columns}
+        getRowId={(r) => r.id}
+        loading={loading && wordlists.length === 0}
+        fetching={loading && wordlists.length > 0}
+        error={error && wordlists.length === 0 ? error : undefined}
+        onRetry={() => fetchWordlists()}
+        pagination={{ mode: 'client', initialPageSize: 25 }}
+        sorting={{ mode: 'client', initial: [{ field: 'updated_at', sort: 'desc' }] }}
+        toolbar={{
+          search: {
+            value: searchTerm,
+            onChange: setSearchTerm,
+            placeholder: t('wordlists.searchPlaceholder') as string,
+            debounceMs: 150,
+          },
+          filters: (
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="wordlist-type-filter-label">{t('wordlists.columns.type') as string}</InputLabel>
+              <Select
+                labelId="wordlist-type-filter-label"
+                value={typeFilter}
+                label={t('wordlists.columns.type') as string}
+                onChange={(e) => setTypeFilter(e.target.value as '' | WordlistType)}
+              >
+                {TYPE_FILTERS.map((f) => (
+                  <MenuItem key={f.value || 'all'} value={f.value}>
+                    {t(f.labelKey) as string}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ),
+        }}
+        rowActionsInlineLimit={4}
+        rowActions={(wordlist) => [
+          {
+            key: 'refresh',
+            label: t('wordlists.tooltips.refreshMetadata') as string,
+            icon: <RefreshIcon fontSize="small" />,
+            hidden: !wordlist.is_potfile,
+            onClick: (w) => handleRefreshWordlist(w.id),
+          },
+          {
+            key: 'regenerate',
+            label: 'Regenerate',
+            tooltip: 'Force a full regenerate from the parent wordlist. Filtered wordlists already regenerate automatically when their parent changes.',
+            icon: <AutorenewIcon fontSize="small" color={wordlist.is_stale ? 'warning' : undefined} />,
+            hidden: !wordlist.parent_wordlist_id,
+            disabled: wordlist.verification_status === 'pending',
+            onClick: (w) => setRegenConfirm(w),
+          },
+          {
+            key: 'download',
+            label: t('wordlists.tooltips.download') as string,
+            icon: <DownloadIcon fontSize="small" />,
+            disabled: wordlist.verification_status !== 'verified',
+            onClick: (w) => handleDownload(w.id, w.name),
+          },
+          {
+            key: 'edit',
+            label: t('wordlists.tooltips.edit') as string,
+            icon: <EditIcon fontSize="small" />,
+            onClick: (w) => handleEditClick(w),
+          },
+          {
+            key: 'delete',
+            label: t('wordlists.tooltips.delete') as string,
+            icon: <DeleteIcon fontSize="small" />,
+            danger: true,
+            onClick: (w) => openDeleteDialog(w.id, w.name),
+          },
+        ]}
+        emptyState={{
+          title: t('wordlists.noWordlistsFound') as string,
+          description: searchTerm ? t('wordlists.tryDifferentSearch') as string : t('wordlists.uploadToGetStarted') as string,
+        }}
+        tableKey="wordlists"
+      />
 
       {/* Create Filtered Wordlist Dialog (GH #40) */}
       <Dialog
@@ -719,18 +591,16 @@ export default function WordlistsManagement() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Create Filtered Wordlist</DialogTitle>
+        <DialogTitle>{t('wordlists.filtered.createDialog.title') as string}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Generate a new wordlist containing only the lines of a source wordlist
-            that match your criteria. The result is reusable across jobs and is
-            tracked against its parent.
+            {t('wordlists.filtered.createDialog.description') as string}
           </Typography>
           <Autocomplete
             options={wordlists.filter((w) => !w.parent_wordlist_id && !w.is_potfile && w.verification_status === 'verified')}
             getOptionLabel={(w) => {
               const ext = wordlistExtension(w);
-              return `${w.name} — ${w.word_count.toLocaleString()} words${ext ? ` · .${ext}` : ''}`;
+              return `${w.name} — ${t('wordlists.filtered.wordCount', { count: w.word_count })}${ext ? ` · .${ext}` : ''}`;
             }}
             value={filterParent}
             onChange={(_, v) => setFilterParent(v)}
@@ -740,28 +610,28 @@ export default function WordlistsManagement() {
                   <Box>
                     <Typography variant="body2">{w.name}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {w.word_count.toLocaleString()} words · {formatFileSize(w.file_size)}
+                      {t('wordlists.filtered.wordCount', { count: w.word_count })} · {formatFileSize(w.file_size)}
                     </Typography>
                   </Box>
                   {isCompressedWordlist(w) ? (
-                    <Chip size="small" color="warning" variant="outlined" label={`compressed${wordlistExtension(w) ? ` (.${wordlistExtension(w)})` : ''}`} />
+                    <Chip size="small" color="warning" variant="outlined" label={`${t('wordlists.filtered.compressedChip')}${wordlistExtension(w) ? ` (.${wordlistExtension(w)})` : ''}`} />
                   ) : (
-                    <Chip size="small" variant="outlined" label="plaintext" />
+                    <Chip size="small" variant="outlined" label={t('wordlists.filtered.plaintextChip') as string} />
                   )}
                 </Box>
               </li>
             )}
             renderInput={(params) => (
-              <TextField {...params} label="Source wordlist" margin="normal" required />
+              <TextField {...params} label={t('wordlists.filtered.createDialog.sourceWordlistLabel') as string} margin="normal" required />
             )}
           />
           <TextField
-            label="Name"
+            label={t('wordlists.filtered.createDialog.nameLabel') as string}
             fullWidth
             margin="normal"
             value={filterName}
             onChange={(e) => setFilterName(e.target.value)}
-            placeholder={filterParent ? `${filterParent.name} (filtered)` : ''}
+            placeholder={filterParent ? (t('wordlists.filtered.namePlaceholder', { name: filterParent.name }) as string) : ''}
           />
           <Box sx={{ mt: 1 }}>
             <FilterCriteriaForm
@@ -774,7 +644,7 @@ export default function WordlistsManagement() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setFilterDialogOpen(false)} disabled={creatingFilter}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             variant="contained"
@@ -782,7 +652,7 @@ export default function WordlistsManagement() {
             disabled={creatingFilter || !filterParent || isFilterEmpty(filterCriteria)}
             startIcon={creatingFilter ? <CircularProgress size={16} /> : <FilterAltIcon />}
           >
-            Create
+            {t('wordlists.filtered.createDialog.create')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -794,27 +664,33 @@ export default function WordlistsManagement() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Regenerate filtered wordlist?</DialogTitle>
+        <DialogTitle>{t('wordlists.filtered.regenerateDialog.title') as string}</DialogTitle>
         <DialogContent>
           <DialogContentText component="div">
             <Typography variant="body2" gutterBottom>
-              Filtered wordlists are normally regenerated <strong>automatically on the backend</strong> whenever
-              their parent wordlist changes — you don't need to do this by hand.
+              <Trans t={t} i18nKey="wordlists.filtered.regenerateDialog.autoInfo" components={{ strong: <strong /> }} />
             </Typography>
             <Typography variant="body2" gutterBottom>
-              Only regenerate manually if you know the <strong>order of words in the parent changed</strong> (words
-              were edited, removed, or reordered rather than simply appended to the end).
+              <Trans t={t} i18nKey="wordlists.filtered.regenerateDialog.manualHint" components={{ strong: <strong /> }} />
             </Typography>
             <Typography variant="body2" color="warning.main">
-              This runs a <strong>full regeneration</strong> — the entire parent is re-filtered, which can take a
-              while for large wordlists{regenConfirm ? ` (e.g. “${regenConfirm.name}”)` : ''}.
+              {regenConfirm ? (
+                <Trans
+                  t={t}
+                  i18nKey="wordlists.filtered.regenerateDialog.warningWithExample"
+                  values={{ name: regenConfirm.name }}
+                  components={{ strong: <strong /> }}
+                />
+              ) : (
+                <Trans t={t} i18nKey="wordlists.filtered.regenerateDialog.warningNoExample" components={{ strong: <strong /> }} />
+              )}
             </Typography>
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRegenConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setRegenConfirm(null)}>{t('common.cancel')}</Button>
           <Button variant="contained" color="warning" startIcon={<AutorenewIcon />} onClick={confirmRegenerateFiltered}>
-            Regenerate fully
+            {t('wordlists.filtered.regenerateDialog.confirmButton')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -948,7 +824,12 @@ export default function WordlistsManagement() {
                     {deletionImpact.impact.jobs.slice(0, 5).map((job) => (
                       <li key={job.id}>
                         <Typography variant="body2" color="text.secondary">
-                          {job.name} ({job.status}) - {job.hashlist_name || t('wordlists.dialogs.delete.noHashlist') as string}
+                          <EntityLink type="job" id={job.id} label={job.name} /> ({job.status}) -{' '}
+                          {job.hashlist_name ? (
+                            <EntityLink type="hashlist" id={job.hashlist_id ?? undefined} label={job.hashlist_name} />
+                          ) : (
+                            t('wordlists.dialogs.delete.noHashlist') as string
+                          )}
                         </Typography>
                       </li>
                     ))}
@@ -972,7 +853,7 @@ export default function WordlistsManagement() {
                     {deletionImpact.impact.preset_jobs.slice(0, 5).map((pj) => (
                       <li key={pj.id}>
                         <Typography variant="body2" color="text.secondary">
-                          {pj.name} ({formatAttackMode(pj.attack_mode)})
+                          <EntityLink type="preset_job" id={pj.id} label={pj.name} /> ({formatAttackMode(pj.attack_mode)})
                         </Typography>
                       </li>
                     ))}
@@ -996,7 +877,7 @@ export default function WordlistsManagement() {
                     {deletionImpact.impact.workflow_steps.slice(0, 5).map((step, idx) => (
                       <li key={`${step.workflow_id}-${step.step_order}-${idx}`}>
                         <Typography variant="body2" color="text.secondary">
-                          {step.workflow_name} → {t('wordlists.dialogs.delete.step', { order: step.step_order }) as string} ({step.preset_job_name})
+                          <EntityLink type="workflow" id={step.workflow_id} label={step.workflow_name} /> → {t('wordlists.dialogs.delete.step', { order: step.step_order }) as string} (<EntityLink type="preset_job" id={step.preset_job_id} label={step.preset_job_name} />)
                         </Typography>
                       </li>
                     ))}
@@ -1020,7 +901,7 @@ export default function WordlistsManagement() {
                     {deletionImpact.impact.workflows_to_delete.map((wf) => (
                       <li key={wf.id}>
                         <Typography variant="body2" color="text.secondary">
-                          {wf.name}
+                          <EntityLink type="workflow" id={wf.id} label={wf.name} />
                         </Typography>
                       </li>
                     ))}

@@ -82,7 +82,7 @@ export default function CommandBlock({ label, command }: CommandBlockProps) {
           fontFamily: 'monospace',
           lineHeight: 1.7,
           whiteSpace: 'pre',
-          bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.35)' : 'grey.50'),
+          bgcolor: 'surface.sunken',
         }}
       >
         {command}

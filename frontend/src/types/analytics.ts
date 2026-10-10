@@ -391,6 +391,8 @@ export interface LMPartialCrackDetail {
   second_half_cracked: boolean;
   second_half_pwd?: string;
   hashlist_name: string;
+  /** Present on reports generated after the field was added; older stored reports lack it. */
+  hashlist_id?: number;
 }
 
 // LM-to-NTLM Mask Types

@@ -33,8 +33,14 @@ import {
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { entityRoute } from '../../constants/routes';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow, format } from 'date-fns';
+import i18n from '../../i18n';
+import { dateFnsLocaleFor } from '../../i18n/locales';
+
+/** date-fns locale for the current UI language. */
+const dateLocale = () => dateFnsLocaleFor(i18n.language);
 import { useNotifications } from '../../contexts/NotificationContext';
 import {
   getNotifications,
@@ -215,17 +221,11 @@ export const NotificationCenter: React.FC = () => {
     }
 
     if (notification.source_type && notification.source_id) {
-      switch (notification.source_type) {
-        case 'job':
-          navigate(`/jobs/${notification.source_id}`);
-          break;
-        case 'agent':
-          navigate(`/agents/${notification.source_id}`);
-          break;
-        case 'hashlist':
-          navigate(`/hashlists/${notification.source_id}`);
-          break;
-      }
+      navigate(
+        entityRoute(notification.source_type, notification.source_id, {
+          parentJobId: (notification.data as any)?.job_id ?? (notification.data as any)?.job_execution_id,
+        })
+      );
     }
   };
 
@@ -389,8 +389,8 @@ export const NotificationCenter: React.FC = () => {
                               {notification.message}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {format(new Date(notification.created_at), 'PPpp')} (
-                              {formatDistanceToNow(new Date(notification.created_at), {
+                              {format(new Date(notification.created_at), 'PPpp', { locale: dateLocale() })} (
+                              {formatDistanceToNow(new Date(notification.created_at), { locale: dateLocale(),
                                 addSuffix: true,
                               })}
                               )

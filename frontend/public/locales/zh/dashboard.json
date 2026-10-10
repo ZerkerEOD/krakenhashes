@@ -154,11 +154,41 @@
     "viewAll": "所有任务",
     "empty": "暂无运行中的任务",
     "emptyHint": "从哈希列表启动任务。",
-    "goHashlists": "转到哈希列表"
+    "goHashlists": "转到哈希列表",
+    "recentTitle": "任务",
+    "recentSubtitle": "先显示活动任务，再显示最近完成的任务",
+    "recentEmpty": "暂无任务"
   },
   "welcomeUser": "欢迎回来，{{name}}",
   "autoRefresh": {
     "on": "实时",
     "off": "暂停"
+  },
+  "view": {
+    "label": "仪表板视图",
+    "mine": "我的",
+    "teams": "我的团队",
+    "all": "全部"
+  },
+  "attention": {
+    "title": "需要关注",
+    "allClear": "一切正常",
+    "allClearHint": "没有失败项，也没有等待您处理的事项。",
+    "kind": {
+      "job_failed": "任务失败：{{name}}",
+      "job_blocked": "任务等待中：{{name}}",
+      "hashlist_error": "哈希列表处理失败：{{name}}",
+      "hashlist_awaiting_decision": "哈希列表需要您审核：{{name}}",
+      "hashlist_stuck": "哈希列表处理卡住：{{name}}",
+      "agent_error": "代理错误：{{name}}",
+      "agent_update_failed": "代理更新失败：{{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "破解趋势",
+    "subtitle_other": "过去 {{days}} 天共破解 {{count}} 个哈希",
+    "tooltip_other": "已破解 {{count}} 个",
+    "topHashlists": "本周破解最多的哈希列表",
+    "noCracksWeek": "过去 7 天没有破解记录"
   }
 }

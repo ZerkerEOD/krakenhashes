@@ -12,16 +12,19 @@ import {
   DialogTitle,
   FormControlLabel,
   LinearProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { CloudProjection } from '../../types/cloud';
 import { getJobProjection, formatCents, formatDuration } from '../../services/cloud';
+import { SimpleTable } from '../ui';
+
+interface ProjectionRow {
+  key: string;
+  label: string;
+  value: React.ReactNode;
+}
 
 interface Props {
   open: boolean;
@@ -100,35 +103,50 @@ const CloudProjectionDialog: React.FC<Props> = ({
               </Typography>
             </Box>
 
-            <Table size="small">
-              <TableBody>
-                <TableRow>
-                  <TableCell>{t('cloud.projection.timeToFinish') as string}</TableCell>
-                  <TableCell align="right">
-                    {/* Zero throughput means unknown, never "instant". */}
-                    {data.time_to_finish_seconds > 0
+            <SimpleTable<ProjectionRow>
+              hideHeader
+              getRowKey={(r) => r.key}
+              columns={[
+                { field: 'label', headerName: t('cloud.projection.metric', 'Metric') as string },
+                {
+                  field: 'value',
+                  headerName: t('cloud.projection.value', 'Value') as string,
+                  align: 'right',
+                  render: (r) => r.value,
+                },
+              ]}
+              rows={[
+                {
+                  key: 'time',
+                  label: t('cloud.projection.timeToFinish') as string,
+                  // Zero throughput means unknown, never "instant".
+                  value:
+                    data.time_to_finish_seconds > 0
                       ? formatDuration(data.time_to_finish_seconds)
-                      : (t('cloud.projection.unknown') as string)}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t('cloud.projection.projectedCost') as string}</TableCell>
-                  <TableCell align="right">{formatCents(data.projected_cost_cents)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t('cloud.projection.availableBudget') as string}</TableCell>
-                  <TableCell align="right">{formatCents(data.available_cents)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t('cloud.projection.onpremSpeed') as string}</TableCell>
-                  <TableCell align="right">{data.onprem_speed.toLocaleString()} H/s</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t('cloud.projection.cloudSpeed') as string}</TableCell>
-                  <TableCell align="right">{data.cloud_speed.toLocaleString()} H/s</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+                      : (t('cloud.projection.unknown') as string),
+                },
+                {
+                  key: 'cost',
+                  label: t('cloud.projection.projectedCost') as string,
+                  value: formatCents(data.projected_cost_cents),
+                },
+                {
+                  key: 'budget',
+                  label: t('cloud.projection.availableBudget') as string,
+                  value: formatCents(data.available_cents),
+                },
+                {
+                  key: 'onprem',
+                  label: t('cloud.projection.onpremSpeed') as string,
+                  value: `${data.onprem_speed.toLocaleString()} H/s`,
+                },
+                {
+                  key: 'cloud',
+                  label: t('cloud.projection.cloudSpeed') as string,
+                  value: `${data.cloud_speed.toLocaleString()} H/s`,
+                },
+              ]}
+            />
 
             {data.pessimistic && (
               <Alert severity="info" sx={{ mt: 2 }}>

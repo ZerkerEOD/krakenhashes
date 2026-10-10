@@ -257,7 +257,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	userJobSettingsHandler := adminsettings.NewJobSettingsHandler(systemSettingsRepo, clientSettingsRepo)
 
 	// Setup feature-specific routes
-	SetupDashboardRoutes(jwtRouter)
+	SetupDashboardRoutes(jwtRouter, database)
 	SetupHashlistRoutes(jwtRouter)
 	// Note: Skipping SetupJobRoutes(jwtRouter) as it conflicts with SetupUserRoutes - the real job routes are in SetupUserRoutes
 	SetupAgentRoutes(jwtRouter, agentService, database)

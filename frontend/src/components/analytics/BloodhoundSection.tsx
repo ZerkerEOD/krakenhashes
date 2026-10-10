@@ -16,16 +16,11 @@ import {
   Chip,
   Grid,
   Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Divider,
 } from '@mui/material';
 import { Security as SecurityIcon } from '@mui/icons-material';
 import { AnalyticsData, CompromisedAccount } from '../../types/analytics';
+import { SimpleTable, SimpleColumn } from '../ui';
 
 interface Props {
   data: AnalyticsData;
@@ -69,38 +64,33 @@ const AccountsTable: React.FC<{
   const { t } = useTranslation('analytics');
   if (!accounts || accounts.length === 0) return null;
   const rows = accounts.slice(0, maxRows);
+  const columns: SimpleColumn<CompromisedAccount>[] = [
+    { field: 'username', headerName: t('columns.username') },
+    { field: 'domain', headerName: t('columns.domain'), render: (a) => a.domain || '—' },
+    {
+      field: 'privileged_groups',
+      headerName: t('bloodhound.privilegedGroups'),
+      render: (a) => (a.privileged_groups && a.privileged_groups.length > 0 ? a.privileged_groups.join(', ') : '—'),
+    },
+  ];
+  if (extraLabel) {
+    columns.push({ field: 'extra', headerName: extraLabel, align: 'right', render: (a) => (extraValue ? extraValue(a) : '') });
+  }
   return (
-    <TableContainer sx={{ mt: 1, maxHeight: 360 }}>
-      <Table size="small" stickyHeader>
-        <TableHead>
-          <TableRow>
-            <TableCell>{t('columns.username')}</TableCell>
-            <TableCell>{t('columns.domain')}</TableCell>
-            <TableCell>{t('bloodhound.privilegedGroups')}</TableCell>
-            {extraLabel && <TableCell align="right">{extraLabel}</TableCell>}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.map((a, i) => (
-            <TableRow key={`${a.sid || a.username}-${i}`}>
-              <TableCell>{a.username}</TableCell>
-              <TableCell>{a.domain || '—'}</TableCell>
-              <TableCell>
-                {a.privileged_groups && a.privileged_groups.length > 0
-                  ? a.privileged_groups.join(', ')
-                  : '—'}
-              </TableCell>
-              {extraLabel && <TableCell align="right">{extraValue ? extraValue(a) : ''}</TableCell>}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <Box sx={{ mt: 1 }}>
+      <SimpleTable
+        rows={rows}
+        columns={columns}
+        getRowKey={(a, i) => `${a.sid || a.username}-${i}`}
+        stickyHeader
+        maxHeight={360}
+      />
       {accounts.length > rows.length && (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
           {t('bloodhound.showingAccounts', { shown: rows.length, total: accounts.length })}
         </Typography>
       )}
-    </TableContainer>
+    </Box>
   );
 };
 

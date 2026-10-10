@@ -8,21 +8,12 @@
  *   - Delete rules
  *   - Enable/disable rules
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
   Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TableSortLabel,
-  IconButton,
   Chip,
   Dialog,
   DialogTitle,
@@ -30,18 +21,9 @@ import {
   DialogActions,
   TextField,
   MenuItem,
-  Grid,
   Divider,
-  Switch,
-  FormControlLabel,
   CircularProgress,
   Alert,
-  Tooltip,
-  InputAdornment,
-  Toolbar,
-  Tab,
-  Tabs,
-  Checkbox,
   FormControl,
   InputLabel,
   Select
@@ -51,17 +33,14 @@ import {
   Edit as EditIcon,
   Refresh as RefreshIcon,
   CloudDownload as DownloadIcon,
-  Search as SearchIcon,
   Add as AddIcon,
-  Check as CheckIcon,
-  Clear as ClearIcon,
-  Verified as VerifiedIcon
 } from '@mui/icons-material';
+import type { GridColDef } from '@mui/x-data-grid';
 import FileUpload from '../components/common/FileUpload';
 import { Rule, RuleStatus, RuleType } from '../types/rules';
 import { DeletionImpact } from '../types/wordlists';
 import * as ruleService from '../services/rules';
-import { useSnackbar } from 'notistack';
+import { DataTable, EntityLink, PageHeader, StatusChip, useToast } from '../components/ui';
 import { formatFileSize, formatAttackMode } from '../utils/formatters';
 
 export default function RulesManagement() {
@@ -76,10 +55,8 @@ export default function RulesManagement() {
   const [nameEdit, setNameEdit] = useState('');
   const [descriptionEdit, setDescriptionEdit] = useState('');
   const [ruleTypeEdit, setRuleTypeEdit] = useState<RuleType>(RuleType.HASHCAT);
-  const [tabValue, setTabValue] = useState(0);
-  const [sortBy, setSortBy] = useState<keyof Rule>('updated_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const { enqueueSnackbar } = useSnackbar();
+  const [typeFilter, setTypeFilter] = useState<'' | RuleType>('');
+  const toast = useToast();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedRuleType, setSelectedRuleType] = useState<RuleType>(RuleType.HASHCAT);
   const [isLoading, setIsLoading] = useState(false);
@@ -100,11 +77,11 @@ export default function RulesManagement() {
     } catch (err) {
       console.error('Error fetching rules:', err);
       setError(t('rules.errors.loadFailed') as string);
-      enqueueSnackbar(t('rules.errors.loadFailed') as string, { variant: 'error' });
+      toast.error(t('rules.errors.loadFailed') as string);
     } finally {
       setLoading(false);
     }
-  }, [enqueueSnackbar, t]);
+  }, [toast, t]);
 
   useEffect(() => {
     fetchRules();
@@ -151,16 +128,16 @@ export default function RulesManagement() {
 
       // Check if the response indicates a duplicate rule
       if (response.data.duplicate) {
-        enqueueSnackbar(t('rules.messages.duplicateRule', { name: response.data.name }) as string, { variant: 'info' });
+        toast.info(t('rules.messages.duplicateRule', { name: response.data.name }) as string);
       } else {
-        enqueueSnackbar(t('rules.messages.uploadSuccess') as string, { variant: 'success' });
+        toast.success(t('rules.messages.uploadSuccess') as string);
       }
 
       setUploadDialogOpen(false);
       fetchRules();
     } catch (error) {
       console.error('Error uploading rule:', error);
-      enqueueSnackbar(t('rules.errors.uploadFailed') as string, { variant: 'error' });
+      toast.error(t('rules.errors.uploadFailed') as string);
     } finally {
       setIsLoading(false);
     }
@@ -170,13 +147,13 @@ export default function RulesManagement() {
   const handleDelete = async (id: string, name: string, confirmId?: number) => {
     try {
       await ruleService.deleteRule(id, confirmId);
-      enqueueSnackbar(t('rules.messages.deleteSuccess', { name }) as string, { variant: 'success' });
+      toast.success(t('rules.messages.deleteSuccess', { name }) as string);
       fetchRules();
     } catch (err: any) {
       console.error('Error deleting rule:', err);
       // Extract error message from axios response
       const errorMessage = err.response?.data?.error || t('rules.errors.deleteFailed') as string;
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      toast.error(errorMessage);
     } finally {
       closeDeleteDialog();
     }
@@ -231,7 +208,7 @@ export default function RulesManagement() {
       document.body.removeChild(link);
     } catch (err) {
       console.error('Error downloading rule:', err);
-      enqueueSnackbar(t('rules.errors.downloadFailed') as string, { variant: 'error' });
+      toast.error(t('rules.errors.downloadFailed') as string);
     }
   };
 
@@ -262,16 +239,16 @@ export default function RulesManagement() {
       });
 
       console.debug('[Rule Edit] Update successful:', response);
-      enqueueSnackbar(t('rules.messages.updateSuccess') as string, { variant: 'success' });
+      toast.success(t('rules.messages.updateSuccess') as string);
       setOpenEditDialog(false);
       fetchRules();
     } catch (err: any) {
       console.error('[Rule Edit] Error updating rule:', err);
 
       if (err.response?.status === 401) {
-        enqueueSnackbar(t('rules.errors.sessionExpired') as string, { variant: 'error' });
+        toast.error(t('rules.errors.sessionExpired') as string);
       } else {
-        enqueueSnackbar(t('rules.errors.updateFailed', { error: err.response?.data?.message || err.message }) as string, { variant: 'error' });
+        toast.error(t('rules.errors.updateFailed', { error: err.response?.data?.message || err.message }) as string);
       }
     }
   };
@@ -281,95 +258,111 @@ export default function RulesManagement() {
     try {
       setIsLoading(true);
       await ruleService.verifyRule(id, 'verified');
-      enqueueSnackbar(t('rules.messages.verifySuccess', { name }) as string, { variant: 'success' });
+      toast.success(t('rules.messages.verifySuccess', { name }) as string);
       fetchRules();
     } catch (err) {
       console.error('Error verifying rule:', err);
-      enqueueSnackbar(t('rules.errors.verifyFailed') as string, { variant: 'error' });
+      toast.error(t('rules.errors.verifyFailed') as string);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle sort change
-  const handleSortChange = (column: keyof Rule) => {
-    if (sortBy === column) {
-      // If already sorting by this column, toggle order
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Otherwise, sort by this column in ascending order
-      setSortBy(column);
-      setSortOrder('asc');
-    }
-  };
-
-  // Render sort label
-  const renderSortLabel = (column: keyof Rule, label: string) => {
-    return (
-      <TableSortLabel
-        active={sortBy === column}
-        direction={sortBy === column ? sortOrder : 'asc'}
-        onClick={() => handleSortChange(column)}
-      >
-        {label}
-      </TableSortLabel>
-    );
-  };
-
-  // Filter rules based on search term and tab
-  const filteredRules = rules
-    .filter(rule => {
-      // Filter by search term
-      const matchesSearch = rule.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           rule.description.toLowerCase().includes(searchTerm.toLowerCase());
-
-      // Filter by tab
-      if (tabValue === 0) return matchesSearch; // All
-      if (tabValue === 1) return matchesSearch && rule.rule_type === RuleType.HASHCAT;
-      if (tabValue === 2) return matchesSearch && rule.rule_type === RuleType.JOHN;
-
-      return matchesSearch;
-    })
-    .sort((a, b) => {
-      // Handle special cases for non-string fields
-      if (sortBy === 'file_size' || sortBy === 'rule_count') {
-        return sortOrder === 'asc'
-          ? a[sortBy] - b[sortBy]
-          : b[sortBy] - a[sortBy];
-      }
-
-      // Handle date fields
-      if (sortBy === 'created_at' || sortBy === 'updated_at' || sortBy === 'last_verified_at') {
-        const dateA = new Date(a[sortBy] || 0).getTime();
-        const dateB = new Date(b[sortBy] || 0).getTime();
-        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-      }
-
-      // Default string comparison
-      const valueA = String(a[sortBy] || '').toLowerCase();
-      const valueB = String(b[sortBy] || '').toLowerCase();
-      return sortOrder === 'asc'
-        ? valueA.localeCompare(valueB)
-        : valueB.localeCompare(valueA);
+  // Filter rules based on search term and type (sorting is handled by the table)
+  const filteredRules = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return rules.filter((rule) => {
+      const matchesSearch = rule.name.toLowerCase().includes(term) ||
+        (rule.description || '').toLowerCase().includes(term);
+      return matchesSearch && (!typeFilter || rule.rule_type === typeFilter);
     });
+  }, [rules, searchTerm, typeFilter]);
+
+  const columns: GridColDef<Rule>[] = [
+    {
+      field: 'name',
+      headerName: t('rules.columns.name') as string,
+      flex: 2,
+      minWidth: 220,
+      renderCell: (p) => (
+        <Box sx={{ py: 1, minWidth: 0 }}>
+          <Typography variant="body2" fontWeight="medium">
+            {p.row.name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {p.row.description || t('rules.noDescription') as string}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'verification_status',
+      headerName: t('rules.columns.status') as string,
+      width: 150,
+      renderCell: (p) =>
+        p.row.verification_status === RuleStatus.FAILED && p.row.missing_since ? (
+          <StatusChip
+            entity="verification"
+            status={p.row.verification_status}
+            label={t('rules.status.missing') as string}
+            tooltip={t('rules.status.missingSince', { date: new Date(p.row.missing_since).toLocaleString() }) as string}
+          />
+        ) : (
+          <StatusChip
+            entity="verification"
+            status={p.row.verification_status}
+            label={t(`rules.status.${p.row.verification_status}`, { defaultValue: p.row.verification_status }) as string}
+          />
+        ),
+    },
+    {
+      field: 'rule_type',
+      headerName: t('rules.columns.type') as string,
+      width: 120,
+      renderCell: (p) => (
+        <Chip
+          label={p.row.rule_type}
+          size="small"
+          color="primary"
+          variant="outlined"
+          sx={{ textTransform: 'capitalize' }}
+        />
+      ),
+    },
+    {
+      field: 'file_size',
+      headerName: t('rules.columns.size') as string,
+      type: 'number',
+      width: 110,
+      valueFormatter: (v) => formatFileSize(Number(v) || 0),
+    },
+    {
+      field: 'rule_count',
+      headerName: t('rules.columns.ruleCount') as string,
+      type: 'number',
+      width: 120,
+      valueFormatter: (v) => (Number(v) || 0).toLocaleString(),
+    },
+    {
+      field: 'updated_at',
+      headerName: t('rules.columns.updated') as string,
+      width: 130,
+      valueGetter: (_v, row) => (row.updated_at ? new Date(row.updated_at).getTime() : 0),
+      valueFormatter: (v) => (v ? new Date(Number(v)).toLocaleDateString() : ''),
+    },
+  ];
 
   return (
     <Box sx={{ p: 3 }}>
-      <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {t('rules.title') as string}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {t('rules.description') as string}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+      <PageHeader
+        title={t('rules.title') as string}
+        description={t('rules.description') as string}
+        actions={
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setUploadDialogOpen(true)}
-              sx={{ mr: 1 }}
               disabled={isLoading}
             >
               {t('rules.uploadRule') as string}
@@ -381,190 +374,72 @@ export default function RulesManagement() {
             >
               {t('rules.refresh') as string}
             </Button>
-          </Grid>
-        </Grid>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Paper sx={{ mb: 3, overflow: 'hidden' }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs
-              value={tabValue}
-              onChange={(_, newValue) => setTabValue(newValue)}
-              aria-label="rule tabs"
-            >
-              <Tab label={t('rules.tabs.all') as string} id="tab-0" />
-              <Tab label={t('rules.tabs.hashcat') as string} id="tab-1" />
-              <Tab label={t('rules.tabs.john') as string} id="tab-2" />
-            </Tabs>
           </Box>
+        }
+      />
 
-          <Toolbar
-            sx={{
-              pl: { sm: 2 },
-              pr: { xs: 1, sm: 1 },
-              display: 'flex',
-              justifyContent: 'center'
-            }}
-          >
-            <TextField
-              margin="dense"
-              placeholder={t('rules.searchPlaceholder') as string}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearchTerm('')}>
-                      <ClearIcon />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-              size="small"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ width: { xs: '100%', sm: '60%', md: '40%' } }}
-            />
-          </Toolbar>
-
-          <Divider />
-
-          <TableContainer>
-            <Table sx={{ minWidth: 650 }} aria-label="rules table">
-              <TableHead>
-                <TableRow>
-                  <TableCell>
-                    {renderSortLabel('name', t('rules.columns.name') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('verification_status', t('rules.columns.status') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('rule_type', t('rules.columns.type') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('file_size', t('rules.columns.size') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('rule_count', t('rules.columns.ruleCount') as string)}
-                  </TableCell>
-                  <TableCell>
-                    {renderSortLabel('updated_at', t('rules.columns.updated') as string)}
-                  </TableCell>
-                  <TableCell align="right">{t('rules.columns.actions') as string}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                      <CircularProgress size={40} />
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        {t('rules.loading') as string}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredRules.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                      <Typography variant="body1">
-                        {t('rules.noRulesFound') as string}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {searchTerm ? t('rules.tryDifferentSearch') as string : t('rules.uploadToGetStarted') as string}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredRules.map((rule) => (
-                    <TableRow key={rule.id}>
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            {rule.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {rule.description || t('rules.noDescription') as string}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        {rule.verification_status === RuleStatus.FAILED && rule.missing_since ? (
-                          <Tooltip title={t('rules.status.missingSince', { date: new Date(rule.missing_since).toLocaleString() }) as string}>
-                            <Chip label={t('rules.status.missing') as string} size="small" color="error" />
-                          </Tooltip>
-                        ) : (
-                          <Chip
-                            label={t(`rules.status.${rule.verification_status}`) as string}
-                            size="small"
-                            color={
-                              rule.verification_status === RuleStatus.READY
-                                ? 'success'
-                                : rule.verification_status === RuleStatus.PROCESSING
-                                ? 'warning'
-                                : 'error'
-                            }
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={rule.rule_type}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          sx={{ textTransform: 'capitalize' }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {formatFileSize(rule.file_size)}
-                      </TableCell>
-                      <TableCell>
-                        {rule.rule_count.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(rule.updated_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Tooltip title={t('rules.tooltips.download') as string}>
-                          <IconButton
-                            onClick={() => handleDownload(rule.id, rule.name)}
-                            disabled={rule.verification_status !== 'verified'}
-                          >
-                            <DownloadIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('rules.tooltips.edit') as string}>
-                          <IconButton
-                            onClick={() => handleEditClick(rule)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('rules.tooltips.delete') as string}>
-                          <IconButton
-                            color="error"
-                            onClick={() => openDeleteDialog(rule.id, rule.name)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+      <DataTable<Rule>
+        rows={filteredRules}
+        columns={columns}
+        getRowId={(r) => r.id}
+        loading={loading && rules.length === 0}
+        fetching={loading && rules.length > 0}
+        error={error && rules.length === 0 ? error : undefined}
+        onRetry={() => fetchRules()}
+        pagination={{ mode: 'client', initialPageSize: 25 }}
+        sorting={{ mode: 'client', initial: [{ field: 'updated_at', sort: 'desc' }] }}
+        toolbar={{
+          search: {
+            value: searchTerm,
+            onChange: setSearchTerm,
+            placeholder: t('rules.searchPlaceholder') as string,
+            debounceMs: 150,
+          },
+          filters: (
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel id="rule-type-filter-label">{t('rules.columns.type') as string}</InputLabel>
+              <Select
+                labelId="rule-type-filter-label"
+                value={typeFilter}
+                label={t('rules.columns.type') as string}
+                onChange={(e) => setTypeFilter(e.target.value as '' | RuleType)}
+              >
+                <MenuItem value="">{t('rules.tabs.all') as string}</MenuItem>
+                <MenuItem value={RuleType.HASHCAT}>{t('rules.tabs.hashcat') as string}</MenuItem>
+                <MenuItem value={RuleType.JOHN}>{t('rules.tabs.john') as string}</MenuItem>
+              </Select>
+            </FormControl>
+          ),
+        }}
+        rowActionsInlineLimit={3}
+        rowActions={(rule) => [
+          {
+            key: 'download',
+            label: t('rules.tooltips.download') as string,
+            icon: <DownloadIcon fontSize="small" />,
+            disabled: rule.verification_status !== 'verified',
+            onClick: (r) => handleDownload(r.id, r.name),
+          },
+          {
+            key: 'edit',
+            label: t('rules.tooltips.edit') as string,
+            icon: <EditIcon fontSize="small" />,
+            onClick: (r) => handleEditClick(r),
+          },
+          {
+            key: 'delete',
+            label: t('rules.tooltips.delete') as string,
+            icon: <DeleteIcon fontSize="small" />,
+            danger: true,
+            onClick: (r) => openDeleteDialog(r.id, r.name),
+          },
+        ]}
+        emptyState={{
+          title: t('rules.noRulesFound') as string,
+          description: searchTerm ? t('rules.tryDifferentSearch') as string : t('rules.uploadToGetStarted') as string,
+        }}
+        tableKey="rules"
+      />
 
       {/* Upload Dialog */}
       <Dialog
@@ -691,7 +566,12 @@ export default function RulesManagement() {
                     {deletionImpact.impact.jobs.slice(0, 5).map((job) => (
                       <li key={job.id}>
                         <Typography variant="body2" color="text.secondary">
-                          {job.name} ({job.status}) - {job.hashlist_name || t('rules.dialogs.delete.noHashlist') as string}
+                          <EntityLink type="job" id={job.id} label={job.name} /> ({job.status}) -{' '}
+                          {job.hashlist_name ? (
+                            <EntityLink type="hashlist" id={job.hashlist_id ?? undefined} label={job.hashlist_name} />
+                          ) : (
+                            t('rules.dialogs.delete.noHashlist') as string
+                          )}
                         </Typography>
                       </li>
                     ))}
@@ -715,7 +595,7 @@ export default function RulesManagement() {
                     {deletionImpact.impact.preset_jobs.slice(0, 5).map((pj) => (
                       <li key={pj.id}>
                         <Typography variant="body2" color="text.secondary">
-                          {pj.name} ({formatAttackMode(pj.attack_mode)})
+                          <EntityLink type="preset_job" id={pj.id} label={pj.name} /> ({formatAttackMode(pj.attack_mode)})
                         </Typography>
                       </li>
                     ))}
@@ -739,7 +619,7 @@ export default function RulesManagement() {
                     {deletionImpact.impact.workflow_steps.slice(0, 5).map((step, idx) => (
                       <li key={`${step.workflow_id}-${step.step_order}-${idx}`}>
                         <Typography variant="body2" color="text.secondary">
-                          {step.workflow_name} → {t('rules.dialogs.delete.step', { order: step.step_order }) as string} ({step.preset_job_name})
+                          <EntityLink type="workflow" id={step.workflow_id} label={step.workflow_name} /> → {t('rules.dialogs.delete.step', { order: step.step_order }) as string} (<EntityLink type="preset_job" id={step.preset_job_id} label={step.preset_job_name} />)
                         </Typography>
                       </li>
                     ))}
@@ -763,7 +643,7 @@ export default function RulesManagement() {
                     {deletionImpact.impact.workflows_to_delete.map((wf) => (
                       <li key={wf.id}>
                         <Typography variant="body2" color="text.secondary">
-                          {wf.name}
+                          <EntityLink type="workflow" id={wf.id} label={wf.name} />
                         </Typography>
                       </li>
                     ))}

@@ -154,11 +154,45 @@
     "viewAll": "Todos los trabajos",
     "empty": "Nada en ejecución",
     "emptyHint": "Inicia un trabajo desde una lista de hashes.",
-    "goHashlists": "Ir a listas de hashes"
+    "goHashlists": "Ir a listas de hashes",
+    "recentTitle": "Trabajos",
+    "recentSubtitle": "Activos primero, luego los finalizados recientemente",
+    "recentEmpty": "Aún no hay trabajos"
   },
   "welcomeUser": "Bienvenido de nuevo, {{name}}",
   "autoRefresh": {
     "on": "En vivo",
     "off": "Pausado"
+  },
+  "view": {
+    "label": "Vista del panel",
+    "mine": "Míos",
+    "teams": "Mis equipos",
+    "all": "Todos"
+  },
+  "attention": {
+    "title": "Requiere atención",
+    "allClear": "Todo en orden",
+    "allClearHint": "Nada está fallando ni espera su intervención.",
+    "kind": {
+      "job_failed": "Trabajo fallido: {{name}}",
+      "job_blocked": "Trabajo en espera: {{name}}",
+      "hashlist_error": "No se pudo procesar la lista de hashes: {{name}}",
+      "hashlist_awaiting_decision": "La lista de hashes requiere su revisión: {{name}}",
+      "hashlist_stuck": "Lista de hashes atascada en el procesamiento: {{name}}",
+      "agent_error": "Error del agente: {{name}}",
+      "agent_update_failed": "Falló la actualización del agente: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Hashes descifrados a lo largo del tiempo",
+    "subtitle_many": "{{count}} hashes descifrados en los últimos {{days}} días",
+    "subtitle_one": "{{count}} hash descifrado en los últimos {{days}} días",
+    "subtitle_other": "{{count}} hashes descifrados en los últimos {{days}} días",
+    "tooltip_many": "{{count}} hashes descifrados",
+    "tooltip_one": "{{count}} hash descifrado",
+    "tooltip_other": "{{count}} hashes descifrados",
+    "topHashlists": "Listas de hashes destacadas de la semana",
+    "noCracksWeek": "No hay hashes descifrados en los últimos 7 días"
   }
 }

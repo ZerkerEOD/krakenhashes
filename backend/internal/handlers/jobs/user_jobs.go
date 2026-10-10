@@ -149,6 +149,50 @@ func (h *UserJobsHandler) JobExecutionService() *services.JobExecutionService {
 	return h.jobExecutionService
 }
 
+// EntityRef is a minimal {id, name} reference the UI can link to.
+type EntityRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// UserRef is a minimal {id, username} reference the UI can link to.
+type UserRef struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
+}
+
+// applyJobRefs fills the linkable references on a summary from the enriched row.
+func applyJobRefs(summary *JobSummary, jw *repository.JobExecutionWithUser) {
+	if jw.ClientID != nil {
+		name := ""
+		if jw.ClientName != nil {
+			name = *jw.ClientName
+		}
+		summary.Client = &EntityRef{ID: jw.ClientID.String(), Name: name}
+	}
+	if jw.PresetJobID != nil {
+		name := ""
+		if jw.PresetJobName != nil {
+			name = *jw.PresetJobName
+		}
+		summary.PresetJob = &EntityRef{ID: jw.PresetJobID.String(), Name: name}
+	}
+	if jw.WorkflowID != nil {
+		name := ""
+		if jw.WorkflowName != nil {
+			name = *jw.WorkflowName
+		}
+		summary.Workflow = &EntityRef{ID: jw.WorkflowID.String(), Name: name}
+	}
+	if jw.CreatedBy != nil {
+		username := ""
+		if jw.CreatedByUsername != nil {
+			username = *jw.CreatedByUsername
+		}
+		summary.CreatedBy = &UserRef{ID: jw.CreatedBy.String(), Username: username}
+	}
+}
+
 // JobSummary represents a job summary for the UI
 type JobSummary struct {
 	ID                     string         `json:"id"`
@@ -168,6 +212,10 @@ type JobSummary struct {
 	UpdatedAt              string         `json:"updated_at"`
 	CompletedAt            *string        `json:"completed_at,omitempty"`
 	CreatedByUsername      *string        `json:"created_by_username,omitempty"`
+	Client                 *EntityRef     `json:"client,omitempty"`
+	PresetJob              *EntityRef     `json:"preset_job,omitempty"`
+	Workflow               *EntityRef     `json:"workflow,omitempty"`
+	CreatedBy              *UserRef       `json:"created_by,omitempty"`
 	ErrorMessage           *string        `json:"error_message,omitempty"`
 	EffectiveKeyspace      *models.BigInt `json:"effective_keyspace,omitempty"`
 	MultiplicationFactor   int64          `json:"multiplication_factor,omitempty"`
@@ -214,32 +262,27 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		Search:          &search,
 		IncludeArchived: includeArchived,
 	}
+	// A comma-separated status list ("running,pending") selects several at once.
+	if strings.Contains(status, ",") {
+		for _, s := range strings.Split(status, ",") {
+			if s = strings.TrimSpace(s); s != "" {
+				filter.Statuses = append(filter.Statuses, s)
+			}
+		}
+	}
+	if v := r.URL.Query().Get("hashlist_id"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			filter.HashlistID = &id
+		}
+	}
+	if v := r.URL.Query().Get("client_id"); v != "" {
+		if id, err := uuid.Parse(v); err == nil {
+			filter.ClientID = &id
+		}
+	}
 
 	// Apply team filter when teams are enabled
-	if middleware.IsTeamsEnabledFromContext(ctx) {
-		isAdmin := middleware.IsAdminFromContext(ctx)
-		teamIDParam := r.URL.Query().Get("team_id")
-
-		if teamIDParam != "" {
-			// Specific team selected in dropdown
-			teamID, err := uuid.Parse(teamIDParam)
-			if err == nil {
-				if isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID) {
-					filter.TeamsEnabled = true
-					filter.TeamIDs = []uuid.UUID{teamID}
-				}
-			}
-		} else if !isAdmin {
-			// No specific team — non-admins get all their teams
-			filter.TeamsEnabled = true
-			teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
-			if teamIDs == nil {
-				teamIDs = []uuid.UUID{} // fail-closed: empty = no access
-			}
-			filter.TeamIDs = teamIDs
-		}
-		// Admin with no team_id → sees all jobs (TeamsEnabled stays false)
-	}
+	filter.TeamsEnabled, filter.TeamIDs = jobListTeamFilter(ctx, r)
 
 	// Get jobs with filters and user information
 	jobsWithUser, err := h.jobExecRepo.ListWithFiltersAndUser(ctx, pageSize, (page-1)*pageSize, filter)
@@ -386,6 +429,8 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			DispatchedKeyspace:     &dispatchedKeyspace,
 			OverallProgressPercent: overallProgressPercent,
 		}
+
+		applyJobRefs(&summary, &jobWithUser)
 
 		// Add completed time if present
 		if job.CompletedAt != nil {
@@ -1076,6 +1121,11 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 
 				createdJobs = append(createdJobs, jobExecution.ID.String())
 
+				// Record the originating workflow so the job can link back to it.
+				if err := h.jobExecRepo.SetWorkflowID(ctx, jobExecution.ID, workflowID); err != nil {
+					debug.Warning("Failed to record workflow %s on job %s: %v", workflowID, jobExecution.ID, err)
+				}
+
 				stepLoopback := workflow.LoopbackAllEligible || step.LoopbackEnabled
 				loopbackOrigins = append(loopbackOrigins, services.LoopbackOrigin{
 					JobExecutionID: jobExecution.ID,
@@ -1693,6 +1743,7 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		taskSummary := map[string]interface{}{
 			"id":                           task.ID.String(),
 			"agent_id":                     task.AgentID,
+			"agent_name":                   task.AgentName,
 			"status":                       string(task.Status),
 			"keyspace_start":               task.KeyspaceStart,
 			"keyspace_end":                 task.KeyspaceEnd,
@@ -1804,6 +1855,23 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 				"name": presetJob.Name,
 			}
 		}
+	}
+
+	// Linkable references: client, workflow, creator (one query).
+	if enriched, err := h.jobExecRepo.GetByIDWithUser(ctx, jobID); err == nil && enriched != nil {
+		var refs JobSummary
+		applyJobRefs(&refs, enriched)
+		if refs.Client != nil {
+			response["client"] = refs.Client
+		}
+		if refs.Workflow != nil {
+			response["workflow"] = refs.Workflow
+		}
+		if refs.CreatedBy != nil {
+			response["created_by"] = refs.CreatedBy
+		}
+	} else if err != nil {
+		debug.Warning("Failed to resolve job references for %s: %v", jobID, err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -2597,30 +2665,7 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply team filter when teams are enabled
-	if middleware.IsTeamsEnabledFromContext(ctx) {
-		isAdmin := middleware.IsAdminFromContext(ctx)
-		teamIDParam := r.URL.Query().Get("team_id")
-
-		if teamIDParam != "" {
-			// Specific team selected in dropdown
-			teamID, err := uuid.Parse(teamIDParam)
-			if err == nil {
-				if isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID) {
-					filter.TeamsEnabled = true
-					filter.TeamIDs = []uuid.UUID{teamID}
-				}
-			}
-		} else if !isAdmin {
-			// No specific team — non-admins get all their teams
-			filter.TeamsEnabled = true
-			teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
-			if teamIDs == nil {
-				teamIDs = []uuid.UUID{} // fail-closed: empty = no access
-			}
-			filter.TeamIDs = teamIDs
-		}
-		// Admin with no team_id → sees all jobs (TeamsEnabled stays false)
-	}
+	filter.TeamsEnabled, filter.TeamIDs = jobListTeamFilter(ctx, r)
 
 	// Get jobs with filters and user information
 	jobsWithUser, err := h.jobExecRepo.ListWithFiltersAndUser(ctx, pageSize, (page-1)*pageSize, filter)
@@ -2767,6 +2812,8 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			DispatchedKeyspace:     &dispatchedKeyspace,
 			OverallProgressPercent: overallProgressPercent,
 		}
+
+		applyJobRefs(&summary, &jobWithUser)
 
 		// Add completed time if present
 		if job.CompletedAt != nil {
@@ -3008,4 +3055,31 @@ func (h *UserJobsHandler) ClearBenchmarkBlocklistEntry(w http.ResponseWriter, r 
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// jobListTeamFilter returns the team restriction for a job list request.
+//
+// With teams disabled there is none. Otherwise ?team_id= narrows to that team
+// when the caller is an admin or a member. A missing, malformed or foreign
+// team_id falls back to the caller's own teams (empty = nothing), so a
+// non-admin can never widen their view. Admins are unrestricted unless they
+// pass ?scope=teams, which limits them to their own memberships as well.
+func jobListTeamFilter(ctx context.Context, r *http.Request) (bool, []uuid.UUID) {
+	if !middleware.IsTeamsEnabledFromContext(ctx) {
+		return false, nil
+	}
+	isAdmin := middleware.IsAdminFromContext(ctx)
+	if param := r.URL.Query().Get("team_id"); param != "" {
+		if teamID, err := uuid.Parse(param); err == nil && (isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID)) {
+			return true, []uuid.UUID{teamID}
+		}
+	}
+	if isAdmin && r.URL.Query().Get("scope") != "teams" {
+		return false, nil
+	}
+	teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+	if teamIDs == nil {
+		teamIDs = []uuid.UUID{} // fail-closed: empty = no access
+	}
+	return true, teamIDs
 }

@@ -154,11 +154,47 @@
     "viewAll": "Všechny úlohy",
     "empty": "Nic neběží",
     "emptyHint": "Spusťte úlohu z hashlistu.",
-    "goHashlists": "Jít na Hashlisty"
+    "goHashlists": "Jít na Hashlisty",
+    "recentTitle": "Úlohy",
+    "recentSubtitle": "Nejprve aktivní, pak nedávno dokončené",
+    "recentEmpty": "Zatím žádné úlohy"
   },
   "welcomeUser": "Vítejte zpět, {{name}}",
   "autoRefresh": {
     "on": "Živě",
     "off": "Pozastaveno"
+  },
+  "view": {
+    "label": "Zobrazení přehledu",
+    "mine": "Moje",
+    "teams": "Moje týmy",
+    "all": "Vše"
+  },
+  "attention": {
+    "title": "Vyžaduje pozornost",
+    "allClear": "Vše v pořádku",
+    "allClearHint": "Nic neselhává ani na vás nečeká.",
+    "kind": {
+      "job_failed": "Úloha selhala: {{name}}",
+      "job_blocked": "Úloha čeká: {{name}}",
+      "hashlist_error": "Hashlist se nepodařilo zpracovat: {{name}}",
+      "hashlist_awaiting_decision": "Hashlist vyžaduje vaši kontrolu: {{name}}",
+      "hashlist_stuck": "Zpracování hashlistu uvízlo: {{name}}",
+      "agent_error": "Chyba agenta: {{name}}",
+      "agent_update_failed": "Aktualizace agenta selhala: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Prolomené hashe v čase",
+    "subtitle_few": "{{count}} prolomené hashe za posledních {{days}} dní",
+    "subtitle_many": "{{count}} prolomeného hashe za posledních {{days}} dní",
+    "subtitle_one": "{{count}} prolomený hash za posledních {{days}} dní",
+    "subtitle_other": "{{count}} prolomených hashů za posledních {{days}} dní",
+    "tooltip_few": "{{count}} prolomené hashe",
+    "tooltip_many": "{{count}} prolomeného hashe",
+    "tooltip_one": "{{count}} prolomený hash",
+    "tooltip_other": "{{count}} prolomených hashů",
+    "topHashlists": "Nejlepší hashlisty tohoto týdne",
+    "noCracksWeek": "Za posledních 7 dní nebyly prolomeny žádné hashe"
   }
 }

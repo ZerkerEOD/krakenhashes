@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
   Typography,
-  Chip,
   LinearProgress,
   Button,
-  Divider,
   Tooltip,
   IconButton,
   Dialog,
@@ -14,7 +12,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  TextField,
   CircularProgress,
   FormControlLabel,
   Checkbox,
@@ -23,39 +20,33 @@ import {
 import {
   Download as DownloadIcon,
   Delete as DeleteIcon,
-  History as HistoryIcon,
   ArrowBack as ArrowBackIcon,
   PlayArrow as PlayArrowIcon,
   Edit as EditIcon,
   Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation, Trans } from 'react-i18next';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api, deleteHashlist, getProcessingProgress, ProcessingProgressResponse } from '../../services/api';
+import { useLiveQuery } from '../../hooks/useLiveQuery';
+import { EntityLink, SectionCard, StatusChip, useToast } from '../ui';
+import JobsDataTable from '../jobs/JobsDataTable';
+import type { JobSummary } from '../../types/jobs';
 import { useDeletionProgress } from '../../contexts/DeletionProgressContext';
 import CreateJobDialog from './CreateJobDialog';
 import HashlistHashesTable from './HashlistHashesTable';
 import ClientAutocomplete from './ClientAutocomplete';
 import AssociationWordlistManager from './AssociationWordlistManager';
 import ValidationPreviewDialog, { ValidationInvalidEntry } from './ValidationPreviewDialog';
-import { useSnackbar } from 'notistack';
-import { AxiosResponse, AxiosError } from 'axios';
 
-interface HashDetail {
-  id: string;
-  hash_value: string;
-  original_hash: string;
-  username?: string;
-  domain?: string;
-  hash_type_id: number;
-  is_cracked: boolean;
-  password?: string;
-  last_updated: string;
-  // Frontend friendly aliases
-  hash?: string;
-  isCracked?: boolean;
-  crackedText?: string;
+interface HashlistJobsResponse {
+  jobs: JobSummary[];
+  pagination: { total: number };
 }
+
+/** Result of one processing-progress poll; `gone` means the backend no longer tracks it (404 = finished). */
+type ProcessingPoll = { progress: ProcessingProgressResponse | null; gone: boolean };
 
 // Helper function to format ETA in human-readable format
 const formatETA = (seconds: number): string => {
@@ -70,15 +61,16 @@ const formatETA = (seconds: number): string => {
 export default function HashlistDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation('hashlists');
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [removeFromGlobalPotfile, setRemoveFromGlobalPotfile] = useState(false);
   const [removeFromClientPotfile, setRemoveFromClientPotfile] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState<ProcessingProgressResponse | null>(null);
   const [editClientDialogOpen, setEditClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [downloadingHashlist, setDownloadingHashlist] = useState(false);
-  const processingPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const [jobsPage, setJobsPage] = useState(0);
+  const [jobsPageSize, setJobsPageSize] = useState(25);
 
   // Validation preview state (GitHub issue #38). Re-opens the dialog from the
   // detail view when the hashlist is stuck in awaiting_validation_decision —
@@ -87,17 +79,8 @@ export default function HashlistDetailView() {
   const [resumeSample, setResumeSample] = useState<ValidationInvalidEntry[]>([]);
   const [resumeLoading, setResumeLoading] = useState(false);
   const queryClient = useQueryClient();
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
   const { startTracking, isDeleting, getDeletion } = useDeletionProgress();
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (processingPollingRef.current) {
-        clearInterval(processingPollingRef.current);
-      }
-    };
-  }, []);
 
   // Redirect to hashlists page when async deletion completes
   const deletionEntry = id ? getDeletion(id) : undefined;
@@ -112,56 +95,52 @@ export default function HashlistDetailView() {
     queryFn: () => api.get(`/api/hashlists/${id}`).then(res => res.data)
   });
 
-  // Poll for processing progress when status is "processing"
-  useEffect(() => {
-    if (!hashlist || hashlist.status !== 'processing' || !id) {
-      // Clear any existing processing polling
-      if (processingPollingRef.current) {
-        clearInterval(processingPollingRef.current);
-        processingPollingRef.current = null;
-      }
-      setProcessingProgress(null);
-      return;
+  // Poll processing progress (live tier) while the hashlist is processing.
+  const isProcessing = Boolean(hashlist && hashlist.status === 'processing' && id);
+  const processingQuery = useLiveQuery<ProcessingPoll>(
+    {
+      queryKey: ['hashlist', id, 'processing-progress'],
+      queryFn: async () => {
+        try {
+          return { progress: await getProcessingProgress(id!), gone: false };
+        } catch (error: any) {
+          // 404 means processing already completed
+          if (error.response?.status === 404) return { progress: null, gone: true };
+          throw error;
+        }
+      },
+      enabled: isProcessing,
+    },
+    {
+      tier: 'live',
+      enabled: isProcessing,
+      when: (d) => !d || (!d.gone && d.progress?.status !== 'completed' && d.progress?.status !== 'failed'),
     }
+  );
+  const processingProgress = isProcessing ? processingQuery.data?.progress ?? null : null;
+  const processingDone =
+    processingQuery.data?.gone || processingQuery.data?.progress?.status === 'completed' || processingQuery.data?.progress?.status === 'failed';
 
-    const pollProgress = async () => {
-      try {
-        const progress = await getProcessingProgress(id);
-        setProcessingProgress(progress);
+  // Once processing finishes, refetch the hashlist to pick up its new status.
+  useEffect(() => {
+    if (isProcessing && processingDone) refetch();
+  }, [isProcessing, processingDone, processingQuery.dataUpdatedAt, refetch]);
 
-        // If processing is complete, stop polling and refresh hashlist
-        if (progress.status === 'completed' || progress.status === 'failed') {
-          if (processingPollingRef.current) {
-            clearInterval(processingPollingRef.current);
-            processingPollingRef.current = null;
-          }
-          // Refetch hashlist to get updated status
-          refetch();
-        }
-      } catch (error: any) {
-        // 404 means processing already completed
-        if (error.response?.status === 404) {
-          if (processingPollingRef.current) {
-            clearInterval(processingPollingRef.current);
-            processingPollingRef.current = null;
-          }
-          setProcessingProgress(null);
-          refetch();
-        }
-      }
-    };
-
-    // Poll immediately then every 2 seconds
-    pollProgress();
-    processingPollingRef.current = setInterval(pollProgress, 2000);
-
-    return () => {
-      if (processingPollingRef.current) {
-        clearInterval(processingPollingRef.current);
-        processingPollingRef.current = null;
-      }
-    };
-  }, [hashlist?.status, id, refetch]);
+  // Jobs that ran (or are running) against this hashlist, archived included.
+  const jobsQuery = useLiveQuery<HashlistJobsResponse>(
+    {
+      queryKey: ['jobs', 'list', { hashlist_id: id, include_archived: true, page: jobsPage + 1, page_size: jobsPageSize }],
+      queryFn: async () =>
+        (
+          await api.get<HashlistJobsResponse>('/api/jobs', {
+            params: { hashlist_id: id, include_archived: true, page: jobsPage + 1, page_size: jobsPageSize },
+          })
+        ).data,
+      enabled: Boolean(id),
+      placeholderData: keepPreviousData,
+    },
+    { tier: 'list', enabled: Boolean(id) }
+  );
 
   // Delete Mutation - handles both sync and async deletion
   const deleteMutation = useMutation({
@@ -176,14 +155,14 @@ export default function HashlistDetailView() {
         // User can stay on page and see the inline banner, or navigate away
       } else {
         // Sync deletion completed
-        enqueueSnackbar('Hashlist deleted successfully', { variant: 'success' });
+        toast.success(t('notifications.deleteSuccess') as string);
         queryClient.invalidateQueries({ queryKey: ['hashlists'] });
         navigate('/hashlists');
       }
     },
     onError: (error: any) => {
-      const errorMsg = error.response?.data?.error || error.message || 'Failed to delete hashlist';
-      enqueueSnackbar(errorMsg, { variant: 'error' });
+      const errorMsg = error.response?.data?.error || error.message || (t('detail.errors.deleteFailed') as string);
+      toast.error(errorMsg);
       setDeleteDialogOpen(false);
     },
   });
@@ -217,14 +196,14 @@ export default function HashlistDetailView() {
       return api.patch(`/api/hashlists/${id}/client`, { client_id: clientId });
     },
     onSuccess: () => {
-      enqueueSnackbar('Client updated successfully', { variant: 'success' });
+      toast.success(t('detail.notifications.clientUpdated') as string);
       queryClient.invalidateQueries({ queryKey: ['hashlist', id] });
       queryClient.invalidateQueries({ queryKey: ['hashlists'] });
       setEditClientDialogOpen(false);
     },
     onError: (error: any) => {
-      const errorMsg = error.response?.data?.error || error.message || 'Failed to update client';
-      enqueueSnackbar(errorMsg, { variant: 'error' });
+      const errorMsg = error.response?.data?.error || error.message || (t('detail.errors.clientUpdateFailed') as string);
+      toast.error(errorMsg);
     },
   });
 
@@ -246,11 +225,11 @@ export default function HashlistDetailView() {
         if (matchingClient) {
           updateClientMutation.mutate(matchingClient.id);
         } else {
-          enqueueSnackbar('Client not found', { variant: 'error' });
+          toast.error(t('detail.errors.clientNotFound') as string);
         }
       } catch (error) {
         console.error('Failed to lookup client:', error);
-        enqueueSnackbar('Failed to lookup client', { variant: 'error' });
+        toast.error(t('detail.errors.clientLookupFailed') as string);
       }
     } else {
       // Clear the client (set to null)
@@ -277,9 +256,9 @@ export default function HashlistDetailView() {
         reader.onload = () => {
           try {
             const errorJson = JSON.parse(reader.result as string);
-            enqueueSnackbar(errorJson.error || 'Failed to download file', { variant: 'error' });
-          } catch (e) {
-            enqueueSnackbar('Failed to download file', { variant: 'error' });
+            toast.error(errorJson.error || (t('detail.errors.downloadFailed') as string));
+          } catch {
+            toast.error(t('detail.errors.downloadFailed') as string);
           }
         };
         reader.readAsText(response.data);
@@ -310,25 +289,25 @@ export default function HashlistDetailView() {
       // Cleanup
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-      enqueueSnackbar(`Downloaded ${filename}`, { variant: 'success' });
+      toast.success(t('notifications.downloaded', { filename }) as string);
 
     } catch (error: any) {
       console.error("Error downloading hashlist:", error);
-      let errorMsg = 'Failed to download hashlist';
+      let errorMsg = t('detail.errors.downloadHashlistFailed') as string;
       if (error.response?.data instanceof Blob && error.response.data.type === 'application/json') {
         try {
           const errorJsonText = await error.response.data.text();
           const errorJson = JSON.parse(errorJsonText);
-          errorMsg = errorJson.error || `Server error (${error.response.status})`;
-        } catch (parseError) {
-          errorMsg = `Server error (${error.response.status})`;
+          errorMsg = errorJson.error || (t('detail.errors.serverError', { status: error.response.status }) as string);
+        } catch {
+          errorMsg = t('detail.errors.serverError', { status: error.response.status }) as string;
         }
       } else if (error.response?.data?.error) {
         errorMsg = error.response.data.error;
       } else if (error.message) {
         errorMsg = error.message;
       }
-      enqueueSnackbar(errorMsg, { variant: 'error' });
+      toast.error(errorMsg);
     } finally {
       setDownloadingHashlist(false);
     }
@@ -344,7 +323,7 @@ export default function HashlistDetailView() {
           onClick={() => navigate('/hashlists')}
           size="small"
         >
-          Back to Hashlists
+          {t('detail.backToHashlists') as string}
         </Button>
       </Box>
 
@@ -353,11 +332,11 @@ export default function HashlistDetailView() {
         const entry = getDeletion(id);
         const phaseLabel = (() => {
           switch (entry?.status) {
-            case 'deleting_hashes': return 'Removing hashes';
-            case 'clearing_references': return 'Clearing task references';
-            case 'cleaning_orphans': return 'Cleaning orphan hashes';
-            case 'finalizing': return 'Finalizing deletion';
-            default: return 'Preparing...';
+            case 'deleting_hashes': return t('deletionProgress.phases.removingHashes') as string;
+            case 'clearing_references': return t('deletionProgress.phases.clearingReferences') as string;
+            case 'cleaning_orphans': return t('deletionProgress.phases.cleaningOrphans') as string;
+            case 'finalizing': return t('deletionProgress.phases.finalizing') as string;
+            default: return t('deletionProgress.phases.preparing') as string;
           }
         })();
         const progress = entry?.progress;
@@ -365,7 +344,7 @@ export default function HashlistDetailView() {
         return (
           <Alert severity="warning" sx={{ mb: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
-              This hashlist is being deleted — {phaseLabel}
+              {t('detail.deletionBanner.title', { phase: phaseLabel }) as string}
             </Typography>
             <LinearProgress
               variant={progress ? 'determinate' : 'indeterminate'}
@@ -374,7 +353,7 @@ export default function HashlistDetailView() {
             />
             {progress && (
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                {progress.checked.toLocaleString()} / {progress.total.toLocaleString()} ({percent}%)
+                {t('detail.deletionBanner.progress', { checked: progress.checked.toLocaleString(), total: progress.total.toLocaleString(), percent }) as string}
               </Typography>
             )}
           </Alert>
@@ -411,28 +390,29 @@ export default function HashlistDetailView() {
                   setResumeSample(resp.data?.items ?? []);
                   setResumeValidationOpen(true);
                 } catch (e: any) {
-                  enqueueSnackbar(
-                    e?.response?.data?.error || 'Failed to load invalid hashes',
-                    { variant: 'error' },
-                  );
+                  toast.error(e?.response?.data?.error || (t('detail.errors.loadInvalidHashesFailed') as string));
                 } finally {
                   setResumeLoading(false);
                 }
               }}
             >
-              {resumeLoading ? 'Loading…' : 'Resume review'}
+              {resumeLoading ? (t('detail.validationBanner.loading') as string) : (t('detail.validationBanner.resumeReview') as string)}
             </Button>
           }
         >
           <Typography variant="subtitle2" gutterBottom>
-            This hashlist is paused awaiting a validation decision.
+            {t('detail.validationBanner.title') as string}
           </Typography>
           <Typography variant="body2">
-            Hash validation flagged{' '}
-            <strong>{(hashlist as any).invalid_count?.toLocaleString() ?? 0}</strong> of{' '}
-            <strong>{(hashlist as any).total_input_lines?.toLocaleString() ?? 0}</strong> lines as
-            malformed. Open the review dialog to proceed with the valid hashes, change the hash
-            type, or cancel the upload.
+            <Trans
+              t={t}
+              i18nKey="detail.validationBanner.message"
+              values={{
+                invalidCount: (hashlist as any).invalid_count?.toLocaleString() ?? 0,
+                totalLines: (hashlist as any).total_input_lines?.toLocaleString() ?? 0,
+              }}
+              components={{ strong: <strong /> }}
+            />
           </Typography>
         </Alert>
       )}
@@ -447,7 +427,7 @@ export default function HashlistDetailView() {
               onClick={() => setCreateJobDialogOpen(true)}
               disabled={hashlist.status !== 'ready'}
             >
-              Create Job
+              {t('actions.createJob') as string}
             </Button>
             <Button
               variant="outlined"
@@ -455,9 +435,9 @@ export default function HashlistDetailView() {
               onClick={() => navigate(`/pot/hashlist/${id}`)}
               disabled={!hashlist.cracked_hashes || hashlist.cracked_hashes === 0}
             >
-              View Cracked Hashes
+              {t('detail.viewCrackedHashes') as string}
             </Button>
-            <Tooltip title="Download">
+            <Tooltip title={t('actions.download') as string}>
               <span>
                 <IconButton
                   onClick={handleDownloadClick}
@@ -467,7 +447,7 @@ export default function HashlistDetailView() {
                 </IconButton>
               </span>
             </Tooltip>
-            <Tooltip title="Delete">
+            <Tooltip title={t('actions.delete') as string}>
               <IconButton color="error" onClick={handleDeleteClick}>
                 <DeleteIcon />
               </IconButton>
@@ -476,55 +456,56 @@ export default function HashlistDetailView() {
         </Box>
 
         <Typography variant="subtitle1" color="text.secondary" sx={{ mt: 1 }}>
-          {hashlist.description || 'No description'}
+          {hashlist.description || (t('detail.noDescription') as string)}
         </Typography>
 
         <Box display="flex" gap={2} sx={{ mt: 3 }} flexWrap="wrap" alignItems="center">
           <Box display="flex" alignItems="center" gap={1}>
-            <Typography component="span">Status:</Typography>
-            <Chip
-              label={hashlist.status}
-              color={
-                hashlist.status === 'ready' ? 'success' :
-                hashlist.status === 'error' ? 'error' : 'primary'
-              }
-              size="small"
-            />
+            <Typography component="span">{t('detail.statusLabel') as string}</Typography>
+            <StatusChip entity="hashlist" status={hashlist.status} />
             {/* Inline processing progress */}
             {hashlist.status === 'processing' && processingProgress && processingProgress.processed_lines !== undefined && (
               <Box display="flex" alignItems="center" gap={1} sx={{ ml: 1 }}>
                 <CircularProgress size={16} />
                 <Typography variant="body2" color="text.secondary">
-                  {processingProgress.processed_lines.toLocaleString()} / {processingProgress.total_lines.toLocaleString()} lines
+                  {t('detail.processingProgress.lines', {
+                    processed: processingProgress.processed_lines.toLocaleString(),
+                    total: processingProgress.total_lines.toLocaleString(),
+                  }) as string}
                   {processingProgress.lines_per_second > 0 && (
-                    <> ({Math.round(processingProgress.lines_per_second).toLocaleString()}/sec)</>
+                    <> {t('detail.processingProgress.rate', { rate: Math.round(processingProgress.lines_per_second).toLocaleString() }) as string}</>
                   )}
                   {processingProgress.lines_per_second > 0 && processingProgress.total_lines > processingProgress.processed_lines && (
-                    <> • ETA: {formatETA((processingProgress.total_lines - processingProgress.processed_lines) / processingProgress.lines_per_second)}</>
+                    <> {t('detail.processingProgress.eta', { eta: formatETA((processingProgress.total_lines - processingProgress.processed_lines) / processingProgress.lines_per_second) }) as string}</>
                   )}
                 </Typography>
               </Box>
             )}
           </Box>
           <Typography>
-            Hash Type: {hashlist.hashTypeName}
+            {t('detail.hashType', { name: hashlist.hashTypeName }) as string}
           </Typography>
           <Typography>
-            Client: {hashlist.client_name || 'None'}
-            <Tooltip title="Edit Client">
+            {t('detail.clientLabel') as string}{' '}
+            {hashlist.client_id && hashlist.client_name ? (
+              <EntityLink type="client" id={hashlist.client_id} label={hashlist.client_name} />
+            ) : (
+              hashlist.client_name || (t('detail.noClient') as string)
+            )}
+            <Tooltip title={t('detail.editClient') as string}>
               <IconButton size="small" onClick={handleEditClientClick} sx={{ ml: 1 }}>
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Typography>
           <Typography>
-            Created: {new Date(hashlist.createdAt).toLocaleString()}
+            {t('detail.created', { date: new Date(hashlist.createdAt).toLocaleString() }) as string}
           </Typography>
         </Box>
 
         <Box sx={{ mt: 3 }}>
           <Typography variant="subtitle2">
-            Crack Progress ({hashlist.cracked_hashes || 0} of {hashlist.total_hashes || 0})
+            {t('detail.crackProgress', { cracked: hashlist.cracked_hashes || 0, total: hashlist.total_hashes || 0 }) as string}
           </Typography>
           <Box display="flex" alignItems="center" gap={2}>
             <Box width="100%">
@@ -564,16 +545,29 @@ export default function HashlistDetailView() {
         />
       )}
 
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          <HistoryIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-          History
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-        <Typography color="text.secondary">
-          History log will appear here
-        </Typography>
-      </Paper>
+      <SectionCard title={t('detail.jobsRun.title') as string} subtitle={t('detail.jobsRun.subtitle') as string} sx={{ mt: 3 }}>
+        <JobsDataTable
+          jobs={jobsQuery.data?.jobs ?? []}
+          loading={jobsQuery.isLoading}
+          fetching={jobsQuery.isFetching && !jobsQuery.isLoading}
+          error={jobsQuery.error}
+          onRetry={() => void jobsQuery.refetch()}
+          onChanged={() => void jobsQuery.refetch()}
+          pagination={{
+            mode: 'server',
+            page: jobsPage,
+            pageSize: jobsPageSize,
+            rowCount: jobsQuery.data?.pagination?.total ?? 0,
+            pageSizeOptions: [10, 25, 50, 100],
+            onChange: (m) => {
+              setJobsPage(m.pageSize !== jobsPageSize ? 0 : m.page);
+              setJobsPageSize(m.pageSize);
+            },
+          }}
+          emptyState={{ title: t('detail.jobsRun.empty') as string }}
+          tableKey="hashlist-jobs"
+        />
+      </SectionCard>
 
       {hashlist && (
         <CreateJobDialog
@@ -594,12 +588,11 @@ export default function HashlistDetailView() {
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">
-          Confirm Deletion
+          {t('confirmDelete.title') as string}
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            Are you sure you want to delete the hashlist "{hashlist?.name || ''}"?
-            This action cannot be undone.
+            {t('confirmDelete.message', { name: hashlist?.name || '' }) as string}
           </DialogContentText>
 
           {/* Show global potfile removal option - only if eligible AND client allows override */}
@@ -612,7 +605,7 @@ export default function HashlistDetailView() {
                   onChange={(e) => setRemoveFromGlobalPotfile(e.target.checked)}
                 />
               }
-              label="Remove cracked passwords from global potfile"
+              label={t('confirmDelete.removeFromGlobalPotfile') as string}
               sx={{ mt: 2, display: 'block' }}
             />
           )}
@@ -627,17 +620,17 @@ export default function HashlistDetailView() {
                   onChange={(e) => setRemoveFromClientPotfile(e.target.checked)}
                 />
               }
-              label="Remove cracked passwords from client potfile"
+              label={t('confirmDelete.removeFromClientPotfile') as string}
               sx={{ mt: 1, display: 'block' }}
             />
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteCancel} color="primary">
-            Cancel
+            {t('confirmDelete.cancel') as string}
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" autoFocus disabled={deleteMutation.isPending}>
-            {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            {deleteMutation.isPending ? (t('confirmDelete.deleting') as string) : (t('confirmDelete.delete') as string)}
           </Button>
         </DialogActions>
       </Dialog>
@@ -649,11 +642,11 @@ export default function HashlistDetailView() {
         fullWidth
       >
         <DialogTitle>
-          Edit Client Assignment
+          {t('detail.editClientDialog.title') as string}
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Select a client for this hashlist or leave empty to remove the client assignment.
+            {t('detail.editClientDialog.description') as string}
           </DialogContentText>
           <ClientAutocomplete
             value={selectedClient}
@@ -662,7 +655,7 @@ export default function HashlistDetailView() {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleEditClientCancel} color="primary">
-            Cancel
+            {t('confirmDelete.cancel') as string}
           </Button>
           <Button
             onClick={handleEditClientConfirm}
@@ -670,7 +663,7 @@ export default function HashlistDetailView() {
             variant="contained"
             disabled={updateClientMutation.isPending}
           >
-            {updateClientMutation.isPending ? 'Saving...' : 'Save'}
+            {updateClientMutation.isPending ? (t('detail.editClientDialog.saving') as string) : (t('detail.editClientDialog.save') as string)}
           </Button>
         </DialogActions>
       </Dialog>
@@ -679,7 +672,7 @@ export default function HashlistDetailView() {
       <ValidationPreviewDialog
         open={resumeValidationOpen}
         hashlistId={hashlist?.id ? Number(hashlist.id) : null}
-        hashlistName={hashlist?.name || 'Hashlist'}
+        hashlistName={hashlist?.name || (t('detail.fallbackHashlistName') as string)}
         currentHashTypeId={hashlist?.hash_type_id ?? 0}
         totalInputLines={(hashlist as any)?.total_input_lines ?? 0}
         validCount={Math.max(
@@ -693,13 +686,13 @@ export default function HashlistDetailView() {
           setResumeValidationOpen(false);
           setResumeSample([]);
           queryClient.invalidateQueries({ queryKey: ['hashlist', id] });
-          enqueueSnackbar('Processing resumed.', { variant: 'success' });
+          toast.success(t('detail.notifications.processingResumed') as string);
           refetch();
         }}
         onCancel={() => {
           setResumeValidationOpen(false);
           setResumeSample([]);
-          enqueueSnackbar('Upload cancelled.', { variant: 'info' });
+          toast.info(t('detail.notifications.uploadCancelled') as string);
           navigate('/hashlists');
         }}
       />
