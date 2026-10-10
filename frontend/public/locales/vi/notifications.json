@@ -1,0 +1,204 @@
+{
+  "title": "Thông báo",
+  "connected": "Thông báo",
+  "disconnected": "Đang kết nối lại...",
+  "empty": "Không có thông báo",
+  "markAllRead": "Đánh dấu tất cả đã đọc",
+  "markRead": "Đánh dấu đã đọc",
+  "viewAll": "Xem tất cả thông báo",
+  "deleteSelected": "Xóa {{count}} mục đã chọn",
+  "selectAll": "Chọn tất cả",
+  "aria": {
+    "bellButton": "Hiển thị thông báo"
+  },
+  "center": {
+    "title": "Trung tâm thông báo",
+    "description": "Xem và quản lý thông báo của bạn"
+  },
+  "filters": {
+    "category": "Danh mục",
+    "status": "Trạng thái",
+    "allCategories": "Tất cả danh mục",
+    "all": "Tất cả",
+    "unread": "Chưa đọc",
+    "read": "Đã đọc"
+  },
+  "categories": {
+    "job": "Công việc",
+    "agent": "Agent",
+    "security": "Bảo mật",
+    "system": "Hệ thống"
+  },
+  "types": {
+    "header": "Loại thông báo",
+    "job_started": "Công việc đã bắt đầu",
+    "job_completed": "Công việc đã hoàn thành",
+    "job_failed": "Công việc thất bại",
+    "first_crack": "Bẻ khóa đầu tiên",
+    "task_completed_with_cracks": "Báo cáo hoàn thành tác vụ",
+    "agent_offline": "Agent ngoại tuyến",
+    "agent_error": "Lỗi agent",
+    "security_suspicious_login": "Đăng nhập đáng ngờ",
+    "security_mfa_disabled": "Xác thực hai yếu tố đã tắt",
+    "security_password_changed": "Mật khẩu đã thay đổi",
+    "webhook_failure": "Webhook thất bại"
+  },
+  "typeDescriptions": {
+    "job_started": "Khi một công việc bắt đầu thực thi",
+    "job_completed": "Khi một công việc hoàn thành thành công",
+    "job_failed": "Khi một công việc thất bại",
+    "first_crack": "Khi hash đầu tiên bị bẻ khóa (thông báo ngay lập tức)",
+    "task_completed_with_cracks": "Khi một tác vụ hoàn thành",
+    "agent_offline": "Khi một agent chuyển sang ngoại tuyến (sau thời gian gia hạn)",
+    "agent_error": "Khi một agent báo cáo lỗi nghiêm trọng",
+    "security_suspicious_login": "Đăng nhập từ vị trí hoặc thiết bị mới",
+    "security_mfa_disabled": "Khi xác thực hai yếu tố bị tắt (bắt buộc)",
+    "security_password_changed": "Khi mật khẩu được thay đổi (bắt buộc)",
+    "webhook_failure": "Khi webhook không được gửi thành công"
+  },
+  "channels": {
+    "inApp": "Trong ứng dụng",
+    "email": "Email",
+    "webhook": "Webhook"
+  },
+  "settings": {
+    "title": "Cài đặt thông báo",
+    "description": "Cấu hình cách và khi nào bạn nhận được thông báo",
+    "enabledChannels": "Kênh được bật",
+    "taskReportMode": "Thời điểm thông báo",
+    "taskReportModeOnlyIfCracks": "Chỉ khi tìm thấy bẻ khóa",
+    "taskReportModeAlways": "Luôn thông báo",
+    "modeUpdated": "Chế độ báo cáo tác vụ đã được cập nhật",
+    "onlyIfCracks": "Chỉ khi tìm thấy bẻ khóa",
+    "always": "Luôn thông báo",
+    "mandatory": "Bắt buộc",
+    "mandatoryDescription": "Thông báo này không thể bị vô hiệu hóa",
+    "emailNotConfigured": "Gateway email chưa được cấu hình",
+    "emailNotConfiguredWarning": "Gateway email chưa được cấu hình. Thông báo qua email hiện không khả dụng.",
+    "noWebhooksConfigured": "Không có webhook hoạt động nào được cấu hình",
+    "toggleAll": "Bật/tắt tất cả"
+  },
+  "webhooks": {
+    "title": "Cấu hình Webhook",
+    "description": "Quản lý tích hợp webhook của bạn",
+    "name": "Tên",
+    "url": "URL",
+    "secret": "Bí mật",
+    "secretPlaceholder": "Bí mật webhook tùy chọn",
+    "isActive": "Hoạt động",
+    "notificationTypes": "Loại thông báo",
+    "allTypes": "Tất cả loại",
+    "retryCount": "Số lần thử lại",
+    "timeout": "Thời gian chờ (giây)",
+    "lastTriggered": "Kích hoạt lần cuối",
+    "lastSuccess": "Thành công lần cuối",
+    "lastError": "Lỗi lần cuối",
+    "totalSent": "Tổng cộng đã gửi",
+    "totalFailed": "Tổng cộng thất bại",
+    "create": "Tạo Webhook",
+    "edit": "Chỉnh sửa Webhook",
+    "delete": "Xóa Webhook",
+    "deleteConfirm": "Bạn có chắc chắn muốn xóa webhook này không?",
+    "test": "Kiểm tra Webhook",
+    "testUrl": "URL kiểm tra",
+    "testSuccess": "Kiểm tra webhook thành công",
+    "testFailed": "Kiểm tra webhook thất bại",
+    "secretExists": "Bí mật đã được đặt. Để trống để giữ bí mật hiện tại, hoặc nhập giá trị mới để thay thế.",
+    "invalidJson": "Định dạng JSON không hợp lệ",
+    "noWebhooks": "Không có webhook nào được cấu hình. Tạo một webhook để nhận thông báo qua webhook.",
+    "updated": "Webhook đã được cập nhật",
+    "created": "Webhook đã được tạo",
+    "deleted": "Webhook đã được xóa",
+    "secretEditHelp": "Để trống để giữ bí mật hiện có",
+    "validation": {
+      "nameAndUrl": "Tên và URL là bắt buộc"
+    }
+  },
+  "admin": {
+    "title": "Cài đặt thông báo",
+    "globalWebhook": {
+      "title": "Webhook toàn cầu",
+      "description": "Cấu hình webhook toàn hệ thống cho tất cả thông báo",
+      "enabled": "Bật webhook toàn cầu",
+      "url": "URL Webhook",
+      "secret": "Bí mật Webhook",
+      "customHeaders": "Header tùy chỉnh (JSON)",
+      "test": "Kiểm tra Webhook toàn cầu",
+      "saved": "Cài đặt webhook toàn cầu đã được lưu"
+    },
+    "agentOffline": {
+      "title": "Thời gian gia hạn ngoại tuyến agent",
+      "description": "Cấu hình khoảng thời gian chờ trước khi gửi thông báo agent ngoại tuyến",
+      "bufferMinutes": "Phút gia hạn",
+      "bufferHelp": "Chờ bao nhiêu phút trước khi thông báo về agent ngoại tuyến",
+      "saved": "Cài đặt agent ngoại tuyến đã được lưu"
+    },
+    "userWebhooks": {
+      "title": "Webhook người dùng",
+      "description": "Xem tất cả webhook do người dùng cấu hình",
+      "username": "Tên người dùng",
+      "email": "Email",
+      "empty": "Không có webhook người dùng nào được cấu hình"
+    }
+  },
+  "auditLog": {
+    "title": "Nhật ký kiểm toán",
+    "description": "Sự kiện bảo mật và sự kiện nghiêm trọng trên tất cả người dùng",
+    "noData": "Không tìm thấy mục nhật ký kiểm toán nào",
+    "columns": {
+      "time": "Thời gian",
+      "severity": "Mức độ nghiêm trọng",
+      "eventType": "Loại sự kiện",
+      "user": "Người dùng",
+      "title": "Tiêu đề",
+      "ip": "Địa chỉ IP"
+    },
+    "filters": {
+      "eventType": "Loại sự kiện",
+      "severity": "Mức độ nghiêm trọng",
+      "startDate": "Ngày bắt đầu",
+      "endDate": "Ngày kết thúc",
+      "all": "Tất cả",
+      "clear": "Xóa bộ lọc"
+    },
+    "severity": {
+      "critical": "Nghiêm trọng",
+      "warning": "Cảnh báo",
+      "info": "Thông tin"
+    },
+    "details": {
+      "message": "Thông điệp",
+      "ipAddress": "Địa chỉ IP",
+      "userAgent": "User Agent",
+      "source": "Nguồn",
+      "data": "Dữ liệu bổ sung"
+    },
+    "errors": {
+      "loadFailed": "Không thể tải nhật ký kiểm toán"
+    },
+    "system": "Hệ thống"
+  },
+  "systemAlert": {
+    "title": "Cảnh báo hệ thống",
+    "dismiss": "Bỏ qua",
+    "dismissAll": "Bỏ qua tất cả"
+  },
+  "errors": {
+    "fetchFailed": "Không thể tải thông báo",
+    "markReadFailed": "Không thể đánh dấu thông báo đã đọc",
+    "deleteFailed": "Không thể xóa thông báo",
+    "saveFailed": "Không thể lưu cài đặt",
+    "webhookCreateFailed": "Không thể tạo webhook",
+    "webhookUpdateFailed": "Không thể cập nhật webhook",
+    "webhookDeleteFailed": "Không thể xóa webhook",
+    "webhookSaveFailed": "Không thể lưu webhook"
+  },
+  "common": {
+    "actions": "Thao tác",
+    "active": "Hoạt động",
+    "inactive": "Không hoạt động",
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "delete": "Xóa"
+  }
+}

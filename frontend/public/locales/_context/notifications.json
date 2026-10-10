@@ -1,0 +1,19 @@
+{
+  "types": {
+    "task_completed_with_cracks": "Fires when a task finishes; despite the key name, whether cracks are required to trigger it depends on the taskReportMode setting."
+  },
+  "settings": {
+    "taskReportMode": "Controls whether the 'task completed' notification fires for every task, or only when it found at least one crack."
+  },
+  "admin": {
+    "agentOffline": {
+      "bufferMinutes": "Minutes to wait after an agent disconnects before sending an offline alert, to avoid false alarms from brief network blips."
+    },
+    "globalWebhook": {
+      "secret": "HMAC signing secret used so the receiver can verify the webhook payload really came from this server; not a password."
+    }
+  },
+  "webhooks": {
+    "secret": "HMAC signing secret used so the receiver can verify the webhook payload really came from this server; not a password."
+  }
+}

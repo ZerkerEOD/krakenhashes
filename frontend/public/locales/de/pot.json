@@ -10,7 +10,8 @@
     "allCrackedHashes": "Alle geknackten Hashes"
   },
   "navigation": {
-    "backToAll": "Zurück zu allen geknackten Hashes"
+    "backToAll": "Zurück zu allen geknackten Hashes",
+    "backToSource": "Zurück"
   },
   "client": {
     "title": "Geknackte Hashes - Kundenansicht",
@@ -40,8 +41,8 @@
     "placeholder": "Datenbank durchsuchen...",
     "filterPlaceholder": "Diese Seite filtern...",
     "button": "Suchen",
-    "resultsFound": "{{count}} Ergebnis gefunden",
-    "resultsFound_plural": "{{count}} Ergebnisse gefunden",
+    "resultsFound_one": "{{count}} Ergebnis gefunden",
+    "resultsFound_other": "{{count}} Ergebnisse gefunden",
     "noResults": "Keine Ergebnisse gefunden",
     "searching": "Suche läuft..."
   },
@@ -85,5 +86,11 @@
   },
   "filter": {
     "filteredBy": "Gefiltert nach {{param}}: {{value}}"
+  },
+  "breadcrumb": "Geknackte Hashes",
+  "sourceLabel": {
+    "job": "Auftrag",
+    "client": "Kunde",
+    "hashlist": "Hashliste"
   }
 }

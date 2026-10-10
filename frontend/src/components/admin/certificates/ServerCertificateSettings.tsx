@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import {
   Alert,
   AlertTitle,
@@ -15,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useSnackbar } from 'notistack';
+import { useToast } from '../../ui/toast';
 import { useTranslation } from 'react-i18next';
 import {
   dismissDiscoveredAddress,
@@ -56,7 +57,7 @@ const sameSet = (a: string[], b: string[]): boolean =>
  */
 const ServerCertificateSettings: React.FC = () => {
   const { t } = useTranslation('admin');
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
 
   const [status, setStatus] = useState<CertificateStatus | null>(null);
   const [discovered, setDiscovered] = useState<DiscoveredAddress[]>([]);
@@ -111,6 +112,8 @@ const ServerCertificateSettings: React.FC = () => {
     const savedDns = status?.settings?.additional_dns_names ?? [];
     return !sameSet(ipSans, savedIp) || !sameSet(dnsSans, savedDns);
   }, [ipSans, dnsSans, status]);
+
+  const { dialog: unsavedDialog } = useUnsavedChangesGuard(dirty);
 
   /** Addresses currently in the live certificate that this edit would drop. */
   const removedFromCert = useMemo(() => {
@@ -179,9 +182,7 @@ const ServerCertificateSettings: React.FC = () => {
     } else if (!dnsSans.includes(item.address)) {
       setDnsSans([...dnsSans, item.address]);
     }
-    enqueueSnackbar(t('serverCertificate.discovered.added', { address: item.address }) as string, {
-      variant: 'info',
-    });
+    toast.info(t('serverCertificate.discovered.added', { address: item.address }) as string);
   };
 
   const handleDismiss = async (id: number) => {
@@ -189,7 +190,7 @@ const ServerCertificateSettings: React.FC = () => {
       await dismissDiscoveredAddress(id);
       setDiscovered((prev) => prev.filter((d) => d.id !== id));
     } catch (e: any) {
-      enqueueSnackbar(e?.message ?? 'Failed to dismiss address', { variant: 'error' });
+      toast.error(e?.message ?? 'Failed to dismiss address');
     }
   };
 
@@ -202,18 +203,9 @@ const ServerCertificateSettings: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box
-        sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}
-      >
-        <Box>
-          <Typography variant="h5" component="h2" gutterBottom>
-            {t('serverCertificate.title') as string}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {t('serverCertificate.description') as string}
-          </Typography>
-        </Box>
+    <Box>
+      {unsavedDialog}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
         <Button
           variant="contained"
           startIcon={<RefreshIcon />}

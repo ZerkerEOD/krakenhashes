@@ -8,16 +8,13 @@
   "viewAll": "Посмотреть все уведомления",
   "deleteSelected": "Удалить {{count}} выбранных",
   "selectAll": "Выбрать все",
-
   "aria": {
     "bellButton": "Показать уведомления"
   },
-
   "center": {
     "title": "Центр уведомлений",
     "description": "Просмотр и управление уведомлениями"
   },
-
   "filters": {
     "category": "Категория",
     "status": "Статус",
@@ -26,15 +23,14 @@
     "unread": "Непрочитанные",
     "read": "Прочитанные"
   },
-
   "categories": {
     "job": "Задание",
     "agent": "Агент",
     "security": "Безопасность",
     "system": "Система"
   },
-
   "types": {
+    "header": "Тип уведомления",
     "job_started": "Задание запущено",
     "job_completed": "Задание завершено",
     "job_failed": "Задание не выполнено",
@@ -47,7 +43,6 @@
     "security_password_changed": "Пароль изменён",
     "webhook_failure": "Ошибка webhook"
   },
-
   "typeDescriptions": {
     "job_started": "Когда задание начинается",
     "job_completed": "Когда задание успешно завершается",
@@ -61,13 +56,11 @@
     "security_password_changed": "Когда пароль изменён (обязательно)",
     "webhook_failure": "Когда доставка webhook не удалась"
   },
-
   "channels": {
     "inApp": "В приложении",
     "email": "Электронная почта",
     "webhook": "Webhook"
   },
-
   "settings": {
     "title": "Настройки уведомлений",
     "description": "Настройте, как и когда вы получаете уведомления",
@@ -85,7 +78,6 @@
     "noWebhooksConfigured": "Активные вебхуки не настроены",
     "toggleAll": "Переключить все"
   },
-
   "webhooks": {
     "title": "Настройка Webhook",
     "description": "Управление интеграциями webhook",
@@ -110,9 +102,18 @@
     "test": "Тестировать Webhook",
     "testUrl": "Тестировать URL",
     "testSuccess": "Тест webhook успешен",
-    "testFailed": "Тест webhook не удался"
+    "testFailed": "Тест webhook не удался",
+    "secretExists": "Секрет установлен. Оставьте пустым, чтобы сохранить текущий, или введите новое значение для замены.",
+    "invalidJson": "Неверный формат JSON",
+    "noWebhooks": "Нет настроенных webhook. Создайте его для получения уведомлений через webhook.",
+    "updated": "Webhook обновлён",
+    "created": "Webhook создан",
+    "deleted": "Webhook удалён",
+    "secretEditHelp": "Оставьте пустым, чтобы сохранить существующий секрет",
+    "validation": {
+      "nameAndUrl": "Имя и URL обязательны"
+    }
   },
-
   "admin": {
     "title": "Настройки уведомлений",
     "globalWebhook": {
@@ -140,7 +141,6 @@
       "empty": "Пользовательские webhooks не настроены"
     }
   },
-
   "auditLog": {
     "title": "Журнал аудита",
     "description": "Безопасность и критические события всех пользователей",
@@ -175,21 +175,30 @@
     },
     "errors": {
       "loadFailed": "Не удалось загрузить журнал аудита"
-    }
+    },
+    "system": "Система"
   },
-
   "systemAlert": {
     "title": "Системное оповещение",
     "dismiss": "Отклонить",
     "dismissAll": "Отклонить все"
   },
-
   "errors": {
     "fetchFailed": "Не удалось загрузить уведомления",
     "markReadFailed": "Не удалось отметить уведомление как прочитанное",
     "deleteFailed": "Не удалось удалить уведомления",
+    "saveFailed": "Не удалось сохранить настройки",
     "webhookCreateFailed": "Не удалось создать webhook",
     "webhookUpdateFailed": "Не удалось обновить webhook",
-    "webhookDeleteFailed": "Не удалось удалить webhook"
+    "webhookDeleteFailed": "Не удалось удалить webhook",
+    "webhookSaveFailed": "Не удалось сохранить webhook"
+  },
+  "common": {
+    "actions": "Действия",
+    "active": "Активно",
+    "inactive": "Неактивно",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "delete": "Удалить"
   }
 }

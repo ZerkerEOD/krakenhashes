@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { FieldSaveAdornment } from './fields';
+import { useSaveStates } from './fields/useSaveStates';
 import {
   Box,
   Card,
@@ -11,11 +13,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Chip,
   Button,
   TextField,
@@ -45,7 +42,8 @@ import {
   Computer as AgentIcon,
   Security as SecurityIcon,
 } from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
+import type { GridColDef } from '@mui/x-data-grid';
+import { DataTable, SimpleTable, useToast, useConfirm, StatusChip } from '../ui';
 import { useTranslation } from 'react-i18next';
 import {
   getNotificationPreferences,
@@ -112,10 +110,14 @@ const DEFAULT_WEBHOOK_FORM = {
 
 const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChange }): JSX.Element => {
   const { t } = useTranslation('notifications');
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { saveStates, setState: setSaveState } = useSaveStates();
+  const statusOf = (type: NotificationType, channel: string) => saveStates[`${type}:${channel}`] ?? { state: 'idle' as const };
+  const busyOf = (type: NotificationType, channel: string) => statusOf(type, channel).state === 'saving';
   const [preferences, setPreferences] = useState<UserNotificationPreferences | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,8 +129,6 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
   const [webhookForm, setWebhookForm] = useState(DEFAULT_WEBHOOK_FORM);
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [webhookTesting, setWebhookTesting] = useState<string | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [webhookToDelete, setWebhookToDelete] = useState<UserWebhook | null>(null);
 
   useEffect(() => {
     loadPreferences();
@@ -168,24 +168,25 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
 
     // Check for mandatory types
     if (MANDATORY_TYPES.includes(type) && channel === 'emailEnabled' && !enabled) {
-      enqueueSnackbar(t('settings.mandatory', 'This notification cannot be disabled'), { variant: 'warning' });
+      toast.warning(t('settings.mandatory', 'This notification cannot be disabled'));
       return;
     }
 
     // Check email configuration
     if (channel === 'emailEnabled' && enabled && !preferences.emailConfigured) {
-      enqueueSnackbar(t('settings.emailNotConfigured', 'Email gateway is not configured'), { variant: 'error' });
+      toast.error(t('settings.emailNotConfigured', 'Email gateway is not configured'));
       return;
     }
 
     // Check webhook configuration
     if (channel === 'webhookEnabled' && enabled && preferences.webhooksActive === 0) {
-      enqueueSnackbar(t('settings.noWebhooksConfigured', 'No active webhooks configured'), { variant: 'warning' });
+      toast.warning(t('settings.noWebhooksConfigured', 'No active webhooks configured'));
       return;
     }
 
+    const stateKey = `${type}:${channel}`;
     try {
-      setSaving(true);
+      setSaveState(stateKey, { state: 'saving' });
 
       // Get existing preference values and merge with the change
       const existingPref = preferences.typePreferences[type] || {};
@@ -203,24 +204,25 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
         },
       });
 
-      // Update local state
-      setPreferences({
-        ...preferences,
-        typePreferences: {
-          ...preferences.typePreferences,
-          [type]: {
-            ...preferences.typePreferences[type],
-            [channel]: enabled,
-          },
-        },
-      });
-
+      // Update local state (functional: several switches may save at once)
+      setPreferences((prev) =>
+        prev
+          ? {
+              ...prev,
+              typePreferences: {
+                ...prev.typePreferences,
+                [type]: { ...prev.typePreferences[type], [channel]: enabled },
+              },
+            }
+          : prev
+      );
+      setSaveState(stateKey, { state: 'saved' });
       onNotificationChange?.();
     } catch (err: any) {
       console.error('Failed to update preference:', err);
-      enqueueSnackbar(err.response?.data?.error || t('errors.saveFailed', 'Failed to save'), { variant: 'error' });
-    } finally {
-      setSaving(false);
+      const message = err.response?.data?.error || t('errors.saveFailed', 'Failed to save');
+      setSaveState(stateKey, { state: 'error', error: message });
+      toast.error(message);
     }
   };
 
@@ -258,11 +260,11 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
         },
       });
 
-      enqueueSnackbar(t('settings.modeUpdated', 'Task report mode updated'), { variant: 'success' });
+      toast.success(t('settings.modeUpdated', 'Task report mode updated'));
       onNotificationChange?.();
     } catch (err: any) {
       console.error('Failed to update task report mode:', err);
-      enqueueSnackbar(err.response?.data?.error || t('errors.saveFailed', 'Failed to save'), { variant: 'error' });
+      toast.error(err.response?.data?.error || t('errors.saveFailed', 'Failed to save'));
     } finally {
       setSaving(false);
     }
@@ -277,12 +279,12 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
 
     // Check prerequisites for the channel
     if (channel === 'emailEnabled' && !preferences.emailConfigured) {
-      enqueueSnackbar(t('settings.emailNotConfigured', 'Email gateway is not configured'), { variant: 'error' });
+      toast.error(t('settings.emailNotConfigured', 'Email gateway is not configured'));
       return;
     }
 
     if (channel === 'webhookEnabled' && preferences.webhooksActive === 0) {
-      enqueueSnackbar(t('settings.noWebhooksConfigured', 'No active webhooks configured'), { variant: 'warning' });
+      toast.warning(t('settings.noWebhooksConfigured', 'No active webhooks configured'));
       return;
     }
 
@@ -344,7 +346,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
       onNotificationChange?.();
     } catch (err: any) {
       console.error('Failed to update preferences:', err);
-      enqueueSnackbar(err.response?.data?.error || t('errors.saveFailed', 'Failed to save'), { variant: 'error' });
+      toast.error(err.response?.data?.error || t('errors.saveFailed', 'Failed to save'));
     } finally {
       setSaving(false);
     }
@@ -388,7 +390,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
 
   const handleSaveWebhook = async () => {
     if (!webhookForm.name || !webhookForm.url) {
-      enqueueSnackbar(t('webhooks.validation.nameAndUrl', 'Name and URL are required'), { variant: 'error' });
+      toast.error(t('webhooks.validation.nameAndUrl', 'Name and URL are required'));
       return;
     }
 
@@ -405,7 +407,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
           updateRequest.secret = webhookForm.secret;
         }
         await updateUserWebhook(editingWebhook.id, updateRequest);
-        enqueueSnackbar(t('webhooks.updated', 'Webhook updated'), { variant: 'success' });
+        toast.success(t('webhooks.updated', 'Webhook updated'));
       } else {
         const createRequest: CreateWebhookRequest = {
           name: webhookForm.name,
@@ -414,14 +416,14 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
           notification_types: webhookForm.notification_types.length > 0 ? webhookForm.notification_types : undefined,
         };
         await createUserWebhook(createRequest);
-        enqueueSnackbar(t('webhooks.created', 'Webhook created'), { variant: 'success' });
+        toast.success(t('webhooks.created', 'Webhook created'));
       }
       handleCloseWebhookDialog();
       loadWebhooks();
       loadPreferences(); // Refresh to update webhook counts
     } catch (err: any) {
       console.error('Failed to save webhook:', err);
-      enqueueSnackbar(err.response?.data?.error || t('errors.webhookSaveFailed', 'Failed to save webhook'), { variant: 'error' });
+      toast.error(err.response?.data?.error || t('errors.webhookSaveFailed', 'Failed to save webhook'));
     } finally {
       setWebhookSaving(false);
     }
@@ -432,33 +434,56 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
     try {
       const result = await testUserWebhook(webhook.id);
       if (result.success) {
-        enqueueSnackbar(t('webhooks.testSuccess', 'Webhook test successful'), { variant: 'success' });
+        toast.success(t('webhooks.testSuccess', 'Webhook test successful'));
       } else {
-        enqueueSnackbar(result.error || t('webhooks.testFailed', 'Webhook test failed'), { variant: 'error' });
+        toast.error(result.error || t('webhooks.testFailed', 'Webhook test failed'));
       }
     } catch (err: any) {
       console.error('Failed to test webhook:', err);
-      enqueueSnackbar(err.response?.data?.error || t('webhooks.testFailed', 'Webhook test failed'), { variant: 'error' });
+      toast.error(err.response?.data?.error || t('webhooks.testFailed', 'Webhook test failed'));
     } finally {
       setWebhookTesting(null);
     }
   };
 
-  const handleDeleteWebhook = async () => {
-    if (!webhookToDelete) return;
+  const handleDeleteWebhook = async (webhookToDelete: UserWebhook) => {
+    const ok = await confirm({
+      title: t('webhooks.delete', 'Delete Webhook') as string,
+      message: t('webhooks.deleteConfirm', 'Are you sure you want to delete this webhook?') as string,
+      severity: 'danger',
+      confirmLabel: t('common.delete', 'Delete') as string,
+    });
+    if (!ok) return;
 
     try {
       await deleteUserWebhook(webhookToDelete.id);
-      enqueueSnackbar(t('webhooks.deleted', 'Webhook deleted'), { variant: 'success' });
-      setDeleteConfirmOpen(false);
-      setWebhookToDelete(null);
+      toast.success(t('webhooks.deleted', 'Webhook deleted'));
       loadWebhooks();
       loadPreferences();
     } catch (err: any) {
       console.error('Failed to delete webhook:', err);
-      enqueueSnackbar(err.response?.data?.error || t('errors.webhookDeleteFailed', 'Failed to delete webhook'), { variant: 'error' });
+      toast.error(err.response?.data?.error || t('errors.webhookDeleteFailed', 'Failed to delete webhook'));
     }
   };
+
+  const webhookColumns: GridColDef<UserWebhook>[] = [
+    { field: 'name', headerName: t('webhooks.name', 'Name') as string, flex: 1, minWidth: 140 },
+    { field: 'url', headerName: t('webhooks.url', 'URL') as string, flex: 1.5, minWidth: 200 },
+    {
+      field: 'is_active',
+      headerName: t('webhooks.isActive', 'Active') as string,
+      width: 110,
+      renderCell: (p) => (
+        <StatusChip
+          entity="generic"
+          status={p.row.is_active ? 'enabled' : 'disabled'}
+          label={(p.row.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')) as string}
+        />
+      ),
+    },
+    { field: 'total_sent', headerName: t('webhooks.totalSent', 'Sent') as string, width: 90, type: 'number' },
+    { field: 'total_failed', headerName: t('webhooks.totalFailed', 'Failed') as string, width: 90, type: 'number' },
+  ];
 
   if (loading) {
     return (
@@ -519,11 +544,62 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
                 </Box>
               </AccordionSummary>
               <AccordionDetails>
-                <Table size="small" sx={{ tableLayout: 'fixed' }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ width: '55%' }}>{t('types.header', 'Notification Type')}</TableCell>
-                      <TableCell align="center" sx={{ width: '15%' }}>
+                <SimpleTable<NotificationType>
+                  rows={category.types}
+                  getRowKey={(type) => type}
+                  sx={{ tableLayout: 'fixed' }}
+                  columns={[
+                    {
+                      field: 'type',
+                      headerName: t('types.header', 'Notification Type'),
+                      width: '55%',
+                      render: (type) => {
+                        const pref = preferences.typePreferences[type];
+                        const isMandatory = MANDATORY_TYPES.includes(type);
+                        const isTaskCompletedType = type === 'task_completed_with_cracks';
+                        const taskReportMode = (pref?.settings?.mode as TaskReportMode) || 'only_if_cracks';
+                        return (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Box>
+                              <Typography variant="body2">{t(`types.${type}`, type)}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {t(`typeDescriptions.${type}`, '')}
+                              </Typography>
+                            </Box>
+                            {isMandatory && (
+                              <Chip label={t('settings.mandatory', 'Mandatory')} size="small" color="warning" />
+                            )}
+                            {/* Task Report Mode Dropdown - inline, vertically centered */}
+                            {isTaskCompletedType && (
+                              <FormControl size="small" sx={{ ml: 'auto', minWidth: 180 }}>
+                                <InputLabel id="task-report-mode-label">
+                                  {t('settings.taskReportMode', 'When to notify')}
+                                </InputLabel>
+                                <Select
+                                  labelId="task-report-mode-label"
+                                  value={taskReportMode}
+                                  label={t('settings.taskReportMode', 'When to notify')}
+                                  onChange={(e) => handleTaskReportModeChange(e.target.value as TaskReportMode)}
+                                  disabled={saving}
+                                >
+                                  <MenuItem value="only_if_cracks">
+                                    {t('settings.taskReportModeOnlyIfCracks', 'Only if cracks found')}
+                                  </MenuItem>
+                                  <MenuItem value="always">
+                                    {t('settings.taskReportModeAlways', 'Always notify')}
+                                  </MenuItem>
+                                </Select>
+                              </FormControl>
+                            )}
+                          </Box>
+                        );
+                      },
+                    },
+                    {
+                      field: 'inAppEnabled',
+                      align: 'center',
+                      width: '15%',
+                      headerName: (
                         <Tooltip title={`${t('channels.inApp', 'In-App')} - ${t('settings.toggleAll', 'Toggle all')}`}>
                           <IconButton
                             size="small"
@@ -536,8 +612,24 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
                             <NotificationsIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      </TableCell>
-                      <TableCell align="center" sx={{ width: '15%' }}>
+                      ),
+                      render: (type) => (
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+<Switch
+                          size="small"
+                          checked={preferences.typePreferences[type]?.inAppEnabled ?? true}
+                          onChange={(e) => handleToggleChannel(type, 'inAppEnabled', e.target.checked)}
+                          disabled={saving || busyOf(type, 'inAppEnabled')}
+                        />
+<FieldSaveAdornment status={statusOf(type, 'inAppEnabled')} inline />
+</Box>
+                      ),
+                    },
+                    {
+                      field: 'emailEnabled',
+                      align: 'center',
+                      width: '15%',
+                      headerName: (
                         <Tooltip title={`${t('channels.email', 'Email')} - ${t('settings.toggleAll', 'Toggle all')}`}>
                           <IconButton
                             size="small"
@@ -550,8 +642,28 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
                             <EmailIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      </TableCell>
-                      <TableCell align="center" sx={{ width: '15%' }}>
+                      ),
+                      render: (type) => {
+                        const pref = preferences.typePreferences[type];
+                        const isMandatory = MANDATORY_TYPES.includes(type);
+                        return (
+                          <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+<Switch
+                            size="small"
+                            checked={pref?.emailEnabled ?? false}
+                            onChange={(e) => handleToggleChannel(type, 'emailEnabled', e.target.checked)}
+                            disabled={saving || busyOf(type, 'emailEnabled') || !preferences.emailConfigured || (isMandatory && pref?.emailEnabled)}
+                          />
+<FieldSaveAdornment status={statusOf(type, 'emailEnabled')} inline />
+</Box>
+                        );
+                      },
+                    },
+                    {
+                      field: 'webhookEnabled',
+                      align: 'center',
+                      width: '15%',
+                      headerName: (
                         <Tooltip title={`${t('channels.webhook', 'Webhook')} - ${t('settings.toggleAll', 'Toggle all')}`}>
                           <IconButton
                             size="small"
@@ -564,87 +676,21 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
                             <WebhookIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {category.types.map((type) => {
-                      const pref = preferences.typePreferences[type];
-                      const isMandatory = MANDATORY_TYPES.includes(type);
-                      const isTaskCompletedType = type === 'task_completed_with_cracks';
-                      const taskReportMode = (pref?.settings?.mode as TaskReportMode) || 'only_if_cracks';
-                      return (
-                        <TableRow key={type}>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Box>
-                                <Typography variant="body2">
-                                  {t(`types.${type}`, type)}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {t(`typeDescriptions.${type}`, '')}
-                                </Typography>
-                              </Box>
-                              {isMandatory && (
-                                <Chip
-                                  label={t('settings.mandatory', 'Mandatory')}
-                                  size="small"
-                                  color="warning"
-                                />
-                              )}
-                              {/* Task Report Mode Dropdown - inline, vertically centered */}
-                              {isTaskCompletedType && (
-                                <FormControl size="small" sx={{ ml: 'auto', minWidth: 180 }}>
-                                  <InputLabel id="task-report-mode-label">
-                                    {t('settings.taskReportMode', 'When to notify')}
-                                  </InputLabel>
-                                  <Select
-                                    labelId="task-report-mode-label"
-                                    value={taskReportMode}
-                                    label={t('settings.taskReportMode', 'When to notify')}
-                                    onChange={(e) => handleTaskReportModeChange(e.target.value as TaskReportMode)}
-                                    disabled={saving}
-                                  >
-                                    <MenuItem value="only_if_cracks">
-                                      {t('settings.taskReportModeOnlyIfCracks', 'Only if cracks found')}
-                                    </MenuItem>
-                                    <MenuItem value="always">
-                                      {t('settings.taskReportModeAlways', 'Always notify')}
-                                    </MenuItem>
-                                  </Select>
-                                </FormControl>
-                              )}
-                            </Box>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Switch
-                              size="small"
-                              checked={pref?.inAppEnabled ?? true}
-                              onChange={(e) => handleToggleChannel(type, 'inAppEnabled', e.target.checked)}
-                              disabled={saving}
-                            />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Switch
-                              size="small"
-                              checked={pref?.emailEnabled ?? false}
-                              onChange={(e) => handleToggleChannel(type, 'emailEnabled', e.target.checked)}
-                              disabled={saving || !preferences.emailConfigured || (isMandatory && pref?.emailEnabled)}
-                            />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Switch
-                              size="small"
-                              checked={pref?.webhookEnabled ?? false}
-                              onChange={(e) => handleToggleChannel(type, 'webhookEnabled', e.target.checked)}
-                              disabled={saving || preferences.webhooksActive === 0}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                      ),
+                      render: (type) => (
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+<Switch
+                          size="small"
+                          checked={preferences.typePreferences[type]?.webhookEnabled ?? false}
+                          onChange={(e) => handleToggleChannel(type, 'webhookEnabled', e.target.checked)}
+                          disabled={saving || busyOf(type, 'webhookEnabled') || preferences.webhooksActive === 0}
+                        />
+<FieldSaveAdornment status={statusOf(type, 'webhookEnabled')} inline />
+</Box>
+                      ),
+                    },
+                  ]}
+                />
               </AccordionDetails>
             </Accordion>
           ))}
@@ -671,73 +717,41 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
             {t('webhooks.description', 'Manage your webhook integrations')}
           </Typography>
 
-          {webhooksLoading ? (
-            <CircularProgress size={24} />
-          ) : webhooks.length === 0 ? (
-            <Alert severity="info">
-              {t('webhooks.noWebhooks', 'No webhooks configured. Create one to receive notifications via webhook.')}
-            </Alert>
-          ) : (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('webhooks.name', 'Name')}</TableCell>
-                  <TableCell>{t('webhooks.url', 'URL')}</TableCell>
-                  <TableCell>{t('webhooks.isActive', 'Active')}</TableCell>
-                  <TableCell>{t('webhooks.totalSent', 'Sent')}</TableCell>
-                  <TableCell>{t('webhooks.totalFailed', 'Failed')}</TableCell>
-                  <TableCell align="right">{t('common.actions', 'Actions')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {webhooks.map((webhook) => (
-                  <TableRow key={webhook.id}>
-                    <TableCell>{webhook.name}</TableCell>
-                    <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {webhook.url}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={webhook.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}
-                        color={webhook.is_active ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{webhook.total_sent}</TableCell>
-                    <TableCell>{webhook.total_failed}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title={t('webhooks.test', 'Test')}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleTestWebhook(webhook)}
-                          disabled={webhookTesting === webhook.id}
-                        >
-                          {webhookTesting === webhook.id ? <CircularProgress size={16} /> : <TestIcon />}
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={t('webhooks.edit', 'Edit')}>
-                        <IconButton size="small" onClick={() => handleOpenWebhookDialog(webhook)}>
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={t('webhooks.delete', 'Delete')}>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => {
-                            setWebhookToDelete(webhook);
-                            setDeleteConfirmOpen(true);
-                          }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <DataTable<UserWebhook>
+            flat
+            rows={webhooks}
+            columns={webhookColumns}
+            getRowId={(r) => r.id}
+            loading={webhooksLoading}
+            pagination={false}
+            sorting={{ mode: 'client' }}
+            rowActionsInlineLimit={3}
+            rowActions={(webhook) => [
+              {
+                key: 'test',
+                label: t('webhooks.test', 'Test') as string,
+                icon: webhookTesting === webhook.id ? <CircularProgress size={16} /> : <TestIcon fontSize="small" />,
+                disabled: webhookTesting === webhook.id,
+                onClick: (r) => handleTestWebhook(r),
+              },
+              {
+                key: 'edit',
+                label: t('webhooks.edit', 'Edit') as string,
+                icon: <EditIcon fontSize="small" />,
+                onClick: (r) => handleOpenWebhookDialog(r),
+              },
+              {
+                key: 'delete',
+                label: t('webhooks.delete', 'Delete') as string,
+                icon: <DeleteIcon fontSize="small" />,
+                danger: true,
+                onClick: (r) => handleDeleteWebhook(r),
+              },
+            ]}
+            emptyState={{
+              title: t('webhooks.noWebhooks', 'No webhooks configured. Create one to receive notifications via webhook.') as string,
+            }}
+          />
         </CardContent>
       </Card>
 
@@ -799,21 +813,6 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ onNotificationChang
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
-        <DialogTitle>{t('webhooks.delete', 'Delete Webhook')}</DialogTitle>
-        <DialogContent>
-          <Typography>
-            {t('webhooks.deleteConfirm', 'Are you sure you want to delete this webhook?')}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirmOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
-          <Button variant="contained" color="error" onClick={handleDeleteWebhook}>
-            {t('common.delete', 'Delete')}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </>
   );
 };

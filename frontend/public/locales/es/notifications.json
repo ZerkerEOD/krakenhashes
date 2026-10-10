@@ -8,16 +8,13 @@
   "viewAll": "Ver todas las notificaciones",
   "deleteSelected": "Eliminar {{count}} seleccionados",
   "selectAll": "Seleccionar todo",
-
   "aria": {
     "bellButton": "Mostrar notificaciones"
   },
-
   "center": {
     "title": "Centro de Notificaciones",
     "description": "Ver y gestionar tus notificaciones"
   },
-
   "filters": {
     "category": "Categoría",
     "status": "Estado",
@@ -26,15 +23,14 @@
     "unread": "No leídas",
     "read": "Leídas"
   },
-
   "categories": {
     "job": "Trabajo",
     "agent": "Agente",
     "security": "Seguridad",
     "system": "Sistema"
   },
-
   "types": {
+    "header": "Tipo de notificación",
     "job_started": "Trabajo iniciado",
     "job_completed": "Trabajo completado",
     "job_failed": "Trabajo fallido",
@@ -47,7 +43,6 @@
     "security_password_changed": "Contraseña cambiada",
     "webhook_failure": "Fallo de webhook"
   },
-
   "typeDescriptions": {
     "job_started": "Cuando un trabajo comienza",
     "job_completed": "Cuando un trabajo se completa con éxito",
@@ -61,13 +56,11 @@
     "security_password_changed": "Cuando se cambia la contraseña (obligatorio)",
     "webhook_failure": "Cuando falla la entrega del webhook"
   },
-
   "channels": {
     "inApp": "En la App",
     "email": "Correo electrónico",
     "webhook": "Webhook"
   },
-
   "settings": {
     "title": "Configuración de Notificaciones",
     "description": "Configura cómo y cuándo recibes notificaciones",
@@ -85,7 +78,6 @@
     "noWebhooksConfigured": "No hay webhooks activos configurados",
     "toggleAll": "Alternar todo"
   },
-
   "webhooks": {
     "title": "Configuración de Webhook",
     "description": "Gestiona tus integraciones de webhook",
@@ -110,9 +102,18 @@
     "test": "Probar Webhook",
     "testUrl": "Probar URL",
     "testSuccess": "Prueba de webhook exitosa",
-    "testFailed": "Prueba de webhook fallida"
+    "testFailed": "Prueba de webhook fallida",
+    "secretExists": "El secreto está establecido. Déjalo en blanco para mantener el actual, o ingresa un nuevo valor para reemplazarlo.",
+    "invalidJson": "Formato JSON inválido",
+    "noWebhooks": "No hay webhooks configurados. Crea uno para recibir notificaciones vía webhook.",
+    "updated": "Webhook actualizado",
+    "created": "Webhook creado",
+    "deleted": "Webhook eliminado",
+    "secretEditHelp": "Déjalo en blanco para mantener el secreto existente",
+    "validation": {
+      "nameAndUrl": "El nombre y la URL son obligatorios"
+    }
   },
-
   "admin": {
     "title": "Configuración de Notificaciones",
     "globalWebhook": {
@@ -140,7 +141,6 @@
       "empty": "No hay webhooks de usuario configurados"
     }
   },
-
   "auditLog": {
     "title": "Registro de Auditoría",
     "description": "Eventos de seguridad y críticos de todos los usuarios",
@@ -175,21 +175,30 @@
     },
     "errors": {
       "loadFailed": "Error al cargar el registro de auditoría"
-    }
+    },
+    "system": "Sistema"
   },
-
   "systemAlert": {
     "title": "Alerta del Sistema",
     "dismiss": "Descartar",
     "dismissAll": "Descartar Todo"
   },
-
   "errors": {
     "fetchFailed": "Error al cargar las notificaciones",
     "markReadFailed": "Error al marcar la notificación como leída",
     "deleteFailed": "Error al eliminar las notificaciones",
+    "saveFailed": "Error al guardar la configuración",
     "webhookCreateFailed": "Error al crear el webhook",
     "webhookUpdateFailed": "Error al actualizar el webhook",
-    "webhookDeleteFailed": "Error al eliminar el webhook"
+    "webhookDeleteFailed": "Error al eliminar el webhook",
+    "webhookSaveFailed": "No se pudo guardar el webhook"
+  },
+  "common": {
+    "actions": "Acciones",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar"
   }
 }

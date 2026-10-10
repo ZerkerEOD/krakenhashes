@@ -1,0 +1,452 @@
+{
+  "title": "Công việc",
+  "createJob": "Tạo công việc",
+  "page": {
+    "title": "Công việc"
+  },
+  "columns": {
+    "name": "Tên công việc",
+    "hashlist": "Danh sách hash",
+    "createdBy": "Được tạo bởi",
+    "progress": "Tiến độ",
+    "keyspace": "Keyspace",
+    "cracked": "Đã bẻ khóa",
+    "agents": "Agent",
+    "priority": "Ưu tiên",
+    "maxAgents": "Agent tối đa",
+    "actions": "Hành động",
+    "status": "Trạng thái",
+    "createdAt": "Tạo lúc",
+    "client": "Khách hàng"
+  },
+  "status": {
+    "preparing": "Đang chuẩn bị",
+    "pending": "Chờ xử lý",
+    "running": "Đang chạy",
+    "completed": "Hoàn thành",
+    "failed": "Thất bại",
+    "stopped": "Đã dừng",
+    "paused": "Tạm dừng",
+    "active": "Hoạt động",
+    "cancelled": "Đã hủy"
+  },
+  "actions": {
+    "delete": "Xóa công việc",
+    "retry": "Thử lại công việc",
+    "stop": "Dừng công việc",
+    "pause": "Tạm dừng công việc",
+    "resume": "Tiếp tục công việc",
+    "viewDetails": "Xem chi tiết"
+  },
+  "sections": {
+    "activeJobs": "Công việc đang hoạt động",
+    "completedJobs": "Công việc hoàn thành"
+  },
+  "confirmDelete": {
+    "title": "Xóa công việc",
+    "message": "Bạn có chắc chắn muốn xóa công việc này không? Thao tác này không thể hoàn tác.",
+    "messageNamed": "Bạn có chắc chắn muốn xóa công việc \"{{name}}\" không? Thao tác này không thể hoàn tác."
+  },
+  "row": {
+    "completed": "Hoàn thành:",
+    "unknown": "Không xác định",
+    "error": "Lỗi:",
+    "rulesLabel": "(quy tắc)",
+    "custom": "Tấn công tùy chỉnh"
+  },
+  "tooltips": {
+    "combinedHashRate": "Tốc độ hash kết hợp",
+    "retry": "Thử lại công việc",
+    "delete": "Xóa công việc",
+    "save": "Lưu",
+    "cancel": "Hủy"
+  },
+  "validation": {
+    "priorityRange": "Ưu tiên phải nằm trong khoảng từ 0 đến {{max}}",
+    "maxAgentsRange": "Agent tối đa phải nằm trong khoảng từ 1 đến 100",
+    "maxAgentsPositive": "Agent tối đa phải là 0 (không giới hạn) hoặc là số dương",
+    "chunkSizeMin": "Kích thước chunk phải ít nhất 5 giây",
+    "chunkSizeMax": "Kích thước chunk không được vượt quá 24 giờ (86400 giây)",
+    "invalidNumber": "Vui lòng nhập một số hợp lệ",
+    "minValue": "Giá trị phải ít nhất {{min}}",
+    "maxValue": "Giá trị phải tối đa {{max}}"
+  },
+  "errors": {
+    "loadFailed": "Không thể tải công việc",
+    "loadDetailsFailed": "Không thể tải chi tiết công việc",
+    "deleteFailed": "Không thể xóa công việc",
+    "updateFailed": "Không thể cập nhật công việc",
+    "fetchFailed": "Không thể tải công việc: {{message}}",
+    "willRetry": "Sẽ thử lại tự động.",
+    "notFound": "Không tìm thấy công việc",
+    "saveFailed": "Không thể lưu thay đổi",
+    "updatePriorityFailed": "Không thể cập nhật ưu tiên",
+    "updateMaxAgentsFailed": "Không thể cập nhật agent tối đa",
+    "updateChunkSizeFailed": "Không thể cập nhật kích thước chunk",
+    "retryTaskFailed": "Không thể thử lại tác vụ",
+    "forceCompleteFailed": "Không thể buộc hoàn thành công việc"
+  },
+  "details": {
+    "title": "Chi tiết công việc",
+    "pageTitle": "Chi tiết công việc",
+    "overview": "Tổng quan",
+    "tasks": "Tác vụ",
+    "results": "Kết quả",
+    "logs": "Nhật ký",
+    "jobInformation": "Thông tin công việc",
+    "timeRemaining": "Thời gian còn lại",
+    "estimatedCompletion": "Dự kiến hoàn thành",
+    "crackingCompletedAt": "Bẻ khóa hoàn thành lúc",
+    "totalRunningTime": "Tổng thời gian chạy",
+    "chunkSizeDefault": "Chưa cài đặt (sử dụng mặc định)",
+    "noActiveTasksEstimate": "Không thể ước tính - không có tác vụ nào đang chạy",
+    "lessThanOneMinute": "Dưới 1 phút",
+    "jobCompleted": "Công việc hoàn thành",
+    "finishingUp": "Đang hoàn thiện...",
+    "completingShortly": "Sắp hoàn thành",
+    "processingDuration": "Đang xử lý: {{duration}}",
+    "wordlists": "Wordlist",
+    "rules": "Quy tắc",
+    "splittingMode": "Chế độ chia nhỏ",
+    "ruleSplitting": "Chia nhỏ quy tắc",
+    "firstWordlist": "Wordlist đầu tiên",
+    "secondWordlist": "Wordlist thứ hai",
+    "wordlist": "Wordlist",
+    "mask": "Mask",
+    "incrementMode": "Chế độ tăng dần",
+    "incrementRange": "Phạm vi tăng dần",
+    "maskSuffix": "Mask (hậu tố)",
+    "maskPrefix": "Mask (tiền tố)",
+    "associationHints": "Gợi ý association",
+    "autoRefreshOn": "Tự động làm mới: BẬT",
+    "autoRefreshPaused": "Tự động làm mới: TẠM DỪNG",
+    "forceComplete": "Buộc hoàn thành",
+    "refreshNow": "Làm mới ngay",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=không giới hạn",
+    "chunkSizeHint": "Giây (5-86400)",
+    "incrementLayers": "Lớp tăng dần ({{count}} tổng cộng)",
+    "estimatedKeyspace": "Ước tính",
+    "taskProgressVisualization": "Trực quan hóa tiến độ tác vụ",
+    "activeTasks": "Tác vụ hoạt động ({{count}} đang chạy)",
+    "noActiveTasks": "Không có tác vụ hoạt động",
+    "failedTasks": "Tác vụ thất bại ({{count}} tổng cộng)",
+    "completedTasks": "Tác vụ hoàn thành ({{count}} tổng cộng)",
+    "noCompletedTasks": "Không có tác vụ hoàn thành",
+    "increment": "Tăng dần",
+    "incrementInverse": "Tăng dần ngược",
+    "jobNotFound": "Không tìm thấy công việc",
+    "priority": "Ưu tiên",
+    "timeUnits": {
+      "year": "năm",
+      "years": "năm",
+      "month": "tháng",
+      "months": "tháng",
+      "day": "ngày",
+      "days": "ngày",
+      "hour": "giờ",
+      "hours": "giờ",
+      "minute": "phút",
+      "minutes": "phút",
+      "second": "giây",
+      "seconds": "giây"
+    },
+    "layerTable": {
+      "layer": "Lớp",
+      "mask": "Mask",
+      "minLength": "Độ dài tối thiểu",
+      "maxLength": "Độ dài tối đa",
+      "keyspace": "Keyspace",
+      "effectiveKeyspace": "Keyspace hiệu dụng",
+      "progress": "Tiến độ",
+      "tasks": "Tác vụ",
+      "cracks": "Bẻ khóa",
+      "status": "Trạng thái",
+      "running": "đang chạy",
+      "total": "tổng cộng",
+      "failed": "{{count}} thất bại"
+    },
+    "activeTasksTable": {
+      "agentId": "ID Agent",
+      "taskId": "ID Tác vụ",
+      "agent": "Agent",
+      "skip": "Bỏ qua",
+      "limit": "Giới hạn",
+      "keyspaceRange": "Phạm vi keyspace",
+      "progress": "Tiến độ",
+      "speed": "Tốc độ",
+      "currentSpeed": "Tốc độ hiện tại",
+      "cracks": "Bẻ khóa",
+      "startedAt": "Bắt đầu lúc"
+    },
+    "failedTasksTable": {
+      "agentId": "ID Agent",
+      "taskId": "ID Tác vụ",
+      "agent": "Agent",
+      "status": "Trạng thái",
+      "retryCount": "Số lần thử lại",
+      "error": "Lỗi",
+      "errorMessage": "Thông báo lỗi",
+      "lastUpdated": "Cập nhật lần cuối",
+      "failedAt": "Thất bại lúc",
+      "actions": "Hành động"
+    },
+    "completedTasksTable": {
+      "agentId": "ID Agent",
+      "taskId": "ID Tác vụ",
+      "agent": "Agent",
+      "completedAt": "Hoàn thành lúc",
+      "keyspaceRange": "Phạm vi keyspace",
+      "finalProgress": "Tiến độ cuối cùng",
+      "averageSpeed": "Tốc độ trung bình",
+      "cracks": "Bẻ khóa",
+      "cracksFound": "Bẻ khóa tìm thấy"
+    },
+    "additionalArgs": "Đối số bổ sung",
+    "attackModes": {
+      "dictionary": "Từ điển",
+      "combination": "Kết hợp",
+      "bruteforce": "Brute force",
+      "hybridWordlistMask": "Hỗn hợp Wordlist + Mask",
+      "hybridMaskWordlist": "Hỗn hợp Mask + Wordlist",
+      "association": "Association",
+      "modeNumber": "Chế độ {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Ngân sách đám mây đã được sử dụng hết",
+      "cloud_cap_reached": "Đạt giới hạn instance đám mây",
+      "cloud_settling": "Chờ instance thuê bắt đầu khởi động",
+      "cloud_no_capacity": "Không có tài nguyên đám mây khả dụng",
+      "cloud_dead_on_arrival": "Instance thuê không thể kết nối trở lại",
+      "cloud_launch_failed": "Không thể thuê instance đám mây",
+      "seenTimes_other": "Nhìn thấy {{count}} lần",
+      "cloud_rental_too_short": "Thời gian thuê quá ngắn để hữu ích",
+      "cloud_cracks_lost": "Mật khẩu đã bẻ khóa có thể đã bị mất",
+      "cloud_draining": "Instance đám mây đang rút dần (không có công việc mới)"
+    },
+    "client": "Khách hàng",
+    "presetJob": "Công việc cài sẵn",
+    "workflow": "Quy trình làm việc",
+    "createdBy": "Được tạo bởi",
+    "system": "Hệ thống"
+  },
+  "common": {
+    "id": "ID",
+    "name": "Tên",
+    "status": "Trạng thái",
+    "hashlist": "Danh sách hash",
+    "hashType": "Loại hash",
+    "attackMode": "Chế độ tấn công",
+    "keyspace": "Keyspace",
+    "effectiveKeyspace": "Keyspace hiệu dụng",
+    "processedKeyspace": "Keyspace đã xử lý",
+    "dispatchedKeyspace": "Keyspace đã phân phối",
+    "progress": "Tiến độ",
+    "cracksFound": "Hash đã bẻ khóa",
+    "createdAt": "Tạo lúc",
+    "startedAt": "Bắt đầu lúc",
+    "completedAt": "Hoàn thành lúc",
+    "error": "Lỗi",
+    "warning": "Cảnh báo",
+    "maxAgents": "Agent tối đa",
+    "chunkSize": "Kích thước chunk",
+    "unassigned": "Chưa được gán",
+    "noErrorMessage": "Không có thông báo lỗi",
+    "notAvailable": "N/A",
+    "back": "Quay lại",
+    "rulesMultiplier": "(quy tắc)"
+  },
+  "editableCell": {
+    "clickToEdit": "Nhấp để chỉnh sửa"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Xóa công việc đã hoàn thành",
+      "message": "Bạn có chắc chắn muốn xóa tất cả công việc đã hoàn thành? Hành động này không thể hoàn tác."
+    },
+    "forceComplete": {
+      "title": "Buộc hoàn thành công việc",
+      "warning": "Điều này sẽ đánh dấu tất cả tác vụ không hoàn thành là đã hoàn thành và đặt trạng thái công việc thành đã hoàn thành.",
+      "onlyUseIf": "Chỉ sử dụng nếu:",
+      "reason1": "Công việc thực sự đã xử lý xong toàn bộ khối lượng công việc.",
+      "reason2": "Công việc bị treo ở trạng thái đang chạy/đang chờ",
+      "reason3": "Bạn đã xác minh rằng keyspace đã được tìm kiếm hoàn toàn",
+      "note": "Lưu ý: Chúng tôi đang nỗ lực tìm cách xử lý tốt hơn việc tính toán keyspace và phát hiện hoàn thành công việc trong nhiều trường hợp khác nhau.",
+      "confirmation": "Bạn có chắc chắn muốn buộc hoàn thành công việc này không?",
+      "completing": "Đang hoàn thành...",
+      "button": "Buộc hoàn thành"
+    },
+    "deleteConfirm": {
+      "deleting": "Đang xóa..."
+    }
+  },
+  "buttons": {
+    "refresh": "Làm mới",
+    "deleteFinished": "Xóa đã hoàn thành",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "save": "Lưu",
+    "retry": "Thử lại"
+  },
+  "success": {
+    "chunkSizeUpdated": "Kích thước chunk được cập nhật thành công. Thay đổi sẽ có hiệu lực khi tác vụ tiếp theo được tạo.",
+    "forceCompleted": "Công việc được buộc hoàn thành thành công"
+  },
+  "form": {
+    "name": "Tên công việc",
+    "hashlist": "Chọn danh sách hash",
+    "attackMode": "Chế độ tấn công",
+    "wordlist": "Wordlist",
+    "rules": "Quy tắc",
+    "priority": "Ưu tiên",
+    "maxAgents": "Agent tối đa"
+  },
+  "autoRefresh": {
+    "on": "Tự động làm mới: Bật",
+    "off": "Tự động làm mới: Tắt"
+  },
+  "pagination": {
+    "jobsPerPage": "Công việc mỗi trang"
+  },
+  "filters": {
+    "searchPlaceholder": "Tìm kiếm công việc...",
+    "priority": "Ưu tiên",
+    "status": "Trạng thái",
+    "all": "Tất cả"
+  },
+  "priority": {
+    "low": "Thấp",
+    "medium": "Trung bình",
+    "high": "Cao",
+    "critical": "Nghiêm trọng",
+    "maximum": "Tối đa"
+  },
+  "lastUpdated": "Cập nhật lần cuối: {{time}}",
+  "filtered": "(đã lọc)",
+  "loading": "Đang tải công việc...",
+  "archive": {
+    "showArchived": "Hiển thị đã lưu trữ",
+    "archive": "Lưu trữ",
+    "unarchive": "Bỏ lưu trữ",
+    "archived": "Đã lưu trữ",
+    "archiveSelected": "Lưu trữ đã chọn",
+    "unarchiveSelected": "Bỏ lưu trữ đã chọn",
+    "deleteSelected": "Xóa đã chọn",
+    "selectedCount": "{{count}} đã chọn",
+    "confirmBulkDelete": {
+      "title": "Xác nhận xóa hàng loạt",
+      "message_other": "Bạn có chắc chắn muốn xóa {{count}} công việc không? Hành động này không thể hoàn tác.",
+      "warning": "Điều này sẽ xóa vĩnh viễn các công việc đã chọn và tất cả dữ liệu liên quan.",
+      "cancel": "Hủy",
+      "delete": "Xóa",
+      "deleting": "Đang xóa..."
+    },
+    "bulkArchiveSuccess_other": "{{count}} công việc được lưu trữ thành công",
+    "bulkUnarchiveSuccess_other": "{{count}} công việc được bỏ lưu trữ thành công",
+    "bulkDeleteSuccess_other": "{{count}} công việc được xóa thành công"
+  },
+  "cloud": {
+    "projection": {
+      "title": "Điều này sẽ hoàn thành trong ngân sách không?",
+      "loadFailed": "Không thể dự báo công việc này",
+      "coverageLabel": "Phạm vi ngân sách",
+      "coverageValue": "{{pct}}% công việc còn lại được tài trợ",
+      "timeToFinish": "Thời gian dự kiến để hoàn thành",
+      "projectedCost": "Chi phí đám mây dự kiến",
+      "availableBudget": "Ngân sách có sẵn",
+      "onpremSpeed": "Tốc độ tại chỗ",
+      "cloudSpeed": "Tốc độ đám mây",
+      "unknown": "Không biết",
+      "confirm": "Khởi chạy",
+      "pessimistic": "Đây là loại hash được muối hóa, vì vậy thông lượng thực tế sẽ vượt quá ước tính này khi các muối được bẻ khóa dần. Hãy coi dự báo này là trường hợp xấu nhất.",
+      "shortfallTitle": "Ngân sách cạn trước khi công việc hoàn thành",
+      "shortfallBody": "Với tốc độ dự kiến, ngân sách chi trả được {{pct}}% keyspace còn lại. Công việc sẽ dừng lại giữa chừng. Tiến độ một phần có thể vẫn đáng mua — nhưng đó nên là một lựa chọn có chủ đích.",
+      "shortfallAcknowledge": "Tôi hiểu rằng công việc này sẽ không hoàn thành trong ngân sách",
+      "metric": "Chỉ số",
+      "value": "Giá trị"
+    },
+    "cloudBurst": {
+      "label": "Cho phép tăng đột biến đám mây cho công việc này",
+      "help": "Thuê các phiên bản GPU khi đội tại chỗ không theo kịp. Yêu cầu khách hàng được tài trợ và chọn tham gia vào một nhà cung cấp. Không có gì được thuê mà không có điều này.",
+      "maxInstances": "Số lượng phiên bản tối đa được thuê",
+      "maxInstancesHelp": "Khác với agent tối đa, vốn quản lý nhóm tại chỗ được dùng chung. Để trống để cho ngân sách còn lại quyết định.",
+      "badge": "Tăng đột biến đám mây",
+      "thirdPartyBadge": "Máy chủ của bên thứ ba",
+      "provisionNow": "Cấp phát ngay",
+      "provisionConfirm": "Thuê một phiên bản đám mây cho công việc này ngay bây giờ?\n\nĐiều này bỏ qua các quy tắc chống đói và sắp hoàn thành của autoscaler, và sẽ chi tiêu tiền dựa trên ngân sách của khách hàng này. Ngân sách, cửa sổ chi tiêu, giới hạn mỗi công việc và sự chấp thuận nhà cung cấp vẫn áp dụng.",
+      "provisionRequested": "Đã yêu cầu phiên bản đám mây",
+      "provisionFailed": "Không thể cấp phát một phiên bản đám mây"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Tiến độ tổng thể: {{percent}}%",
+    "noTasks": "Chưa có tác vụ nào được gán",
+    "notAvailable": "N/A",
+    "tooltip": {
+      "taskId": "ID tác vụ: {{id}}",
+      "status": "Trạng thái: {{status}}",
+      "keyspace": "Keyspace: {{start}} - {{end}}",
+      "progress": "Tiến độ: {{percent}}%",
+      "speed": "Tốc độ: {{speed}}",
+      "cracksFound": "Hash đã bẻ khóa: {{count}}",
+      "agentId": "ID agent: {{id}}"
+    },
+    "legend": {
+      "pending": "Đang chờ",
+      "running": "Đang chạy",
+      "processing": "Đang xử lý",
+      "completed": "Đã hoàn thành",
+      "processingError": "Lỗi xử lý",
+      "failed": "Thất bại",
+      "crackFound": "Hash đã bẻ khóa"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Thời gian chờ benchmark",
+    "subtitle": "Các agent hiện đang bị chặn khỏi việc benchmark công việc này sau các lần thất bại lặp đi lặp lại. Xóa một mục để thử lại trong chu kỳ lập lịch tiếp theo.",
+    "loadFailed": "Không thể tải danh sách chặn",
+    "clearSuccess": "Mục danh sách chặn đã bị xóa — bộ lập lịch sẽ thử lại trong chu kỳ tiếp theo",
+    "clearFailedPrefix": "Không thể xóa: {{error}}",
+    "clearFailedDefault": "Không thể xóa mục",
+    "expired": "hết hạn",
+    "retryNow": "Thử lại ngay",
+    "scope": {
+      "thisJob": "công việc này",
+      "global": "toàn cầu"
+    },
+    "columns": {
+      "agent": "Agent",
+      "scope": "Phạm vi",
+      "hashMode": "Hash / Chế độ",
+      "failures": "Lần thất bại",
+      "reason": "Lý do",
+      "expires": "Hết hạn",
+      "action": "Hành động"
+    }
+  },
+  "loopback": {
+    "title": "Loopback",
+    "subtitle": "Mỗi vòng loopback chạy lại bước biến đổi của tấn công, nhưng chỉ áp dụng cho các mật khẩu vừa mới được bẻ khóa, lặp lại cho đến khi không còn mật khẩu mới nào được bẻ khóa.",
+    "runningCount": "{{count}} đang chạy",
+    "statusLabel": {
+      "waiting": "Chờ vòng kết thúc",
+      "active": "Đang lặp",
+      "completed": "Xong",
+      "failed": "Thất bại",
+      "cancelled": "Đã hủy"
+    },
+    "roundLabel": "Vòng {{current}} / {{max}}",
+    "hashlistFallback": "Danh sách hash #{{id}}",
+    "jobCount_other": "{{count}} công việc",
+    "noJobsYet": "Không có công việc nào được ghi lại.",
+    "loopsBackYes": "Có",
+    "loopsBackFeedsDelta": "Cung cấp delta",
+    "columns": {
+      "round": "Vòng",
+      "original": "Ban đầu",
+      "job": "Công việc",
+      "role": "Vai trò",
+      "loopsBack": "Lặp lại"
+    }
+  }
+}

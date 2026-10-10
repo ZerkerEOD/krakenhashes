@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   LineChart,
   Line,
@@ -10,6 +11,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Box, Typography } from '@mui/material';
+import { ChartTooltipBox, useChartColors } from '../ui/charts';
 import { format } from 'date-fns';
 
 interface DeviceData {
@@ -37,17 +39,6 @@ interface DeviceMetricsChartProps {
   timeRange: string; // '20m', '1h', '5h', '24h'
 }
 
-// Define consistent colors for devices
-const DEVICE_COLORS = [
-  '#8884d8', // Purple
-  '#82ca9d', // Green
-  '#ffc658', // Orange
-  '#ff7c7c', // Red
-  '#8dd1e1', // Cyan
-  '#d084d0', // Pink
-  '#ffb347', // Light Orange
-  '#67b7dc', // Light Blue
-];
 
 const DeviceMetricsChart: React.FC<DeviceMetricsChartProps> = ({
   title,
@@ -59,6 +50,8 @@ const DeviceMetricsChart: React.FC<DeviceMetricsChartProps> = ({
   showCumulative = false,
   timeRange,
 }) => {
+  const { t } = useTranslation('agents');
+  const colors = useChartColors();
   // Calculate time range in milliseconds
   const getTimeRangeMs = () => {
     switch (timeRange) {
@@ -291,14 +284,7 @@ const DeviceMetricsChart: React.FC<DeviceMetricsChartProps> = ({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <Box
-          sx={{
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            border: '1px solid #ccc',
-            borderRadius: 1,
-            padding: 1,
-          }}
-        >
+        <ChartTooltipBox>
           <Typography variant="body2">{label}</Typography>
           {payload.map((entry: any, index: number) => (
             <Typography
@@ -309,7 +295,7 @@ const DeviceMetricsChart: React.FC<DeviceMetricsChartProps> = ({
               {entry.name}: {formatYAxis(entry.value)}
             </Typography>
           ))}
-        </Box>
+        </ChartTooltipBox>
       );
     }
     return null;
@@ -318,7 +304,7 @@ const DeviceMetricsChart: React.FC<DeviceMetricsChartProps> = ({
   if (chartData.length === 0) {
     return (
       <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography color="text.secondary">No data available</Typography>
+        <Typography color="text.secondary">{t('monitoring.noDataAvailable')}</Typography>
       </Box>
     );
   }
@@ -333,9 +319,10 @@ const DeviceMetricsChart: React.FC<DeviceMetricsChartProps> = ({
           data={chartData}
           margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" />
+          <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
           <XAxis 
             dataKey="timestamp"
+            stroke={colors.axis}
             type="number"
             scale="time"
             domain={[startTime, endTime]}
@@ -345,6 +332,7 @@ const DeviceMetricsChart: React.FC<DeviceMetricsChartProps> = ({
           />
           <YAxis 
             tickFormatter={formatYAxis}
+            stroke={colors.axis}
             domain={yAxisDomain}
           />
           <Tooltip content={<CustomTooltip />} />
@@ -356,8 +344,8 @@ const DeviceMetricsChart: React.FC<DeviceMetricsChartProps> = ({
               key={device.deviceId}
               type="monotone"
               dataKey={`device_${device.deviceId}`}
-              name={device.deviceName || `Device ${device.deviceId}`}
-              stroke={DEVICE_COLORS[index % DEVICE_COLORS.length]}
+              name={device.deviceName || (t('monitoring.deviceFallback', { id: device.deviceId }) as string)}
+              stroke={colors.series[index % colors.series.length]}
               strokeWidth={2}
               dot={false}
               connectNulls={false} // This creates gaps for missing data
@@ -371,8 +359,8 @@ const DeviceMetricsChart: React.FC<DeviceMetricsChartProps> = ({
             <Line
               type="monotone"
               dataKey="cumulative"
-              name="All Devices"
-              stroke="#333333"
+              name={t('monitoring.allDevices') as string}
+              stroke={colors.axis}
               strokeWidth={3}
               strokeDasharray="5 5"
               dot={false}

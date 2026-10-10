@@ -14,7 +14,8 @@
   },
   "recentActivity": {
     "title": "最近活动",
-    "noActivity": "暂无最近活动"
+    "noActivity": "暂无最近活动",
+    "viewAll": "所有通知"
   },
   "quickActions": {
     "title": "快捷操作",
@@ -112,5 +113,82 @@
       "maxAgents": "最大代理数",
       "actions": "操作"
     }
+  },
+  "kpi": {
+    "runningJobs": "运行中的任务",
+    "queued": "{{count}} 个排队中",
+    "agentsOnline": "在线代理",
+    "agentProblems": "{{count}} 个需要关注",
+    "hashRate": "哈希速率",
+    "cracks24h": "已破解（24 小时）",
+    "cracks7d": "{{count}} 个（7 天内）",
+    "crackRate": "破解速率",
+    "hashlistTotals": "{{cracked}} / {{total}} 个哈希",
+    "failed24h": "失败（24 小时）",
+    "completed24h": "{{count}} 个已完成"
+  },
+  "agentHealth": {
+    "title": "代理健康状态",
+    "viewAll": "所有代理",
+    "utilization": "GPU 利用率",
+    "temperature": "最热 GPU",
+    "lastSeen": "最后在线于 {{when}}",
+    "warnings": {
+      "error": "错误",
+      "offline": "离线",
+      "update_failed": "更新失败",
+      "stale_heartbeat": "无心跳",
+      "gpu_hot": "GPU 过热"
+    }
+  },
+  "recentCracks": {
+    "title": "最近破解",
+    "viewAll": "所有已破解哈希",
+    "empty": "暂无破解密码",
+    "copy": "复制明文",
+    "copied": "已复制"
+  },
+  "activeJobs": {
+    "title": "活跃任务",
+    "showing": "显示 10 / {{total}}",
+    "viewAll": "所有任务",
+    "empty": "暂无运行中的任务",
+    "emptyHint": "从哈希列表启动任务。",
+    "goHashlists": "转到哈希列表",
+    "recentTitle": "任务",
+    "recentSubtitle": "先显示活动任务，再显示最近完成的任务",
+    "recentEmpty": "暂无任务"
+  },
+  "welcomeUser": "欢迎回来，{{name}}",
+  "autoRefresh": {
+    "on": "实时",
+    "off": "暂停"
+  },
+  "view": {
+    "label": "仪表板视图",
+    "mine": "我的",
+    "teams": "我的团队",
+    "all": "全部"
+  },
+  "attention": {
+    "title": "需要关注",
+    "allClear": "一切正常",
+    "allClearHint": "没有失败项，也没有等待您处理的事项。",
+    "kind": {
+      "job_failed": "任务失败：{{name}}",
+      "job_blocked": "任务等待中：{{name}}",
+      "hashlist_error": "哈希列表处理失败：{{name}}",
+      "hashlist_awaiting_decision": "哈希列表需要您审核：{{name}}",
+      "hashlist_stuck": "哈希列表处理卡住：{{name}}",
+      "agent_error": "代理错误：{{name}}",
+      "agent_update_failed": "代理更新失败：{{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "破解趋势",
+    "subtitle_other": "过去 {{days}} 天共破解 {{count}} 个哈希",
+    "tooltip_other": "已破解 {{count}} 个",
+    "topHashlists": "本周破解最多的哈希列表",
+    "noCracksWeek": "过去 7 天没有破解记录"
   }
 }

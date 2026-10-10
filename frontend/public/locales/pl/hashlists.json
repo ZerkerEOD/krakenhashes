@@ -1,0 +1,549 @@
+{
+  "title": "Listy haszy",
+  "uploadButton": "Prześlij listę haszy",
+  "page": {
+    "title": "Zarządzanie listą haszy",
+    "description": "Przesyłanie i zarządzanie listami haszy w operacjach łamania"
+  },
+  "columns": {
+    "name": "Nazwa",
+    "hashType": "Typ hasza",
+    "totalHashes": "Razem haszy",
+    "crackedHashes": "Złamane",
+    "progress": "Złamane (%)",
+    "client": "Klient",
+    "status": "Stan",
+    "createdAt": "Utworzono",
+    "actions": "Akcje"
+  },
+  "filters": {
+    "filterByName": "Filtruj po nazwie",
+    "status": "Status",
+    "all": "Wszystkie"
+  },
+  "status": {
+    "uploading": "Przesyłanie",
+    "processing": "Przetwarzanie",
+    "ready": "Gotowe",
+    "error": "Błąd"
+  },
+  "table": {
+    "noHashlists": "Nie znaleziono list haszy."
+  },
+  "details": {
+    "title": "Szczegóły listy haszy",
+    "overview": "Przegląd",
+    "hashes": "Hasze",
+    "jobs": "Zadania",
+    "stats": "Statystyki"
+  },
+  "upload": {
+    "title": "Przesyłanie nowej listy haszy",
+    "name": "Nazwa listy haszy",
+    "hashType": "Typ hasza",
+    "client": "Klient (opcjonalnie)",
+    "file": "Plik haszy",
+    "selectFile": "Wybierz plik",
+    "uploading": "Przesyłanie...",
+    "cancel": "Anuluj",
+    "executableBlocked": "Ten plik wygląda na plik wykonywalny i nie może zostać przesłany jako lista haszy.",
+    "description": "Opis",
+    "methodLabel": "Metoda przesyłania",
+    "methodAriaLabel": "tryb przesyłania",
+    "fileAriaLabel": "przesyłanie pliku",
+    "pasteAriaLabel": "wklejanie haszy",
+    "uploadFile": "Przesyłanie pliku",
+    "pasteHashes": "Wklejanie haszy",
+    "dropHere": "Upuść plik listy haszy tutaj...",
+    "dragAndDrop": "Przeciągnij i upuść plik listy haszy lub kliknij, aby wybrać",
+    "allFileTypesExceptExecutables": "Akceptowane są wszystkie typy plików oprócz plików wykonywalnych",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "Wyczyść",
+    "hashCount_few": "{{count}} hasze",
+    "hashCount_many": "{{count}} haszy",
+    "hashCount_one": "{{count}} hasz",
+    "hashCount_other": "{{count}} haszy",
+    "hashCountDetected_few": "Wykryto {{count}} hasze",
+    "hashCountDetected_many": "Wykryto {{count}} haszy",
+    "hashCountDetected_one": "Wykryto {{count}} hasz",
+    "hashCountDetected_other": "Wykryto {{count}} haszy",
+    "pasteHashesLabel": "Wklej hasze tutaj (jeden na linię)",
+    "pasteHashesPlaceholder": "Wpisz hasze, jeden na linię...&#10;&#10;Przykład:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Wklej powyżej swoje hasze, jeden na linię",
+    "excludeFromGlobalPotfile": "Wyklucz z globalnego potfile",
+    "excludeFromGlobalPotfileHelper": "Złamane hasła z tej listy haszy nie będą zapisane w globalnym potfile",
+    "globalPotfileDisabledNotice": "Uwaga: Globalny potfile jest obecnie wyłączony przez ustawienia administratora.",
+    "excludeFromClientPotfile": "Wyklucz z potfile klienta",
+    "excludeFromClientPotfileHelper": "Złamane hasła z tej listy haszy nie będą zapisane w potfile klienta",
+    "clientPotfilesDisabledNotice": "Uwaga: Potfile klienta jest wyłączony przez ustawienia administratora.",
+    "uploadButtonLabel": "Prześlij listę haszy",
+    "selectTeamForNewClient": "Proszę wybrać zespół dla nowego klienta.",
+    "validationCancelled": "Przesyłanie anulowane. Napraw plik i spróbuj ponownie.",
+    "errors": {
+      "nameRequired": "Nazwa jest wymagana",
+      "hashTypeRequired": "Typ hasza jest wymagany",
+      "clientRequired": "Klient jest wymagany",
+      "noHashesToUpload": "Brak haszy do przesłania",
+      "uploadFailedWithStatus": "Przesyłanie nie powiodło się (HTTP {{status}})",
+      "uploadFailedWithMessage": "Przesyłanie nie powiodło się: {{message}}",
+      "uploadFailedUnknown": "Przesyłanie nie powiodło się (nieznany błąd)",
+      "uploadErrorPrefix": "Błąd podczas przesyłania listy haszy: {{message}}",
+      "unknownError": "Wystąpił nieznany błąd"
+    },
+    "linkDialog": {
+      "title": "Wykryto hasze LM/NTLM",
+      "detected": "Wykryto plik w formacie pwdump zawierający:",
+      "lmCount_few": "{{count}} hasze LM (niepuste)",
+      "lmCount_many": "{{count}} haszy LM (niepuste)",
+      "lmCount_one": "{{count}} hasz LM (niepusty)",
+      "lmCount_other": "{{count}} haszy LM (niepuste)",
+      "ntlmCount_few": "{{count}} hasze NTLM",
+      "ntlmCount_many": "{{count}} haszy NTLM",
+      "ntlmCount_one": "{{count}} hasz NTLM",
+      "ntlmCount_other": "{{count}} haszy NTLM",
+      "blankLmCount_few": "{{count}} puste hasze LM (puste hasło - będą pominięte)",
+      "blankLmCount_many": "{{count}} pustych haszy LM (puste hasło - będą pominięte)",
+      "blankLmCount_one": "{{count}} pusty hasz LM (puste hasło - będzie pominięty)",
+      "blankLmCount_other": "{{count}} pustych haszy LM (puste hasło - będą pominięte)",
+      "question": "Utworzyć dwie powiązane listy haszy dla oddzielnych przepływów pracy?",
+      "explanation": "Stworzy to listy haszy \"{{lmName}}\" i \"{{ntlmName}}\", które są ze sobą powiązane.",
+      "uploadSingle": "Prześlij jako jedną listę",
+      "createLinked": "Utwórz powiązane listy"
+    }
+  },
+  "actions": {
+    "viewDetails": "Wyświetl szczegóły",
+    "createJob": "Utwórz zadanie",
+    "download": "Pobierz",
+    "delete": "Usuń"
+  },
+  "createJob": {
+    "additionalArgs": "Dodatkowe argumenty hashcat (opcjonalnie)",
+    "additionalArgsHelper": "Dodatkowe flagi hashcat dla tego zadania. Flagi na poziomie agenta mają pierwszeństwo w przypadku konfliktów.",
+    "title": "Utwórz zadanie dla \"{{name}}\"",
+    "successRedirect": "Zadanie(a) utworzone pomyślnie! Przekierowanie na stronę zadań...",
+    "successDefault": "Zadanie utworzone pomyślnie!",
+    "loadingDefault": "Tworzenie...",
+    "loadingCreating": "Tworzenie zadania...",
+    "loadingKeyspace": "Obliczanie przestrzeni kluczy...",
+    "cancel": "Anuluj",
+    "submit": "Utwórz zadanie(a)",
+    "canInterrupt": "Może być przerwane",
+    "tabs": {
+      "workflows": "Przepływy pracy",
+      "presetJobs": "Szablony zadań",
+      "customJob": "Niestandardowe zadanie"
+    },
+    "attackModes": {
+      "dictionary": "Atak słownikowy",
+      "combination": "Atak kombinacji",
+      "bruteforce": "Atak brute force",
+      "hybridWordlistMask": "Atak hybrydowy wordlista + maska",
+      "hybridMaskWordlist": "Atak hybrydowy maska + wordlista",
+      "association": "Atak asocjacyjny",
+      "modeFallback": "Tryb {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Proszę wybrać co najmniej jeden przepływ pracy",
+      "selectPresetJob": "Proszę wybrać co najmniej jeden szablon zadania",
+      "wordlistRequired": "Wybrany tryb ataku wymaga co najmniej jednej wordlisty",
+      "combinationRequiresTwo": "Atak kombinacji wymaga wybrania obu wordlist",
+      "maskRequired": "Wybrany tryb ataku wymaga maski",
+      "associationMixedWorkFactors": "Ataki asocjacyjne nie mogą być uruchamiane na listach haszy z mieszanymi współczynnikami pracy",
+      "associationWordlistRequired": "Atak asocjacyjny wymaga wordlisty asocjacyjnej",
+      "chunkDurationMin": "Czas trwania porcji musi wynosić co najmniej 5 sekund",
+      "chunkDurationMax": "Czas trwania porcji nie może przekraczać 24 godzin (86400 sekund)",
+      "partialFailure": "{{message}}. Nie utworzono: {{details}}",
+      "unnamedItem": "element",
+      "createFailed": "Nie udało się utworzyć zadania",
+      "loadFailed": "Nie udało się załadować dostępnych zadań"
+    },
+    "workflows": {
+      "empty": "Brak dostępnych przepływów pracy. Proszę najpierw utworzyć przepływy pracy w panelu administratora.",
+      "jobNameHelper": "Twoja nazwa będzie dołączona do każdej nazwy przepływu pracy",
+      "description": "Wybierz jeden lub więcej przepływów pracy do uruchomienia. Możesz wybrać wiele przepływów pracy - każdy utworzy swoją sekwencję wykonań zadań. Ustawienia pętli zwrotnej są konfigurowane w samym przepływie pracy — przepływ pracy oznaczony \"Pętla zwrotna\" będzie automatycznie ponownie uruchamiał odpowiednie kroki dla nowo złamanych haseł.",
+      "jobsCount_few": "{{count}} zadania",
+      "jobsCount_many": "{{count}} zadań",
+      "jobsCount_one": "{{count}} zadanie",
+      "jobsCount_other": "{{count}} zadań",
+      "loopbackAllEligible": "Pętla zwrotna: wszystkie odpowiednie",
+      "loopbackSteps_few": "Pętla zwrotna: {{count}} kroki",
+      "loopbackSteps_many": "Pętla zwrotna: {{count}} kroków",
+      "loopbackSteps_one": "Pętla zwrotna: {{count}} krok",
+      "loopbackSteps_other": "Pętla zwrotna: {{count}} kroków",
+      "jobsList": "Zadania: {{names}}",
+      "selectedCount_few": "Wybrano {{count}} przepływy pracy",
+      "selectedCount_many": "Wybrano {{count}} przepływów pracy",
+      "selectedCount_one": "Wybrano {{count}} przepływ pracy",
+      "selectedCount_other": "Wybrano {{count}} przepływów pracy"
+    },
+    "presetJobs": {
+      "empty": "Brak dostępnych szablonów zadań. Proszę najpierw utworzyć szablony zadań w panelu administratora.",
+      "jobNameHelper": "Twoja nazwa będzie dołączona do każdego typu zadania (np. \"Moja nazwa - Potfile Run\")",
+      "description": "Wybierz jeden lub więcej szablonów zadań do uruchomienia. Możesz wybrać wiele zadań - będą one utworzone jako oddzielne wykonania zadań.",
+      "priorityLabel": "Priorytet: {{priority}}",
+      "selectedCount_few": "Wybrano {{count}} zadania",
+      "selectedCount_many": "Wybrano {{count}} zadań",
+      "selectedCount_one": "Wybrano {{count}} zadanie",
+      "selectedCount_other": "Wybrano {{count}} zadań"
+    },
+    "loopback": {
+      "label": "Pętla zwrotna do wyczerpania",
+      "helperEligible": "Uruchamia wybrane zadanie(a), a następnie ponownie uruchamia te z mutacją (straight + rules lub atak hybrydowy) tylko dla nowo złamanych haseł — powtarzając, dopóki nie zostaną znalezione żadne nowe złamania.",
+      "helperSelectEligible": "Wybierz odpowiedni szablon (straight + rules, lub atak hybrydowy) poniżej, aby włączyć pętlę zwrotną.",
+      "helperNoneEligible": "Żadne z wybranych zadań nie ma mutacji do pętli zwrotnej (korzystają tylko z wordlisty, brute force lub asocjacji).",
+      "helperFilterConflict": "Pętla zwrotna jest niedostępna, gdy wstępne filtrowanie jest włączone dla tego zadania.",
+      "helperCustom": "Uruchamia ten atak, a następnie ponownie uruchamia jego mutację (reguły lub maskę) tylko dla nowo złamanych haseł — powtarzając, dopóki nie zostaną znalezione żadne nowe złamania."
+    },
+    "filter": {
+      "enableLabel": "Wstępnie filtruj wybraną(e) wordlistę(y) dla tego zadania",
+      "ephemeralNotice": "Ta przefiltrowana lista jest tymczasowa i służy tylko dla tego zadania. Aby utworzyć wielokrotnie użyteczną przefiltrowaną wordlistę, użyj Zarządzania wordlistą. Generowanie przebiega w tle; zadanie uruchamia się automatycznie po przygotowaniu."
+    },
+    "association": {
+      "explainer": "Atak asocjacyjny mapuje każdy hasz na odpowiadającą mu linię wordlisty 1:1. Liczba linii wordlisty musi odpowiadać całkowitej liczbie haszy ({{hashCount}}).",
+      "falsePositiveWarning": "<strong>Uwaga:</strong> Ataki asocjacyjne mogą generować fałszywe pozytywy. Zaleca się zweryfikowanie wyników poprzez pobranie złamanych haszy, usunięcie listy haszy, ponowne przesłanie i potwierdzenie atakiem słownikowym.",
+      "wordlistLabel": "Wordlista asocjacyjna",
+      "selectWordlist": "Wybierz wordlistę asocjacyjną",
+      "wordlistOptionLabel": "{{name}} ({{lines}} linii, {{size}} KB)",
+      "wordlistHelper": "Przesyłaj wordlisty asocjacyjne poprzez sekcję „Wordlisty asocjacyjne” w szczegółach listy haszy"
+    },
+    "cloud": {
+      "allowBurst": "Zezwól na Cloud Burst",
+      "allowBurstHelper": "Wynajmuje instancje GPU, gdy flota on-prem nie może dotrzymać kroku. Wymaga dofinansowania klienta i zgody na dostawcę.",
+      "allowPeerHosts": "Zezwól na hosty obsługiwane przez społeczność (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "To są maszyny kogoś innego. Właściciel hosta ma root na kontenerze, więc hasze tego klienta, wordlisty i złamane teksty jawne są czytelne dla trzeciej strony i <strong>nie są szyfrowane w stanie spoczynku na hoście</strong>. Nie jest zalecane w przypadku danych produkcyjnych lub danych dotyczących zlecenia klienta. Wyłącz to, a zadanie będzie nadal korzystać z bezpiecznej pojemności (AWS, RunPod Secure Cloud), jeśli klient na to pozwoli.",
+      "maxInstances": "Maks. instancje chmury",
+      "maxInstancesHelper": "Niezależne od ustawienia Maks. agentów, które zarządza pulą on-prem. Puste pole pozwala budżetowi decydować."
+    },
+    "form": {
+      "jobName": "Nazwa zadania (opcjonalnie)",
+      "jobNamePlaceholder": "Pozostaw puste dla nazwy wygenerowanej automatycznie",
+      "jobNameHelper": "Pozostaw puste dla nazwy wygenerowanej automatycznie na podstawie konfiguracji ataku",
+      "attackModeLabel": "Tryb ataku",
+      "attackModeDictionary": "Atak słownikowy",
+      "attackModeCombination": "Atak kombinacji",
+      "attackModeBruteforce": "Atak brute force",
+      "attackModeHybridWordlistMask": "Atak hybrydowy wordlista + maska",
+      "attackModeHybridMaskWordlist": "Atak hybrydowy maska + wordlista",
+      "attackModeAssociation": "Atak asocjacyjny",
+      "associationBlockedMixed": " (Zablokowany: Mieszane współczynniki pracy)",
+      "associationNoWordlists": " (Brak przesłanych wordlist)",
+      "binaryVersionHelper": "Wybierz wzorzec wersji binarnej",
+      "wordlists": "Wordlisty",
+      "selectWordlists": "Wybierz wordlisty",
+      "ruleOptional": "Reguła (opcjonalnie)",
+      "ruleOptionLabel_few": "{{name}} ({{count}} reguły)",
+      "ruleOptionLabel_many": "{{name}} ({{count}} reguł)",
+      "ruleOptionLabel_one": "{{name}} ({{count}} reguła)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} reguł)",
+      "selectRule": "Wybierz regułę",
+      "firstWordlist": "Pierwsza wordlista",
+      "secondWordlist": "Druga wordlista",
+      "selectFirstWordlist": "Wybierz pierwszą wordlistę",
+      "selectSecondWordlist": "Wybierz drugą wordlistę",
+      "categoryClientSpecific": "Specyficzne dla klienta",
+      "categoryGlobal": "Globalne",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} linii)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} MB)",
+      "clientPotfileName_few": "Potfile klienta ({{count, number}} hasła)",
+      "clientPotfileName_many": "Potfile klienta ({{count, number}} haseł)",
+      "clientPotfileName_one": "Potfile klienta ({{count, number}} hasło)",
+      "clientPotfileName_other": "Potfile klienta ({{count, number}} haseł)",
+      "mask": "Maska",
+      "maskPlaceholder": "np. ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = małe litery, ?u = wielkie litery, ?d = cyfra, ?s = znak specjalny, ?1-?4 = niestandardowe",
+      "incrementModeLabel": "Tryb przyrostu",
+      "incrementModeOff": "Wyłączony",
+      "incrementModeForward": "Przyrost (L→P)",
+      "incrementModeInverse": "Przyrost odwrotny (P→L)",
+      "incrementModeHelper": "Przyrost próbuje najpierw krótsze maski, rosnąc progresywnie",
+      "minLength": "Minimalna długość",
+      "maxLength": "Maksymalna długość",
+      "priority": "Priorytet",
+      "priorityHelper": "Zadania z wyższym priorytetem są wykonywane pierwsze (1-1000)",
+      "chunkDuration": "Czas porcji (sekund)",
+      "chunkDurationHelper": "Czas trwania każdej porcji w sekundach (5-86400 sekund)",
+      "maxAgents": "Maks. agentów",
+      "maxAgentsHelper": "Maksymalna liczba agentów (0 = nieograniczona)",
+      "allowHighPriorityOverride": "Zezwól na przejęcie agentów przez zadania o wyższym priorytecie",
+      "additionalArgsPlaceholder": "np. -w 4 -O --force"
+    }
+  },
+  "confirmDelete": {
+    "title": "Potwierdź usunięcie",
+    "message": "Czy na pewno chcesz usunąć listę haszy \"{{name}}\"? Tej czynności nie można cofnąć.",
+    "cancel": "Anuluj",
+    "delete": "Usuń",
+    "deleting": "Usuwanie...",
+    "removeFromGlobalPotfile": "Usuń złamane hasła z globalnego potfile",
+    "removeFromClientPotfile": "Usuń złamane hasła z potfile klienta"
+  },
+  "deletionProgress": {
+    "title": "Usuwanie listy haszy",
+    "successTitle": "Lista haszy usunięta pomyślnie",
+    "complete": "Usuwanie zakończone!",
+    "failed": "Usuwanie nie powiodło się",
+    "summary": "Podsumowanie:",
+    "totalProcessed": "Łącznie przetworzonych haszy: {{value}}",
+    "orphansDeleted": "Usunięte osierocone hasze: {{value}}",
+    "sharedPreserved": "Zachowane współdzielone hasze: {{value}}",
+    "jobsDeleted": "Usunięte zadania: {{value}}",
+    "duration": "Czas trwania: {{duration}}",
+    "phase": "Etap {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Przygotowywanie...",
+      "removingHashes": "Usuwanie haszy",
+      "clearingReferences": "Czyszczenie odniesień do podzadań",
+      "cleaningOrphans": "Czyszczenie osieroconych haszy",
+      "finalizing": "Finalizowanie usuwania"
+    },
+    "units": {
+      "hashes": "hasze",
+      "references": "odniesienia"
+    },
+    "error": "Błąd: {{error}}",
+    "done": "Gotowe",
+    "close": "Zamknij"
+  },
+  "notifications": {
+    "deleteSuccess": "Lista haszy usunięta pomyślnie",
+    "uploadSuccess": "Lista haszy wczytana pomyślnie",
+    "downloaded": "Pobrano {{filename}}",
+    "archiveSuccess": "Lista haszy zarchiwizowana pomyślnie",
+    "unarchiveSuccess": "Lista haszy przywrócona pomyślnie",
+    "bulkArchiveSuccess_few": "{{count}} listy haszy zarchiwizowane pomyślnie",
+    "bulkArchiveSuccess_many": "{{count}} list haszy zarchiwizowanych pomyślnie",
+    "bulkArchiveSuccess_one": "{{count}} lista haszy zarchiwizowana pomyślnie",
+    "bulkArchiveSuccess_other": "{{count}} list haszy zarchiwizowanych pomyślnie",
+    "bulkUnarchiveSuccess_few": "{{count}} listy haszy przywrócone pomyślnie",
+    "bulkUnarchiveSuccess_many": "{{count}} list haszy przywróconych pomyślnie",
+    "bulkUnarchiveSuccess_one": "{{count}} lista haszy przywrócona pomyślnie",
+    "bulkUnarchiveSuccess_other": "{{count}} list haszy przywróconych pomyślnie"
+  },
+  "errors": {
+    "loadFailed": "Błąd podczas pobierania list haszy.",
+    "uploadFailed": "Nie udało się wczytać listy haszy",
+    "deleteFailed": "Usuwanie nie powiodło się: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Pokaż zarchiwizowane",
+    "archive": "Archiwizuj",
+    "unarchive": "Przywróć",
+    "archived": "Zarchiwizowane",
+    "selectedCount": "{{count}} wybranych",
+    "archiveSelected": "Archiwizuj wybrane",
+    "unarchiveSelected": "Przywróć wybrane",
+    "deleteSelected": "Usuń wybrane",
+    "confirmBulkDelete": {
+      "title": "Potwierdź usunięcie zbiorcze",
+      "message_few": "Czy na pewno chcesz usunąć {{count}} listy haszy? Tej czynności nie można cofnąć.",
+      "message_many": "Czy na pewno chcesz usunąć {{count}} list haszy? Tej czynności nie można cofnąć.",
+      "message_one": "Czy na pewno chcesz usunąć {{count}} listę haszy? Tej czynności nie można cofnąć.",
+      "message_other": "Czy na pewno chcesz usunąć {{count}} list haszy? Tej czynności nie można cofnąć.",
+      "warning": "Spowoduje to trwałe usunięcie wybranych list haszy i wszystkich związanych z nimi danych."
+    },
+    "bulkDeleteSuccess_few": "{{count}} listy haszy usunięte pomyślnie",
+    "bulkDeleteSuccess_many": "{{count}} list haszy usuniętych pomyślnie",
+    "bulkDeleteSuccess_one": "{{count}} lista haszy usunięta pomyślnie",
+    "bulkDeleteSuccess_other": "{{count}} list haszy usuniętych pomyślnie"
+  },
+  "hashDetails": {
+    "title": "Szczegóły hasza",
+    "originalHash": "Oryginalny hasz",
+    "password": "Hasło",
+    "cracked": "Złamany",
+    "crackedAt": "Data złamania"
+  },
+  "detail": {
+    "backToHashlists": "Powrót do list haszy",
+    "viewCrackedHashes": "Wyświetl złamane hasze",
+    "noDescription": "Brak opisu",
+    "statusLabel": "Stan:",
+    "hashType": "Typ hasza: {{name}}",
+    "clientLabel": "Klient:",
+    "noClient": "Brak",
+    "editClient": "Edytuj klienta",
+    "created": "Utworzono: {{date}}",
+    "crackProgress": "Postęp łamania ({{cracked}} z {{total}})",
+    "fallbackHashlistName": "Lista haszy",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} linii",
+      "rate": "({{rate}}/sec)",
+      "eta": "• Szacunkowy czas: {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Ta lista haszy jest usuwana — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Ładowanie…",
+      "resumeReview": "Wznów przegląd",
+      "title": "Ta lista haszy jest wstrzymana w oczekiwaniu na decyzję walidacji.",
+      "message": "Walidacja hasza flagowała <strong>{{invalidCount}}</strong> z <strong>{{totalLines}}</strong> linii jako źle sformatowane. Otwórz okno dialogowe przeglądu, aby kontynuować z prawidłowymi haszami, zmienić typ hasza lub anulować wczytanie."
+    },
+    "jobsRun": {
+      "title": "Uruchomione zadania",
+      "subtitle": "Zadania, które były uruchamiane na tej liście haszy, łącznie z zarchiwizowanymi.",
+      "empty": "Żadne zadania nie były jeszcze uruchamiane na tej liście haszy"
+    },
+    "editClientDialog": {
+      "title": "Edytuj przydzielenie klienta",
+      "description": "Wybierz klienta dla tej listy haszy lub pozostaw pole puste, aby usunąć przydzielenie klienta.",
+      "save": "Zapisz",
+      "saving": "Zapisywanie..."
+    },
+    "notifications": {
+      "clientUpdated": "Klient zaktualizowany pomyślnie",
+      "processingResumed": "Przetwarzanie wznowione.",
+      "uploadCancelled": "Wczytanie anulowane."
+    },
+    "errors": {
+      "deleteFailed": "Nie udało się usunąć listy haszy",
+      "clientUpdateFailed": "Nie udało się zaktualizować klienta",
+      "clientNotFound": "Klient nie znaleziony",
+      "clientLookupFailed": "Nie udało się wyszukać klienta",
+      "downloadFailed": "Nie udało się pobrać pliku",
+      "downloadHashlistFailed": "Nie udało się pobrać listy haszy",
+      "serverError": "Błąd serwera ({{status}})",
+      "loadInvalidHashesFailed": "Nie udało się załadować nieprawidłowych haszy"
+    }
+  },
+  "associationWordlists": {
+    "header": "Wordlisty specyficzne dla klienta",
+    "blocked": "Zablokowane",
+    "blockedTooltip": "Ataki asocjacyjne zablokowane z powodu mieszanych czynników pracy na liście haszy",
+    "delete": "Usuń",
+    "uploadAssociation": "Wczytaj wordlistę asocjacyjną",
+    "uploadClient": "Wczytaj wordlistę klienta",
+    "uploadingPercent": "Wczytywanie... {{percent}}%",
+    "emptyAssociation": "Brak wczytanych wordlist asocjacyjnych.",
+    "emptyClient": "Brak wczytanych wordlist klienta.",
+    "mixedWorkFactorsWarning": "Ta lista haszy ma mieszane czynniki pracy. Ataki asocjacyjne nie mogą być uruchamiane na listach haszy z różnymi kosztami bcrypt lub podobnymi zmiennymi czynnikami pracy. Możesz nadal wczytywać wordlisty, ale tworzenie zadań ataków asocjacyjnych będzie zablokowane.",
+    "explainer": "Wordlisty asocjacyjne mapują każdy hasz do kandydata hasła 1:1 według numeru linii. Wordlista musi mieć dokładnie <strong>{{lines}}</strong> linii, aby pasować do liczby haszy w tej liście haszy.",
+    "tabs": {
+      "associationAttack": "Atak asocjacyjny",
+      "clientWordlists": "Wordlisty klienta"
+    },
+    "columns": {
+      "fileName": "Nazwa pliku",
+      "lineCount": "Liczba linii",
+      "fileSize": "Rozmiar pliku",
+      "status": "Stan",
+      "uploaded": "Wczytane",
+      "actions": "Akcje"
+    },
+    "status": {
+      "ready": "Gotowe",
+      "lineCountMismatch": "Niezgodna liczba linii",
+      "lineCountMismatchTooltip": "Oczekiwano {{expected}} linii, otrzymano {{actual}}"
+    },
+    "deleteConfirm": {
+      "title": "Usuń wordlistę",
+      "message": "Usuń \"{{fileName}}\"? Tej czynności nie można cofnąć."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Wordlisty klienta są dostępne tylko dla list haszy powiązanych z klientem.",
+      "description": "Wordlisty klienta są dostępne na wszystkich listach haszy dla tego klienta. Mogą być używane z dowolnym trybem ataku, nie tylko z atakami asocjacyjnymi."
+    },
+    "clientPotfile": {
+      "title": "Potfile klienta (generowany automatycznie)",
+      "description": "Ten potfile zawiera wszystkie złamane hasła dla tego klienta. Jest automatycznie aktualizowany, gdy hasze są łamane.",
+      "passwordCount_few": "{{count}} hasła",
+      "passwordCount_many": "{{count}} haseł",
+      "passwordCount_one": "{{count}} hasło",
+      "passwordCount_other": "{{count}} haseł",
+      "updated": "Zaktualizowano: {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "Wordlista asocjacyjna usunięta",
+      "clientDeleted": "Wordlista klienta usunięta",
+      "associationUploaded": "Wordlista asocjacyjna wczytana pomyślnie",
+      "clientUploaded": "Wordlista klienta wczytana pomyślnie"
+    },
+    "errors": {
+      "deleteFailed": "Nie udało się usunąć wordlisty",
+      "uploadFailed": "Nie udało się wczytać wordlisty",
+      "loadAssociationFailed": "Nie udało się załadować wordlist asocjacyjnych",
+      "loadClientFailed": "Nie udało się załadować wordlist klienta",
+      "lineCountMismatch": "Wordlista ma {{wordlistLines}} linii, ale lista haszy ma {{hashlistLines}} prawidłowych haszy."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Klient",
+    "placeholder": "Wybierz klienta...",
+    "createNewClient": "Utwórz nowego klienta",
+    "newClientDetails": "Szczegóły nowego klienta",
+    "team": "Zespół",
+    "teamHelper": "Nowy klient zostanie przydzielony do tego zespołu.",
+    "clientName": "Nazwa klienta",
+    "description": "Opis",
+    "contactInfo": "Informacje kontaktowe",
+    "dataRetention": "Okres przechowywania danych (miesiące)",
+    "dataRetentionPlaceholderDefault": "Domyślna wartość systemu: {{months}}",
+    "dataRetentionPlaceholderUnset": "Nie ustawiono (przechowywać na zawsze)",
+    "dataRetentionHelperDefault": "Zostaw puste, aby użyć domyślnego systemu ({{months}} miesięcy). Ustaw 0, aby przechowywać na zawsze.",
+    "dataRetentionHelperUnset": "Zostaw puste, aby użyć domyślnego systemu. Ustaw 0, aby przechowywać na zawsze.",
+    "excludeFromGlobalPotfile": "Wyklucz z globalnego potfile",
+    "excludeFromGlobalPotfileHelper": "Złamane hasła od tego klienta nie będą dodawane do globalnego potfile.",
+    "excludeFromClientPotfile": "Wyklucz z potfile klienta",
+    "excludeFromClientPotfileHelper": "Złamane hasła od tego klienta nie będą dodawane do jego potfile klienta.",
+    "errors": {
+      "fetchFailed": "Nie udało się pobrać klientów"
+    }
+  },
+  "hashesTable": {
+    "title": "Hasze",
+    "subtitle": "{{cracked}} z {{total}} złamanych ({{pct}}%)",
+    "searchPlaceholder": "Szukaj haszy...",
+    "ariaLabel": "tabela haszy listy",
+    "copiedToClipboard": "Skopiowano do schowka",
+    "copyPassword": "Skopiuj hasło",
+    "copyHash": "Skopiuj hasz",
+    "loadFailed": "Nie udało się załadować haszy",
+    "columns": {
+      "originalHash": "Oryginalny hasz",
+      "username": "Nazwa użytkownika",
+      "domain": "Domena",
+      "password": "Hasło",
+      "status": "Stan"
+    },
+    "status": {
+      "cracked": "Złamany",
+      "partial": "Częściowy",
+      "pending": "Oczekujący"
+    }
+  },
+  "validationPreview": {
+    "title": "Weryfikacja haszy: przejrzyj nieprawidłowe linie",
+    "modeFallback": "tryb {{id}}",
+    "truncatedNotice": "Pierwsze 10 000 nieprawidłowych linii zostało zarejestrowane do przeglądu; dodatkowe nieprawidłowe linie istnieją w pliku, ale nie są tutaj wymienione.",
+    "hashTypeLabel": "Typ hasza",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Ponowna weryfikacja…",
+    "revalidateButton": "Zweryfikuj ponownie",
+    "cancelAndFix": "Anuluj i napraw",
+    "cancelling": "Anulowanie…",
+    "starting": "Uruchamianie…",
+    "proceedButton": "Przystąp z {{validCount}} prawidłowymi haszami",
+    "noInvalidLines": "Brak nieprawidłowych linii do wyświetlenia.",
+    "allInvalid": {
+      "body1": "<strong>Żadna</strong> z {{totalLines}} linii w <em>{{hashlistName}}</em> nie pasuje do <strong>{{hashTypeName}}</strong>. Wybór typu hasza jest prawdopodobnie błędny.",
+      "body2": "Wybierz prawidłowy typ poniżej i kliknij <strong>Zweryfikuj ponownie</strong> — plik pozostaje przesłany, więc nie trzeba zaczynać od nowa."
+    },
+    "notAllInvalid": {
+      "body": "<strong>{{invalidCount}}</strong> z <strong>{{totalLines}}</strong> linii w <em>{{hashlistName}}</em> nie przeszło weryfikacji i zostanie pominięte w przypadku przystąpienia. <strong>{{validCount}}</strong> prawidłowych haszy zostanie zaimportowane."
+    },
+    "chooseActionText": "Wybierz <strong>Przystąp tylko z prawidłowymi</strong>, aby zaimportować {{validCount}} prawidłowych haszy (wymienione złe linie będą ignorowane), lub <strong>Anuluj i napraw</strong>, aby usunąć to przesłanie, co pozwoli poprawić plik źródłowy i spróbować ponownie.",
+    "columns": {
+      "line": "Linia",
+      "hashTruncated": "Hasz (skrócony)",
+      "reason": "Powód"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "Nie udało się załadować nieprawidłowych haszy",
+      "proceedFailed": "Nie udało się przystąpić",
+      "cancelFailed": "Nie udało się anulować",
+      "revalidationFailed": "Ponowna weryfikacja nie powiodła się"
+    }
+  }
+}

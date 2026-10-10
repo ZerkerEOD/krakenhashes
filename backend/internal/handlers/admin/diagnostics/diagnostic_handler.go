@@ -3,6 +3,7 @@ package diagnostics
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"net/http"
 	"strconv"
 	"time"
@@ -18,20 +19,29 @@ import (
 type DiagnosticHandler struct {
 	diagnosticService *diagnostic.DiagnosticService
 	wsHandler         *wshandler.Handler
+	agentRepo         *repository.AgentRepository
 }
 
-// NewDiagnosticHandler creates a new diagnostic handler
-func NewDiagnosticHandler(diagnosticService *diagnostic.DiagnosticService, wsHandler *wshandler.Handler) *DiagnosticHandler {
+// NewDiagnosticHandler creates a new diagnostic handler. agentRepo may be nil;
+// agent names are then omitted from the debug status list.
+func NewDiagnosticHandler(diagnosticService *diagnostic.DiagnosticService, wsHandler *wshandler.Handler, agentRepo *repository.AgentRepository) *DiagnosticHandler {
 	return &DiagnosticHandler{
 		diagnosticService: diagnosticService,
 		wsHandler:         wsHandler,
+		agentRepo:         agentRepo,
 	}
+}
+
+// AgentDebugStatusWithName is an agent debug status plus the agent's display name.
+type AgentDebugStatusWithName struct {
+	wshandler.AgentDebugStatus
+	AgentName string `json:"agent_name,omitempty"`
 }
 
 // AgentDebugStatusResponse represents the debug status response for all agents
 type AgentDebugStatusResponse struct {
-	Agents []wshandler.AgentDebugStatus `json:"agents"`
-	Count  int                          `json:"count"`
+	Agents []AgentDebugStatusWithName `json:"agents"`
+	Count  int                        `json:"count"`
 }
 
 // DownloadDiagnostics handles requests to download a diagnostic package
@@ -152,11 +162,21 @@ func (h *DiagnosticHandler) ToggleServerDebug(w http.ResponseWriter, r *http.Req
 func (h *DiagnosticHandler) GetAgentDebugStatuses(w http.ResponseWriter, r *http.Request) {
 	statuses := wshandler.GetAllAgentDebugStatuses()
 
+	// Resolve names once (one query) so the UI can link to the agent page.
+	names := map[int]string{}
+	if h.agentRepo != nil {
+		if list, err := h.agentRepo.List(r.Context(), map[string]interface{}{"include_retired": true}); err == nil {
+			for _, a := range list {
+				names[a.ID] = a.Name
+			}
+		}
+	}
+
 	// Convert map to slice for easier frontend consumption
-	agents := make([]wshandler.AgentDebugStatus, 0, len(statuses))
+	agents := make([]AgentDebugStatusWithName, 0, len(statuses))
 	for _, status := range statuses {
 		if status != nil {
-			agents = append(agents, *status)
+			agents = append(agents, AgentDebugStatusWithName{AgentDebugStatus: *status, AgentName: names[status.AgentID]})
 		}
 	}
 

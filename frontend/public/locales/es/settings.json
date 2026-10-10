@@ -104,7 +104,9 @@
   "common": {
     "cancel": "Cancelar",
     "never": "Nunca",
-    "invalidDate": "Fecha inválida"
+    "invalidDate": "Fecha inválida",
+    "create": "Crear",
+    "delete": "Eliminar"
   },
   "mfa": {
     "title": "Autenticación de dos factores",
@@ -117,19 +119,144 @@
       "title": "Métodos de autenticación",
       "totp": "Aplicación de autenticación",
       "email": "Correo electrónico",
-      "backupCodes": "Códigos de respaldo"
+      "backupCodes": "Códigos de respaldo",
+      "passkey": "Passkey"
     },
     "setup": {
       "scanQR": "Escanea este código QR con tu aplicación de autenticación",
       "enterCode": "Ingresa el código de tu aplicación para verificar",
       "backupCodesGenerated": "Guarda estos códigos de respaldo en un lugar seguro"
+    },
+    "methodSelection": {
+      "title": "Elige el método de MFA",
+      "description": "Selecciona cómo te gustaría verificar tu identidad al iniciar sesión.",
+      "authenticatorDescription": "Usa un código basado en el tiempo de una aplicación de autenticación como Google Authenticator, Authy o 1Password.",
+      "passkeyDescription": "Usa una llave de seguridad, huella digital, reconocimiento facial o PIN del dispositivo para autenticación rápida y segura."
+    },
+    "card": {
+      "title": "Autenticación multifactor",
+      "requiredByPolicy": "MFA es requerido por la política de seguridad de tu organización",
+      "enableLabel": "Habilitar autenticación multifactor",
+      "preferredMethod": "Método de MFA preferido",
+      "preferredMethodNames": {
+        "authenticator": "Autenticador",
+        "email": "Correo electrónico",
+        "passkey": "Passkey"
+      },
+      "emailAuth": "Autenticación por correo electrónico",
+      "emailRequired": "Requerido para la seguridad de la cuenta",
+      "optional": "Opcional",
+      "required": "Requerido",
+      "configured": "Configurado",
+      "notConfigured": "No configurado",
+      "disable": "Deshabilitar",
+      "setup": "Configurar",
+      "passkeys": "Passkeys",
+      "passkeysRegistered_many": "{{count}} passkeys registrados",
+      "passkeysRegistered_one": "{{count}} passkey registrado",
+      "passkeysRegistered_other": "{{count}} passkeys registrados",
+      "addPasskey": "Agregar passkey",
+      "passkeyAdded": "Agregado: {{date}}",
+      "passkeyLastUsed": " | Último uso: {{date}}",
+      "rename": "Renombrar",
+      "delete": "Eliminar",
+      "passkeysUnsupported": "Los passkeys no son compatibles con este navegador. Usa un navegador moderno para habilitar la autenticación con passkey.",
+      "backupCodesRemaining_many": "{{count}} códigos de respaldo restantes",
+      "backupCodesRemaining_one": "{{count}} código de respaldo restante",
+      "backupCodesRemaining_other": "{{count}} códigos de respaldo restantes",
+      "noBackupCodes": "No hay códigos de respaldo disponibles",
+      "regenerate": "Regenerar",
+      "generate": "Generar"
+    },
+    "dialogs": {
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "warning": "Advertencia",
+      "setupAuthenticatorTitle": "Configurar aplicación de autenticación",
+      "qrAlt": "Código QR",
+      "manualEntry": "Si no puedes escanear el código QR, ingresa este código manualmente: <strong>{{secret}}</strong>",
+      "scanInstructions": "Escanea este código QR con tu aplicación de autenticación (por ejemplo, Google Authenticator, Authy)",
+      "verificationCode": "Código de verificación",
+      "verificationPlaceholder": "Ingresa el código de 6 dígitos",
+      "verify": "Verificar",
+      "backupCodesTitle": "Códigos de respaldo",
+      "generateBackupPrompt": "Genera códigos de respaldo para usar cuando no puedas acceder a tu método de autenticación principal",
+      "generateBackupCodes": "Generar códigos de respaldo",
+      "saveCodesWarning": "Guarda estos códigos en un lugar seguro. ¡No se mostrarán nuevamente!",
+      "copied": "¡Copiado!",
+      "copyAll": "COPIAR TODOS LOS CÓDIGOS",
+      "regenerateWarning": "Esto invalidará todos tus códigos de respaldo existentes. ¿Estás seguro de que deseas generar nuevos?",
+      "generateNewCodes": "Generar nuevos códigos",
+      "disableAuthWarning": "¿Estás seguro de que deseas deshabilitar el autenticador? Esto lo eliminará de tu cuenta y tendrás que configurarlo nuevamente si deseas usarlo en el futuro.",
+      "disableAuthenticator": "Deshabilitar autenticador",
+      "addPasskeyTitle": "Agregar passkey",
+      "addPasskeyDescription": "Registra un nuevo passkey (llave de seguridad, huella digital o dispositivo) para autenticación de dos factores.",
+      "passkeyName": "Nombre del passkey",
+      "passkeyNamePlaceholder": "p.ej., YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn no es compatible en este navegador. Usa un navegador moderno.",
+      "webauthnUnsupportedBrowsers": "WebAuthn no es compatible en este navegador. Usa un navegador moderno como Chrome, Firefox, Safari o Edge.",
+      "registering": "Registrando...",
+      "registerPasskey": "Registrar passkey",
+      "renamePasskeyTitle": "Renombrar passkey",
+      "saving": "Guardando...",
+      "save": "Guardar",
+      "deletePasskeyTitle": "Eliminar passkey",
+      "deletePasskeyConfirm": "¿Estás seguro de que deseas eliminar el passkey \"{{name}}\"? Esta acción no se puede deshacer.",
+      "deleting": "Eliminando...",
+      "delete": "Eliminar",
+      "setupPasskeyTitle": "Configurar passkey para MFA",
+      "setupPasskeyDescription": "Registra un passkey para habilitar la autenticación multifactor. Usa una llave de seguridad, huella digital, reconocimiento facial o PIN del dispositivo.",
+      "registerAndEnable": "Registrar y habilitar MFA"
+    },
+    "messages": {
+      "loadFailed": "Error al cargar la configuración de MFA",
+      "disabled": "MFA deshabilitado correctamente",
+      "passkeyBrowserRequired": "Se requiere autenticación con passkey pero tu navegador no es compatible con WebAuthn. Usa un navegador moderno como Chrome, Firefox, Safari o Edge para habilitar MFA.",
+      "enabledEmail": "MFA habilitado con autenticación por correo electrónico",
+      "noMethods": "No hay métodos de MFA disponibles. Contacta a tu administrador.",
+      "toggleFailed": "No se pudo cambiar el estado de MFA",
+      "passkeyNameRequired": "Ingresa un nombre para el passkey",
+      "passkeyRegisteredSaveCodes": "¡Passkey registrado correctamente! Guarda tus códigos de respaldo.",
+      "passkeyRegisteredNoCodes": "Passkey registrado correctamente. Puedes generar códigos de respaldo desde la configuración de MFA.",
+      "authenticatorSetupFailed": "No se pudo configurar el autenticador",
+      "authenticatorSetup": "La aplicación de autenticación ha sido configurada correctamente",
+      "verifyFailed": "No se pudo verificar el código",
+      "backupCodesGenerated": "Se han generado nuevos códigos de respaldo",
+      "backupCodesFailed": "No se pudieron generar códigos de respaldo",
+      "preferredUpdated": "Método de MFA preferido actualizado correctamente",
+      "preferredFailed": "No se pudo actualizar el método de MFA preferido",
+      "disableAuthFailed": "No se pudo deshabilitar el autenticador",
+      "authenticatorDisabled": "El autenticador ha sido deshabilitado correctamente",
+      "newBackupCodesFailed": "No se pudieron generar nuevos códigos de respaldo",
+      "newBackupCodesGenerated": "Se han generado nuevos códigos de respaldo correctamente",
+      "invalidResponse": "Formato de respuesta inválido del servidor",
+      "passkeyRegistered": "Passkey registrado correctamente",
+      "passkeyDeleted": "Passkey eliminado correctamente",
+      "passkeyDeleteFailed": "No se pudo eliminar el passkey",
+      "passkeyRenamed": "Passkey renombrado correctamente",
+      "passkeyRenameFailed": "No se pudo renombrar el passkey"
     }
   },
   "linkedAccounts": {
     "title": "Cuentas vinculadas",
     "noAccounts": "No hay cuentas vinculadas",
     "link": "Vincular cuenta",
-    "unlink": "Desvincular"
+    "unlink": "Desvincular",
+    "description": "Proveedores de autenticación externos vinculados a tu cuenta",
+    "noAccountsMessage": "No hay cuentas externas vinculadas a tu perfil. Puedes vincular cuentas iniciando sesión a través de un proveedor SSO.",
+    "emailLabel": "Correo electrónico: {{email}}",
+    "usernameLabel": "Nombre de usuario: {{username}}",
+    "lastLoginLinked": "Último inicio de sesión: {{lastLogin}} | Vinculado: {{linked}}",
+    "unlinkTooltip": "Desvincular cuenta",
+    "errors": {
+      "loadFailed": "No se pudieron cargar las cuentas vinculadas",
+      "unlinkFailed": "No se pudo desvincular la cuenta"
+    },
+    "unlinkDialog": {
+      "title": "Desvincular cuenta",
+      "warning": "Ya no podrás iniciar sesión usando este proveedor.",
+      "confirmation": "¿Estás seguro de que quieres desvincular tu cuenta de {{provider}}?"
+    }
   },
   "notifications": {
     "title": "Notificaciones",
@@ -148,11 +275,117 @@
       "light": "Claro",
       "dark": "Oscuro",
       "system": "Sistema"
-    }
+    },
+    "languageHelper": "Se aplica solo a este navegador.",
+    "themeHelper": "Sigue la configuración de tu sistema operativo."
   },
   "errors": {
     "updateFailed": "Error al actualizar la configuración",
     "passwordMismatch": "Las contraseñas no coinciden",
     "invalidPassword": "Contraseña actual inválida"
+  },
+  "nav": {
+    "description": "Tu cuenta, seguridad y preferencias.",
+    "groupAccount": "Cuenta",
+    "profile": "Perfil",
+    "profileDesc": "Dirección de correo electrónico, idioma y apariencia.",
+    "security": "Seguridad",
+    "securityDesc": "Contraseña, autenticación de dos factores, cuentas vinculadas y certificado CA.",
+    "notifications": "Notificaciones",
+    "notificationsDesc": "Qué eventos te llegan y cómo.",
+    "api": "Clave API",
+    "apiDesc": "Clave personal para la API HTTP.",
+    "charsets": "Conjuntos de caracteres guardados",
+    "charsetsDesc": "Conjuntos de caracteres personalizados para ataques de máscara."
+  },
+  "savedCharsets": {
+    "title": "Conjuntos de caracteres guardados",
+    "description": "Gestiona tus conjuntos de caracteres personalizados para usar en ataques basados en máscara. Admite definiciones en línea y archivos binarios de conjunto de caracteres .hcchr.",
+    "createCharset": "Crear conjunto de caracteres",
+    "sections": {
+      "mine": "Mis conjuntos de caracteres",
+      "team": "Conjuntos de caracteres del equipo",
+      "global": "Conjuntos de caracteres globales",
+      "globalSubtitle": "Estos conjuntos de caracteres son gestionados por los administradores y están disponibles para todos."
+    },
+    "columns": {
+      "name": "Nombre",
+      "team": "Equipo",
+      "definition": "Definición / Info",
+      "description": "Descripción",
+      "created": "Creado"
+    },
+    "typeLabels": {
+      "file": "Archivo",
+      "hex": "Hex"
+    },
+    "uniqueBytes_many": "{{count}} bytes únicos",
+    "uniqueBytes_one": "{{count}} byte único",
+    "uniqueBytes_other": "{{count}} bytes únicos",
+    "hexBytes_many": "{{count}} bytes",
+    "hexBytes_one": "{{count}} byte",
+    "hexBytes_other": "{{count}} bytes",
+    "rowActions": {
+      "edit": "Editar",
+      "delete": "Eliminar"
+    },
+    "empty": "No hay conjuntos de caracteres en esta categoría.",
+    "dialogs": {
+      "create": {
+        "title": "Crear conjunto de caracteres personal"
+      },
+      "edit": {
+        "title": "Editar conjunto de caracteres"
+      },
+      "delete": {
+        "title": "Eliminar conjunto de caracteres",
+        "confirmation": "¿Estás seguro de que quieres eliminar el conjunto de caracteres \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Definición en línea",
+        "file": "Carga de archivo (.hcchr)"
+      },
+      "fields": {
+        "name": "Nombre",
+        "namePlaceholder": "p. ej., conjunto de caracteres completo de DES",
+        "definition": "Definición",
+        "definitionPlaceholderHex": "p. ej., 41424344 (pares de bytes hex)",
+        "definitionPlaceholderPlain": "p. ej., ?u?d o abcdef0123456789",
+        "definitionHelperHex": "Pares de bytes hex — cada par = un byte de conjunto de caracteres. {{bytes}}",
+        "definitionHelperHexBytes_many": "{{count}} bytes",
+        "definitionHelperHexBytes_one": "{{count}} byte",
+        "definitionHelperHexBytes_other": "{{count}} bytes",
+        "definitionHelperPlain": "Definición de conjunto de caracteres de Hashcat. Usa ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H o caracteres literales.",
+        "hexTooltip": "Cuando está habilitado, la definición se interpreta como pares de bytes hex (p. ej., 41424344 = bytes A, B, C, D). Los trabajos que usan este conjunto de caracteres inyectarán automáticamente --hex-charset.",
+        "hexLabel": "Definición codificada en hex",
+        "selectFile": "Seleccionar archivo .hcchr",
+        "fileSizeBytes_many": "{{count}} bytes",
+        "fileSizeBytes_one": "{{count}} byte",
+        "fileSizeBytes_other": "{{count}} bytes",
+        "fileHelperText": "Archivo de conjunto de caracteres binario que contiene valores de bytes sin procesar (máx. 1023 bytes, hasta 256 bytes únicos).",
+        "fileCharsetInfo_many": "Conjunto de caracteres de archivo: {{count}} bytes únicos. Solo se pueden editar el nombre y la descripción.",
+        "fileCharsetInfo_one": "Conjunto de caracteres de archivo: {{count}} byte único. Solo se pueden editar el nombre y la descripción.",
+        "fileCharsetInfo_other": "Conjunto de caracteres de archivo: {{count}} bytes únicos. Solo se pueden editar el nombre y la descripción.",
+        "description": "Descripción",
+        "descriptionPlaceholder": "Descripción opcional del propósito de este conjunto de caracteres"
+      },
+      "update": "Actualizar",
+      "upload": "Cargar"
+    },
+    "messages": {
+      "createSuccess": "Conjunto de caracteres creado exitosamente",
+      "uploadSuccess": "Conjunto de caracteres de archivo cargado exitosamente",
+      "updateSuccess": "Conjunto de caracteres actualizado exitosamente",
+      "deleteSuccess": "Conjunto de caracteres eliminado exitosamente"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Solo se permiten archivos .hcchr",
+      "fileTooLarge": "Archivo demasiado grande (máx. 1023 bytes — límite del búfer de lectura de Hashcat)",
+      "nameRequired": "Se requiere un nombre",
+      "definitionRequired": "Se requiere una definición",
+      "selectFile": "Por favor, selecciona un archivo .hcchr",
+      "deleteFailed": "No se pudo eliminar el conjunto de caracteres: {{message}}",
+      "globalDeleteForbidden": "Los administradores solo pueden eliminar conjuntos de caracteres globales en el panel de administración"
+    }
   }
 }

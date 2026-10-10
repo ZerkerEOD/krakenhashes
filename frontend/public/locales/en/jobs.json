@@ -16,7 +16,8 @@
     "maxAgents": "Max Agents",
     "actions": "Actions",
     "status": "Status",
-    "createdAt": "Created At"
+    "createdAt": "Created At",
+    "client": "Client"
   },
   "status": {
     "preparing": "Preparing",
@@ -50,7 +51,8 @@
     "completed": "Completed:",
     "unknown": "Unknown",
     "error": "Error:",
-    "rulesLabel": "(rules)"
+    "rulesLabel": "(rules)",
+    "custom": "Custom attack"
   },
   "tooltips": {
     "combinedHashRate": "Combined hash rate",
@@ -217,11 +219,17 @@
       "cloud_no_capacity": "No cloud capacity available",
       "cloud_dead_on_arrival": "Rented instances could not connect back",
       "cloud_launch_failed": "Could not rent a cloud instance",
-      "seenTimes": "Seen {{count}} times",
+      "seenTimes_one": "Seen {{count}} time",
+      "seenTimes_other": "Seen {{count}} times",
       "cloud_rental_too_short": "Rental would be too short to be useful",
       "cloud_cracks_lost": "Cracked passwords may have been lost",
       "cloud_draining": "Cloud instance is draining (no new work)"
-    }
+    },
+    "client": "Client",
+    "presetJob": "Preset Job",
+    "workflow": "Workflow",
+    "createdBy": "Created By",
+    "system": "System"
   },
   "common": {
     "id": "ID",
@@ -328,15 +336,19 @@
     "selectedCount": "{{count}} selected",
     "confirmBulkDelete": {
       "title": "Confirm Bulk Delete",
-      "message": "Are you sure you want to delete {{count}} job(s)? This action cannot be undone.",
+      "message_one": "Are you sure you want to delete {{count}} job? This action cannot be undone.",
+      "message_other": "Are you sure you want to delete {{count}} jobs? This action cannot be undone.",
       "warning": "This will permanently delete the selected jobs and all associated data.",
       "cancel": "Cancel",
       "delete": "Delete",
       "deleting": "Deleting..."
     },
-    "bulkArchiveSuccess": "{{count}} job(s) archived successfully",
-    "bulkUnarchiveSuccess": "{{count}} job(s) unarchived successfully",
-    "bulkDeleteSuccess": "{{count}} job(s) deleted successfully"
+    "bulkArchiveSuccess_one": "{{count}} job archived successfully",
+    "bulkArchiveSuccess_other": "{{count}} jobs archived successfully",
+    "bulkUnarchiveSuccess_one": "{{count}} job unarchived successfully",
+    "bulkUnarchiveSuccess_other": "{{count}} jobs unarchived successfully",
+    "bulkDeleteSuccess_one": "{{count}} job deleted successfully",
+    "bulkDeleteSuccess_other": "{{count}} jobs deleted successfully"
   },
   "cloud": {
     "projection": {
@@ -354,7 +366,9 @@
       "pessimistic": "This is a salted hash type, so real throughput will exceed this estimate as salts crack. Treat the projection as a worst case.",
       "shortfallTitle": "The budget runs out before the work does",
       "shortfallBody": "At the projected rate, the budget covers {{pct}}% of the remaining keyspace. The job will stop partway through. Partial progress may still be worth buying — but it should be a deliberate choice.",
-      "shortfallAcknowledge": "I understand this job will not finish within budget"
+      "shortfallAcknowledge": "I understand this job will not finish within budget",
+      "metric": "Metric",
+      "value": "Value"
     },
     "cloudBurst": {
       "label": "Allow cloud burst for this job",
@@ -367,6 +381,78 @@
       "provisionConfirm": "Rent one cloud instance for this job now?\n\nThis bypasses the autoscaler's starvation and finishing-soon rules, and will spend money against this client's budget. The budget, spend window, per-job cap and provider consent still apply.",
       "provisionRequested": "Cloud instance requested",
       "provisionFailed": "Could not provision a cloud instance"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Overall Progress: {{percent}}%",
+    "noTasks": "No tasks assigned yet",
+    "notAvailable": "N/A",
+    "tooltip": {
+      "taskId": "Task ID: {{id}}",
+      "status": "Status: {{status}}",
+      "keyspace": "Keyspace: {{start}} - {{end}}",
+      "progress": "Progress: {{percent}}%",
+      "speed": "Speed: {{speed}}",
+      "cracksFound": "Cracks Found: {{count}}",
+      "agentId": "Agent ID: {{id}}"
+    },
+    "legend": {
+      "pending": "Pending",
+      "running": "Running",
+      "processing": "Processing",
+      "completed": "Completed",
+      "processingError": "Processing Error",
+      "failed": "Failed",
+      "crackFound": "Crack Found"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Benchmark Cooldowns",
+    "subtitle": "Agents currently blocklisted from benchmarking this job after repeated failures. Clear an entry to retry on the next scheduling cycle.",
+    "loadFailed": "Failed to load blocklist",
+    "clearSuccess": "Blocklist entry cleared — scheduler will retry on next cycle",
+    "clearFailedPrefix": "Failed to clear: {{error}}",
+    "clearFailedDefault": "Failed to clear entry",
+    "expired": "expired",
+    "retryNow": "Retry now",
+    "scope": {
+      "thisJob": "this job",
+      "global": "global"
+    },
+    "columns": {
+      "agent": "Agent",
+      "scope": "Scope",
+      "hashMode": "Hash / Mode",
+      "failures": "Failures",
+      "reason": "Reason",
+      "expires": "Expires",
+      "action": "Action"
+    }
+  },
+  "loopback": {
+    "title": "Loopback",
+    "subtitle": "Each loopback re-runs an attack's mutation against only the newly-cracked passwords, repeating until no new cracks are found.",
+    "runningCount": "{{count}} running",
+    "statusLabel": {
+      "waiting": "Waiting for round to finish",
+      "active": "Looping",
+      "completed": "Done",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "roundLabel": "Round {{current}} / {{max}}",
+    "hashlistFallback": "Hashlist #{{id}}",
+    "jobCount_one": "{{count}} job",
+    "jobCount_other": "{{count}} jobs",
+    "noJobsYet": "No jobs recorded yet.",
+    "loopsBackYes": "Yes",
+    "loopsBackFeedsDelta": "Feeds delta",
+    "columns": {
+      "round": "Round",
+      "original": "Original",
+      "job": "Job",
+      "role": "Role",
+      "loopsBack": "Loops back"
     }
   }
 }

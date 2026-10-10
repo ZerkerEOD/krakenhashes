@@ -3,19 +3,10 @@
  */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Paper,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Box,
-} from '@mui/material';
+import { Paper, Typography, Box } from '@mui/material';
 import { TemporalStats } from '../../types/analytics';
-import { threeColumnTableStyles } from './tableStyles';
+import { SimpleTable } from '../ui';
+import { countPctColumns, nonZeroRows } from './tableStyles';
 
 interface TemporalPatternsSectionProps {
   data: TemporalStats;
@@ -23,15 +14,18 @@ interface TemporalPatternsSectionProps {
 
 export default function TemporalPatternsSection({ data }: TemporalPatternsSectionProps) {
   const { t } = useTranslation('analytics');
-  const years = useMemo(() =>
-    Object.entries(data.year_breakdown).filter(([_, value]) => value.count > 0),
-    [data.year_breakdown]
+  const yearRows = useMemo(
+    () => nonZeroRows(Object.entries(data.year_breakdown).map(([year, stats]) => [year, year, stats])),
+    [data.year_breakdown],
   );
 
-  const hasData = years.length > 0 || data.contains_year.count > 0 ||
-                  data.contains_month.count > 0 || data.contains_season.count > 0;
+  const summaryRows = nonZeroRows([
+    ['contains_year', t('patterns.containsYear'), data.contains_year],
+    ['contains_month', t('patterns.containsMonth'), data.contains_month],
+    ['contains_season', t('patterns.containsSeason'), data.contains_season],
+  ]);
 
-  if (!hasData) {
+  if (yearRows.length === 0 && summaryRows.length === 0) {
     return null;
   }
 
@@ -45,67 +39,26 @@ export default function TemporalPatternsSection({ data }: TemporalPatternsSectio
       </Typography>
 
       {/* Summary */}
-      <TableContainer sx={{ mb: 3 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.patternType')}</TableCell>
-              <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
-              <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {data.contains_year.count > 0 && (
-              <TableRow>
-                <TableCell sx={threeColumnTableStyles.labelCell}>{t('patterns.containsYear')}</TableCell>
-                <TableCell sx={threeColumnTableStyles.countCell}>{data.contains_year.count.toLocaleString()}</TableCell>
-                <TableCell sx={threeColumnTableStyles.percentageCell}>{data.contains_year.percentage.toFixed(2)}%</TableCell>
-              </TableRow>
-            )}
-            {data.contains_month.count > 0 && (
-              <TableRow>
-                <TableCell sx={threeColumnTableStyles.labelCell}>{t('patterns.containsMonth')}</TableCell>
-                <TableCell sx={threeColumnTableStyles.countCell}>{data.contains_month.count.toLocaleString()}</TableCell>
-                <TableCell sx={threeColumnTableStyles.percentageCell}>{data.contains_month.percentage.toFixed(2)}%</TableCell>
-              </TableRow>
-            )}
-            {data.contains_season.count > 0 && (
-              <TableRow>
-                <TableCell sx={threeColumnTableStyles.labelCell}>{t('patterns.containsSeason')}</TableCell>
-                <TableCell sx={threeColumnTableStyles.countCell}>{data.contains_season.count.toLocaleString()}</TableCell>
-                <TableCell sx={threeColumnTableStyles.percentageCell}>{data.contains_season.percentage.toFixed(2)}%</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {summaryRows.length > 0 && (
+        <SimpleTable
+          sx={{ mb: 3 }}
+          rows={summaryRows}
+          getRowKey={(r) => r.key}
+          columns={countPctColumns(t('columns.patternType'), t('columns.count'), t('columns.percentage'))}
+        />
+      )}
 
       {/* Year Breakdown */}
-      {years.length > 0 && (
+      {yearRows.length > 0 && (
         <Box>
           <Typography variant="h6" gutterBottom>
             {t('sections.yearBreakdown')}
           </Typography>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.year')}</TableCell>
-                  <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
-                  <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {years.map(([year, stats]) => (
-                  <TableRow key={year}>
-                    <TableCell sx={threeColumnTableStyles.labelCell}>{year}</TableCell>
-                    <TableCell sx={threeColumnTableStyles.countCell}>{stats.count.toLocaleString()}</TableCell>
-                    <TableCell sx={threeColumnTableStyles.percentageCell}>{stats.percentage.toFixed(2)}%</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <SimpleTable
+            rows={yearRows}
+            getRowKey={(r) => r.key}
+            columns={countPctColumns(t('columns.year'), t('columns.count'), t('columns.percentage'))}
+          />
         </Box>
       )}
     </Paper>

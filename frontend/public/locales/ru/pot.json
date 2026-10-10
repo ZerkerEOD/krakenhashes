@@ -10,7 +10,8 @@
     "allCrackedHashes": "Все взломанные хеши"
   },
   "navigation": {
-    "backToAll": "Назад ко всем взломанным хешам"
+    "backToAll": "Назад ко всем взломанным хешам",
+    "backToSource": "Назад"
   },
   "client": {
     "title": "Взломанные хеши — по клиенту",
@@ -40,8 +41,10 @@
     "placeholder": "Поиск в базе данных...",
     "filterPlaceholder": "Фильтр на этой странице...",
     "button": "Поиск",
-    "resultsFound": "Найден {{count}} результат",
-    "resultsFound_plural": "Найдено {{count}} результатов",
+    "resultsFound_few": "Найдено {{count}} результата",
+    "resultsFound_many": "Найдено {{count}} результатов",
+    "resultsFound_one": "Найден {{count}} результат",
+    "resultsFound_other": "Найдено {{count}} результатов",
     "noResults": "Результаты не найдены",
     "searching": "Поиск..."
   },
@@ -85,5 +88,11 @@
   },
   "filter": {
     "filteredBy": "Отфильтровано по {{param}}: {{value}}"
+  },
+  "breadcrumb": "Взломанные хеши",
+  "sourceLabel": {
+    "job": "Задание",
+    "client": "Клиент",
+    "hashlist": "Список хешей"
   }
 }

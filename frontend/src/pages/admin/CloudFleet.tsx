@@ -5,30 +5,22 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
   Link,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { DeleteForever as DeleteForeverIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSnackbar } from 'notistack';
+import type { GridColDef } from '@mui/x-data-grid';
+import { DataTable, EntityLink, PageHeader, StatusChip, useToast } from '../../components/ui';
 import { useTranslation } from 'react-i18next';
 import {
   CloudInstance,
-  CloudInstanceState,
   CloudProviderConfig,
   CLOUD_DISCORD_URL,
   CLOUD_ISSUE_URL,
@@ -45,18 +37,6 @@ import {
 const apiError = (err: any, fallback: string): string =>
   err?.response?.data?.error || err?.message || fallback;
 
-const STATE_COLOR: Record<CloudInstanceState, 'default' | 'info' | 'success' | 'warning' | 'error'> = {
-  requested: 'default',
-  launching: 'info',
-  provisioning: 'info',
-  syncing: 'info',
-  running: 'success',
-  draining: 'warning',
-  terminating: 'warning',
-  terminated: 'default',
-  failed: 'error',
-};
-
 /**
  * Live rented GPU fleet.
  *
@@ -67,7 +47,7 @@ const STATE_COLOR: Record<CloudInstanceState, 'default' | 'info' | 'success' | '
 const CloudFleet: React.FC = () => {
   const { t } = useTranslation('admin');
   const queryClient = useQueryClient();
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
 
   const [destroyTarget, setDestroyTarget] = useState<CloudInstance | null>(null);
   // Drives the local TTL countdown between server refreshes.
@@ -108,17 +88,14 @@ const CloudFleet: React.FC = () => {
   const destroyMutation = useMutation({
     mutationFn: (id: string) => destroyCloudInstance(id),
     onSuccess: () => {
-      enqueueSnackbar(t('cloud.fleet.destroyed') as string, { variant: 'success' });
+      toast.success(t('cloud.fleet.destroyed') as string);
       queryClient.invalidateQueries({ queryKey: ['cloudInstances'] });
       setDestroyTarget(null);
     },
     onError: (err: any) => {
       // 502 means the provider refused and the instance IS STILL BILLING.
       // Surfaced verbatim rather than as a generic failure.
-      enqueueSnackbar(apiError(err, t('cloud.fleet.destroyFailed') as string), {
-        variant: 'error',
-        persist: true,
-      });
+      toast.error(apiError(err, t('cloud.fleet.destroyFailed') as string), { persist: true });
       setDestroyTarget(null);
     },
   });
@@ -148,18 +125,150 @@ const CloudFleet: React.FC = () => {
     .reduce((sum, i) => sum + i.hourly_rate_cents, 0);
   const totalReserved = live.reduce((sum, i) => sum + i.reserved_cents, 0);
 
+  const columns: GridColDef<CloudInstance>[] = [
+    {
+      field: 'label',
+      headerName: t('cloud.fleet.columns.label') as string,
+      flex: 1.2,
+      minWidth: 200,
+      renderCell: (p) => {
+        const instance = p.row;
+        const provider = providerByConfig.get(instance.provider_config_id);
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {instance.label}
+            {provider?.maturity === 'experimental' && (
+              <Tooltip title={t('cloud.fleet.experimentalTooltip', { provider: provider.name }) as string}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  label={t('cloud.providers.experimentalChip') as string}
+                  sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                />
+              </Tooltip>
+            )}
+            {instance.terminate_attempts > 0 && (
+              <Tooltip
+                title={instance.last_terminate_error || (t('cloud.fleet.teardownFailingTooltip') as string)}
+              >
+                <WarningIcon fontSize="small" color="error" sx={{ ml: 1, verticalAlign: 'middle' }} />
+              </Tooltip>
+            )}
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'state',
+      headerName: t('cloud.fleet.columns.state') as string,
+      width: 130,
+      renderCell: (p) => (
+        <StatusChip
+          entity="cloud"
+          status={p.row.state}
+          label={t(`cloud.fleet.states.${p.row.state}`) as string}
+        />
+      ),
+    },
+    {
+      field: 'client_name_snapshot',
+      headerName: t('cloud.fleet.columns.client') as string,
+      flex: 1,
+      minWidth: 140,
+      renderCell: (p) =>
+        p.row.client_id ? (
+          <EntityLink type="client" id={p.row.client_id} label={p.row.client_name_snapshot || p.row.client_id} />
+        ) : (
+          p.row.client_name_snapshot || '—'
+        ),
+    },
+    {
+      field: 'agent_id',
+      headerName: t('cloud.fleet.columns.agent', 'Agent') as string,
+      width: 110,
+      renderCell: (p) =>
+        p.row.agent_id ? <EntityLink type="agent" id={p.row.agent_id} /> : '—',
+    },
+    {
+      field: 'job_execution_id',
+      headerName: t('cloud.fleet.columns.job', 'Job') as string,
+      width: 130,
+      renderCell: (p) =>
+        p.row.job_execution_id ? (
+          <EntityLink type="job" id={p.row.job_execution_id} label={p.row.job_execution_id.slice(0, 8)} mono />
+        ) : (
+          '—'
+        ),
+    },
+    {
+      field: 'gpu_model',
+      headerName: t('cloud.fleet.columns.gpu') as string,
+      flex: 1,
+      minWidth: 140,
+      valueGetter: (_v, row) => `${row.gpu_count ? `${row.gpu_count}× ` : ''}${row.gpu_model || '—'}`,
+    },
+    {
+      field: 'hourly_rate_cents',
+      headerName: t('cloud.fleet.columns.rate') as string,
+      width: 110,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (p) => t('cloud.fleet.perHour', { rate: formatCents(p.row.hourly_rate_cents) }) as string,
+    },
+    {
+      field: 'cost',
+      headerName: t('cloud.fleet.columns.spend') as string,
+      width: 130,
+      align: 'right',
+      headerAlign: 'right',
+      valueGetter: (_v, row) => row.actual_cost_cents ?? row.estimated_cost_cents,
+      renderCell: (p) => (
+        <>
+          {formatCents(p.row.actual_cost_cents ?? p.row.estimated_cost_cents)}
+          {p.row.actual_cost_cents === null || p.row.actual_cost_cents === undefined ? (
+            <Tooltip title={t('cloud.fleet.estimatedTooltip') as string}>
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                {t('cloud.fleet.estimated') as string}
+              </Typography>
+            </Tooltip>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      field: 'ttl',
+      headerName: t('cloud.fleet.columns.ttl') as string,
+      width: 110,
+      align: 'right',
+      headerAlign: 'right',
+      sortable: false,
+      renderCell: (p) => {
+        const remaining = ttlRemainingSeconds(p.row);
+        return (
+          <Typography
+            variant="body2"
+            component="span"
+            color={remaining > 0 && remaining < 300 ? 'error' : 'text.primary'}
+          >
+            {remaining > 0 ? formatDuration(remaining) : (t('cloud.fleet.ttlExpired') as string)}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: 'disk_gb',
+      headerName: t('cloud.fleet.columns.disk') as string,
+      width: 90,
+      align: 'right',
+      headerAlign: 'right',
+      valueFormatter: (v) => (v ? `${v} GB` : '—'),
+    },
+  ];
+
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {t('cloud.fleet.title') as string}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {t('cloud.fleet.description') as string}
-          </Typography>
-        </Box>
-      </Box>
+      <PageHeader title={t('cloud.fleet.title') as string} description={t('cloud.fleet.description') as string} />
 
       {stuckTeardown.length > 0 && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -210,119 +319,30 @@ const CloudFleet: React.FC = () => {
         </Alert>
       )}
 
-      {isLoading ? (
-        <CircularProgress />
-      ) : live.length === 0 ? (
-        <Alert severity="success">{t('cloud.fleet.empty') as string}</Alert>
-      ) : (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('cloud.fleet.columns.label') as string}</TableCell>
-                <TableCell>{t('cloud.fleet.columns.state') as string}</TableCell>
-                <TableCell>{t('cloud.fleet.columns.client') as string}</TableCell>
-                <TableCell>{t('cloud.fleet.columns.gpu') as string}</TableCell>
-                <TableCell align="right">{t('cloud.fleet.columns.rate') as string}</TableCell>
-                <TableCell align="right">{t('cloud.fleet.columns.spend') as string}</TableCell>
-                <TableCell align="right">{t('cloud.fleet.columns.ttl') as string}</TableCell>
-                <TableCell align="right">{t('cloud.fleet.columns.disk') as string}</TableCell>
-                <TableCell align="right">{t('cloud.fleet.columns.actions') as string}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {live.map((instance) => {
-                const remaining = ttlRemainingSeconds(instance);
-                const cost = instance.actual_cost_cents ?? instance.estimated_cost_cents;
-                const provider = providerByConfig.get(instance.provider_config_id);
-                return (
-                  <TableRow key={instance.id}>
-                    <TableCell>
-                      {instance.label}
-                      {provider?.maturity === 'experimental' && (
-                        <Tooltip
-                          title={
-                            t('cloud.fleet.experimentalTooltip', {
-                              provider: provider.name,
-                            }) as string
-                          }
-                        >
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            color="warning"
-                            label={t('cloud.providers.experimentalChip') as string}
-                            sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
-                          />
-                        </Tooltip>
-                      )}
-                      {instance.terminate_attempts > 0 && (
-                        <Tooltip
-                          title={
-                            instance.last_terminate_error ||
-                            (t('cloud.fleet.teardownFailingTooltip') as string)
-                          }
-                        >
-                          <WarningIcon fontSize="small" color="error" sx={{ ml: 1, verticalAlign: 'middle' }} />
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        color={STATE_COLOR[instance.state] ?? 'default'}
-                        label={t(`cloud.fleet.states.${instance.state}`) as string}
-                      />
-                    </TableCell>
-                    <TableCell>{instance.client_name_snapshot || '—'}</TableCell>
-                    <TableCell>
-                      {instance.gpu_count ? `${instance.gpu_count}× ` : ''}
-                      {instance.gpu_model || '—'}
-                    </TableCell>
-                    <TableCell align="right">
-                      {t('cloud.fleet.perHour', { rate: formatCents(instance.hourly_rate_cents) }) as string}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCents(cost)}
-                      {instance.actual_cost_cents === null ||
-                      instance.actual_cost_cents === undefined ? (
-                        <Tooltip title={t('cloud.fleet.estimatedTooltip') as string}>
-                          <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-                            {t('cloud.fleet.estimated') as string}
-                          </Typography>
-                        </Tooltip>
-                      ) : null}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        variant="body2"
-                        color={remaining > 0 && remaining < 300 ? 'error' : 'text.primary'}
-                      >
-                        {remaining > 0
-                          ? formatDuration(remaining)
-                          : (t('cloud.fleet.ttlExpired') as string)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      {instance.disk_gb ? `${instance.disk_gb} GB` : '—'}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<DeleteForeverIcon />}
-                        onClick={() => setDestroyTarget(instance)}
-                      >
-                        {t('cloud.fleet.destroy') as string}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <DataTable<CloudInstance>
+        rows={live}
+        columns={columns}
+        getRowId={(r) => r.id}
+        loading={isLoading}
+        pagination={false}
+        sorting={{ mode: 'client' }}
+        rowActions={() => [
+          {
+            key: 'destroy',
+            label: t('cloud.fleet.destroy') as string,
+            icon: <DeleteForeverIcon fontSize="small" />,
+            danger: true,
+            placement: 'inline',
+            onClick: (r) => setDestroyTarget(r),
+          },
+        ]}
+        emptyState={
+          <Alert severity="success" sx={{ m: 2 }}>
+            {t('cloud.fleet.empty') as string}
+          </Alert>
+        }
+        tableKey="cloud-fleet"
+      />
 
       <Dialog open={Boolean(destroyTarget)} onClose={() => setDestroyTarget(null)}>
         <DialogTitle>{t('cloud.fleet.destroyTitle') as string}</DialogTitle>

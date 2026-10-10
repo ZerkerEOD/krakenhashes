@@ -38,6 +38,7 @@
     "disabled": "Отключено",
     "active": "Активно",
     "inactive": "Неактивно",
+    "updating": "Обновление",
     "pending": "В ожидании",
     "completed": "Завершено",
     "failed": "Ошибка",
@@ -73,16 +74,23 @@
     "areYouSure": "Вы уверены?",
     "cannotBeUndone": "Это действие нельзя отменить.",
     "confirmDelete": "Подтвердить удаление",
-    "confirmAction": "Подтвердить действие"
+    "confirmAction": "Подтвердить действие",
+    "typeToConfirm": "Введите {{text}} для подтверждения"
   },
   "time": {
     "justNow": "Только что",
-    "minutesAgo": "{{count}} минуту назад",
-    "minutesAgo_plural": "{{count}} минут назад",
-    "hoursAgo": "{{count}} час назад",
-    "hoursAgo_plural": "{{count}} часов назад",
-    "daysAgo": "{{count}} день назад",
-    "daysAgo_plural": "{{count}} дней назад",
+    "minutesAgo_few": "{{count}} минуты назад",
+    "minutesAgo_many": "{{count}} минут назад",
+    "minutesAgo_one": "{{count}} минуту назад",
+    "minutesAgo_other": "{{count}} минут назад",
+    "hoursAgo_few": "{{count}} часа назад",
+    "hoursAgo_many": "{{count}} часов назад",
+    "hoursAgo_one": "{{count}} час назад",
+    "hoursAgo_other": "{{count}} часов назад",
+    "daysAgo_few": "{{count}} дня назад",
+    "daysAgo_many": "{{count}} дней назад",
+    "daysAgo_one": "{{count}} день назад",
+    "daysAgo_other": "{{count}} дней назад",
     "never": "Никогда"
   },
   "fileUpload": {
@@ -126,7 +134,17 @@
     "logoAltBranded": "Логотип {{appName}}"
   },
   "table": {
+    "clearSearch": "Очистить поиск",
+    "clearSelection": "Очистить выделение",
+    "selectedCount": "{{count}} выбрано",
+    "expandRow": "Развернуть строку",
+    "collapseRow": "Свернуть строку",
+    "showAll": "Показать все",
+    "showFewer": "Показать меньше",
+    "showingOf": "Показано {{shown}} из {{total}}",
+    "actions": "Действия",
     "noResults": "Результаты не найдены",
+    "rowsPerPage": "Строк на странице",
     "loading": "Загрузка данных...",
     "emptyState": "Нет данных для отображения"
   },
@@ -139,7 +157,8 @@
       "frontend": "Интерфейс",
       "agent": "Версия агента",
       "api": "Версия API",
-      "database": "База данных"
+      "database": "База данных",
+      "build": "Сборка"
     },
     "projectInfo": {
       "title": "Информация о проекте",
@@ -157,5 +176,204 @@
     "tooltip": "Недопустимый текст. Точный пароль: {{value}}. Показанные символы — предположение (Windows-1252), а не настоящий пароль.",
     "copyExact": "Копировать точное значение (для hashcat)",
     "copyGuess": "Копировать предположение (не точно)"
+  },
+  "empty": {
+    "noData": "Здесь пока ничего нет",
+    "noResults": "Нет результатов",
+    "noResultsHint": "Попробуйте изменить параметры поиска или фильтры."
+  },
+  "theme": {
+    "appearance": "Внешний вид",
+    "light": "Светлая",
+    "dark": "Тёмная",
+    "system": "Система"
+  },
+  "status": {
+    "job": {
+      "preparing": "Подготовка",
+      "pending": "Ожидание",
+      "running": "Выполняется",
+      "paused": "Пауза",
+      "processing": "Обработка",
+      "completed": "Завершено",
+      "failed": "Ошибка",
+      "cancelled": "Отменено",
+      "archived": "Архивировано"
+    },
+    "task": {
+      "pending": "Ожидание",
+      "assigned": "Назначено",
+      "reconnect_pending": "Переподключение",
+      "running": "Выполняется",
+      "processing": "Обработка",
+      "processing_error": "Ошибка обработки",
+      "completed": "Завершено",
+      "failed": "Ошибка",
+      "cancelled": "Отменено"
+    },
+    "agent": {
+      "pending": "Ожидание",
+      "active": "В сети",
+      "inactive": "Не в сети",
+      "error": "Ошибка",
+      "disabled": "Отключено",
+      "updating": "Обновление",
+      "online": "В сети",
+      "offline": "Не в сети"
+    },
+    "hashlist": {
+      "uploading": "Загрузка",
+      "processing": "Обработка",
+      "ready": "Готово",
+      "error": "Ошибка",
+      "deleting": "Удаление",
+      "ready_with_errors": "Готово с ошибками",
+      "awaiting_validation_decision": "Ожидает проверки",
+      "cancelled": "Отменено"
+    },
+    "verification": {
+      "pending": "Ожидание",
+      "verified": "Проверено",
+      "failed": "Ошибка",
+      "deleted": "Удалено"
+    },
+    "cloud": {
+      "requested": "Запрошено",
+      "launching": "Запуск",
+      "provisioning": "Ввод в работу",
+      "syncing": "Синхронизация",
+      "running": "Выполняется",
+      "draining": "Вывод из работы",
+      "terminating": "Уничтожение",
+      "terminated": "Уничтожено",
+      "failed": "Ошибка"
+    },
+    "loopback": {
+      "waiting": "Ожидание",
+      "active": "Активно",
+      "completed": "Завершено",
+      "failed": "Ошибка",
+      "cancelled": "Отменено"
+    },
+    "audit": {
+      "info": "Информация",
+      "warning": "Предупреждение",
+      "critical": "Критично"
+    },
+    "diagnostic": {
+      "info": "Информация",
+      "warning": "Предупреждение",
+      "error": "Ошибка"
+    },
+    "sync": {
+      "pending": "Ожидание",
+      "in_progress": "В процессе",
+      "completed": "Завершено",
+      "failed": "Ошибка"
+    },
+    "generic": {
+      "success": "Успешно",
+      "ok": "ОК",
+      "healthy": "Исправно",
+      "enabled": "Включено",
+      "active": "Активно",
+      "verified": "Проверено",
+      "warning": "Предупреждение",
+      "degraded": "Ухудшено",
+      "error": "Ошибка",
+      "failed": "Ошибка",
+      "critical": "Критично",
+      "info": "Информация",
+      "running": "Выполняется",
+      "pending": "Ожидание",
+      "queued": "В очереди",
+      "disabled": "Отключено",
+      "inactive": "Неактивно",
+      "unknown": "Неизвестно"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Пользовательские наборы символов (необязательно — определите ?1–?4 для использования в маске)",
+    "hexTooltip": "Если включено, встроенные определения наборов символов интерпретируются как пары байтов в шестнадцатеричной системе (например, 41424344 = ABCD). Наборы символов из файлов не затронуты.",
+    "hexEncodedLabel": "Наборы символов в шестнадцатеричной кодировке",
+    "charsetSlotLabel": "Набор символов {{slot}} (-{{slot}})",
+    "fileValue_few": "[Файл: {{name}} — {{count}} байта]",
+    "fileValue_many": "[Файл: {{name}} — {{count}} байт]",
+    "fileValue_one": "[Файл: {{name}} — {{count}} байт]",
+    "fileValue_other": "[Файл: {{name}} — {{count}} байта]",
+    "fileHelperUsed_few": "{{count}} уникальных байта",
+    "fileHelperUsed_many": "{{count}} уникальных байт",
+    "fileHelperUsed_one": "{{count}} уникальный байт",
+    "fileHelperUsed_other": "{{count}} уникальных байта",
+    "fileHelperUnused_few": "{{count}} уникальных байта (не используется в маске)",
+    "fileHelperUnused_many": "{{count}} уникальных байт (не используется в маске)",
+    "fileHelperUnused_one": "{{count}} уникальный байт (не используется в маске)",
+    "fileHelperUnused_other": "{{count}} уникальных байта (не используется в маске)",
+    "placeholderHex": "например, 41424344 (пары байтов в шестнадцатеричной системе)",
+    "placeholderPlain": "например, ?u?d или abcdef0123456789",
+    "inlineHelperBytes_few": "{{count}} байта",
+    "inlineHelperBytes_many": "{{count}} байт",
+    "inlineHelperBytes_one": "{{count}} байт",
+    "inlineHelperBytes_other": "{{count}} байта",
+    "inlineHelperBytesUnused_few": "{{count}} байта (не используется в маске)",
+    "inlineHelperBytesUnused_many": "{{count}} байт (не используется в маске)",
+    "inlineHelperBytesUnused_one": "{{count}} байт (не используется в маске)",
+    "inlineHelperBytesUnused_other": "{{count}} байта (не используется в маске)",
+    "inlineHelperChars_few": "{{count}} символа",
+    "inlineHelperChars_many": "{{count}} символов",
+    "inlineHelperChars_one": "{{count}} символ",
+    "inlineHelperChars_other": "{{count}} символа",
+    "inlineHelperCharsUnused_few": "{{count}} символа (не используется в маске)",
+    "inlineHelperCharsUnused_many": "{{count}} символов (не используется в маске)",
+    "inlineHelperCharsUnused_one": "{{count}} символ (не используется в маске)",
+    "inlineHelperCharsUnused_other": "{{count}} символа (не используется в маске)",
+    "referencedNotDefined": "Используется в маске, но не определено",
+    "savedLabel": "Сохранено",
+    "typeLabels": {
+      "file": "Файл",
+      "hex": "Шестнадцатеричная"
+    },
+    "optionUniqueBytes_few": "{{count}} уникальных байта",
+    "optionUniqueBytes_many": "{{count}} уникальных байт",
+    "optionUniqueBytes_one": "{{count}} уникальный байт",
+    "optionUniqueBytes_other": "{{count}} уникальных байта",
+    "optionBytesHex_few": "{{count}} байта (шестнадцатеричный)",
+    "optionBytesHex_many": "{{count}} байт (шестнадцатеричный)",
+    "optionBytesHex_one": "{{count}} байт (шестнадцатеричный)",
+    "optionBytesHex_other": "{{count}} байта (шестнадцатеричный)",
+    "willEnableHex": " — будет включен режим шестнадцатеричной кодировки",
+    "willDisableHex": " — будет отключен режим шестнадцатеричной кодировки",
+    "estimatedKeyspace": "Предполагаемое пространство ключей: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} байт",
+    "slotSizeChars": "?{{slot}} = {{size}} символов"
+  },
+  "teamFilter": {
+    "label": "Команда",
+    "allTeams": "Все команды",
+    "adminBadge": "Администратор"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Пароль обязателен",
+    "currentPasswordLabel": "Текущий пароль"
+  },
+  "hashDetailModal": {
+    "title": "Детали хеша",
+    "hashValue": "Значение хеша",
+    "copied": "Скопировано!",
+    "copyHash": "Скопировать хеш",
+    "copyPlaintext": "Скопировать открытый текст",
+    "originalHash": "Исходный хеш (из файла)",
+    "status": "Статус",
+    "cracked": "Взломан",
+    "notCracked": "Не взломан",
+    "hashType": "Тип хеша",
+    "typeId": "ID типа: {{id}}",
+    "username": "Имя пользователя",
+    "crackedText": "Взломанный текст",
+    "hashlist": "Список хешей",
+    "lastUpdated": "Последнее обновление",
+    "crackedAt": "Дата взлома",
+    "hashCopied": "Хеш скопирован в буфер обмена",
+    "crackedTextCopied": "Взломанный текст скопирован в буфер обмена"
   }
 }

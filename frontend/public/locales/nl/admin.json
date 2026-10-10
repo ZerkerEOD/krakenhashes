@@ -19,8 +19,9 @@
     "jobExecution": "Taakuitvoering",
     "monitoring": "Monitoring",
     "agentDownloads": "Agent-downloads",
+    "notifications": "Meldingen",
     "cloudProvisioning": "Cloud Provisioning",
-    "serverCertificate": "Server Certificate"
+    "serverCertificate": "Servercertificaat"
   },
   "common": {
     "cancel": "Annuleren",
@@ -45,7 +46,9 @@
     "unknownError": "Onbekende fout",
     "dialogs": {
       "confirmDeleteNamed": "Weet u zeker dat u \"{{name}}\" wilt verwijderen?"
-    }
+    },
+    "download": "Downloaden",
+    "confirm": "Bevestigen"
   },
   "users": {
     "title": "Gebruikersbeheer",
@@ -142,7 +145,8 @@
       "accountEnabled": "Gebruikersaccount ingeschakeld",
       "accountUnlocked": "Gebruikersaccount ontgrendeld",
       "sessionTerminated": "Sessie succesvol beëindigd",
-      "allSessionsTerminated": "{{count}} sessie(s) succesvol beëindigd",
+      "allSessionsTerminated_one": "{{count}} sessie succesvol beëindigd",
+      "allSessionsTerminated_other": "{{count}} sessies succesvol beëindigd",
       "apiKeyRevoked": "API-sleutel succesvol ingetrokken"
     },
     "dialogs": {
@@ -218,7 +222,8 @@
       "activityInformation": "Activiteitsinformatie",
       "passwordChanged": "Wachtwoord gewijzigd",
       "failedLoginAttempts": "Mislukte inlogpogingen",
-      "attemptsCount": "{{count}} pogingen",
+      "attemptsCount_one": "{{count}} poging",
+      "attemptsCount_other": "{{count}} pogingen",
       "disabledAt": "Uitgeschakeld op",
       "activeSessions": "Actieve sessies",
       "noActiveSessions": "Geen actieve sessies",
@@ -236,7 +241,16 @@
         "success": "Geslaagd",
         "failed": "Mislukt",
         "failureReason": "Reden van mislukking"
-      }
+      },
+      "teams": "Teams",
+      "teamName": "Team",
+      "teamDescription": "Beschrijving",
+      "noTeams": "Geen lid van een team",
+      "ownedAgents": "Eigen agents",
+      "noOwnedAgents": "Deze gebruiker heeft geen eigen agents",
+      "agentName": "Agent",
+      "agentVersion": "Versie",
+      "agentLastSeen": "Laatst gezien"
     }
   },
   "clients": {
@@ -249,7 +263,8 @@
       "cracked": "Gekraakt",
       "retention": "Retentie (maanden)",
       "createdAt": "Aangemaakt op",
-      "actions": "Acties"
+      "actions": "Acties",
+      "wordlists": "Woordenlijsten"
     },
     "form": {
       "clientName": "Klantnaam",
@@ -259,15 +274,28 @@
       "dataRetentionHelperText": "Laat leeg om systeemstandaard te gebruiken. Voer 0 in om voor altijd te bewaren.",
       "excludeFromPotfile": "Uitsluiten van potfile (gekraakte wachtwoorden niet opslaan)",
       "excludeFromPotfileHelperText": "Schakel dit in voor klanten met strikte gegevensretentievereisten",
-      "cloudInherit": "Cloud burst: this client will inherit the server default — {{state}}, ${{amount}} per {{period}}. Change it in Cloud Provisioning → Client Budgets.",
-      "cloudInheritUnfunded": "Cloud burst: no default budget is set, so this client starts unfunded and cannot rent paid capacity. Set a default in Cloud Provisioning → Client Budgets.",
-      "cloudInheritUnknown": "Cloud burst settings are inherited from the server defaults in Cloud Provisioning → Client Budgets.",
-      "cloudEnabledWord": "enabled",
-      "cloudDisabledWord": "disabled"
+      "cloudInherit": "Cloud burst: deze klant zal de serverstandaard overnemen — {{state}}, ${{amount}} per {{period}}. Wijzig dit in Cloud Provisioning → Klantbudgetten.",
+      "cloudInheritUnfunded": "Cloud burst: er is geen standaardbudget ingesteld, dus deze klant start zonder financiering en kan geen betaalde capaciteit huren. Stel in Cloud Provisioning → Klantbudgetten een standaard in.",
+      "cloudInheritUnknown": "Cloud burst-instellingen worden overgenomen van de serverstandaarden in Cloud Provisioning → Klantbudgetten.",
+      "cloudEnabledWord": "ingeschakeld",
+      "cloudDisabledWord": "uitgeschakeld",
+      "excludeFromClientPotfile": "Uitsluiten van klant-potfile",
+      "excludeFromClientPotfileHelperText": "Wanneer ingeschakeld, worden gekraakte wachtwoorden voor deze klant NIET toegevoegd aan hun klant-potfile.",
+      "clientPotfileSettings": "Potfile-verwijderingsinstellingen",
+      "useSystemDefault": "Systeemstandaard gebruiken",
+      "alwaysRemove": "Altijd verwijderen",
+      "neverRemove": "Nooit verwijderen",
+      "assignToTeam": "Toewijzen aan team",
+      "assignToTeamHelperText": "De nieuwe klant wordt aan dit team toegewezen. Het opnieuw toewijzen van bestaande klanten gebeurt via Admin Teambeheer.",
+      "removeFromGlobalPotfileOnDelete": "Verwijderen uit globale potfile bij verwijdering",
+      "removeFromGlobalPotfileHelperText": "Bepaalt of wachtwoorden uit de globale potfile worden verwijderd wanneer een hashlijst wordt verwijderd.",
+      "removeFromClientPotfileOnDelete": "Verwijderen uit klant-potfile bij verwijdering",
+      "removeFromClientPotfileHelperText": "Bepaalt of wachtwoorden uit de klant-potfile worden verwijderd wanneer een hashlijst wordt verwijderd."
     },
     "validation": {
       "nameRequired": "Klantnaam is verplicht.",
-      "retentionInvalid": "Retentieperiode moet een niet-negatief getal zijn of leeg (voor standaard)."
+      "retentionInvalid": "Retentieperiode moet een niet-negatief getal zijn of leeg (voor standaard).",
+      "teamRequired": "Teamselectie is verplicht als teams zijn ingeschakeld"
     },
     "errors": {
       "loadFailed": "Laden van klanten mislukt. Probeer te vernieuwen.",
@@ -291,6 +319,61 @@
       "deleteClient": {
         "title": "Verwijdering bevestigen",
         "confirmation": "Weet u zeker dat u de klant \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt. Bijbehorende hashlijsten kunnen onmiddellijk worden verwijderd of verweesd op basis van retentiebeleid."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Naam",
+        "status": "Status",
+        "total": "Hashes",
+        "cracked": "Gekraakt",
+        "created": "Aangemaakt"
+      },
+      "notFound": "Klant niet gevonden",
+      "notFoundHint": "Het is mogelijk verwijderd, of het behoort tot een team waarvan u geen lid bent.",
+      "backToClients": "Terug naar klanten",
+      "breadcrumb": "Klanten",
+      "manageWordlists": "Woordenlijsten & potfile",
+      "stats": {
+        "hashlists": "Hashlijsten",
+        "cracked": "Gekraakt",
+        "jobs": "Taken",
+        "active": "{{count}} actief",
+        "wordlists": "Woordenlijsten",
+        "hasPotfile": "Klant-potfile aanwezig"
+      },
+      "hashlists": "Hashlijsten",
+      "noHashlists": "Nog geen hashlijsten voor deze klant",
+      "jobs": "Taken",
+      "noJobs": "Er zijn geen taken uitgevoerd voor deze klant",
+      "teams": "Teams",
+      "noTeams": "Niet aan een team toegewezen",
+      "policy": "Retentie & potfile",
+      "retention": "Gegevensretentie",
+      "retentionDefault": "Systeemstandaard",
+      "retentionForever": "Permanent bewaren",
+      "retentionMonths_one": "{{count}} maand",
+      "retentionMonths_other": "{{count}} maanden",
+      "globalPotfile": "Globale potfile",
+      "excluded": "Uitgesloten",
+      "included": "Opgenomen",
+      "clientPotfile": "Klant-potfile",
+      "contact": "Contact",
+      "lastActivity": "Laatste activiteit"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Klanten aan team toewijzen",
+      "dialogDescription_one": "Wijs {{count}} geselecteerde klant toe aan een team. Klanten die al in het geselecteerde team zijn, worden overgeslagen.",
+      "dialogDescription_other": "Wijs {{count}} geselecteerde klanten toe aan een team. Klanten die al in het geselecteerde team zijn, worden overgeslagen.",
+      "selectTeam": "Team selecteren",
+      "assignButton": "Toewijzen",
+      "fallbackTeamName": "team",
+      "success_one": "{{count}} klant aan {{team}} toegewezen",
+      "success_other": "{{count}} klanten aan {{team}} toegewezen",
+      "successWithSkipped_one": "{{count}} klant aan {{team}} toegewezen ({{skipped}} al toegewezen)",
+      "successWithSkipped_other": "{{count}} klanten aan {{team}} toegewezen ({{skipped}} al toegewezen)",
+      "errors": {
+        "assignFailed": "Fout bij toewijzen van klanten aan team"
       }
     }
   },
@@ -376,10 +459,14 @@
         "confirmation": "Weet u zeker dat u woordenlijst \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
         "cascadeWarning": "Het verwijderen van woordenlijst \"{{name}}\" zal ook het volgende verwijderen:",
         "checkingDependencies": "Afhankelijkheden controleren...",
-        "jobsCount": "{{count}} taak/taken (in behandeling/actief/mislukt):",
-        "presetJobsCount": "{{count}} vooringestelde taak/taken:",
-        "workflowStepsCount": "{{count}} workflowstap(pen):",
-        "emptyWorkflowsCount": "{{count}} lege workflow(s) worden verwijderd:",
+        "jobsCount_one": "{{count}} Taak (in wachtrij/actief/mislukt):",
+        "jobsCount_other": "{{count}} Taken (in wachtrij/actief/mislukt):",
+        "presetJobsCount_one": "{{count}} Vooringestelde taak:",
+        "presetJobsCount_other": "{{count}} Vooringestelde taken:",
+        "workflowStepsCount_one": "{{count}} Workflowstap:",
+        "workflowStepsCount_other": "{{count}} Workflowstappen:",
+        "emptyWorkflowsCount_one": "{{count}} Lege workflow wordt verwijderd:",
+        "emptyWorkflowsCount_other": "{{count}} Lege workflows worden verwijderd:",
         "noHashlist": "Geen hashlijst",
         "step": "Stap {{order}}",
         "andMore": "...en {{count}} meer",
@@ -387,6 +474,59 @@
         "confirmationPlaceholder": "Typ {{id}} om te bevestigen",
         "idMismatch": "ID komt niet overeen",
         "deleteAll": "Alles verwijderen"
+      }
+    },
+    "filterForm": {
+      "helpText": "Alle criteria worden gecombineerd (EN) — een woord moet aan elk criterium voldoen dat u instelt. Als uw regex strenger is dan de lengtevelden (bijv. minimumlengte 8 maar regex vereist 12+), wint de strengere regel. De onderstaande schatting weerspiegelt het gecombineerde resultaat.",
+      "minLength": "Minimale lengte",
+      "maxLength": "Maximale lengte",
+      "requiredClasses": "Vereiste tekenklassen",
+      "uppercase": "Hoofdletters",
+      "lowercase": "Kleine letters",
+      "digit": "Cijfer",
+      "special": "Speciaal",
+      "minClasses": "Min. # van klassen (1-4)",
+      "minClassesHelp": "bijv. 3 = minstens 3 van de 4 klassen",
+      "regexLabel": "Regex (RE2)",
+      "regexHelperDefault": "bijv. ^.{10,16}$",
+      "regexLookaroundError": "Lookarounds ((?=…), (?!…), (?<=…), (?<!…)) worden niet ondersteund door de backend-regex-engine (RE2). Gebruik in plaats daarvan lengte-/klassefilters.",
+      "regexInvalidDefault": "Ongeldige reguliere expressie",
+      "estimating": "Schatten…",
+      "previewTooltip": "Geschat door het begin van de bronwoordenlijst te samplen. Voor gesorteerde lijsten kan het werkelijke totaal afwijken.",
+      "previewLabel": "~{{countDisplay}} kandidaten ({{rateDisplay}}% van sample)",
+      "previewUnavailable": "Voorbeeld niet beschikbaar"
+    },
+    "filtered": {
+      "badge": "Gefilterd",
+      "regeneratingBadge": "Opnieuw genereren…",
+      "regeneratingTooltip": "Het origineel is gewijzigd; deze gefilterde woordenlijst wordt opnieuw gegenereerd (alleen de nieuwe vermeldingen worden zo mogelijk opnieuw gefilterd).",
+      "staleBadge": "Verouderd",
+      "staleTooltip": "De originele woordenlijst is gewijzigd sinds dit werd gegenereerd. Gefilterde woordenlijsten worden automatisch opnieuw gegenereerd wanneer hun origineel verandert; u kunt nu ook opnieuw genereren.",
+      "namePlaceholder": "{{name}} (gefilterd)",
+      "wordCount_one": "{{count}} woord",
+      "wordCount_other": "{{count}} woorden",
+      "plaintextChip": "platte tekst",
+      "compressedChip": "gecomprimeerd",
+      "messages": {
+        "generating": "Gefilterde woordenlijst wordt gegenereerd",
+        "createFailed": "Fout bij maken van gefilterde woordenlijst",
+        "regenerating": "Volledig opnieuw genereren van gefilterde woordenlijst gestart",
+        "regenerateFailed": "Fout bij opnieuw genereren van gefilterde woordenlijst"
+      },
+      "createDialog": {
+        "title": "Gefilterde woordenlijst aanmaken",
+        "description": "Genereer een nieuwe woordenlijst die alleen de regels van een bronwoordenlijst bevat die aan uw criteria voldoen. Het resultaat kan opnieuw worden gebruikt in taken en wordt ten opzichte van het origineel bijgehouden.",
+        "sourceWordlistLabel": "Bronwoordenlijst",
+        "nameLabel": "Naam",
+        "create": "Aanmaken"
+      },
+      "regenerateDialog": {
+        "title": "Gefilterde woordenlijst opnieuw genereren?",
+        "autoInfo": "Gefilterde woordenlijsten worden normaal gesproken <strong>automatisch op de backend</strong> opnieuw gegenereerd wanneer hun originele woordenlijst verandert — u hoeft dit niet handmatig te doen.",
+        "manualHint": "Genereer alleen handmatig opnieuw als u weet dat de <strong>volgorde van woorden in het origineel is gewijzigd</strong> (woorden zijn bewerkt, verwijderd of opnieuw gerangschikt in plaats van alleen aan het einde toe te voegen).",
+        "warningWithExample": "Dit voert een <strong>volledige regeneratie</strong> uit — het hele origineel wordt opnieuw gefilterd, wat enige tijd kan duren voor grote woordenlijsten (bijv. \"{{name}}\").",
+        "warningNoExample": "Dit voert een <strong>volledige regeneratie</strong> uit — het hele origineel wordt opnieuw gefilterd, wat enige tijd kan duren voor grote woordenlijsten.",
+        "confirmButton": "Volledig opnieuw genereren"
       }
     }
   },
@@ -469,10 +609,14 @@
         "confirmation": "Weet u zeker dat u regel \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
         "cascadeWarning": "Het verwijderen van regel \"{{name}}\" zal ook het volgende verwijderen:",
         "checkingDependencies": "Afhankelijkheden controleren...",
-        "jobsCount": "{{count}} taak/taken (in behandeling/actief/mislukt):",
-        "presetJobsCount": "{{count}} vooringestelde taak/taken:",
-        "workflowStepsCount": "{{count}} workflowstap(pen):",
-        "emptyWorkflowsCount": "{{count}} lege workflow(s) worden verwijderd:",
+        "jobsCount_one": "{{count}} Taak (in wachtrij/actief/mislukt):",
+        "jobsCount_other": "{{count}} Taken (in wachtrij/actief/mislukt):",
+        "presetJobsCount_one": "{{count}} Vooringestelde taak:",
+        "presetJobsCount_other": "{{count}} Vooringestelde taken:",
+        "workflowStepsCount_one": "{{count}} Workflowstap:",
+        "workflowStepsCount_other": "{{count}} Workflowstappen:",
+        "emptyWorkflowsCount_one": "{{count}} Lege workflow wordt verwijderd:",
+        "emptyWorkflowsCount_other": "{{count}} Lege workflows worden verwijderd:",
         "noHashlist": "Geen hashlijst",
         "step": "Stap {{order}}",
         "andMore": "...en {{count}} meer",
@@ -545,8 +689,9 @@
         "firstWordlist": "Eerste woordenlijst",
         "secondWordlist": "Tweede woordenlijst",
         "allowHighPriorityOverride": "Hoge prioriteit overschrijving toestaan (kan actieve taken onderbreken)",
-        "cloudBurstEnabled": "Allow cloud burst",
-        "cloudMaxInstances": "Max cloud instances",
+        "additionalArgs": "Aanvullende Hashcat-argumenten",
+        "cloudBurstEnabled": "Cloud burst toestaan",
+        "cloudMaxInstances": "Max. cloud-instanties",
         "cloudAllowCommunityHosts": "Machines van derden toestaan (Vast.ai, RunPod Community)"
       },
       "incrementModes": {
@@ -566,14 +711,17 @@
         "maxAgents": "Maximaal aantal agents (0 = onbeperkt)",
         "allowHighPriorityOverride": "Wanneer ingeschakeld, kan deze taak taken met lagere prioriteit onderbreken om hun agents over te nemen",
         "wordlistsNotUsed": "Woordenlijsten worden niet gebruikt voor deze aanvalsmodus",
-        "selectWordlists": "Selecteer precies {{count}} woordenlijst(en)",
+        "selectWordlists_one": "Selecteer exact {{count}} woordenlijst",
+        "selectWordlists_other": "Selecteer exact {{count}} woordenlijsten",
         "rulesNotUsed": "Regels worden niet gebruikt voor deze aanvalsmodus",
         "selectRule": "Selecteer optioneel een regelbestand om transformaties toe te passen",
         "firstWordlist": "Woorden uit deze lijst worden als eerste deel gebruikt",
         "secondWordlist": "Woorden uit deze lijst worden toegevoegd aan het eerste",
-        "cloudBurstEnabled": "Rent GPU instances for jobs created from this preset when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.",
-        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
-        "cloudAllowCommunityHosts": "Dit zijn andermans machines. De eigenaar heeft root-toegang tot de container, waardoor de hashes, woordenlijsten en gekraakte wachtwoorden van deze klant leesbaar zijn voor een derde partij en niet versleuteld op de host worden opgeslagen. Niet aanbevolen voor productie- of klantgegevens. Laat u dit uit staan, dan gebruiken jobs nog steeds veilige capaciteit (AWS, RunPod Secure Cloud) als de klant dat toestaat."
+        "additionalArgs": "Extra Hashcat-vlaggen voor deze taak. Vlaggen op agentniveau hebben voorrang bij conflicten.",
+        "cloudBurstEnabled": "Huur GPU-instanties voor taken die uit deze vooringestelde taak zijn gemaakt wanneer de on-prem fleet niet kan bijhouden. Vereist dat de klant wordt gefinancierd en is opgenomen bij een provider.",
+        "cloudMaxInstances": "Gescheiden van Max. agents, die de gedeelde on-prem-pool bepaalt. Laat leeg om dit aan het resterende budget over te laten.",
+        "cloudAllowCommunityHosts": "Dit zijn andermans machines. De eigenaar heeft root-toegang tot de container, waardoor de hashes, woordenlijsten en gekraakte wachtwoorden van deze klant leesbaar zijn voor een derde partij en niet versleuteld op de host worden opgeslagen. Niet aanbevolen voor productie- of klantgegevens. Laat u dit uit staan, dan gebruiken jobs nog steeds veilige capaciteit (AWS, RunPod Secure Cloud) als de klant dat toestaat.",
+        "prefilteredWordlistHint": "Als u een vooraf gefilterde woordenlijst in een vooringestelde taak wilt gebruiken, maakt u deze eerst in Woordenlijstbeheer — deze verschijnt dan in deze lijst. Inline kortstondige filtering is alleen beschikbaar voor eenmalige aangepaste taken."
       },
       "errors": {
         "nameRequired": "Taaknaam is verplicht",
@@ -593,6 +741,50 @@
       "messages": {
         "createSuccess": "Vooringestelde taak succesvol aangemaakt",
         "updateSuccess": "Vooringestelde taak succesvol bijgewerkt"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Straight",
+          "description": "Gebruikt woorden uit een woordenlijst, waarop optioneel een regel wordt toegepast om deze te transformeren",
+          "wordlistRequirement": "Exact 1 woordenlijst vereist",
+          "rulesRequirement": "0 of 1 regelbestand",
+          "maskRequirement": "Geen masker nodig"
+        },
+        "combination": {
+          "name": "Combination",
+          "description": "Combineert woorden uit twee woordenlijsten (first_word + second_word)",
+          "wordlistRequirement": "Exact 2 woordenlijsten vereist",
+          "rulesRequirement": "Geen regels nodig",
+          "maskRequirement": "Geen masker nodig"
+        },
+        "bruteForce": {
+          "name": "Brute Force (Masker)",
+          "description": "Genereert wachtwoorden op basis van een patroon/masker",
+          "wordlistRequirement": "Geen woordenlijst nodig",
+          "rulesRequirement": "Geen regels nodig",
+          "maskRequirement": "Masker vereist (bijv. ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Hybrid: Woordenlijst + Masker",
+          "description": "Voegt door masker gegenereerde tekens toe aan woorden uit een woordenlijst",
+          "wordlistRequirement": "Exact 1 woordenlijst vereist",
+          "rulesRequirement": "Geen regels nodig",
+          "maskRequirement": "Masker vereist (bijv. ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Hybrid: Masker + Woordenlijst",
+          "description": "Voegt door masker gegenereerde tekens toe vóór woorden uit een woordenlijst",
+          "wordlistRequirement": "Exact 1 woordenlijst vereist",
+          "rulesRequirement": "Geen regels nodig",
+          "maskRequirement": "Masker vereist (bijv. ?d?d?d?d)"
+        },
+        "association": {
+          "name": "Association (Niet geïmplementeerd)",
+          "description": "Deze aanvalsmodus is momenteel niet geïmplementeerd",
+          "wordlistRequirement": "N/A",
+          "rulesRequirement": "N/A",
+          "maskRequirement": "N/A"
+        }
       }
     }
   },
@@ -605,7 +797,8 @@
     "canInterrupt": "Kan onderbreken",
     "normal": "Normaal",
     "loopbackAllEligible": "Alle geschikte stappen",
-    "loopbackStepCount": "{{count}} stap(pen)",
+    "loopbackStepCount_one": "{{count}} stap",
+    "loopbackStepCount_other": "{{count}} stappen",
     "columns": {
       "name": "Naam",
       "description": "Beschrijving",
@@ -630,8 +823,10 @@
       "noJobsAdded": "Nog geen taken toegevoegd aan deze workflow. Zoek en voeg hierboven vooringestelde taken toe.",
       "priority": "Prioriteit: {{priority}}",
       "binary": "Binair: {{name}}",
-      "wordlistCount": "{{count}} woordenlijst(en)",
-      "ruleCount": "{{count}} regel(s)",
+      "wordlistCount_one": "{{count}} woordenlijst",
+      "wordlistCount_other": "{{count}} woordenlijsten",
+      "ruleCount_one": "{{count}} regel",
+      "ruleCount_other": "{{count}} regels",
       "loopback": {
         "masterToggle": "Loopback inschakelen voor alle geschikte stappen",
         "masterHelperText": "Wanneer dit aanstaat, wordt eerst de volledige workflow uitgevoerd en daarna elke geschikte stap (straight + regels, of een hybride aanval met woordenlijst ± masker) opnieuw uitgevoerd tegen uitsluitend de nieuw gekraakte wachtwoorden — dit wordt intelligent herhaald totdat er geen nieuwe kraken meer worden gevonden. Niet-muterende stappen (alleen woordenlijst, brute force, associatie) voeden hun nieuwe kraken nog steeds terug in de lus. De schakelaars per stap hieronder zijn uitgeschakeld zolang dit aanstaat.",
@@ -660,8 +855,8 @@
         "updateSuccess": "Workflow succesvol bijgewerkt"
       },
       "cloudBurst": {
-        "toggle": "Allow cloud burst for every step",
-        "helperText": "Applies to all steps, overriding each preset's own setting. Set at the workflow level so one rented instance can carry the whole workflow instead of being torn down and re-rented between steps."
+        "toggle": "Cloud burst voor elke stap toestaan",
+        "helperText": "Van toepassing op alle stappen, waarbij elke voorinstelling wordt genegeerd. Stel dit in op workflowniveau zodat één gehuurde instantie de hele workflow kan uitvoeren in plaats van dat deze tussen stappen wordt afgebroken en opnieuw wordt verhuurd."
       }
     }
   },
@@ -698,11 +893,35 @@
       "cannotDeleteLast": "Kan de laatste actieve {{type}} binary niet verwijderen",
       "cannotDeleteOnly": "Kan de enige binary van dit type niet verwijderen",
       "setDefaultSuccess": "Standaard binary succesvol bijgewerkt",
-      "setDefaultFailed": "Instellen van standaard binary mislukt"
+      "setDefaultFailed": "Instellen van standaard binary mislukt",
+      "addSuccess": "Binary succesvol toegevoegd",
+      "addFailed": "Toevoegen van binary mislukt"
     },
     "deleteDialog": {
       "title": "Verwijdering bevestigen",
       "message": "Weet u zeker dat u de binary \"{{fileName}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt."
+    },
+    "form": {
+      "addDialogTitle": "Nieuwe binary toevoegen",
+      "sourceLabel": "Bron",
+      "downloadFromUrl": "Downloaden van URL",
+      "uploadFile": "Bestand uploaden",
+      "binaryTypeLabel": "Binarytype",
+      "johnPending": "John the Ripper (ondersteuning volgt)",
+      "compressionTypeLabel": "Compressietype",
+      "sourceUrlLabel": "Bron-URL",
+      "sourceUrlHelp": "URL om de binary te downloaden (bijv. https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Archiefbestand selecteren",
+      "uploadHelp": "Een .7z-, .zip-, .tar.gz- of .tar.xz-archief uploaden dat de binary bevat",
+      "fileNameLabel": "Bestandsnaam",
+      "fileNameHelp": "Automatisch ingevuld vanuit URL/bestand, maar kan worden gewijzigd indien nodig",
+      "versionLabel": "Versie",
+      "versionHelp": "Automatisch gedetecteerd vanuit bestandsnaam. Overschrijf voor aangepaste builds.",
+      "descriptionLabel": "Beschrijving",
+      "descriptionHelp": "Optionele opmerkingen over deze binary (bijv. details over aangepaste builds)",
+      "setAsDefault": "Als standaardbinary instellen",
+      "selectFileRequired": "Selecteer een bestand om te uploaden",
+      "uploadBinarySubmit": "Binary uploaden"
     }
   },
   "diagnostics": {
@@ -719,7 +938,7 @@
     "downloadDiagnostics": "Diagnostiek downloaden",
     "systemInfo": "Systeeminformatie",
     "runtime": "Runtime",
-    "cpus": "CPUs",
+    "cpus": "CPU's",
     "goroutines": "Goroutines",
     "memory": "Geheugen",
     "heap": "Heap",
@@ -856,7 +1075,8 @@
       "maxCodeAttempts": "Max. code-pogingen",
       "maxCodeAttemptsHelper": "Maximum aantal mislukte code-pogingen voordat vergrendeling",
       "backupCodesCount": "Aantal backupcodes",
-      "backupCodesCountHelper": "Aantal backupcodes om te genereren"
+      "backupCodesCountHelper": "Aantal backupcodes om te genereren",
+      "requireMfaHelper": "Elke gebruiker moet MFA bij het aanmelden voltooien. Vereist een geconfigureerde e-mailprovider zodat codes kunnen worden bezorgd."
     },
     "webauthn": {
       "title": "WebAuthn / Passkey-configuratie",
@@ -891,18 +1111,24 @@
     "messages": {
       "updateSuccess": "Authenticatie-instellingen succesvol bijgewerkt",
       "updateFailed": "Bijwerken van authenticatie-instellingen mislukt"
+    },
+    "teams": {
+      "title": "Multi-team-isolatie",
+      "description": "Wanneer ingeschakeld, zijn klanten, hashlijsten, taken en agents opgesplitst naar teams en zien gebruikers alleen wat hun teams bezitten.",
+      "enable": "Teams inschakelen",
+      "enableHelper": "Bestaande gegevens worden in het standaardteam geplaatst."
     }
   },
   "ssoSettings": {
     "pageTitle": "SSO-instellingen",
     "pageDescription": "Configureer Single Sign-On providers en authenticatie-opties",
     "warnings": {
-      "ephemeralKeyTitle": "SSO Encryption Key Not Configured",
-      "ephemeralKeyDescription": "SSO provider secrets (client secrets, bind passwords, private keys) are currently encrypted with a temporary key that will be lost when the server restarts. Any configured SSO providers will stop working after a restart.",
-      "ephemeralKeyInstructions": "To fix this, generate a persistent encryption key by running:",
-      "ephemeralKeyAddToEnv": "Then add the following to your .env file and restart the server:",
+      "ephemeralKeyTitle": "SSO-versleutelingssleutel niet geconfigureerd",
+      "ephemeralKeyDescription": "SSO-providergeheimen (clientgeheimen, bindwachtwoorden, persoonlijke sleutels) zijn momenteel versleuteld met een tijdelijke sleutel die verloren gaat wanneer de server opnieuw wordt opgestart. Alle geconfigureerde SSO-providers zullen na een herstart niet meer werken.",
+      "ephemeralKeyInstructions": "Om dit op te lossen, genereert u een permanente versleutelingssleutel door het volgende uit te voeren:",
+      "ephemeralKeyAddToEnv": "Voeg vervolgens het volgende toe aan uw .env-bestand en start de server opnieuw:",
       "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
-      "ephemeralKeyCopied": "Command copied to clipboard"
+      "ephemeralKeyCopied": "Opdracht naar klembord gekopieerd"
     },
     "authMethods": {
       "title": "Authenticatiemethoden",
@@ -930,9 +1156,9 @@
       "noProviders": "Geen SSO-providers geconfigureerd. Klik op \"Provider toevoegen\" om er een aan te maken.",
       "enabled": "Ingeschakeld",
       "disabled": "Uitgeschakeld",
-      "callbackUrl": "Callback URL",
-      "acsUrl": "ACS URL",
-      "metadata": "Metadata",
+      "callbackUrl": "Callback-URL",
+      "acsUrl": "ACS-URL",
+      "metadata": "Metagegevens",
       "viewXml": "XML bekijken",
       "testConnection": "Verbinding testen",
       "downloadCertificate": "SP-certificaat downloaden"
@@ -958,7 +1184,7 @@
     },
     "ldapConfig": {
       "title": "LDAP-configuratie",
-      "serverUrl": "Server URL",
+      "serverUrl": "Server-URL",
       "serverUrlHelper": "Gebruik ldaps:// voor beveiligde verbindingen",
       "baseDn": "Basis-DN",
       "userSearchFilter": "Gebruikerszoekfilter",
@@ -977,7 +1203,7 @@
       "spEntityId": "SP Entity ID",
       "spEntityIdHelper": "SAML-identificatie van uw applicatie",
       "idpEntityId": "IdP Entity ID",
-      "idpSsoUrl": "IdP SSO URL",
+      "idpSsoUrl": "IdP SSO-URL",
       "idpCertificate": "IdP-certificaat",
       "emailAttribute": "E-mailattribuut",
       "usernameAttribute": "Gebruikersnaamattribuut",
@@ -989,11 +1215,11 @@
       "isOidc": "OpenID Connect (OIDC)",
       "clientId": "Client ID",
       "clientSecret": "Client Secret",
-      "discoveryUrl": "Discovery URL",
+      "discoveryUrl": "Discovery-URL",
       "discoveryUrlHelper": "OIDC-discovery-eindpunt (configureert andere URLs automatisch)",
       "authorizationUrl": "Autorisatie URL",
-      "tokenUrl": "Token URL",
-      "userInfoUrl": "User Info URL",
+      "tokenUrl": "Token-URL",
+      "userInfoUrl": "UserInfo-URL",
       "scopes": "Scopes",
       "scopesHelper": "Door spaties gescheiden lijst",
       "emailAttribute": "E-mailattribuut",
@@ -1109,13 +1335,25 @@
         "securityEvent": "Beveiligingsgebeurtenis",
         "jobCompletion": "Taakvoltooiing",
         "adminError": "Beheerderfout",
-        "mfaCode": "MFA-code"
+        "mfaCode": "MFA-code",
+        "securityPasswordChanged": "Wachtwoord gewijzigd",
+        "securityMfaDisabled": "MFA uitgeschakeld",
+        "securitySuspiciousLogin": "Verdachte aanmelding",
+        "jobStarted": "Taak gestart",
+        "jobFailed": "Taak mislukt",
+        "firstCrack": "Eerste kraak",
+        "taskCompleted": "Subtaak voltooid",
+        "agentOffline": "Agent offline",
+        "agentError": "Agentfout",
+        "webhookFailure": "Webhookfout"
       },
       "buttons": {
         "create": "Sjabloon aanmaken",
         "cancel": "Annuleren",
         "test": "Testen",
-        "save": "Opslaan"
+        "save": "Opslaan",
+        "edit": "Bewerken",
+        "delete": "Verwijderen"
       },
       "table": {
         "name": "Naam",
@@ -1134,7 +1372,8 @@
         "deleteSuccess": "Sjabloon succesvol verwijderd",
         "deleteFailed": "Verwijderen van sjabloon mislukt",
         "testSuccess": "Test-e-mail succesvol verzonden",
-        "testFailed": "Verzenden van test-e-mail mislukt"
+        "testFailed": "Verzenden van test-e-mail mislukt",
+        "saveFailed": "Opslaan van sjabloon mislukt"
       }
     }
   },
@@ -1190,13 +1429,13 @@
       "priorityFifoMode": "Prioriteit - FIFO",
       "priorityRoundRobinMode": "Prioriteit - Round Robin",
       "enforceMaxAgentsMode": "max_agents afdwingen",
-      "maxAgentsFifoMode": "Max Agents - FIFO",
-      "maxAgentsRoundRobinMode": "Max Agents - Round Robin",
+      "maxAgentsFifoMode": "Max. agents - FIFO",
+      "maxAgentsRoundRobinMode": "Max. agents - Round robin",
       "priorityFifoDescription": "Wanneer meerdere taken met dezelfde prioriteit hun max_agents-limieten overschrijden, ontvangt de oudste taak (eerst aangemaakt) alle extra agents.",
       "priorityRoundRobinDescription": "Extra agents worden gelijkmatig verdeeld over alle taken met dezelfde prioriteit, één agent per keer, voor eerlijke toewijzing.",
-      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
-      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
-      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
+      "enforceMaxAgentsDescription": "Elke taak strikt beperken tot zijn max_agents-limiet — geen overflow. Resterende agents blijven niet-actief. Meest voorspelbaar; kan capaciteit verspillen.",
+      "maxAgentsFifoDescription": "Alle taken op alle prioriteiten vullen eerst tot max_agents (strikte limieten). Alle resterende agents stapelen zich vervolgens op de OUDSTE taak in totaal — voorbij prioriteit. Maximaliseert doorvoer terwijl elke taak toch zijn baseline krijgt.",
+      "maxAgentsRoundRobinDescription": "Alle taken op alle prioriteiten vullen eerst tot max_agents (strikte limieten). Alle resterende agents roteren vervolgens gelijkmatig over ALLE taken — voorbij prioriteit. Maximaliseert doorvoer met billijke verdeling voorbij de baseline."
     },
     "hashlist": {
       "title": "Hashlijstinstellingen",
@@ -1224,6 +1463,18 @@
       "passwordsEvery": "wachtwoorden elke",
       "seconds": "seconden"
     },
+    "speedTest": {
+      "title": "Snelheidstest (Benchmark)",
+      "tooltip": "Pas aan hoe lang agents wachten totdat hashcat een bruikbare benchmark produceert voordat de snelheidstest mislukt. Gecomprimeerde woordenlijsten hebben aanzienlijk meer tijd nodig om dictstat voor te verwerken.",
+      "timeoutUncompressed": "Time-out: woordenlijsten in platte tekst (seconden)",
+      "timeoutUncompressedHelper": "Maximum aantal seconden dat de agent op een geldige snelheidsmeting voor woordenlijsten in platte tekst zal wachten. Standaard: 120.",
+      "timeoutCompressed": "Time-out: gecomprimeerde woordenlijsten (seconden)",
+      "timeoutCompressedHelper": "Maximum aantal seconden voor .gz- / .zip- / .xz-woordenlijsten — de drie indelingen die hashcat native leest. Deze hebben meer tijd nodig om uit te pakken en dictstat voor te verwerken. Standaard: 300.",
+      "minStatusUpdates": "Minimale statusupdates",
+      "minStatusUpdatesHelper": "Minimumaantal hashcat --status-json ticks die de agent moet verzamelen voordat een resultaat wordt geretourneerd. Standaard: 3.",
+      "minUpdatesLowWarning": "Waarden onder de 3 kunnen onnauwkeurige metingen veroorzaken: GPU's zijn mogelijk nog niet volledig opgestart.",
+      "description": "Als de agent time-out bereikt zonder een niet-nul snelheid te produceren, wordt de benchmark gerapporteerd als mislukt en bevat de taak een actie-gerichte fout voor de beheerder. De chunkingpijplijn weigert ook een subtaak met 1 kandidaat uit te voeren, dus een verouderde 0 H/s-benchmark kan niet voor altijd blijven herhalen."
+    },
     "errors": {
       "loadFailed": "Laden van systeeminstellingen mislukt",
       "maxPriorityRequired": "Maximale prioriteit is verplicht",
@@ -1231,7 +1482,9 @@
       "maxPriorityMax": "Maximale prioriteit kan niet hoger zijn dan 1.000.000",
       "saveFailed": "Opslaan van systeeminstellingen mislukt",
       "batchSizeRange": "Batchgrootte moet tussen {{min}} en {{max}} zijn",
-      "intervalRange": "Interval moet tussen {{min}} en {{max}} seconden zijn"
+      "intervalRange": "Interval moet tussen {{min}} en {{max}} seconden zijn",
+      "speedTestTimeoutRange": "Snelheidstest-timeout moet tussen {{min}} en {{max}} seconden liggen",
+      "minStatusUpdatesRange": "Minimale statusupdates moeten tussen {{min}} en {{max}} liggen"
     },
     "messages": {
       "updateSuccess": "Systeeminstellingen succesvol bijgewerkt",
@@ -1243,6 +1496,8 @@
       "hashlistBatchUpdated": "Hashlijst batchgrootte bijgewerkt",
       "potfileBatchUpdated": "Potfile batchgrootte bijgewerkt",
       "potfileIntervalUpdated": "Potfile batchinterval bijgewerkt",
+      "speedTestTimeoutUpdated": "Snelheidstest-timeout bijgewerkt",
+      "speedTestMinUpdatesUpdated": "Minimale statusupdates voor snelheidstest bijgewerkt",
       "updateFailed": "Bijwerken van instelling mislukt"
     }
   },
@@ -1253,9 +1508,15 @@
       "title": "Taakchunking",
       "defaultChunkDuration": "Standaard chunkduur",
       "defaultChunkDurationHelper": "Duur voor elke taakchunk",
+      "minChunkSeconds": "Minimale chunkduur",
+      "minChunkSecondsHelper": "Ondergrens voor de werkelijke tijd van één chunk; voorkomt kleine weeschunks",
+      "minutes": "minuten",
+      "overrunTolerance": "Chunkoverrun-tolerantie",
+      "overrunToleranceHelper": "Hoe ver voorbij de geplande duur een chunk mag lopen voordat de beveiliging deze stopt en de rest opnieuw uitvoert.",
+      "overrunGuard": "Chunkoverrun-beveiliging inschakelen",
+      "overrunGuardHelper": "Stopt een subtaak die veel voorbij de geplande chunkduur loopt en voert het onafgewerkte gedeelte opnieuw uit.",
       "chunkFluctuation": "Chunkfluctuatiepercentage",
-      "chunkFluctuationHelper": "Toegestane fluctuatie voor laatste chunks",
-      "minutes": "minuten"
+      "chunkFluctuationHelper": "Toegestane fluctuatie voor laatste chunks"
     },
     "agentConfig": {
       "title": "Agentconfiguratie",
@@ -1269,13 +1530,13 @@
       "benchmarkCacheHelper": "Hoe lang agent-benchmarks worden gecached",
       "benchmarkHistoryRetention": "Benchmarkgeschiedenis bewaren",
       "benchmarkHistoryRetentionHelper": "Dagen om benchmarkgeschiedenis te bewaren (0 = onbeperkt)",
-      "speedtestTimeout": "Speedtest-timeout",
-      "speedtestTimeoutHelper": "Maximale wachttijd voor voltooiing van speedtest",
       "reconnectGrace": "Herverbindingsrespijtperiode",
       "reconnectGraceHelper": "Wachttijd voor agents om te herverbinden na serverherstart",
       "days": "dagen",
       "seconds": "seconden",
-      "minutes": "minuten"
+      "minutes": "minuten",
+      "speedtestTimeout": "Speedtest-timeout",
+      "speedtestTimeoutHelper": "Maximale wachttijd voor voltooiing van speedtest"
     },
     "jobControl": {
       "title": "Taakbeheer",
@@ -1295,7 +1556,127 @@
     "potfile": {
       "title": "Potfile-instellingen",
       "enablePotfile": "Potfile inschakelen",
-      "enablePotfileHelper": "Automatisch gekraakte wachtwoorden opslaan voor gebruik in toekomstige taken. Individuele hashlijsten kunnen nog steeds worden uitgesloten."
+      "enablePotfileHelper": "Automatisch gekraakte wachtwoorden opslaan voor gebruik in toekomstige taken. Individuele hashlijsten kunnen nog steeds worden uitgesloten.",
+      "maxBatchSize": "Maximale batchgrootte",
+      "maxBatchSizeHelper": "Aantal gefaseerde wachtwoorden om in elke batchcyclus te verwerken (1.000 - 500.000)",
+      "batchInterval": "Batchinterval",
+      "batchIntervalHelper": "Seconden tussen potfile-batchverwerkingscycli (10 - 600)",
+      "enableClientPotfiles": "Klant-potfiles inschakelen",
+      "enableClientPotfilesHelper": "Zorg voor een aparte potfile per klant, naast de globale potfile.",
+      "removeGlobalDefault": "Verwijderen uit globale potfile wanneer een hashlijst wordt verwijderd (standaard)",
+      "removeClientDefault": "Verwijderen uit klant-potfile wanneer een hashlijst wordt verwijderd (standaard)"
+    },
+    "scheduler": {
+      "title": "Scheduler (v2)",
+      "description": "Geavanceerde afstemming van de subtaak-liveness en overrunverwerking van de v2-scheduler. Standaardinstellingen zijn veilig voor de meeste implementaties.",
+      "taskHeartbeatTimeout": "Subtaak-heartbeattimeout",
+      "taskHeartbeatTimeoutHelper": "Seconden zonder levenssignaal voordat een actieve subtaak verloren gaat en wordt hersteld",
+      "taskStartupGrace": "Subtaak-opstartuitstel",
+      "taskStartupGraceHelper": "Extra tijd vóór eerste voortgang (bestand downloaden, decompressie, autotune)",
+      "networkGrace": "Netwerkuitstel",
+      "networkGraceHelper": "WebSocket-herverbindingstolerantie voordat het herstel op een verbreking wordt geactiveerd",
+      "overrunGuardEnabled": "Chunkoverrun-beveiliging",
+      "overrunGuardEnabledHelper": "Stop subtaken die voorbij hun chunkdoel lopen, voorbij de onderstaande tolerantie.",
+      "overrunTolerance": "Overrun-tolerantie",
+      "overrunToleranceHelper": "Uitstelperiode: stoppen wanneer werkelijke tijd het chunkdoel overschrijdt met dit percentage"
+    },
+    "buttons": {
+      "save": "Instellingen opslaan"
+    },
+    "errors": {
+      "loadFailed": "Laden van instellingen mislukt",
+      "outOfRange": "{{label}} moet tussen {{min}} en {{max}} liggen"
+    },
+    "messages": {
+      "updateSuccess": "Taakuitvoeringsinstellingen succesvol bijgewerkt",
+      "loadFailed": "Laden van taakuitvoeringsinstellingen mislukt",
+      "saveFailed": "Opslaan van instellingen mislukt"
+    },
+    "keyspaceBenchmark": {
+      "title": "Keyspace & Benchmark",
+      "caption": "Hoe lang KrakenHashes mag besteden aan het meten van een aanval. De eerste instelling beperkt de SERVER die de woordenlijst meet bij het maken van een taak; de snelheidstestinstellingen beperken een AGENT die zijn eigen hashsnelheid meet. Dit zijn verschillende fasen — het verhogen van het ene beïnvloedt het andere niet.",
+      "keyspaceTimeout": "Keyspace-berekeningtimeout",
+      "keyspaceTimeoutHelper": "Aan serverzijde. Toegestane tijd voor hashcat --keyspace / --total-candidates wanneer een taak wordt gemaakt. Wordt op de achtergrond uitgevoerd, dus het verhogen hiervan leidt niet tot langzamere taakaanmaak. Indien overschreden, valt een directe aanval terug op het aantal woorden in de woordenlijst en waarschuwt de gebruiker.",
+      "speedTestUncompressed": "Agent-snelheidstesttimeout",
+      "speedTestUncompressedHelper": "Agent-zijdig. Limiet op de werkelijke tijd voor een agentbenchmark op een ongecomprimeerde woordenlijst.",
+      "speedTestCompressed": "Agent-snelheidstesttimeout (gecomprimeerd)",
+      "speedTestCompressedHelper": "Agent-zijdig. Langere limiet voor gecomprimeerde woordenlijsten, die hashcat moet decomprimeren voordat het een hashsnelheid kan rapporteren.",
+      "minStatusUpdates": "Minimale statusupdates",
+      "minStatusUpdatesHelper": "Hoeveel hashcat-statusrapporten een snelheidstest moet produceren voordat het resultaat wordt vertrouwd. Lage waarden riskeren dat een hashsnelheid wordt opgenomen voordat de GPU volledig was opgestart.",
+      "cacheDuration": "Benchmark cacheduur",
+      "cacheDurationHelper": "Hoe lang een opgenomen benchmark geldig blijft voordat een agent opnieuw moet meten.",
+      "historyRetention": "Benchmarkgeschiedenis bewaren",
+      "historyRetentionHelper": "Hoe lang afzonderlijke benchmarkrecords worden bewaard voor trendanalyse.",
+      "hours": "uren",
+      "days": "dagen"
+    },
+    "benchmarkReliability": {
+      "title": "Benchmarkbetrouwbaarheid",
+      "caption": "Wat gebeurt er wanneer benchmarks herhaaldelijk mislukken. Deze beschermen tegen één slechte agent of één slechte taakconfiguratie die de agentvloot verbruikt door een benchmark opnieuw uit te voeren die niet kan slagen.",
+      "failureThreshold": "Mislukkingsdrempel",
+      "failureThresholdHelper": "Opeenvolgende benchmarkfouten voor een agent/taak/aanvalscombinatie voordat deze wordt blocklisted.",
+      "hardFailureCap": "Hard failure-plafond",
+      "hardFailureCapHelper": "Absoluut plafond voor benchmarkpogingen voor een combinatie, ongeacht de bovenstaande drempel.",
+      "blocklistCooldown": "Blocklistafkoeling",
+      "blocklistCooldownHelper": "Hoe lang een geblockliste agent/taak/aanvalscombinatie geblokkeerd blijft voordat deze opnieuw kan worden geprobeerd.",
+      "stormThreshold": "Benchmarkstormdrempel",
+      "stormThresholdHelper": "Aantal benchmarkfouten in het stormvenster dat een beheerdersmelding activeert.",
+      "stormWindow": "Benchmarkstormvenster",
+      "stormWindowHelper": "De periode waarin stormdrempel-fouten worden geteld.",
+      "streakReset": "Mislukkingsreeks-reset",
+      "streakResetHelper": "Hoe lang een agent zonder benchmarkfout moet gaan voordat zijn mislukkingsreeks opnieuw op nul wordt ingesteld.",
+      "quarantineStreak": "Quarantainemislukkingsreeks",
+      "quarantineStreakHelper": "Opeenvolgende fouten, ongeacht de combinatie, voordat de agent zelf uit benchmarking in quarantaine wordt geplaatst.",
+      "quarantineDistinct": "Afzonderlijke combinaties voor quarantaine",
+      "quarantineDistinctHelper": "Hoeveel VERSCHILLENDE aanvals-/hashtypecombinaties moeten mislukken voordat de agent als defect wordt behandeld in plaats van de taak."
+    },
+    "scheduling": {
+      "title": "Planning & Toewijzing",
+      "overflowMode": "Agent-overflowtoewijzingsmodus",
+      "overflowModeHelper": "Hoe agents die overblijven nadat taken hun max-agents-limiet hebben bereikt, worden verdeeld.",
+      "maxConcurrentJobs": "Max. gelijktijdige taken per agent",
+      "maxConcurrentJobsHelper": "Hoeveel taken een enkele agent tegelijk kan uitvoeren.",
+      "agentScheduling": "Agent-planning inschakelen",
+      "agentSchedulingHelper": "Schakelt globaal planningen voor werkuren per agent in. Als dit uit staat, worden agentschema's genegeerd.",
+      "jobInterruption": "Taakonderbreking toestaan",
+      "jobInterruptionHelper": "Globale poort voor preemptie. Een taak MOET OOK zijn eigen high-priority override-vlag en een niet-nul prioriteit hebben voordat iets wordt onderbroken.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Round robin",
+        "enforceMaxAgents": "Max. agents afdwingen",
+        "maxAgentsFifo": "Max. agents, dan FIFO",
+        "maxAgentsRoundRobin": "Max. agents, dan round robin"
+      }
+    },
+    "taskHealth": {
+      "title": "Subtaakgezondheid",
+      "caption": "Wanneer een actieve subtaak als verloren wordt beschouwd, en hoe agressief werk wordt hersteld. Stel deze te strak in en gezonde subtaken worden verwijderd; te los en een dode subtaak houdt zijn keyspace uren vast.",
+      "heartbeatTimeout": "Subtaak-heartbeattimeout",
+      "heartbeatTimeoutHelper": "Hoe lang een actieve subtaak zonder heartbeat kan gaan voordat deze als verloren wordt beschouwd en zijn keyspace opnieuw wordt geopend.",
+      "startupGrace": "Subtaak-opstartuitstel",
+      "startupGraceHelper": "Extra tijd toegestaan na toewijzing voordat heartbeatregels van toepassing zijn, wat hashcat-opstart en het laden van bestanden afdekt.",
+      "networkGrace": "Netwerkuitstel",
+      "networkGraceHelper": "Korte toewijzing voor voorbijgaande netwerkonderbrekingen voordat een gemiste heartbeat telt.",
+      "reconnectGrace": "Herverbindingsrespijtperiode",
+      "reconnectGraceHelper": "Hoe lang een verbroken agent kan herverbinden en zijn actieve subtaak kan heroveren.",
+      "offlineBuffer": "Agent offline buffer",
+      "offlineBufferHelper": "Hoe lang berichten voor een kortdurend offline agent worden gebufferd voordat ze worden weggegooid.",
+      "maxRetryAttempts": "Max. chunk-herpogingen",
+      "maxRetryAttemptsHelper": "Hoe vaak een mislukte chunk opnieuw wordt geprobeerd voordat de subtaak mislukt. Stel op 0 in om herhalingen uit te schakelen.",
+      "progressInterval": "Voortgangsrapportage-interval",
+      "progressIntervalHelper": "Hoe vaak agents voortgang rapporteren. Lagere waarden geven fijnere voortgang maar meer belasting.",
+      "hashlistRetention": "Agent-hashlijstretentie",
+      "hashlistRetentionHelper": "Hoe lang agents een gedownloade hashlijst bewaren nadat ze ermee klaar zijn."
+    },
+    "loopback": {
+      "title": "Loopback",
+      "maxRounds": "Maximale loopbackrondes",
+      "maxRoundsHelper": "Veiligheidsplafond voor hoe vaak een loopback-sessie een aanval tegen onlangs gekraakte platte teksten opnieuw uitvoert voordat het stopt, zelfs als het nog steeds nieuwe kraken vindt."
+    },
+    "jobNotifications": {
+      "title": "Taakmeldingen",
+      "realtimeCracks": "Realtime kraakmeldingen",
+      "realtimeCracksHelper": "Meldt wanneer hashes worden gekraakt. Kan opmerkelijke belasting op zeer grote taken toevoegen."
     },
     "ruleSplitting": {
       "title": "Regelsplitsing",
@@ -1309,18 +1690,6 @@
       "maxChunksHelper": "Maximum aantal chunks per bestand",
       "chunkDirectory": "Regelchunk-map",
       "chunkDirectoryHelper": "Map voor tijdelijke regelchunks"
-    },
-    "buttons": {
-      "save": "Instellingen opslaan"
-    },
-    "errors": {
-      "loadFailed": "Laden van instellingen mislukt",
-      "outOfRange": "{{label}} moet tussen {{min}} en {{max}} liggen"
-    },
-    "messages": {
-      "updateSuccess": "Taakuitvoeringsinstellingen succesvol bijgewerkt",
-      "loadFailed": "Laden van taakuitvoeringsinstellingen mislukt",
-      "saveFailed": "Opslaan van instellingen mislukt"
     }
   },
   "monitoring": {
@@ -1411,7 +1780,8 @@
     "description": "Beheer ondersteunde hashtypen voor wachtwoordkraakoperaties",
     "addHashType": "Hashtype toevoegen",
     "searchPlaceholder": "Hashtypen zoeken...",
-    "hashTypesFound": "{{count}} hashtypen gevonden",
+    "hashTypesFound_one": "{{count}} hashtype gevonden",
+    "hashTypesFound_other": "{{count}} hashtypes gevonden",
     "table": {
       "id": "ID",
       "name": "Naam",
@@ -1471,179 +1841,241 @@
   "cloud": {
     "intro": {
       "title": "Cloud GPU provisioning",
-      "body": "Rent GPU instances on demand when the on-prem fleet cannot keep up. Instances join your existing VPN, receive only the files their job needs, and are torn down automatically. Spend is committed against a per-client budget before an instance boots, so a cap is a real limit rather than an after-the-fact measurement.",
-      "fleetLink": "View the live fleet"
+      "body": "Huur GPU-instanties op aanvraag wanneer de on-premise fleet niet meer meekomt. Instanties treden toe tot uw bestaande VPN, ontvangen alleen de bestanden die hun taak nodig heeft, en worden automatisch afgebroken. De uitgaven worden vastgelegd tegen een per-klantbudget voordat een instantie opstart, dus een limiet is een echte limiet in plaats van een achteraf gemeten getal.",
+      "fleetLink": "Bekijk de live fleet"
     },
     "sections": {
       "providers": "Providers",
-      "clients": "Client budgets",
-      "policy": "Threshold policy",
+      "clients": "Klantbudgetten",
+      "policy": "Drempelbeleid",
       "rules": "Provisioningregels",
-      "system": "Limits & operations"
+      "system": "Limieten en operaties"
     },
     "providers": {
       "title": "Cloud providers",
-      "description": "Where rented instances come from, and how they reach this server.",
-      "add": "Add provider",
-      "addTitle": "Add cloud provider",
-      "editTitle": "Edit cloud provider",
-      "edit": "Edit",
-      "delete": "Delete",
-      "save": "Save",
-      "saved": "Provider saved",
-      "saveFailed": "Failed to save provider",
-      "deleted": "Provider deleted",
-      "deleteFailed": "Failed to delete provider",
-      "deleteTitle": "Delete provider?",
-      "deleteBody": "Delete \"{{name}}\"? This fails while any rented instance still references it.",
-      "loadFailed": "Failed to load providers",
-      "empty": "No cloud providers configured. Nothing will be rented.",
-      "enabled": "Enabled",
-      "disabled": "Disabled",
-      "noCredentials": "No credentials",
-      "noVpn": "No VPN",
-      "credentialExpired": "Credential expired",
-      "credentialExpiresIn": "Expires in {{days}}d",
-      "limitsValue": "{{instances}} max, {{rate}}/hr cap",
-      "thirdPartyBadge": "Runs on third-party machines",
+      "description": "Waar gehuurde instanties vandaan komen en hoe ze deze server bereiken.",
+      "add": "Provider toevoegen",
+      "addTitle": "Cloud provider toevoegen",
+      "editTitle": "Cloud provider bewerken",
+      "edit": "Bewerken",
+      "delete": "Verwijderen",
+      "save": "Opslaan",
+      "saved": "Provider opgeslagen",
+      "saveFailed": "Provider kon niet worden opgeslagen",
+      "deleted": "Provider verwijderd",
+      "deleteFailed": "Provider kon niet worden verwijderd",
+      "deleteTitle": "Provider verwijderen?",
+      "deleteBody": "\"{{name}}\" verwijderen? Dit mislukt als nog een gehuurde instantie ernaar verwijst.",
+      "loadFailed": "Providers konden niet worden geladen",
+      "empty": "Geen cloud providers geconfigureerd. Er wordt niets gehuurd.",
+      "enabled": "Ingeschakeld",
+      "disabled": "Uitgeschakeld",
+      "noCredentials": "Geen inloggegevens",
+      "noVpn": "Geen VPN",
+      "credentialExpired": "Inloggegevens verlopen",
+      "credentialExpiresIn": "Verlopen over {{days}}d",
+      "limitsValue": "{{instances}} max, {{rate}}/uur limiet",
+      "thirdPartyBadge": "Wordt uitgevoerd op machines van derden",
       "preflight": "Preflight",
-      "preflightTitle": "Preflight report",
-      "preflightOk": "This provider can launch instances.",
-      "preflightFailed": "Preflight request failed",
-      "preflightFailedBody": "This provider cannot launch instances yet.",
-      "preflightIdentity": "Authenticated as {{identity}}",
-      "preflightQuota": "Quota: {{used}} of {{limit}} in use ({{source}})",
+      "preflightTitle": "Preflight-rapport",
+      "preflightOk": "Deze provider kan instanties starten.",
+      "preflightFailed": "Preflight-verzoek mislukt",
+      "preflightFailedBody": "Deze provider kan nog geen instanties starten.",
+      "preflightIdentity": "Geverifieerd als {{identity}}",
+      "preflightQuota": "Quotum: {{used}} van {{limit}} in gebruik ({{source}})",
       "preflightSections": {
-        "missing_permissions": "Missing permissions",
-        "inconclusive": "Could not be verified (treated as failure)",
-        "errors": "Errors",
-        "warnings": "Warnings"
+        "missing_permissions": "Ontbrekende machtigingen",
+        "inconclusive": "Kon niet worden geverifieerd (behandeld als fout)",
+        "errors": "Fouten",
+        "warnings": "Waarschuwingen"
       },
-      "acknowledge": "Acknowledge",
-      "acknowledged": "Acknowledgement recorded",
-      "ackFailed": "Failed to record acknowledgement",
-      "ackTitle": "Acknowledge third-party data exposure",
+      "acknowledge": "Bevestigen",
+      "acknowledged": "Bevestiging geregistreerd",
+      "ackFailed": "Bevestiging kon niet worden geregistreerd",
+      "ackTitle": "Blootstelling van gegevens aan derden bevestigen",
       "ackBody": {
         "vastai": "Vast.ai verhuurt GPU’s op particuliere machines waarvan de beheerders root-toegang tot de container hebben. Hashes, woordenlijsten en gekraakte wachtwoorden die daar worden geplaatst zijn zichtbaar voor een derde partij. Dit verschilt fundamenteel van AWS of RunPod Secure Cloud, waar instances in uw eigen account of in SOC 2-datacenters draaien.",
         "runpod_community": "RunPod Community Cloud verhuurt GPU’s op machines van derden waarvan de eigenaren root-toegang tot de container hebben. Hashes, woordenlijsten en gekraakte wachtwoorden die daar worden geplaatst zijn zichtbaar voor een derde partij. De verklaringen van RunPod gelden alleen voor Secure Cloud en strekken zich niet uit tot dit niveau."
       },
-      "ackConfirm": "Do you accept this exposure for workloads sent to this provider?",
-      "ackAccept": "I understand and accept",
-      "ephemeralKeyTitle": "Encryption key is ephemeral",
-      "ephemeralKeyBody": "KH_ENCRYPTION_KEY is not set, so a random key was generated at startup. Every stored credential becomes unreadable after the next restart. Set KH_ENCRYPTION_KEY before saving provider credentials.",
-      "vpnSection": "VPN connectivity",
-      "vpnSectionHelp": "This server is never exposed to the internet, so rented instances join the VPN you already run. OpenVPN is not supported: it needs /dev/net/tun and CAP_NET_ADMIN, which Vast.ai's unprivileged containers do not provide.",
+      "ackConfirm": "Accepteert u deze blootstelling voor werklasten die naar deze provider worden verzonden?",
+      "ackAccept": "Ik begrijp dit en accepteer het",
+      "ephemeralKeyTitle": "Versleutelingssleutel is kortstondig",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY is niet ingesteld, dus er is een willekeurige sleutel gegenereerd bij het starten. Alle opgeslagen inloggegevens worden onleesbaar na de volgende herstart. Stel KH_ENCRYPTION_KEY in voordat u providerinloggegevens opslaat.",
+      "vpnSection": "VPN-connectiviteit",
+      "vpnSectionHelp": "Deze server wordt nooit blootgesteld aan het internet, dus gehuurde instanties treden toe tot de VPN die u al draait. OpenVPN wordt niet ondersteund: het heeft /dev/net/tun en CAP_NET_ADMIN nodig, wat de unprivileged containers van Vast.ai niet bieden.",
       "reusableKeyWarning": {
-        "tailscale": "A reusable key is shared by every instance and expires — Tailscale caps auth keys at 90 days. Once it lapses, provisioning is refused rather than launching instances that cannot connect. An OAuth client lets KrakenHashes mint a single-use ephemeral tagged key per instance instead.",
-        "netbird": "A reusable setup key is shared by every instance, so the same secret reaches every rented host. Set Credential expires at below if the key has an expiry — provisioning is then refused once it lapses instead of launching instances that cannot connect; leave it blank for a key that never expires. Tag or group is ignored for this credential type: the group and the ephemeral flag come from the key's own configuration in NetBird. An access token lets KrakenHashes mint a single-use ephemeral setup key per instance and set the group itself."
+        "tailscale": "Een herbruikbare sleutel wordt door elke instantie gedeeld en verloopt — Tailscale beperkt auth-sleutels tot maximaal 90 dagen. Zodra deze vervalt, wordt provisioning geweigerd in plaats van instanties te starten die geen verbinding kunnen maken. Een OAuth-client laat KrakenHashes in plaats daarvan voor elke instantie één eenmalige kortstondige getagde sleutel genereren.",
+        "netbird": "Een herbruikbare instellingssleutel wordt door elke instantie gedeeld, dus hetzelfde geheim bereikt elke gehuurde host. Stel hieronder 'Inloggegevens verlopen op' in als de sleutel een vervaldatum heeft — provisioning wordt dan geweigerd zodra deze vervalt in plaats van instanties te starten die geen verbinding kunnen maken; laat dit leeg voor een sleutel die nooit verloopt. Tag of groep wordt genegeerd voor dit inloggegevenstype: de groep en de kortstondige vlag komen uit de eigen configuratie van de sleutel in NetBird. Een toegangstoken laat KrakenHashes voor elke instantie één eenmalige kortstondige instellingssleutel genereren en de groep zelf instellen."
       },
-      "staticConfigWarning": "WireGuard uses a static peer config: there is no per-instance credential and no automatic deregistration when an instance dies. Tailscale or NetBird is safer.",
+      "staticConfigWarning": "WireGuard gebruikt een statische peer-configuratie: er zijn geen per-instantie-inloggegevens en geen automatische afregistratie wanneer een instantie sterft. Tailscale of NetBird is veiliger.",
       "kinds": {
-        "aws": "AWS EC2 (your own account)",
-        "vastai": "Vast.ai (third-party machines)",
-        "mock": "Mock (local test agents, no cost)",
+        "aws": "AWS EC2 (uw eigen account)",
+        "vastai": "Vast.ai (machines van derden)",
+        "mock": "Mock (lokale testagents, geen kosten)",
         "runpod": "RunPod Secure Cloud (SOC 2-datacenters)",
         "runpod_community": "RunPod Community Cloud (machines van derden)"
       },
       "credentialKinds": {
-        "oauth": "OAuth client — mint one ephemeral key per instance (recommended)",
-        "pat": "Access token — mint one ephemeral key per instance (recommended)",
-        "reusable_key": "Reusable key — shared by every instance",
-        "static_config": "Static config — no per-instance credential"
+        "oauth": "OAuth-client — genereert één kortstondige sleutel per instantie (aanbevolen)",
+        "pat": "Toegangstoken — genereert één kortstondige sleutel per instantie (aanbevolen)",
+        "reusable_key": "Herbruikbare sleutel — gedeeld door elke instantie",
+        "static_config": "Statische configuratie — geen per-instantie-inloggegevens"
       },
       "vpnCredentialHelp": {
-        "oauth": "Tailscale OAuth client as client_id:client_secret. Needs the auth_keys scope and the tag selected.",
-        "pat": "NetBird personal access token or service-user token.",
-        "reusable_key": "The pre-authorized key every instance will use.",
-        "static_config": "The full WireGuard peer configuration."
+        "oauth": "Tailscale OAuth-client als client_id:client_secret. Vereist de auth_keys-scope en de geselecteerde tag.",
+        "pat": "NetBird persoonlijk toegangstoken of service-user-token.",
+        "reusable_key": "De vooraf geautoriseerde sleutel die elke instantie gebruikt.",
+        "static_config": "De volledige WireGuard peer-configuratie."
       },
       "columns": {
-        "name": "Name",
+        "name": "Naam",
         "provider": "Provider",
         "status": "Status",
         "vpn": "VPN",
-        "limits": "Limits",
-        "actions": "Actions"
+        "limits": "Limieten",
+        "actions": "Acties"
       },
       "fields": {
-        "name": "Name",
+        "name": "Naam",
         "provider": "Provider",
-        "credentials": "Provider credentials",
-        "credentialsHelp": "API credentials for {{provider}}. Stored encrypted and never returned.",
-        "credentialsKeepHelp": "Leave blank to keep the stored credential unchanged.",
-        "maxConcurrent": "Maximum concurrent instances",
-        "maxHourlyCents": "Maximum hourly rate (cents)",
-        "maxHourlyHelp": "Offers above this rate are never rented, whatever the budget allows.",
-        "vpnProvider": "VPN provider",
-        "credentialKind": "Credential type",
-        "vpnCredential": "VPN credential",
-        "credentialExpiry": "Credential expires at",
-        "credentialExpiryHelp": "Optional — leave blank for a key that never expires. Provisioning is refused after this time, and you will be warned as it approaches.",
-        "vpnTag": "Tag or group",
-        "vpnTagHelp": "e.g. tag:kraken-worker. Required for Tailscale OAuth; scopes what these nodes may reach.",
-        "backendVpnHost": "This server's address on the VPN",
-        "backendVpnHostHelp": "The KH_HOST value cloud agents use. The server certificate must cover it — add it under the Server Certificate tab and click Apply & Reissue, or agents will fail TLS hostname verification.",
-        "enabled": "Enabled",
-        "awsAccessKeyId": "AWS access key ID",
-        "awsAccessKeyIdHelp": "An IAM user or role key scoped to EC2 provisioning. Stored encrypted and never returned.",
-        "awsSecretAccessKey": "AWS secret access key",
-        "awsRegion": "Region",
-        "awsRegionHelp": "e.g. us-east-2. Every other AWS field below must live in this region.",
-        "awsSubnet": "Subnet ID",
-        "awsSubnetHelp": "e.g. subnet-0abc123. Must auto-assign a public IP, or the instance cannot reach your VPN's control plane.",
-        "awsSecurityGroups": "Security group IDs",
-        "awsSecurityGroupsHelp": "Comma-separated, e.g. sg-0abc123. Needs outbound access only; no inbound rule is required.",
-        "awsAmiSsm": "AMI SSM parameter",
-        "awsAmiSsmHelp": "Resolved at launch, so the image never goes stale. e.g. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
-        "awsAmiId": "AMI ID (overrides the SSM parameter)",
-        "awsAmiIdHelp": "Pin a specific image instead. Leave blank to resolve through SSM. One of the two is required.",
-        "awsInstanceProfile": "IAM instance profile ARN",
-        "awsInstanceProfileHelp": "Optional. Only needed if the agent itself must call AWS APIs.",
-        "awsRootVolume": "Root volume (GB)",
-        "awsRootVolumeHelp": "A floor; a job's file set may need more. Must be at least the AMI's snapshot size or the launch fails.",
-        "awsEbsRate": "EBS rate (cents/GB-month)",
-        "awsEbsRateHelp": "gp3 storage price. Left at 0 the budget reserves nothing for disk.",
-        "awsUseSpot": "Use spot capacity",
-        "awsUseSpotHelp": "Spot requests are one-time and terminate on interruption. Discounts on current-generation GPU are often modest, so this is not automatically cheaper. Spot and on-demand draw on separate vCPU quotas.",
-        "awsInstanceType": "Instance type",
-        "awsHourlyCents": "Cents/hour",
-        "awsGpuModel": "GPU model",
-        "awsGpuCount": "GPUs",
+        "credentials": "Providerinloggegevens",
+        "credentialsHelp": "API-inloggegevens voor {{provider}}. Opgeslagen versleuteld en nooit geretourneerd.",
+        "credentialsKeepHelp": "Laat dit leeg om de opgeslagen inloggegevens ongewijzigd te houden.",
+        "maxConcurrent": "Maximale gelijktijdige instanties",
+        "maxHourlyCents": "Maximaal uurtarief (cents)",
+        "maxHourlyHelp": "Aanbiedingen boven dit tarief worden nooit gehuurd, ongeacht wat het budget toestaat.",
+        "vpnProvider": "VPN-provider",
+        "credentialKind": "Type inloggegevens",
+        "vpnCredential": "VPN-inloggegevens",
+        "credentialExpiry": "Inloggegevens verlopen op",
+        "credentialExpiryHelp": "Optioneel — laat dit leeg voor een sleutel die nooit verloopt. Provisioning wordt na dit moment geweigerd en u wordt gewaarschuwd wanneer het nadert.",
+        "vpnTag": "Tag of groep",
+        "vpnTagHelp": "bijv. tag:kraken-worker. Vereist voor Tailscale OAuth; bepaalt wat deze knooppunten kunnen bereiken.",
+        "backendVpnHost": "Adres van deze server op de VPN",
+        "backendVpnHostHelp": "De KH_HOST-waarde die cloud-agents gebruiken. Het servercertificaat moet dit dekken — voeg het toe onder het tabblad Servercertificaat en klik op Toepassen en opnieuw uitgeven, anders mislukt TLS-hostnaamverificatie voor agents.",
+        "enabled": "Ingeschakeld",
+        "awsAccessKeyId": "AWS-toegangssleutel-id",
+        "awsAccessKeyIdHelp": "Een IAM-gebruiker of rolsleutel beperkt tot EC2-provisioning. Opgeslagen versleuteld en nooit geretourneerd.",
+        "awsSecretAccessKey": "AWS-geheime toegangssleutel",
+        "awsRegion": "Regio",
+        "awsRegionHelp": "bijv. us-east-2. Elk ander AWS-veld hieronder moet zich in deze regio bevinden.",
+        "awsSubnet": "Subnet-id",
+        "awsSubnetHelp": "bijv. subnet-0abc123. Moet automatisch een openbaar IP-adres toewijzen, anders kan de instantie het controlevlak van uw VPN niet bereiken.",
+        "awsSecurityGroups": "Beveiligingsgroep-id's",
+        "awsSecurityGroupsHelp": "Door komma's gescheiden, bijv. sg-0abc123. Vereist alleen uitgaande toegang; geen inkomende regel nodig.",
+        "awsAmiSsm": "AMI SSM-parameter",
+        "awsAmiSsmHelp": "Opgelost bij starten, zodat de afbeelding nooit verouderd raakt. bijv. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "AMI-id (overschrijft de SSM-parameter)",
+        "awsAmiIdHelp": "Pin in plaats daarvan een specifieke afbeelding vast. Laat dit leeg om via SSM op te lossen. Een van de twee is vereist.",
+        "awsInstanceProfile": "IAM-instantieprofiel-ARN",
+        "awsInstanceProfileHelp": "Optioneel. Alleen nodig als de agent zelf AWS-API's moet aanroepen.",
+        "awsRootVolume": "Basisvolume (GB)",
+        "awsRootVolumeHelp": "Een minimum; de bestandsverzameling van een taak kan meer nodig hebben. Moet minstens de snapshotgrootte van de AMI zijn, anders mislukt het starten.",
+        "awsEbsRate": "EBS-tarief (cents/GB-maand)",
+        "awsEbsRateHelp": "gp3-opslagprijs. Indien ingesteld op 0 reserveert het budget niets voor schijf.",
+        "awsUseSpot": "Spot-capaciteit gebruiken",
+        "awsUseSpotHelp": "Spot-verzoeken zijn eenmalig en eindigen bij onderbreking. Kortingen op GPU van de huidige generatie zijn vaak bescheiden, dus dit is niet automatisch goedkoper. Spot en on-demand tekenen uit aparte vCPU-quota's.",
+        "awsInstanceType": "Instantietype",
+        "awsHourlyCents": "Cents/uur",
+        "awsGpuModel": "GPU-model",
+        "awsGpuCount": "GPU's",
         "awsVram": "VRAM/GPU",
-        "mockAgentBinary": "Agent binary path",
-        "mockAgentBinaryHelp": "Path to an agent binary the server can execute with --test-mode.",
-        "mockBackendHost": "Backend host for spawned agents",
-        "mockBackendHostHelp": "e.g. localhost:31337.",
-        "mockHourlyRate": "Simulated rate (cents/hour)",
-        "mockBootDelay": "Simulated boot delay (seconds)",
-        "mockFailLaunch": "Fault: fail every launch",
-        "mockDropLaunchResponse": "Fault: drop the launch response (instance runs but is reported failed)",
-        "mockNeverRegister": "Fault: instance never registers",
-        "mockFailDestroy": "Fault: fail every destroy",
-        "vpnTagIgnoredHelp": "Ignored for a NetBird reusable key: group membership and the ephemeral flag come from the setup key's own configuration in NetBird. Used only on the access-token path, as auto_groups on each minted key.",
+        "mockAgentBinary": "Agent binary-pad",
+        "mockAgentBinaryHelp": "Pad naar een agent binary die de server kan uitvoeren met --test-mode.",
+        "mockBackendHost": "Backendhost voor gegenereerde agents",
+        "mockBackendHostHelp": "bijv. localhost:31337.",
+        "mockHourlyRate": "Gesimuleerd tarief (cents/uur)",
+        "mockBootDelay": "Gesimuleerde opstarttijd (seconden)",
+        "mockFailLaunch": "Fout: elk starten mislukt",
+        "mockDropLaunchResponse": "Fout: de startrespons wordt verworpen (instantie loopt maar wordt gerapporteerd als mislukt)",
+        "mockNeverRegister": "Fout: instantie registreert zich nooit",
+        "mockFailDestroy": "Fout: elk verwijderen mislukt",
+        "vpnTagIgnoredHelp": "Genegeerd voor een NetBird-herbruikbare sleutel: groepslidmaatschap en de kortstondige vlag komen uit de eigen configuratie van de instellingssleutel in NetBird. Alleen op het toegangstoken-pad gebruikt, als auto_groups op elke gegenereerde sleutel.",
         "vpnUrl": {
-          "netbird": "NetBird management URL",
-          "tailscale": "Tailscale login server (Headscale)"
+          "netbird": "NetBird-beheer-URL",
+          "tailscale": "Tailscale-loginserver (Headscale)"
         },
         "vpnUrlHelp": {
-          "netbird": "Your self-hosted NetBird management server, e.g. https://netbird.example.com. Used both to mint setup keys and to start the client. Leave blank for NetBird's hosted service.",
-          "tailscale": "Only for a self-hosted control server. Note that access-token minting always uses api.tailscale.com and does not support Headscale."
-        }
+          "netbird": "Uw zelf-gehoste NetBird-beheerserver, bijv. https://netbird.example.com. Gebruikt zowel voor het genereren van instellingssleutels als voor het starten van de client. Laat dit leeg voor NetBirds gehoste service.",
+          "tailscale": "Alleen voor een zelf-gehoste besturingserver. Opmerking: het genereren van toegangstokens gebruikt altijd api.tailscale.com en ondersteunt Headscale niet."
+        },
+        "vastCountries": "Landen (kommagescheiden)",
+        "vastCountriesHelp": "Vast.ai-landcodes, bijv. US, DE, SE. Leeg betekent overal. Afgestemd (niet-gevoelig voor hoofd-/kleine letters) op de gerapporteerde geolocatie, dus 'US' komt overeen met 'US, Texas'. Fungeert ook als uw gegevenslocatiebesturing.",
+        "vastGpuModels": "Toegestane GPU-modellen (kommagescheiden)",
+        "vastGpuModelsHelp": "Leeg betekent elke kaart. Afgestemd op een genormaliseerde sleutel, dus 'rtx_4090' komt overeen met zowel 'NVIDIA GeForce RTX 4090' als 'RTX 4090'. Het verbreden van deze lijst is de goedkoopste manier om beschikbaarheid te verhogen.",
+        "vastDeniedGpuModels": "Niet-toegestane GPU-modellen (kommagescheiden)",
+        "vastDeniedGpuModelsHelp": "Wint altijd van de lijst met toegestane GPU-modellen. Dit is de noodremmer voor 'die kaart blijft mislukken, stop met het huren ervan'.",
+        "vastMinReliability": "Minimale hostbetrouwbaarheid (0-1)",
+        "vastMinReliabilityHelp": "Vast.ai's eigen hostbetrouwbaarheidsscore. 0 schakelt de minimumwaarde uit. Hosts die geen score melden, worden behouden. Ruilt wat beschikbaarheid in voor minder dode huurperiodes — een host die de instantie mid-chunk verbreekt, is nog steeds betaald voor het opstarten ervan.",
+        "vastAllowUnverified": "Ongecontroleerde hosts toestaan (verhoogt beschikbaarheid; ongecontroleerde machines)",
+        "vastAllowResidential": "Residentiële hosts toestaan (verhoogt beschikbaarheid; thuismachines, niet datacenters)",
+        "runpodDataCenters": "Datacenters (kommagescheiden)",
+        "runpodDataCentersHelp": "RunPod-datacenter-id's, bijv. EU-RO-1, US-KS-2. LEEG IS DE BREEDSTE INSTELLING, niet de engste — RunPod's eigen scheduler kan dan een pod overal plaatsen. Dit is het tegenovergestelde van AWS-zones, waar dit leegmaken u nog steeds aan één beperkt. Stel dit in voor gegevenslocatie, of om de startpoging-herhaallus echt onafhankelijke pools te laten doorlopen.",
+        "runpodGpuTypes": "Toegestane GPU-typen (kommagescheiden)",
+        "runpodGpuTypesHelp": "RunPod gpuType-id's precies zoals ze in het beschikbaarheidsraster verschijnen, bijv. 'NVIDIA GeForce RTX 4090'. Leeg betekent elke kaart die deze laag bevat.",
+        "runpodDiskGb": "Containerschijf-minimum (GB)",
+        "runpodDiskGbHelp": "Een minimum, geen maximum: een taak waarvan de bestandsverzameling meer nodig heeft, krijgt meer. Containerschijf wordt gewist wanneer de pod opnieuw start, en er wordt nooit een netwerkvolume bijgevoegd — één zou de pod overleven en gekraakte platte teksten na beëindiging behouden.",
+        "runpodDiskRate": "Containerschijf (cents/GB-maand)",
+        "runpodDiskRateHelp": "Voedt het opslaggedeelte van de budgetreserve. Afgerond naar boven, omdat een reservering die de opslag onderschat, een klant hun harde limiet kan laten overschrijden.",
+        "runpodSelfDestruct": "Pods zichzelf laten verwijderen als de VPN sterft (alleen Secure-laag)",
+        "runpodSelfDestructHelp": "Voegt een derde afbraakrail toe zodat een pod zichzelf KAN VERWIJDEREN wanneer deze het contact verliest, gelijk aan Vast.ai. RunPod heeft geen per-pod-scoped inloggegevens, dus dit plaatst een ACCOUNT-SCOPED-sleutel in elke pod — één die elke andere pod op het account kan maken en verwijderen. Geef in plaats van uw provisioningsleutel opnieuw te gebruiken een afzonderlijke, smalere sleutel op als self_destruct_api_key in de JSON-inloggegevens. Nooit beschikbaar op de Community-laag."
       },
       "peerWarningTitle": "Hardware van derden",
       "peerWarningBody": {
         "vastai": "Vast.ai-instances draaien op particuliere machines die u niet beheert. Schakel dit alleen in voor klanten van wie de gegevens aan derden mogen worden blootgesteld, en bevestig dit ook per klant.",
         "runpod_community": "RunPod Community Cloud draait op machines van derden waarvan de eigenaren root-toegang tot de container hebben. De SOC 2-, ISO 27001- en PCI DSS-verklaringen van RunPod gelden alleen voor Secure Cloud, niet voor dit niveau. Schakel dit alleen in voor klanten van wie de gegevens aan derden mogen worden blootgesteld, en bevestig dit ook per klant."
       },
-      "awsSection": "AWS placement and pricing",
-      "awsSectionHelp": "Where instances launch and what they cost. EC2 exposes no machine-readable GPU model or hourly rate to this code, so both are declared here.",
-      "awsInstanceTypes": "Instance types offered",
-      "awsInstanceTypesHelp": "Only the types listed here can be rented. Declare the rate you are willing to be billed at — round up, since the budget reserves against this number and nothing cross-checks it against an invoice. Declaring the GPU model and count is what enables cost-per-work ranking; without it, ranking falls back to price per hour.",
-      "awsAddInstanceType": "Add instance type",
-      "awsRemoveInstanceType": "Remove",
-      "mockSection": "Mock behaviour and fault injection",
-      "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "awsSection": "AWS-plaatsing en prijsstelling",
+      "awsSectionHelp": "Waar instanties starten en wat ze kosten. EC2 stelt geen machineleesbaar GPU-model of uurtarief aan deze code ter beschikking, dus beide worden hier gedeclareerd.",
+      "awsInstanceTypes": "Aangeboden instantietypes",
+      "awsInstanceTypesHelp": "Alleen de hier vermelde typen kunnen worden gehuurd. Declareer het tarief waartegen u bereid bent te worden gefactureerd — rond omhoog af, want het budget reserveert tegen dit getal en niets controleert dit tegen een factuur. Het opgeven van het GPU-model en -aantal maakt rangschikking op kosten per werk mogelijk; zonder dit valt de rangschikking terug op prijs per uur.",
+      "awsAddInstanceType": "Instantietype toevoegen",
+      "awsRemoveInstanceType": "Verwijderen",
+      "mockSection": "Mock-gedrag en foutinjectie",
+      "mockSectionHelp": "De mock-provider genereert lokale agent --test-mode processen. De foutschakelaars doorlopen foutpaden zonder opnieuw te compileren.",
+      "providerNotImplemented": "Deze provider heeft nog geen adapter: de backend verwerpt hem met 'unsupported cloud provider' bij het starten. Hij kan worden opgeslagen, maar er kan niets mee worden ingericht.",
+      "zones": {
+        "title": "Locaties en hardware",
+        "help": "Vink elke locatie en elke GPU aan die u wilt huren. Capaciteit behoort meestal tot het (hardware, locatie)-paar in plaats van tot een ervan alleen, dus elke aangevinkte cel is één onafhankelijke kans om een machine te krijgen — één aangevinkte cel betekent dat een capaciteitsweigering nergens anders naartoe kan. Alle kaarten van een rij aangevinkt laten betekent 'elke hardware die ik heb goedgekeurd', inclusief alle later toegevoegde.",
+        "probe": "Beschikbaarheid controleren",
+        "probeHelp": "Leest live zone-, subnet-, aanbod-, spotprijs- en plaatsingsscoregegevens uit AWS. Alleen-lezen: het start niets op en kost niets.",
+        "probeIdle": "om live zones, subnetten en spotprijzen voor deze provider in te laden.",
+        "probeFailed": "Kon capaciteit niet uit AWS lezen.",
+        "saveFirst": "Sla de provider eerst op. De beschikbaarheid wordt gelezen met behulp van de opgeslagen inloggegevens en regio, dus een niet-opgeslagen formulier heeft niets om mee op te vragen.",
+        "selectAll": "Selecteer alle bruikbare zones",
+        "colZone": "Zone",
+        "colSubnet": "Subnet",
+        "notOffered": "EC2 biedt dit instantietype niet in deze zone aan. Dit is definitief — een lancering hier zou mislukken met Unsupported.",
+        "unusable": "Er kan niet in deze locatie worden gelanceerd. Zie de opmerking naast de naam.",
+        "freeIps_one": "{{count}} beschikbare IP",
+        "freeIps_other": "{{count}} beschikbare IP's",
+        "scoreHelp": "De eigen 1-10-rangschikking van AWS voor DEZE kaart in DEZE zone, en zwak bewijs: elke zone in deze regio scoorde 1/10 op dit account minuten voordat een lancering in een ervan de eerste keer slaagde. Die bepaalt welke pool eerst wordt geprobeerd. Die verwijdert nooit een pool uit de lijst. Vergelijk deze met de score voor alle typen samen naast de zonenaam.",
+        "spotVsConfigured": "Spot biedt hier {{spot}}/uur aan; uw geconfigureerde tarief voor dit type is {{configured}}/uur. Reserveringen gebruiken het GECONFIGUREERDE tarief, dus prijzen onder het live-tarief leiden tot onderreservering tegen een budgetplafond waarvan u te horen kreeg dat het hard was.",
+        "poolCount_one": "{{count}} capaciteitspool geselecteerd",
+        "poolCount_other": "{{count}} capaciteitspools geselecteerd",
+        "poolCountWarning": "Één pool is één kans. Wanneer deze is uitgeput, heeft de retrylus voor lanceringen nergens anders heen en stopt provisioning eenvoudig totdat capaciteit terugkeert. Vink meer zones, meer instantietypen of beide aan.",
+        "poolCountOk": "Een capaciteitsweigering in één pool valt door naar de volgende, in volgorde van grootste kans eerst.",
+        "legacyOverridden": "Zones zijn geconfigureerd, dus de enkele Subnet-ID hierboven ({{subnet}}) wordt genegeerd. Die blijft als terugvalmogelijkheid als geen enkele zone is aangevinkt.",
+        "combinedScore": "alle typen: {{score}}/10",
+        "combinedScoreHelp": "AWS's plaatsingsscore voor AL uw geprijsde instantietypen samen in deze zone, wat een ander vraagstuk is dan de score van één kaart — en meestal een veel beter antwoord. Gemeten in één regio in één minuut: g6.xlarge alleen scoorde 1/10 hier terwijl g4dn + g5 + g6 samen 9/10 scoorden. Breedte is geen bescherming tegen schaarste; het is het onderwerp dat wordt gescoord.",
+        "availableCount": "{{count}} beschikbaar",
+        "availableCountHelp": "Een live telling van machines die nu beschikbaar zijn om te huren. Dit is echte voorraad en het sterkste signaal op het scherm — veel beter dan een plaatsingsscore, wat slechts een mening is.",
+        "livePriceHelp": "Wat de provider hier nu voor rekent.",
+        "trust": {
+          "definitive": "definitief",
+          "measured": "live",
+          "advisory": "alleen informatief"
+        },
+        "axesModeNote": "Deze provider slaat landen en GPU-modellen op als twee onafhankelijke lijsten, dus het aanvinken van een kaart past het toe in elk geselecteerd land. De aantallen en prijzen per cel hieronder zijn nog steeds werkelijk en specifiek voor dat land."
+      },
+      "vastSection": "Vast.ai-plaatsings- en hardwarebeleid",
+      "vastSectionHelp": "Welke landen en welke kaarten deze provider mag huren. Een lege lijst betekent geen beperking, wat de breedste pool en de standaard is.",
+      "vastTierWarningTitle": "U opent een niet-geverifieerd hostniveau",
+      "vastTierWarningBody": "Dit is de grootste beschikbaarheidsstijging die op Vast.ai beschikbaar is, en het plaatst klant-hashes, woordenlijsten, potfiles en gekraakte platte teksten op machines die Vast.ai niet heeft geverifieerd. Elke Vast-host heeft al root over de container; deze schakelaars verwijderen het ene filter dat het beperkt tot hosts die Vast heeft gecontroleerd. Het niet-geverifieerde niveau is ook waar 'stuck connecting' en 'bad driver' rapporten zich concentreren, dus een deel van de extra beschikbaarheid is illusoir — een huur die nooit nuttig werk bereikt, kost u nog steeds de commissioning.",
+      "runpodSection": "RunPod-plaatsings- en hardwarebeleid",
+      "runpodSectionHelp": "Welke datacenters en GPU-typen deze provider mag huren. RunPod prijst live, dus er zijn geen tarieven om hier aan te geven — in tegenstelling tot AWS.",
+      "runpodCommunityTeardownTitle": "Community-afbraak is alleen de backend reaper",
+      "runpodCommunityTeardownBody": "RunPod geeft geen pod-specifieke sleutel uit, dus er is geen veilige manier voor een Community-pod om zichzelf te verwijderen: de enige sleutel die zou werken is accountgebonden, en een Community-host-operator heeft root over de container en zou deze uit de omgeving lezen. De deadline in de container breekt hashcat nog steeds af en beëindigt de gegevensblootstelling, maar kan de pod-facturering NIET stoppen. Als deze backend uitvalt of vastloopt, wordt een Community-pod gefactureerd totdat u deze handmatig vanaf de Cloud Fleet-pagina vernietigt. Stel een laag instantie-TTL-plafond en een klein budgetplafond in voor elke klant die dit niveau mag gebruiken.",
       "experimentalChip": "Experimenteel",
       "experimentalTooltip": "Experimenteel — nog niet getest. Deze adapter is nooit van begin tot eind tegen de echte provider met echt geld gedraaid. Reken op bugs; houd uw jobs in de gaten en meld wat u tegenkomt.",
       "experimentalTitle": "Experimenteel — nog niet getest",
@@ -1654,170 +2086,179 @@
       "reportDiagnosticsLink": "Diagnostiek via Discord sturen (niet in het issue)"
     },
     "budgets": {
-      "title": "Client budgets",
-      "description": "What each client may spend, and which providers their data may go to. Clients with blank fields follow the server defaults below.",
-      "loadFailed": "Failed to load client budgets",
-      "empty": "No clients exist yet. Create a client first, then fund it here.",
-      "edit": "Edit",
-      "editTitle": "Cloud settings — {{name}}",
-      "saved": "Client cloud settings saved",
-      "saveFailed": "Failed to save client cloud settings",
-      "enabled": "Enabled",
-      "disabled": "Disabled",
-      "unfunded": "No budget",
-      "noProviders": "No providers allowed",
+      "title": "Klantbudgetten",
+      "description": "Wat elke klant mag uitgeven en naar welke providers hun gegevens kunnen gaan. Klanten met lege velden volgen de serverstandaardinstellingen hieronder.",
+      "loadFailed": "Kon klantbudgetten niet laden",
+      "empty": "Er bestaan nog geen klanten. Maak eerst een klant en financier deze hier.",
+      "edit": "Bewerken",
+      "editTitle": "Cloudinstellingen — {{name}}",
+      "saved": "Klant-cloudinstellingen opgeslagen",
+      "saveFailed": "Kon klant-cloudinstellingen niet opslaan",
+      "enabled": "Ingeschakeld",
+      "disabled": "Uitgeschakeld",
+      "unfunded": "Geen budget",
+      "noProviders": "Geen providers toegestaan",
       "ttlValue": "{{minutes}} min",
-      "spendSummary": "{{used}} of {{cap}} committed ({{pct}}%)",
-      "acknowledged": "Acknowledgement recorded",
-      "acknowledgedChip": "Acknowledged",
-      "ackFailed": "Failed to record acknowledgement",
-      "ackTitle": "Acknowledge third-party exposure for this client",
-      "ackWarningTitle": "This client's data would leave your control",
-      "ackWarningBody": "Allowing Vast.ai for {{name}} means this client's hashes, wordlists and cracked plaintexts may be placed on machines owned by third parties who have root access to the container.",
-      "ackConfirm": "Do you accept this exposure for this client?",
-      "ackAccept": "I understand and accept",
+      "spendSummary": "{{used}} van {{cap}} toegewezen ({{pct}}%)",
+      "acknowledged": "Bevestiging geregistreerd",
+      "acknowledgedChip": "Bevestigd",
+      "ackFailed": "Kon bevestiging niet registreren",
+      "ackTitle": "Bevestig blootstelling aan derden voor deze klant",
+      "ackWarningTitle": "De gegevens van deze klant zouden uw controle verlaten",
+      "ackWarningBody": "Vast.ai voor {{name}} toestaan betekent dat de hashes, woordenlijsten en gekraakte platte teksten van deze klant op machines kunnen worden geplaatst die eigendom zijn van derden die root-toegang tot de container hebben.",
+      "ackConfirm": "Accepteert u deze blootstelling voor deze klant?",
+      "ackAccept": "Ik begrijp en accepteer dit",
       "actions": {
-        "none": "Within budget",
-        "notify": "Threshold reached",
-        "stop_provisioning": "Provisioning stopped",
-        "drain": "Draining",
-        "hard_stop": "Hard stop"
+        "none": "Binnen budget",
+        "notify": "Drempel bereikt",
+        "stop_provisioning": "Provisioning gestopt",
+        "drain": "Aan het draineren",
+        "hard_stop": "Harde stop"
       },
       "columns": {
-        "client": "Client",
+        "client": "Klant",
         "status": "Status",
-        "providers": "Allowed providers",
-        "spend": "Spend",
-        "ttl": "Max TTL",
-        "actions": "Actions"
+        "providers": "Toegestane providers",
+        "spend": "Uitgaven",
+        "ttl": "Max. TTL",
+        "actions": "Acties"
       },
       "fields": {
         "budget": "Budget",
-        "budgetHelp": "Spend ceiling for the current budget period. Leave blank to inherit the server default; a client only ends up unfunded if no default is set either.",
-        "ttl": "Maximum instance lifetime (minutes)",
-        "ttlHelp": "An instance is destroyed at this age regardless of progress. Leave blank to use the system default.",
-        "providers": "Allowed providers",
-        "providersHelp": "Empty means nothing may be rented for this client. Allowing AWS while forbidding Vast.ai is a normal configuration.",
+        "budgetHelp": "Uitgavenplafond voor de huidige budgetperiode. Laat leeg om de serverstandaard over te nemen; een klant blijft alleen onfinancierd als ook geen standaard is ingesteld.",
+        "ttl": "Maximale instantielevensduur (minuten)",
+        "ttlHelp": "Een instantie wordt op deze leeftijd vernietigd, ongeacht de voortgang. Laat leeg om de systeemstandaard te gebruiken.",
+        "providers": "Toegestane providers",
+        "providersHelp": "Leeg betekent dat niets voor deze klant kan worden gehuurd. AWS toestaan terwijl Vast.ai verboden is, is een normale configuratie.",
         "enabled": "Cloud burst",
-        "period": "Budget period",
-        "periodHelp": "Leave blank to inherit the server default."
+        "period": "Budgetperiode",
+        "periodHelp": "Laat leeg om de serverstandaard over te nemen."
       },
       "errors": {
-        "invalidBudget": "Budget must be a number, e.g. 25.00",
-        "negativeBudget": "Budget must not be negative",
-        "invalidTtl": "Maximum lifetime must be a positive number of minutes",
-        "enabledWithoutBudget": "Set a budget before enabling cloud burst — an unfunded client can never provision anything.",
-        "enabledWithoutProvider": "Allow at least one provider before enabling cloud burst."
+        "invalidBudget": "Budget moet een getal zijn, bijv. 25.00",
+        "negativeBudget": "Budget mag niet negatief zijn",
+        "invalidTtl": "Maximale levensduur moet een positief aantal minuten zijn",
+        "enabledWithoutBudget": "Stel een budget in voordat u cloud burst inschakelt — een onfinancierde klant kan nooit iets inrichten.",
+        "enabledWithoutProvider": "Laat minstens één provider toe voordat u cloud burst inschakelt."
       },
       "peerTooltip": "Hardware van derden: de eigenaar van de machine kan de gegevens van deze klant lezen.",
       "defaults": {
-        "title": "Server defaults",
-        "description": "Values a client uses when it has not set its own. Leaving a client's field blank means it follows the default here, so changing this changes every client still inheriting.",
+        "title": "Serverstandaardinstellingen",
+        "description": "Waarden die een klant gebruikt wanneer deze zijn eigen niet heeft ingesteld. Als het veld van een klant leeg is, volgt deze de standaard hier, dus het wijzigen hiervan beïnvloedt elke klant die de standaard nog steeds gebruikt.",
         "summary": "{{amount}} per {{period}}",
-        "summaryUnset": "No default budget set — clients that inherit stay unfunded",
-        "budget": "Default budget",
-        "budgetHelp": "Leave blank for no default: inheriting clients then stay unfunded and cannot burst.",
-        "period": "Default budget period",
-        "enabled": "Clients may burst to paid capacity by default",
-        "providers": "Default providers",
-        "providersHelp": "Applied to any client whose own provider list is empty.",
-        "peerAckNote": "Peer-operated providers still require a per-client acknowledgement. Defaulting them in does not grant that consent — each client must still be acknowledged individually before its data can go there.",
-        "appliesNow": "Cloud burst is enabled by default and a default budget is set, so every client still inheriting can now provision paid capacity.",
-        "save": "Save defaults",
-        "saved": "Defaults saved",
-        "saveFailed": "Failed to save defaults",
-        "fundedButDisabled": "A default budget is set but cloud burst is off by default, so no inheriting client can provision anything. Tick the box above to make the budget usable.",
-        "enabledWithoutProviders": "Cloud burst is on by default but no default providers are selected, so inheriting clients still cannot rent anything. Choose at least one provider above.",
-        "willEnableTitle": "This will let {{count}} client(s) rent paid capacity",
-        "willEnableBody": "These clients have no settings of their own, so they follow the defaults above. Saving lets each of them provision cloud instances and spend against this budget. To keep a client out, set its own Cloud burst to Disabled.",
-        "andMore": "+{{count}} more",
-        "confirmTitle": "Enable cloud spending for {{count}} client(s)?",
-        "confirmBody": "{{count}} client(s) currently cannot rent anything. Saving these defaults gives each of them a {{amount}} ceiling per {{period}} and permission to spend it. The budget is per client, not shared, so this is the total exposure multiplied by the number of clients listed.",
-        "confirmAlternative": "Prefer to opt in one at a time? Cancel, leave cloud burst off by default, and set Cloud burst and a budget on each client individually instead.",
-        "confirmAccept": "Enable {{count}} client(s)"
+        "summaryUnset": "Geen standaardbudget ingesteld — klanten die erven, blijven onfinancierd",
+        "budget": "Standaardbudget",
+        "budgetHelp": "Laat leeg voor geen standaard: klanten die erven, blijven dan onfinancierd en kunnen geen cloud burst gebruiken.",
+        "period": "Standaard budgetperiode",
+        "enabled": "Klanten mogen standaard uitwijken naar betaalde capaciteit.",
+        "providers": "Standaardproviders",
+        "providersHelp": "Toegepast op elke klant wiens eigen providerlijst leeg is.",
+        "peerAckNote": "Peer-bediende providers vereisen nog steeds een per-klant-bevestiging. Ze standaard toevoegen verleent die toestemming niet — elke klant moet nog steeds individueel worden bevestigd voordat de gegevens daar kunnen gaan.",
+        "appliesNow": "Cloud burst is standaard ingeschakeld en een standaardbudget is ingesteld, dus elke klant die de standaard volgt, kan nu betaalde capaciteit inrichten.",
+        "save": "Standaardinstellingen opslaan",
+        "saved": "Standaardinstellingen opgeslagen",
+        "saveFailed": "Kon standaardinstellingen niet opslaan",
+        "fundedButDisabled": "Er is een standaardbudget ingesteld maar cloud burst is standaard uit, dus geen klant die erft, kan iets inrichten. Vink het vak hierboven aan om het budget bruikbaar te maken.",
+        "enabledWithoutProviders": "Cloud burst is standaard aan maar geen standaardproviders zijn geselecteerd, dus klanten die erven, kunnen nog steeds niets huren. Kies minstens één provider hierboven.",
+        "willEnableTitle_one": "Dit laat {{count}} klant betaalde capaciteit huren",
+        "willEnableTitle_other": "Dit laat {{count}} klanten betaalde capaciteit huren",
+        "willEnableBody": "Deze klanten hebben geen instellingen van zichzelf, dus volgen zij de standaardinstellingen hierboven. Opslaan laat elk van hen cloudinstanties inrichten en uitgeven tegen dit budget. Om een klant uit te sluiten, stelt u de Cloud burst in op Uitgeschakeld.",
+        "andMore": "+{{count}} meer",
+        "confirmTitle_one": "Clouduitgaven inschakelen voor {{count}} klant?",
+        "confirmTitle_other": "Clouduitgaven inschakelen voor {{count}} klanten?",
+        "confirmBody_one": "{{count}} klant kan momenteel niets huren. Deze standaardinstellingen opslaan geeft hem een {{amount}} plafond per {{period}} en toestemming om het uit te geven. Het budget is per klant, niet gedeeld, dus dit is de totale blootstelling vermenigvuldigd met het aantal vermelde klanten.",
+        "confirmBody_other": "{{count}} klanten kunnen momenteel niets huren. Deze standaardinstellingen opslaan geeft elk van hen een {{amount}} plafond per {{period}} en toestemming om het uit te geven. Het budget is per klant, niet gedeeld, dus dit is de totale blootstelling vermenigvuldigd met het aantal vermelde klanten.",
+        "confirmAlternative": "Liever één voor één aanmelden? Annuleer, laat cloud burst standaard uit en stel Cloud burst en een budget op elke klant afzonderlijk in.",
+        "confirmAccept_one": "{{count}} klant inschakelen",
+        "confirmAccept_other": "{{count}} klanten inschakelen"
       },
       "periods": {
-        "monthly": "month",
-        "quarterly": "quarter",
-        "semiannual": "six months"
+        "monthly": "maand",
+        "quarterly": "kwartaal",
+        "semiannual": "zes maanden"
       },
-      "inheritLabel": "Inherit default ({{value}})",
-      "on": "Enabled",
-      "off": "Disabled",
-      "inheriting": "inheriting"
+      "inheritLabel": "Standaard overnemen ({{value}})",
+      "on": "Ingeschakeld",
+      "off": "Uitgeschakeld",
+      "inheriting": "erven"
     },
     "policy": {
-      "title": "Spend threshold policy",
-      "description": "What happens as a client approaches its cap. These thresholds decide how gracefully the cap is reached; what actually prevents an overrun is that an instance's whole lifetime cost is committed before it boots.",
-      "loadFailed": "Failed to load the threshold policy",
-      "saved": "Threshold policy saved",
-      "saveFailed": "Failed to save the threshold policy",
-      "overageWarning": "Overage is allowed: reservations may exceed the remaining budget. The cap becomes advisory rather than absolute.",
-      "hardStopAboveCapNote": "Hard stop is set to {{pct}}% but overage is off, so reservations still cannot exceed 100% of the budget. Enable overage if you intend to allow spending past the cap.",
+      "title": "Drempelbeleid voor uitgaven",
+      "description": "Wat gebeurt er als een klant het plafond nadert. Deze drempels bepalen hoe gracieus het plafond wordt bereikt; wat een overschrijding werkelijk voorkomt, is dat de volledige levensduurkosten van een instantie worden toegewezen voordat deze opstart.",
+      "loadFailed": "Kon het drempelbeleid niet laden",
+      "saved": "Drempelbeleid opgeslagen",
+      "saveFailed": "Kon het drempelbeleid niet opslaan",
+      "overageWarning": "Overschrijding is toegestaan: reserveringen mogen het resterende budget overschrijden. De limiet wordt richtinggevend in plaats van absoluut.",
+      "hardStopAboveCapNote": "Hard stop is ingesteld op {{pct}}%, maar overschrijding staat uit, dus reserveringen kunnen nog steeds niet meer dan 100% van het budget overschrijden. Schakel overschrijding in als u voorbij de limiet wilt kunnen uitgeven.",
       "fields": {
-        "notifyEnabled": "Notify me as spend approaches the cap",
-        "notifyPct": "Notify at (% of budget)",
-        "notifyPctHelp": "Sends a notification once. Turn the checkbox off to never notify.",
-        "stopProvisionPct": "Stop provisioning at (%)",
-        "stopProvisionPctHelp": "No new instances are launched past this point. Running instances continue.",
-        "drainPct": "Start draining at (%)",
-        "drainPctHelp": "No new work is dispatched; in-flight chunks are allowed to finish.",
-        "hardStopPct": "Hard stop at (%)",
-        "hardStopPctHelp": "Instances are destroyed immediately, finishing or not.",
-        "drainTimeout": "Drain timeout (seconds)",
-        "drainTimeoutHelp": "How long an instance may keep finishing its chunk before it is destroyed anyway.",
-        "allowOverage": "Allow spending past the cap",
-        "allowOverageHelp": "Leave off to make the cap absolute. With it off, a $10 budget stops at $10."
+        "notifyEnabled": "Mij waarschuwen als uitgaven de limiet naderen",
+        "notifyPct": "Waarschuwen bij (% van het budget)",
+        "notifyPctHelp": "Stuurt één melding. Schakel het selectievakje uit om nooit te waarschuwen.",
+        "stopProvisionPct": "Provisioning stoppen bij (%)",
+        "stopProvisionPctHelp": "Vanaf dit punt worden geen nieuwe exemplaren meer gestart. Lopende exemplaren gaan door.",
+        "drainPct": "Draineren starten bij (%)",
+        "drainPctHelp": "Er wordt geen nieuw werk meer verzonden; chunks die al onderweg zijn, mogen worden afgerond.",
+        "hardStopPct": "Hard stop bij (%)",
+        "hardStopPctHelp": "Exemplaren worden onmiddellijk vernietigd, of ze nu klaar zijn of niet.",
+        "drainTimeout": "Draineren-timeout (seconden)",
+        "drainTimeoutHelp": "Hoe lang een exemplaar zijn chunk mag afmaken voordat het alsnog wordt vernietigd.",
+        "allowOverage": "Uitgaven voorbij de limiet toestaan",
+        "allowOverageHelp": "Zet dit uit om de limiet absoluut te maken. Staat het uit, dan stopt een budget van $10 bij $10."
       },
       "errors": {
-        "notifyRange": "The notify threshold must be between 1% and the stop-provisioning threshold.",
-        "stopBeforeDrain": "The stop-provisioning threshold must not exceed the drain threshold.",
-        "drainBeforeHardStop": "The drain threshold must not exceed the hard-stop threshold.",
-        "negativeTimeout": "The drain timeout must not be negative."
+        "notifyRange": "De waarschuwingsdrempel moet tussen 1% en de stop-provisioning-drempel liggen.",
+        "stopBeforeDrain": "De stop-provisioning-drempel mag niet hoger zijn dan de draineren-drempel.",
+        "drainBeforeHardStop": "De draineren-drempel mag niet hoger zijn dan de hard-stop-drempel.",
+        "negativeTimeout": "De draineren-timeout mag niet negatief zijn."
       }
     },
     "fleet": {
       "title": "Cloud Fleet",
-      "description": "Every rented instance that may still be costing money.",
-      "loadFailed": "Failed to load the fleet",
-      "empty": "No instances are running. Nothing is being billed.",
-      "summary": "{{count}} live instance(s), {{hourly}}/hr, {{reserved}} committed.",
-      "destroy": "Destroy",
-      "destroyed": "Instance destroyed",
-      "destroyFailed": "The provider refused to destroy this instance — it is still billing",
-      "destroyTitle": "Destroy instance?",
-      "destroyBody": "Destroy \"{{label}}\" now? Billing stops as soon as the provider confirms.",
-      "destroyJobWarning": "This instance is working a job. Its in-flight chunk is lost and will be re-dispatched elsewhere.",
-      "teardownFailingTitle": "Teardown is failing",
-      "teardownFailingBody": "{{count}} instance(s) could not be destroyed and are still accruing cost. Check the provider console.",
-      "teardownFailingTooltip": "Teardown failed; this instance is still billing",
-      "estimated": "est.",
-      "estimatedTooltip": "Estimated from elapsed time and rate; the provider's own figure lands later.",
-      "perHour": "{{rate}}/hr",
-      "ttlExpired": "Expired",
+      "description": "Elk gehuurd exemplaar dat nog geld kan kosten.",
+      "loadFailed": "Fout bij laden van de fleet",
+      "empty": "Er draaien geen exemplaren. Er wordt niets gefactureerd.",
+      "summary_one": "{{count}} exemplaar actief, {{hourly}}/uur, {{reserved}} gegarandeerd.",
+      "summary_other": "{{count}} exemplaren actief, {{hourly}}/uur, {{reserved}} gegarandeerd.",
+      "destroy": "Vernietigen",
+      "destroyed": "Exemplaar vernietigd",
+      "destroyFailed": "De provider weigerde dit exemplaar te vernietigen — het wordt nog steeds gefactureerd",
+      "destroyTitle": "Exemplaar vernietigen?",
+      "destroyBody": "\"{{label}}\" nu vernietigen? De facturering stopt zodra de provider bevestigt.",
+      "destroyJobWarning": "Dit exemplaar voert een taak uit. Zijn actieve chunk gaat verloren en wordt elders opnieuw verzonden.",
+      "teardownFailingTitle": "Afbraak mislukt",
+      "teardownFailingBody_one": "{{count}} exemplaar kon niet worden vernietigd en loopt nog steeds kosten op. Controleer de provider-console.",
+      "teardownFailingBody_other": "{{count}} exemplaren konden niet worden vernietigd en lopen nog steeds kosten op. Controleer de provider-console.",
+      "teardownFailingTooltip": "Afbraak mislukt; dit exemplaar wordt nog steeds gefactureerd",
+      "estimated": "gesch.",
+      "estimatedTooltip": "Geschat uit verstreken tijd en tarief; het eigen cijfer van de provider volgt later.",
+      "perHour": "{{rate}}/uur",
+      "ttlExpired": "Verlopen",
       "states": {
-        "requested": "Requested",
-        "launching": "Launching",
+        "requested": "Aangevraagd",
+        "launching": "Wordt gestart",
         "provisioning": "Provisioning",
-        "syncing": "Syncing files",
-        "running": "Running",
-        "draining": "Draining",
-        "terminating": "Terminating",
-        "terminated": "Terminated",
-        "failed": "Failed"
+        "syncing": "Bestanden synchroniseren",
+        "running": "Actief",
+        "draining": "Draineren",
+        "terminating": "Wordt beëindigd",
+        "terminated": "Beëindigd",
+        "failed": "Mislukt"
       },
       "columns": {
-        "label": "Instance",
-        "state": "State",
-        "client": "Client",
+        "label": "Exemplaar",
+        "state": "Status",
+        "client": "Klant",
         "gpu": "GPU",
-        "rate": "Rate",
-        "spend": "Spend",
-        "ttl": "TTL left",
-        "disk": "Disk",
-        "actions": "Actions"
+        "rate": "Tarief",
+        "spend": "Uitgaven",
+        "ttl": "TTL over",
+        "disk": "Schijf",
+        "actions": "Acties",
+        "agent": "Agent",
+        "job": "Taak"
       },
-      "experimentalRunningTitle": "{{count}} instantie(s) draaien op een experimentele provider",
+      "experimentalRunningTitle_one": "{{count}} exemplaar draait op een experimentele provider",
+      "experimentalRunningTitle_other": "{{count}} exemplaren draaien op een experimentele provider",
       "experimentalRunningBody": "{{providers}} is niet van begin tot eind met echt geld bewezen. Controleer dat deze instanties daadwerkelijk 'terminated' bereiken in plaats van dat aan te nemen: vrijgeven is het minst geteste deel van elke nieuwe adapter, en een instantie die nooit wordt vrijgegeven blijft kosten maken tot u hem hier vernietigt. Meld alstublieft wat u ziet.",
       "experimentalTooltip": "{{provider}} is een experimentele provider — nog niet getest. Reken op bugs; controleer of deze instantie echt wordt vrijgegeven als de job klaar is."
     },
@@ -1859,41 +2300,41 @@
       }
     },
     "system": {
-      "ceilings": "Spend and concurrency ceilings",
-      "ceilingsHelp": "Absolute system-wide limits, applied before any client budget is consulted.",
-      "work": "Work sizing and teardown",
-      "workHelp": "How much work a rented instance is given at a time, and how quickly an idle one is released. Per-chunk overhead is billed at rental rates, so these trade throughput against waste.",
-      "reconciliation": "Reconciliation",
-      "reconciliationHelp": "How often the database is checked against what the provider is actually running, and how long an unrecognised instance is tolerated before it is destroyed.",
-      "capDisabledWarning": "Cloud provisioning is currently DISABLED: the global monthly cap is 0. Providers, client budgets and cloud-enabled jobs will all be configured correctly and nothing will ever be rented. Set a non-zero cap to enable it.",
-      "saved": "Setting saved",
-      "saveFailed": "Failed to save setting",
-      "loadFailed": "Failed to load cloud settings",
+      "ceilings": "Uitgaven en gelijktijdige limieten",
+      "ceilingsHelp": "Absolute systeembrede limieten, toegepast voordat enig klantbudget wordt geraadpleegd.",
+      "work": "Werkgrootte en afbraak",
+      "workHelp": "Hoeveel werk een gehuurd exemplaar tegelijk krijgt, en hoe snel een inactief exemplaar wordt vrijgegeven. Per-chunk-overhead wordt gefactureerd tegen huurtarieven, dus deze instellingen wisselen doorvoer tegen verspilling af.",
+      "reconciliation": "Afstemming",
+      "reconciliationHelp": "Hoe vaak de database wordt gecontroleerd tegen wat de provider werkelijk draait, en hoe lang een niet-herkend exemplaar wordt getolereerd voordat het wordt vernietigd.",
+      "capDisabledWarning": "Cloud provisioning is momenteel UITGESCHAKELD: de globale maandelijkse limiet is 0. Providers, klantbudgetten en cloud-enabled taken worden allemaal correct geconfigureerd en niets zal ooit worden gehuurd. Stel een niet-nul limiet in om dit in te schakelen.",
+      "saved": "Instelling opgeslagen",
+      "saveFailed": "Fout bij opslaan van instelling",
+      "loadFailed": "Fout bij laden van cloud-instellingen",
       "units": {
         "seconds": "s",
         "minutes": "min"
       },
       "fields": {
-        "monthlyCap": "Global monthly spend cap",
-        "monthlyCapHelp": "Across all clients and providers. 0 disables cloud provisioning entirely — it is not unlimited.",
-        "concurrentCap": "Global concurrent instance cap",
-        "concurrentCapHelp": "Maximum rented instances at once, across every provider and client. 0 means unlimited, still bounded by budgets and provider quotas.",
+        "monthlyCap": "Globale maandelijkse uitgavenlimiet",
+        "monthlyCapHelp": "Over alle klanten en providers heen. 0 schakelt cloud provisioning volledig uit — het is niet onbeperkt.",
+        "concurrentCap": "Globale gelijktijdige exemplarenlimiet",
+        "concurrentCapHelp": "Maximaal geleende exemplaren tegelijk, over elke provider en klant heen. 0 betekent onbeperkt, maar nog steeds begrensd door budgetten en provider-quota's.",
         "defaultMaxInstancesPerJob": "Standaard maximum instanties per taak",
         "defaultMaxInstancesPerJobHelp": "Maximaal aantal gehuurde instanties voor een taak die geen eigen limiet instelt. Leeg betekende voorheen onbeperkt, waardoor in een cloud-only omgeving alleen het klantbudget voorkomt dat een wachtende taak elke minuut opnieuw huurt. Een waarde op de taak zelf gaat nog steeds voor. 0 herstelt onbeperkt.",
         "chunkDuration": "Minimale cloud-chunkduur",
         "chunkDurationHelp": "Minimale chunkduur voor cloudagents. Een gehuurde GPU wordt in rekening gebracht terwijl hashcat opstart, kernels autotunet en de woordenlijst laadt, dus cloudchunks worden opgetrokken naar deze waarde, ook als de taak om minder vraagt. Een taak die om MEER vraagt behoudt zijn eigen waarde. Wordt altijd teruggebracht tot de resterende levensduur van de instantie. 0 schakelt de ondergrens uit.",
-        "teardownSlack": "Teardown slack",
-        "teardownSlackHelp": "Reserved at the end of an instance's lifetime for drain and destroy, so a chunk is never planned past the point the instance dies.",
-        "idleDrain": "Idle drain",
-        "idleDrainHelp": "Destroy a rented instance after this long with no pending work. Bounds how much you pay for a GPU that has run out of things to do.",
+        "teardownSlack": "Afbraakbuffer",
+        "teardownSlackHelp": "Gereserveerd aan het einde van de levensduur van een exemplaar voor draineren en vernietigen, zodat een chunk nooit wordt gepland voorbij het moment waarop het exemplaar eindigt.",
+        "idleDrain": "Inactieve drainering",
+        "idleDrainHelp": "Vernietig een gehuurd exemplaar na deze lange periode zonder wachtend werk. Dit beperkt hoeveel u betaalt voor een GPU die niets meer te doen heeft.",
         "commissioningGrace": "Ingebruikname-respijt",
         "commissioningGraceHelp": "Vernietig een gehuurde instantie die nooit een taak heeft gekregen na deze tijd, gemeten vanaf het moment dat de agent zich registreerde. Een koude instantie moet eerst haar bestanden downloaden en een benchmark uitvoeren, dus een waarde onder ongeveer 20 minuten vernietigt gezonde instanties tijdens het opstarten — en omdat de taak nog wacht, wordt er meteen een nieuwe gehuurd. 0 schakelt dit uit.",
-        "reaperInterval": "Reaper interval",
-        "reaperIntervalHelp": "How often to reconcile the database against provider inventory and destroy anything that should not exist.",
-        "orphanGrace": "Orphan grace period",
-        "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
-        "agentImage": "Agent image",
-        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this.",
+        "reaperInterval": "Reaper-interval",
+        "reaperIntervalHelp": "Hoe vaak de database tegen provider-inventaris wordt afgestemd en alles dat niet zou moeten bestaan wordt vernietigd.",
+        "orphanGrace": "Respijtperiode voor wezen",
+        "orphanGraceHelp": "Vernietig exemplaren op het provider-account zonder overeenkomende databaserij na deze lange periode. Dit is het enige herstel voor een lancering waarvan het record nooit is aangekomen.",
+        "agentImage": "Agent-image",
+        "agentImageHelp": "bijv. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Laat leeg om terug te vallen op KH_CLOUD_AGENT_IMAGE, dan op de ingebouwde standaard. Merk op dat de ingebouwde standaard :latest is, die alleen bestaat zodra een release is gelabeld — pre-release-implementaties moeten dit instellen.",
         "defaultBurstEnabled": "Cloud burst inschakelen voor elke taak",
         "defaultBurstEnabledHelp": "Behandelt elke taak als cloud-burst-geschikt, zonder het vinkje op elke preset, workflow en taak te zetten. Bedoeld voor implementaties zonder eigen GPU's, waar huren de enige manier is om werk uit te voeren. Clientbudgetten en instantielimieten blijven gelden. Werkt direct, ook voor taken die al in de wachtrij staan.",
         "defaultClient": "Standaard facturatieclient",
@@ -1902,127 +2343,131 @@
         "crackDrainGrace": "Respijt voor crack-upload",
         "crackDrainGraceHelp": "Wacht voordat een gehuurde instantie wordt vernietigd zo lang tot een taak die deze nog bezit klaar is met het uploaden van gekraakte wachtwoorden. Gemeten vanaf de laatste schrijfactie van die taak, niet vanaf de start, zodat een werkende agent nooit wordt vernietigd en op een vastgelopen agent niet eindeloos wordt gewacht. Moet langer zijn dan de idle drain en korter dan 30 minuten. 0 vernietigt direct, wat al gevonden cracks blijvend kan verliezen — ze kunnen niet opnieuw worden verzonden vanaf een machine die niet meer bestaat."
       },
-      "agent": "Cloud agent image",
-      "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
-      "save": "Save changes",
-      "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)",
+      "agent": "Cloud agent-image",
+      "agentHelp": "De containerimage die geleende exemplaren ophalen en uitvoeren. Dit moet een tag zijn die in het register bestaat: een ontbrekende tag is geen opstartfout — het exemplaar start, de pull mislukt, en de host beëindigt zichzelf ongeveer een minuut later, gefactureerd.",
+      "save": "Wijzigingen opslaan",
+      "discard": "Verwerpen",
+      "unsaved_one": "{{count}} niet-opgeslagen wijziging",
+      "unsaved_other": "{{count}} niet-opgeslagen wijzigingen",
       "eligibility": "Cloud-only implementaties",
       "eligibilityHelp": "Of taken überhaupt in aanmerking komen om capaciteit te huren. Alles hierboven begrenst wat er uitgegeven mag worden; dit bepaalt of er iets wordt uitgegeven."
     }
   },
   "serverCertificate": {
-    "title": "Server Certificate",
-    "description": "Manage the addresses the server's TLS certificate covers. Agents can only connect to an address listed here.",
-    "apply": "Apply & Reissue",
+    "title": "Servercertificaat",
+    "description": "Beheer de adressen die het TLS-certificaat van de server bedekt. Agents kunnen alleen verbinding maken met een hier vermeld adres.",
+    "apply": "Toepassen en opnieuw uitgeven",
     "warning": {
-      "title": "KrakenHashes is an internal tool",
-      "body": "It must never be reachable from the public internet. It handles cracked credentials, so only private and VPN addresses can be added to the certificate — public IP addresses are rejected. If this deployment is exposed publicly, take it offline before continuing."
+      "title": "KrakenHashes is een intern hulpmiddel",
+      "body": "Dit mag nooit bereikbaar zijn vanaf het openbare internet. Het verwerkt gekraakte inloggegevens, dus alleen privé en VPN-adressen kunnen aan het certificaat worden toegevoegd — openbare IP-adressen worden afgewezen. Als deze implementatie openbaar wordt blootgesteld, zet deze offline voordat u doorgaat."
     },
     "summary": {
-      "title": "Current certificate",
-      "unavailable": "The server certificate could not be read.",
-      "subject": "Subject",
-      "issuer": "Issuer",
-      "validity": "Valid",
-      "serial": "Serial",
-      "covers": "This certificate is valid for",
-      "coversNothing": "This certificate lists no addresses at all. No agent can connect.",
-      "daysRemaining": "{{count}} days left",
-      "caSubject": "Certificate authority",
-      "caExpires": "CA expires",
-      "caFingerprint": "CA fingerprint (SHA-256)",
-      "pending": "{{count}} address(es) have been saved but are not in the certificate yet. Click Apply & Reissue.",
-      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES or KH_ADDITIONAL_DNS_NAMES is still set in the environment. It is no longer read — these settings replace it. Remove the variable to avoid confusion."
+      "title": "Huidig certificaat",
+      "unavailable": "Het servercertificaat kon niet worden gelezen.",
+      "subject": "Onderwerp",
+      "issuer": "Uitgever",
+      "validity": "Geldig",
+      "serial": "Serienummer",
+      "covers": "Dit certificaat is geldig voor",
+      "coversNothing": "Dit certificaat vermeldt helemaal geen adressen. Geen agent kan verbinding maken.",
+      "daysRemaining_one": "{{count}} dag over",
+      "daysRemaining_other": "{{count}} dagen over",
+      "caSubject": "Certificaatautoriteit",
+      "caExpires": "CA verloopt",
+      "caFingerprint": "CA-vingerafdruk (SHA-256)",
+      "pending_one": "{{count}} adres is opgeslagen maar is nog niet in het certificaat. Klik Toepassen en opnieuw uitgeven.",
+      "pending_other": "{{count}} adressen zijn opgeslagen maar zijn nog niet in het certificaat. Klik Toepassen en opnieuw uitgeven.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES of KH_ADDITIONAL_DNS_NAMES is nog steeds ingesteld in de omgeving. Dit wordt niet meer gelezen — deze instellingen vervangen het. Verwijder de variabele om verwarring te voorkomen."
     },
     "sans": {
-      "title": "Addresses this certificate should cover",
+      "title": "Adressen die dit certificaat moet bedekken",
       "add": "Add",
-      "empty": "No additional addresses configured.",
-      "unsaved": "You have unsaved changes. Click Apply & Reissue to put them into the certificate.",
-      "lockedTooltip": "Always included. Removing it would break the internal proxy and health checks.",
+      "empty": "Er zijn geen aanvullende adressen geconfigureerd.",
+      "unsaved": "U hebt niet-opgeslagen wijzigingen. Klik Toepassen en opnieuw uitgeven om ze in het certificaat op te nemen.",
+      "lockedTooltip": "Altijd inbegrepen. Het verwijderen ervan zou de interne proxy en gezondheidscontroles breken.",
       "ip": {
-        "title": "IP addresses",
-        "help": "Private and VPN addresses only: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local, and IPv6 ULA.",
+        "title": "IP-adressen",
+        "help": "Alleen privé- en VPN-adressen: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local en IPv6 ULA.",
         "placeholder": "192.168.1.50"
       },
       "dns": {
-        "title": "DNS names",
-        "help": "Hostnames agents and browsers use to reach this server.",
+        "title": "DNS-namen",
+        "help": "Hostnamen die agents en browsers gebruiken om deze server te bereiken.",
         "placeholder": "kraken.internal"
       }
     },
     "validation": {
-      "invalid_format": "\"{{address}}\" is not a valid address.",
-      "public_ip": "{{address}} is a public IP address and cannot be added. KrakenHashes is an internal-only tool. It handles cracked credentials and must never be reachable from the internet. Only private addresses (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local and IPv6 ULA) can be added. If this is your VPN's address, the VPN is using address space that belongs to someone else on the internet — change its network range to a private or CGNAT range.",
-      "duplicate": "{{address}} is already in the list.",
-      "bind_address": "{{address}} is a bind address, not a reachable one. No client connects to it.",
-      "multicast": "{{address}} is a multicast address and cannot identify a server.",
-      "wildcard_dns": "Wildcard names are not supported.",
-      "has_port": "Enter only the hostname, with no port.",
-      "is_ip": "That is an IP address. Add it to the IP address list instead.",
-      "too_long": "That name is longer than the 253-character limit."
+      "invalid_format": "\"{{address}}\" is geen geldig adres.",
+      "public_ip": "{{address}} is een openbaar IP-adres en kan niet worden toegevoegd. KrakenHashes is een hulpmiddel alleen voor intern gebruik. Het verwerkt gekraakte inloggegevens en mag nooit bereikbaar zijn vanaf het internet. Alleen privéadressen (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local en IPv6 ULA) kunnen worden toegevoegd. Als dit het adres van uw VPN is, gebruikt de VPN adresruimte die aan iemand anders op het internet toebehoort — wijzig het netwerkbereik in een privé- of CGNAT-bereik.",
+      "duplicate": "{{address}} staat al in de lijst.",
+      "bind_address": "{{address}} is een bindadres, niet een bereikbaar adres. Geen client maakt er verbinding mee.",
+      "multicast": "{{address}} is een multicast-adres en kan geen server identificeren.",
+      "wildcard_dns": "Jokertekennamen worden niet ondersteund.",
+      "has_port": "Voer alleen de hostnaam in, zonder poort.",
+      "is_ip": "Dit is een IP-adres. Voeg het in plaats daarvan toe aan de IP-adressenlijst.",
+      "too_long": "Deze naam is langer dan de limiet van 253 tekens."
     },
     "discovered": {
-      "title": "Discovered addresses",
-      "help": "Addresses seen reaching this server that the certificate does not cover. Nothing here is applied automatically.",
-      "empty": "No addresses discovered yet. Start an agent, or open this page from the address your agents use, and it will appear here.",
-      "address": "Address",
-      "source": "Source",
-      "reportedBy": "Reported by",
-      "lastSeen": "Last seen",
-      "hits": "Hits",
-      "actions": "Actions",
+      "title": "Ontdekte adressen",
+      "help": "Adressen die deze server bereiken, maar die het certificaat niet bedekt. Niets hier wordt automatisch toegepast.",
+      "empty": "Nog geen adressen ontdekt. Start een agent, of open deze pagina vanaf het adres dat uw agents gebruiken, en dit verschijnt hier.",
+      "address": "Adres",
+      "source": "Bron",
+      "reportedBy": "Gerapporteerd door",
+      "lastSeen": "Laatst gezien",
+      "hits": "Treffers",
+      "actions": "Acties",
       "add": "Add",
-      "added": "{{address}} added. Click Apply & Reissue to put it into the certificate.",
-      "dismiss": "Dismiss",
-      "pending": "Pending reissue",
+      "added": "{{address}} toegevoegd. Klik Toepassen en opnieuw uitgeven om het in het certificaat op te nemen.",
+      "dismiss": "Afwijzen",
+      "pending": "In afwachting van opnieuw uitgeven",
       "sources": {
-        "agent_tls_failure": "Agent TLS failure",
-        "host_header": "Browser / Host header",
+        "agent_tls_failure": "Agent TLS-fout",
+        "host_header": "Browser/Host-header",
         "tls_sni": "TLS SNI",
-        "manual": "Manual"
+        "manual": "Handmatig"
       },
       "sourceHelp": {
-        "agent_tls_failure": "An authenticated agent reported that it could not verify this server's certificate for this address.",
-        "host_header": "Observed in a request's Host header. Anyone who can reach this server can influence this value — confirm it before adding.",
-        "tls_sni": "Observed as the server name in a TLS handshake.",
-        "manual": "Added by an administrator."
+        "agent_tls_failure": "Een geverifieerde agent meldde dat deze het certificaat van deze server voor dit adres niet kon verifiëren.",
+        "host_header": "Waargenomen in de Host-header van een aanvraag. Iedereen die deze server kan bereiken kan deze waarde beïnvloeden — bevestig voordat u toevoegt.",
+        "tls_sni": "Waargenomen als de servernaam in een TLS-handshake.",
+        "manual": "Toegevoegd door een beheerder."
       }
     },
     "reissue": {
-      "doneTitle": "Certificate reissued",
-      "noChangeTitle": "No change needed",
-      "noChangeBody": "The certificate already covers every configured address and is not close to expiry.",
-      "changes": "Changes",
-      "validUntil": "The new certificate is valid until {{date}}.",
-      "backendReloaded": "The API on port 31337 is already serving the new certificate. No restart was needed.",
-      "nginxReloaded": "The web UI on port 443 was reloaded and is serving the new certificate.",
-      "nginxFailed": "The web UI on port 443 is still serving the previous certificate",
-      "backup": "Previous certificate material was backed up to {{path}}.",
-      "agentsReconnect": "Agents that were failing will reconnect on their own within 30 seconds. No agent restart is needed.",
-      "agentsRefetch": "Every agent must re-fetch the CA. Agents do this automatically the next time a handshake fails, but browsers that trusted the old CA must install the new one by hand.",
-      "close": "Close",
-      "nginxFailedBody": "The API is already serving the new certificate, so agents are unaffected. The web UI on port 443 will keep presenting the previous one until KrakenHashes is restarted."
+      "doneTitle": "Certificaat opnieuw uitgegeven",
+      "noChangeTitle": "Geen wijziging nodig",
+      "noChangeBody": "Het certificaat bedekt al elk geconfigureerd adres en verloopt niet binnenkort.",
+      "changes": "Wijzigingen",
+      "validUntil": "Het nieuwe certificaat is geldig tot {{date}}.",
+      "backendReloaded": "De API op poort 31337 serveert al het nieuwe certificaat. Geen herstart was nodig.",
+      "nginxReloaded": "De web-UI op poort 443 is herladen en serveert het nieuwe certificaat.",
+      "nginxFailed": "De web-UI op poort 443 serveert nog steeds het vorige certificaat",
+      "backup": "Een back-up van het vorige certificaatmateriaal is opgeslagen in {{path}}.",
+      "agentsReconnect": "Agents die mislukten zullen binnen 30 seconden automatisch opnieuw verbinding maken. Geen agent-herstart is nodig.",
+      "agentsRefetch": "Elke agent moet de CA opnieuw ophalen. Agents doen dit automatisch de volgende keer dat een handshake mislukt, maar browsers die de oude CA vertrouwden moeten de nieuwe handmatig installeren.",
+      "close": "Sluiten",
+      "nginxFailedBody": "De API serveert al het nieuwe certificaat, dus agents zijn niet beïnvloed. De web-UI op poort 443 zal het vorige blijven presenteren totdat KrakenHashes opnieuw wordt gestart."
     },
     "confirmRemoval": {
-      "title": "Remove addresses from the certificate?",
-      "body": "The following addresses are in the current certificate and will be removed: {{addresses}}. Any agent connecting on one of them will stop being able to connect until it is added back.",
-      "cancel": "Cancel",
-      "confirm": "Remove and reissue"
+      "title": "Adressen uit het certificaat verwijderen?",
+      "body": "De volgende adressen staan in het huidige certificaat en zullen worden verwijderd: {{addresses}}. Elke agent die op een van deze adressen verbinding maakt kan niet meer verbinding maken totdat het weer wordt toegevoegd.",
+      "cancel": "Annuleren",
+      "confirm": "Verwijderen en opnieuw uitgeven"
     },
     "rotateCa": {
-      "section": "Advanced",
-      "title": "Rotate the certificate authority",
-      "warning": "Rotating the certificate authority issues a brand-new CA and re-signs the server and agent certificates. Every agent must re-download the CA before it can reconnect, and every browser that trusted the old CA will show warnings until the new ca.crt is installed. Only do this if the CA private key may have been exposed.",
-      "instruction": "Type {{phrase}} to confirm.",
-      "action": "Rotate CA"
+      "section": "Geavanceerd",
+      "title": "De certificaatautoriteit roteren",
+      "warning": "Het roteren van de certificaatautoriteit geeft een gloednieuwe CA uit en ondertekent de server- en agentcertificaten opnieuw. Elke agent moet de CA opnieuw downloaden voordat deze opnieuw verbinding kan maken, en elke browser die de oude CA vertrouwde zal waarschuwingen tonen totdat het nieuwe ca.crt is geïnstalleerd. Doe dit alleen als de privésleutel van de CA mogelijk is blootgesteld.",
+      "instruction": "Typ {{phrase}} om te bevestigen.",
+      "action": "CA roteren"
     },
     "banner": {
-      "title": "{{count}} agent(s) cannot verify this server's certificate",
-      "body": "{{agents}} is connecting to {{address}}, which is not listed in the server certificate. It will keep retrying and cannot come online until the certificate is reissued.",
-      "anAgent": "An agent",
-      "action": "Fix in Server Certificate settings"
+      "title_one": "{{count}} agent kan het certificaat van deze server niet verifiëren",
+      "title_other": "{{count}} agents kunnen het certificaat van deze server niet verifiëren",
+      "body": "{{agents}} maakt verbinding met {{address}}, wat niet in het servercertificaat staat vermeld. Het zal blijven proberen en kan niet online gaan totdat het certificaat opnieuw is uitgegeven.",
+      "anAgent": "Een agent",
+      "action": "Corrigeren in servercertificaatinstellingen"
     }
   },
   "branding": {
@@ -2057,6 +2502,660 @@
       "removeFailed": "Afbeelding verwijderen mislukt",
       "invalidHex": "Voer een hex-kleur in zoals #1e88e5",
       "tooLarge": "Bestand is te groot (max. {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Instellingensecties",
+    "groups": {
+      "general": "Algemeen",
+      "security": "Beveiliging",
+      "jobs": "Taken",
+      "agents": "Agents",
+      "integrations": "Integraties",
+      "cloud": "Cloud"
+    },
+    "sections": {
+      "branding": "Huisstijl",
+      "brandingDesc": "Applicatienaam, kleuren, logo en favicon.",
+      "data": "Gegevens",
+      "dataDesc": "Retentiestandaardinstellingen en hashlijstopname.",
+      "storage": "Opslag",
+      "storageDesc": "Netwerkshare-opslag voor woordenlijsten en regels.",
+      "certificate": "Certificaat",
+      "certificateDesc": "Servercertificaatnamen en adressen.",
+      "authentication": "Verificatie",
+      "authenticationDesc": "Wachtwoordbeleid, vergrendeling en sessies.",
+      "mfa": "Multi-factor",
+      "mfaDesc": "MFA-beleid en relying party voor passkeys.",
+      "sso": "Eenmalige aanmelding",
+      "ssoDesc": "Identiteitsproviders en provisioning.",
+      "access": "Toegangsmodel",
+      "accessDesc": "Isolatie tussen meerdere teams.",
+      "execution": "Uitvoering",
+      "executionDesc": "Chunking, keyspace en benchmarks.",
+      "scheduling": "Planning",
+      "schedulingDesc": "Agenttoewijzing en taakprioriteit.",
+      "potfile": "Potfile en loopback",
+      "potfileDesc": "Potfile-gedrag en loopback-rondes.",
+      "health": "Status",
+      "healthDesc": "Heartbeats, respijtperioden en de offline buffer.",
+      "downloads": "Downloads",
+      "downloadsDesc": "Hoe agents bestanden van de server ophalen.",
+      "updates": "Updates",
+      "updatesDesc": "Automatische updates voor agent-binaries.",
+      "monitoring": "Bewaking",
+      "monitoringDesc": "Metriekenretentie en aggregatie.",
+      "email": "E-mail",
+      "emailDesc": "Providerconfiguratie en sjablonen.",
+      "webhooks": "Webhooks",
+      "webhooksDesc": "Globale webhook en gebruikerswebhooks.",
+      "notifications": "Meldingen",
+      "notificationsDesc": "Welke taakgebeurtenissen meldingen activeren.",
+      "providers": "Providers",
+      "providersDesc": "Referenties voor cloud-GPU-providers.",
+      "budgets": "Klantbudgetten",
+      "budgetsDesc": "Maandelijkse limieten per klant.",
+      "policy": "Drempelbeleid",
+      "policyDesc": "Drempelladder voor uitgaven.",
+      "rules": "Provisioningregels",
+      "rulesDesc": "Wanneer de autoscaler mag uitgeven.",
+      "limits": "Limieten",
+      "limitsDesc": "Systeembrede limieten en timings."
+    }
+  },
+  "hub": {
+    "pageDescription": "Alles wat deze server configureert, gegroepeerd naar wat het beïnvloedt. Velden worden opgeslagen wanneer u ze verlaat, tenzij de sectie anders aangeeft.",
+    "navLabel": "Overzicht",
+    "attentionTitle": "Vereist aandacht",
+    "attentionSubtitle": "Problemen die van invloed zijn op de werking van de server.",
+    "allGood": "Alles ziet er goed uit",
+    "allGoodHint": "Er zijn geen configuratieproblemen gedetecteerd.",
+    "loadFailed": "Kon de instellingenstatus niet laden.",
+    "overviewTitle": "Status",
+    "attentionCount": "{{count}} te controleren",
+    "browseTitle": "Alle instellingen",
+    "loading": "Controleren…",
+    "cards": {
+      "email": "E-mail",
+      "certificate": "Certificaat",
+      "sso": "Eenmalige aanmelding",
+      "binaries": "Binaries",
+      "cloud": "Cloud",
+      "storage": "Opslag",
+      "webhook": "Globale webhook"
+    },
+    "detail": {
+      "emailConfigured": "Geconfigureerd ({{provider}})",
+      "emailNotConfigured": "Geen provider geconfigureerd",
+      "certUnmanaged": "Beheerd buiten KrakenHashes ({{mode}})",
+      "certDays": "{{days}} dagen resterend",
+      "certPending": "Nog niet uitgegeven",
+      "ssoProviders_one": "{{count}} provider ingeschakeld",
+      "ssoProviders_other": "{{count}} providers ingeschakeld",
+      "binaries": "{{verified}} van {{total}} geverifieerd",
+      "cloudNoProviders": "Geen providers geconfigureerd",
+      "cloudCap": "{{providers}} provider(s), maandelijkse limiet {{cap}}",
+      "storageLocal": "Lokale opslag",
+      "storageReachable": "Share gekoppeld en bereikbaar",
+      "storageUnreachable": "Share niet bereikbaar",
+      "webhookOff": "Uitgeschakeld",
+      "webhookOn": "Ingeschakeld",
+      "webhookNoUrl": "Ingeschakeld zonder URL"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "Status kon niet worden gecontroleerd",
+      "emailNotConfigured": "E-mail is niet geconfigureerd; MFA-codes en meldingen kunnen niet worden verzonden.",
+      "certExpiring": "Het servercertificaat vervalt over {{days}} dagen.",
+      "ssoEphemeralKey": "SSO gebruikt een kortstondige ondertekeningssleutel; sessies blijven niet behouden bij een herstart.",
+      "noVerifiedBinary": "Er is geen geverifieerde hashcat binary beschikbaar; taken kunnen niet worden uitgevoerd.",
+      "cloudCapZero": "Cloud-providers zijn geconfigureerd maar de maandelijkse limiet is 0, dus er wordt niets ingericht.",
+      "shareUnreachable": "De netwerkshare is ingeschakeld maar niet bereikbaar.",
+      "migration": "Een opslagmigratie is {{state}}.",
+      "webhookNoUrl": "De globale webhook is ingeschakeld maar heeft geen URL."
+    },
+    "severity": {
+      "default": "Info",
+      "success": "OK",
+      "warning": "Waarschuwing",
+      "error": "Fout"
+    }
+  },
+  "fieldState": {
+    "saving": "Opslaan…",
+    "saved": "Opgeslagen",
+    "error": "Niet opgeslagen",
+    "minSelected": "Selecteer ten minste {{count}}",
+    "autosaveHint": "Wordt automatisch opgeslagen",
+    "autosaveHintLong": "Elk veld wordt automatisch opgeslagen zodra u het verlaat.",
+    "applyHint": "Vereist toepassen",
+    "applyHintLong": "Wijzigingen hier worden alleen van kracht nadat u ze toepast."
+  },
+  "unsaved": {
+    "title": "Niet-opgeslagen wijzigingen",
+    "body": "U hebt wijzigingen die niet zijn toegepast. Wilt u deze pagina verlaten en de wijzigingen verwerpen?",
+    "stay": "Blijven",
+    "leave": "Verlaten"
+  },
+  "agentAutoUpdate": {
+    "title": "Automatische updates",
+    "description": "Laat de server nieuwe agent-binaries naar verbonden agents pushen.",
+    "enable": "Automatische agentupdates inschakelen",
+    "maxConcurrent": "Gelijktijdige updates",
+    "maxConcurrentHelper": "Hoeveel agents tegelijk kunnen worden bijgewerkt.",
+    "maxAttempts": "Pogingen per agent",
+    "maxAttemptsHelper": "Geef een agent op na dit aantal mislukte updates.",
+    "healthTimeout": "Verbindingstime-out",
+    "healthTimeoutHelper": "Hoe lang moet worden gewacht tot een bijgewerkte agent opnieuw verbinding maakt voordat de update als mislukt wordt gemarkeerd.",
+    "applyNote": "Agents nemen deze waarden op bij hun volgende check-in."
+  },
+  "networkShare": {
+    "intro": "Sla woordenlijsten en regels op een netwerkshare op zodat de server geen grote lokale schijf nodig heeft. De operator koppelt de share op de serverhost (via docker-compose, als <code>KH_SHARE_DIR</code>) en op elke netwerkdirecte agenthost; KrakenHashes leest alleen het gekoppelde pad — het maakt nooit rechtstreeks verbinding met de share en slaat geen referenties op. Cloud-GPU-agents koppelen de share niet: ze downloaden woordenlijsten/regels van de server via het VPN.",
+    "migrationLocked": "Een migratie is in uitvoering ({{state}}). De configuratie is vergrendeld tot deze is voltooid.",
+    "server": {
+      "title": "Serveropslagkoppeling",
+      "description": "De server leest woordenlijsten en regels uit dit door de operator gekoppelde pad (ingesteld in docker-compose als <code>KH_SHARE_DIR</code>). KrakenHashes maakt geen verbinding met de share zelf — koppelen is de verantwoordelijkheid van de operator.",
+      "mountedPath": "Gekoppeld pad (alleen-lezen)",
+      "shareDirNotSet": "KH_SHARE_DIR niet ingesteld — koppel de share in docker-compose",
+      "servingFromShare": "Serveren vanuit: netwerkshare",
+      "servingFromLocal": "Serveren vanuit: lokale schijf",
+      "shareReachable": "Share bereikbaar",
+      "shareNotMounted": "Share niet gekoppeld",
+      "migrationChip": "Migratie: {{state}}",
+      "lastValidated": "Laatst gevalideerd {{date}}",
+      "enable": "Netwerkshare inschakelen",
+      "saving": "Opslaan…",
+      "save": "Configuratie opslaan",
+      "validating": "Valideren…",
+      "validate": "Serverkoppeling valideren",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "Koppelpad: <code>{{path}}</code>",
+      "unset": "(niet ingesteld)",
+      "yes": "ja",
+      "no": "nee",
+      "summary": "Gekoppeld: {{mounted}} · Schrijfbaar: {{writable}} · Vrij: {{free}} · Schrijf: {{write}} MB/s · Lees: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Gegevensmigratie",
+      "descriptionToShare": "Kopieer bestaande woordenlijsten en regels naar de netwerkshare en schakel de actieve opslagbackend over. Dit is een onderhoudstaak: nieuwe taken worden niet meer verzonden terwijl de vloot wordt geleegd, waarna woordenlijst-/regeluploads worden bevroren en bestanden worden gekopieerd en checksum-geverifieerd voordat wordt overgeschakeld. Afhankelijk van de gegevensgrootte kan dit lang duren en is de server ondertussen niet beschikbaar voor uploads en nieuwe taken. Klant- en associatiewoordenlijsten, binaries, karaktersets en hashlijsten blijven altijd lokaal.",
+      "descriptionToLocal": "Kopieer bestaande woordenlijsten en regels terug naar lokale schijf en schakel de actieve opslagbackend over. Dit is een onderhoudstaak: nieuwe taken worden niet meer verzonden terwijl de vloot wordt geleegd, waarna woordenlijst-/regeluploads worden bevroren en bestanden worden gekopieerd en checksum-geverifieerd voordat wordt overgeschakeld. Afhankelijk van de gegevensgrootte kan dit lang duren en is de server ondertussen niet beschikbaar voor uploads en nieuwe taken. Klant- en associatiewoordenlijsten, binaries, karaktersets en hashlijsten blijven altijd lokaal.",
+      "phase": "Fase: {{phase}}",
+      "directionToShare": "lokaal → share",
+      "directionToLocal": "share → lokaal",
+      "waitingTasks_one": "Wacht tot {{count}} subtaak is voltooid",
+      "waitingTasks_other": "Wacht tot {{count}} subtaken zijn voltooid",
+      "earliestLock": " — vroegste vergrendeling {{time}}",
+      "filesProgress": "{{done}}/{{total}} bestanden · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "Annuleren…",
+      "abort": "Migratie afbreken",
+      "abortHelp": "Stopt de migratie bij het volgende controlepunt (handig als de share langzaam is of vast zit). Opslag blijft op het huidige backend en verzending wordt hervat; reeds gekopieerde bestanden blijven behouden en worden hergebruikt bij nieuwe pogingen.",
+      "complete": "Migratie voltooid.",
+      "failed": "Migratie mislukt.",
+      "migrateToShare": "Woordenlijsten en regels naar de share migreren",
+      "migrateToLocal": "Terug naar lokale schijf migreren",
+      "enableFirst": "Schakel de share in en bevestig dat deze wordt gevalideerd voordat u migreert."
+    },
+    "agent": {
+      "title": "Koppelcommando voor on-prem agent (optioneel)",
+      "description": "Deze velden worden <b>alleen</b> gebruikt om het koppelcommando voor on-prem agents ingesteld op de <b>network_direct</b>-laag te genereren. De server (hierboven) en cloud-GPU-agents gebruiken deze <b>niet</b> — cloud agents downloaden via het VPN. Ze zijn niet-geheim; referenties worden nooit opgeslagen of verzonden.",
+      "protocol": "Protocol",
+      "protocolHelp": "SMB is het meest draagbaar voor Windows/macOS/Linux-agents; NFS werkt goed via het VPN met een alleen-lezen export.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Netwerksharehost waarvan agents koppelen (VPN-adres)",
+      "hostHelp": "Het adres van de share zoals agents het over het VPN bereiken — geen serverinstelling (de server gebruikt het gekoppelde pad hierboven).",
+      "exportPath": "Exportpad",
+      "shareName": "Sharenaam",
+      "mountOptions": "Koppelopties (één key=value per regel)",
+      "runThis": "Voer dit uit op de agenthost, stel vervolgens op de agentpagina de opslaglaag van die agent in op \"Netwerkdirect\" met het koppelpad:",
+      "replaceSmb": "Vervang <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> en <code>&lt;PASSWORD&gt;</code> voordat u het uitvoert — de opdracht bevat nog steeds plaatsaanduidingen.",
+      "replaceNfs": "Vervang <code>&lt;MOUNT_PATH&gt;</code> voordat u het uitvoert — de opdracht bevat nog steeds plaatsaanduidingen.",
+      "softSmb": "De opdracht bevat <code>soft</code>, zodat de koppeling snel mislukt als de share traag is of wegvalt, in plaats van vast te lopen (de standaard <code>hard</code> van de kernel). Dit gaat samen met de fail-closed-sharecontrole van de agent, die werk omleidt wanneer de koppeling niet leesbaar is. <b>network_direct</b> is voor shares met lage latentie/LAN-nabijheid — plaats externe shares of shares met hoge latentie in plaats daarvan op de download-lagen <b>on_demand</b>/<b>full_cache</b>. Overschrijf elke optie door deze hierboven in te stellen.",
+      "softNfs": "De opdracht bevat <code>soft</code>, <code>timeo</code> en <code>retrans</code>, zodat de koppeling snel mislukt als de share traag is of wegvalt, in plaats van vast te lopen (de standaard <code>hard</code> van de kernel). Dit gaat samen met de fail-closed-sharecontrole van de agent, die werk omleidt wanneer de koppeling niet leesbaar is. <b>network_direct</b> is voor shares met lage latentie/LAN-nabijheid — plaats externe shares of shares met hoge latentie in plaats daarvan op de download-lagen <b>on_demand</b>/<b>full_cache</b>. Overschrijf elke optie door deze hierboven in te stellen.",
+      "otherOs": "macOS: gebruik <code>mount_smbfs</code> (SMB) of <code>mount -t nfs</code> (NFS). Windows: gebruik <code>net use</code> tegen <code>{{uncPath}}</code>. De agent leest alleen van de koppeling. Deze velden worden opgeslagen met <b>Configuratie opslaan</b> hierboven."
+    },
+    "confirm": {
+      "title": "Gegevensmigratie starten?",
+      "intro": "Dit zal:",
+      "step1": "Stop met het verzenden van nieuwe taken en wacht tot lopende subtaken zijn voltooid (tot ~12 minuten zodat agents opnieuw verbinding maken, langer als lange taken worden uitgevoerd).",
+      "step2": "Bevries woordenlijst-/regeluploads en geef een onderhoudspagina weer terwijl bestanden worden gekopieerd en checksum-geverifieerd.",
+      "step3ToShare": "Schakel de actieve opslagbackend naar de netwerkshare over wanneer voltooid.",
+      "step3ToLocal": "Schakel de actieve opslagbackend naar lokale schijf over wanneer voltooid.",
+      "outro": "Onderbroken taken worden daarna automatisch hervat. Als er iets misgaat, blijft de opslag ongewijzigd en blijft de server operationeel.",
+      "cancel": "Annuleren",
+      "start": "Migratie starten"
+    },
+    "toast": {
+      "loadFailed": "Kon netwerkshare-configuratie niet laden",
+      "migrationStarted": "Migratie gestart.",
+      "startFailed": "Kon migratie niet starten",
+      "migrationCanceled": "Migratie geannuleerd — opslag ongewijzigd gelaten.",
+      "cancelFailed": "Kon migratie niet annuleren",
+      "saved": "Netwerkshare-configuratie opgeslagen.",
+      "saveFailed": "Kon configuratie niet opslaan",
+      "validated": "Share succesvol gevalideerd.",
+      "validationProblems": "Sharevalidatie heeft problemen gemeld.",
+      "validationFailed": "Validatie kon niet worden uitgevoerd"
+    }
+  },
+  "jobAnalytics": {
+    "title": "Taakprestatieanalyse",
+    "description": "Analyseer taakuitvoeringsprestaties, hashsnelheden en benchmarkgeschiedenis over al uw agents.",
+    "loadFiltersFailed": "Laden van filteropties mislukt",
+    "tabs": {
+      "jobPerformance": "Taakprestatie",
+      "successRate": "Slagingspercentage",
+      "benchmarkHistory": "Benchmarkgeschiedenis"
+    },
+    "summary": {
+      "totalJobs": "Totale taken",
+      "totalJobsSubtitle": "{{completed}} voltooid, {{failed}} mislukt",
+      "totalCracks": "Totale kraken",
+      "totalCracksSubtitle": "Over alle gefilterde taken",
+      "avgSpeed": "Gem. snelheid",
+      "avgSpeedSubtitle": "Gemiddelde hashsnelheid per taak",
+      "avgDuration": "Gem. duur",
+      "avgDurationSubtitle": "{{keys}} sleutels verwerkt"
+    },
+    "hashRateChart": {
+      "title": "Hashsnelheidstijdlijn",
+      "daily": "Dagelijks",
+      "weekly": "Wekelijks",
+      "empty": "Geen tijdlijngegevens beschikbaar voor de geselecteerde filters",
+      "hashRate": "Hashsnelheid",
+      "tooltipHashRate": "Hashsnelheid: {{speed}}",
+      "tooltipJobs": "Taken: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Benchmarksnelheidstrends",
+      "agent": "Agent",
+      "selectAgent": "Agent selecteren",
+      "hashType": "Hashtype",
+      "attackMode": "Aanvalsmodus",
+      "all": "Alle",
+      "range90d": "90d",
+      "range1y": "1j",
+      "rangeAll": "Alle",
+      "selectAgentPrompt": "Selecteer een agent om benchmarktrends weer te geven",
+      "empty": "Geen benchmarkgeschiedenis voor deze agent gevonden",
+      "speed": "Snelheid",
+      "tooltipSpeed": "Snelheid: {{speed}}"
+    },
+    "filters": {
+      "title": "Filters",
+      "active": "Actief",
+      "dateStart": "Startdatum",
+      "dateEnd": "Einddatum",
+      "hashlist": "Hashlijst",
+      "status": "Status",
+      "minKeyspace": "Min keyspace",
+      "maxKeyspace": "Max keyspace",
+      "reset": "Opnieuw instellen",
+      "apply": "Toepassen"
+    },
+    "attackModes": {
+      "straight": "Straight",
+      "combination": "Combinatie",
+      "bruteforce": "Brute-force",
+      "hybridWlMask": "Hybride WL+Masker",
+      "hybridMaskWl": "Hybride Masker+WL",
+      "association": "Associatie",
+      "modeNumber": "Modus {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Benchmarkgeschiedenis",
+      "empty": "Geen benchmarkgeschiedenis gevonden",
+      "columns": {
+        "date": "Datum",
+        "agentFallback": "Agent #{{id}}",
+        "status": "Status"
+      },
+      "success": "Succes",
+      "failed": "Mislukt"
+    },
+    "successRate": {
+      "title": "Slagingspercentage per taakconfiguratie",
+      "subtitle": "Gegroepeerd op woordenlijst, regels, aanvalsmodus en hashtype. Vooringestelde taken omvatten overeenkomende aangepaste taken.",
+      "empty": "Geen slagingspercentagegegevens beschikbaar voor de geselecteerde filters",
+      "preset": "Vooringesteld",
+      "columns": {
+        "configuration": "Configuratie",
+        "runs": "Uitvoeringen",
+        "hashes": "Hashes",
+        "cracks": "Kraken",
+        "successRate": "Slagingspercentage",
+        "avgDuration": "Gem. duur",
+        "totalCompute": "Totale compute"
+      }
+    },
+    "jobExecution": {
+      "title": "Taakuitvoeringsdetails",
+      "empty": "Geen taken gevonden voor de geselecteerde filters",
+      "noTaskData": "Geen subtaakgegevens beschikbaar",
+      "taskBreakdown": "Subtaakuitsplitsing ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_one": "{{count}} subtaak",
+      "taskCount_other": "{{count}} subtaken",
+      "metricPointCount_one": "{{count}} metrisch punt",
+      "metricPointCount_other": "{{count}} metrische punten",
+      "columns": {
+        "name": "Naam",
+        "attack": "Aanval",
+        "duration": "Duur",
+        "keyspace": "Keyspace",
+        "agents": "Agents",
+        "progress": "Voortgang",
+        "benchmark": "Benchmark",
+        "started": "Gestart",
+        "completed": "Voltooid"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Woordenlijstbeheer - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Klantwoordenlijsten ({{count}})",
+      "clientPotfile": "Klant-potfile",
+      "associationWordlists": "Associatie-woordenlijsten ({{count}})"
+    },
+    "columns": {
+      "fileName": "Bestandsnaam",
+      "lineCount": "Regelaantal",
+      "fileSize": "Bestandsgrootte",
+      "uploaded": "Geüpload",
+      "hashlist": "Hashlijst",
+      "actions": "Acties"
+    },
+    "hashlistFallback": "Hashlijst #{{id}}",
+    "clientTab": {
+      "info": "Klantwoordenlijsten zijn beschikbaar voor alle hashlijsten voor deze klant. Deze kunnen met elke aanvalsmodus worden gebruikt.",
+      "uploadWordlist": "Woordenlijst uploaden",
+      "uploading": "Uploaden... {{progress}}%",
+      "noWordlists": "Nog geen klantwoordenlijsten geüpload."
+    },
+    "potfileTab": {
+      "noPotfile": "Er bestaat nog geen klant-potfile. Deze wordt automatisch gemaakt wanneer hashes worden gekraakt voor de hashlijsten van deze klant.",
+      "autoGenerated": "Klant-potfile (automatisch gegenereerd)",
+      "description": "Deze potfile bevat alle gekraakte wachtwoorden voor deze klant. Deze wordt automatisch bijgewerkt wanneer hashes worden gekraakt.",
+      "passwordCount_one": "{{countDisplay}} wachtwoord",
+      "passwordCount_other": "{{countDisplay}} wachtwoorden",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Bijgewerkt: {{date}}",
+      "downloadPotfile": "Potfile downloaden"
+    },
+    "associationTab": {
+      "info": "Associatie-woordenlijsten zijn per hashlijst en koppelen elke hash 1:1 aan een wachtwoordkandidaat op regelnummer. Ze worden geüpload en beheerd vanaf de hashlijstdetailpagina. Deze weergave toont alle associatie-woordenlijsten voor alle hashlijsten van deze klant.",
+      "noWordlists": "Geen associatie-woordenlijsten gevonden voor de hashlijsten van deze klant."
+    },
+    "messages": {
+      "wordlistDeleted": "Klantwoordenlijst verwijderd",
+      "associationDeleted": "Associatie-woordenlijst verwijderd",
+      "deleteFailed": "Verwijderen van woordenlijst mislukt",
+      "uploadSuccess": "Klantwoordenlijst succesvol geüpload",
+      "uploadFailed": "Uploaden van woordenlijst mislukt",
+      "downloaded": "{{filename}} gedownload",
+      "downloadFailed": "Downloaden van bestand mislukt"
+    },
+    "deleteConfirm": {
+      "title": "Woordenlijst verwijderen",
+      "message": "\"{{fileName}}\" verwijderen? Dit kan niet ongedaan worden gemaakt."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Teambeheer",
+      "titleMine": "Mijn teams",
+      "description": "Beheer alle teams in het systeem",
+      "descriptionMine": "Teams waarvan u lid bent",
+      "createTeam": "Team aanmaken",
+      "bulkAssignHint": "Gebruik de bulktoewijzingsfunctie op de <link>Klantbeheer</link>pagina om meerdere klanten tegelijk aan een team toe te wijzen.",
+      "columns": {
+        "name": "Teamnaam",
+        "description": "Beschrijving",
+        "members": "Leden",
+        "clients": "Klanten",
+        "hashlists": "Hashlijsten",
+        "agents": "Agents",
+        "created": "Aangemaakt"
+      },
+      "rowActions": {
+        "manage": "Team beheren",
+        "edit": "Team bewerken",
+        "delete": "Team verwijderen"
+      },
+      "empty": "Geen teams gevonden",
+      "emptyMine": "U bent nog geen lid van een team.",
+      "viewDetails": "Details weergeven",
+      "memberCount_one": "{{count}} lid",
+      "memberCount_other": "{{count}} leden",
+      "clientCount_one": "{{count}} klant",
+      "clientCount_other": "{{count}} klanten",
+      "hashlistCount_one": "{{count}} hashlijst",
+      "hashlistCount_other": "{{count}} hashlijsten",
+      "agentCount_one": "{{count}} agent",
+      "agentCount_other": "{{count}} agents",
+      "dialogs": {
+        "create": {
+          "title": "Nieuw team aanmaken",
+          "nameLabel": "Teamnaam",
+          "descriptionLabel": "Beschrijving",
+          "creatingButton": "Aanmaken..."
+        },
+        "delete": {
+          "title": "Team verwijderen",
+          "confirmation": "Weet u zeker dat u team \"{{name}}\" wilt verwijderen? Dit verwijdert alle teamlidmaatschappen en klanttoewijzingen."
+        }
+      },
+      "messages": {
+        "createSuccess": "Team succesvol aangemaakt",
+        "deleteSuccess": "Team succesvol verwijderd",
+        "updateSuccess": "Team succesvol bijgewerkt"
+      },
+      "errors": {
+        "loadFailed": "Laden van teams mislukt",
+        "createFailed": "Aanmaken van team mislukt",
+        "deleteFailed": "Verwijderen van team mislukt",
+        "updateFailed": "Bijwerken van team mislukt"
+      }
+    },
+    "detail": {
+      "notFound": "Team niet gevonden",
+      "noDescription": "Geen beschrijving",
+      "breadcrumb": "Teams",
+      "editTeam": "Team bewerken",
+      "confirmActionTitle": "Actie bevestigen",
+      "tabs": {
+        "members": "Leden ({{count}})",
+        "clients": "Klanten ({{count}})",
+        "trustedTeams": "Vertrouwde teams ({{count}})",
+        "agents": "Agents ({{count}})"
+      },
+      "addMember": "Lid toevoegen",
+      "assignClient": "Klant toewijzen",
+      "addTrust": "Vertrouwen toevoegen",
+      "trustInfo": "Een ander team vertrouwen stelt hun agents in staat om uw teamtaken uit te voeren. Dit is een eenrichtingsrelatie: Team B vertrouwen geeft uw agents geen toegang tot de taken van Team B.",
+      "agentsInfo": "<strong>Directe</strong> agents zijn eigendom van leden van dit team. <strong>Vertrouwde</strong> agents zijn afkomstig van teams waarmee u vertrouwensrelaties hebt ingesteld.",
+      "systemOwner": "Systeem",
+      "columns": {
+        "username": "Gebruikersnaam",
+        "email": "E-mail",
+        "role": "Rol",
+        "joined": "Toegetreden",
+        "clientName": "Klantnaam",
+        "description": "Beschrijving",
+        "trustedTeam": "Vertrouwd team",
+        "trustedSince": "Vertrouwd sinds",
+        "agentName": "Agentnaam",
+        "status": "Status",
+        "version": "Versie",
+        "owner": "Eigenaar",
+        "source": "Bron"
+      },
+      "roles": {
+        "member": "Lid",
+        "admin": "Beheerder",
+        "adminManager": "Beheerder (teammanager)"
+      },
+      "source": {
+        "direct": "Direct",
+        "trusted": "Vertrouwd {{team}}",
+        "trustedBadge": "Vertrouwd",
+        "unknown": "Onbekend"
+      },
+      "rowActions": {
+        "removeMember": "Lid verwijderen",
+        "removeClientFromTeam": "Klant uit team verwijderen",
+        "removeTrust": "Vertrouwen verwijderen"
+      },
+      "empty": {
+        "noMembers": "Geen leden in dit team",
+        "noClients": "Geen klanten aan dit team toegewezen",
+        "noTrustedTeams": "Geen vertrouwde teams. Alleen systeemagents en agents van dit team kunnen taken uitvoeren.",
+        "noAgents": "Geen agents toegankelijk voor dit team",
+        "noAgentsHint": "Voeg teamleden met agents toe of stel vertrouwensrelaties in."
+      },
+      "confirm": {
+        "removeMember": "Weet u zeker dat u dit lid wilt verwijderen?",
+        "removeClient": "Weet u zeker dat u \"{{name}}\" uit dit team wilt verwijderen? Teamleden verliezen toegang tot de gegevens van deze klant.",
+        "removeTrust": "Deze vertrouwensrelatie verwijderen? Agents van dit team kunnen uw taken niet meer uitvoeren."
+      },
+      "messages": {
+        "memberAdded": "Lid succesvol toegevoegd",
+        "memberRemoved": "Lid verwijderd",
+        "roleUpdated": "Rol bijgewerkt",
+        "teamUpdated": "Team succesvol bijgewerkt",
+        "clientAssigned": "Klant aan team toegewezen",
+        "clientRemoved": "Klant uit team verwijderd",
+        "trustAdded": "Vertrouwensrelatie toegevoegd",
+        "trustRemoved": "Vertrouwensrelatie verwijderd"
+      },
+      "errors": {
+        "loadFailed": "Laden van teamgegevens mislukt",
+        "addMemberFailed": "Toevoegen van lid mislukt",
+        "removeMemberFailed": "Verwijderen van lid mislukt",
+        "updateRoleFailed": "Bijwerken van rol mislukt",
+        "loadClientsFailed": "Laden van klanten mislukt",
+        "assignClientFailed": "Toewijzen van klant mislukt",
+        "removeClientFailed": "Verwijderen van klant mislukt",
+        "updateTeamFailed": "Bijwerken van team mislukt",
+        "loadTeamNamesFailed": "Laden van teamnamen mislukt",
+        "addTrustFailed": "Toevoegen van vertrouwensrelatie mislukt",
+        "removeTrustFailed": "Verwijderen van vertrouwensrelatie mislukt"
+      },
+      "dialogs": {
+        "cancel": "Annuleren",
+        "editTeam": {
+          "title": "Team bewerken",
+          "nameLabel": "Teamnaam",
+          "descriptionLabel": "Beschrijving",
+          "saveButton": "Opslaan",
+          "savingButton": "Opslaan..."
+        },
+        "addMember": {
+          "title": "Teamlid toevoegen",
+          "searchLabel": "Gebruikers zoeken",
+          "searchPlaceholder": "Typ minstens 2 tekens...",
+          "typeToSearch": "Typ om te zoeken...",
+          "noUsersFound": "Geen gebruikers gevonden",
+          "roleLabel": "Rol",
+          "addButton": "Lid toevoegen"
+        },
+        "addTrust": {
+          "title": "Vertrouwd team toevoegen",
+          "info": "Agents die eigendom zijn van leden van het vertrouwde team mogen uw teamtaken uitvoeren.",
+          "selectLabel": "Selecteer een team om te vertrouwen",
+          "searchPlaceholder": "Zoek teams...",
+          "noTeamsAvailable": "Geen teams beschikbaar",
+          "optionLabel_one": "{{name}} ({{count}} agent)",
+          "optionLabel_other": "{{name}} ({{count}} agents)"
+        },
+        "assignClient": {
+          "title": "Klant aan team toewijzen",
+          "info": "Het toewijzen van een klant geeft alle teamleden toegang tot de hashlijsten, taken en gekraakte gegevens van deze klant.",
+          "selectLabel": "Klant selecteren",
+          "searchPlaceholder": "Zoek klanten...",
+          "noClientsAvailable": "Geen niet-toegewezen klanten beschikbaar"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Beheer van aangepaste karaktersets",
+    "description": "Beheer globale aangepaste karaktersets beschikbaar voor alle vooringestelde taken en gebruikers. Ondersteunt zowel inline-definities als binaire .hcchr-karaktersetbestanden.",
+    "createCharset": "Karakterset aanmaken",
+    "columns": {
+      "name": "Naam",
+      "type": "Type",
+      "definition": "Definitie / Info",
+      "description": "Beschrijving",
+      "created": "Aangemaakt"
+    },
+    "typeLabels": {
+      "file": "Bestand",
+      "inline": "Inline",
+      "hex": "Hex"
+    },
+    "uniqueBytes_one": "{{count}} unieke byte",
+    "uniqueBytes_other": "{{count}} unieke bytes",
+    "rowActions": {
+      "edit": "Bewerken",
+      "delete": "Verwijderen"
+    },
+    "empty": "Geen aangepaste karaktersets gevonden. Maak er een aan om te beginnen.",
+    "dialogs": {
+      "create": {
+        "title": "Aangepaste karakterset aanmaken"
+      },
+      "edit": {
+        "title": "Aangepaste karakterset bewerken"
+      },
+      "delete": {
+        "title": "Karakterset verwijderen",
+        "confirmation": "Weet u zeker dat u de karakterset \"{{name}}\" wilt verwijderen?"
+      },
+      "modeToggle": {
+        "inline": "Inline-definitie",
+        "file": "Bestand uploaden (.hcchr)"
+      },
+      "fields": {
+        "name": "Naam",
+        "namePlaceholder": "bv. Volledige DES-karakterset",
+        "definition": "Definitie",
+        "definitionPlaceholderHex": "bv. 41424344 (hex-byteparen)",
+        "definitionPlaceholderPlain": "bv. ?u?d of abcdef0123456789",
+        "definitionHelperHex": "Hex-byteparen — elk paar = één karaktersetbyte. {{bytes}}",
+        "definitionHelperHexBytes_one": "{{count}} byte",
+        "definitionHelperHexBytes_other": "{{count}} bytes",
+        "definitionHelperPlain": "Hashcat-karaktersetdefinitie. Gebruik ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H of letterlijke tekens.",
+        "hexTooltip": "Als ingeschakeld, wordt de definitie geïnterpreteerd als hex-byteparen (bv. 41424344 = bytes A, B, C, D). Taken die deze karakterset gebruiken, voeren automatisch --hex-charset in.",
+        "hexLabel": "Hex-gecodeerde definitie",
+        "selectFile": ".hcchr-bestand selecteren",
+        "fileSizeBytes_one": "{{count}} byte",
+        "fileSizeBytes_other": "{{count}} bytes",
+        "fileHelperText": "Binair karaktersetbestand met onbewerkte bytewaarden (max. 1023 bytes, tot 256 unieke bytes). Gebruikt voor DES-kraken, NTLMv1 en taalspecifieke coderingen.",
+        "fileCharsetInfo_one": "Bestandskarakterset: {{count}} unieke byte. Alleen naam en beschrijving kunnen worden bewerkt.",
+        "fileCharsetInfo_other": "Bestandskarakterset: {{count}} unieke bytes. Alleen naam en beschrijving kunnen worden bewerkt.",
+        "description": "Beschrijving",
+        "descriptionPlaceholder": "Optionele beschrijving van het gebruik van deze karakterset"
+      },
+      "update": "Bijwerken",
+      "upload": "Uploaden"
+    },
+    "messages": {
+      "createSuccess": "Karakterset succesvol aangemaakt",
+      "uploadSuccess": "Bestandskarakterset succesvol geüpload",
+      "updateSuccess": "Karakterset succesvol bijgewerkt",
+      "deleteSuccess": "Karakterset succesvol verwijderd"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Alleen .hcchr-bestanden zijn toegestaan",
+      "fileTooLarge": "Bestand te groot (max. 1023 bytes — hashcat-leesbufferlimiet)",
+      "nameRequired": "Naam is vereist",
+      "definitionRequired": "Definitie is vereist",
+      "selectFile": "Selecteer een .hcchr-bestand",
+      "loadFailed": "Laden van karaktersets mislukt: {{message}}",
+      "deleteFailed": "Verwijderen van karakterset mislukt: {{message}}"
     }
   }
 }

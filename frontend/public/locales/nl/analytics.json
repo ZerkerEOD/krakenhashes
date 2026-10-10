@@ -19,7 +19,18 @@
     "endDate": "Einddatum",
     "customPatterns": "Aangepaste patronen (kommagescheiden)",
     "customPatternsPlaceholder": "bijv. goog, ggl, micro, soft",
-    "customPatternsHelper": "Voeg aangepaste organisatienaamvariaties toe om te controleren"
+    "customPatternsHelper": "Voeg aangepaste organisatienaamvariaties toe om te controleren",
+    "quickSelect": "Snelle selectie",
+    "datePresets": {
+      "lastMonth": "Afgelopen maand",
+      "lastQuarter": "Afgelopen kwartaal",
+      "last6Months": "Afgelopen 6 maanden",
+      "lastYear": "Afgelopen jaar",
+      "priorMonth": "Vorige maand",
+      "priorQuarter": "Vorig kwartaal",
+      "prior6Months": "Vorige 6 maanden",
+      "priorYear": "Vorig jaar"
+    }
   },
   "hashlistSelection": {
     "title": "Hashlijsten",
@@ -32,7 +43,8 @@
     "cracked": "Gekraakt",
     "status": "Status",
     "active": "Actief",
-    "archived": "Gearchiveerd"
+    "archived": "Gearchiveerd",
+    "titleWithCount": "{{title}} ({{selected}}/{{total}})"
   },
   "table": {
     "dateRange": "Datumbereik",
@@ -58,7 +70,16 @@
     "retry": "Opnieuw proberen",
     "delete": "Verwijderen",
     "exportHcmask": "Exporteer .hcmask",
-    "exportTxt": "Exporteer .txt"
+    "exportTxt": "Exporteer .txt",
+    "exportInternalPdf": "Interne PDF",
+    "exportExternalPdf": "Externe PDF"
+  },
+  "pdfExport": {
+    "internalConfirmTitle": "Intern rapport exporteren?",
+    "internalConfirmBody": "De interne PDF bevat herstelde wachtwoorden in platte tekst, gebruikersnamen en hashwaarden. Verwerk en bewaar deze alleen via goedgekeurde veilige kanalen. Deze export wordt geregistreerd in het auditlogboek.",
+    "confirm": "Interne PDF downloaden",
+    "cancel": "Annuleren",
+    "error": "Genereren van de PDF mislukt. Probeer het opnieuw."
   },
   "messages": {
     "selectClient": "Selecteer een klant",
@@ -80,7 +101,8 @@
     "copiedSuccess": "Gebruikersnamen gekopieerd naar klembord!",
     "noRecommendations": "Geen specifieke aanbevelingen op dit moment. Wachtwoordbeleid lijkt adequaat.",
     "top50Hashes": "Toont top 50 meest hergebruikte hashes",
-    "top50PartialCracks": "Toont top 50 gedeeltelijke kraken"
+    "top50PartialCracks": "Toont top 50 gedeeltelijke kraken",
+    "confirmDeleteReport": "Dit analyserapport verwijderen? Dit kan niet ongedaan worden gemaakt."
   },
   "sections": {
     "lengthDistribution": "Wachtwoordlengteverdeling",
@@ -117,7 +139,8 @@
     "kerberos": "Kerberos",
     "encryptionTypes": "Versleutelingstypen",
     "linkedHashCorrelation": "LM/NTLM gekoppelde hashcorrelatie",
-    "reusedPasswords": "Hergebruikte wachtwoorden per voorkomst"
+    "reusedPasswords": "Hergebruikte wachtwoorden per voorkomst",
+    "overviewWithDomain": "{{base}} - {{domain}}"
   },
   "charts": {
     "count": "Aantal",
@@ -161,7 +184,7 @@
     "hashlist": "Hashlijst",
     "mask": "Masker",
     "lmPattern": "LM-patroon",
-    "matchPercentage": "Match %",
+    "matchPercentage": "Overeenkomst %",
     "estimatedKeyspace": "Gesch. keyspace",
     "exampleLm": "Voorbeeld LM",
     "usersHashlistCount": "Gebruikers (hashlijst aantal)",
@@ -197,7 +220,8 @@
     "totalEstimatedKeyspace": "Totaal geschatte keyspace",
     "underOrEqual7Chars": "<=7 tekens:",
     "8To14Chars": "8-14 tekens:",
-    "partiallyCracked": "Gedeeltelijk gekraakt:"
+    "partiallyCracked": "Gedeeltelijk gekraakt:",
+    "domainFilterTabs": "Domeinfiltertabbladen"
   },
   "cards": {
     "totalHashes": "Totaal hashes",
@@ -334,11 +358,13 @@
     "chars": "tekens"
   },
   "pagination": {
-    "masks": "{{from}}-{{to}} van {{count}} maskers"
+    "masks_one": "{{from}}-{{to}} van {{count}} masker",
+    "masks_other": "{{from}}-{{to}} van {{count}} maskers"
   },
   "export": {
     "header": "# LM-naar-NTLM Hashcat-maskers",
-    "generatedFrom": "# Gegenereerd van {{count}} gekraakte LM-wachtwoorden",
+    "generatedFrom_one": "# Gegenereerd op basis van {{count}} gekraakt LM-wachtwoord",
+    "generatedFrom_other": "# Gegenereerd op basis van {{count}} gekraakte LM-wachtwoorden",
     "totalMasks": "# Totaal maskers: {{count}}",
     "totalKeyspace": "# Totaal geschatte keyspace: {{keyspace}}",
     "format": "# Formaat: masker | patroon | aantal | match% | keyspace | voorbeeld"
@@ -394,5 +420,12 @@
     "largestSingleReach": "Grootste bereik van één account",
     "computers": "Computers",
     "notApplicable": "n.v.t."
+  },
+  "bloodhoundUpload": {
+    "attachButton": "BloodHound-dump koppelen (optioneel)",
+    "filesSelected_one": "{{count}} bestand geselecteerd",
+    "filesSelected_other": "{{count}} bestanden geselecteerd",
+    "clear": "Wissen",
+    "helperText": "Upload een SharpHound .zip (of BloodHound .json-bestanden) om het rapport met AD-bevoegdheidsanalyse uit te breiden. De dump wordt in het geheugen verwerkt en nooit opgeslagen — upload opnieuw om opnieuw te analyseren."
   }
 }

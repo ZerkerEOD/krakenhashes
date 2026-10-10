@@ -1,0 +1,501 @@
+{
+  "title": "Danh sách Hash",
+  "uploadButton": "Tải lên Danh sách Hash",
+  "page": {
+    "title": "Quản lý Danh sách Hash",
+    "description": "Tải lên và quản lý danh sách hash mật khẩu cho các hoạt động bẻ khóa"
+  },
+  "columns": {
+    "name": "Tên",
+    "hashType": "Loại Hash",
+    "totalHashes": "Tổng số Hash",
+    "crackedHashes": "Đã bẻ khóa",
+    "progress": "Đã bẻ khóa (%)",
+    "client": "Khách hàng",
+    "status": "Trạng thái",
+    "createdAt": "Ngày tạo",
+    "actions": "Hành động"
+  },
+  "filters": {
+    "filterByName": "Lọc theo Tên",
+    "status": "Trạng thái",
+    "all": "Tất cả"
+  },
+  "status": {
+    "uploading": "Đang tải lên",
+    "processing": "Đang xử lý",
+    "ready": "Sẵn sàng",
+    "error": "Lỗi"
+  },
+  "table": {
+    "noHashlists": "Không tìm thấy danh sách hash nào."
+  },
+  "details": {
+    "title": "Chi tiết Danh sách Hash",
+    "overview": "Tổng quan",
+    "hashes": "Hash",
+    "jobs": "Công việc",
+    "stats": "Thống kê"
+  },
+  "upload": {
+    "title": "Tải lên Danh sách Hash Mới",
+    "name": "Tên Danh sách Hash",
+    "hashType": "Loại Hash",
+    "client": "Khách hàng (Tùy chọn)",
+    "file": "Tệp Hash",
+    "selectFile": "Chọn Tệp",
+    "uploading": "Đang tải lên...",
+    "cancel": "Hủy",
+    "executableBlocked": "Tệp này dường như là một binary có thể thực thi và không thể được tải lên dưới dạng danh sách hash.",
+    "description": "Mô tả",
+    "methodLabel": "Phương pháp Tải lên",
+    "methodAriaLabel": "chế độ tải lên",
+    "fileAriaLabel": "tải lên tệp",
+    "pasteAriaLabel": "dán hash",
+    "uploadFile": "Tải lên Tệp",
+    "pasteHashes": "Dán Hash",
+    "dropHere": "Thả tệp danh sách hash ở đây...",
+    "dragAndDrop": "Kéo và thả một tệp danh sách hash, hoặc nhấp để chọn",
+    "allFileTypesExceptExecutables": "Tất cả các loại tệp được chấp nhận ngoại trừ tệp thực thi",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "Xóa",
+    "hashCount_other": "{{count}} hash",
+    "hashCountDetected_other": "{{count}} hash được phát hiện",
+    "pasteHashesLabel": "Dán hash ở đây (một trên mỗi dòng)",
+    "pasteHashesPlaceholder": "Nhập hash, một trên mỗi dòng...&#10;&#10;Ví dụ:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Dán các hash của bạn ở trên, một trên mỗi dòng",
+    "excludeFromGlobalPotfile": "Loại trừ khỏi potfile toàn cầu",
+    "excludeFromGlobalPotfileHelper": "Mật khẩu đã bẻ khóa từ danh sách hash này sẽ không được lưu vào potfile toàn cầu",
+    "globalPotfileDisabledNotice": "Lưu ý: Potfile toàn cầu hiện bị vô hiệu hóa bởi cài đặt quản trị viên.",
+    "excludeFromClientPotfile": "Loại trừ khỏi potfile của khách hàng",
+    "excludeFromClientPotfileHelper": "Mật khẩu đã bẻ khóa từ danh sách hash này sẽ không được lưu vào potfile của khách hàng",
+    "clientPotfilesDisabledNotice": "Lưu ý: Potfile của khách hàng bị vô hiệu hóa bởi cài đặt quản trị viên.",
+    "uploadButtonLabel": "Tải lên Danh sách Hash",
+    "selectTeamForNewClient": "Vui lòng chọn một nhóm cho khách hàng mới.",
+    "validationCancelled": "Tải lên đã bị hủy. Sửa tệp và thử lại.",
+    "errors": {
+      "nameRequired": "Tên là bắt buộc",
+      "hashTypeRequired": "Loại hash là bắt buộc",
+      "clientRequired": "Khách hàng là bắt buộc",
+      "noHashesToUpload": "Không có hash để tải lên",
+      "uploadFailedWithStatus": "Tải lên thất bại (HTTP {{status}})",
+      "uploadFailedWithMessage": "Tải lên thất bại: {{message}}",
+      "uploadFailedUnknown": "Tải lên thất bại (lỗi không xác định)",
+      "uploadErrorPrefix": "Lỗi tải lên danh sách hash: {{message}}",
+      "unknownError": "Xảy ra lỗi không xác định"
+    },
+    "linkDialog": {
+      "title": "Phát hiện Hash LM/NTLM",
+      "detected": "Phát hiện tệp định dạng pwdump với:",
+      "lmCount_other": "{{count}} hash LM (không trống)",
+      "ntlmCount_other": "{{count}} hash NTLM",
+      "blankLmCount_other": "{{count}} hash LM trống (mật khẩu trống - sẽ bị bỏ qua)",
+      "question": "Bạn có muốn tạo hai danh sách hash liên kết cho các quy trình bẻ khóa riêng biệt không?",
+      "explanation": "Điều này sẽ tạo các danh sách hash \"{{lmName}}\" và \"{{ntlmName}}\" được liên kết với nhau.",
+      "uploadSingle": "Tải lên dưới dạng Danh sách Đơn",
+      "createLinked": "Tạo Danh sách Liên kết"
+    }
+  },
+  "actions": {
+    "viewDetails": "Xem Chi tiết",
+    "createJob": "Tạo Công việc",
+    "download": "Tải xuống",
+    "delete": "Xóa"
+  },
+  "createJob": {
+    "additionalArgs": "Các Đối số Hashcat Bổ sung (Tùy chọn)",
+    "additionalArgsHelper": "Các cờ hashcat bổ sung cho công việc này. Các cờ cấp agent có ưu tiên khi xảy ra xung đột.",
+    "title": "Tạo Công việc cho \"{{name}}\"",
+    "successRedirect": "Công việc đã được tạo thành công! Đang chuyển hướng đến trang công việc...",
+    "successDefault": "Công việc đã được tạo thành công!",
+    "loadingDefault": "Đang tạo...",
+    "loadingCreating": "Đang tạo công việc...",
+    "loadingKeyspace": "Đang tính toán keyspace...",
+    "cancel": "Hủy",
+    "submit": "Tạo Công việc",
+    "canInterrupt": "Có thể bị Ngắt",
+    "tabs": {
+      "workflows": "Quy trình Làm việc",
+      "presetJobs": "Công việc Cài sẵn",
+      "customJob": "Công việc Tùy chỉnh"
+    },
+    "attackModes": {
+      "dictionary": "Từ điển",
+      "combination": "Kết hợp",
+      "bruteforce": "Brute-force",
+      "hybridWordlistMask": "Hỗn hợp Wordlist + Mask",
+      "hybridMaskWordlist": "Hỗn hợp Mask + Wordlist",
+      "association": "Association",
+      "modeFallback": "Chế độ {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Vui lòng chọn ít nhất một quy trình làm việc",
+      "selectPresetJob": "Vui lòng chọn ít nhất một công việc cài sẵn",
+      "wordlistRequired": "Chế độ tấn công được chọn yêu cầu ít nhất một wordlist",
+      "combinationRequiresTwo": "Tấn công kết hợp yêu cầu cả hai wordlist được chọn",
+      "maskRequired": "Chế độ tấn công được chọn yêu cầu một mask",
+      "associationMixedWorkFactors": "Tấn công association không thể được chạy trên danh sách hash có các work factor hỗn hợp",
+      "associationWordlistRequired": "Tấn công association yêu cầu một wordlist association",
+      "chunkDurationMin": "Thời gian chunk phải ít nhất 5 giây",
+      "chunkDurationMax": "Thời gian chunk không thể vượt quá 24 giờ (86400 giây)",
+      "partialFailure": "{{message}}. Không được tạo: {{details}}",
+      "unnamedItem": "mục",
+      "createFailed": "Không thể tạo công việc",
+      "loadFailed": "Không thể tải công việc có sẵn"
+    },
+    "workflows": {
+      "empty": "Không có quy trình làm việc nào. Vui lòng tạo quy trình làm việc trong bảng quản trị trước.",
+      "jobNameHelper": "Tên của bạn sẽ được thêm vào mỗi tên quy trình làm việc",
+      "description": "Chọn một hoặc nhiều quy trình làm việc để chạy. Bạn có thể chọn nhiều quy trình làm việc - mỗi quy trình sẽ tạo chuỗi thực thi công việc riêng của nó. Các cài đặt loopback được cấu hình trong quy trình làm việc - một quy trình làm việc được gắn thẻ \"Loopback\" sẽ tự động chạy lại các bước đủ điều kiện của nó đối với các mật khẩu mới được bẻ khóa.",
+      "jobsCount_other": "{{count}} công việc",
+      "loopbackAllEligible": "Loopback: tất cả đủ điều kiện",
+      "loopbackSteps_other": "Loopback: {{count}} bước",
+      "jobsList": "Công việc: {{names}}",
+      "selectedCount_other": "{{count}} quy trình làm việc được chọn"
+    },
+    "presetJobs": {
+      "empty": "Không có công việc cài sẵn nào. Vui lòng tạo công việc cài sẵn trong bảng quản trị trước.",
+      "jobNameHelper": "Tên của bạn sẽ được thêm vào mỗi loại công việc (ví dụ: 'Tên của tôi - Potfile Run')",
+      "description": "Chọn một hoặc nhiều công việc cài sẵn để chạy. Bạn có thể chọn nhiều công việc - chúng sẽ được tạo dưới dạng các thực thi công việc riêng biệt.",
+      "priorityLabel": "Ưu tiên: {{priority}}",
+      "selectedCount_other": "{{count}} công việc được chọn"
+    },
+    "loopback": {
+      "label": "Loopback cho đến khi hết",
+      "helperEligible": "Chạy công việc được chọn, sau đó chạy lại những công việc có thể đột biến (trực tiếp + quy tắc, hoặc tấn công hỗn hợp) chỉ với các mật khẩu mới được bẻ khóa - lặp lại cho đến khi không tìm thấy bẻ khóa mới nào.",
+      "helperSelectEligible": "Chọn một công việc cài sẵn đủ điều kiện (trực tiếp + quy tắc, hoặc tấn công hỗn hợp) dưới đây để kích hoạt loopback.",
+      "helperNoneEligible": "Không có công việc được chọn nào có phép đột biến để loopback (chúng chỉ là wordlist, brute-force hoặc association).",
+      "helperFilterConflict": "Loopback không khả dụng khi bộ lọc trước được kích hoạt cho công việc này.",
+      "helperCustom": "Chạy tấn công này, sau đó chạy lại phép đột biến của nó (quy tắc hoặc mask) chỉ với các mật khẩu mới được bẻ khóa - lặp lại cho đến khi không tìm thấy bẻ khóa mới nào."
+    },
+    "filter": {
+      "enableLabel": "Lọc trước wordlist được chọn cho công việc này",
+      "ephemeralNotice": "Danh sách được lọc này là tạm thời và chỉ được sử dụng cho công việc này. Để tạo một wordlist được lọc có thể tái sử dụng, hãy sử dụng Quản lý Wordlist. Việc tạo diễn ra trong nền; công việc sẽ bắt đầu tự động khi nó sẵn sàng."
+    },
+    "association": {
+      "explainer": "Tấn công association ánh xạ mỗi hash tới một dòng wordlist tương ứng 1:1. Số dòng wordlist phải khớp với tổng số hash ({{hashCount}}).",
+      "falsePositiveWarning": "<strong>Lưu ý:</strong> Tấn công association có thể tạo ra dương tính giả. Nên xác minh kết quả bằng cách tải xuống hash đã bẻ khóa, xóa danh sách hash, tải lên lại và xác nhận bằng tấn công từ điển.",
+      "wordlistLabel": "Wordlist Association",
+      "selectWordlist": "Chọn wordlist association",
+      "wordlistOptionLabel": "{{name}} ({{lines}} dòng, {{size}} KB)",
+      "wordlistHelper": "Tải lên wordlist association qua phần Wordlist Association của Danh sách Hash"
+    },
+    "cloud": {
+      "allowBurst": "Cho phép Cloud Burst",
+      "allowBurstHelper": "Thuê các instance GPU khi đội GPU tại chỗ không thể theo kịp. Yêu cầu khách hàng được tài trợ và đã chọn tham gia một nhà cung cấp.",
+      "allowPeerHosts": "Cho phép các host do người khác vận hành (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "Đây là các máy của người khác. Chủ sở hữu host có root trên container, vì vậy hash, wordlist và plaintext đã bẻ khóa của khách hàng này có thể đọc được bởi bên thứ ba và <strong>không được mã hóa khi lưu trữ trên host</strong>. Không khuyến cáo cho dữ liệu sản xuất hoặc dữ liệu liên quan đến khách hàng. Tắt điều này đi, công việc sẽ vẫn sử dụng năng lực an toàn (AWS, RunPod Secure Cloud) nếu khách hàng cho phép.",
+      "maxInstances": "Số Instance Cloud Tối đa",
+      "maxInstancesHelper": "Tách biệt với Agent tối đa, điều chỉnh nhóm tại chỗ. Để trống cho phép ngân sách quyết định."
+    },
+    "form": {
+      "jobName": "Tên Công việc (Tùy chọn)",
+      "jobNamePlaceholder": "Để trống cho tên được tạo tự động",
+      "jobNameHelper": "Để trống cho tên được tạo tự động dựa trên cấu hình tấn công",
+      "attackModeLabel": "Chế độ Tấn công",
+      "attackModeDictionary": "Tấn công Từ điển",
+      "attackModeCombination": "Tấn công Kết hợp",
+      "attackModeBruteforce": "Tấn công Brute-force",
+      "attackModeHybridWordlistMask": "Hỗn hợp Wordlist + Mask",
+      "attackModeHybridMaskWordlist": "Hỗn hợp Mask + Wordlist",
+      "attackModeAssociation": "Tấn công Association",
+      "associationBlockedMixed": " (Bị chặn: Work factor hỗn hợp)",
+      "associationNoWordlists": " (Không có wordlist được tải lên)",
+      "binaryVersionHelper": "Chọn mẫu phiên bản binary",
+      "wordlists": "Wordlist",
+      "selectWordlists": "Chọn wordlist",
+      "ruleOptional": "Quy tắc (Tùy chọn)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} quy tắc)",
+      "selectRule": "Chọn một quy tắc",
+      "firstWordlist": "Wordlist Đầu tiên",
+      "secondWordlist": "Wordlist Thứ hai",
+      "selectFirstWordlist": "Chọn wordlist đầu tiên",
+      "selectSecondWordlist": "Chọn wordlist thứ hai",
+      "categoryClientSpecific": "Dành riêng cho Khách hàng",
+      "categoryGlobal": "Toàn cầu",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} dòng)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} MB)",
+      "clientPotfileName_other": "Potfile của Khách hàng ({{count, number}} mật khẩu)",
+      "mask": "Mask",
+      "maskPlaceholder": "ví dụ: ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = chữ thường, ?u = chữ hoa, ?d = chữ số, ?s = ký tự đặc biệt, ?1-?4 = tùy chỉnh",
+      "incrementModeLabel": "Chế độ Tăng",
+      "incrementModeOff": "Tắt",
+      "incrementModeForward": "Tăng (T→P)",
+      "incrementModeInverse": "Tăng Nghịch (P→T)",
+      "incrementModeHelper": "Tăng thử các mask ngắn hơn trước, phát triển dần dần",
+      "minLength": "Độ dài Tối thiểu",
+      "maxLength": "Độ dài Tối đa",
+      "priority": "Ưu tiên",
+      "priorityHelper": "Công việc có ưu tiên cao hơn được thực thi trước (1-1000)",
+      "chunkDuration": "Thời gian Chunk (giây)",
+      "chunkDurationHelper": "Thời gian tính bằng giây cho mỗi chunk (5-86400 giây)",
+      "maxAgents": "Agent tối đa",
+      "maxAgentsHelper": "Số lượng agent tối đa (0 = không giới hạn)",
+      "allowHighPriorityOverride": "Cho phép Ghi đè Ưu tiên Cao",
+      "additionalArgsPlaceholder": "ví dụ: -w 4 -O --force"
+    }
+  },
+  "confirmDelete": {
+    "title": "Xác nhận xóa",
+    "message": "Bạn có chắc chắn muốn xóa danh sách hash \"{{name}}\"? Hành động này không thể hoàn tác.",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "deleting": "Đang xóa...",
+    "removeFromGlobalPotfile": "Loại bỏ mật khẩu đã bẻ khóa khỏi potfile toàn cục",
+    "removeFromClientPotfile": "Loại bỏ mật khẩu đã bẻ khóa khỏi potfile của khách hàng"
+  },
+  "deletionProgress": {
+    "title": "Đang xóa danh sách hash",
+    "successTitle": "Danh sách hash đã được xóa thành công",
+    "complete": "Xóa hoàn tất!",
+    "failed": "Xóa thất bại",
+    "summary": "Tóm tắt:",
+    "totalProcessed": "Tổng số hash được xử lý: {{value}}",
+    "orphansDeleted": "Hash mồ côi đã bị xóa: {{value}}",
+    "sharedPreserved": "Hash chia sẻ được giữ lại: {{value}}",
+    "jobsDeleted": "Công việc đã bị xóa: {{value}}",
+    "duration": "Thời gian: {{duration}}",
+    "phase": "Giai đoạn {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Đang chuẩn bị...",
+      "removingHashes": "Đang loại bỏ hash",
+      "clearingReferences": "Đang xóa tham chiếu tác vụ",
+      "cleaningOrphans": "Đang dọn dẹp hash mồ côi",
+      "finalizing": "Đang hoàn tất việc xóa"
+    },
+    "units": {
+      "hashes": "hash",
+      "references": "tham chiếu"
+    },
+    "error": "Lỗi: {{error}}",
+    "done": "Hoàn tất",
+    "close": "Đóng"
+  },
+  "notifications": {
+    "deleteSuccess": "Danh sách hash đã được xóa thành công",
+    "uploadSuccess": "Danh sách hash đã được tải lên thành công",
+    "downloaded": "Đã tải xuống {{filename}}",
+    "archiveSuccess": "Danh sách hash đã được lưu trữ thành công",
+    "unarchiveSuccess": "Danh sách hash đã được bỏ lưu trữ thành công",
+    "bulkArchiveSuccess_other": "{{count}} danh sách hash đã được lưu trữ thành công",
+    "bulkUnarchiveSuccess_other": "{{count}} danh sách hash đã được bỏ lưu trữ thành công"
+  },
+  "errors": {
+    "loadFailed": "Lỗi khi tải danh sách hash.",
+    "uploadFailed": "Không thể tải lên danh sách hash",
+    "deleteFailed": "Xóa thất bại: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Hiển thị đã lưu trữ",
+    "archive": "Lưu trữ",
+    "unarchive": "Bỏ lưu trữ",
+    "archived": "Đã lưu trữ",
+    "selectedCount": "{{count}} được chọn",
+    "archiveSelected": "Lưu trữ các mục được chọn",
+    "unarchiveSelected": "Bỏ lưu trữ các mục được chọn",
+    "deleteSelected": "Xóa các mục được chọn",
+    "confirmBulkDelete": {
+      "title": "Xác nhận xóa hàng loạt",
+      "message_other": "Bạn có chắc chắn muốn xóa {{count}} danh sách hash? Hành động này không thể hoàn tác.",
+      "warning": "Điều này sẽ xóa vĩnh viễn các danh sách hash được chọn và tất cả dữ liệu liên kết."
+    },
+    "bulkDeleteSuccess_other": "{{count}} danh sách hash đã được xóa thành công"
+  },
+  "hashDetails": {
+    "title": "Chi tiết hash",
+    "originalHash": "Hash gốc",
+    "password": "Mật khẩu",
+    "cracked": "Đã bẻ khóa",
+    "crackedAt": "Bẻ khóa lúc"
+  },
+  "detail": {
+    "backToHashlists": "Quay lại danh sách hash",
+    "viewCrackedHashes": "Xem hash đã bẻ khóa",
+    "noDescription": "Không có mô tả",
+    "statusLabel": "Trạng thái:",
+    "hashType": "Loại hash: {{name}}",
+    "clientLabel": "Khách hàng:",
+    "noClient": "Không có",
+    "editClient": "Chỉnh sửa khách hàng",
+    "created": "Được tạo: {{date}}",
+    "crackProgress": "Tiến độ bẻ khóa ({{cracked}} của {{total}})",
+    "fallbackHashlistName": "Danh sách hash",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} dòng",
+      "rate": "({{rate}}/giây)",
+      "eta": "• ETA: {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Danh sách hash đang được xóa — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Đang tải…",
+      "resumeReview": "Tiếp tục xem xét",
+      "title": "Danh sách hash này bị tạm dừng chờ quyết định xác thực.",
+      "message": "Xác thực hash đã đánh dấu <strong>{{invalidCount}}</strong> của <strong>{{totalLines}}</strong> dòng là sai định dạng. Mở hộp thoại xem xét để tiếp tục với các hash hợp lệ, thay đổi loại hash hoặc hủy tải lên."
+    },
+    "jobsRun": {
+      "title": "Công việc đã chạy",
+      "subtitle": "Công việc đã chạy với danh sách hash này, bao gồm các công việc đã lưu trữ.",
+      "empty": "Chưa có công việc nào chạy với danh sách hash này"
+    },
+    "editClientDialog": {
+      "title": "Chỉnh sửa phân công khách hàng",
+      "description": "Chọn khách hàng cho danh sách hash này hoặc để trống để loại bỏ phân công khách hàng.",
+      "save": "Lưu",
+      "saving": "Đang lưu..."
+    },
+    "notifications": {
+      "clientUpdated": "Khách hàng đã được cập nhật thành công",
+      "processingResumed": "Tiếp tục xử lý.",
+      "uploadCancelled": "Tải lên đã bị hủy."
+    },
+    "errors": {
+      "deleteFailed": "Không thể xóa danh sách hash",
+      "clientUpdateFailed": "Không thể cập nhật khách hàng",
+      "clientNotFound": "Không tìm thấy khách hàng",
+      "clientLookupFailed": "Không thể tìm kiếm khách hàng",
+      "downloadFailed": "Không thể tải xuống tệp",
+      "downloadHashlistFailed": "Không thể tải xuống danh sách hash",
+      "serverError": "Lỗi máy chủ ({{status}})",
+      "loadInvalidHashesFailed": "Không thể tải các hash không hợp lệ"
+    }
+  },
+  "associationWordlists": {
+    "header": "Wordlist dành riêng cho khách hàng",
+    "blocked": "Bị chặn",
+    "blockedTooltip": "Association attack bị chặn do mixed work factors trong danh sách hash",
+    "delete": "Xóa",
+    "uploadAssociation": "Tải lên wordlist association",
+    "uploadClient": "Tải lên wordlist khách hàng",
+    "uploadingPercent": "Đang tải lên... {{percent}}%",
+    "emptyAssociation": "Chưa tải lên wordlist association nào.",
+    "emptyClient": "Chưa tải lên wordlist khách hàng nào.",
+    "mixedWorkFactorsWarning": "Danh sách hash này có mixed work factors. Association attack không thể chạy trên danh sách hash với các bcrypt cost khác nhau hoặc các work factor có biến động tương tự. Bạn vẫn có thể tải lên wordlist, nhưng tạo công việc association attack sẽ bị chặn.",
+    "explainer": "Association wordlist ánh xạ từng hash đến ứng cử viên mật khẩu 1:1 theo số dòng. Wordlist phải có chính xác <strong>{{lines}}</strong> dòng để khớp với số lượng hash của danh sách hash này.",
+    "tabs": {
+      "associationAttack": "Association Attack",
+      "clientWordlists": "Wordlist khách hàng"
+    },
+    "columns": {
+      "fileName": "Tên tệp",
+      "lineCount": "Số dòng",
+      "fileSize": "Kích thước tệp",
+      "status": "Trạng thái",
+      "uploaded": "Đã tải lên",
+      "actions": "Hành động"
+    },
+    "status": {
+      "ready": "Sẵn sàng",
+      "lineCountMismatch": "Số dòng không khớp",
+      "lineCountMismatchTooltip": "Dự kiến {{expected}} dòng, nhận được {{actual}}"
+    },
+    "deleteConfirm": {
+      "title": "Xóa wordlist",
+      "message": "Xóa \"{{fileName}}\"? Hành động này không thể hoàn tác."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Wordlist khách hàng chỉ có sẵn cho danh sách hash được liên kết với khách hàng.",
+      "description": "Wordlist khách hàng có sẵn trên tất cả danh sách hash cho khách hàng này. Những wordlist này có thể được sử dụng với bất kỳ chế độ tấn công nào, không chỉ association attack."
+    },
+    "clientPotfile": {
+      "title": "Potfile của khách hàng (tự động tạo)",
+      "description": "Potfile này chứa tất cả mật khẩu đã bẻ khóa cho khách hàng này. Nó được cập nhật tự động khi các hash được bẻ khóa.",
+      "passwordCount_other": "{{count}} mật khẩu",
+      "updated": "Cập nhật: {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "Wordlist association đã bị xóa",
+      "clientDeleted": "Wordlist khách hàng đã bị xóa",
+      "associationUploaded": "Wordlist association đã được tải lên thành công",
+      "clientUploaded": "Wordlist khách hàng đã được tải lên thành công"
+    },
+    "errors": {
+      "deleteFailed": "Không thể xóa wordlist",
+      "uploadFailed": "Không thể tải lên wordlist",
+      "loadAssociationFailed": "Không thể tải wordlist association",
+      "loadClientFailed": "Không thể tải wordlist khách hàng",
+      "lineCountMismatch": "Wordlist có {{wordlistLines}} dòng nhưng danh sách hash có {{hashlistLines}} hash hợp lệ."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Khách hàng",
+    "placeholder": "Chọn khách hàng...",
+    "createNewClient": "Tạo khách hàng mới",
+    "newClientDetails": "Chi tiết khách hàng mới",
+    "team": "Nhóm",
+    "teamHelper": "Khách hàng mới sẽ được gán cho nhóm này.",
+    "clientName": "Tên khách hàng",
+    "description": "Mô tả",
+    "contactInfo": "Thông tin liên hệ",
+    "dataRetention": "Thời gian lưu giữ (tháng)",
+    "dataRetentionPlaceholderDefault": "Mặc định hệ thống: {{months}}",
+    "dataRetentionPlaceholderUnset": "Chưa đặt (giữ vô thời hạn)",
+    "dataRetentionHelperDefault": "Để trống để sử dụng mặc định hệ thống ({{months}} tháng). Đặt 0 để giữ mãi mãi.",
+    "dataRetentionHelperUnset": "Để trống để sử dụng mặc định hệ thống. Đặt 0 để giữ mãi mãi.",
+    "excludeFromGlobalPotfile": "Loại trừ khỏi potfile toàn cục",
+    "excludeFromGlobalPotfileHelper": "Mật khẩu đã bẻ khóa từ khách hàng này sẽ không được thêm vào potfile toàn cục.",
+    "excludeFromClientPotfile": "Loại trừ khỏi potfile của khách hàng",
+    "excludeFromClientPotfileHelper": "Mật khẩu đã bẻ khóa từ khách hàng này sẽ không được thêm vào potfile dành riêng cho họ.",
+    "errors": {
+      "fetchFailed": "Không thể tải khách hàng"
+    }
+  },
+  "hashesTable": {
+    "title": "Hash",
+    "subtitle": "{{cracked}} của {{total}} đã bẻ khóa ({{pct}}%)",
+    "searchPlaceholder": "Tìm kiếm hash...",
+    "ariaLabel": "bảng hash của danh sách hash",
+    "copiedToClipboard": "Đã sao chép vào clipboard",
+    "copyPassword": "Sao chép mật khẩu",
+    "copyHash": "Sao chép hash",
+    "loadFailed": "Không thể tải hash",
+    "columns": {
+      "originalHash": "Hash gốc",
+      "username": "Tên người dùng",
+      "domain": "Domain",
+      "password": "Mật khẩu",
+      "status": "Trạng thái"
+    },
+    "status": {
+      "cracked": "Đã bẻ khóa",
+      "partial": "Một phần",
+      "pending": "Chờ xử lý"
+    }
+  },
+  "validationPreview": {
+    "title": "Xác thực hash: xem xét các dòng sai định dạng",
+    "modeFallback": "chế độ {{id}}",
+    "truncatedNotice": "10.000 dòng không hợp lệ đầu tiên được ghi lại để xem xét; các dòng không hợp lệ bổ sung tồn tại trong tệp nhưng không được liệt kê ở đây.",
+    "hashTypeLabel": "Loại hash",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Đang xác thực lại…",
+    "revalidateButton": "Xác thực lại",
+    "cancelAndFix": "Hủy & sửa chữa",
+    "cancelling": "Đang hủy…",
+    "starting": "Đang bắt đầu…",
+    "proceedButton": "Tiếp tục với {{validCount}} hash hợp lệ",
+    "noInvalidLines": "Không có dòng không hợp lệ nào để hiển thị.",
+    "allInvalid": {
+      "body1": "<strong>Không có</strong> {{totalLines}} dòng trong <em>{{hashlistName}}</em> khớp với <strong>{{hashTypeName}}</strong>. Lựa chọn loại hash có lẽ sai.",
+      "body2": "Chọn loại đúng bên dưới và nhấp vào <strong>Xác thực lại</strong> — tệp vẫn được tải lên, vì vậy bạn không cần phải bắt đầu lại."
+    },
+    "notAllInvalid": {
+      "body": "<strong>{{invalidCount}}</strong> của <strong>{{totalLines}}</strong> dòng trong <em>{{hashlistName}}</em> không vượt qua xác thực và sẽ bị bỏ qua nếu bạn tiếp tục. <strong>{{validCount}}</strong> hash hợp lệ sẽ được nhập."
+    },
+    "chooseActionText": "Chọn <strong>Chỉ tiếp tục với hash hợp lệ</strong> để nhập {{validCount}} hash hợp lệ (các dòng xấu được liệt kê sẽ bị bỏ qua), hoặc <strong>Hủy & sửa chữa</strong> để xóa tải lên này để bạn có thể sửa tệp nguồn và thử lại.",
+    "columns": {
+      "line": "Dòng",
+      "hashTruncated": "Hash (được cắt ngắn)",
+      "reason": "Lý do"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "Không thể tải các hash không hợp lệ",
+      "proceedFailed": "Không thể tiếp tục",
+      "cancelFailed": "Không thể hủy",
+      "revalidationFailed": "Xác thực lại thất bại"
+    }
+  }
+}

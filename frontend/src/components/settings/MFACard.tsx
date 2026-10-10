@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import {
   Box,
   Card,
@@ -68,6 +69,7 @@ interface MFACardProps {
 }
 
 const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
+  const { t } = useTranslation('settings');
   const { user, setUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [mfaSettings, setMFASettings] = useState<MFASettings | null>(null);
@@ -101,6 +103,8 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
   useEffect(() => {
     loadMFASettings();
     loadPasskeys();
+    // Mount-only load; the loaders are recreated each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadMFASettings = async () => {
@@ -109,7 +113,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       setMFASettings(settings);
       setError(null);
     } catch (err) {
-      setError('Failed to load MFA settings');
+      setError(t('mfa.messages.loadFailed') as string);
       console.error('Failed to load MFA settings:', err);
     } finally {
       setLoading(false);
@@ -134,7 +138,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       if (mfaSettings?.mfaEnabled) {
         // Disable MFA
         await disableMFA();
-        setSuccess('MFA disabled successfully');
+        setSuccess(t('mfa.messages.disabled') as string);
         await loadMFASettings();
         if (onMFAChange) {
           onMFAChange();
@@ -174,8 +178,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       } else if (hasPasskeyMethodEnabled && !webAuthnSupported) {
         // Passkey is the only non-email method but browser doesn't support WebAuthn
         setError(
-          'Passkey authentication is required but your browser does not support WebAuthn. ' +
-          'Please use a modern browser like Chrome, Firefox, Safari, or Edge to enable MFA.'
+          t('mfa.messages.passkeyBrowserRequired') as string
         );
         setLoading(false);
         return;
@@ -185,7 +188,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
         if (setUser && user) {
           setUser({ ...user, mfaEnabled: true, mfaType: 'email' });
         }
-        setSuccess('MFA enabled with email authentication');
+        setSuccess(t('mfa.messages.enabledEmail') as string);
         await loadMFASettings();
         if (onMFAChange) {
           onMFAChange();
@@ -193,11 +196,11 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
         return;
       } else {
         // No MFA methods available
-        throw new Error('No MFA methods are available. Please contact your administrator.');
+        throw new Error(t('mfa.messages.noMethods') as string);
       }
     } catch (err) {
       console.error('MFA toggle failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to toggle MFA');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.toggleFailed') as string));
     } finally {
       setLoading(false);
     }
@@ -215,7 +218,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
 
   const handlePasskeySetupForMFA = async () => {
     if (!mfaPasskeyName.trim()) {
-      setError('Please enter a name for the passkey');
+      setError(t('mfa.messages.passkeyNameRequired') as string);
       return;
     }
 
@@ -252,10 +255,10 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
         const codes = await generateBackupCodes();
         setBackupCodes(codes);
         setShowBackupCodes(true);
-        setSuccess('Passkey registered successfully! Please save your backup codes.');
+        setSuccess(t('mfa.messages.passkeyRegisteredSaveCodes') as string);
       } catch (backupErr) {
         // If backup code generation fails, still show success for passkey
-        setSuccess('Passkey registered successfully. You can generate backup codes from the MFA settings.');
+        setSuccess(t('mfa.messages.passkeyRegisteredNoCodes') as string);
       }
 
       // Reload MFA settings to reflect new passkey and MFA status
@@ -288,7 +291,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
         await loadMFASettings();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to setup authenticator');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.authenticatorSetupFailed') as string));
       setLoading(false);
     }
   };
@@ -309,7 +312,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       // Reload MFA settings to get the latest state
       await loadMFASettings();
 
-      setSuccess('Authenticator app has been set up successfully');
+      setSuccess(t('mfa.messages.authenticatorSetup') as string);
       setShowQRDialog(false);
       setVerificationCode('');
       setQrCode(null);
@@ -325,7 +328,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
         onMFAChange();
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to verify code';
+      const errorMessage = err instanceof Error ? err.message : (t('mfa.messages.verifyFailed') as string);
       setError(errorMessage);
       // Don't close dialog on error so user can try again
       setVerificationCode('');
@@ -338,9 +341,9 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       const codes = await generateBackupCodes();
       setBackupCodes(codes);
       setShowBackupCodes(true);
-      setSuccess('New backup codes have been generated');
+      setSuccess(t('mfa.messages.backupCodesGenerated') as string);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate backup codes');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.backupCodesFailed') as string));
     }
   };
 
@@ -355,10 +358,10 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       setError(null);
       const newMethod = event.target.value;
       await updatePreferredMFAMethod(newMethod);
-      setSuccess('Preferred MFA method updated successfully');
+      setSuccess(t('mfa.messages.preferredUpdated') as string);
       await loadMFASettings();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update preferred MFA method');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.preferredFailed') as string));
     }
   };
 
@@ -367,7 +370,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       setError(null);
       setShowDisableAuthWarning(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to disable authenticator');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.disableAuthFailed') as string));
     }
   };
 
@@ -377,10 +380,10 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       setLoading(true);
       await disableAuthenticator();
       setShowDisableAuthWarning(false);
-      setSuccess('Authenticator has been disabled successfully');
+      setSuccess(t('mfa.messages.authenticatorDisabled') as string);
       await loadMFASettings();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to disable authenticator');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.disableAuthFailed') as string));
     } finally {
       setLoading(false);
     }
@@ -391,7 +394,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       setError(null);
       setShowRegenerateWarning(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate new backup codes');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.newBackupCodesFailed') as string));
     }
   };
 
@@ -403,19 +406,19 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
         setBackupCodes(newCodes);
         setShowBackupCodes(true);
         setShowRegenerateWarning(false);
-        setSuccess('New backup codes have been generated successfully');
+        setSuccess(t('mfa.messages.newBackupCodesGenerated') as string);
       } else {
-        throw new Error('Invalid response format from server');
+        throw new Error(t('mfa.messages.invalidResponse') as string);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate new backup codes');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.newBackupCodesFailed') as string));
     }
   };
 
   // Passkey handlers
   const handleAddPasskey = async () => {
     if (!passkeyName.trim()) {
-      setError('Please enter a name for the passkey');
+      setError(t('mfa.messages.passkeyNameRequired') as string);
       return;
     }
 
@@ -436,7 +439,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       setPasskeys([...passkeys, newPasskey]);
       setShowAddPasskeyDialog(false);
       setPasskeyName('');
-      setSuccess('Passkey registered successfully');
+      setSuccess(t('mfa.messages.passkeyRegistered') as string);
 
       // Reload MFA settings to reflect new passkey
       await loadMFASettings();
@@ -463,7 +466,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       setPasskeys(passkeys.filter((p) => p.id !== selectedPasskey.id));
       setShowDeletePasskeyDialog(false);
       setSelectedPasskey(null);
-      setSuccess('Passkey deleted successfully');
+      setSuccess(t('mfa.messages.passkeyDeleted') as string);
 
       // Reload MFA settings to reflect removed passkey
       await loadMFASettings();
@@ -472,7 +475,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
         onMFAChange();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete passkey');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.passkeyDeleteFailed') as string));
     } finally {
       setPasskeyLoading(false);
     }
@@ -494,9 +497,9 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       setShowRenamePasskeyDialog(false);
       setSelectedPasskey(null);
       setPasskeyName('');
-      setSuccess('Passkey renamed successfully');
+      setSuccess(t('mfa.messages.passkeyRenamed') as string);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to rename passkey');
+      setError(err instanceof Error ? err.message : (t('mfa.messages.passkeyRenameFailed') as string));
     } finally {
       setPasskeyLoading(false);
     }
@@ -528,7 +531,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
     <Card sx={{ mb: 3 }}>
       <CardContent>
         <Typography variant="h6" gutterBottom>
-          Multi-Factor Authentication
+          {t('mfa.card.title')}
         </Typography>
 
         {error && (
@@ -545,7 +548,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
 
         {mfaSettings?.requireMfa && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            MFA is required by your organization's security policy
+            {t('mfa.card.requiredByPolicy')}
           </Alert>
         )}
 
@@ -557,24 +560,26 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
               disabled={mfaSettings?.requireMfa}
             />
           }
-          label="Enable Multi-Factor Authentication"
+          label={t('mfa.card.enableLabel')}
         />
 
         {mfaSettings?.mfaEnabled && (
           <Box sx={{ mt: 2 }}>
             <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="preferred-mfa-method-label">Preferred MFA Method</InputLabel>
+              <InputLabel id="preferred-mfa-method-label">{t('mfa.card.preferredMethod')}</InputLabel>
               <Select
                 labelId="preferred-mfa-method-label"
                 value={mfaSettings.preferredMethod}
                 onChange={handlePreferredMethodChange}
-                label="Preferred MFA Method"
+                label={t('mfa.card.preferredMethod')}
               >
                 {(Array.isArray(mfaSettings?.mfaType) ? mfaSettings.mfaType : [])
                   .filter(method => method !== 'backup')  // Filter out backup from preferred methods
                   .map((method: string) => (
                     <MenuItem key={method} value={method}>
-                      {method === 'passkey' ? 'Passkey' : method.charAt(0).toUpperCase() + method.slice(1)}
+                      {t(`mfa.card.preferredMethodNames.${method}`, {
+                        defaultValue: method.charAt(0).toUpperCase() + method.slice(1),
+                      })}
                     </MenuItem>
                   ))}
               </Select>
@@ -587,11 +592,11 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                   <EmailIcon color={isEmailRequired ? "primary" : "disabled"} />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Email Authentication"
-                  secondary={isEmailRequired ? "Required for account security" : "Optional"}
+                  primary={t('mfa.card.emailAuth')}
+                  secondary={isEmailRequired ? t('mfa.card.emailRequired') : t('mfa.card.optional')}
                 />
                 {isEmailRequired && (
-                  <Tooltip title="Required">
+                  <Tooltip title={t('mfa.card.required')}>
                     <WarningIcon color="info" />
                   </Tooltip>
                 )}
@@ -603,8 +608,8 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                   <KeyIcon color={mfaSettings?.mfaType?.includes('authenticator') ? "primary" : "disabled"} />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Authenticator App"
-                  secondary={mfaSettings?.mfaType?.includes('authenticator') ? "Configured" : "Not configured"}
+                  primary={t('mfa.methods.totp')}
+                  secondary={mfaSettings?.mfaType?.includes('authenticator') ? t('mfa.card.configured') : t('mfa.card.notConfigured')}
                 />
                 {mfaSettings?.allowedMfaMethods?.includes('authenticator') && (
                   mfaSettings?.mfaType?.includes('authenticator') ? (
@@ -613,7 +618,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                       color="error"
                       onClick={handleDisableAuthenticator}
                     >
-                      Disable
+                      {t('mfa.card.disable')}
                     </Button>
                   ) : (
                     <Button
@@ -621,7 +626,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                       onClick={handleAuthenticatorSetup}
                       startIcon={<QrCodeIcon />}
                     >
-                      Setup
+                      {t('mfa.card.setup')}
                     </Button>
                   )
                 )}
@@ -636,8 +641,8 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                       <FingerprintIcon color={passkeys.length > 0 ? "primary" : "disabled"} />
                     </ListItemIcon>
                     <ListItemText
-                      primary="Passkeys"
-                      secondary={`${passkeys.length} passkey${passkeys.length !== 1 ? 's' : ''} registered`}
+                      primary={t('mfa.card.passkeys')}
+                      secondary={t('mfa.card.passkeysRegistered', { count: passkeys.length })}
                     />
                     <Button
                       variant="outlined"
@@ -647,7 +652,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                         setShowAddPasskeyDialog(true);
                       }}
                     >
-                      Add Passkey
+                      {t('mfa.card.addPasskey')}
                     </Button>
                   </ListItem>
 
@@ -668,14 +673,14 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                           <Box>
                             <Typography variant="body2">{passkey.name}</Typography>
                             <Typography variant="caption" color="text.secondary">
-                              Added: {new Date(passkey.createdAt).toLocaleDateString()}
+                              {t('mfa.card.passkeyAdded', { date: new Date(passkey.createdAt).toLocaleDateString() })}
                               {passkey.lastUsedAt && (
-                                <> | Last used: {new Date(passkey.lastUsedAt).toLocaleDateString()}</>
+                                <>{t('mfa.card.passkeyLastUsed', { date: new Date(passkey.lastUsedAt).toLocaleDateString() })}</>
                               )}
                             </Typography>
                           </Box>
                           <Box>
-                            <Tooltip title="Rename">
+                            <Tooltip title={t('mfa.card.rename')}>
                               <IconButton
                                 size="small"
                                 onClick={() => openRenameDialog(passkey)}
@@ -683,7 +688,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                                 <EditIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Delete">
+                            <Tooltip title={t('mfa.card.delete')}>
                               <IconButton
                                 size="small"
                                 color="error"
@@ -703,7 +708,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
               {/* WebAuthn not supported warning */}
               {mfaSettings?.allowedMfaMethods?.includes('passkey') && !webAuthnSupported && (
                 <Alert severity="warning" sx={{ mt: 2 }}>
-                  Passkeys are not supported in this browser. Please use a modern browser to enable passkey authentication.
+                  {t('mfa.card.passkeysUnsupported')}
                 </Alert>
               )}
 
@@ -715,17 +720,17 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                   <KeyIcon color={(mfaSettings?.remainingBackupCodes ?? 0) > 0 ? "primary" : "disabled"} />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Backup Codes"
+                  primary={t('mfa.methods.backupCodes')}
                   secondary={mfaSettings?.remainingBackupCodes
-                    ? `${mfaSettings.remainingBackupCodes} backup ${mfaSettings.remainingBackupCodes === 1 ? 'code' : 'codes'} remaining`
-                    : "No backup codes available"}
+                    ? t('mfa.card.backupCodesRemaining', { count: mfaSettings.remainingBackupCodes })
+                    : t('mfa.card.noBackupCodes')}
                 />
                 {mfaSettings?.mfaEnabled && (
                   <Button
                     variant="outlined"
                     onClick={handleRegenerateBackupCodes}
                   >
-                    {mfaSettings?.remainingBackupCodes ? 'Regenerate' : 'Generate'}
+                    {mfaSettings?.remainingBackupCodes ? t('mfa.card.regenerate') : t('mfa.card.generate')}
                   </Button>
                 )}
               </ListItem>
@@ -735,7 +740,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
 
         {/* QR Code Dialog */}
         <Dialog open={showQRDialog} onClose={() => setShowQRDialog(false)}>
-          <DialogTitle>Setup Authenticator App</DialogTitle>
+          <DialogTitle>{t('mfa.dialogs.setupAuthenticatorTitle')}</DialogTitle>
           <DialogContent>
             <Box sx={{ p: 2, textAlign: 'center' }}>
               {error && (
@@ -747,7 +752,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                 <Box
                   component="img"
                   src={`data:image/png;base64,${qrCode}`}
-                  alt="QR Code"
+                  alt={t('mfa.dialogs.qrAlt') as string}
                   sx={{
                     width: 200,
                     height: 200,
@@ -757,20 +762,25 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
               )}
               {secret && (
                 <Typography variant="body2" sx={{ mb: 2 }}>
-                  If you can't scan the QR code, enter this code manually: <strong>{secret}</strong>
+                  <Trans
+                    t={t}
+                    i18nKey="mfa.dialogs.manualEntry"
+                    values={{ secret }}
+                    components={{ strong: <strong /> }}
+                  />
                 </Typography>
               )}
               <Typography variant="body2" sx={{ mb: 2 }}>
-                Scan this QR code with your authenticator app (e.g., Google Authenticator, Authy)
+                {t('mfa.dialogs.scanInstructions')}
               </Typography>
               <TextField
                 fullWidth
-                label="Verification Code"
+                label={t('mfa.dialogs.verificationCode')}
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
                 margin="normal"
                 autoComplete="off"
-                placeholder="Enter the 6-digit code"
+                placeholder={t('mfa.dialogs.verificationPlaceholder') as string}
                 inputProps={{
                   maxLength: 6,
                   pattern: '[0-9]*',
@@ -785,14 +795,14 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
               setSecret(null);
               setVerificationCode('');
             }}>
-              Cancel
+              {t('mfa.dialogs.cancel')}
             </Button>
             <Button
               onClick={handleVerifyCode}
               variant="contained"
               disabled={!verificationCode || verificationCode.length !== 6}
             >
-              Verify
+              {t('mfa.dialogs.verify')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -804,24 +814,24 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>Backup Codes</DialogTitle>
+          <DialogTitle>{t('mfa.dialogs.backupCodesTitle')}</DialogTitle>
           <DialogContent>
             {backupCodes.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 2 }}>
                 <Typography variant="body2" sx={{ mb: 2 }}>
-                  Generate backup codes to use when you can't access your primary authentication method
+                  {t('mfa.dialogs.generateBackupPrompt')}
                 </Typography>
                 <Button
                   variant="contained"
                   onClick={handleGenerateBackupCodes}
                 >
-                  Generate Backup Codes
+                  {t('mfa.dialogs.generateBackupCodes')}
                 </Button>
               </Box>
             ) : (
               <Box>
                 <Typography variant="body2" color="warning.main" sx={{ mb: 2 }}>
-                  Save these codes in a secure location. They will not be shown again!
+                  {t('mfa.dialogs.saveCodesWarning')}
                 </Typography>
                 <Box
                   sx={{
@@ -848,13 +858,13 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                     setTimeout(() => setCopiedIndex(null), 2000);
                   }}
                 >
-                  {copiedIndex === -1 ? 'Copied!' : 'COPY ALL CODES'}
+                  {copiedIndex === -1 ? t('mfa.dialogs.copied') : t('mfa.dialogs.copyAll')}
                 </Button>
               </Box>
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setShowBackupCodes(false)}>Close</Button>
+            <Button onClick={() => setShowBackupCodes(false)}>{t('mfa.dialogs.close')}</Button>
           </DialogActions>
         </Dialog>
 
@@ -868,24 +878,24 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
           <DialogTitle>
             <Box display="flex" alignItems="center" gap={1}>
               <WarningIcon color="warning" />
-              <Typography>Warning</Typography>
+              <Typography>{t('mfa.dialogs.warning')}</Typography>
             </Box>
           </DialogTitle>
           <DialogContent>
             <Typography>
-              This will invalidate all your existing backup codes. Are you sure you want to generate new ones?
+              {t('mfa.dialogs.regenerateWarning')}
             </Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowRegenerateWarning(false)}>
-              Cancel
+              {t('mfa.dialogs.cancel')}
             </Button>
             <Button
               onClick={handleConfirmRegenerate}
               variant="contained"
               color="warning"
             >
-              Generate New Codes
+              {t('mfa.dialogs.generateNewCodes')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -900,24 +910,24 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
           <DialogTitle>
             <Box display="flex" alignItems="center" gap={1}>
               <WarningIcon color="warning" />
-              <Typography>Warning</Typography>
+              <Typography>{t('mfa.dialogs.warning')}</Typography>
             </Box>
           </DialogTitle>
           <DialogContent>
             <Typography>
-              Are you sure you want to disable the authenticator? This will remove it from your account and you will need to set it up again if you want to use it in the future.
+              {t('mfa.dialogs.disableAuthWarning')}
             </Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowDisableAuthWarning(false)}>
-              Cancel
+              {t('mfa.dialogs.cancel')}
             </Button>
             <Button
               onClick={handleConfirmDisableAuth}
               variant="contained"
               color="warning"
             >
-              Disable Authenticator
+              {t('mfa.dialogs.disableAuthenticator')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -929,29 +939,29 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>Add Passkey</DialogTitle>
+          <DialogTitle>{t('mfa.dialogs.addPasskeyTitle')}</DialogTitle>
           <DialogContent>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              Register a new passkey (security key, fingerprint, or device) for two-factor authentication.
+              {t('mfa.dialogs.addPasskeyDescription')}
             </Typography>
             <TextField
               fullWidth
-              label="Passkey Name"
+              label={t('mfa.dialogs.passkeyName')}
               value={passkeyName}
               onChange={(e) => setPasskeyName(e.target.value)}
-              placeholder="e.g., YubiKey, MacBook Touch ID, Bitwarden"
+              placeholder={t('mfa.dialogs.passkeyNamePlaceholder') as string}
               margin="normal"
               autoFocus
             />
             {!webAuthnSupported && (
               <Alert severity="error" sx={{ mt: 2 }}>
-                WebAuthn is not supported in this browser. Please use a modern browser.
+                {t('mfa.dialogs.webauthnUnsupported')}
               </Alert>
             )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowAddPasskeyDialog(false)}>
-              Cancel
+              {t('mfa.dialogs.cancel')}
             </Button>
             <Button
               onClick={handleAddPasskey}
@@ -959,7 +969,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
               disabled={passkeyLoading || !passkeyName.trim() || !webAuthnSupported}
               startIcon={passkeyLoading ? <CircularProgress size={16} /> : <FingerprintIcon />}
             >
-              {passkeyLoading ? 'Registering...' : 'Register Passkey'}
+              {passkeyLoading ? t('mfa.dialogs.registering') : t('mfa.dialogs.registerPasskey')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -971,11 +981,11 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>Rename Passkey</DialogTitle>
+          <DialogTitle>{t('mfa.dialogs.renamePasskeyTitle')}</DialogTitle>
           <DialogContent>
             <TextField
               fullWidth
-              label="Passkey Name"
+              label={t('mfa.dialogs.passkeyName')}
               value={passkeyName}
               onChange={(e) => setPasskeyName(e.target.value)}
               margin="normal"
@@ -984,14 +994,14 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowRenamePasskeyDialog(false)}>
-              Cancel
+              {t('mfa.dialogs.cancel')}
             </Button>
             <Button
               onClick={handleRenamePasskey}
               variant="contained"
               disabled={passkeyLoading || !passkeyName.trim()}
             >
-              {passkeyLoading ? 'Saving...' : 'Save'}
+              {passkeyLoading ? t('mfa.dialogs.saving') : t('mfa.dialogs.save')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -1006,17 +1016,17 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
           <DialogTitle>
             <Box display="flex" alignItems="center" gap={1}>
               <WarningIcon color="warning" />
-              <Typography>Delete Passkey</Typography>
+              <Typography>{t('mfa.dialogs.deletePasskeyTitle')}</Typography>
             </Box>
           </DialogTitle>
           <DialogContent>
             <Typography>
-              Are you sure you want to delete the passkey "{selectedPasskey?.name}"? This action cannot be undone.
+              {t('mfa.dialogs.deletePasskeyConfirm', { name: selectedPasskey?.name })}
             </Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowDeletePasskeyDialog(false)}>
-              Cancel
+              {t('mfa.dialogs.cancel')}
             </Button>
             <Button
               onClick={handleDeletePasskey}
@@ -1024,7 +1034,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
               color="error"
               disabled={passkeyLoading}
             >
-              {passkeyLoading ? 'Deleting...' : 'Delete'}
+              {passkeyLoading ? t('mfa.dialogs.deleting') : t('mfa.dialogs.delete')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -1049,29 +1059,29 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>Setup Passkey for MFA</DialogTitle>
+          <DialogTitle>{t('mfa.dialogs.setupPasskeyTitle')}</DialogTitle>
           <DialogContent>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              Register a passkey to enable multi-factor authentication. Use a security key, fingerprint, face recognition, or device PIN.
+              {t('mfa.dialogs.setupPasskeyDescription')}
             </Typography>
             <TextField
               fullWidth
-              label="Passkey Name"
+              label={t('mfa.dialogs.passkeyName')}
               value={mfaPasskeyName}
               onChange={(e) => setMfaPasskeyName(e.target.value)}
-              placeholder="e.g., YubiKey, MacBook Touch ID, Bitwarden"
+              placeholder={t('mfa.dialogs.passkeyNamePlaceholder') as string}
               margin="normal"
               autoFocus
             />
             {!webAuthnSupported && (
               <Alert severity="error" sx={{ mt: 2 }}>
-                WebAuthn is not supported in this browser. Please use a modern browser like Chrome, Firefox, Safari, or Edge.
+                {t('mfa.dialogs.webauthnUnsupportedBrowsers')}
               </Alert>
             )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowPasskeyNameForMFA(false)}>
-              Cancel
+              {t('mfa.dialogs.cancel')}
             </Button>
             <Button
               onClick={handlePasskeySetupForMFA}
@@ -1079,7 +1089,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
               disabled={passkeyLoading || !mfaPasskeyName.trim() || !webAuthnSupported}
               startIcon={passkeyLoading ? <CircularProgress size={16} /> : <FingerprintIcon />}
             >
-              {passkeyLoading ? 'Registering...' : 'Register & Enable MFA'}
+              {passkeyLoading ? t('mfa.dialogs.registering') : t('mfa.dialogs.registerAndEnable')}
             </Button>
           </DialogActions>
         </Dialog>

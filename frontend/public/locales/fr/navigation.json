@@ -25,7 +25,12 @@
     "auditLog": "Journal d'audit",
     "jobAnalytics": "Statistiques des jobs",
     "teamManagement": "Gestion des équipes",
-    "cloudFleet": "Cloud Fleet"
+    "cloudFleet": "Cloud Fleet",
+    "binaries": "Binaires",
+    "hashTypes": "Types de hash",
+    "vouchers": "Vouchers",
+    "clients": "Clients",
+    "teams": "Équipes"
   },
   "userMenu": {
     "userSettings": "Paramètres utilisateur",
@@ -36,6 +41,12 @@
   "aria": {
     "toggleDrawer": "Ouvrir ou fermer le menu",
     "mainNavigation": "Navigation principale",
-    "adminNavigation": "Navigation d'administration"
+    "adminNavigation": "Navigation d'administration",
+    "downloadCaCert": "Télécharger le certificat CA"
+  },
+  "groups": {
+    "resources": "Ressources",
+    "peopleAccess": "Personnes et accès",
+    "operations": "Opérations"
   }
 }

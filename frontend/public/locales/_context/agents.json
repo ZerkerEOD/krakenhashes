@@ -1,0 +1,33 @@
+{
+  "actions": {
+    "deactivateVoucher": "A 'voucher' is a claim code used to register agents; deactivating it blocks any further registrations with it."
+  },
+  "vouchers": {
+    "continuous": "A voucher that can be reused to register multiple agents, as opposed to single-use.",
+    "available": "Voucher status: not yet used by any agent to register.",
+    "claimed": "Voucher status: already used by an agent to register.",
+    "systemLabel": "Marks a voucher/agent as system-wide, serving all teams rather than belonging to one."
+  },
+  "install": {
+    "mode": "Choice between the auto-updating launcher and the standalone (manually updated) agent binary.",
+    "modeStandalone": "Installs the agent as a plain binary that must be manually re-downloaded to upgrade."
+  },
+  "diagReasons": {
+    "blocklisted": "This agent's hashcat benchmark marked it incompatible/blocklisted for this job, so it isn't being given work on it.",
+    "rejectionCooldown": "The agent recently rejected a task assignment and is temporarily not being offered new work.",
+    "atCapacity": "Every job this agent is compatible with already has as many agents assigned as it's allowed."
+  },
+  "activity": {
+    "lastCheckpoint": "The last saved hashcat progress position the task can resume from after an interruption."
+  },
+  "hardware": {
+    "runtime": "The GPU compute backend/driver interface (e.g. CUDA, OpenCL, HIP) used by this device, not elapsed time.",
+    "deviceId": "Hardware identifier (e.g. PCI bus ID) used to track this GPU's identity across reboots."
+  },
+  "debug": {
+    "buffer": "Size of the in-memory debug-log buffer kept by the agent before it's flushed or discarded."
+  },
+  "scheduling": {
+    "active": "Whether the agent's schedule is enabled for this specific day — not whether the agent itself is currently online."
+  }
+}

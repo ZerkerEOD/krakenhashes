@@ -79,54 +79,54 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   cloud_max_instances: undefined as number | undefined
 });
 
-// Attack mode descriptions and requirements
-const attackModeInfo = {
-  [AttackMode.Straight]: {
-    name: 'Straight',
-    description: 'Uses words from a wordlist, optionally applying a rule to transform them',
-    wordlistRequirement: 'Exactly 1 wordlist required',
-    rulesRequirement: '0 or 1 rule file',
-    maskRequirement: 'No mask needed'
-  },
-  [AttackMode.Combination]: {
-    name: 'Combination',
-    description: 'Combines words from two wordlists (first_word + second_word)',
-    wordlistRequirement: 'Exactly 2 wordlists required',
-    rulesRequirement: 'No rules needed',
-    maskRequirement: 'No mask needed'
-  },
-  [AttackMode.BruteForce]: {
-    name: 'Brute Force (Mask)',
-    description: 'Generates passwords based on a pattern/mask',
-    wordlistRequirement: 'No wordlist needed',
-    rulesRequirement: 'No rules needed',
-    maskRequirement: 'Mask required (e.g., ?u?l?l?l?d?d)'
-  },
-  [AttackMode.HybridWordlistMask]: {
-    name: 'Hybrid: Wordlist + Mask',
-    description: 'Appends mask-generated characters to words from a wordlist',
-    wordlistRequirement: 'Exactly 1 wordlist required',
-    rulesRequirement: 'No rules needed',
-    maskRequirement: 'Mask required (e.g., ?d?d?d?d)'
-  },
-  [AttackMode.HybridMaskWordlist]: {
-    name: 'Hybrid: Mask + Wordlist',
-    description: 'Prepends mask-generated characters to words from a wordlist',
-    wordlistRequirement: 'Exactly 1 wordlist required',
-    rulesRequirement: 'No rules needed',
-    maskRequirement: 'Mask required (e.g., ?d?d?d?d)'
-  },
-  [AttackMode.Association]: {
-    name: 'Association (Not Implemented)',
-    description: 'This attack mode is not currently implemented',
-    wordlistRequirement: 'N/A',
-    rulesRequirement: 'N/A',
-    maskRequirement: 'N/A'
-  }
-};
-
 const PresetJobFormPage: React.FC = () => {
   const { t } = useTranslation('admin');
+
+  // Attack mode descriptions and requirements
+  const attackModeInfo = {
+    [AttackMode.Straight]: {
+      name: t('presetJobs.form.attackModes.straight.name') as string,
+      description: t('presetJobs.form.attackModes.straight.description') as string,
+      wordlistRequirement: t('presetJobs.form.attackModes.straight.wordlistRequirement') as string,
+      rulesRequirement: t('presetJobs.form.attackModes.straight.rulesRequirement') as string,
+      maskRequirement: t('presetJobs.form.attackModes.straight.maskRequirement') as string
+    },
+    [AttackMode.Combination]: {
+      name: t('presetJobs.form.attackModes.combination.name') as string,
+      description: t('presetJobs.form.attackModes.combination.description') as string,
+      wordlistRequirement: t('presetJobs.form.attackModes.combination.wordlistRequirement') as string,
+      rulesRequirement: t('presetJobs.form.attackModes.combination.rulesRequirement') as string,
+      maskRequirement: t('presetJobs.form.attackModes.combination.maskRequirement') as string
+    },
+    [AttackMode.BruteForce]: {
+      name: t('presetJobs.form.attackModes.bruteForce.name') as string,
+      description: t('presetJobs.form.attackModes.bruteForce.description') as string,
+      wordlistRequirement: t('presetJobs.form.attackModes.bruteForce.wordlistRequirement') as string,
+      rulesRequirement: t('presetJobs.form.attackModes.bruteForce.rulesRequirement') as string,
+      maskRequirement: t('presetJobs.form.attackModes.bruteForce.maskRequirement') as string
+    },
+    [AttackMode.HybridWordlistMask]: {
+      name: t('presetJobs.form.attackModes.hybridWordlistMask.name') as string,
+      description: t('presetJobs.form.attackModes.hybridWordlistMask.description') as string,
+      wordlistRequirement: t('presetJobs.form.attackModes.hybridWordlistMask.wordlistRequirement') as string,
+      rulesRequirement: t('presetJobs.form.attackModes.hybridWordlistMask.rulesRequirement') as string,
+      maskRequirement: t('presetJobs.form.attackModes.hybridWordlistMask.maskRequirement') as string
+    },
+    [AttackMode.HybridMaskWordlist]: {
+      name: t('presetJobs.form.attackModes.hybridMaskWordlist.name') as string,
+      description: t('presetJobs.form.attackModes.hybridMaskWordlist.description') as string,
+      wordlistRequirement: t('presetJobs.form.attackModes.hybridMaskWordlist.wordlistRequirement') as string,
+      rulesRequirement: t('presetJobs.form.attackModes.hybridMaskWordlist.rulesRequirement') as string,
+      maskRequirement: t('presetJobs.form.attackModes.hybridMaskWordlist.maskRequirement') as string
+    },
+    [AttackMode.Association]: {
+      name: t('presetJobs.form.attackModes.association.name') as string,
+      description: t('presetJobs.form.attackModes.association.description') as string,
+      wordlistRequirement: t('presetJobs.form.attackModes.association.wordlistRequirement') as string,
+      rulesRequirement: t('presetJobs.form.attackModes.association.rulesRequirement') as string,
+      maskRequirement: t('presetJobs.form.attackModes.association.maskRequirement') as string
+    }
+  };
   const { presetJobId } = useParams<{ presetJobId?: string }>();
   const navigate = useNavigate();
   const isEditing = Boolean(presetJobId);
@@ -639,7 +639,7 @@ const PresetJobFormPage: React.FC = () => {
             elevation={0}
             sx={{
               p: 2,
-              backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              backgroundColor: 'action.hover',
               borderRadius: 1
             }}
           >
@@ -889,9 +889,7 @@ const PresetJobFormPage: React.FC = () => {
             </FormControl>
             {!isWordlistsDisabled && (
               <Alert severity="info" sx={{ mt: 1 }}>
-                To use a pre-filtered wordlist in a preset job, create it first in Wordlist
-                Management — it will then appear in this list. Inline ephemeral filtering is
-                available only on one-off custom jobs.
+                {t('presetJobs.form.helperText.prefilteredWordlistHint') as string}
               </Alert>
             )}
           </Grid>

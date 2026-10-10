@@ -20,7 +20,7 @@ import {
   Check as CheckIcon,
   TextFields as TextFieldsIcon
 } from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
+import { useToast } from '../ui/toast';
 import { useTranslation } from 'react-i18next';
 import CrackedPassword from '../common/CrackedPassword';
 import { hexPlainPreview, parseHexPlain } from '../../utils/hexPlain';
@@ -51,7 +51,7 @@ interface HashDetailModalProps {
 }
 
 export default function HashDetailModal({ open, onClose, hash }: HashDetailModalProps) {
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
   const { t } = useTranslation('common');
   const [copied, setCopied] = React.useState(false);
 
@@ -59,7 +59,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
     if (hash?.hash_value) {
       navigator.clipboard.writeText(hash.hash_value).then(() => {
         setCopied(true);
-        enqueueSnackbar('Hash copied to clipboard', { variant: 'success' });
+        toast.success(t('hashDetailModal.hashCopied') as string);
         setTimeout(() => setCopied(false), 2000);
       });
     }
@@ -68,7 +68,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
   const handleCopyCrackedText = () => {
     if (hash?.password) {
       navigator.clipboard.writeText(hash.password).then(() => {
-        enqueueSnackbar('Cracked text copied to clipboard', { variant: 'success' });
+        toast.success(t('hashDetailModal.crackedTextCopied') as string);
       });
     }
   };
@@ -79,7 +79,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
   const handleCopyBestGuess = () => {
     if (hexBytes) {
       navigator.clipboard.writeText(hexPlainPreview(hexBytes)).then(() => {
-        enqueueSnackbar(t('clipboard.copied') as string, { variant: 'success' });
+        toast.success(t('clipboard.copied') as string);
       });
     }
   };
@@ -90,13 +90,13 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">Hash Details</Typography>
+          <Typography variant="h6">{t('hashDetailModal.title') as string}</Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent dividers>
         <Grid container spacing={3}>
           {/* Hash Value Section */}
@@ -104,9 +104,9 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
             <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Hash Value
+                  {t('hashDetailModal.hashValue') as string}
                 </Typography>
-                <Tooltip title={copied ? "Copied!" : "Copy hash"}>
+                <Tooltip title={copied ? (t('hashDetailModal.copied') as string) : (t('hashDetailModal.copyHash') as string)}>
                   <IconButton size="small" onClick={handleCopyHash}>
                     {copied ? <CheckIcon fontSize="small" /> : <CopyIcon fontSize="small" />}
                   </IconButton>
@@ -129,7 +129,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
           {hash.original_hash && hash.original_hash !== hash.hash_value && (
             <Grid item xs={12}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Original Hash (from file)
+                {t('hashDetailModal.originalHash') as string}
               </Typography>
               <Typography 
                 variant="body2" 
@@ -148,10 +148,10 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
           {/* Status Section */}
           <Grid item xs={12} sm={6}>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Status
+              {t('hashDetailModal.status') as string}
             </Typography>
-            <Chip 
-              label={hash.is_cracked ? 'Cracked' : 'Not Cracked'}
+            <Chip
+              label={hash.is_cracked ? (t('hashDetailModal.cracked') as string) : (t('hashDetailModal.notCracked') as string)}
               color={hash.is_cracked ? 'success' : 'default'}
               size="medium"
             />
@@ -161,10 +161,10 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
           {(hash.hashType || hash.hash_type_id) && (
             <Grid item xs={12} sm={6}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Hash Type
+                {t('hashDetailModal.hashType') as string}
               </Typography>
               <Typography variant="body1">
-                {hash.hashType || `Type ID: ${hash.hash_type_id}`}
+                {hash.hashType || (t('hashDetailModal.typeId', { id: hash.hash_type_id }) as string)}
               </Typography>
             </Grid>
           )}
@@ -173,7 +173,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
           {hash.username && (
             <Grid item xs={12} sm={6}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Username
+                {t('hashDetailModal.username') as string}
               </Typography>
               <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
                 {hash.username}
@@ -187,7 +187,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
               <Paper sx={{ p: 2, bgcolor: 'success.50' }}>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Cracked Text
+                    {t('hashDetailModal.crackedText') as string}
                   </Typography>
                   <Box>
                     {hexBytes && (
@@ -197,7 +197,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
                         </IconButton>
                       </Tooltip>
                     )}
-                    <Tooltip title={hexBytes ? (t('hexPassword.copyExact') as string) : 'Copy plaintext'}>
+                    <Tooltip title={hexBytes ? (t('hexPassword.copyExact') as string) : (t('hashDetailModal.copyPlaintext') as string)}>
                       <IconButton size="small" onClick={handleCopyCrackedText}>
                         <CopyIcon fontSize="small" />
                       </IconButton>
@@ -228,7 +228,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
               {hash.hashlistName && (
                 <Grid item xs={12} sm={6}>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Hashlist
+                    {t('hashDetailModal.hashlist') as string}
                   </Typography>
                   <Typography variant="body2">
                     {hash.hashlistName}
@@ -239,7 +239,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
               {hash.last_updated && (
                 <Grid item xs={12} sm={6}>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Last Updated
+                    {t('hashDetailModal.lastUpdated') as string}
                   </Typography>
                   <Typography variant="body2">
                     {new Date(hash.last_updated).toLocaleString()}
@@ -250,7 +250,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
               {hash.is_cracked && hash.last_updated && (
                 <Grid item xs={12} sm={6}>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Cracked At
+                    {t('hashDetailModal.crackedAt') as string}
                   </Typography>
                   <Typography variant="body2">
                     {new Date(hash.last_updated).toLocaleString()}
@@ -263,7 +263,7 @@ export default function HashDetailModal({ open, onClose, hash }: HashDetailModal
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t('buttons.close') as string}</Button>
       </DialogActions>
     </Dialog>
   );

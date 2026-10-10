@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Falha na conexão. Verifique sua rede.",
+    "timeout": "A requisição expirou. Tente novamente.",
+    "serverUnavailable": "Servidor indisponível. Tente novamente mais tarde."
+  },
+  "authentication": {
+    "unauthorized": "Você não está autorizado a realizar esta ação.",
+    "sessionExpired": "Sua sessão expirou. Faça login novamente.",
+    "invalidToken": "Token de autenticação inválido.",
+    "loginRequired": "Faça login para continuar."
+  },
+  "validation": {
+    "required": "Este campo é obrigatório.",
+    "invalidEmail": "Digite um endereço de e-mail válido.",
+    "invalidFormat": "Formato inválido.",
+    "tooShort": "Deve ter pelo menos {{min}} caracteres.",
+    "tooLong": "Não pode ter mais de {{max}} caracteres.",
+    "passwordRequirements": "A senha deve conter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial."
+  },
+  "api": {
+    "badRequest": "Requisição inválida. Verifique sua entrada.",
+    "notFound": "O recurso solicitado não foi encontrado.",
+    "conflict": "Ocorreu um conflito. O recurso já pode existir.",
+    "serverError": "Ocorreu um erro interno do servidor.",
+    "rateLimited": "Muitas requisições. Aguarde e tente novamente."
+  },
+  "file": {
+    "tooLarge": "Arquivo muito grande. Tamanho máximo é {{maxSize}}.",
+    "invalidType": "Tipo de arquivo inválido. Tipos permitidos: {{allowedTypes}}.",
+    "uploadFailed": "Falha ao enviar o arquivo. Tente novamente."
+  },
+  "generic": {
+    "unknownError": "Ocorreu um erro desconhecido.",
+    "tryAgain": "Tente novamente.",
+    "contactSupport": "Se o problema persistir, entre em contato com o suporte."
+  }
+}

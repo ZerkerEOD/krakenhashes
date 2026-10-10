@@ -16,7 +16,14 @@
     "idle": "Inaktiv",
     "error": "Fehler",
     "enabled": "Aktiviert",
-    "disabled": "Deaktiviert"
+    "disabled": "Deaktiviert",
+    "updatePending": "Update anstehend",
+    "updateFailed": "Update fehlgeschlagen",
+    "updating": "Wird aktualisiert",
+    "updateStatus": "Update-Status",
+    "currentVersion": "Aktuelle Version",
+    "targetVersion": "Update auf",
+    "standaloneNotice": "Dies ist ein eigenständiger Agent und wird nicht automatisch aktualisiert."
   },
   "details": {
     "title": "Agentendetails",
@@ -36,7 +43,8 @@
     "type": "Typ",
     "name": "Name",
     "runtime": "Laufzeit",
-    "specs": "Spezifikationen"
+    "specs": "Spezifikationen",
+    "defaultDeviceType": "GPU"
   },
   "actions": {
     "viewDetails": "Details anzeigen",
@@ -44,7 +52,8 @@
     "restart": "Neustarten",
     "deactivateVoucher": "Gutschein deaktivieren",
     "removeAgent": "Agent entfernen",
-    "clearBusyStatus": "Beschäftigt-Status zurücksetzen"
+    "clearBusyStatus": "Beschäftigt-Status zurücksetzen",
+    "retry": "Wiederholen"
   },
   "vouchers": {
     "title": "Gutscheine",
@@ -56,15 +65,53 @@
     "available": "Verfügbar",
     "claimed": "Eingelöst",
     "continuous": "Kontinuierlich",
-    "singleUse": "Einmalig"
+    "singleUse": "Einmalig",
+    "pageTitle": "Registrierungscode-Verwaltung",
+    "pageDescription": "Registrierungscodes, die Agenten verwenden, um sich bei diesem Server zu registrieren.",
+    "generate": "Registrierungscode generieren",
+    "includeInactive": "Inaktive einbeziehen",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "systemLabel": "System",
+    "manage": "Registrierungscodes verwalten"
   },
   "downloads": {
+    "expectedVersion": "Erwartet: v{{version}}",
     "title": "Agent-Downloads",
     "selectPlatform": "Plattform auswählen",
     "downloadAgent": "Agent herunterladen",
     "version": "Version {{version}}",
     "download": "Herunterladen",
     "copyUrl": "URL kopieren",
+    "copied": "Kopiert!"
+  },
+  "version": {
+    "updateAvailable": "Update verfügbar",
+    "upToDate": "Auf dem neuesten Stand"
+  },
+  "install": {
+    "sectionTitle": "Agenten installieren",
+    "sectionBlurb": "Wählen Sie Ihr Betriebssystem aus, um die genauen Installationsbefehle zu erhalten. Der automatische Update-Launcher hält Ihren Agenten auf der neuesten Version; die eigenständige Binärdatei wird manuell verwaltet.",
+    "dialogTitle": "Agenten unter {{os}} installieren",
+    "mode": "Modus",
+    "modeAutoUpdate": "Automatische Aktualisierung (empfohlen)",
+    "modeStandalone": "Eigenständig",
+    "architecture": "Architektur",
+    "key": "Registrierungscode (Schlüssel)",
+    "registerLater": "Später registrieren (kein Code)",
+    "registerLaterNote": "Kein Registrierungscode ausgewählt – der Agent benötigt einen Code zum Registrieren. Generieren Sie oben einen Code oder registrieren Sie den Agenten später.",
+    "generateCode": "Neuen Code generieren",
+    "serverUrl": "Server-URL",
+    "noBinaries": "Für diese Plattform sind noch keine Binärdateien verfügbar.",
+    "serviceTitle": "Als Dienst installieren (startet beim Anmelden)",
+    "serviceRootUnix": "Läuft als Ihr Benutzer aus diesem Ordner und startet beim Anmelden – kein Root erforderlich. Für einen systemweiten Dienst, der vor dem Anmelden startet, fügen Sie --system hinzu (erfordert sudo).",
+    "serviceRootWindows": "Läuft beim Anmelden als Ihr Benutzer über eine geplante Aufgabe – kein Administrator erforderlich. Für einen Systemdienst fügen Sie --system in einer erhöhten PowerShell hinzu.",
+    "runTitle": "In einem Terminal ausführen",
+    "downloadTitle": "Direkt herunterladen",
+    "downloadButton": "Herunterladen",
+    "launcherBlurb": "Der Launcher überwacht den Agenten und aktualisiert seine Binärdatei automatisch, wenn eine neue Version veröffentlicht wird.",
+    "standaloneBlurb": "Der eigenständige Agent wird nicht automatisch aktualisiert – laden Sie ihn erneut herunter, um zu aktualisieren.",
+    "copy": "Kopieren",
     "copied": "Kopiert!"
   },
   "errors": {
@@ -140,7 +187,8 @@
       "continuousLabel": "Kontinuierlich (Code kann wiederverwendet werden)",
       "claimCodeLabel": "Ihr Claim-Code:",
       "continuousDescription": "Dieser Code kann mehrmals verwendet werden, um Agenten zu registrieren.",
-      "singleUseDescription": "Dieser Code kann nur einmal verwendet werden."
+      "singleUseDescription": "Dieser Code kann nur einmal verwendet werden.",
+      "systemLabel": "System-Agent (bedient alle Teams)"
     },
     "clearStatus": {
       "title": "Beschäftigt-Status zurücksetzen",
@@ -183,7 +231,9 @@
     "owner": "Besitzer",
     "machineName": "Computername",
     "operatingSystem": "Betriebssystem",
-    "agentVersion": "Agent-Version"
+    "agentVersion": "Agent-Version",
+    "systemOwner": "System",
+    "registeredBy": "Registriert von {{name}}"
   },
   "common": {
     "unknown": "Unbekannt",
@@ -215,7 +265,10 @@
     "temperature": "Temperatur",
     "utilization": "Auslastung",
     "fanSpeed": "Lüftergeschwindigkeit",
-    "hashRate": "Hash-Rate"
+    "hashRate": "Hash-Rate",
+    "noDataAvailable": "Keine Daten verfügbar",
+    "deviceFallback": "Gerät {{id}}",
+    "allDevices": "Alle Geräte"
   },
   "placeholders": {
     "enterHashcatParameters": "Hashcat-Parameter eingeben..."
@@ -261,6 +314,58 @@
       "24Hours": "24 Stunden",
       "24HoursDesc1": "Alle Tage: 00:00 - 23:59",
       "24HoursDesc2": "Agent läuft kontinuierlich"
+    }
+  },
+  "diagReasons": {
+    "noCompatibleJob": "Kein kompatibler Auftrag",
+    "blocklisted": "Benchmark blockiert",
+    "benchmarking": "Führt einen Benchmark aus",
+    "outsideSchedule": "Außerhalb geplanter Stunden",
+    "agentDisabled": "Agent deaktiviert",
+    "shuttingDown": "Wird heruntergefahren",
+    "rejectionCooldown": "Aufgaben-Ablehnungs-Abkühlphase",
+    "noSchedulableWork": "Keine Aufträge haben Arbeit zum Versand",
+    "atCapacity": "Kompatible Aufträge sind ausgelastet"
+  },
+  "activity": {
+    "currentWork": "Aktuelle Arbeit",
+    "job": "Auftrag",
+    "taskStatus": "Aufgaben-Status",
+    "jobProgress": "Auftragsfortschritt",
+    "taskProgress": "Aufgabenfortschritt",
+    "keyspaceRange": "Keyspace-Bereich",
+    "started": "Gestartet",
+    "lastCheckpoint": "Letzter Checkpoint",
+    "whyNotWorking": "Warum dieser Agent nicht arbeitet",
+    "recentFailuresAlert_one": "Die aktuelle Aufgabe schlägt fehl ({{count}} in den letzten Minuten)",
+    "recentFailuresAlert_other": "Aktuelle Aufgaben schlagen fehl ({{count}} in den letzten Minuten)",
+    "lastFailedJob": "Letzter fehlgeschlagener Auftrag:",
+    "lastFailureTime": "letzter Fehler {{time}}",
+    "lastSeenTime": "zuletzt gesehen {{time}}",
+    "occurrencesSuffix_one": " · {{countDisplay}} Vorkommen",
+    "occurrencesSuffix_other": " · {{countDisplay}} Vorkommen",
+    "idleNoDiagnostics": "Dieser Agent ist untätig. Keine Planungs-Diagnose in den letzten Minuten – er könnte offline oder deaktiviert sein oder einfach auf Arbeit warten."
+  },
+  "storage": {
+    "title": "Speicherstufe",
+    "tiers": {
+      "fullCache": "Vollständiger Cache – alle Listen beibehalten",
+      "onDemand": "Bedarfsabhängig – Download + LRU-Eviction",
+      "networkDirect": "Netzwerk direkt – von eingebundener Netzwerkfreigabe lesen"
+    },
+    "helperText": {
+      "fullCache": "Lädt alle Wortlisten/Regeln lokal herunter und behält sie (schnellster Start).",
+      "onDemand": "Lädt pro Aufgabe über HTTP herunter und entfernt unter Festplattendruck die am längsten nicht verwendeten Listen.",
+      "networkDirect": "Liest Wortlisten/Regeln direkt aus einer Netzwerkfreigabe, die auf diesem Agent-Host eingebunden ist (keine lokale Kopie)."
+    },
+    "mountPathLabel": "Netzwerkfreigabe-Einbindungspfad (schreibgeschützt, auf dem Agent-Host)",
+    "mountPathHelper": "Der Operator bindet die Freigabe hier auf dem Host dieses Agenten ein; der Agent liest nur daraus. Anmeldedaten werden vom Operator eingegeben, nie vom Server gesendet.",
+    "messages": {
+      "enterMountPathHint": "Geben Sie den schreibgeschützten Einbindungspfad auf diesem Agent-Host ein, er wird dann automatisch gespeichert.",
+      "tierUpdated": "Speicherstufe aktualisiert",
+      "tierUpdateFailed": "Fehler beim Aktualisieren der Speicherstufe",
+      "mountPathUpdated": "Einbindungspfad aktualisiert",
+      "mountPathUpdateFailed": "Fehler beim Aktualisieren des Einbindungspfads"
     }
   }
 }

@@ -1,0 +1,398 @@
+{
+  "title": "Ustawienia użytkownika",
+  "profileSettings": {
+    "title": "Ustawienia profilu"
+  },
+  "profile": {
+    "title": "Profil",
+    "username": "Nazwa użytkownika",
+    "email": "Email",
+    "changePassword": "Zmień hasło",
+    "currentPassword": "Bieżące hasło",
+    "newPassword": "Nowe hasło",
+    "confirmPassword": "Potwierdź nowe hasło",
+    "updateProfile": "Zaktualizuj profil",
+    "profileUpdated": "Profil został pomyślnie zaktualizowany"
+  },
+  "account": {
+    "title": "Informacje o koncie",
+    "username": "Nazwa użytkownika",
+    "email": "Email",
+    "usernameCannotChange": "Nie można zmienić nazwy użytkownika",
+    "saving": "Zapisywanie...",
+    "saveEmail": "Zapisz Email",
+    "confirmEmailUpdate": {
+      "title": "Potwierdź aktualizację adresu email",
+      "message": "Proszę podać bieżące hasło, aby zaktualizować adres email."
+    },
+    "errors": {
+      "noChanges": "Brak zmian do zapisania",
+      "invalidEmail": "Nieprawidłowy adres email",
+      "updateFailed": "Nie udało się zaktualizować email",
+      "incorrectPassword": "Nieprawidłowe hasło"
+    },
+    "success": {
+      "emailUpdated": "Email został pomyślnie zaktualizowany"
+    }
+  },
+  "password": {
+    "title": "Zmień hasło",
+    "currentPassword": "Bieżące hasło",
+    "newPassword": "Nowe hasło",
+    "confirmNewPassword": "Potwierdź nowe hasło",
+    "enterCurrentFirst": "Najpierw wpisz bieżące hasło",
+    "passwordsMatch": "Hasła się zgadzają",
+    "changePassword": "Zmień hasło",
+    "changing": "Zmiana hasła...",
+    "errors": {
+      "currentRequired": "Wymagane jest bieżące hasło",
+      "newRequired": "Wymagane jest nowe hasło",
+      "mismatch": "Hasła się nie zgadzają",
+      "requirements": "Nowe hasło nie spełnia wymagań",
+      "updateFailed": "Nie udało się zaktualizować hasła"
+    },
+    "success": {
+      "changed": "Hasło zostało pomyślnie zmienione"
+    }
+  },
+  "apiKey": {
+    "title": "Klucze API",
+    "status": "Status klucza API",
+    "active": "Aktywny",
+    "noKeyGenerated": "Brak wygenerowanego klucza API",
+    "created": "Utworzony",
+    "lastUsed": "Ostatnio użyty",
+    "generate": "Wygeneruj klucz API",
+    "regenerate": "Ponownie wygeneruj klucz API",
+    "revoke": "Odwołaj klucz API",
+    "viewDocs": "Przeglądaj dokumentację API",
+    "dialog": {
+      "title": "Klucz API",
+      "saveNow": "Zapisz ten klucz teraz!",
+      "cantSeeAgain": "Nie będzie można go zobaczyć ponownie.",
+      "instructions": "Użyj tego klucza API w swoich żądaniach HTTP, umieszczając go w nagłówku X-API-Key.",
+      "saved": "Mam to zapisane"
+    },
+    "confirmRegenerate": {
+      "title": "Ponownie wygenerować klucz API?",
+      "warning": "Spowoduje to unieważnienie istniejącego klucza API. Wszystkie aplikacje używające bieżącego klucza przestaną działać.",
+      "confirm": "Czy na pewno kontynuować?"
+    },
+    "confirmRevoke": {
+      "title": "Odwołać klucz API?",
+      "warning": "Spowoduje to natychmiastowe wyłączenie dostępu do API. Wszystkie aplikacje używające tego klucza przestaną działać.",
+      "confirm": "Czy na pewno odwołać klucz API?"
+    },
+    "errors": {
+      "generateFailed": "Nie udało się wygenerować klucza API",
+      "revokeFailed": "Nie udało się odwołać klucza API"
+    },
+    "success": {
+      "revoked": "Klucz API został pomyślnie odwołany",
+      "copied": "Klucz API skopiowany do schowka"
+    }
+  },
+  "security": {
+    "title": "Bezpieczeństwo",
+    "caCertificate": {
+      "title": "Certyfikat CA",
+      "description": "W przypadku używania certyfikatów z podpisem własnym, pobierz i zainstaluj certyfikat CA, aby zaufać temu serwerowi.",
+      "download": "Pobierz certyfikat CA",
+      "docsLink": "Przeglądaj dokumentację SSL/TLS"
+    }
+  },
+  "common": {
+    "cancel": "Anuluj",
+    "never": "Nigdy",
+    "invalidDate": "Nieprawidłowa data",
+    "create": "Utwórz",
+    "delete": "Usuń"
+  },
+  "mfa": {
+    "title": "Uwierzytelnianie dwuskładnikowe",
+    "status": "Status 2FA",
+    "enabled": "Włączony",
+    "disabled": "Wyłączony",
+    "enable": "Włącz 2FA",
+    "disable": "Wyłącz 2FA",
+    "methods": {
+      "title": "Metody uwierzytelniania",
+      "totp": "Aplikacja uwierzytelniająca",
+      "email": "Email",
+      "backupCodes": "Kody zapasowe",
+      "passkey": "Klucz dostępu"
+    },
+    "setup": {
+      "scanQR": "Zeskanuj ten kod QR za pomocą aplikacji uwierzytelniającej",
+      "enterCode": "Wpisz kod z aplikacji, aby zweryfikować",
+      "backupCodesGenerated": "Zapisz te kody zapasowe w bezpiecznym miejscu"
+    },
+    "methodSelection": {
+      "title": "Wybierz metodę 2FA",
+      "description": "Wybierz sposób weryfikacji tożsamości podczas logowania.",
+      "authenticatorDescription": "Użyj kodu czasowego z aplikacji uwierzytelniającej, takiej jak Google Authenticator, Authy lub 1Password.",
+      "passkeyDescription": "Użyj klucza bezpieczeństwa, odcisku palca, rozpoznawania twarzy lub PIN urządzenia do szybkiego i bezpiecznego uwierzytelniania."
+    },
+    "card": {
+      "title": "Uwierzytelnianie wieloskładnikowe",
+      "requiredByPolicy": "2FA jest wymagane przez politykę bezpieczeństwa organizacji",
+      "enableLabel": "Włącz uwierzytelnianie wieloskładnikowe",
+      "preferredMethod": "Preferowana metoda 2FA",
+      "preferredMethodNames": {
+        "authenticator": "Aplikacja uwierzytelniająca",
+        "email": "Email",
+        "passkey": "Klucz dostępu"
+      },
+      "emailAuth": "Uwierzytelnianie e-mail",
+      "emailRequired": "Wymagane dla bezpieczeństwa konta",
+      "optional": "Opcjonalny",
+      "required": "Wymagany",
+      "configured": "Skonfigurowany",
+      "notConfigured": "Nieskonfigurowany",
+      "disable": "Wyłącz",
+      "setup": "Skonfiguruj",
+      "passkeys": "Klucze dostępu",
+      "passkeysRegistered_few": "{{count}} klucze dostępu zarejestrowane",
+      "passkeysRegistered_many": "{{count}} kluczy dostępu zarejestrowanych",
+      "passkeysRegistered_one": "{{count}} klucz dostępu zarejestrowany",
+      "passkeysRegistered_other": "{{count}} kluczy dostępu zarejestrowanych",
+      "addPasskey": "Dodaj klucz dostępu",
+      "passkeyAdded": "Dodano: {{date}}",
+      "passkeyLastUsed": " | Ostatnio używany: {{date}}",
+      "rename": "Zmień nazwę",
+      "delete": "Usuń",
+      "passkeysUnsupported": "Klucze dostępu nie są obsługiwane w tej przeglądarce. Użyj nowoczesnej przeglądarki, aby włączyć uwierzytelnianie za pomocą kluczy dostępu.",
+      "backupCodesRemaining_few": "{{count}} kody zapasowe pozostały",
+      "backupCodesRemaining_many": "{{count}} kodów zapasowych pozostało",
+      "backupCodesRemaining_one": "{{count}} kod zapasowy pozostał",
+      "backupCodesRemaining_other": "{{count}} kodów zapasowych pozostało",
+      "noBackupCodes": "Brak dostępnych kodów zapasowych",
+      "regenerate": "Ponownie wygeneruj",
+      "generate": "Wygeneruj"
+    },
+    "dialogs": {
+      "cancel": "Anuluj",
+      "close": "Zamknij",
+      "warning": "Ostrzeżenie",
+      "setupAuthenticatorTitle": "Skonfiguruj aplikację uwierzytelniającą",
+      "qrAlt": "Kod QR",
+      "manualEntry": "Jeśli nie można zeskanować kodu QR, wpisz ten kod ręcznie: <strong>{{secret}}</strong>",
+      "scanInstructions": "Zeskanuj ten kod QR za pomocą aplikacji uwierzytelniającej (np. Google Authenticator, Authy)",
+      "verificationCode": "Kod weryfikacyjny",
+      "verificationPlaceholder": "Wpisz 6-cyfrowy kod",
+      "verify": "Zweryfikuj",
+      "backupCodesTitle": "Kody zapasowe",
+      "generateBackupPrompt": "Wygeneruj kody zapasowe do użytku, gdy nie można uzyskać dostępu do podstawowej metody uwierzytelniania",
+      "generateBackupCodes": "Wygeneruj kody zapasowe",
+      "saveCodesWarning": "Zapisz te kody w bezpiecznym miejscu. Nie będą już pokazane!",
+      "copied": "Skopiowano!",
+      "copyAll": "KOPIUJ WSZYSTKIE KODY",
+      "regenerateWarning": "Spowoduje to unieważnienie wszystkich istniejących kodów zapasowych. Czy na pewno wygenerować nowe?",
+      "generateNewCodes": "Wygeneruj nowe kody",
+      "disableAuthWarning": "Czy na pewno wyłączyć aplikację uwierzytelniającą? Spowoduje to jej usunięcie z konta. Aby korzystać z niej w przyszłości, trzeba będzie skonfigurować ją ponownie.",
+      "disableAuthenticator": "Wyłącz aplikację uwierzytelniającą",
+      "addPasskeyTitle": "Dodaj klucz dostępu",
+      "addPasskeyDescription": "Zarejestruj nowy klucz dostępu (klucz bezpieczeństwa, odcisk palca lub urządzenie) do uwierzytelniania dwuskładnikowego.",
+      "passkeyName": "Nazwa klucza dostępu",
+      "passkeyNamePlaceholder": "np. YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn nie jest obsługiwany w tej przeglądarce. Użyj nowoczesnej przeglądarki.",
+      "webauthnUnsupportedBrowsers": "WebAuthn nie jest obsługiwany w tej przeglądarce. Użyj nowoczesnej przeglądarki, takiej jak Chrome, Firefox, Safari lub Edge.",
+      "registering": "Rejestrowanie...",
+      "registerPasskey": "Zarejestruj klucz dostępu",
+      "renamePasskeyTitle": "Zmień nazwę klucza dostępu",
+      "saving": "Zapisywanie...",
+      "save": "Zapisz",
+      "deletePasskeyTitle": "Usuń klucz dostępu",
+      "deletePasskeyConfirm": "Czy na pewno usunąć klucz dostępu \"{{name}}\"? Tej akcji nie można cofnąć.",
+      "deleting": "Usuwanie...",
+      "delete": "Usuń",
+      "setupPasskeyTitle": "Skonfiguruj klucz dostępu do 2FA",
+      "setupPasskeyDescription": "Zarejestruj klucz dostępu, aby włączyć uwierzytelnianie wieloskładnikowe. Użyj klucza bezpieczeństwa, odcisku palca, rozpoznawania twarzy lub PIN urządzenia.",
+      "registerAndEnable": "Zarejestruj i włącz 2FA"
+    },
+    "messages": {
+      "loadFailed": "Nie udało się załadować ustawień 2FA",
+      "disabled": "2FA zostało pomyślnie wyłączone",
+      "passkeyBrowserRequired": "Uwierzytelnianie za pomocą klucza dostępu jest wymagane, ale przeglądarka nie obsługuje WebAuthn. Użyj nowoczesnej przeglądarki, takiej jak Chrome, Firefox, Safari lub Edge, aby włączyć 2FA.",
+      "enabledEmail": "2FA włączone z uwierzytelnianiem e-mail",
+      "noMethods": "Brak dostępnych metod 2FA. Skontaktuj się z administratorem.",
+      "toggleFailed": "Nie udało się zmienić 2FA",
+      "passkeyNameRequired": "Proszę wpisać nazwę klucza dostępu",
+      "passkeyRegisteredSaveCodes": "Klucz dostępu bezhasłowy został zarejestrowany pomyślnie! Prosimy zapisać kody zapasowe.",
+      "passkeyRegisteredNoCodes": "Klucz dostępu bezhasłowy został zarejestrowany pomyślnie. Kody zapasowe można wygenerować w ustawieniach MFA.",
+      "authenticatorSetupFailed": "Nie udało się skonfigurować aplikacji uwierzytelniającej",
+      "authenticatorSetup": "Aplikacja uwierzytelniająca została skonfigurowana pomyślnie",
+      "verifyFailed": "Nie udało się zweryfikować kodu",
+      "backupCodesGenerated": "Nowe kody zapasowe zostały wygenerowane",
+      "backupCodesFailed": "Nie udało się wygenerować kodów zapasowych",
+      "preferredUpdated": "Preferowana metoda uwierzytelniania dwuskładnikowego została zaktualizowana pomyślnie",
+      "preferredFailed": "Nie udało się zaktualizować preferowanej metody uwierzytelniania dwuskładnikowego",
+      "disableAuthFailed": "Nie udało się wyłączyć aplikacji uwierzytelniającej",
+      "authenticatorDisabled": "Aplikacja uwierzytelniająca została wyłączona pomyślnie",
+      "newBackupCodesFailed": "Nie udało się wygenerować nowych kodów zapasowych",
+      "newBackupCodesGenerated": "Nowe kody zapasowe zostały wygenerowane pomyślnie",
+      "invalidResponse": "Nieprawidłowy format odpowiedzi z serwera",
+      "passkeyRegistered": "Klucz dostępu bezhasłowy został zarejestrowany pomyślnie",
+      "passkeyDeleted": "Klucz dostępu bezhasłowy został usunięty pomyślnie",
+      "passkeyDeleteFailed": "Nie udało się usunąć klucza dostępu bezhasłowego",
+      "passkeyRenamed": "Nazwa klucza dostępu bezhasłowego została zmieniona pomyślnie",
+      "passkeyRenameFailed": "Nie udało się zmienić nazwy klucza dostępu bezhasłowego"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Połączone konta",
+    "noAccounts": "Brak połączonych kont",
+    "link": "Połącz konto",
+    "unlink": "Odłącz",
+    "description": "Dostawcy uwierzytelniania zewnętrznego połączeni z kontem",
+    "noAccountsMessage": "Żadne konta zewnętrzne nie są połączone z tym profilem. Można je połączyć, logując się za pośrednictwem dostawcy SSO.",
+    "emailLabel": "Adres e-mail: {{email}}",
+    "usernameLabel": "Nazwa użytkownika: {{username}}",
+    "lastLoginLinked": "Ostatnie logowanie: {{lastLogin}} | Połączone: {{linked}}",
+    "unlinkTooltip": "Odłącz konto",
+    "errors": {
+      "loadFailed": "Nie udało się załadować połączonych kont",
+      "unlinkFailed": "Nie udało się odłączyć konta"
+    },
+    "unlinkDialog": {
+      "title": "Odłącz konto",
+      "warning": "Logowanie za pomocą tego dostawcy nie będzie już możliwe.",
+      "confirmation": "Czy na pewno odłączyć konto {{provider}}?"
+    }
+  },
+  "notifications": {
+    "title": "Powiadomienia",
+    "emailNotifications": "Powiadomienia e-mail",
+    "jobCompleted": "Zadanie ukończone",
+    "agentOffline": "Agent offline",
+    "securityAlerts": "Alerty bezpieczeństwa"
+  },
+  "preferences": {
+    "title": "Preferencje",
+    "language": "Język",
+    "timezone": "Strefa czasowa",
+    "dateFormat": "Format daty",
+    "theme": "Motyw",
+    "themes": {
+      "light": "Jasny",
+      "dark": "Ciemny",
+      "system": "Systemowy"
+    },
+    "languageHelper": "Stosuje się tylko do tej przeglądarki.",
+    "themeHelper": "Motyw systemowy dostosowuje się do ustawień systemu operacyjnego."
+  },
+  "errors": {
+    "updateFailed": "Nie udało się zaktualizować ustawień",
+    "passwordMismatch": "Hasła się nie zgadzają",
+    "invalidPassword": "Nieprawidłowe aktualne hasło"
+  },
+  "nav": {
+    "description": "Konto, bezpieczeństwo i preferencje.",
+    "groupAccount": "Konto",
+    "profile": "Profil",
+    "profileDesc": "Adres e-mail, język i wygląd.",
+    "security": "Bezpieczeństwo",
+    "securityDesc": "Hasło, uwierzytelnianie dwuskładnikowe, połączone konta i certyfikat CA.",
+    "notifications": "Powiadomienia",
+    "notificationsDesc": "Które zdarzenia są zgłaszane i w jaki sposób.",
+    "api": "Klucz API",
+    "apiDesc": "Osobisty klucz dostępu do API HTTP.",
+    "charsets": "Zapisane zestawy znaków",
+    "charsetsDesc": "Niestandardowe zestawy znaków do ataków maski."
+  },
+  "savedCharsets": {
+    "title": "Zapisane zestawy znaków",
+    "description": "Zarządzaj niestandardowymi zestawami znaków do użytku w atakach maski. Obsługuje definicje wbudowane i binarne pliki zestawów znaków .hcchr.",
+    "createCharset": "Utwórz zestaw znaków",
+    "sections": {
+      "mine": "Moje zestawy znaków",
+      "team": "Zestawy znaków zespołu",
+      "global": "Globalne zestawy znaków",
+      "globalSubtitle": "Te zestawy znaków są zarządzane przez administratorów i dostępne dla wszystkich."
+    },
+    "columns": {
+      "name": "Nazwa",
+      "team": "Zespół",
+      "definition": "Definicja / Informacje",
+      "description": "Opis",
+      "created": "Utworzone"
+    },
+    "typeLabels": {
+      "file": "Plik",
+      "hex": "Szesnastkowy"
+    },
+    "uniqueBytes_few": "{{count}} unikalne bajty",
+    "uniqueBytes_many": "{{count}} unikalnych bajtów",
+    "uniqueBytes_one": "{{count}} unikalny bajt",
+    "uniqueBytes_other": "{{count}} unikalnych bajtów",
+    "hexBytes_few": "{{count}} bajty",
+    "hexBytes_many": "{{count}} bajtów",
+    "hexBytes_one": "{{count}} bajt",
+    "hexBytes_other": "{{count}} bajtów",
+    "rowActions": {
+      "edit": "Edytuj",
+      "delete": "Usuń"
+    },
+    "empty": "Brak zestawów znaków w tej kategorii.",
+    "dialogs": {
+      "create": {
+        "title": "Utwórz osobisty zestaw znaków"
+      },
+      "edit": {
+        "title": "Edytuj zestaw znaków"
+      },
+      "delete": {
+        "title": "Usuń zestaw znaków",
+        "confirmation": "Czy na pewno usunąć zestaw znaków \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Definicja ręczna",
+        "file": "Upload pliku (.hcchr)"
+      },
+      "fields": {
+        "name": "Nazwa",
+        "namePlaceholder": "np. Pełny zestaw DES",
+        "definition": "Definicja",
+        "definitionPlaceholderHex": "np. 41424344 (pary bajtów szesnastkowych)",
+        "definitionPlaceholderPlain": "np. ?u?d lub abcdef0123456789",
+        "definitionHelperHex": "Pary bajtów szesnastkowych — każda para = jeden bajt zestawu znaków. {{bytes}}",
+        "definitionHelperHexBytes_few": "{{count}} bajty",
+        "definitionHelperHexBytes_many": "{{count}} bajtów",
+        "definitionHelperHexBytes_one": "{{count}} bajt",
+        "definitionHelperHexBytes_other": "{{count}} bajtów",
+        "definitionHelperPlain": "Definicja zestawu znaków hashcat. Użyj ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H lub znaków dosłownych.",
+        "hexTooltip": "Po włączeniu definicja jest interpretowana jako pary bajtów szesnastkowych (np. 41424344 = bajty A, B, C, D). Zadania korzystające z tego zestawu znaków automatycznie wstrzykną --hex-charset.",
+        "hexLabel": "Definicja zakodowana szesnastkowo",
+        "selectFile": "Wybierz plik .hcchr",
+        "fileSizeBytes_few": "{{count}} bajty",
+        "fileSizeBytes_many": "{{count}} bajtów",
+        "fileSizeBytes_one": "{{count}} bajt",
+        "fileSizeBytes_other": "{{count}} bajtów",
+        "fileHelperText": "Binarny plik zestawu znaków zawierający surowe wartości bajtów (maksymalnie 1023 bajty, do 256 unikalnych bajtów).",
+        "fileCharsetInfo_few": "Zestaw znaków z pliku: {{count}} unikalne bajty. Można edytować tylko nazwę i opis.",
+        "fileCharsetInfo_many": "Zestaw znaków z pliku: {{count}} unikalnych bajtów. Można edytować tylko nazwę i opis.",
+        "fileCharsetInfo_one": "Zestaw znaków z pliku: {{count}} unikalny bajt. Można edytować tylko nazwę i opis.",
+        "fileCharsetInfo_other": "Zestaw znaków z pliku: {{count}} unikalnych bajtów. Można edytować tylko nazwę i opis.",
+        "description": "Opis",
+        "descriptionPlaceholder": "Opcjonalny opis przeznaczenia tego zestawu znaków"
+      },
+      "update": "Zaktualizuj",
+      "upload": "Prześlij"
+    },
+    "messages": {
+      "createSuccess": "Zestaw znaków został utworzony pomyślnie",
+      "uploadSuccess": "Zestaw znaków z pliku został przesłany pomyślnie",
+      "updateSuccess": "Zestaw znaków został zaktualizowany pomyślnie",
+      "deleteSuccess": "Zestaw znaków został usunięty pomyślnie"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Dozwolone są tylko pliki .hcchr",
+      "fileTooLarge": "Plik zbyt duży (maksymalnie 1023 bajty — limit bufora odczytu hashcat)",
+      "nameRequired": "Nazwa jest wymagana",
+      "definitionRequired": "Definicja jest wymagana",
+      "selectFile": "Proszę wybrać plik .hcchr",
+      "deleteFailed": "Nie udało się usunąć zestawu znaków: {{message}}",
+      "globalDeleteForbidden": "Globalne zestawy znaków mogą być usuwane tylko przez administratorów w panelu administracyjnym"
+    }
+  }
+}

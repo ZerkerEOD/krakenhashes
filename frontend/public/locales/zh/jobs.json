@@ -16,9 +16,11 @@
     "maxAgents": "最大代理数",
     "actions": "操作",
     "status": "状态",
-    "createdAt": "创建时间"
+    "createdAt": "创建时间",
+    "client": "客户"
   },
   "status": {
+    "preparing": "准备中",
     "pending": "待处理",
     "running": "运行中",
     "completed": "已完成",
@@ -49,7 +51,8 @@
     "completed": "已完成：",
     "unknown": "未知",
     "error": "错误：",
-    "rulesLabel": "（规则）"
+    "rulesLabel": "（规则）",
+    "custom": "自定义攻击"
   },
   "tooltips": {
     "combinedHashRate": "综合哈希速率",
@@ -199,6 +202,7 @@
       "cracks": "破解",
       "cracksFound": "发现破解"
     },
+    "additionalArgs": "附加参数",
     "attackModes": {
       "dictionary": "字典",
       "combination": "组合",
@@ -215,8 +219,16 @@
       "cloud_no_capacity": "没有可用的云容量",
       "cloud_dead_on_arrival": "租用的实例无法连接回服务器",
       "cloud_launch_failed": "无法租用云实例",
-      "seenTimes": "已出现 {{count}} 次"
-    }
+      "seenTimes_other": "出现 {{count}} 次",
+      "cloud_rental_too_short": "租赁时间太短，无法发挥作用",
+      "cloud_cracks_lost": "已破解的密码可能已丢失",
+      "cloud_draining": "云实例正在排空（无新工作）"
+    },
+    "client": "客户",
+    "presetJob": "预设任务",
+    "workflow": "工作流",
+    "createdBy": "创建者",
+    "system": "系统"
   },
   "common": {
     "id": "ID",
@@ -323,45 +335,118 @@
     "selectedCount": "已选择 {{count}} 项",
     "confirmBulkDelete": {
       "title": "确认批量删除",
-      "message": "确定要删除 {{count}} 个任务吗？此操作无法撤销。",
+      "message_other": "您确定要删除 {{count}} 个任务吗？此操作无法撤销。",
       "warning": "这将永久删除所选任务及所有相关数据。",
       "cancel": "取消",
       "delete": "删除",
       "deleting": "正在删除..."
     },
-    "bulkArchiveSuccess": "{{count}} 个任务归档成功",
-    "bulkUnarchiveSuccess": "{{count}} 个任务取消归档成功",
-    "bulkDeleteSuccess": "{{count}} 个任务删除成功"
+    "bulkArchiveSuccess_other": "{{count}} 个任务已成功归档",
+    "bulkUnarchiveSuccess_other": "{{count}} 个任务已成功取消归档",
+    "bulkDeleteSuccess_other": "{{count}} 个任务已成功删除"
   },
   "cloud": {
     "projection": {
-      "title": "Will this finish within budget?",
-      "loadFailed": "Failed to project this job",
-      "coverageLabel": "Budget coverage",
-      "coverageValue": "{{pct}}% of the remaining work is funded",
-      "timeToFinish": "Projected time to finish",
-      "projectedCost": "Projected cloud cost",
-      "availableBudget": "Available budget",
-      "onpremSpeed": "On-prem speed",
-      "cloudSpeed": "Cloud speed",
-      "unknown": "Unknown",
-      "confirm": "Launch",
-      "pessimistic": "This is a salted hash type, so real throughput will exceed this estimate as salts crack. Treat the projection as a worst case.",
-      "shortfallTitle": "The budget runs out before the work does",
-      "shortfallBody": "At the projected rate, the budget covers {{pct}}% of the remaining keyspace. The job will stop partway through. Partial progress may still be worth buying — but it should be a deliberate choice.",
-      "shortfallAcknowledge": "I understand this job will not finish within budget"
+      "title": "此任务能在预算范围内完成吗？",
+      "loadFailed": "计算该任务投影失败",
+      "coverageLabel": "预算覆盖率",
+      "coverageValue": "剩余工作的 {{pct}}% 已资助",
+      "timeToFinish": "预计完成时间",
+      "projectedCost": "预计云成本",
+      "availableBudget": "可用预算",
+      "onpremSpeed": "本地速度",
+      "cloudSpeed": "云速度",
+      "unknown": "未知",
+      "confirm": "启动",
+      "pessimistic": "这是一个加盐哈希类型，所以当盐破解时，实际吞吐量将超过此估计。将投影视为最坏的情况。",
+      "shortfallTitle": "预算用尽，工作未完成",
+      "shortfallBody": "以预计的速率，预算可覆盖剩余密钥空间的 {{pct}}%。任务将在中途停止。部分进度仍然可能值得购买 — 但应该是深思熟虑的选择。",
+      "shortfallAcknowledge": "我理解此任务将无法在预算范围内完成",
+      "metric": "指标",
+      "value": "值"
     },
     "cloudBurst": {
-      "label": "Allow cloud burst for this job",
-      "help": "Rent GPU instances when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider. Nothing is rented without this.",
-      "maxInstances": "Maximum rented instances",
-      "maxInstancesHelp": "Separate from max agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
-      "badge": "Cloud burst",
-      "thirdPartyBadge": "Third-party host",
-      "provisionNow": "Provision now",
-      "provisionConfirm": "Rent one cloud instance for this job now?\n\nThis bypasses the autoscaler's starvation and finishing-soon rules, and will spend money against this client's budget. The budget, spend window, per-job cap and provider consent still apply.",
-      "provisionRequested": "Cloud instance requested",
-      "provisionFailed": "Could not provision a cloud instance"
+      "label": "允许此任务进行云爆发",
+      "help": "当本地机群无法跟上时租赁 GPU 实例。需要客户被资助并选择了提供商。没有这个不会租赁任何东西。",
+      "maxInstances": "最大租赁实例数",
+      "maxInstancesHelp": "与最大代理数独立，后者控制共享的本地池。留空让剩余预算决定。",
+      "badge": "云爆发",
+      "thirdPartyBadge": "第三方主机",
+      "provisionNow": "现在部署",
+      "provisionConfirm": "您确定要现在为此任务租赁一个云实例吗？\n\n这将绕过自动扩展器的饥饿和即将完成规则，并将针对此客户的预算花费资金。预算、支出窗口、每个任务的上限和提供商同意仍然适用。",
+      "provisionRequested": "已请求云实例",
+      "provisionFailed": "无法部署云实例"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "总体进度：{{percent}}%",
+    "noTasks": "尚无分配的子任务",
+    "notAvailable": "N/A",
+    "tooltip": {
+      "taskId": "子任务 ID：{{id}}",
+      "status": "状态：{{status}}",
+      "keyspace": "密钥空间：{{start}} - {{end}}",
+      "progress": "进度：{{percent}}%",
+      "speed": "速率：{{speed}}",
+      "cracksFound": "找到的破解数：{{count}}",
+      "agentId": "代理 ID：{{id}}"
+    },
+    "legend": {
+      "pending": "待处理",
+      "running": "运行中",
+      "processing": "处理中",
+      "completed": "已完成",
+      "processingError": "处理错误",
+      "failed": "失败",
+      "crackFound": "已破解"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "基准测试冷却期",
+    "subtitle": "代理因在此任务上的基准测试重复失败而被列入黑名单。清除条目以在下一个调度周期进行重试。",
+    "loadFailed": "加载黑名单失败",
+    "clearSuccess": "黑名单条目已清除——调度器将在下一个周期重试",
+    "clearFailedPrefix": "清除失败：{{error}}",
+    "clearFailedDefault": "清除条目失败",
+    "expired": "已过期",
+    "retryNow": "重试",
+    "scope": {
+      "thisJob": "此任务",
+      "global": "全局"
+    },
+    "columns": {
+      "agent": "代理",
+      "scope": "范围",
+      "hashMode": "哈希/模式",
+      "failures": "失败次数",
+      "reason": "原因",
+      "expires": "过期",
+      "action": "操作"
+    }
+  },
+  "loopback": {
+    "title": "回环",
+    "subtitle": "每个回环仅针对新破解的密码重新运行该攻击的变异，重复此过程直到找不到新的破解为止。",
+    "runningCount": "{{count}} 个运行中",
+    "statusLabel": {
+      "waiting": "等待轮次完成",
+      "active": "回环中",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "roundLabel": "轮次 {{current}} / {{max}}",
+    "hashlistFallback": "哈希列表 #{{id}}",
+    "jobCount_other": "{{count}} 个任务",
+    "noJobsYet": "尚未记录任何任务。",
+    "loopsBackYes": "是",
+    "loopsBackFeedsDelta": "仅提供增量",
+    "columns": {
+      "round": "轮次",
+      "original": "原始",
+      "job": "任务",
+      "role": "角色",
+      "loopsBack": "是否回环"
     }
   }
 }

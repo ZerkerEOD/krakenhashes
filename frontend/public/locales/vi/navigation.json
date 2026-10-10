@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Trang tổng quan",
+    "jobs": "Công việc",
+    "agents": "Agent",
+    "hashlists": "Danh sách hash",
+    "crackedHashes": "Hash đã bẻ khóa",
+    "wordlists": "Wordlist",
+    "rules": "Quy tắc",
+    "clientManagement": "Quản lý khách hàng",
+    "teams": "Nhóm",
+    "analytics": "Phân tích",
+    "about": "Giới thiệu",
+    "logout": "Đăng xuất"
+  },
+  "admin": {
+    "title": "Quản trị",
+    "settings": "Cài đặt",
+    "userManagement": "Quản lý người dùng",
+    "customCharsets": "Charset tùy chỉnh",
+    "presetJobs": "Công việc cài sẵn",
+    "jobWorkflows": "Quy trình công việc",
+    "diagnostics": "Chẩn đoán",
+    "auditLog": "Nhật ký kiểm toán",
+    "jobAnalytics": "Phân tích công việc",
+    "teamManagement": "Quản lý nhóm",
+    "cloudFleet": "Đội GPU đám mây",
+    "binaries": "Binary",
+    "hashTypes": "Loại hash",
+    "vouchers": "Voucher",
+    "clients": "Khách hàng",
+    "teams": "Nhóm"
+  },
+  "userMenu": {
+    "userSettings": "Cài đặt người dùng",
+    "savedCharsets": "Charset đã lưu",
+    "logout": "Đăng xuất",
+    "user": "Người dùng"
+  },
+  "aria": {
+    "toggleDrawer": "Chuyển đổi thanh bên",
+    "mainNavigation": "Điều hướng chính",
+    "adminNavigation": "Điều hướng quản trị",
+    "downloadCaCert": "Tải xuống chứng chỉ số CA"
+  },
+  "groups": {
+    "resources": "Tài nguyên",
+    "peopleAccess": "Người dùng & Truy cập",
+    "operations": "Vận hành"
+  }
+}

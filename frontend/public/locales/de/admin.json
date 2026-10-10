@@ -19,8 +19,9 @@
     "jobExecution": "Auftragsausführung",
     "monitoring": "Überwachung",
     "agentDownloads": "Agent-Downloads",
-    "cloudProvisioning": "Cloud Provisioning",
-    "serverCertificate": "Server Certificate"
+    "notifications": "Benachrichtigungen",
+    "cloudProvisioning": "Cloud-Bereitstellung",
+    "serverCertificate": "Server-Zertifikat"
   },
   "common": {
     "cancel": "Abbrechen",
@@ -45,7 +46,9 @@
     "unknownError": "Unbekannter Fehler",
     "dialogs": {
       "confirmDeleteNamed": "Sind Sie sicher, dass Sie \"{{name}}\" löschen möchten?"
-    }
+    },
+    "download": "Herunterladen",
+    "confirm": "Bestätigen"
   },
   "users": {
     "title": "Benutzerverwaltung",
@@ -142,7 +145,8 @@
       "accountEnabled": "Benutzerkonto aktiviert",
       "accountUnlocked": "Benutzerkonto entsperrt",
       "sessionTerminated": "Sitzung erfolgreich beendet",
-      "allSessionsTerminated": "{{count}} Sitzung(en) erfolgreich beendet",
+      "allSessionsTerminated_one": "{{count}} Sitzung erfolgreich beendet",
+      "allSessionsTerminated_other": "{{count}} Sitzungen erfolgreich beendet",
       "apiKeyRevoked": "API-Schlüssel erfolgreich widerrufen"
     },
     "dialogs": {
@@ -218,7 +222,8 @@
       "activityInformation": "Aktivitätsinformationen",
       "passwordChanged": "Passwort geändert",
       "failedLoginAttempts": "Fehlgeschlagene Anmeldeversuche",
-      "attemptsCount": "{{count}} Versuche",
+      "attemptsCount_one": "{{count}} Versuch",
+      "attemptsCount_other": "{{count}} Versuche",
       "disabledAt": "Deaktiviert am",
       "activeSessions": "Aktive Sitzungen",
       "noActiveSessions": "Keine aktiven Sitzungen",
@@ -236,7 +241,16 @@
         "success": "Erfolgreich",
         "failed": "Fehlgeschlagen",
         "failureReason": "Fehlergrund"
-      }
+      },
+      "teams": "Teams",
+      "teamName": "Team",
+      "teamDescription": "Beschreibung",
+      "noTeams": "Kein Mitglied in einem Team",
+      "ownedAgents": "Eigene Agenten",
+      "noOwnedAgents": "Dieser Benutzer besitzt keine Agenten",
+      "agentName": "Agent",
+      "agentVersion": "Version",
+      "agentLastSeen": "Zuletzt gesehen"
     }
   },
   "clients": {
@@ -249,7 +263,8 @@
       "cracked": "Geknackt",
       "retention": "Aufbewahrung (Monate)",
       "createdAt": "Erstellt",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "wordlists": "Wortlisten"
     },
     "form": {
       "clientName": "Kundenname",
@@ -259,15 +274,28 @@
       "dataRetentionHelperText": "Leer lassen für Systemstandard. 0 eingeben für dauerhafte Aufbewahrung.",
       "excludeFromPotfile": "Vom Potfile ausschließen (geknackte Passwörter nicht speichern)",
       "excludeFromPotfileHelperText": "Aktivieren Sie dies für Kunden mit strengen Datenaufbewahrungsanforderungen",
-      "cloudInherit": "Cloud burst: this client will inherit the server default — {{state}}, ${{amount}} per {{period}}. Change it in Cloud Provisioning → Client Budgets.",
-      "cloudInheritUnfunded": "Cloud burst: no default budget is set, so this client starts unfunded and cannot rent paid capacity. Set a default in Cloud Provisioning → Client Budgets.",
-      "cloudInheritUnknown": "Cloud burst settings are inherited from the server defaults in Cloud Provisioning → Client Budgets.",
-      "cloudEnabledWord": "enabled",
-      "cloudDisabledWord": "disabled"
+      "cloudInherit": "Cloud-Burst: Dieser Kunde wird den Server-Standard übernehmen - {{state}}, ${{amount}} pro {{period}}. Ändern Sie dies unter Cloud-Bereitstellung → Kunden-Budgets.",
+      "cloudInheritUnfunded": "Cloud-Burst: Es ist kein Standard-Budget festgelegt, daher kann dieser Kunde keine bezahlte Kapazität mieten und startet nicht finanziert. Legen Sie einen Standard unter Cloud-Bereitstellung → Kunden-Budgets fest.",
+      "cloudInheritUnknown": "Cloud-Burst-Einstellungen werden von den Server-Standards unter Cloud-Bereitstellung → Kunden-Budgets übernommen.",
+      "cloudEnabledWord": "aktiviert",
+      "cloudDisabledWord": "deaktiviert",
+      "excludeFromClientPotfile": "Aus Kunden-Potfile ausschließen",
+      "excludeFromClientPotfileHelperText": "Wenn aktiviert, werden geknackte Passwörter für diesen Kunden NICHT zu seinem kundenspezifischen Potfile hinzugefügt.",
+      "clientPotfileSettings": "Potfile-Löscheinstellungen",
+      "useSystemDefault": "System-Standard verwenden",
+      "alwaysRemove": "Immer entfernen",
+      "neverRemove": "Nie entfernen",
+      "assignToTeam": "Team zuweisen",
+      "assignToTeamHelperText": "Der neue Kunde wird diesem Team zugewiesen. Die Umzuweisung eines bestehenden Kunden wird über die Admin-Teamverwaltung verwaltet.",
+      "removeFromGlobalPotfileOnDelete": "Beim Löschen aus globalem Potfile entfernen",
+      "removeFromGlobalPotfileHelperText": "Steuert, ob Passwörter aus dem globalen Potfile entfernt werden, wenn eine Hashliste gelöscht wird.",
+      "removeFromClientPotfileOnDelete": "Beim Löschen aus Kunden-Potfile entfernen",
+      "removeFromClientPotfileHelperText": "Steuert, ob Passwörter aus dem Kunden-Potfile entfernt werden, wenn eine Hashliste gelöscht wird."
     },
     "validation": {
       "nameRequired": "Kundenname ist erforderlich.",
-      "retentionInvalid": "Aufbewahrungszeitraum muss eine nicht-negative Zahl oder leer (für Standard) sein."
+      "retentionInvalid": "Aufbewahrungszeitraum muss eine nicht-negative Zahl oder leer (für Standard) sein.",
+      "teamRequired": "Team-Auswahl ist erforderlich, wenn Teams aktiviert sind"
     },
     "errors": {
       "loadFailed": "Fehler beim Laden der Kunden. Bitte aktualisieren Sie die Seite.",
@@ -291,6 +319,61 @@
       "deleteClient": {
         "title": "Löschen bestätigen",
         "confirmation": "Sind Sie sicher, dass Sie den Kunden \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden. Zugehörige Hashlisten können je nach Aufbewahrungsrichtlinien sofort gelöscht oder verwaist werden."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Name",
+        "status": "Status",
+        "total": "Hashes",
+        "cracked": "Geknackt",
+        "created": "Erstellt"
+      },
+      "notFound": "Kunde nicht gefunden",
+      "notFoundHint": "Der Kunde wurde möglicherweise gelöscht oder gehört zu einem Team, in dem Sie kein Mitglied sind.",
+      "backToClients": "Zurück zu Kunden",
+      "breadcrumb": "Kunden",
+      "manageWordlists": "Wortlisten & Potfile",
+      "stats": {
+        "hashlists": "Hashlisten",
+        "cracked": "Geknackt",
+        "jobs": "Aufträge",
+        "active": "{{count}} aktiv",
+        "wordlists": "Wortlisten",
+        "hasPotfile": "Kunden-Potfile vorhanden"
+      },
+      "hashlists": "Hashlisten",
+      "noHashlists": "Noch keine Hashlisten für diesen Kunden",
+      "jobs": "Aufträge",
+      "noJobs": "Für diesen Kunden wurden noch keine Aufträge ausgeführt",
+      "teams": "Teams",
+      "noTeams": "Keinem Team zugewiesen",
+      "policy": "Aufbewahrung & Potfile",
+      "retention": "Datenaufbewahrung",
+      "retentionDefault": "System-Standard",
+      "retentionForever": "Immer behalten",
+      "retentionMonths_one": "{{count}} Monat",
+      "retentionMonths_other": "{{count}} Monate",
+      "globalPotfile": "Globales Potfile",
+      "excluded": "Ausgeschlossen",
+      "included": "Eingeschlossen",
+      "clientPotfile": "Kunden-Potfile",
+      "contact": "Kontakt",
+      "lastActivity": "Letzte Aktivität"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Kunden einem Team zuweisen",
+      "dialogDescription_one": "{{count}} ausgewählten Kunden einem Team zuweisen. Kunden, die bereits im ausgewählten Team sind, werden übersprungen.",
+      "dialogDescription_other": "{{count}} ausgewählten Kunden einem Team zuweisen. Kunden, die bereits im ausgewählten Team sind, werden übersprungen.",
+      "selectTeam": "Team auswählen",
+      "assignButton": "Zuweisen",
+      "fallbackTeamName": "Team",
+      "success_one": "{{count}} Kunde zu {{team}} zugewiesen",
+      "success_other": "{{count}} Kunden zu {{team}} zugewiesen",
+      "successWithSkipped_one": "{{count}} Kunde zu {{team}} zugewiesen ({{skipped}} bereits zugewiesen)",
+      "successWithSkipped_other": "{{count}} Kunden zu {{team}} zugewiesen ({{skipped}} bereits zugewiesen)",
+      "errors": {
+        "assignFailed": "Fehler beim Zuweisen von Kunden zum Team"
       }
     }
   },
@@ -376,10 +459,14 @@
         "confirmation": "Sind Sie sicher, dass Sie die Wortliste \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
         "cascadeWarning": "Das Löschen der Wortliste \"{{name}}\" wird auch Folgendes löschen:",
         "checkingDependencies": "Abhängigkeiten werden überprüft...",
-        "jobsCount": "{{count}} Auftrag(e) (ausstehend/laufend/fehlgeschlagen):",
-        "presetJobsCount": "{{count}} Vorlagen-Auftrag(e):",
-        "workflowStepsCount": "{{count}} Workflow-Schritt(e):",
-        "emptyWorkflowsCount": "{{count}} leere Workflow(s) werden gelöscht:",
+        "jobsCount_one": "{{count}} Auftrag (ausstehend/laufend/fehlgeschlagen):",
+        "jobsCount_other": "{{count}} Aufträge (ausstehend/laufend/fehlgeschlagen):",
+        "presetJobsCount_one": "{{count}} Vorlagen-Auftrag:",
+        "presetJobsCount_other": "{{count}} Vorlagen-Aufträge:",
+        "workflowStepsCount_one": "{{count}} Workflow-Schritt:",
+        "workflowStepsCount_other": "{{count}} Workflow-Schritte:",
+        "emptyWorkflowsCount_one": "{{count}} leerer Workflow wird gelöscht:",
+        "emptyWorkflowsCount_other": "{{count}} leere Workflows werden gelöscht:",
         "noHashlist": "Keine Hashliste",
         "step": "Schritt {{order}}",
         "andMore": "...und {{count}} weitere",
@@ -387,6 +474,59 @@
         "confirmationPlaceholder": "{{id}} eingeben zur Bestätigung",
         "idMismatch": "ID stimmt nicht überein",
         "deleteAll": "Alles löschen"
+      }
+    },
+    "filterForm": {
+      "helpText": "Alle Kriterien werden kombiniert (UND) - ein Wort muss alle festgelegten Kriterien erfüllen. Wenn Ihr Regex strenger ist als die Längenfelder (z. B. Min-Länge 8, aber Regex erfordert 12+), gewinnt die strengere Regel. Die Schätzung unten zeigt das kombinierte Ergebnis.",
+      "minLength": "Mindestlänge",
+      "maxLength": "Maximallänge",
+      "requiredClasses": "Erforderliche Zeichenklassen",
+      "uppercase": "Großbuchstaben",
+      "lowercase": "Kleinbuchstaben",
+      "digit": "Ziffer",
+      "special": "Sonderzeichen",
+      "minClasses": "Min. Anzahl Klassen (1-4)",
+      "minClassesHelp": "z. B. 3 = mindestens 3 der 4 Klassen",
+      "regexLabel": "Regex (RE2)",
+      "regexHelperDefault": "z. B. ^.{10,16}$",
+      "regexLookaroundError": "Lookarounds ((?=…), (?!…), (?<=…), (?<!…)) werden von der Backend-Regex-Engine (RE2) nicht unterstützt. Verwenden Sie stattdessen Längen-/Klassenfilter.",
+      "regexInvalidDefault": "Ungültiger regulärer Ausdruck",
+      "estimating": "Wird geschätzt…",
+      "previewTooltip": "Geschätzt durch Sampling des Anfangs der Quell-Wortliste. Bei sortierten Listen kann die tatsächliche Gesamtzahl abweichen.",
+      "previewLabel": "~{{countDisplay}} Kandidaten ({{rateDisplay}}% der Stichprobe)",
+      "previewUnavailable": "Vorschau nicht verfügbar"
+    },
+    "filtered": {
+      "badge": "Gefiltert",
+      "regeneratingBadge": "Wird regeneriert…",
+      "regeneratingTooltip": "Die übergeordnete Liste hat sich geändert; diese gefilterte Wortliste wird regeneriert (wenn möglich, werden nur die neuen Einträge erneut gefiltert).",
+      "staleBadge": "Veraltet",
+      "staleTooltip": "Die übergeordnete Wortliste hat sich seit der Generierung geändert. Gefilterte Wortlisten regenerieren sich automatisch, wenn sich ihre übergeordnete Liste ändert. Sie können auch jetzt regenerieren.",
+      "namePlaceholder": "{{name}} (gefiltert)",
+      "wordCount_one": "{{count}} Wort",
+      "wordCount_other": "{{count}} Wörter",
+      "plaintextChip": "Klartext",
+      "compressedChip": "komprimiert",
+      "messages": {
+        "generating": "Gefilterte Wortliste wird generiert",
+        "createFailed": "Fehler beim Erstellen der gefilterten Wortliste",
+        "regenerating": "Vollständige Regenerierung der gefilterten Wortliste gestartet",
+        "regenerateFailed": "Fehler beim Regenerieren der gefilterten Wortliste"
+      },
+      "createDialog": {
+        "title": "Gefilterte Wortliste erstellen",
+        "description": "Generieren Sie eine neue Wortliste, die nur die Zeilen einer Quell-Wortliste enthält, die Ihren Kriterien entsprechen. Das Ergebnis ist über mehrere Aufträge hinweg wiederverwendbar und wird gegenüber seiner übergeordneten Liste verfolgt.",
+        "sourceWordlistLabel": "Quell-Wortliste",
+        "nameLabel": "Name",
+        "create": "Erstellen"
+      },
+      "regenerateDialog": {
+        "title": "Gefilterte Wortliste regenerieren?",
+        "autoInfo": "Gefilterte Wortlisten werden normalerweise <strong>automatisch auf dem Backend</strong> regeneriert, wenn sich ihre übergeordnete Wortliste ändert - Sie müssen dies nicht von Hand tun.",
+        "manualHint": "Regenerieren Sie nur manuell, wenn Sie wissen, dass sich die <strong>Reihenfolge der Wörter in der übergeordneten Liste geändert hat</strong> (Wörter wurden bearbeitet, entfernt oder neu angeordnet, anstatt nur am Ende angefügt zu werden).",
+        "warningWithExample": "Dies führt eine <strong>vollständige Regenerierung</strong> durch - die gesamte übergeordnete Liste wird erneut gefiltert, was für große Wortlisten eine Weile dauern kann (z. B. „{{name}}\").",
+        "warningNoExample": "Dies führt eine <strong>vollständige Regenerierung</strong> durch - die gesamte übergeordnete Liste wird erneut gefiltert, was für große Wortlisten eine Weile dauern kann.",
+        "confirmButton": "Vollständig regenerieren"
       }
     }
   },
@@ -469,10 +609,14 @@
         "confirmation": "Sind Sie sicher, dass Sie die Regel \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
         "cascadeWarning": "Das Löschen der Regel \"{{name}}\" wird auch Folgendes löschen:",
         "checkingDependencies": "Abhängigkeiten werden überprüft...",
-        "jobsCount": "{{count}} Auftrag(e) (ausstehend/laufend/fehlgeschlagen):",
-        "presetJobsCount": "{{count}} Vorlagen-Auftrag(e):",
-        "workflowStepsCount": "{{count}} Workflow-Schritt(e):",
-        "emptyWorkflowsCount": "{{count}} leere Workflow(s) werden gelöscht:",
+        "jobsCount_one": "{{count}} Auftrag (ausstehend/laufend/fehlgeschlagen):",
+        "jobsCount_other": "{{count}} Aufträge (ausstehend/laufend/fehlgeschlagen):",
+        "presetJobsCount_one": "{{count}} Vorlagen-Auftrag:",
+        "presetJobsCount_other": "{{count}} Vorlagen-Aufträge:",
+        "workflowStepsCount_one": "{{count}} Workflow-Schritt:",
+        "workflowStepsCount_other": "{{count}} Workflow-Schritte:",
+        "emptyWorkflowsCount_one": "{{count}} leerer Workflow wird gelöscht:",
+        "emptyWorkflowsCount_other": "{{count}} leere Workflows werden gelöscht:",
         "noHashlist": "Keine Hashliste",
         "step": "Schritt {{order}}",
         "andMore": "...und {{count}} weitere",
@@ -545,8 +689,9 @@
         "firstWordlist": "Erste Wortliste",
         "secondWordlist": "Zweite Wortliste",
         "allowHighPriorityOverride": "Hohe Priorität Override erlauben (kann laufende Aufträge unterbrechen)",
-        "cloudBurstEnabled": "Allow cloud burst",
-        "cloudMaxInstances": "Max cloud instances",
+        "additionalArgs": "Zusätzliche Hashcat-Argumente",
+        "cloudBurstEnabled": "Cloud-Burst zulassen",
+        "cloudMaxInstances": "Max. Cloud-Instanzen",
         "cloudAllowCommunityHosts": "Rechner Dritter zulassen (Vast.ai, RunPod Community)"
       },
       "incrementModes": {
@@ -566,14 +711,17 @@
         "maxAgents": "Maximale Anzahl der Agenten (0 = unbegrenzt)",
         "allowHighPriorityOverride": "Wenn aktiviert, kann dieser Auftrag Aufträge mit niedrigerer Priorität unterbrechen, um deren Agenten zu übernehmen",
         "wordlistsNotUsed": "Wortlisten werden für diesen Angriffsmodus nicht verwendet",
-        "selectWordlists": "Wählen Sie genau {{count}} Wortliste(n)",
+        "selectWordlists_one": "Wählen Sie genau {{count}} Wortliste",
+        "selectWordlists_other": "Wählen Sie genau {{count}} Wortlisten",
         "rulesNotUsed": "Regeln werden für diesen Angriffsmodus nicht verwendet",
         "selectRule": "Optional eine Regeldatei auswählen, um Transformationen anzuwenden",
         "firstWordlist": "Wörter aus dieser Liste werden als erster Teil verwendet",
         "secondWordlist": "Wörter aus dieser Liste werden an den ersten Teil angehängt",
-        "cloudBurstEnabled": "Rent GPU instances for jobs created from this preset when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.",
-        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
-        "cloudAllowCommunityHosts": "Das sind fremde Rechner. Deren Besitzer haben Root-Zugriff auf den Container, sodass Hashes, Wörterlisten und geknackte Klartexte dieses Kunden für Dritte lesbar und auf dem Host nicht verschlüsselt gespeichert sind. Für Produktions- oder Kundendaten nicht empfohlen. Bleibt die Option aus, nutzen Jobs weiterhin sichere Kapazität (AWS, RunPod Secure Cloud), sofern der Kunde dies erlaubt."
+        "additionalArgs": "Zusätzliche Hashcat-Flags für diesen Auftrag. Agent-Level-Flags haben Vorrang bei Konflikten.",
+        "cloudBurstEnabled": "Mieten Sie GPU-Instanzen für Aufträge aus dieser Vorlage, wenn die lokale Flotte nicht mithalten kann. Erfordert, dass der Kunde finanziert und einem Anbieter zugeordnet ist.",
+        "cloudMaxInstances": "Unabhängig von Max. Agenten, was den gemeinsamen lokalen Pool regelt. Lassen Sie das Feld leer, um das verbleibende Budget entscheiden zu lassen.",
+        "cloudAllowCommunityHosts": "Das sind fremde Rechner. Deren Besitzer haben Root-Zugriff auf den Container, sodass Hashes, Wörterlisten und geknackte Klartexte dieses Kunden für Dritte lesbar und auf dem Host nicht verschlüsselt gespeichert sind. Für Produktions- oder Kundendaten nicht empfohlen. Bleibt die Option aus, nutzen Jobs weiterhin sichere Kapazität (AWS, RunPod Secure Cloud), sofern der Kunde dies erlaubt.",
+        "prefilteredWordlistHint": "Um eine vorgefilterte Wortliste in einem Vorlagen-Auftrag zu verwenden, erstellen Sie diese zuerst in der Wortlistenverwaltung - sie wird dann in dieser Liste angezeigt. Inline-Ephemeral-Filterung ist nur für einmalige benutzerdefinierte Aufträge verfügbar."
       },
       "errors": {
         "nameRequired": "Auftragsname ist erforderlich",
@@ -593,6 +741,50 @@
       "messages": {
         "createSuccess": "Vorlagen-Auftrag erfolgreich erstellt",
         "updateSuccess": "Vorlagen-Auftrag erfolgreich aktualisiert"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Wörterbuch",
+          "description": "Verwendet Wörter aus einer Wortliste und wendet optional eine Regel an, um sie zu transformieren",
+          "wordlistRequirement": "Genau 1 Wortliste erforderlich",
+          "rulesRequirement": "0 oder 1 Regeldatei",
+          "maskRequirement": "Keine Maske erforderlich"
+        },
+        "combination": {
+          "name": "Kombination",
+          "description": "Kombiniert Wörter aus zwei Wortlisten (erstes_Wort + zweites_Wort)",
+          "wordlistRequirement": "Genau 2 Wortlisten erforderlich",
+          "rulesRequirement": "Keine Regeln erforderlich",
+          "maskRequirement": "Keine Maske erforderlich"
+        },
+        "bruteForce": {
+          "name": "Brute-Force (Maske)",
+          "description": "Generiert Passwörter basierend auf einem Muster/einer Maske",
+          "wordlistRequirement": "Keine Wortliste erforderlich",
+          "rulesRequirement": "Keine Regeln erforderlich",
+          "maskRequirement": "Maske erforderlich (z. B. ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Hybrid: Wortliste + Maske",
+          "description": "Hängt maskengenerierte Zeichen an Wörter aus einer Wortliste an",
+          "wordlistRequirement": "Genau 1 Wortliste erforderlich",
+          "rulesRequirement": "Keine Regeln erforderlich",
+          "maskRequirement": "Maske erforderlich (z. B. ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Hybrid: Maske + Wortliste",
+          "description": "Stellt maskengenerierte Zeichen den Wörtern aus einer Wortliste voran",
+          "wordlistRequirement": "Genau 1 Wortliste erforderlich",
+          "rulesRequirement": "Keine Regeln erforderlich",
+          "maskRequirement": "Maske erforderlich (z. B. ?d?d?d?d)"
+        },
+        "association": {
+          "name": "Assoziation (Nicht implementiert)",
+          "description": "Dieser Angriffsmodus ist derzeit nicht implementiert",
+          "wordlistRequirement": "N/A",
+          "rulesRequirement": "N/A",
+          "maskRequirement": "N/A"
+        }
       }
     }
   },
@@ -605,7 +797,8 @@
     "canInterrupt": "Kann unterbrechen",
     "normal": "Normal",
     "loopbackAllEligible": "Alle geeigneten",
-    "loopbackStepCount": "{{count}} Schritt(e)",
+    "loopbackStepCount_one": "{{count}} Schritt",
+    "loopbackStepCount_other": "{{count}} Schritte",
     "columns": {
       "name": "Name",
       "description": "Beschreibung",
@@ -630,8 +823,10 @@
       "noJobsAdded": "Noch keine Aufträge zu diesem Workflow hinzugefügt. Suchen Sie oben nach Vorlagen-Aufträgen und fügen Sie sie hinzu.",
       "priority": "Priorität: {{priority}}",
       "binary": "Binär: {{name}}",
-      "wordlistCount": "{{count}} Wortliste(n)",
-      "ruleCount": "{{count}} Regel(n)",
+      "wordlistCount_one": "{{count}} Wortliste",
+      "wordlistCount_other": "{{count}} Wortlisten",
+      "ruleCount_one": "{{count}} Regel",
+      "ruleCount_other": "{{count}} Regeln",
       "loopback": {
         "masterToggle": "Loopback für alle geeigneten Schritte aktivieren",
         "masterHelperText": "Wenn aktiviert, läuft zuerst der gesamte Workflow, danach wird jeder geeignete Schritt (Straight + Regeln oder ein Hybrid-Angriff Wortliste ± Maske) erneut ausgeführt – jedoch nur gegen die neu geknackten Passwörter – und so lange intelligent wiederholt, bis keine neuen Treffer mehr gefunden werden. Nicht mutierende Schritte (nur Wortliste, Brute-Force, Association) speisen ihre neuen Treffer weiterhin in die Schleife ein. Die Schalter der einzelnen Schritte unten sind deaktiviert, solange diese Option aktiv ist.",
@@ -660,8 +855,8 @@
         "updateSuccess": "Workflow erfolgreich aktualisiert"
       },
       "cloudBurst": {
-        "toggle": "Allow cloud burst for every step",
-        "helperText": "Applies to all steps, overriding each preset's own setting. Set at the workflow level so one rented instance can carry the whole workflow instead of being torn down and re-rented between steps."
+        "toggle": "Cloud-Burst für jeden Schritt zulassen",
+        "helperText": "Gilt für alle Schritte und überschreibt die Einstellungen jedes Vorlagen-Auftrags. Wird auf Workflow-Ebene festgelegt, damit eine gemietete Instanz den gesamten Workflow durchführen kann, anstatt zwischen den Schritten abgebaut und erneut gemietet zu werden."
       }
     }
   },
@@ -698,11 +893,35 @@
       "cannotDeleteLast": "Die letzte aktive {{type}}-Binärdatei kann nicht gelöscht werden",
       "cannotDeleteOnly": "Die einzige Binärdatei dieses Typs kann nicht gelöscht werden",
       "setDefaultSuccess": "Standard-Binärdatei erfolgreich aktualisiert",
-      "setDefaultFailed": "Fehler beim Setzen der Standard-Binärdatei"
+      "setDefaultFailed": "Fehler beim Setzen der Standard-Binärdatei",
+      "addSuccess": "Binär erfolgreich hinzugefügt",
+      "addFailed": "Fehler beim Hinzufügen des Binärs"
     },
     "deleteDialog": {
       "title": "Löschen bestätigen",
       "message": "Sind Sie sicher, dass Sie die Binärdatei \"{{fileName}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+    },
+    "form": {
+      "addDialogTitle": "Neues Binär hinzufügen",
+      "sourceLabel": "Quelle",
+      "downloadFromUrl": "Von URL herunterladen",
+      "uploadFile": "Datei hochladen",
+      "binaryTypeLabel": "Binär-Typ",
+      "johnPending": "John the Ripper (Support ausstehend)",
+      "compressionTypeLabel": "Kompressionstyp",
+      "sourceUrlLabel": "Quell-URL",
+      "sourceUrlHelp": "URL zum Herunterladen des Binärs (z. B. https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Archivdatei auswählen",
+      "uploadHelp": "Laden Sie ein .7z-, .zip-, .tar.gz- oder .tar.xz-Archiv mit dem Binär hoch",
+      "fileNameLabel": "Dateiname",
+      "fileNameHelp": "Wird automatisch aus URL/Datei ausgefüllt, kann aber bei Bedarf geändert werden",
+      "versionLabel": "Version",
+      "versionHelp": "Automatisch aus dem Dateinamen erkannt. Kann für benutzerdefinierte Builds überschrieben werden.",
+      "descriptionLabel": "Beschreibung",
+      "descriptionHelp": "Optionale Notizen zu diesem Binär (z. B. Details zu benutzerdefinierten Builds)",
+      "setAsDefault": "Als Standard-Binär festlegen",
+      "selectFileRequired": "Bitte wählen Sie eine Datei zum Hochladen aus",
+      "uploadBinarySubmit": "Binär hochladen"
     }
   },
   "diagnostics": {
@@ -856,7 +1075,8 @@
       "maxCodeAttempts": "Max. Code-Versuche",
       "maxCodeAttemptsHelper": "Maximale fehlgeschlagene Code-Versuche vor Sperre",
       "backupCodesCount": "Anzahl Backup-Codes",
-      "backupCodesCountHelper": "Anzahl der zu generierenden Backup-Codes"
+      "backupCodesCountHelper": "Anzahl der zu generierenden Backup-Codes",
+      "requireMfaHelper": "Jeder Benutzer muss MFA bei der Anmeldung abschließen. Erfordert einen konfigurierten E-Mail-Anbieter, damit Codes bereitgestellt werden können."
     },
     "webauthn": {
       "title": "WebAuthn / Passkey-Konfiguration",
@@ -891,18 +1111,24 @@
     "messages": {
       "updateSuccess": "Authentifizierungseinstellungen erfolgreich aktualisiert",
       "updateFailed": "Fehler beim Aktualisieren der Authentifizierungseinstellungen"
+    },
+    "teams": {
+      "title": "Multi-Team-Isolierung",
+      "description": "Wenn aktiviert, sind Kunden, Hashlisten, Aufträge und Agenten auf Teams beschränkt, und Benutzer sehen nur, was ihre Teams besitzen.",
+      "enable": "Teams aktivieren",
+      "enableHelper": "Vorhandene Daten werden im Standard-Team platziert."
     }
   },
   "ssoSettings": {
     "pageTitle": "SSO-Einstellungen",
     "pageDescription": "Single Sign-On-Anbieter und Authentifizierungsoptionen konfigurieren",
     "warnings": {
-      "ephemeralKeyTitle": "SSO Encryption Key Not Configured",
-      "ephemeralKeyDescription": "SSO provider secrets (client secrets, bind passwords, private keys) are currently encrypted with a temporary key that will be lost when the server restarts. Any configured SSO providers will stop working after a restart.",
-      "ephemeralKeyInstructions": "To fix this, generate a persistent encryption key by running:",
-      "ephemeralKeyAddToEnv": "Then add the following to your .env file and restart the server:",
+      "ephemeralKeyTitle": "SSO-Verschlüsselungsschlüssel nicht konfiguriert",
+      "ephemeralKeyDescription": "SSO-Anbieter-Geheimnisse (Client-Geheimnisse, Bind-Passwörter, private Schlüssel) werden derzeit mit einem temporären Schlüssel verschlüsselt, der beim Neustart des Servers verloren geht. Alle konfigurierten SSO-Anbieter funktionieren nach einem Neustart nicht mehr.",
+      "ephemeralKeyInstructions": "Generieren Sie zur Behebung dieses Problems einen persistenten Verschlüsselungsschlüssel, indem Sie Folgendes ausführen:",
+      "ephemeralKeyAddToEnv": "Fügen Sie dann Folgendes zu Ihrer .env-Datei hinzu und starten Sie den Server neu:",
       "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
-      "ephemeralKeyCopied": "Command copied to clipboard"
+      "ephemeralKeyCopied": "Befehl in Zwischenablage kopiert"
     },
     "authMethods": {
       "title": "Authentifizierungsmethoden",
@@ -987,8 +1213,8 @@
     "oauthConfig": {
       "title": "OAuth/OIDC-Konfiguration",
       "isOidc": "OpenID Connect (OIDC)",
-      "clientId": "Client ID",
-      "clientSecret": "Client Secret",
+      "clientId": "Client-ID",
+      "clientSecret": "Client-Geheimnis",
       "discoveryUrl": "Discovery-URL",
       "discoveryUrlHelper": "OIDC-Discovery-Endpunkt (konfiguriert andere URLs automatisch)",
       "authorizationUrl": "Autorisierungs-URL",
@@ -1038,7 +1264,7 @@
         "encryption": "Verschlüsselung",
         "fromEmail": "Absender-E-Mail",
         "fromName": "Absendername",
-        "domain": "Domain",
+        "domain": "Domäne",
         "region": "Region",
         "monthlyLimit": "Monatliches Limit",
         "skipTlsVerify": "TLS-Zertifikatprüfung überspringen (unsicher, nicht empfohlen)"
@@ -1109,13 +1335,25 @@
         "securityEvent": "Sicherheitsereignis",
         "jobCompletion": "Auftragsabschluss",
         "adminError": "Admin-Fehler",
-        "mfaCode": "MFA-Code"
+        "mfaCode": "MFA-Code",
+        "securityPasswordChanged": "Passwort geändert",
+        "securityMfaDisabled": "MFA deaktiviert",
+        "securitySuspiciousLogin": "Verdächtige Anmeldung",
+        "jobStarted": "Auftrag gestartet",
+        "jobFailed": "Auftrag fehlgeschlagen",
+        "firstCrack": "Erstes Knacken",
+        "taskCompleted": "Aufgabe abgeschlossen",
+        "agentOffline": "Agent Offline",
+        "agentError": "Agent-Fehler",
+        "webhookFailure": "Webhook-Fehler"
       },
       "buttons": {
         "create": "Vorlage erstellen",
         "cancel": "Abbrechen",
         "test": "Testen",
-        "save": "Speichern"
+        "save": "Speichern",
+        "edit": "Bearbeiten",
+        "delete": "Löschen"
       },
       "table": {
         "name": "Name",
@@ -1134,7 +1372,8 @@
         "deleteSuccess": "Vorlage erfolgreich gelöscht",
         "deleteFailed": "Fehler beim Löschen der Vorlage",
         "testSuccess": "Test-E-Mail erfolgreich gesendet",
-        "testFailed": "Fehler beim Senden der Test-E-Mail"
+        "testFailed": "Fehler beim Senden der Test-E-Mail",
+        "saveFailed": "Fehler beim Speichern der Vorlage"
       }
     }
   },
@@ -1194,9 +1433,9 @@
       "maxAgentsRoundRobinMode": "Max Agenten - Round Robin",
       "priorityFifoDescription": "Wenn mehrere Aufträge mit gleicher Priorität ihre max_agents-Grenzen überschreiten, erhält der älteste Auftrag (zuerst erstellt) alle zusätzlichen Agenten.",
       "priorityRoundRobinDescription": "Zusätzliche Agenten werden gleichmäßig auf alle Aufträge mit gleicher Priorität verteilt, einen Agenten nach dem anderen, um eine faire Zuweisung zu gewährleisten.",
-      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
-      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
-      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
+      "enforceMaxAgentsDescription": "Begrenzen Sie jeden Auftrag streng auf sein max_agents-Limit – keine Überläufe. Überschüssige Agenten bleiben untätig. Am vorhersehbarsten; kann Kapazität verschwenden.",
+      "maxAgentsFifoDescription": "Alle Aufträge auf allen Prioritäten füllen sich zuerst bis max_agents (strikte Limits). Alle verbleibenden Agenten häufen sich dann auf dem ÄLTESTEN Auftrag insgesamt – umgeht die Priorität. Maximiert den Durchsatz und gibt jedem Auftrag seine Basislinie.",
+      "maxAgentsRoundRobinDescription": "Alle Aufträge auf allen Prioritäten füllen sich zuerst bis max_agents (strikte Limits). Alle verbleibenden Agenten verteilen sich dann gleichmäßig auf ALLE Aufträge – umgeht die Priorität. Maximiert den Durchsatz mit fairer Verteilung über die Basislinie hinaus."
     },
     "hashlist": {
       "title": "Hashlisten-Einstellungen",
@@ -1224,6 +1463,18 @@
       "passwordsEvery": "Passwörter alle",
       "seconds": "Sekunden"
     },
+    "speedTest": {
+      "title": "Geschwindigkeitstest (Benchmark)",
+      "tooltip": "Passen Sie an, wie lange Agenten auf hashcat warten, um einen verwendbaren Benchmark zu erstellen, bevor der Geschwindigkeitstest fehlschlägt. Komprimierte Wortlisten benötigen deutlich mehr Zeit für die Vorverarbeitung mit dictstat.",
+      "timeoutUncompressed": "Timeout: Klartext-Wortlisten (Sekunden)",
+      "timeoutUncompressedHelper": "Maximale Sekunden, die der Agent auf eine gültige Geschwindigkeitsmessung für Klartext-Wortlisten wartet. Standard: 120.",
+      "timeoutCompressed": "Timeout: komprimierte Wortlisten (Sekunden)",
+      "timeoutCompressedHelper": "Maximale Sekunden für .gz-/.zip-/.xz-Wortlisten – die drei Formate, die hashcat nativ liest. Diese benötigen länger zum Dekomprimieren und dictstat-Vorverarbeiten. Standard: 300.",
+      "minStatusUpdates": "Mindest-Statusaktualisierungen",
+      "minStatusUpdatesHelper": "Minimale Anzahl der hashcat --status-json-Ticks, die der Agent sammeln muss, bevor ein Ergebnis zurückgegeben wird. Standard: 3.",
+      "minUpdatesLowWarning": "Werte unter 3 können ungenaue Messwerte liefern: GPUs sind möglicherweise noch nicht hochgefahren.",
+      "description": "Wenn der Agent ohne eine Nicht-Null-Geschwindigkeit ausläuft, wird der Benchmark als fehlgeschlagen gemeldet und der Auftrag gibt einen Fehler aus, der eine Admin-Aktion erfordert. Die Chunking-Pipeline weigert sich auch, eine 1-Kandidaten-Aufgabe zu versenden, daher kann ein veralteter 0 H/s-Benchmark nicht endlos in einer Schleife ausgeführt werden."
+    },
     "errors": {
       "loadFailed": "Fehler beim Laden der Systemeinstellungen",
       "maxPriorityRequired": "Maximale Priorität ist erforderlich",
@@ -1231,7 +1482,9 @@
       "maxPriorityMax": "Maximale Priorität darf 1.000.000 nicht überschreiten",
       "saveFailed": "Fehler beim Speichern der Systemeinstellungen",
       "batchSizeRange": "Stapelgröße muss zwischen {{min}} und {{max}} liegen",
-      "intervalRange": "Intervall muss zwischen {{min}} und {{max}} Sekunden liegen"
+      "intervalRange": "Intervall muss zwischen {{min}} und {{max}} Sekunden liegen",
+      "speedTestTimeoutRange": "Geschwindigkeitstest-Timeout muss zwischen {{min}} und {{max}} Sekunden liegen",
+      "minStatusUpdatesRange": "Mindest-Statusaktualisierungen müssen zwischen {{min}} und {{max}} liegen"
     },
     "messages": {
       "updateSuccess": "Systemeinstellungen erfolgreich aktualisiert",
@@ -1243,6 +1496,8 @@
       "hashlistBatchUpdated": "Hashlisten-Stapelgröße aktualisiert",
       "potfileBatchUpdated": "Potfile-Stapelgröße aktualisiert",
       "potfileIntervalUpdated": "Potfile-Stapelintervall aktualisiert",
+      "speedTestTimeoutUpdated": "Geschwindigkeitstest-Timeout aktualisiert",
+      "speedTestMinUpdatesUpdated": "Mindest-Statusaktualisierungen des Geschwindigkeitstests aktualisiert",
       "updateFailed": "Fehler beim Aktualisieren der Einstellung"
     }
   },
@@ -1253,9 +1508,15 @@
       "title": "Auftrags-Chunking",
       "defaultChunkDuration": "Standard-Chunk-Dauer",
       "defaultChunkDurationHelper": "Dauer für jeden Auftrags-Chunk",
+      "minChunkSeconds": "Minimale Chunk-Dauer",
+      "minChunkSecondsHelper": "Untergrenze für die reale Laufzeit eines einzelnen Chunks; verhindert winzige verwaiste Chunks",
+      "minutes": "Minuten",
+      "overrunTolerance": "Chunk-Überlauf-Toleranz",
+      "overrunToleranceHelper": "Wie lange über seine geplante Dauer ein Chunk laufen darf, bevor der Guard ihn stoppt und den Rest neu versendet.",
+      "overrunGuard": "Chunk-Überlauf-Guard aktivieren",
+      "overrunGuardHelper": "Stoppt eine Aufgabe, die weit über ihre geplante Chunk-Dauer hinaus läuft, und versendet den unvollendeten Teil neu.",
       "chunkFluctuation": "Chunk-Schwankungsprozentsatz",
-      "chunkFluctuationHelper": "Erlaubte Schwankung für finale Chunks",
-      "minutes": "Minuten"
+      "chunkFluctuationHelper": "Erlaubte Schwankung für finale Chunks"
     },
     "agentConfig": {
       "title": "Agenten-Konfiguration",
@@ -1269,13 +1530,13 @@
       "benchmarkCacheHelper": "Wie lange Agenten-Benchmarks gecacht werden",
       "benchmarkHistoryRetention": "Benchmark-Verlauf Aufbewahrung",
       "benchmarkHistoryRetentionHelper": "Tage, die Benchmark-Verlaufsdaten aufbewahrt werden (0 = unbegrenzt)",
-      "speedtestTimeout": "Speedtest-Timeout",
-      "speedtestTimeoutHelper": "Maximale Wartezeit für Speedtest-Abschluss",
       "reconnectGrace": "Wiederverbindungs-Karenzzeit",
       "reconnectGraceHelper": "Wartezeit für Agenten zur Wiederverbindung nach Server-Neustart",
       "days": "Tage",
       "seconds": "Sekunden",
-      "minutes": "Minuten"
+      "minutes": "Minuten",
+      "speedtestTimeout": "Speedtest-Timeout",
+      "speedtestTimeoutHelper": "Maximale Wartezeit für Speedtest-Abschluss"
     },
     "jobControl": {
       "title": "Auftragssteuerung",
@@ -1295,7 +1556,127 @@
     "potfile": {
       "title": "Potfile-Einstellungen",
       "enablePotfile": "Potfile aktivieren",
-      "enablePotfileHelper": "Geknackte Passwörter automatisch für zukünftige Aufträge speichern. Einzelne Hashlisten können weiterhin ausgeschlossen werden."
+      "enablePotfileHelper": "Geknackte Passwörter automatisch für zukünftige Aufträge speichern. Einzelne Hashlisten können weiterhin ausgeschlossen werden.",
+      "maxBatchSize": "Maximale Batch-Größe",
+      "maxBatchSizeHelper": "Anzahl der zwischengespeicherten Passwörter, die in jedem Batch-Zyklus verarbeitet werden (1.000 - 500.000)",
+      "batchInterval": "Batch-Intervall",
+      "batchIntervalHelper": "Sekunden zwischen Potfile-Batch-Verarbeitungszyklen (10 - 600)",
+      "enableClientPotfiles": "Kunden-Potfiles aktivieren",
+      "enableClientPotfilesHelper": "Führen Sie zusätzlich zum globalen Potfile ein separates Potfile pro Kunde.",
+      "removeGlobalDefault": "Aus globalem Potfile entfernen, wenn eine Hashliste gelöscht wird (Standard)",
+      "removeClientDefault": "Aus Kunden-Potfile entfernen, wenn eine Hashliste gelöscht wird (Standard)"
+    },
+    "scheduler": {
+      "title": "Scheduler (v2)",
+      "description": "Erweiterte Abstimmung der Aufgaben-Lebendigkeit und des Überlaufverhaltens des v2-Schedulers. Standardwerte sind für die meisten Bereitstellungen sicher.",
+      "taskHeartbeatTimeout": "Aufgaben-Heartbeat-Timeout",
+      "taskHeartbeatTimeoutHelper": "Sekunden ohne Lebenszeichen, bevor eine laufende Aufgabe als verloren markiert und wiederhergestellt wird",
+      "taskStartupGrace": "Aufgaben-Startup-Schonfrist",
+      "taskStartupGraceHelper": "Zusätzliche Schonfrist vor dem ersten Fortschritt (Dateidownload, Dekompression, Autotune)",
+      "networkGrace": "Netzwerk-Schonfrist",
+      "networkGraceHelper": "WebSocket-Wiederverbindungstoleranz, bevor die Wiederherstellung bei einer Trennung ausgelöst wird",
+      "overrunGuardEnabled": "Chunk-Überlauf-Guard",
+      "overrunGuardEnabledHelper": "Stoppt Aufgaben, die ihr Chunk-Ziel über die unten angegebene Toleranz hinaus überschreiten.",
+      "overrunTolerance": "Überlauf-Toleranz",
+      "overrunToleranceHelper": "Schonfenster: Stoppen, wenn die reale Zeit das Chunk-Ziel um diesen Prozentsatz überschreitet"
+    },
+    "buttons": {
+      "save": "Einstellungen speichern"
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Einstellungen",
+      "outOfRange": "{{label}} muss zwischen {{min}} und {{max}} liegen"
+    },
+    "messages": {
+      "updateSuccess": "Auftragsausführungs-Einstellungen erfolgreich aktualisiert",
+      "loadFailed": "Fehler beim Laden der Auftragsausführungs-Einstellungen",
+      "saveFailed": "Fehler beim Speichern der Einstellungen"
+    },
+    "keyspaceBenchmark": {
+      "title": "Keyspace & Benchmark",
+      "caption": "Wie lange KrakenHashes damit verbringen darf, einen Angriff zu messen. Die erste Einstellung begrenzt den SERVER bei der Messung der Wortliste bei der Auftragserstellung; die Geschwindigkeitstest-Einstellungen begrenzen einen AGENTEN bei der Messung seiner eigenen Hash-Rate. Dies sind unterschiedliche Stadien – das Erhöhen des einen hat keine Auswirkung auf das andere.",
+      "keyspaceTimeout": "Keyspace-Berechnungs-Timeout",
+      "keyspaceTimeoutHelper": "Server-seitig. Zeit zum Ausführen von hashcat --keyspace / --total-candidates bei der Erstellung eines Auftrags. Läuft im Hintergrund, sodass das Erhöhen davon die Auftragserstellung nicht verlangsamt. Bei Überschreitung fällt ein Wörterbuch-Angriff auf die Wortlisten-Wortanzahl zurück und benachrichtigt den Benutzer.",
+      "speedTestUncompressed": "Agent-Geschwindigkeitstest-Timeout",
+      "speedTestUncompressedHelper": "Agent-seitig. Reales Zeitlimit für einen Agent-Benchmark auf einer unkomprimierten Wortliste.",
+      "speedTestCompressed": "Agent-Geschwindigkeitstest-Timeout (komprimiert)",
+      "speedTestCompressedHelper": "Agent-seitig. Längeres Limit für komprimierte Wortlisten, die hashcat dekomprimieren muss, bevor es eine Geschwindigkeit melden kann.",
+      "minStatusUpdates": "Mindest-Statusaktualisierungen",
+      "minStatusUpdatesHelper": "Wie viele Hashcat-Statusberichte ein Geschwindigkeitstest erzeugen muss, bevor seinem Ergebnis vertraut wird. Niedrige Werte riskieren, eine Geschwindigkeit zu speichern, die vor der Stabilisierung der GPU aufgenommen wurde.",
+      "cacheDuration": "Benchmark-Cache-Dauer",
+      "cacheDurationHelper": "Wie lange ein aufgezeichneter Benchmark gültig bleibt, bevor ein Agent aufgefordert wird, erneut zu messen.",
+      "historyRetention": "Benchmark-Verlauf-Aufbewahrung",
+      "historyRetentionHelper": "Wie lange einzelne Benchmark-Datensätze für die Trendanalyse aufbewahrt werden.",
+      "hours": "Stunden",
+      "days": "Tage"
+    },
+    "benchmarkReliability": {
+      "title": "Benchmark-Zuverlässigkeit",
+      "caption": "Was passiert, wenn Benchmarks wiederholt fehlschlagen. Diese schützen davor, dass ein schlechter Agent oder eine schlechte Auftragskonfiguration die Flotte verbraucht, indem ein Benchmark wiederholt wird, der nicht erfolgreich sein kann.",
+      "failureThreshold": "Fehler-Schwellenwert",
+      "failureThresholdHelper": "Aufeinanderfolgende Benchmark-Fehler für eine Agent-/Auftrags-/Angriffskombination, bevor diese auf die Blocklist gesetzt wird.",
+      "hardFailureCap": "Fehler-Obergrenze",
+      "hardFailureCapHelper": "Absolute Obergrenze für Benchmark-Versuche für eine Kombination, unabhängig vom Schwellenwert oben.",
+      "blocklistCooldown": "Blocklist-Abkühlungszeit",
+      "blocklistCooldownHelper": "Wie lange eine auf der Blocklist stehende Agent-/Auftrags-/Angriffskombination gesperrt bleibt, bevor sie erneut versucht werden kann.",
+      "stormThreshold": "Benchmark-Sturm-Schwellenwert",
+      "stormThresholdHelper": "Anzahl der Benchmark-Fehler innerhalb des Sturm-Fensters, die eine Administrator-Benachrichtigung auslöst.",
+      "stormWindow": "Benchmark-Sturm-Fenster",
+      "stormWindowHelper": "Der Zeitraum, über den Sturm-Schwellenwert-Fehler gezählt werden.",
+      "streakReset": "Fehlerserie-Rücksetzung",
+      "streakResetHelper": "Wie lange ein Agent ohne einen Benchmark-Fehler laufen muss, bevor seine Fehlerserie auf Null zurückgesetzt wird.",
+      "quarantineStreak": "Quarantäne-Fehlerserie",
+      "quarantineStreakHelper": "Aufeinanderfolgende Fehler über jede Kombination hinweg, bevor der Agent selbst unter Quarantäne gestellt wird.",
+      "quarantineDistinct": "Quarantäne unterschiedlicher Kombinationen",
+      "quarantineDistinctHelper": "Wie viele UNTERSCHIEDLICHE Angriffs-/Hash-Typ-Kombinationen fehlschlagen müssen, bevor der Agent als fehlerhaft statt des Auftrags behandelt wird."
+    },
+    "scheduling": {
+      "title": "Planung & Zuweisung",
+      "overflowMode": "Agenten-Überlauf-Zuweisungsmodus",
+      "overflowModeHelper": "Wie Agenten, die übrig bleiben, sobald Aufträge ihr max-agents-Limit erreichen, verteilt werden.",
+      "maxConcurrentJobs": "Max. gleichzeitige Aufträge pro Agent",
+      "maxConcurrentJobsHelper": "Wie viele Aufträge ein einzelner Agent gleichzeitig bearbeiten darf.",
+      "agentScheduling": "Agent-Planung aktivieren",
+      "agentSchedulingHelper": "Aktiviert global die Arbeitszeitpläne pro Agent. Wenn dies aus ist, werden Agent-Pläne ignoriert.",
+      "jobInterruption": "Auftrags-Unterbrechung zulassen",
+      "jobInterruptionHelper": "Globales Gate für Preemption. Ein Auftrag muss AUCH sein eigenes High-Priority-Override-Flag und eine Nicht-Null-Priorität haben, bevor etwas unterbrochen wird.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Round-Robin",
+        "enforceMaxAgents": "Max. Agenten erzwingen",
+        "maxAgentsFifo": "Max. Agenten, dann FIFO",
+        "maxAgentsRoundRobin": "Max. Agenten, dann Round-Robin"
+      }
+    },
+    "taskHealth": {
+      "title": "Aufgaben-Gesundheit",
+      "caption": "Wenn eine laufende Aufgabe als verloren gilt und wie aggressiv die Arbeit wiederhergestellt wird. Setzen Sie diese zu eng und gesunde Aufgaben werden verdrängt; zu locker und eine tote Aufgabe hält ihren Keyspace stundenlang.",
+      "heartbeatTimeout": "Aufgaben-Heartbeat-Timeout",
+      "heartbeatTimeoutHelper": "Wie lange eine laufende Aufgabe ohne Heartbeat bleiben darf, bevor sie als verloren behandelt und ihr Keyspace erneut geöffnet wird.",
+      "startupGrace": "Aufgaben-Startup-Schonfrist",
+      "startupGraceHelper": "Zusätzliche Zeit, die nach der Zuweisung vor Heartbeat-Regeln zulässig ist und Hashcat-Start und Dateiladung abdeckt.",
+      "networkGrace": "Netzwerk-Schonfrist",
+      "networkGraceHelper": "Kurze Schonfrist für vorübergehende Netzwerkunterbrechungen, bevor ein verpasster Heartbeat zählt.",
+      "reconnectGrace": "Wiederverbindungs-Schonfrist",
+      "reconnectGraceHelper": "Wie lange ein getrennter Agent sich wiederverbinden und seine laufende Aufgabe zurückfordern kann.",
+      "offlineBuffer": "Agent-Offline-Puffer",
+      "offlineBufferHelper": "Wie lange Nachrichten für einen kurzzeitig offline Agenten gepuffert werden, bevor sie verworfen werden.",
+      "maxRetryAttempts": "Max. Chunk-Wiederholungsversuche",
+      "maxRetryAttemptsHelper": "Wie oft ein fehlgeschlagenes Chunk wiederholt wird, bevor die Aufgabe fehlschlägt. Setzen Sie auf 0, um Wiederholungen zu deaktivieren.",
+      "progressInterval": "Fortschritts-Meldeintervall",
+      "progressIntervalHelper": "Wie oft Agenten Fortschritt melden. Niedrigere Werte geben feineren Fortschritt, aber mehr Last.",
+      "hashlistRetention": "Agent-Hashlisten-Aufbewahrung",
+      "hashlistRetentionHelper": "Wie lange Agenten eine heruntergeladene Hashliste nach dem Fertigstellen behalten."
+    },
+    "loopback": {
+      "title": "Loopback",
+      "maxRounds": "Maximale Loopback-Runden",
+      "maxRoundsHelper": "Sicherheitsobergrenze, wie oft eine Loopback-Sitzung einen Angriff gegen neu geknackte Klartexte erneut ausführt, bevor sie gestoppt wird, auch wenn sie noch immer neue Passwörter knackt."
+    },
+    "jobNotifications": {
+      "title": "Auftrags-Benachrichtigungen",
+      "realtimeCracks": "Echtzeit-Benachrichtigungen für geknackte Hashes",
+      "realtimeCracksHelper": "Benachrichtigt, während Hashes geknackt werden. Kann erhebliche Last auf sehr großen Aufträgen hinzufügen."
     },
     "ruleSplitting": {
       "title": "Regel-Aufteilung",
@@ -1309,18 +1690,6 @@
       "maxChunksHelper": "Maximale Chunks, die pro Datei erstellt werden",
       "chunkDirectory": "Regel-Chunk-Verzeichnis",
       "chunkDirectoryHelper": "Verzeichnis für temporäre Regel-Chunks"
-    },
-    "buttons": {
-      "save": "Einstellungen speichern"
-    },
-    "errors": {
-      "loadFailed": "Fehler beim Laden der Einstellungen",
-      "outOfRange": "{{label}} muss zwischen {{min}} und {{max}} liegen"
-    },
-    "messages": {
-      "updateSuccess": "Auftragsausführungs-Einstellungen erfolgreich aktualisiert",
-      "loadFailed": "Fehler beim Laden der Auftragsausführungs-Einstellungen",
-      "saveFailed": "Fehler beim Speichern der Einstellungen"
     }
   },
   "monitoring": {
@@ -1411,7 +1780,8 @@
     "description": "Unterstützte Hash-Typen für Passwort-Cracking-Operationen verwalten",
     "addHashType": "Hash-Typ hinzufügen",
     "searchPlaceholder": "Hash-Typen suchen...",
-    "hashTypesFound": "{{count}} Hash-Typen gefunden",
+    "hashTypesFound_one": "{{count}} Hash-Typ gefunden",
+    "hashTypesFound_other": "{{count}} Hash-Typen gefunden",
     "table": {
       "id": "ID",
       "name": "Name",
@@ -1470,180 +1840,242 @@
   },
   "cloud": {
     "intro": {
-      "title": "Cloud GPU provisioning",
-      "body": "Rent GPU instances on demand when the on-prem fleet cannot keep up. Instances join your existing VPN, receive only the files their job needs, and are torn down automatically. Spend is committed against a per-client budget before an instance boots, so a cap is a real limit rather than an after-the-fact measurement.",
-      "fleetLink": "View the live fleet"
+      "title": "Cloud-GPU-Bereitstellung",
+      "body": "Mieten Sie GPU-Instanzen bei Bedarf, wenn die lokale Flotte nicht mithalten kann. Instanzen treten Ihrem bestehenden VPN bei, erhalten nur die Dateien, die ihr Auftrag benötigt, und werden automatisch beendet. Ausgaben werden vor dem Start einer Instanz gegen ein Pro-Kunden-Budget zugesagt, daher ist eine Obergrenze eine echte Grenze und keine nachträgliche Messung.",
+      "fleetLink": "Live-Flotte anzeigen"
     },
     "sections": {
-      "providers": "Providers",
-      "clients": "Client budgets",
-      "policy": "Threshold policy",
+      "providers": "Provider",
+      "clients": "Kunden-Budgets",
+      "policy": "Schwellenwert-Richtlinie",
       "rules": "Bereitstellungsregeln",
-      "system": "Limits & operations"
+      "system": "Grenzwerte und Vorgänge"
     },
     "providers": {
-      "title": "Cloud providers",
-      "description": "Where rented instances come from, and how they reach this server.",
-      "add": "Add provider",
-      "addTitle": "Add cloud provider",
-      "editTitle": "Edit cloud provider",
-      "edit": "Edit",
-      "delete": "Delete",
-      "save": "Save",
-      "saved": "Provider saved",
-      "saveFailed": "Failed to save provider",
-      "deleted": "Provider deleted",
-      "deleteFailed": "Failed to delete provider",
-      "deleteTitle": "Delete provider?",
-      "deleteBody": "Delete \"{{name}}\"? This fails while any rented instance still references it.",
-      "loadFailed": "Failed to load providers",
-      "empty": "No cloud providers configured. Nothing will be rented.",
-      "enabled": "Enabled",
-      "disabled": "Disabled",
-      "noCredentials": "No credentials",
-      "noVpn": "No VPN",
-      "credentialExpired": "Credential expired",
-      "credentialExpiresIn": "Expires in {{days}}d",
-      "limitsValue": "{{instances}} max, {{rate}}/hr cap",
-      "thirdPartyBadge": "Runs on third-party machines",
-      "preflight": "Preflight",
-      "preflightTitle": "Preflight report",
-      "preflightOk": "This provider can launch instances.",
-      "preflightFailed": "Preflight request failed",
-      "preflightFailedBody": "This provider cannot launch instances yet.",
-      "preflightIdentity": "Authenticated as {{identity}}",
-      "preflightQuota": "Quota: {{used}} of {{limit}} in use ({{source}})",
+      "title": "Cloud-Provider",
+      "description": "Woher gemietete Instanzen kommen und wie sie diesen Server erreichen.",
+      "add": "Provider hinzufügen",
+      "addTitle": "Cloud-Provider hinzufügen",
+      "editTitle": "Cloud-Provider bearbeiten",
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "save": "Speichern",
+      "saved": "Provider gespeichert",
+      "saveFailed": "Fehler beim Speichern des Providers",
+      "deleted": "Provider gelöscht",
+      "deleteFailed": "Fehler beim Löschen des Providers",
+      "deleteTitle": "Provider löschen?",
+      "deleteBody": "\"{{name}}\" löschen? Dies schlägt fehl, solange noch eine gemietete Instanz darauf verweist.",
+      "loadFailed": "Fehler beim Laden der Provider",
+      "empty": "Keine Cloud-Provider konfiguriert. Es werden keine Instanzen gemietet.",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "noCredentials": "Keine Zugangsdaten",
+      "noVpn": "Kein VPN",
+      "credentialExpired": "Zugangsdaten abgelaufen",
+      "credentialExpiresIn": "Läuft ab in {{days}}T",
+      "limitsValue": "{{instances}} max, {{rate}}/Std. Obergrenze",
+      "thirdPartyBadge": "Läuft auf Maschinen von Drittanbietern",
+      "preflight": "Vorabprüfung",
+      "preflightTitle": "Vorabprüfbericht",
+      "preflightOk": "Dieser Provider kann Instanzen starten.",
+      "preflightFailed": "Vorabprüfanforderung fehlgeschlagen",
+      "preflightFailedBody": "Dieser Provider kann noch keine Instanzen starten.",
+      "preflightIdentity": "Authentifiziert als {{identity}}",
+      "preflightQuota": "Kontingent: {{used}} von {{limit}} in Verwendung ({{source}})",
       "preflightSections": {
-        "missing_permissions": "Missing permissions",
-        "inconclusive": "Could not be verified (treated as failure)",
-        "errors": "Errors",
-        "warnings": "Warnings"
+        "missing_permissions": "Fehlende Berechtigungen",
+        "inconclusive": "Konnte nicht überprüft werden (wird als Fehler behandelt)",
+        "errors": "Fehler",
+        "warnings": "Warnungen"
       },
-      "acknowledge": "Acknowledge",
-      "acknowledged": "Acknowledgement recorded",
-      "ackFailed": "Failed to record acknowledgement",
-      "ackTitle": "Acknowledge third-party data exposure",
+      "acknowledge": "Bestätigen",
+      "acknowledged": "Bestätigung aufgezeichnet",
+      "ackFailed": "Fehler beim Aufzeichnen der Bestätigung",
+      "ackTitle": "Datenweitergabe an Drittanbieter bestätigen",
       "ackBody": {
         "vastai": "Vast.ai vermietet GPUs auf privaten Rechnern, deren Betreiber Root-Zugriff auf den Container haben. Dort abgelegte Hashes, Wörterlisten und geknackte Klartexte sind für Dritte sichtbar. Das unterscheidet sich grundlegend von AWS oder RunPod Secure Cloud, wo Instanzen in Ihrem eigenen Konto bzw. in SOC-2-Rechenzentren laufen.",
         "runpod_community": "RunPod Community Cloud vermietet GPUs auf Rechnern Dritter, deren Betreiber Root-Zugriff auf den Container haben. Dort abgelegte Hashes, Wörterlisten und geknackte Klartexte sind für Dritte sichtbar. Die Zertifizierungen von RunPod gelten nur für Secure Cloud und erstrecken sich nicht auf diese Stufe."
       },
-      "ackConfirm": "Do you accept this exposure for workloads sent to this provider?",
-      "ackAccept": "I understand and accept",
-      "ephemeralKeyTitle": "Encryption key is ephemeral",
-      "ephemeralKeyBody": "KH_ENCRYPTION_KEY is not set, so a random key was generated at startup. Every stored credential becomes unreadable after the next restart. Set KH_ENCRYPTION_KEY before saving provider credentials.",
-      "vpnSection": "VPN connectivity",
-      "vpnSectionHelp": "This server is never exposed to the internet, so rented instances join the VPN you already run. OpenVPN is not supported: it needs /dev/net/tun and CAP_NET_ADMIN, which Vast.ai's unprivileged containers do not provide.",
+      "ackConfirm": "Akzeptieren Sie diese Datenweitergabe für Arbeitslasten, die an diesen Provider gesendet werden?",
+      "ackAccept": "Ich verstehe und akzeptiere",
+      "ephemeralKeyTitle": "Verschlüsselungsschlüssel ist kurzlebig",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY ist nicht gesetzt, daher wurde beim Start ein zufälliger Schlüssel generiert. Alle gespeicherten Zugangsdaten werden nach dem nächsten Neustart unlesbar. Legen Sie KH_ENCRYPTION_KEY fest, bevor Sie Provider-Zugangsdaten speichern.",
+      "vpnSection": "VPN-Konnektivität",
+      "vpnSectionHelp": "Dieser Server ist nie im Internet sichtbar, daher treten gemietete Instanzen dem VPN bei, das Sie bereits ausführen. OpenVPN wird nicht unterstützt: Es benötigt /dev/net/tun und CAP_NET_ADMIN, was die unprivilegierten Container von Vast.ai nicht bereitstellen.",
       "reusableKeyWarning": {
-        "tailscale": "A reusable key is shared by every instance and expires — Tailscale caps auth keys at 90 days. Once it lapses, provisioning is refused rather than launching instances that cannot connect. An OAuth client lets KrakenHashes mint a single-use ephemeral tagged key per instance instead.",
-        "netbird": "A reusable setup key is shared by every instance, so the same secret reaches every rented host. Set Credential expires at below if the key has an expiry — provisioning is then refused once it lapses instead of launching instances that cannot connect; leave it blank for a key that never expires. Tag or group is ignored for this credential type: the group and the ephemeral flag come from the key's own configuration in NetBird. An access token lets KrakenHashes mint a single-use ephemeral setup key per instance and set the group itself."
+        "tailscale": "Ein wiederverwendbarer Schlüssel wird von jeder Instanz gemeinsam genutzt und läuft ab — Tailscale begrenzt Auth-Schlüssel auf 90 Tage. Sobald die Frist abläuft, wird die Bereitstellung verweigert, anstatt Instanzen zu starten, die keine Verbindung herstellen können. Ein OAuth-Client lässt KrakenHashes stattdessen einen einmaligen, kurzlebigen, getaggten Schlüssel pro Instanz prägen.",
+        "netbird": "Ein wiederverwendbarer Setup-Schlüssel wird von jeder Instanz gemeinsam genutzt, daher erreicht das gleiche Geheimnis jeden gemieteten Host. Legen Sie unten Zugangsdaten laufen ab am fest, wenn der Schlüssel ein Ablaufdatum hat — die Bereitstellung wird dann verweigert, sobald die Frist abläuft, anstatt Instanzen zu starten, die keine Verbindung herstellen können; lassen Sie es leer für einen Schlüssel, der nie abläuft. Tag oder Gruppe wird für diesen Zugangsdatentyp ignoriert: die Gruppe und die Markierung als kurzlebig stammen aus der eigenen Konfiguration des Schlüssels in NetBird. Ein Zugriffstoken lässt KrakenHashes stattdessen einen einmaligen, kurzlebigen Setup-Schlüssel pro Instanz prägen und die Gruppe selbst festlegen."
       },
-      "staticConfigWarning": "WireGuard uses a static peer config: there is no per-instance credential and no automatic deregistration when an instance dies. Tailscale or NetBird is safer.",
+      "staticConfigWarning": "WireGuard verwendet eine statische Peer-Konfiguration: Es gibt keine instanzspezifischen Zugangsdaten und keine automatische Abmeldung, wenn eine Instanz ausfällt. Tailscale oder NetBird ist sicherer.",
       "kinds": {
-        "aws": "AWS EC2 (your own account)",
-        "vastai": "Vast.ai (third-party machines)",
-        "mock": "Mock (local test agents, no cost)",
+        "aws": "AWS EC2 (Ihr eigenes Konto)",
+        "vastai": "Vast.ai (Maschinen von Drittanbietern)",
+        "mock": "Mock (lokale Test-Agenten, keine Kosten)",
         "runpod": "RunPod Secure Cloud (SOC-2-Rechenzentren)",
         "runpod_community": "RunPod Community Cloud (Rechner Dritter)"
       },
       "credentialKinds": {
-        "oauth": "OAuth client — mint one ephemeral key per instance (recommended)",
-        "pat": "Access token — mint one ephemeral key per instance (recommended)",
-        "reusable_key": "Reusable key — shared by every instance",
-        "static_config": "Static config — no per-instance credential"
+        "oauth": "OAuth-Client — einen kurzlebigen Schlüssel pro Instanz prägen (empfohlen)",
+        "pat": "Zugriffstoken — einen kurzlebigen Schlüssel pro Instanz prägen (empfohlen)",
+        "reusable_key": "Wiederverwendbarer Schlüssel — von jeder Instanz gemeinsam genutzt",
+        "static_config": "Statische Konfiguration — keine instanzspezifischen Zugangsdaten"
       },
       "vpnCredentialHelp": {
-        "oauth": "Tailscale OAuth client as client_id:client_secret. Needs the auth_keys scope and the tag selected.",
-        "pat": "NetBird personal access token or service-user token.",
-        "reusable_key": "The pre-authorized key every instance will use.",
-        "static_config": "The full WireGuard peer configuration."
+        "oauth": "Tailscale-OAuth-Client als client_id:client_secret. Benötigt den Scope auth_keys und das ausgewählte Tag.",
+        "pat": "NetBird persönlicher Zugriffstoken oder Service-Benutzer-Token.",
+        "reusable_key": "Der vorab autorisierte Schlüssel, den jede Instanz verwenden wird.",
+        "static_config": "Die vollständige WireGuard-Peer-Konfiguration."
       },
       "columns": {
         "name": "Name",
         "provider": "Provider",
         "status": "Status",
         "vpn": "VPN",
-        "limits": "Limits",
-        "actions": "Actions"
+        "limits": "Grenzwerte",
+        "actions": "Aktionen"
       },
       "fields": {
         "name": "Name",
         "provider": "Provider",
-        "credentials": "Provider credentials",
-        "credentialsHelp": "API credentials for {{provider}}. Stored encrypted and never returned.",
-        "credentialsKeepHelp": "Leave blank to keep the stored credential unchanged.",
-        "maxConcurrent": "Maximum concurrent instances",
-        "maxHourlyCents": "Maximum hourly rate (cents)",
-        "maxHourlyHelp": "Offers above this rate are never rented, whatever the budget allows.",
-        "vpnProvider": "VPN provider",
-        "credentialKind": "Credential type",
-        "vpnCredential": "VPN credential",
-        "credentialExpiry": "Credential expires at",
-        "credentialExpiryHelp": "Optional — leave blank for a key that never expires. Provisioning is refused after this time, and you will be warned as it approaches.",
-        "vpnTag": "Tag or group",
-        "vpnTagHelp": "e.g. tag:kraken-worker. Required for Tailscale OAuth; scopes what these nodes may reach.",
-        "backendVpnHost": "This server's address on the VPN",
-        "backendVpnHostHelp": "The KH_HOST value cloud agents use. The server certificate must cover it — add it under the Server Certificate tab and click Apply & Reissue, or agents will fail TLS hostname verification.",
-        "enabled": "Enabled",
-        "awsAccessKeyId": "AWS access key ID",
-        "awsAccessKeyIdHelp": "An IAM user or role key scoped to EC2 provisioning. Stored encrypted and never returned.",
-        "awsSecretAccessKey": "AWS secret access key",
+        "credentials": "Provider-Zugangsdaten",
+        "credentialsHelp": "API-Zugangsdaten für {{provider}}. Verschlüsselt gespeichert und nie zurückgegeben.",
+        "credentialsKeepHelp": "Lassen Sie das Feld leer, um die gespeicherten Zugangsdaten unverändert zu behalten.",
+        "maxConcurrent": "Maximale gleichzeitige Instanzen",
+        "maxHourlyCents": "Maximale Stundenrate (Cent)",
+        "maxHourlyHelp": "Angebote über dieser Rate werden niemals gemietet, unabhängig davon, welches Budget verfügbar ist.",
+        "vpnProvider": "VPN-Provider",
+        "credentialKind": "Zugangsdatentyp",
+        "vpnCredential": "VPN-Zugangsdaten",
+        "credentialExpiry": "Zugangsdaten laufen ab am",
+        "credentialExpiryHelp": "Optional — lassen Sie das Feld leer für einen Schlüssel, der nie abläuft. Bereitstellung wird nach dieser Zeit verweigert, und Sie werden vorher gewarnt.",
+        "vpnTag": "Tag oder Gruppe",
+        "vpnTagHelp": "Z. B. tag:kraken-worker. Erforderlich für Tailscale-OAuth; bestimmt, was diese Knoten erreichen dürfen.",
+        "backendVpnHost": "Die Adresse dieses Servers im VPN",
+        "backendVpnHostHelp": "Der KH_HOST-Wert, den Cloud-Agenten verwenden. Das Server-Zertifikat muss ihn abdecken — fügen Sie ihn auf der Registerkarte Server Certificate hinzu und klicken Sie auf Apply & Reissue, oder Agenten werden bei der TLS-Hostname-Überprüfung fehlschlagen.",
+        "enabled": "Aktiviert",
+        "awsAccessKeyId": "AWS-Zugriffsschlüssel-ID",
+        "awsAccessKeyIdHelp": "Ein IAM-Benutzer- oder Rollenschlüssel, der auf EC2-Bereitstellung beschränkt ist. Verschlüsselt gespeichert und nie zurückgegeben.",
+        "awsSecretAccessKey": "Geheimer AWS-Zugriffsschlüssel",
         "awsRegion": "Region",
-        "awsRegionHelp": "e.g. us-east-2. Every other AWS field below must live in this region.",
-        "awsSubnet": "Subnet ID",
-        "awsSubnetHelp": "e.g. subnet-0abc123. Must auto-assign a public IP, or the instance cannot reach your VPN's control plane.",
-        "awsSecurityGroups": "Security group IDs",
-        "awsSecurityGroupsHelp": "Comma-separated, e.g. sg-0abc123. Needs outbound access only; no inbound rule is required.",
-        "awsAmiSsm": "AMI SSM parameter",
-        "awsAmiSsmHelp": "Resolved at launch, so the image never goes stale. e.g. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
-        "awsAmiId": "AMI ID (overrides the SSM parameter)",
-        "awsAmiIdHelp": "Pin a specific image instead. Leave blank to resolve through SSM. One of the two is required.",
-        "awsInstanceProfile": "IAM instance profile ARN",
-        "awsInstanceProfileHelp": "Optional. Only needed if the agent itself must call AWS APIs.",
-        "awsRootVolume": "Root volume (GB)",
-        "awsRootVolumeHelp": "A floor; a job's file set may need more. Must be at least the AMI's snapshot size or the launch fails.",
-        "awsEbsRate": "EBS rate (cents/GB-month)",
-        "awsEbsRateHelp": "gp3 storage price. Left at 0 the budget reserves nothing for disk.",
-        "awsUseSpot": "Use spot capacity",
-        "awsUseSpotHelp": "Spot requests are one-time and terminate on interruption. Discounts on current-generation GPU are often modest, so this is not automatically cheaper. Spot and on-demand draw on separate vCPU quotas.",
-        "awsInstanceType": "Instance type",
-        "awsHourlyCents": "Cents/hour",
-        "awsGpuModel": "GPU model",
+        "awsRegionHelp": "Z. B. us-east-2. Jedes andere AWS-Feld unten muss in dieser Region liegen.",
+        "awsSubnet": "Subnetz-ID",
+        "awsSubnetHelp": "Z. B. subnet-0abc123. Muss automatisch eine öffentliche IP-Adresse zuweisen, oder die Instanz kann Ihre VPN-Kontrollebene nicht erreichen.",
+        "awsSecurityGroups": "Sicherheitsgruppen-IDs",
+        "awsSecurityGroupsHelp": "Durch Kommas getrennt, z. B. sg-0abc123. Benötigt nur ausgehenden Zugriff; es ist keine eingehende Regel erforderlich.",
+        "awsAmiSsm": "AMI-SSM-Parameter",
+        "awsAmiSsmHelp": "Wird beim Start aufgelöst, damit das Image nie veraltet. Z. B. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "AMI-ID (überschreibt den SSM-Parameter)",
+        "awsAmiIdHelp": "Heften Sie stattdessen ein bestimmtes Image fest. Lassen Sie das Feld leer, um über SSM aufzulösen. Eines der beiden ist erforderlich.",
+        "awsInstanceProfile": "IAM-Instanzprofil-ARN",
+        "awsInstanceProfileHelp": "Optional. Nur erforderlich, wenn der Agent selbst AWS-APIs aufrufen muss.",
+        "awsRootVolume": "Root-Volumen (GB)",
+        "awsRootVolumeHelp": "Ein Mindestwert; ein Dateisatz eines Auftrags kann mehr benötigen. Muss mindestens die Snapshot-Größe des AMI sein, oder der Start schlägt fehl.",
+        "awsEbsRate": "EBS-Rate (Cent/GB-Monat)",
+        "awsEbsRateHelp": "gp3-Speicherpreis. Wenn auf 0 gesetzt, reserviert das Budget nichts für den Speicher.",
+        "awsUseSpot": "Spot-Kapazität nutzen",
+        "awsUseSpotHelp": "Spot-Anfragen sind einmalig und beenden sich bei Unterbrechung. Rabatte auf aktuelle GPU-Generationen sind oft bescheiden, daher ist dies nicht automatisch günstiger. Spot und On-Demand nutzen separate vCPU-Kontingente.",
+        "awsInstanceType": "Instanztyp",
+        "awsHourlyCents": "Cent/Stunde",
+        "awsGpuModel": "GPU-Modell",
         "awsGpuCount": "GPUs",
         "awsVram": "VRAM/GPU",
-        "mockAgentBinary": "Agent binary path",
-        "mockAgentBinaryHelp": "Path to an agent binary the server can execute with --test-mode.",
-        "mockBackendHost": "Backend host for spawned agents",
-        "mockBackendHostHelp": "e.g. localhost:31337.",
-        "mockHourlyRate": "Simulated rate (cents/hour)",
-        "mockBootDelay": "Simulated boot delay (seconds)",
-        "mockFailLaunch": "Fault: fail every launch",
-        "mockDropLaunchResponse": "Fault: drop the launch response (instance runs but is reported failed)",
-        "mockNeverRegister": "Fault: instance never registers",
-        "mockFailDestroy": "Fault: fail every destroy",
-        "vpnTagIgnoredHelp": "Ignored for a NetBird reusable key: group membership and the ephemeral flag come from the setup key's own configuration in NetBird. Used only on the access-token path, as auto_groups on each minted key.",
+        "mockAgentBinary": "Agent-Binär-Pfad",
+        "mockAgentBinaryHelp": "Pfad zu einer Agent-Binärdatei, die der Server mit --test-mode ausführen kann.",
+        "mockBackendHost": "Backend-Host für gestartete Agenten",
+        "mockBackendHostHelp": "Z. B. localhost:31337.",
+        "mockHourlyRate": "Simulierte Rate (Cent/Stunde)",
+        "mockBootDelay": "Simulierte Boot-Verzögerung (Sekunden)",
+        "mockFailLaunch": "Fehler: Jeden Start fehlschlagen lassen",
+        "mockDropLaunchResponse": "Fehler: Startantwort verwerfen (Instanz läuft, wird aber als fehlgeschlagen gemeldet)",
+        "mockNeverRegister": "Fehler: Instanz registriert sich niemals",
+        "mockFailDestroy": "Fehler: Jedes Löschen fehlschlagen lassen",
+        "vpnTagIgnoredHelp": "Wird für einen wiederverwendbaren NetBird-Schlüssel ignoriert: Gruppenmitgliedschaft und die Markierung als kurzlebig stammen aus der eigenen Konfiguration des Setup-Schlüssels in NetBird. Wird nur im Access-Token-Pfad verwendet, als auto_groups bei jedem geprägten Schlüssel.",
         "vpnUrl": {
-          "netbird": "NetBird management URL",
-          "tailscale": "Tailscale login server (Headscale)"
+          "netbird": "NetBird-Verwaltungs-URL",
+          "tailscale": "Tailscale-Anmelde-Server (Headscale)"
         },
         "vpnUrlHelp": {
-          "netbird": "Your self-hosted NetBird management server, e.g. https://netbird.example.com. Used both to mint setup keys and to start the client. Leave blank for NetBird's hosted service.",
-          "tailscale": "Only for a self-hosted control server. Note that access-token minting always uses api.tailscale.com and does not support Headscale."
-        }
+          "netbird": "Ihr selbst gehosteter NetBird-Verwaltungsserver, z. B. https://netbird.example.com. Wird zum Prägen von Setup-Schlüsseln und zum Starten des Clients verwendet. Lassen Sie das Feld leer für den gehosteten NetBird-Dienst.",
+          "tailscale": "Nur für einen selbst gehosteten Kontrollserver. Beachten Sie, dass das Token-Prägen immer api.tailscale.com verwendet und Headscale nicht unterstützt."
+        },
+        "vastCountries": "Länder (durch Kommas getrennt)",
+        "vastCountriesHelp": "Vast.ai-Ländercodes, z. B. US, DE, SE. Leer bedeutet überall. Abgeglichen ohne Berücksichtigung von Groß-/Kleinschreibung gegen die gemeldete Geolokation, daher stimmt 'US' mit 'US, Texas' überein. Funktioniert auch als Ihre Kontrolle über Datenresidenz.",
+        "vastGpuModels": "Zulässige GPU-Modelle (durch Kommas getrennt)",
+        "vastGpuModelsHelp": "Leer bedeutet jede Karte. Abgeglichen mit einem normalisierten Schlüssel, daher stimmt 'rtx_4090' mit 'NVIDIA GeForce RTX 4090' und 'RTX 4090' überein. Die Erweiterung dieser Liste ist die günstigste Möglichkeit, die Verfügbarkeit zu erhöhen.",
+        "vastDeniedGpuModels": "Unzulässige GPU-Modelle (durch Kommas getrennt)",
+        "vastDeniedGpuModelsHelp": "Gewinnt immer gegen die Zulassungsliste. Dies ist der Notfallhebel für 'diese Karte funktioniert nicht richtig, hören Sie auf, sie zu mieten'.",
+        "vastMinReliability": "Minimale Host-Zuverlässigkeit (0-1)",
+        "vastMinReliabilityHelp": "Die eigene Host-Zuverlässigkeitsbewertung von Vast.ai. 0 deaktiviert das Minimum. Hosts, die keine Bewertung melden, werden beibehalten. Tauscht etwas Verfügbarkeit gegen weniger Mietausfälle — ein Host, der die Instanz mitten in einem Chunk fallen lässt, ist für seine Bereitstellung dennoch bezahlt worden.",
+        "vastAllowUnverified": "Nicht überprüfte Hosts zulassen (erhöht Verfügbarkeit; ungeprüfte Maschinen)",
+        "vastAllowResidential": "Private Hosts zulassen (erhöht Verfügbarkeit; Heimmaschinen, keine Rechenzentren)",
+        "runpodDataCenters": "Rechenzentren (durch Kommas getrennt)",
+        "runpodDataCentersHelp": "RunPod-Rechenzentren-IDs, z. B. EU-RO-1, US-KS-2. LEER IST DIE BREITESTE EINSTELLUNG, nicht die engste — RunPods eigener Scheduler kann dann einen Pod überall platzieren. Dies ist das Gegenteil von AWS-Zonen, wo ein leeres Feld Sie trotzdem auf eine einzige Zone festlegt. Legen Sie es fest, um die Datenresidenz zu steuern, oder damit die Start-Wiederholungsschleife wirklich unabhängige Pools durchläuft.",
+        "runpodGpuTypes": "Zulässige GPU-Typen (durch Kommas getrennt)",
+        "runpodGpuTypesHelp": "RunPod gpuType-IDs genau wie sie im Verfügbarkeitsgitter angezeigt werden, z. B. 'NVIDIA GeForce RTX 4090'. Leer bedeutet jede Karte, die diese Stufe bietet.",
+        "runpodDiskGb": "Container-Speicher-Mindestgröße (GB)",
+        "runpodDiskGbHelp": "Ein Mindestwert, keine Obergrenze: Ein Auftrag, dessen Dateisatz mehr benötigt, erhält mehr. Container-Speicher wird gelöscht, wenn der Pod neu gestartet wird, und es ist nie ein Netzwerk-Volume vorhanden — eines würde den Pod überleben und geknackte Klartexte nach Beendigung speichern.",
+        "runpodDiskRate": "Container-Speicher (Cent/GB-Monat)",
+        "runpodDiskRateHelp": "Speist den Speicherteil der Budget-Reservierung. Aufgerundet, da eine Reservierung, die den Speicherbedarf zu niedrig ansetzt, es einem Kunden ermöglicht, eine Obergrenze zu überschreiten, die ihm als verbindlich genannt wurde.",
+        "runpodSelfDestruct": "Lassen Sie Pods sich selbst löschen, wenn das VPN ausfällt (nur Secure-Stufe)",
+        "runpodSelfDestructHelp": "Fügt eine dritte Teardown-Schiene hinzu, damit sich ein Pod selbst LÖSCHEN kann, wenn er den Kontakt verliert — wie bei Vast.ai. RunPod hat keine pod-spezifischen Zugangsdaten, daher wird ein KONTOWEITER Schlüssel in jedem Pod platziert — einer, der jeden anderen Pod im Konto erstellen und löschen kann. Geben Sie einen separaten, enger gefassten Schlüssel als self_destruct_api_key im credentials-JSON an, anstatt Ihren Bereitstellungsschlüssel wiederzuverwenden. Auf der Community-Stufe nie verfügbar."
       },
       "peerWarningTitle": "Fremde Hardware",
       "peerWarningBody": {
         "vastai": "Vast.ai-Instanzen laufen auf privaten Rechnern, die Sie nicht kontrollieren. Aktivieren Sie den Anbieter nur für Kunden, deren Daten Dritten offengelegt werden dürfen, und bestätigen Sie dies zusätzlich pro Kunde.",
         "runpod_community": "RunPod Community Cloud läuft auf Rechnern Dritter, deren Betreiber Root-Zugriff auf den Container haben. Die SOC-2-, ISO-27001- und PCI-DSS-Zertifizierungen von RunPod gelten nur für Secure Cloud, nicht für diese Stufe. Aktivieren Sie sie nur für Kunden, deren Daten Dritten offengelegt werden dürfen, und bestätigen Sie dies zusätzlich pro Kunde."
       },
-      "awsSection": "AWS placement and pricing",
-      "awsSectionHelp": "Where instances launch and what they cost. EC2 exposes no machine-readable GPU model or hourly rate to this code, so both are declared here.",
-      "awsInstanceTypes": "Instance types offered",
-      "awsInstanceTypesHelp": "Only the types listed here can be rented. Declare the rate you are willing to be billed at — round up, since the budget reserves against this number and nothing cross-checks it against an invoice. Declaring the GPU model and count is what enables cost-per-work ranking; without it, ranking falls back to price per hour.",
-      "awsAddInstanceType": "Add instance type",
-      "awsRemoveInstanceType": "Remove",
-      "mockSection": "Mock behaviour and fault injection",
-      "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "awsSection": "AWS-Platzierung und Preise",
+      "awsSectionHelp": "Wo Instanzen starten und was sie kosten. EC2 stellt diesem Code kein maschinenlesbares GPU-Modell oder keinen Stundensatz bereit, daher werden beide hier angegeben.",
+      "awsInstanceTypes": "Angebotene Instanztypen",
+      "awsInstanceTypesHelp": "Nur die hier aufgelisteten Typen können gemietet werden. Geben Sie die Rate an, zu der Sie abgerechnet werden möchten — runden Sie auf, da das Budget gegen diese Zahl reserviert wird und nichts sie mit einer Rechnung abgleicht. Das Angeben von GPU-Modell und Anzahl ermöglicht die kostenbasierte Rangliste; ohne sie fällt die Rangliste auf den Preis pro Stunde zurück.",
+      "awsAddInstanceType": "Instanztyp hinzufügen",
+      "awsRemoveInstanceType": "Entfernen",
+      "mockSection": "Mock-Verhalten und Fehlerinjektion",
+      "mockSectionHelp": "Der Mock-Provider startet lokale Agent-Prozesse mit --test-mode. Die Fehler-Umschalter lösen Fehlerpfade aus, ohne dass neu kompiliert werden muss.",
+      "providerNotImplemented": "Dieser Anbieter hat noch keinen Adapter: Das Backend lehnt ihn beim Start mit \"unsupported cloud provider\" ab. Er kann gespeichert werden, aber es kann nichts davon bereitgestellt werden.",
+      "zones": {
+        "title": "Platzierungen und Hardware",
+        "help": "Markieren Sie jeden Ort und jede GPU, die Sie mieten möchten. Die Kapazität gehört normalerweise zum (Hardware-, Platzierungs-)Paar statt zu nur einem, daher ist jede markierte Zelle eine unabhängige Chance, eine Maschine zu erhalten – eine einzelne markierte Zelle bedeutet, dass eine Kapazitätsverweigerung keine Ausweichmöglichkeit hat. Wenn Sie alle Karten einer Zeile markieren, bedeutet das \"jede Hardware, die ich genehmigt habe\", einschließlich aller später hinzugefügten.",
+        "probe": "Verfügbarkeit überprüfen",
+        "probeHelp": "Liest Live-Daten für Zone, Subnetz, Angebot, Spot-Preis und Platzierungspunktzahl von AWS. Nur Lesen: Es startet nichts und kostet nichts.",
+        "probeIdle": "zum Laden von Live-Zonen, Subnetzen und Spot-Preisen für diesen Anbieter.",
+        "probeFailed": "Kapazität von AWS konnte nicht gelesen werden.",
+        "saveFirst": "Speichern Sie den Anbieter zuerst. Die Verfügbarkeit wird mit den gespeicherten Anmeldedaten und der Region gelesen, daher hat ein nicht gespeichertes Formular nichts zum Abfragen.",
+        "selectAll": "Alle nutzbaren Zonen auswählen",
+        "colZone": "Zone",
+        "colSubnet": "Subnetz",
+        "notOffered": "EC2 bietet diesen Instanztyp in dieser Zone nicht an. Dies ist endgültig – ein Start hier würde als nicht unterstützt fehlschlagen.",
+        "unusable": "Diese Platzierung kann nicht gestartet werden. Siehe die Notiz neben ihrem Namen.",
+        "freeIps_one": "{{count}} freie IP",
+        "freeIps_other": "{{count}} freie IPs",
+        "scoreHelp": "AWS' eigene 1-10-Bewertung für DIESE Karte in DIESER Zone – und ein schwacher Beleg: Jede Zone in dieser Region erhielt auf diesem Konto wenige Minuten vor einem erfolgreichen Start in einer von ihnen beim ersten Versuch eine Bewertung von 1/10. Es entscheidet, welcher Pool zuerst versucht wird. Es entfernt einen Pool nie aus der Liste. Vergleichen Sie es mit der Gesamtbewertung für alle Typen neben dem Zonennamen.",
+        "spotVsConfigured": "Spot notiert hier {{spot}}/hr; Ihre konfigurierte Rate für diesen Typ beträgt {{configured}}/hr. Reservierungen verwenden die KONFIGURIERTE Zahl, daher reserviert eine Preisgestaltung unterhalb der Live-Rate zu wenig gegenüber einem Budget-Cap, von dem Ihnen gesagt wurde, er sei hart.",
+        "poolCount_one": "{{count}} Kapazitätspool ausgewählt",
+        "poolCount_other": "{{count}} Kapazitätspools ausgewählt",
+        "poolCountWarning": "Ein Pool ist eine Chance. Wenn er erschöpft ist, hat die Start-Wiederholungsschleife nirgendwo anders hin und die Bereitstellung stoppt einfach, bis die Kapazität zurückkehrt. Markieren Sie mehr Zonen, mehr Instanztypen oder beide.",
+        "poolCountOk": "Eine Kapazitätsverweigerung in einem Pool geht zum nächsten über, in der wahrscheinlichsten Reihenfolge.",
+        "legacyOverridden": "Zonen sind konfiguriert, daher wird die oben angegebene einzelne Subnetz-ID ({{subnet}}) ignoriert. Sie bleibt als Fallback, wenn jede Zone deaktiviert ist.",
+        "combinedScore": "alle Typen: {{score}}/10",
+        "combinedScoreHelp": "AWS' Platzierungspunktzahl für ALLE Ihre bepreisten Instanztypen zusammen in dieser Zone, was eine andere Frage ist als die Punktzahl eines einzelnen Kartentyps – und normalerweise eine viel bessere Antwort. Gemessen in einer Region in einer Minute: g6.xlarge allein erhielt hier 1/10, während g4dn + g5 + g6 zusammen 9/10 erhielten. Breite ist keine Absicherung gegen Knappheit; sie ist das, was bewertet wird.",
+        "availableCount": "{{count}} verfügbar",
+        "availableCountHelp": "Eine Live-Zählung von Maschinen, die jetzt gemietet werden können. Dies ist echter Bestand und das stärkste Signal auf dem Bildschirm – viel besser als eine Platzierungspunktzahl, die nur eine Meinung ist.",
+        "livePriceHelp": "Was der Anbieter dafür gerade berechnet.",
+        "trust": {
+          "definitive": "endgültig",
+          "measured": "live",
+          "advisory": "nur informativ"
+        },
+        "axesModeNote": "Dieser Anbieter speichert Länder und GPU-Modelle als zwei unabhängige Listen, daher gilt das Markieren einer Karte für jedes ausgewählte Land. Die Zähler und Preise pro Zelle unten sind immer noch real und spezifisch für das jeweilige Land."
+      },
+      "vastSection": "Vast.ai-Platzierungs- und Hardwarerichtlinie",
+      "vastSectionHelp": "Welche Länder und welche Karten dieser Anbieter mieten darf. Das Leerlassen einer Liste bedeutet keine Einschränkung, dies ist der breiteste Pool und die Voreinstellung.",
+      "vastTierWarningTitle": "Sie öffnen eine unüberprüfte Host-Ebene",
+      "vastTierWarningBody": "Dies ist der größte Verfügbarkeits-Zuwachs, den es auf Vast.ai gibt, und er platziert Kunden-Hashes, Wortlisten, Potfiles und geknackte Klartexte auf Maschinen, die Vast.ai nicht überprüft hat. Jeder Vast-Host hat bereits Root über den Container; diese Umschalter entfernen den einen Filter, der ihn auf von Vast überprüfte Hosts beschränkt. Die unüberprüfte Ebene ist auch der Ort, an dem sich \"stuck connecting\"- und \"bad driver\"-Meldungen konzentrieren, daher ist ein Teil der zusätzlichen Verfügbarkeit illusorisch – eine Vermietung, die niemals nützliche Arbeit erreicht, kostet Sie trotzdem ihre Inbetriebnahme.",
+      "runpodSection": "RunPod-Platzierungs- und Hardwarerichtlinie",
+      "runpodSectionHelp": "Welche Rechenzentren und GPU-Typen dieser Anbieter mieten darf. RunPod bepreist live, daher gibt es hier keine Tarife zu erklären – im Gegensatz zu AWS.",
+      "runpodCommunityTeardownTitle": "Community-Teardown ist allein der Backend-Reaper",
+      "runpodCommunityTeardownBody": "RunPod stellt keine auf den einzelnen Pod beschränkten Anmeldedaten aus, daher gibt es keine sichere Möglichkeit für einen Community-Pod, sich selbst zu löschen: Der einzige Schlüssel, der funktionieren würde, ist kontoweit gültig, und ein Community-Host-Betreiber hat Root-Zugriff auf den Container und würde ihn aus der Umgebung auslesen. Die In-Guest-Frist beendet weiterhin hashcat und die Gefährdung der Daten, kann aber die Pod-Abrechnung NICHT stoppen. Wenn dieses Backend ausfällt oder blockiert ist, wird ein Community-Pod abgerechnet, bis Sie ihn manuell über die Seite „Cloud-Flotte\" zerstören. Setzen Sie für jeden Kunden, der diese Ebene nutzen darf, eine niedrige Instanz-TTL-Obergrenze und ein kleines Budget-Cap.",
       "experimentalChip": "Experimentell",
       "experimentalTooltip": "Experimentell — noch nicht getestet. Dieser Adapter wurde nie mit echtem Geld vollständig gegen den realen Anbieter durchlaufen. Rechnen Sie mit Fehlern; überwachen Sie Ihre Jobs und melden Sie, was Sie finden.",
       "experimentalTitle": "Experimentell — noch nicht getestet",
@@ -1654,170 +2086,179 @@
       "reportDiagnosticsLink": "Diagnose per Discord senden (nicht im Issue)"
     },
     "budgets": {
-      "title": "Client budgets",
-      "description": "What each client may spend, and which providers their data may go to. Clients with blank fields follow the server defaults below.",
-      "loadFailed": "Failed to load client budgets",
-      "empty": "No clients exist yet. Create a client first, then fund it here.",
-      "edit": "Edit",
-      "editTitle": "Cloud settings — {{name}}",
-      "saved": "Client cloud settings saved",
-      "saveFailed": "Failed to save client cloud settings",
-      "enabled": "Enabled",
-      "disabled": "Disabled",
-      "unfunded": "No budget",
-      "noProviders": "No providers allowed",
-      "ttlValue": "{{minutes}} min",
-      "spendSummary": "{{used}} of {{cap}} committed ({{pct}}%)",
-      "acknowledged": "Acknowledgement recorded",
-      "acknowledgedChip": "Acknowledged",
-      "ackFailed": "Failed to record acknowledgement",
-      "ackTitle": "Acknowledge third-party exposure for this client",
-      "ackWarningTitle": "This client's data would leave your control",
-      "ackWarningBody": "Allowing Vast.ai for {{name}} means this client's hashes, wordlists and cracked plaintexts may be placed on machines owned by third parties who have root access to the container.",
-      "ackConfirm": "Do you accept this exposure for this client?",
-      "ackAccept": "I understand and accept",
+      "title": "Kundenbudgets",
+      "description": "Was jeder Kunde ausgeben darf und zu welchen Anbietern ihre Daten gehen dürfen. Kunden mit leeren Feldern folgen den unten angegebenen Serverstandards.",
+      "loadFailed": "Fehler beim Laden von Kundenbudgets",
+      "empty": "Es existieren noch keine Kunden. Erstellen Sie zuerst einen Kunden und finanzieren Sie ihn hier.",
+      "edit": "Bearbeiten",
+      "editTitle": "Cloud-Einstellungen – {{name}}",
+      "saved": "Kunden-Cloud-Einstellungen gespeichert",
+      "saveFailed": "Fehler beim Speichern der Kunden-Cloud-Einstellungen",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "unfunded": "Kein Budget",
+      "noProviders": "Keine Anbieter erlaubt",
+      "ttlValue": "{{minutes}} Min",
+      "spendSummary": "{{used}} von {{cap}} gebunden ({{pct}}%)",
+      "acknowledged": "Bestätigung aufgezeichnet",
+      "acknowledgedChip": "Bestätigt",
+      "ackFailed": "Fehler beim Aufzeichnen der Bestätigung",
+      "ackTitle": "Bestätigen Sie das Risiko durch Dritte für diesen Kunden",
+      "ackWarningTitle": "Die Daten dieses Kunden würden Ihre Kontrolle verlassen",
+      "ackWarningBody": "Das Zulassen von Vast.ai für {{name}} bedeutet, dass die Hashes, Wortlisten und geknackten Klartexte dieses Kunden auf Maschinen platziert werden können, die Dritte besitzen und Root-Zugriff auf den Container haben.",
+      "ackConfirm": "Akzeptieren Sie dieses Risiko für diesen Kunden?",
+      "ackAccept": "Ich verstehe und akzeptiere",
       "actions": {
-        "none": "Within budget",
-        "notify": "Threshold reached",
-        "stop_provisioning": "Provisioning stopped",
-        "drain": "Draining",
-        "hard_stop": "Hard stop"
+        "none": "Im Budget",
+        "notify": "Schwellenwert erreicht",
+        "stop_provisioning": "Bereitstellung gestoppt",
+        "drain": "Drain",
+        "hard_stop": "Hartstopp"
       },
       "columns": {
-        "client": "Client",
+        "client": "Kunde",
         "status": "Status",
-        "providers": "Allowed providers",
-        "spend": "Spend",
-        "ttl": "Max TTL",
-        "actions": "Actions"
+        "providers": "Zulässige Anbieter",
+        "spend": "Ausgaben",
+        "ttl": "Max. TTL",
+        "actions": "Aktionen"
       },
       "fields": {
         "budget": "Budget",
-        "budgetHelp": "Spend ceiling for the current budget period. Leave blank to inherit the server default; a client only ends up unfunded if no default is set either.",
-        "ttl": "Maximum instance lifetime (minutes)",
-        "ttlHelp": "An instance is destroyed at this age regardless of progress. Leave blank to use the system default.",
-        "providers": "Allowed providers",
-        "providersHelp": "Empty means nothing may be rented for this client. Allowing AWS while forbidding Vast.ai is a normal configuration.",
-        "enabled": "Cloud burst",
-        "period": "Budget period",
-        "periodHelp": "Leave blank to inherit the server default."
+        "budgetHelp": "Ausgabelimit für den aktuellen Budget-Zeitraum. Lassen Sie es leer, um den Serverstandard zu erben; ein Kunde ist nur dann unterfinanziert, wenn auch dort kein Standard gesetzt wird.",
+        "ttl": "Maximale Instanzlebensdauer (Minuten)",
+        "ttlHelp": "Eine Instanz wird in diesem Alter zerstört, unabhängig vom Fortschritt. Lassen Sie es leer, um den Systemstandard zu verwenden.",
+        "providers": "Zulässige Anbieter",
+        "providersHelp": "Leer bedeutet, dass nichts für diesen Kunden gemietet werden darf. Die Zulassung von AWS bei Verbot von Vast.ai ist eine normale Konfiguration.",
+        "enabled": "Cloud-Burst",
+        "period": "Budget-Zeitraum",
+        "periodHelp": "Lassen Sie es leer, um den Serverstandard zu erben."
       },
       "errors": {
-        "invalidBudget": "Budget must be a number, e.g. 25.00",
-        "negativeBudget": "Budget must not be negative",
-        "invalidTtl": "Maximum lifetime must be a positive number of minutes",
-        "enabledWithoutBudget": "Set a budget before enabling cloud burst — an unfunded client can never provision anything.",
-        "enabledWithoutProvider": "Allow at least one provider before enabling cloud burst."
+        "invalidBudget": "Budget muss eine Zahl sein, z. B. 25,00",
+        "negativeBudget": "Budget darf nicht negativ sein",
+        "invalidTtl": "Maximale Lebensdauer muss eine positive Anzahl von Minuten sein",
+        "enabledWithoutBudget": "Legen Sie ein Budget fest, bevor Sie Cloud-Burst aktivieren – ein unterfinanzierter Kunde kann niemals etwas bereitstellen.",
+        "enabledWithoutProvider": "Lassen Sie mindestens einen Anbieter zu, bevor Sie Cloud-Burst aktivieren."
       },
       "peerTooltip": "Fremde Hardware: Die Daten dieses Kunden sind für den Besitzer des Rechners lesbar.",
       "defaults": {
-        "title": "Server defaults",
-        "description": "Values a client uses when it has not set its own. Leaving a client's field blank means it follows the default here, so changing this changes every client still inheriting.",
-        "summary": "{{amount}} per {{period}}",
-        "summaryUnset": "No default budget set — clients that inherit stay unfunded",
-        "budget": "Default budget",
-        "budgetHelp": "Leave blank for no default: inheriting clients then stay unfunded and cannot burst.",
-        "period": "Default budget period",
-        "enabled": "Clients may burst to paid capacity by default",
-        "providers": "Default providers",
-        "providersHelp": "Applied to any client whose own provider list is empty.",
-        "peerAckNote": "Peer-operated providers still require a per-client acknowledgement. Defaulting them in does not grant that consent — each client must still be acknowledged individually before its data can go there.",
-        "appliesNow": "Cloud burst is enabled by default and a default budget is set, so every client still inheriting can now provision paid capacity.",
-        "save": "Save defaults",
-        "saved": "Defaults saved",
-        "saveFailed": "Failed to save defaults",
-        "fundedButDisabled": "A default budget is set but cloud burst is off by default, so no inheriting client can provision anything. Tick the box above to make the budget usable.",
-        "enabledWithoutProviders": "Cloud burst is on by default but no default providers are selected, so inheriting clients still cannot rent anything. Choose at least one provider above.",
-        "willEnableTitle": "This will let {{count}} client(s) rent paid capacity",
-        "willEnableBody": "These clients have no settings of their own, so they follow the defaults above. Saving lets each of them provision cloud instances and spend against this budget. To keep a client out, set its own Cloud burst to Disabled.",
-        "andMore": "+{{count}} more",
-        "confirmTitle": "Enable cloud spending for {{count}} client(s)?",
-        "confirmBody": "{{count}} client(s) currently cannot rent anything. Saving these defaults gives each of them a {{amount}} ceiling per {{period}} and permission to spend it. The budget is per client, not shared, so this is the total exposure multiplied by the number of clients listed.",
-        "confirmAlternative": "Prefer to opt in one at a time? Cancel, leave cloud burst off by default, and set Cloud burst and a budget on each client individually instead.",
-        "confirmAccept": "Enable {{count}} client(s)"
+        "title": "Serverstandards",
+        "description": "Werte, die ein Kunde verwendet, wenn er seine eigenen nicht festgelegt hat. Lässt ein Kunde ein Feld leer, folgt er dem hier festgelegten Standard, daher betrifft eine Änderung hier jeden Kunden, der diesen Wert noch erbt.",
+        "summary": "{{amount}} pro {{period}}",
+        "summaryUnset": "Kein Standard-Budget festgelegt – Kunden, die erben, bleiben unterfinanziert",
+        "budget": "Standard-Budget",
+        "budgetHelp": "Lassen Sie es leer, wenn kein Standard vorhanden ist: Erbende Kunden bleiben dann unterfinanziert und können nicht in bezahlte Kapazität wechseln.",
+        "period": "Standard-Budget-Zeitraum",
+        "enabled": "Kunden dürfen standardmäßig in bezahlte Kapazität wechseln",
+        "providers": "Standard-Anbieter",
+        "providersHelp": "Angewendet auf jeden Kunden, dessen eigene Anbieterliste leer ist.",
+        "peerAckNote": "Peer-betriebene Anbieter erfordern weiterhin eine Bestätigung pro Kunde. Sie als Standard festzulegen, erteilt diese Zustimmung nicht – jeder Kunde muss weiterhin einzeln bestätigt werden, bevor seine Daten dorthin gehen dürfen.",
+        "appliesNow": "Cloud-Burst ist standardmäßig aktiviert und ein Standard-Budget ist festgelegt, daher kann jeder noch erbende Kunde jetzt bezahlte Kapazität bereitstellen.",
+        "save": "Standardwerte speichern",
+        "saved": "Standardwerte gespeichert",
+        "saveFailed": "Fehler beim Speichern der Standardwerte",
+        "fundedButDisabled": "Ein Standard-Budget ist festgelegt, aber Cloud-Burst ist standardmäßig aus, daher kann kein erbender Kunde etwas bereitstellen. Aktivieren Sie das Kontrollkästchen oben, um das Budget nutzbar zu machen.",
+        "enabledWithoutProviders": "Cloud-Burst ist standardmäßig aktiviert, aber es werden keine Standard-Anbieter ausgewählt, daher können erbende Kunden immer noch nichts mieten. Wählen Sie oben mindestens einen Anbieter.",
+        "willEnableTitle_one": "Dies ermöglicht es {{count}} Kunden, bezahlte Kapazität zu mieten",
+        "willEnableTitle_other": "Dies ermöglicht es {{count}} Kunden, bezahlte Kapazität zu mieten",
+        "willEnableBody": "Diese Kunden haben keine eigenen Einstellungen, daher folgen sie den obigen Standards. Das Speichern ermöglicht es jedem von ihnen, Cloud-Instanzen bereitzustellen und gegen dieses Budget auszugeben. Um einen Kunden auszuschließen, setzen Sie seinen Cloud-Burst auf \"Deaktiviert\".",
+        "andMore": "+{{count}} weitere",
+        "confirmTitle_one": "Cloud-Ausgaben für {{count}} Kunden aktivieren?",
+        "confirmTitle_other": "Cloud-Ausgaben für {{count}} Kunden aktivieren?",
+        "confirmBody_one": "{{count}} Kunde kann derzeit nichts mieten. Das Speichern dieser Standardwerte gibt ihm eine Obergrenze von {{amount}} pro {{period}} und die Genehmigung, sie auszugeben. Das Budget gilt pro Kunde, nicht geteilt, daher ist dies die Gesamtbelastung multipliziert mit der Anzahl der aufgelisteten Kunden.",
+        "confirmBody_other": "{{count}} Kunden können derzeit nichts mieten. Das Speichern dieser Standardwerte gibt jedem von ihnen eine Obergrenze von {{amount}} pro {{period}} und die Genehmigung, sie auszugeben. Das Budget gilt pro Kunde, nicht geteilt, daher ist dies die Gesamtbelastung multipliziert mit der Anzahl der aufgelisteten Kunden.",
+        "confirmAlternative": "Möchten Sie lieber einzeln zustimmen? Brechen Sie ab, lassen Sie Cloud-Burst standardmäßig deaktiviert, und legen Sie Cloud-Burst sowie ein Budget stattdessen für jeden Kunden einzeln fest.",
+        "confirmAccept_one": "{{count}} Kunden aktivieren",
+        "confirmAccept_other": "{{count}} Kunden aktivieren"
       },
       "periods": {
-        "monthly": "month",
-        "quarterly": "quarter",
-        "semiannual": "six months"
+        "monthly": "Monat",
+        "quarterly": "Quartal",
+        "semiannual": "sechs Monate"
       },
-      "inheritLabel": "Inherit default ({{value}})",
-      "on": "Enabled",
-      "off": "Disabled",
-      "inheriting": "inheriting"
+      "inheritLabel": "Standard erben ({{value}})",
+      "on": "Aktiviert",
+      "off": "Deaktiviert",
+      "inheriting": "erbend"
     },
     "policy": {
-      "title": "Spend threshold policy",
-      "description": "What happens as a client approaches its cap. These thresholds decide how gracefully the cap is reached; what actually prevents an overrun is that an instance's whole lifetime cost is committed before it boots.",
-      "loadFailed": "Failed to load the threshold policy",
-      "saved": "Threshold policy saved",
-      "saveFailed": "Failed to save the threshold policy",
-      "overageWarning": "Overage is allowed: reservations may exceed the remaining budget. The cap becomes advisory rather than absolute.",
-      "hardStopAboveCapNote": "Hard stop is set to {{pct}}% but overage is off, so reservations still cannot exceed 100% of the budget. Enable overage if you intend to allow spending past the cap.",
+      "title": "Ausgaben-Schwellenwert-Richtlinie",
+      "description": "Was passiert, wenn sich ein Kunde seinem Cap nähert. Diese Schwellenwerte entscheiden, wie sanft das Cap erreicht wird; was einen Overrun tatsächlich verhindert, ist, dass die gesamten Lebensdauerkosten einer Instanz bereits vor dem Start gebunden sind.",
+      "loadFailed": "Fehler beim Laden der Schwellenwert-Richtlinie",
+      "saved": "Schwellenwert-Richtlinie gespeichert",
+      "saveFailed": "Fehler beim Speichern der Schwellenwert-Richtlinie",
+      "overageWarning": "Überausgaben sind zulässig: Reservierungen können das verbleibende Budget überschreiten. Die Obergrenze wird zum Richtwert statt zu einer absoluten Grenze.",
+      "hardStopAboveCapNote": "Harter Stopp ist auf {{pct}}% eingestellt, aber Überausgaben sind deaktiviert, daher können Reservierungen 100 % des Budgets immer noch nicht überschreiten. Aktivieren Sie Überausgaben, wenn Sie Ausgaben über der Obergrenze zulassen möchten.",
       "fields": {
-        "notifyEnabled": "Notify me as spend approaches the cap",
-        "notifyPct": "Notify at (% of budget)",
-        "notifyPctHelp": "Sends a notification once. Turn the checkbox off to never notify.",
-        "stopProvisionPct": "Stop provisioning at (%)",
-        "stopProvisionPctHelp": "No new instances are launched past this point. Running instances continue.",
-        "drainPct": "Start draining at (%)",
-        "drainPctHelp": "No new work is dispatched; in-flight chunks are allowed to finish.",
-        "hardStopPct": "Hard stop at (%)",
-        "hardStopPctHelp": "Instances are destroyed immediately, finishing or not.",
-        "drainTimeout": "Drain timeout (seconds)",
-        "drainTimeoutHelp": "How long an instance may keep finishing its chunk before it is destroyed anyway.",
-        "allowOverage": "Allow spending past the cap",
-        "allowOverageHelp": "Leave off to make the cap absolute. With it off, a $10 budget stops at $10."
+        "notifyEnabled": "Mich benachrichtigen, wenn die Ausgaben sich der Obergrenze nähern",
+        "notifyPct": "Benachrichtigen bei (% des Budgets)",
+        "notifyPctHelp": "Sendet eine Benachrichtigung einmal. Deaktivieren Sie das Kontrollkästchen, um nie benachrichtigt zu werden.",
+        "stopProvisionPct": "Bereitstellung stoppen bei (%)",
+        "stopProvisionPctHelp": "Über diesen Punkt hinaus werden keine neuen Instanzen gestartet. Laufende Instanzen werden fortgesetzt.",
+        "drainPct": "Drain starten bei (%)",
+        "drainPctHelp": "Keine neuen Aufgaben werden verteilt; In-Flight-Chunks dürfen fertiggestellt werden.",
+        "hardStopPct": "Harter Stopp bei (%)",
+        "hardStopPctHelp": "Instanzen werden sofort zerstört, unabhängig davon, ob sie fertig sind oder nicht.",
+        "drainTimeout": "Drain-Timeout (Sekunden)",
+        "drainTimeoutHelp": "Wie lange eine Instanz ihr Chunk fertigstellen darf, bevor sie trotzdem zerstört wird.",
+        "allowOverage": "Ausgaben über der Obergrenze zulassen",
+        "allowOverageHelp": "Lassen Sie es aus, um die Obergrenze absolut zu machen. Wenn es aus ist, stoppt ein Budget von $10 bei $10."
       },
       "errors": {
-        "notifyRange": "The notify threshold must be between 1% and the stop-provisioning threshold.",
-        "stopBeforeDrain": "The stop-provisioning threshold must not exceed the drain threshold.",
-        "drainBeforeHardStop": "The drain threshold must not exceed the hard-stop threshold.",
-        "negativeTimeout": "The drain timeout must not be negative."
+        "notifyRange": "Der Benachrichtigungsschwellenwert muss zwischen 1 % und dem Schwellenwert für den Bereitstellungsstopp liegen.",
+        "stopBeforeDrain": "Der Schwellenwert für den Bereitstellungsstopp darf den Drain-Schwellenwert nicht überschreiten.",
+        "drainBeforeHardStop": "Der Drain-Schwellenwert darf den Schwellenwert für den harten Stopp nicht überschreiten.",
+        "negativeTimeout": "Das Drain-Timeout darf nicht negativ sein."
       }
     },
     "fleet": {
-      "title": "Cloud Fleet",
-      "description": "Every rented instance that may still be costing money.",
-      "loadFailed": "Failed to load the fleet",
-      "empty": "No instances are running. Nothing is being billed.",
-      "summary": "{{count}} live instance(s), {{hourly}}/hr, {{reserved}} committed.",
-      "destroy": "Destroy",
-      "destroyed": "Instance destroyed",
-      "destroyFailed": "The provider refused to destroy this instance — it is still billing",
-      "destroyTitle": "Destroy instance?",
-      "destroyBody": "Destroy \"{{label}}\" now? Billing stops as soon as the provider confirms.",
-      "destroyJobWarning": "This instance is working a job. Its in-flight chunk is lost and will be re-dispatched elsewhere.",
-      "teardownFailingTitle": "Teardown is failing",
-      "teardownFailingBody": "{{count}} instance(s) could not be destroyed and are still accruing cost. Check the provider console.",
-      "teardownFailingTooltip": "Teardown failed; this instance is still billing",
-      "estimated": "est.",
-      "estimatedTooltip": "Estimated from elapsed time and rate; the provider's own figure lands later.",
+      "title": "Cloud-Flotte",
+      "description": "Jede gemietete Instanz, die möglicherweise noch Geld kostet.",
+      "loadFailed": "Fehler beim Laden der Flotte",
+      "empty": "Keine Instanzen sind in Betrieb. Nichts wird abgerechnet.",
+      "summary_one": "{{count}} laufende Instanz, {{hourly}}/hr, {{reserved}} zugesichert.",
+      "summary_other": "{{count}} laufende Instanzen, {{hourly}}/hr, {{reserved}} zugesichert.",
+      "destroy": "Zerstören",
+      "destroyed": "Instanz zerstört",
+      "destroyFailed": "Der Anbieter weigerte sich, diese Instanz zu zerstören – sie wird immer noch abgerechnet",
+      "destroyTitle": "Instanz zerstören?",
+      "destroyBody": "\"{{label}}\" jetzt zerstören? Die Abrechnung stoppt, sobald der Anbieter dies bestätigt.",
+      "destroyJobWarning": "Diese Instanz führt einen Auftrag aus. Ihr In-Flight-Chunk geht verloren und wird anderswo neu verteilt.",
+      "teardownFailingTitle": "Teardown fehlgeschlagen",
+      "teardownFailingBody_one": "{{count}} Instanz konnte nicht zerstört werden und verursacht immer noch Kosten. Überprüfen Sie die Anbieter-Konsole.",
+      "teardownFailingBody_other": "{{count}} Instanzen konnten nicht zerstört werden und verursachen immer noch Kosten. Überprüfen Sie die Anbieter-Konsole.",
+      "teardownFailingTooltip": "Teardown fehlgeschlagen; diese Instanz wird immer noch abgerechnet",
+      "estimated": "ca.",
+      "estimatedTooltip": "Geschätzt aus verstrichener Zeit und Satz; der Wert des Anbieters kommt später.",
       "perHour": "{{rate}}/hr",
-      "ttlExpired": "Expired",
+      "ttlExpired": "Abgelaufen",
       "states": {
-        "requested": "Requested",
-        "launching": "Launching",
-        "provisioning": "Provisioning",
-        "syncing": "Syncing files",
-        "running": "Running",
-        "draining": "Draining",
-        "terminating": "Terminating",
-        "terminated": "Terminated",
-        "failed": "Failed"
+        "requested": "Angefordert",
+        "launching": "Wird gestartet",
+        "provisioning": "Wird bereitgestellt",
+        "syncing": "Dateien werden synchronisiert",
+        "running": "Läuft",
+        "draining": "Drain läuft",
+        "terminating": "Wird beendet",
+        "terminated": "Beendet",
+        "failed": "Fehlgeschlagen"
       },
       "columns": {
-        "label": "Instance",
-        "state": "State",
-        "client": "Client",
+        "label": "Instanz",
+        "state": "Status",
+        "client": "Kunde",
         "gpu": "GPU",
-        "rate": "Rate",
-        "spend": "Spend",
-        "ttl": "TTL left",
-        "disk": "Disk",
-        "actions": "Actions"
+        "rate": "Satz",
+        "spend": "Ausgaben",
+        "ttl": "TTL verbleibend",
+        "disk": "Festplatte",
+        "actions": "Aktionen",
+        "agent": "Agent",
+        "job": "Auftrag"
       },
-      "experimentalRunningTitle": "{{count}} Instanz(en) laufen auf einem experimentellen Anbieter",
+      "experimentalRunningTitle_one": "{{count}} Instanz läuft auf einem experimentellen Anbieter",
+      "experimentalRunningTitle_other": "{{count}} Instanzen laufen auf einem experimentellen Anbieter",
       "experimentalRunningBody": "{{providers}} wurde nie mit echtem Geld vollständig erprobt. Prüfen Sie, dass diese Instanzen tatsächlich den Status „terminated“ erreichen, statt es anzunehmen: Der Teardown-Pfad ist der am wenigsten getestete Teil jedes neuen Adapters, und eine Instanz, die nie freigegeben wird, kostet weiter, bis Sie sie hier zerstören. Bitte melden Sie, was Sie beobachten.",
       "experimentalTooltip": "{{provider}} ist ein experimenteller Anbieter — noch nicht getestet. Rechnen Sie mit Fehlern; prüfen Sie, dass diese Instanz nach Abschluss ihres Jobs wirklich freigegeben wird."
     },
@@ -1859,41 +2300,41 @@
       }
     },
     "system": {
-      "ceilings": "Spend and concurrency ceilings",
-      "ceilingsHelp": "Absolute system-wide limits, applied before any client budget is consulted.",
-      "work": "Work sizing and teardown",
-      "workHelp": "How much work a rented instance is given at a time, and how quickly an idle one is released. Per-chunk overhead is billed at rental rates, so these trade throughput against waste.",
-      "reconciliation": "Reconciliation",
-      "reconciliationHelp": "How often the database is checked against what the provider is actually running, and how long an unrecognised instance is tolerated before it is destroyed.",
-      "capDisabledWarning": "Cloud provisioning is currently DISABLED: the global monthly cap is 0. Providers, client budgets and cloud-enabled jobs will all be configured correctly and nothing will ever be rented. Set a non-zero cap to enable it.",
-      "saved": "Setting saved",
-      "saveFailed": "Failed to save setting",
-      "loadFailed": "Failed to load cloud settings",
+      "ceilings": "Ausgaben- und Nebenläufigkeitsgrenzen",
+      "ceilingsHelp": "Absolute systemweite Limits, die angewendet werden, bevor ein Kundenbudget berücksichtigt wird.",
+      "work": "Arbeitsgröße und Teardown",
+      "workHelp": "Wie viel Arbeit eine gemietete Instanz auf einmal erhält und wie schnell eine untätige Instanz freigegeben wird. Der Overhead pro Chunk wird mit Mietraten abgerechnet, daher werden hier Durchsatz gegen Verschwendung abgewogen.",
+      "reconciliation": "Abgleich",
+      "reconciliationHelp": "Wie oft die Datenbank gegen den aktuellen Bestand des Anbieters überprüft wird und wie lange eine nicht erkannte Instanz toleriert wird, bevor sie zerstört wird.",
+      "capDisabledWarning": "Cloud-Bereitstellung ist derzeit DEAKTIVIERT: Die globale monatliche Obergrenze liegt bei 0. Anbieter, Kundenbudgets und Cloud-aktivierte Aufträge werden alle korrekt konfiguriert und nichts wird jemals gemietet. Legen Sie eine Obergrenze über 0 fest, um sie zu aktivieren.",
+      "saved": "Einstellung gespeichert",
+      "saveFailed": "Fehler beim Speichern der Einstellung",
+      "loadFailed": "Fehler beim Laden der Cloud-Einstellungen",
       "units": {
         "seconds": "s",
         "minutes": "min"
       },
       "fields": {
-        "monthlyCap": "Global monthly spend cap",
-        "monthlyCapHelp": "Across all clients and providers. 0 disables cloud provisioning entirely — it is not unlimited.",
-        "concurrentCap": "Global concurrent instance cap",
-        "concurrentCapHelp": "Maximum rented instances at once, across every provider and client. 0 means unlimited, still bounded by budgets and provider quotas.",
+        "monthlyCap": "Globale monatliche Ausgabengrenze",
+        "monthlyCapHelp": "Über alle Kunden und Anbieter hinweg. 0 deaktiviert Cloud-Bereitstellung vollständig – es ist nicht unbegrenzt.",
+        "concurrentCap": "Globale Grenze für gleichzeitige Instanzen",
+        "concurrentCapHelp": "Maximal gemietete Instanzen gleichzeitig, über jeden Anbieter und Kunden hinweg. 0 bedeutet unbegrenzt, wird aber immer noch durch Budgets und Anbieter-Kontingente begrenzt.",
         "defaultMaxInstancesPerJob": "Standard-Maximum an Instanzen pro Auftrag",
         "defaultMaxInstancesPerJobHelp": "Maximale Anzahl gemieteter Instanzen für einen Auftrag, der kein eigenes Limit setzt. Leer bedeutete früher unbegrenzt — in einer reinen Cloud-Bereitstellung bleibt dann nur das Kundenbudget, um einen wartenden Auftrag daran zu hindern, jede Minute erneut zu mieten. Ein auftragsspezifischer Wert hat weiterhin Vorrang. 0 stellt „unbegrenzt“ wieder her.",
         "chunkDuration": "Minimale Cloud-Chunk-Dauer",
         "chunkDurationHelp": "Mindestdauer eines Chunks für Cloud-Agenten. Eine gemietete GPU wird abgerechnet, während hashcat startet, Kernel autotunt und die Wortliste lädt — Cloud-Chunks werden daher auf diesen Wert angehoben, selbst wenn der Job weniger anfordert. Fordert ein Job MEHR an, behält er seinen eigenen Wert. Wird immer auf die verbleibende Laufzeit der Instanz begrenzt. 0 deaktiviert die Untergrenze.",
-        "teardownSlack": "Teardown slack",
-        "teardownSlackHelp": "Reserved at the end of an instance's lifetime for drain and destroy, so a chunk is never planned past the point the instance dies.",
-        "idleDrain": "Idle drain",
-        "idleDrainHelp": "Destroy a rented instance after this long with no pending work. Bounds how much you pay for a GPU that has run out of things to do.",
+        "teardownSlack": "Teardown-Puffer",
+        "teardownSlackHelp": "Am Ende der Lebensdauer einer Instanz für Drain und Zerstörung reserviert, daher wird ein Chunk niemals über den Punkt hinaus geplant, an dem die Instanz stirbt.",
+        "idleDrain": "Leerlauf-Drain",
+        "idleDrainHelp": "Zerstört eine gemietete Instanz nach dieser Zeit ohne ausstehende Arbeit. Dies begrenzt, wie viel Sie für eine GPU zahlen, der die Arbeit ausgegangen ist.",
         "commissioningGrace": "Inbetriebnahme-Karenzzeit",
         "commissioningGraceHelp": "Eine gemietete Instanz, die nie eine Aufgabe erhalten hat, nach dieser Zeit zerstören, gemessen ab der Registrierung ihres Agenten. Eine neue Instanz muss zuerst ihre Dateien herunterladen und einen Benchmark ausführen. Ein Wert unter etwa 20 Minuten zerstört daher intakte Instanzen während des Starts — und da der Auftrag weiterhin wartet, wird sofort eine neue gemietet. 0 deaktiviert dies.",
-        "reaperInterval": "Reaper interval",
-        "reaperIntervalHelp": "How often to reconcile the database against provider inventory and destroy anything that should not exist.",
-        "orphanGrace": "Orphan grace period",
-        "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
-        "agentImage": "Agent image",
-        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this.",
+        "reaperInterval": "Reaper-Intervall",
+        "reaperIntervalHelp": "Wie oft die Datenbank gegen den Anbieter-Bestand abgeglichen wird und alles, was nicht existieren sollte, zerstört wird.",
+        "orphanGrace": "Orphan-Gnadenfrist",
+        "orphanGraceHelp": "Zerstört Instanzen, die im Anbieter-Konto gefunden werden und nach dieser Zeit keine entsprechende Datenbankzeile haben. Dies ist die einzige Wiederherstellung für einen Start, dessen Datensatz nie ankam.",
+        "agentImage": "Agent-Image",
+        "agentImageHelp": "Z.B. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leer lassen, um zunächst auf KH_CLOUD_AGENT_IMAGE und andernfalls auf die integrierte Standardeinstellung zurückzugreifen. Beachten Sie, dass die integrierte Standardeinstellung :latest ist, die erst existiert, sobald ein Release getaggt wurde – Pre-Release-Deployments müssen dies festlegen.",
         "defaultBurstEnabled": "Cloud-Burst für alle Jobs aktivieren",
         "defaultBurstEnabledHelp": "Behandelt jeden Job als Cloud-Burst-fähig, ohne das Kästchen in jedem Preset, Workflow und Job anzuhaken. Gedacht für Installationen ohne eigene GPUs, bei denen Mieten die einzige Möglichkeit ist, Arbeit auszuführen. Client-Budgets und Instanzlimits gelten weiterhin. Wirkt sofort, auch für bereits eingereihte Jobs.",
         "defaultClient": "Standard-Abrechnungsclient",
@@ -1902,127 +2343,131 @@
         "crackDrainGrace": "Karenzzeit für Crack-Übertragung",
         "crackDrainGraceHelp": "Wartet vor dem Zerstören einer gemieteten Instanz so lange darauf, dass eine noch laufende Aufgabe geknackte Passwörter fertig hochlädt. Gemessen ab dem letzten Schreibvorgang dieser Aufgabe, nicht ab ihrem Start — ein arbeitender Agent wird also nie zerstört und auf einen hängenden wird nicht ewig gewartet. Muss länger als der Idle-Drain und kürzer als 30 Minuten sein. 0 zerstört sofort und kann bereits gefundene Cracks dauerhaft verlieren — sie lassen sich von einer nicht mehr existierenden Maschine nicht erneut senden."
       },
-      "agent": "Cloud agent image",
-      "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
-      "save": "Save changes",
-      "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)",
+      "agent": "Cloud-Agent-Image",
+      "agentHelp": "Das Container-Image, das gemietete Instanzen abrufen und ausführen. Es muss ein Tag sein, der in der Registry existiert: Ein fehlender Tag ist kein Startup-Fehler – die Instanz startet, der Abruf schlägt fehl, und der Host beendet sich selbst etwa eine Minute später, abgerechnet.",
+      "save": "Änderungen speichern",
+      "discard": "Verwerfen",
+      "unsaved_one": "{{count}} nicht gespeicherte Änderung",
+      "unsaved_other": "{{count}} nicht gespeicherte Änderungen",
       "eligibility": "Reine Cloud-Bereitstellungen",
       "eligibilityHelp": "Ob Jobs überhaupt für das Mieten in Betracht gezogen werden. Alles oben begrenzt, wie viel ausgegeben werden darf; dies entscheidet, ob überhaupt etwas ausgegeben wird."
     }
   },
   "serverCertificate": {
-    "title": "Server Certificate",
-    "description": "Manage the addresses the server's TLS certificate covers. Agents can only connect to an address listed here.",
-    "apply": "Apply & Reissue",
+    "title": "Server-Zertifikat",
+    "description": "Verwalten Sie die Adressen, die das TLS-Zertifikat des Servers abdeckt. Agenten können sich nur mit einer hier aufgeführten Adresse verbinden.",
+    "apply": "Anwenden & Neu ausstellen",
     "warning": {
-      "title": "KrakenHashes is an internal tool",
-      "body": "It must never be reachable from the public internet. It handles cracked credentials, so only private and VPN addresses can be added to the certificate — public IP addresses are rejected. If this deployment is exposed publicly, take it offline before continuing."
+      "title": "KrakenHashes ist ein internes Tool",
+      "body": "Es darf niemals vom öffentlichen Internet erreichbar sein. Es verarbeitet geknackte Anmeldeinformationen, daher können nur private und VPN-Adressen zum Zertifikat hinzugefügt werden – öffentliche IP-Adressen werden abgelehnt. Wenn dieses Deployment öffentlich erreichbar ist, nehmen Sie es offline, bevor Sie fortfahren."
     },
     "summary": {
-      "title": "Current certificate",
-      "unavailable": "The server certificate could not be read.",
-      "subject": "Subject",
-      "issuer": "Issuer",
-      "validity": "Valid",
-      "serial": "Serial",
-      "covers": "This certificate is valid for",
-      "coversNothing": "This certificate lists no addresses at all. No agent can connect.",
-      "daysRemaining": "{{count}} days left",
-      "caSubject": "Certificate authority",
-      "caExpires": "CA expires",
-      "caFingerprint": "CA fingerprint (SHA-256)",
-      "pending": "{{count}} address(es) have been saved but are not in the certificate yet. Click Apply & Reissue.",
-      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES or KH_ADDITIONAL_DNS_NAMES is still set in the environment. It is no longer read — these settings replace it. Remove the variable to avoid confusion."
+      "title": "Aktuelles Zertifikat",
+      "unavailable": "Das Server-Zertifikat konnte nicht gelesen werden.",
+      "subject": "Antragsteller",
+      "issuer": "Aussteller",
+      "validity": "Gültig",
+      "serial": "Seriennummer",
+      "covers": "Dieses Zertifikat ist gültig für",
+      "coversNothing": "Dieses Zertifikat listet überhaupt keine Adressen auf. Kein Agent kann sich verbinden.",
+      "daysRemaining_one": "{{count}} Tag verbleibend",
+      "daysRemaining_other": "{{count}} Tage verbleibend",
+      "caSubject": "Zertifizierungsstelle",
+      "caExpires": "CA läuft ab",
+      "caFingerprint": "CA-Fingerabdruck (SHA-256)",
+      "pending_one": "{{count}} Adresse wurde gespeichert, befindet sich aber noch nicht im Zertifikat. Klicken Sie auf Anwenden & Neu ausstellen.",
+      "pending_other": "{{count}} Adressen wurden gespeichert, befinden sich aber noch nicht im Zertifikat. Klicken Sie auf Anwenden & Neu ausstellen.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES oder KH_ADDITIONAL_DNS_NAMES ist immer noch in der Umgebung gesetzt. Es wird nicht mehr gelesen – diese Einstellungen ersetzen es. Entfernen Sie die Variable, um Verwirrung zu vermeiden."
     },
     "sans": {
-      "title": "Addresses this certificate should cover",
+      "title": "Adressen, die dieses Zertifikat abdecken sollte",
       "add": "Add",
-      "empty": "No additional addresses configured.",
-      "unsaved": "You have unsaved changes. Click Apply & Reissue to put them into the certificate.",
-      "lockedTooltip": "Always included. Removing it would break the internal proxy and health checks.",
+      "empty": "Keine zusätzlichen Adressen konfiguriert.",
+      "unsaved": "Sie haben nicht gespeicherte Änderungen. Klicken Sie auf Anwenden & Neu ausstellen, um sie ins Zertifikat einzubinden.",
+      "lockedTooltip": "Immer enthalten. Das Entfernen würde den internen Proxy und Gesundheitsprüfungen beeinträchtigen.",
       "ip": {
-        "title": "IP addresses",
-        "help": "Private and VPN addresses only: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local, and IPv6 ULA.",
+        "title": "IP-Adressen",
+        "help": "Nur private und VPN-Adressen: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), Link-Local und IPv6 ULA.",
         "placeholder": "192.168.1.50"
       },
       "dns": {
-        "title": "DNS names",
-        "help": "Hostnames agents and browsers use to reach this server.",
+        "title": "DNS-Namen",
+        "help": "Hostnamen, die Agenten und Browser verwenden, um diesen Server zu erreichen.",
         "placeholder": "kraken.internal"
       }
     },
     "validation": {
-      "invalid_format": "\"{{address}}\" is not a valid address.",
-      "public_ip": "{{address}} is a public IP address and cannot be added. KrakenHashes is an internal-only tool. It handles cracked credentials and must never be reachable from the internet. Only private addresses (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local and IPv6 ULA) can be added. If this is your VPN's address, the VPN is using address space that belongs to someone else on the internet — change its network range to a private or CGNAT range.",
-      "duplicate": "{{address}} is already in the list.",
-      "bind_address": "{{address}} is a bind address, not a reachable one. No client connects to it.",
-      "multicast": "{{address}} is a multicast address and cannot identify a server.",
-      "wildcard_dns": "Wildcard names are not supported.",
-      "has_port": "Enter only the hostname, with no port.",
-      "is_ip": "That is an IP address. Add it to the IP address list instead.",
-      "too_long": "That name is longer than the 253-character limit."
+      "invalid_format": "\"{{address}}\" ist keine gültige Adresse.",
+      "public_ip": "{{address}} ist eine öffentliche IP-Adresse und kann nicht hinzugefügt werden. KrakenHashes ist ein rein internes Tool. Es verarbeitet geknackte Anmeldeinformationen und darf niemals vom Internet erreichbar sein. Nur private Adressen (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, Link-Local und IPv6 ULA) können hinzugefügt werden. Wenn dies die Adresse Ihres VPN ist, verwendet das VPN einen Adressraum, der jemandem anderem im Internet gehört – ändern Sie seinen Netzwerkbereich auf einen privaten oder CGNAT-Bereich.",
+      "duplicate": "{{address}} ist bereits in der Liste.",
+      "bind_address": "{{address}} ist eine Bindungsadresse, keine erreichbare Adresse. Kein Client verbindet sich damit.",
+      "multicast": "{{address}} ist eine Multicast-Adresse und kann keinen Server identifizieren.",
+      "wildcard_dns": "Wildcard-Namen werden nicht unterstützt.",
+      "has_port": "Geben Sie nur den Hostnamen ein, ohne Port.",
+      "is_ip": "Das ist eine IP-Adresse. Fügen Sie sie stattdessen zur IP-Adressenliste hinzu.",
+      "too_long": "Dieser Name ist länger als das Limit von 253 Zeichen."
     },
     "discovered": {
-      "title": "Discovered addresses",
-      "help": "Addresses seen reaching this server that the certificate does not cover. Nothing here is applied automatically.",
-      "empty": "No addresses discovered yet. Start an agent, or open this page from the address your agents use, and it will appear here.",
-      "address": "Address",
-      "source": "Source",
-      "reportedBy": "Reported by",
-      "lastSeen": "Last seen",
-      "hits": "Hits",
-      "actions": "Actions",
+      "title": "Ermittelte Adressen",
+      "help": "Adressen, die diesen Server erreichen und die das Zertifikat nicht abdeckt. Nichts hier wird automatisch angewendet.",
+      "empty": "Noch keine Adressen ermittelt. Starten Sie einen Agenten oder öffnen Sie diese Seite von der Adresse aus, die Ihre Agenten verwenden, und sie wird hier angezeigt.",
+      "address": "Adresse",
+      "source": "Quelle",
+      "reportedBy": "Gemeldet von",
+      "lastSeen": "Zuletzt gesehen",
+      "hits": "Treffer",
+      "actions": "Aktionen",
       "add": "Add",
-      "added": "{{address}} added. Click Apply & Reissue to put it into the certificate.",
-      "dismiss": "Dismiss",
-      "pending": "Pending reissue",
+      "added": "{{address}} hinzugefügt. Klicken Sie auf Anwenden & Neu ausstellen, um sie ins Zertifikat einzubinden.",
+      "dismiss": "Verwerfen",
+      "pending": "Ausstehende Neuausstellung",
       "sources": {
-        "agent_tls_failure": "Agent TLS failure",
-        "host_header": "Browser / Host header",
+        "agent_tls_failure": "Agent-TLS-Fehler",
+        "host_header": "Browser / Host-Header",
         "tls_sni": "TLS SNI",
-        "manual": "Manual"
+        "manual": "Manuell"
       },
       "sourceHelp": {
-        "agent_tls_failure": "An authenticated agent reported that it could not verify this server's certificate for this address.",
-        "host_header": "Observed in a request's Host header. Anyone who can reach this server can influence this value — confirm it before adding.",
-        "tls_sni": "Observed as the server name in a TLS handshake.",
-        "manual": "Added by an administrator."
+        "agent_tls_failure": "Ein authentifizierter Agent meldete, dass er das Zertifikat dieses Servers für diese Adresse nicht verifizieren konnte.",
+        "host_header": "In einem Host-Header einer Anfrage beobachtet. Jeder, der diesen Server erreichen kann, kann diesen Wert beeinflussen – bestätigen Sie ihn vor dem Hinzufügen.",
+        "tls_sni": "Beobachtet als der Servername in einem TLS-Handshake.",
+        "manual": "Von einem Administrator hinzugefügt."
       }
     },
     "reissue": {
-      "doneTitle": "Certificate reissued",
-      "noChangeTitle": "No change needed",
-      "noChangeBody": "The certificate already covers every configured address and is not close to expiry.",
-      "changes": "Changes",
-      "validUntil": "The new certificate is valid until {{date}}.",
-      "backendReloaded": "The API on port 31337 is already serving the new certificate. No restart was needed.",
-      "nginxReloaded": "The web UI on port 443 was reloaded and is serving the new certificate.",
-      "nginxFailed": "The web UI on port 443 is still serving the previous certificate",
-      "backup": "Previous certificate material was backed up to {{path}}.",
-      "agentsReconnect": "Agents that were failing will reconnect on their own within 30 seconds. No agent restart is needed.",
-      "agentsRefetch": "Every agent must re-fetch the CA. Agents do this automatically the next time a handshake fails, but browsers that trusted the old CA must install the new one by hand.",
-      "close": "Close",
-      "nginxFailedBody": "The API is already serving the new certificate, so agents are unaffected. The web UI on port 443 will keep presenting the previous one until KrakenHashes is restarted."
+      "doneTitle": "Zertifikat erneut ausgestellt",
+      "noChangeTitle": "Keine Änderung erforderlich",
+      "noChangeBody": "Das Zertifikat deckt bereits jede konfigurierte Adresse ab und läuft nicht bald ab.",
+      "changes": "Änderungen",
+      "validUntil": "Das neue Zertifikat ist gültig bis {{date}}.",
+      "backendReloaded": "Die API auf Port 31337 bedient bereits das neue Zertifikat. Ein Neustart war nicht erforderlich.",
+      "nginxReloaded": "Die Web-Benutzeroberfläche auf Port 443 wurde neu geladen und bedient das neue Zertifikat.",
+      "nginxFailed": "Die Web-Benutzeroberfläche auf Port 443 bedient immer noch das vorherige Zertifikat",
+      "backup": "Das vorherige Zertifikatsmaterial wurde in {{path}} gesichert.",
+      "agentsReconnect": "Agenten, die zuvor nicht verbinden konnten, verbinden sich innerhalb von 30 Sekunden automatisch wieder. Kein Agent-Neustart ist erforderlich.",
+      "agentsRefetch": "Jeder Agent muss die CA neu abrufen. Agenten tun dies automatisch, wenn beim nächsten Handshake ein Fehler auftritt, aber Browser, die der alten CA vertraut haben, müssen die neue von Hand installieren.",
+      "close": "Schließen",
+      "nginxFailedBody": "Die API bedient bereits das neue Zertifikat, daher sind Agenten nicht betroffen. Die Web-Benutzeroberfläche auf Port 443 präsentiert weiterhin die vorherige, bis KrakenHashes neu gestartet wird."
     },
     "confirmRemoval": {
-      "title": "Remove addresses from the certificate?",
-      "body": "The following addresses are in the current certificate and will be removed: {{addresses}}. Any agent connecting on one of them will stop being able to connect until it is added back.",
-      "cancel": "Cancel",
-      "confirm": "Remove and reissue"
+      "title": "Adressen aus dem Zertifikat entfernen?",
+      "body": "Die folgenden Adressen sind im aktuellen Zertifikat und werden entfernt: {{addresses}}. Jeder Agent, der sich über eine davon verbindet, kann sich nicht mehr verbinden, bis sie wieder hinzugefügt wird.",
+      "cancel": "Abbrechen",
+      "confirm": "Entfernen und neu ausstellen"
     },
     "rotateCa": {
-      "section": "Advanced",
-      "title": "Rotate the certificate authority",
-      "warning": "Rotating the certificate authority issues a brand-new CA and re-signs the server and agent certificates. Every agent must re-download the CA before it can reconnect, and every browser that trusted the old CA will show warnings until the new ca.crt is installed. Only do this if the CA private key may have been exposed.",
-      "instruction": "Type {{phrase}} to confirm.",
-      "action": "Rotate CA"
+      "section": "Erweitert",
+      "title": "Zertifizierungsstelle rotieren",
+      "warning": "Die Rotation der Zertifizierungsstelle gibt eine brandneue CA aus und signiert die Server- und Agent-Zertifikate neu. Jeder Agent muss die CA neu herunterladen, bevor er sich wieder verbinden kann, und jeder Browser, der der alten CA vertraut hat, zeigt Warnungen an, bis das neue ca.crt installiert ist. Tun Sie dies nur, wenn der private Schlüssel der CA möglicherweise offengelegt wurde.",
+      "instruction": "Geben Sie {{phrase}} ein, um zu bestätigen.",
+      "action": "CA rotieren"
     },
     "banner": {
-      "title": "{{count}} agent(s) cannot verify this server's certificate",
-      "body": "{{agents}} is connecting to {{address}}, which is not listed in the server certificate. It will keep retrying and cannot come online until the certificate is reissued.",
-      "anAgent": "An agent",
-      "action": "Fix in Server Certificate settings"
+      "title_one": "{{count}} Agent kann das Zertifikat dieses Servers nicht verifizieren",
+      "title_other": "{{count}} Agenten können das Zertifikat dieses Servers nicht verifizieren",
+      "body": "{{agents}} verbindet sich mit {{address}}, die nicht im Serverzertifikat aufgeführt ist. Es wird die Verbindung weiter versuchen und kann nicht online gehen, bis das Zertifikat neu ausgestellt wird.",
+      "anAgent": "Ein Agent",
+      "action": "In den Serverzertifikat-Einstellungen reparieren"
     }
   },
   "branding": {
@@ -2057,6 +2502,660 @@
       "removeFailed": "Bild konnte nicht entfernt werden",
       "invalidHex": "Hex-Farbe wie #1e88e5 eingeben",
       "tooLarge": "Datei ist zu groß (max. {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Einstellungsbereiche",
+    "groups": {
+      "general": "Allgemein",
+      "security": "Sicherheit",
+      "jobs": "Aufträge",
+      "agents": "Agenten",
+      "integrations": "Integrationen",
+      "cloud": "Cloud"
+    },
+    "sections": {
+      "branding": "Branding",
+      "brandingDesc": "Anwendungsname, Farben, Logo und Favicon.",
+      "data": "Daten",
+      "dataDesc": "Aufbewahrungsstandards und Hashlistenaufnahme.",
+      "storage": "Speicher",
+      "storageDesc": "Netzwerkfreigabe für Wortlisten und Regeln.",
+      "certificate": "Zertifikat",
+      "certificateDesc": "Serverzertifikat-Namen und -Adressen.",
+      "authentication": "Authentifizierung",
+      "authenticationDesc": "Passwortrichtlinie, Sperrung und Sitzungen.",
+      "mfa": "Multi-Faktor",
+      "mfaDesc": "MFA-Richtlinie und Passkey-Vertrauenspartei.",
+      "sso": "Einmalanmeldung",
+      "ssoDesc": "Identitätsanbieter und Bereitstellung.",
+      "access": "Zugriffsmodell",
+      "accessDesc": "Multi-Team-Isolierung.",
+      "execution": "Ausführung",
+      "executionDesc": "Chunking, Keyspace und Benchmarks.",
+      "scheduling": "Planung",
+      "schedulingDesc": "Agent-Zuweisung und Auftragspriorität.",
+      "potfile": "Potfile & Loopback",
+      "potfileDesc": "Potfile-Verhalten und Loopback-Runden.",
+      "health": "Gesundheit",
+      "healthDesc": "Heartbeats, Karenzzeiten und der Offline-Puffer.",
+      "downloads": "Downloads",
+      "downloadsDesc": "Wie Agenten Dateien vom Server herunterladen.",
+      "updates": "Aktualisierungen",
+      "updatesDesc": "Automatische Agent-Binäraktualisierungen.",
+      "monitoring": "Überwachung",
+      "monitoringDesc": "Metrikaufbewahrung und -aggregation.",
+      "email": "E-Mail",
+      "emailDesc": "Anbieterkonfiguration und Vorlagen.",
+      "webhooks": "Webhooks",
+      "webhooksDesc": "Globaler Webhook und Benutzer-Webhooks.",
+      "notifications": "Benachrichtigungen",
+      "notificationsDesc": "Welche Auftragsereignisse benachrichtigen.",
+      "providers": "Anbieter",
+      "providersDesc": "Cloud-GPU-Anbieter-Anmeldeinformationen.",
+      "budgets": "Kunden-Budgets",
+      "budgetsDesc": "Monatliche Obergrenzen pro Kunde.",
+      "policy": "Schwellenwertrichtlinie",
+      "policyDesc": "Staffelung der Ausgabenschwellenwerte.",
+      "rules": "Bereitstellungsregeln",
+      "rulesDesc": "Wann die automatische Skalierung Ausgaben tätigen kann.",
+      "limits": "Grenzen",
+      "limitsDesc": "Systemweite Obergrenzen und Zeitangaben."
+    }
+  },
+  "hub": {
+    "pageDescription": "Alles, was diesen Server konfiguriert, gruppiert nach dem, was es beeinflusst. Felder speichern automatisch, wenn Sie sie verlassen, sofern der Abschnitt nichts anderes besagt.",
+    "navLabel": "Übersicht",
+    "attentionTitle": "Benötigt Aufmerksamkeit",
+    "attentionSubtitle": "Probleme, die beeinflussen, wie der Server funktioniert.",
+    "allGood": "Alles sieht gut aus",
+    "allGoodHint": "Keine Konfigurationsprobleme gefunden.",
+    "loadFailed": "Einstellungsstatus konnte nicht geladen werden.",
+    "overviewTitle": "Status",
+    "attentionCount": "{{count}} zu überprüfen",
+    "browseTitle": "Alle Einstellungen",
+    "loading": "Wird geprüft…",
+    "cards": {
+      "email": "E-Mail",
+      "certificate": "Zertifikat",
+      "sso": "Einmalanmeldung",
+      "binaries": "Binärdateien",
+      "cloud": "Cloud",
+      "storage": "Speicher",
+      "webhook": "Globaler Webhook"
+    },
+    "detail": {
+      "emailConfigured": "Konfiguriert ({{provider}})",
+      "emailNotConfigured": "Kein Anbieter konfiguriert",
+      "certUnmanaged": "Verwaltet außerhalb von KrakenHashes ({{mode}})",
+      "certDays": "{{days}} Tage verbleibend",
+      "certPending": "Noch nicht ausgestellt",
+      "ssoProviders_one": "{{count}} Anbieter aktiviert",
+      "ssoProviders_other": "{{count}} Anbieter aktiviert",
+      "binaries": "{{verified}} von {{total}} verifiziert",
+      "cloudNoProviders": "Keine Anbieter konfiguriert",
+      "cloudCap": "{{providers}} Anbieter, monatliche Obergrenze {{cap}}",
+      "storageLocal": "Lokaler Speicher",
+      "storageReachable": "Freigabe eingebunden und erreichbar",
+      "storageUnreachable": "Freigabe nicht erreichbar",
+      "webhookOff": "Deaktiviert",
+      "webhookOn": "Aktiviert",
+      "webhookNoUrl": "Aktiviert ohne URL"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "Status konnte nicht überprüft werden",
+      "emailNotConfigured": "E-Mail ist nicht konfiguriert; MFA-Codes und Benachrichtigungen können nicht gesendet werden.",
+      "certExpiring": "Das Serverzertifikat verfällt in {{days}} Tagen.",
+      "ssoEphemeralKey": "SSO verwendet einen kurzlebigen Signaturschlüssel; Sitzungen überstehen keinen Neustart.",
+      "noVerifiedBinary": "Keine verifizierte hashcat-Binärdatei verfügbar; Aufträge können nicht ausgeführt werden.",
+      "cloudCapZero": "Cloud-Anbieter sind konfiguriert, aber die monatliche Obergrenze ist 0, daher wird nichts bereitgestellt.",
+      "shareUnreachable": "Die Netzwerkfreigabe ist aktiviert, aber nicht erreichbar.",
+      "migration": "Eine Speichermigration ist {{state}}.",
+      "webhookNoUrl": "Der globale Webhook ist aktiviert, aber hat keine URL."
+    },
+    "severity": {
+      "default": "Info",
+      "success": "OK",
+      "warning": "Warnung",
+      "error": "Fehler"
+    }
+  },
+  "fieldState": {
+    "saving": "Wird gespeichert…",
+    "saved": "Gespeichert",
+    "error": "Nicht gespeichert",
+    "minSelected": "Wählen Sie mindestens {{count}}",
+    "autosaveHint": "Speichert automatisch",
+    "autosaveHintLong": "Jedes Feld speichert automatisch, sobald Sie es verlassen.",
+    "applyHint": "Erfordert Anwenden",
+    "applyHintLong": "Änderungen hier werden erst wirksam, nachdem Sie sie anwenden."
+  },
+  "unsaved": {
+    "title": "Nicht gespeicherte Änderungen",
+    "body": "Sie haben Änderungen, die nicht angewendet wurden. Diese Seite verlassen und sie verwerfen?",
+    "stay": "Bleiben",
+    "leave": "Verlassen"
+  },
+  "agentAutoUpdate": {
+    "title": "Automatische Aktualisierungen",
+    "description": "Erlauben Sie dem Server, neue Agent-Binärdateien an verbundene Agenten zu pushen.",
+    "enable": "Automatische Agent-Aktualisierungen aktivieren",
+    "maxConcurrent": "Gleichzeitige Aktualisierungen",
+    "maxConcurrentHelper": "Wie viele Agenten gleichzeitig aktualisiert werden dürfen.",
+    "maxAttempts": "Versuche pro Agent",
+    "maxAttemptsHelper": "Geben Sie einen Agenten nach dieser Anzahl fehlgeschlagener Aktualisierungen auf.",
+    "healthTimeout": "Verbindungs-Timeout",
+    "healthTimeoutHelper": "Wie lange Sie warten möchten, bis sich ein aktualisierter Agent erneut verbindet, bevor die Aktualisierung als fehlgeschlagen markiert wird.",
+    "applyNote": "Agenten rufen diese Werte bei ihrem nächsten Check-in ab."
+  },
+  "networkShare": {
+    "intro": "Speichern Sie Wortlisten und Regeln auf einer Netzwerkfreigabe, damit der Server keine große lokale Festplatte benötigt. Der Betreiber bindet die Freigabe auf dem Server-Host ein (über docker-compose als <code>KH_SHARE_DIR</code>) und auf jedem Network-Direct-Agent-Host; KrakenHashes liest nur den eingebundenen Pfad — es verbindet sich nie mit der Freigabe selbst oder speichert deren Anmeldeinformationen. Cloud-GPU-Agenten binden die Freigabe nicht ein: Sie laden Wortlisten/Regeln vom Server über das VPN herunter.",
+    "migrationLocked": "Eine Migration ist in Bearbeitung ({{state}}). Die Konfiguration ist gesperrt, bis sie abgeschlossen ist.",
+    "server": {
+      "title": "Server-Speicher-Einbindung",
+      "description": "Der Server liest Wortlisten und Regeln aus diesem vom Betreiber eingebundenen Pfad (in docker-compose als <code>KH_SHARE_DIR</code> gesetzt). KrakenHashes verbindet sich nicht mit der Freigabe selbst — das Einbinden ist die Verantwortung des Betreibers.",
+      "mountedPath": "Eingebundener Pfad (Lesezugriff)",
+      "shareDirNotSet": "KH_SHARE_DIR nicht gesetzt — binden Sie die Freigabe in docker-compose ein",
+      "servingFromShare": "Wird bereitgestellt von: Netzwerkfreigabe",
+      "servingFromLocal": "Wird bereitgestellt von: lokale Festplatte",
+      "shareReachable": "Freigabe erreichbar",
+      "shareNotMounted": "Freigabe nicht eingebunden",
+      "migrationChip": "Migration: {{state}}",
+      "lastValidated": "Zuletzt validiert {{date}}",
+      "enable": "Netzwerkfreigabe aktivieren",
+      "saving": "Wird gespeichert…",
+      "save": "Konfiguration speichern",
+      "validating": "Wird validiert…",
+      "validate": "Server-Einbindung validieren",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "Eingebundener Pfad: <code>{{path}}</code>",
+      "unset": "(nicht gesetzt)",
+      "yes": "ja",
+      "no": "nein",
+      "summary": "Eingebunden: {{mounted}} · Schreibbar: {{writable}} · Frei: {{free}} · Schreiben: {{write}} MB/s · Lesen: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Datenmigration",
+      "descriptionToShare": "Kopieren Sie vorhandene Wortlisten und Regeln auf die Netzwerkfreigabe und wechseln Sie das aktive Speicher-Backend. Dies ist ein Wartungsvorgang: Neue Aufträge werden nicht mehr verteilt, während die Flotte den Drain durchläuft, dann werden Wortlisten-/Regel-Uploads eingefroren und Dateien kopiert und ihre Prüfsumme überprüft, bevor umgeschaltet wird. Je nach Datengröße kann dies lange dauern, und der Server ist inzwischen für Uploads und neue Aufträge nicht verfügbar. Kunden- und Assoziations-Wortlisten, Binärdateien, Zeichensätze und Hashlisten bleiben immer lokal.",
+      "descriptionToLocal": "Kopieren Sie vorhandene Wortlisten und Regeln zurück auf die lokale Festplatte und wechseln Sie das aktive Speicher-Backend. Dies ist ein Wartungsvorgang: Neue Aufträge werden nicht mehr verteilt, während die Flotte den Drain durchläuft, dann werden Wortlisten-/Regel-Uploads eingefroren und Dateien kopiert und ihre Prüfsumme überprüft, bevor umgeschaltet wird. Je nach Datengröße kann dies lange dauern, und der Server ist inzwischen für Uploads und neue Aufträge nicht verfügbar. Kunden- und Assoziations-Wortlisten, Binärdateien, Zeichensätze und Hashlisten bleiben immer lokal.",
+      "phase": "Phase: {{phase}}",
+      "directionToShare": "lokal → Freigabe",
+      "directionToLocal": "Freigabe → lokal",
+      "waitingTasks_one": "Wartet, bis {{count}} Aufgabe abgeschlossen ist",
+      "waitingTasks_other": "Wartet, bis {{count}} Aufgaben abgeschlossen sind",
+      "earliestLock": " — früheste Sperrung {{time}}",
+      "filesProgress": "{{done}}/{{total}} Dateien · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "Wird abgebrochen…",
+      "abort": "Migration abbrechen",
+      "abortHelp": "Stoppt die Migration an ihrem nächsten Kontrollpunkt (nützlich, wenn die Freigabe langsam ist oder hängt). Der Speicher bleibt auf seinem aktuellen Backend und die Auftragsverteilung wird fortgesetzt; bereits kopierte Dateien bleiben erhalten und werden wiederverwendet, wenn Sie es erneut versuchen.",
+      "complete": "Migration abgeschlossen.",
+      "failed": "Migration fehlgeschlagen.",
+      "migrateToShare": "Wortlisten & Regeln zur Freigabe migrieren",
+      "migrateToLocal": "Zurück zur lokalen Festplatte migrieren",
+      "enableFirst": "Aktivieren Sie die Freigabe und bestätigen Sie, dass sie validiert wird, bevor Sie migrieren."
+    },
+    "agent": {
+      "title": "On-Prem-Agent-Einbindungsbefehl (optional)",
+      "description": "Diese Felder werden <b>nur</b> zum Generieren des Einbindungsbefehls für On-Prem-Agenten verwendet, die auf die <b>network_direct</b>-Stufe eingestellt sind. Der Server (oben) und Cloud-GPU-Agenten verwenden sie <b>nicht</b> — Cloud-Agenten laden über das VPN herunter. Sie sind nicht geheim; Anmeldeinformationen werden nie gespeichert oder gesendet.",
+      "protocol": "Protokoll",
+      "protocolHelp": "SMB lässt sich am einfachsten auf Windows-, macOS- und Linux-Agenten einsetzen; NFS funktioniert gut über das VPN mit einem Nur-Lese-Export.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Freigabe-Host, von dem Agenten einbinden (VPN-Adresse)",
+      "hostHelp": "Die Adresse der Freigabe, wie Agenten sie über das VPN erreichen — keine Servereinstellung (der Server verwendet seinen oben eingebundenen Pfad).",
+      "exportPath": "Exportpfad",
+      "shareName": "Freigabename",
+      "mountOptions": "Einbindungsoptionen (ein Schlüssel=Wert pro Zeile)",
+      "runThis": "Führen Sie dies auf dem Agent-Host aus, stellen Sie dann die Speicherstufe des Agenten auf \"Network direct\" mit dem Einbindungspfad auf seiner Agent-Seite ein:",
+      "replaceSmb": "Ersetzen Sie <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> und <code>&lt;PASSWORD&gt;</code> vor der Ausführung — der Befehl enthält immer noch Platzhalter.",
+      "replaceNfs": "Ersetzen Sie <code>&lt;MOUNT_PATH&gt;</code> vor der Ausführung — der Befehl enthält immer noch Platzhalter.",
+      "softSmb": "Der Befehl umfasst <code>soft</code>, damit die Einbindung schnell fehlschlägt, wenn die Freigabe langsam ist oder hängt (der Standard des Kernels <code>hard</code>). Dies wird mit der Fail-Closed-Freigabeprüfung des Agenten kombiniert, die die Arbeit umleitet, wenn die Einbindung nicht lesbar ist. <b>network_direct</b> ist für Freigaben mit niedriger Latenz/LAN-nah — legen Sie Remote- oder Freigaben mit hoher Latenz stattdessen auf die <b>on_demand</b>/<b>full_cache</b>-Download-Stufen. Überschreiben Sie jede Option, indem Sie sie oben festlegen.",
+      "softNfs": "Der Befehl umfasst <code>soft</code>, <code>timeo</code> und <code>retrans</code>, damit die Einbindung schnell fehlschlägt, wenn die Freigabe langsam ist oder ausfällt, statt zu hängen (der Standard des Kernels <code>hard</code>). Dies wird mit der Fail-Closed-Freigabeprüfung des Agenten kombiniert, die die Arbeit umleitet, wenn die Einbindung nicht lesbar ist. <b>network_direct</b> ist für Freigaben mit niedriger Latenz/LAN-nah — legen Sie Remote- oder Freigaben mit hoher Latenz stattdessen auf die <b>on_demand</b>/<b>full_cache</b>-Download-Stufen. Überschreiben Sie jede Option, indem Sie sie oben festlegen.",
+      "otherOs": "macOS: verwenden Sie <code>mount_smbfs</code> (SMB) oder <code>mount -t nfs</code> (NFS). Windows: verwenden Sie <code>net use</code> mit <code>{{uncPath}}</code>. Der Agent liest nur aus der Einbindung. Diese Felder werden mit <b>Konfiguration speichern</b> oben gespeichert."
+    },
+    "confirm": {
+      "title": "Datenmigration starten?",
+      "intro": "Dies wird:",
+      "step1": "Neue Aufträge nicht mehr verteilen und warten, bis laufende Aufgaben abgeschlossen sind (bis zu ca. 12 Minuten, bis sich Agenten erneut verbinden, länger bei laufenden langen Aufträgen).",
+      "step2": "Wortlisten-/Regel-Uploads einfrieren und eine Wartungsseite anzeigen, während Dateien kopiert und ihre Prüfsumme überprüft wird.",
+      "step3ToShare": "Das aktive Speicher-Backend nach Abschluss auf die Netzwerkfreigabe umschalten.",
+      "step3ToLocal": "Das aktive Speicher-Backend nach Abschluss auf die lokale Festplatte umschalten.",
+      "outro": "Pausierte Aufträge werden danach automatisch fortgesetzt. Falls etwas fehlschlägt, bleibt der Speicher unverändert und der Server bleibt betriebsfähig.",
+      "cancel": "Abbrechen",
+      "start": "Migration starten"
+    },
+    "toast": {
+      "loadFailed": "Netzwerkfreigabe-Konfiguration konnte nicht geladen werden",
+      "migrationStarted": "Migration gestartet.",
+      "startFailed": "Migration konnte nicht gestartet werden",
+      "migrationCanceled": "Migration abgebrochen — Speicher unverändert.",
+      "cancelFailed": "Migration konnte nicht abgebrochen werden",
+      "saved": "Netzwerkfreigabe-Konfiguration gespeichert.",
+      "saveFailed": "Konfiguration konnte nicht gespeichert werden",
+      "validated": "Freigabe erfolgreich validiert.",
+      "validationProblems": "Freigabevalidierung ergab Probleme.",
+      "validationFailed": "Validierung konnte nicht ausgeführt werden"
+    }
+  },
+  "jobAnalytics": {
+    "title": "Analyse der Auftragsleistung",
+    "description": "Analysieren Sie die Auftragsausführungsleistung, Hash-Raten und Benchmark-Verlauf über Ihre Agenten.",
+    "loadFiltersFailed": "Fehler beim Laden der Filteroptionen",
+    "tabs": {
+      "jobPerformance": "Auftragsleistung",
+      "successRate": "Erfolgsquote",
+      "benchmarkHistory": "Benchmark-Verlauf"
+    },
+    "summary": {
+      "totalJobs": "Gesamte Aufträge",
+      "totalJobsSubtitle": "{{completed}} abgeschlossen, {{failed}} fehlgeschlagen",
+      "totalCracks": "Gesamte Knackungen",
+      "totalCracksSubtitle": "Über alle gefilterten Aufträge",
+      "avgSpeed": "Ø Geschwindigkeit",
+      "avgSpeedSubtitle": "Durchschnittliche Hash-Rate pro Auftrag",
+      "avgDuration": "Ø Dauer",
+      "avgDurationSubtitle": "{{keys}} Keys verarbeitet"
+    },
+    "hashRateChart": {
+      "title": "Hash-Rate-Zeitleiste",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "empty": "Keine Zeitleistendaten für die ausgewählten Filter verfügbar",
+      "hashRate": "Hash-Rate",
+      "tooltipHashRate": "Hash-Rate: {{speed}}",
+      "tooltipJobs": "Aufträge: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Benchmark-Geschwindigkeitstrends",
+      "agent": "Agent",
+      "selectAgent": "Agenten auswählen",
+      "hashType": "Hash-Typ",
+      "attackMode": "Angriffsmodus",
+      "all": "Alle",
+      "range90d": "90d",
+      "range1y": "1y",
+      "rangeAll": "Alle",
+      "selectAgentPrompt": "Wählen Sie einen Agenten, um Benchmark-Trends anzuzeigen",
+      "empty": "Kein Benchmark-Verlauf für diesen Agenten gefunden",
+      "speed": "Geschwindigkeit",
+      "tooltipSpeed": "Geschwindigkeit: {{speed}}"
+    },
+    "filters": {
+      "title": "Filter",
+      "active": "Aktiv",
+      "dateStart": "Startdatum",
+      "dateEnd": "Enddatum",
+      "hashlist": "Hashliste",
+      "status": "Status",
+      "minKeyspace": "Min. Keyspace",
+      "maxKeyspace": "Max. Keyspace",
+      "reset": "Zurücksetzen",
+      "apply": "Anwenden"
+    },
+    "attackModes": {
+      "straight": "Wörterbuch",
+      "combination": "Kombination",
+      "bruteforce": "Brute-Force",
+      "hybridWlMask": "Hybrid WL+Maske",
+      "hybridMaskWl": "Hybrid Maske+WL",
+      "association": "Assoziation",
+      "modeNumber": "Modus {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Benchmark-Verlauf",
+      "empty": "Kein Benchmark-Verlauf gefunden",
+      "columns": {
+        "date": "Datum",
+        "agentFallback": "Agent #{{id}}",
+        "status": "Status"
+      },
+      "success": "Erfolg",
+      "failed": "Fehlgeschlagen"
+    },
+    "successRate": {
+      "title": "Erfolgsquote nach Auftragskonfiguration",
+      "subtitle": "Gruppiert nach Wortliste, Regeln, Angriffsmodus und Hash-Typ. Vorlagen-Aufträge umfassen passende benutzerdefinierte Aufträge.",
+      "empty": "Keine Erfolgsquotendaten für die ausgewählten Filter verfügbar",
+      "preset": "Vorlage",
+      "columns": {
+        "configuration": "Konfiguration",
+        "runs": "Läufe",
+        "hashes": "Hashes",
+        "cracks": "Knackungen",
+        "successRate": "Erfolgsquote",
+        "avgDuration": "Ø Dauer",
+        "totalCompute": "Gesamtrechenzeit"
+      }
+    },
+    "jobExecution": {
+      "title": "Auftragsausführungsdetails",
+      "empty": "Keine Aufträge für die ausgewählten Filter gefunden",
+      "noTaskData": "Keine Aufgabendaten verfügbar",
+      "taskBreakdown": "Aufgaben-Aufschlüsselung ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_one": "{{count}} Aufgabe",
+      "taskCount_other": "{{count}} Aufgaben",
+      "metricPointCount_one": "{{count}} Messpunkt",
+      "metricPointCount_other": "{{count}} Messpunkte",
+      "columns": {
+        "name": "Name",
+        "attack": "Angriff",
+        "duration": "Dauer",
+        "keyspace": "Keyspace",
+        "agents": "Agenten",
+        "progress": "Fortschritt",
+        "benchmark": "Benchmark",
+        "started": "Gestartet",
+        "completed": "Abgeschlossen"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Wortlistenverwaltung - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Kunden-Wortlisten ({{count}})",
+      "clientPotfile": "Kunden-Potfile",
+      "associationWordlists": "Assoziations-Wortlisten ({{count}})"
+    },
+    "columns": {
+      "fileName": "Dateiname",
+      "lineCount": "Zeilenanzahl",
+      "fileSize": "Dateigröße",
+      "uploaded": "Hochgeladen",
+      "hashlist": "Hashliste",
+      "actions": "Aktionen"
+    },
+    "hashlistFallback": "Hashliste #{{id}}",
+    "clientTab": {
+      "info": "Kunden-Wortlisten sind für alle Hashlisten dieses Kunden verfügbar. Sie können mit jedem Angriffsmodus verwendet werden.",
+      "uploadWordlist": "Wortliste hochladen",
+      "uploading": "Wird hochgeladen... {{progress}}%",
+      "noWordlists": "Noch keine Kunden-Wortlisten hochgeladen."
+    },
+    "potfileTab": {
+      "noPotfile": "Es existiert noch kein Kunden-Potfile. Es wird automatisch erstellt, wenn Hashes für die Hashlisten dieses Kunden geknackt werden.",
+      "autoGenerated": "Kunden-Potfile (Automatisch generiert)",
+      "description": "Dieses Potfile enthält alle geknackten Passwörter für diesen Kunden. Es wird automatisch aktualisiert, wenn Hashes geknackt werden.",
+      "passwordCount_one": "{{countDisplay}} Passwort",
+      "passwordCount_other": "{{countDisplay}} Passwörter",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Aktualisiert: {{date}}",
+      "downloadPotfile": "Potfile herunterladen"
+    },
+    "associationTab": {
+      "info": "Assoziations-Wortlisten sind pro Hashliste und ordnen jeden Hash per Zeilennummer 1:1 einem Passwort-Kandidaten zu. Sie werden auf der Hashlisten-Detailseite hochgeladen und verwaltet. Diese Ansicht zeigt alle Assoziations-Wortlisten über alle Hashlisten dieses Kunden.",
+      "noWordlists": "Keine Assoziations-Wortlisten für die Hashlisten dieses Kunden gefunden."
+    },
+    "messages": {
+      "wordlistDeleted": "Kunden-Wortliste gelöscht",
+      "associationDeleted": "Assoziations-Wortliste gelöscht",
+      "deleteFailed": "Fehler beim Löschen der Wortliste",
+      "uploadSuccess": "Kunden-Wortliste erfolgreich hochgeladen",
+      "uploadFailed": "Fehler beim Hochladen der Wortliste",
+      "downloaded": "{{filename}} heruntergeladen",
+      "downloadFailed": "Fehler beim Herunterladen der Datei"
+    },
+    "deleteConfirm": {
+      "title": "Wortliste löschen",
+      "message": "\"{{fileName}}\" löschen? Dies kann nicht rückgängig gemacht werden."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Teamverwaltung",
+      "titleMine": "Meine Teams",
+      "description": "Verwalten Sie alle Teams im System",
+      "descriptionMine": "Teams, deren Mitglied Sie sind",
+      "createTeam": "Team erstellen",
+      "bulkAssignHint": "Um mehrere Kunden gleichzeitig einem Team zuzuweisen, verwenden Sie die Massenzuweisungsfunktion auf der Seite <link>Kundenverwaltung</link>.",
+      "columns": {
+        "name": "Teamname",
+        "description": "Beschreibung",
+        "members": "Mitglieder",
+        "clients": "Kunden",
+        "hashlists": "Hashlisten",
+        "agents": "Agenten",
+        "created": "Erstellt"
+      },
+      "rowActions": {
+        "manage": "Team verwalten",
+        "edit": "Team bearbeiten",
+        "delete": "Team löschen"
+      },
+      "empty": "Keine Teams gefunden",
+      "emptyMine": "Sie sind noch nicht Mitglied eines Teams.",
+      "viewDetails": "Details anzeigen",
+      "memberCount_one": "{{count}} Mitglied",
+      "memberCount_other": "{{count}} Mitglieder",
+      "clientCount_one": "{{count}} Kunde",
+      "clientCount_other": "{{count}} Kunden",
+      "hashlistCount_one": "{{count}} Hashliste",
+      "hashlistCount_other": "{{count}} Hashlisten",
+      "agentCount_one": "{{count}} Agent",
+      "agentCount_other": "{{count}} Agenten",
+      "dialogs": {
+        "create": {
+          "title": "Neues Team erstellen",
+          "nameLabel": "Teamname",
+          "descriptionLabel": "Beschreibung",
+          "creatingButton": "Wird erstellt..."
+        },
+        "delete": {
+          "title": "Team löschen",
+          "confirmation": "Möchten Sie das Team \"{{name}}\" wirklich löschen? Dies entfernt alle Teammitgliedschaften und Kundenzuordnungen."
+        }
+      },
+      "messages": {
+        "createSuccess": "Team erfolgreich erstellt",
+        "deleteSuccess": "Team erfolgreich gelöscht",
+        "updateSuccess": "Team erfolgreich aktualisiert"
+      },
+      "errors": {
+        "loadFailed": "Fehler beim Laden der Teams",
+        "createFailed": "Fehler beim Erstellen des Teams",
+        "deleteFailed": "Fehler beim Löschen des Teams",
+        "updateFailed": "Fehler beim Aktualisieren des Teams"
+      }
+    },
+    "detail": {
+      "notFound": "Team nicht gefunden",
+      "noDescription": "Keine Beschreibung",
+      "breadcrumb": "Teams",
+      "editTeam": "Team bearbeiten",
+      "confirmActionTitle": "Aktion bestätigen",
+      "tabs": {
+        "members": "Mitglieder ({{count}})",
+        "clients": "Kunden ({{count}})",
+        "trustedTeams": "Vertrauenswürdige Teams ({{count}})",
+        "agents": "Agenten ({{count}})"
+      },
+      "addMember": "Mitglied hinzufügen",
+      "assignClient": "Kunden zuweisen",
+      "addTrust": "Vertrauen hinzufügen",
+      "trustInfo": "Wenn Sie einem anderen Team vertrauen, können seine Agenten die Aufträge Ihres Teams ausführen. Dies ist eine Einwegbeziehung – Vertrauen in Team B gibt Ihren Agenten keinen Zugriff auf die Aufträge von Team B.",
+      "agentsInfo": "<strong>Direkte</strong> Agenten gehören Mitgliedern dieses Teams. <strong>Vertrauenswürdige</strong> Agenten stammen von Teams, mit denen Sie Vertrauensbeziehungen hergestellt haben.",
+      "systemOwner": "System",
+      "columns": {
+        "username": "Benutzername",
+        "email": "E-Mail",
+        "role": "Rolle",
+        "joined": "Beigetreten",
+        "clientName": "Kundenname",
+        "description": "Beschreibung",
+        "trustedTeam": "Vertrauenswürdiges Team",
+        "trustedSince": "Vertraut seit",
+        "agentName": "Agent-Name",
+        "status": "Status",
+        "version": "Version",
+        "owner": "Besitzer",
+        "source": "Quelle"
+      },
+      "roles": {
+        "member": "Mitglied",
+        "admin": "Admin",
+        "adminManager": "Admin (Team-Manager)"
+      },
+      "source": {
+        "direct": "Direkt",
+        "trusted": "Vertrauenswürdig {{team}}",
+        "trustedBadge": "Vertrauenswürdig",
+        "unknown": "Unbekannt"
+      },
+      "rowActions": {
+        "removeMember": "Mitglied entfernen",
+        "removeClientFromTeam": "Kunden aus Team entfernen",
+        "removeTrust": "Vertrauen entfernen"
+      },
+      "empty": {
+        "noMembers": "Keine Mitglieder in diesem Team",
+        "noClients": "Diesem Team sind keine Kunden zugewiesen",
+        "noTrustedTeams": "Keine vertrauenswürdigen Teams. Nur System-Agenten und die eigenen Agenten dieses Teams können Aufträge ausführen.",
+        "noAgents": "Keine Agenten für dieses Team zugänglich",
+        "noAgentsHint": "Fügen Sie Teammitglieder mit Agenten hinzu oder stellen Sie Vertrauensbeziehungen her."
+      },
+      "confirm": {
+        "removeMember": "Möchten Sie dieses Mitglied wirklich entfernen?",
+        "removeClient": "Möchten Sie \"{{name}}\" wirklich aus diesem Team entfernen? Teammitglieder verlieren den Zugriff auf die Daten dieses Kunden.",
+        "removeTrust": "Diese Vertrauensbeziehung entfernen? Agenten aus diesem Team können Ihre Aufträge nicht mehr ausführen."
+      },
+      "messages": {
+        "memberAdded": "Mitglied erfolgreich hinzugefügt",
+        "memberRemoved": "Mitglied entfernt",
+        "roleUpdated": "Rolle aktualisiert",
+        "teamUpdated": "Team erfolgreich aktualisiert",
+        "clientAssigned": "Kunde dem Team zugewiesen",
+        "clientRemoved": "Kunde aus Team entfernt",
+        "trustAdded": "Vertrauensbeziehung hinzugefügt",
+        "trustRemoved": "Vertrauensbeziehung entfernt"
+      },
+      "errors": {
+        "loadFailed": "Fehler beim Laden der Teamdaten",
+        "addMemberFailed": "Fehler beim Hinzufügen des Mitglieds",
+        "removeMemberFailed": "Fehler beim Entfernen des Mitglieds",
+        "updateRoleFailed": "Fehler beim Aktualisieren der Rolle",
+        "loadClientsFailed": "Fehler beim Laden der Kunden",
+        "assignClientFailed": "Fehler beim Zuweisen des Kunden",
+        "removeClientFailed": "Fehler beim Entfernen des Kunden",
+        "updateTeamFailed": "Fehler beim Aktualisieren des Teams",
+        "loadTeamNamesFailed": "Fehler beim Laden der Teamnamen",
+        "addTrustFailed": "Fehler beim Hinzufügen der Vertrauensbeziehung",
+        "removeTrustFailed": "Fehler beim Entfernen der Vertrauensbeziehung"
+      },
+      "dialogs": {
+        "cancel": "Abbrechen",
+        "editTeam": {
+          "title": "Team bearbeiten",
+          "nameLabel": "Teamname",
+          "descriptionLabel": "Beschreibung",
+          "saveButton": "Speichern",
+          "savingButton": "Wird gespeichert..."
+        },
+        "addMember": {
+          "title": "Teammitglied hinzufügen",
+          "searchLabel": "Benutzer suchen",
+          "searchPlaceholder": "Geben Sie mindestens 2 Zeichen ein...",
+          "typeToSearch": "Zum Suchen eingeben...",
+          "noUsersFound": "Keine Benutzer gefunden",
+          "roleLabel": "Rolle",
+          "addButton": "Mitglied hinzufügen"
+        },
+        "addTrust": {
+          "title": "Vertrauenswürdiges Team hinzufügen",
+          "info": "Agenten, die Mitgliedern des vertrauenswürdigen Teams gehören, dürfen die Aufträge dieses Teams ausführen.",
+          "selectLabel": "Zu vertrauendes Team auswählen",
+          "searchPlaceholder": "Teams suchen...",
+          "noTeamsAvailable": "Keine Teams verfügbar",
+          "optionLabel_one": "{{name}} ({{count}} Agent)",
+          "optionLabel_other": "{{name}} ({{count}} Agenten)"
+        },
+        "assignClient": {
+          "title": "Kunden dem Team zuweisen",
+          "info": "Das Zuweisen eines Kunden gewährt allen Teammitgliedern Zugriff auf die Hashlisten, Aufträge und geknackten Daten dieses Kunden.",
+          "selectLabel": "Kunden auswählen",
+          "searchPlaceholder": "Kunden suchen...",
+          "noClientsAvailable": "Keine nicht zugeordneten Kunden verfügbar"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Verwaltung benutzerdefinierter Zeichensätze",
+    "description": "Verwalten Sie globale benutzerdefinierte Zeichensätze, die allen Vorlagen-Aufträgen und Benutzern zur Verfügung stehen. Unterstützt sowohl Inline-Definitionen als auch binäre .hcchr-Zeichensatzdateien.",
+    "createCharset": "Zeichensatz erstellen",
+    "columns": {
+      "name": "Name",
+      "type": "Typ",
+      "definition": "Definition / Info",
+      "description": "Beschreibung",
+      "created": "Erstellt"
+    },
+    "typeLabels": {
+      "file": "Datei",
+      "inline": "Inline",
+      "hex": "Hex"
+    },
+    "uniqueBytes_one": "{{count}} eindeutiges Byte",
+    "uniqueBytes_other": "{{count}} eindeutige Bytes",
+    "rowActions": {
+      "edit": "Bearbeiten",
+      "delete": "Löschen"
+    },
+    "empty": "Keine benutzerdefinierten Zeichensätze gefunden. Erstellen Sie einen, um zu beginnen.",
+    "dialogs": {
+      "create": {
+        "title": "Benutzerdefinierten Zeichensatz erstellen"
+      },
+      "edit": {
+        "title": "Benutzerdefinierten Zeichensatz bearbeiten"
+      },
+      "delete": {
+        "title": "Zeichensatz löschen",
+        "confirmation": "Sind Sie sicher, dass Sie den Zeichensatz \"{{name}}\" löschen möchten?"
+      },
+      "modeToggle": {
+        "inline": "Inline-Definition",
+        "file": "Datei-Upload (.hcchr)"
+      },
+      "fields": {
+        "name": "Name",
+        "namePlaceholder": "z.B. Vollständiger DES-Zeichensatz",
+        "definition": "Definition",
+        "definitionPlaceholderHex": "z.B. 41424344 (Hex-Byte-Paare)",
+        "definitionPlaceholderPlain": "z.B. ?u?d oder abcdef0123456789",
+        "definitionHelperHex": "Hex-Byte-Paare – jedes Paar = ein Zeichensatz-Byte. {{bytes}}",
+        "definitionHelperHexBytes_one": "{{count}} Byte",
+        "definitionHelperHexBytes_other": "{{count}} Bytes",
+        "definitionHelperPlain": "Hashcat-Zeichensatzdefinition. Verwenden Sie ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H oder Literalzeichen.",
+        "hexTooltip": "Wenn aktiviert, wird die Definition als Hex-Byte-Paare interpretiert (z.B. 41424344 = Bytes A, B, C, D). Aufträge, die diesen Zeichensatz verwenden, fügen automatisch --hex-charset hinzu.",
+        "hexLabel": "Hex-kodierte Definition",
+        "selectFile": ".hcchr-Datei auswählen",
+        "fileSizeBytes_one": "{{count}} Byte",
+        "fileSizeBytes_other": "{{count}} Bytes",
+        "fileHelperText": "Binäre Zeichensatzdatei mit rohen Byte-Werten (max. 1023 Bytes, bis zu 256 eindeutige Bytes). Wird für DES-Cracking, NTLMv1 und sprachspezifische Kodierungen verwendet.",
+        "fileCharsetInfo_one": "Datei-Zeichensatz: {{count}} eindeutiges Byte. Nur Name und Beschreibung können bearbeitet werden.",
+        "fileCharsetInfo_other": "Datei-Zeichensatz: {{count}} eindeutige Bytes. Nur Name und Beschreibung können bearbeitet werden.",
+        "description": "Beschreibung",
+        "descriptionPlaceholder": "Optionale Beschreibung des Verwendungszwecks dieses Zeichensatzes"
+      },
+      "update": "Aktualisieren",
+      "upload": "Hochladen"
+    },
+    "messages": {
+      "createSuccess": "Zeichensatz erfolgreich erstellt",
+      "uploadSuccess": "Datei-Zeichensatz erfolgreich hochgeladen",
+      "updateSuccess": "Zeichensatz erfolgreich aktualisiert",
+      "deleteSuccess": "Zeichensatz erfolgreich gelöscht"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Nur .hcchr-Dateien sind zulässig",
+      "fileTooLarge": "Datei zu groß (max. 1023 Bytes – Hashcat-Lesepuffer-Limit)",
+      "nameRequired": "Name ist erforderlich",
+      "definitionRequired": "Definition ist erforderlich",
+      "selectFile": "Bitte wählen Sie eine .hcchr-Datei aus",
+      "loadFailed": "Fehler beim Laden von Zeichensätzen: {{message}}",
+      "deleteFailed": "Fehler beim Löschen des Zeichensatzes: {{message}}"
     }
   }
 }

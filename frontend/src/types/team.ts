@@ -85,6 +85,8 @@ export interface TeamAgent {
   status: string;
   version: string;
   owner_username?: string;
+  owner_id?: string | null;
   source: 'direct' | 'trusted';
+  source_team_id?: string | null;
   source_team_name?: string;
 }

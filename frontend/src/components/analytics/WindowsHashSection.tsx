@@ -14,21 +14,28 @@ import {
   CardContent,
   Chip,
   Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Alert,
   AlertTitle,
 } from '@mui/material';
+import { alpha, Theme } from '@mui/material/styles';
 import {
   Security as SecurityIcon,
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Link as LinkIcon,
 } from '@mui/icons-material';
+import { SimpleTable, SimpleColumn } from '../ui';
+
+interface KerberosTypeRow {
+  type: string;
+  total: number;
+  cracked: number;
+  percentage: number;
+}
+
+/** Soft tinted background derived from a palette tone (works in light and dark). */
+const tint = (tone: 'primary' | 'success' | 'info' | 'warning', amount = 0.08) => (th: Theme) =>
+  alpha(th.palette[tone].main, amount);
 
 interface WindowsHashSectionProps {
   data: any; // WindowsHashStats type
@@ -104,6 +111,32 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
     );
   };
 
+  const kerberosRows: KerberosTypeRow[] = kerberos?.by_type
+    ? Object.entries(kerberos.by_type).map(([type, stats]: [string, any]) => ({
+        type,
+        total: stats.total,
+        cracked: stats.cracked,
+        percentage: stats.percentage,
+      }))
+    : [];
+
+  const kerberosColumns: SimpleColumn<KerberosTypeRow>[] = [
+    {
+      field: 'type',
+      headerName: t('columns.type'),
+      render: (r) => (
+        <>
+          {r.type === 'etype_23' && <Chip label={`${t('kerberosTypes.rc4')} (etype 23)`} size="small" color="warning" />}
+          {r.type === 'etype_17' && <Chip label={`${t('kerberosTypes.aes128')} (etype 17)`} size="small" color="success" />}
+          {r.type === 'etype_18' && <Chip label={`${t('kerberosTypes.aes256')} (etype 18)`} size="small" color="success" />}
+        </>
+      ),
+    },
+    { field: 'total', headerName: t('columns.total'), align: 'right', render: (r) => r.total.toLocaleString() },
+    { field: 'cracked', headerName: t('columns.cracked'), align: 'right', render: (r) => r.cracked.toLocaleString() },
+    { field: 'percentage', headerName: t('columns.percentage'), align: 'right', render: (r) => formatPercentage(r.percentage) },
+  ];
+
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -122,7 +155,7 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
       )}
 
       {/* Overview Card */}
-      <Card sx={{ mb: 3, bgcolor: 'primary.50' }}>
+      <Card sx={{ mb: 3, bgcolor: tint('primary', 0.06) }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
             {t('sections.overview')}
@@ -210,38 +243,11 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
                   <Typography variant="subtitle2" gutterBottom>
                     {t('sections.encryptionTypes')}
                   </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>{t('columns.type')}</TableCell>
-                          <TableCell align="right">{t('columns.total')}</TableCell>
-                          <TableCell align="right">{t('columns.cracked')}</TableCell>
-                          <TableCell align="right">{t('columns.percentage')}</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {Object.entries(kerberos.by_type).map(([type, stats]: [string, any]) => (
-                          <TableRow key={type}>
-                            <TableCell>
-                              {type === 'etype_23' && (
-                                <Chip label={`${t('kerberosTypes.rc4')} (etype 23)`} size="small" color="warning" />
-                              )}
-                              {type === 'etype_17' && (
-                                <Chip label={`${t('kerberosTypes.aes128')} (etype 17)`} size="small" color="success" />
-                              )}
-                              {type === 'etype_18' && (
-                                <Chip label={`${t('kerberosTypes.aes256')} (etype 18)`} size="small" color="success" />
-                              )}
-                            </TableCell>
-                            <TableCell align="right">{stats.total.toLocaleString()}</TableCell>
-                            <TableCell align="right">{stats.cracked.toLocaleString()}</TableCell>
-                            <TableCell align="right">{formatPercentage(stats.percentage)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                  <SimpleTable
+                    rows={kerberosRows}
+                    getRowKey={(r) => r.type}
+                    columns={kerberosColumns}
+                  />
                 </>
               )}
             </CardContent>
@@ -263,7 +269,7 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
               </Typography>
               <Grid container spacing={2} sx={{ mt: 1 }}>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.50', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: tint('success'), borderRadius: 1 }}>
                     <CheckCircleIcon sx={{ color: 'success.main', fontSize: 32 }} />
                     <Typography variant="h6">{linkedCorrelation.both_cracked.toLocaleString()}</Typography>
                     <Typography variant="caption">{t('labels.bothCracked')}</Typography>
@@ -273,7 +279,7 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'info.50', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: tint('info'), borderRadius: 1 }}>
                     <Typography variant="h6">{linkedCorrelation.only_ntlm_cracked.toLocaleString()}</Typography>
                     <Typography variant="caption">{t('labels.ntlmOnly')}</Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -282,7 +288,7 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.50', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: tint('warning'), borderRadius: 1 }}>
                     <Typography variant="h6">{linkedCorrelation.only_lm_cracked.toLocaleString()}</Typography>
                     <Typography variant="caption">{t('labels.lmOnly')}</Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -291,7 +297,7 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'surface.sunken', borderRadius: 1 }}>
                     <Typography variant="h6">{linkedCorrelation.neither_cracked.toLocaleString()}</Typography>
                     <Typography variant="caption">{t('labels.neitherCracked')}</Typography>
                   </Box>

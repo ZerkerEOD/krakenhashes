@@ -1,0 +1,46 @@
+{
+  "binaryVersionSelector": {
+    "label": "Selects which hashcat binary version pattern a job should use: an exact pin, or auto-updating within a major/minor version."
+  },
+  "status": {
+    "task": {
+      "reconnect_pending": "The controlling connection to the agent running this task was lost; it is waiting to reconnect (not failed).",
+      "processing_error": "A non-fatal error occurred while processing this task's output; the task is not necessarily failed."
+    },
+    "hashlist": {
+      "awaiting_validation_decision": "The hashlist upload contains lines that didn't parse as valid hashes; an admin must decide how to proceed."
+    },
+    "verification": {
+      "verified": "Checksum/integrity verification status for an uploaded wordlist, rule, or hashcat binary file — not user identity verification."
+    },
+    "cloud": {
+      "draining": "This cloud agent instance is finishing its current task and will not be given new work before it's terminated.",
+      "syncing": "This cloud agent instance is downloading wordlists/rules before it can start cracking."
+    },
+    "loopback": {
+      "active": "'Loopback' re-runs an attack's rules against newly-cracked passwords until no more cracks are found; 'Active' means a loopback round is currently running."
+    },
+    "sync": {
+      "in_progress": "Status of a background file-sync operation (e.g. syncing wordlists/rules to or from a network share)."
+    }
+  },
+  "charsetInputs": {
+    "referencedNotDefined": "This custom charset slot (?1-?4) is used in the mask pattern but has no characters defined for it yet.",
+    "willEnableHex": "Appended warning: saving will switch this charset's other slots to hex-encoded mode too, since mixing modes isn't allowed.",
+    "willDisableHex": "Appended warning: saving will switch this charset's other slots out of hex-encoded mode, since mixing modes isn't allowed."
+  },
+  "teamFilter": {
+    "adminBadge": "Shown when the current user has the admin role within that specific team (not necessarily a system-wide admin)."
+  },
+  "about": {
+    "versionInfo": {
+      "release": "The overall KrakenHashes release version (from versions.json), distinct from the individual component versions below it."
+    }
+  },
+  "footer": {
+    "release": "{{version}} is the overall product release version, not any single component's version."
+  },
+  "confirmations": {
+    "typeToConfirm": "{{text}} is the exact phrase (e.g. a resource's name) the user must retype to confirm a destructive action."
+  }
+}

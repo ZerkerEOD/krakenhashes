@@ -39,6 +39,8 @@ export interface Agent {
     metrics?: AgentMetrics;
     isEnabled?: boolean;
     ownerId?: string;
+    /** Owner's username (JOIN on owner_id); absent for system/ownerless agents. */
+    ownerUsername?: string;
     extraParameters?: string;
     /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
     binaryVersion?: string;

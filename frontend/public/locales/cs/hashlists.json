@@ -1,0 +1,549 @@
+{
+  "title": "Hashlisty",
+  "uploadButton": "Nahrát Hashlist",
+  "page": {
+    "title": "Správa Hashlistů",
+    "description": "Nahrávejte a spravujte seznamy hashů hesel pro operace prolomení"
+  },
+  "columns": {
+    "name": "Jméno",
+    "hashType": "Typ hashe",
+    "totalHashes": "Celkem hashů",
+    "crackedHashes": "Prolomeno",
+    "progress": "Prolomeno (%)",
+    "client": "Klient",
+    "status": "Stav",
+    "createdAt": "Vytvořeno",
+    "actions": "Akce"
+  },
+  "filters": {
+    "filterByName": "Filtrovat podle názvu",
+    "status": "Stav",
+    "all": "Vše"
+  },
+  "status": {
+    "uploading": "Nahrávání",
+    "processing": "Zpracování",
+    "ready": "Připraveno",
+    "error": "Chyba"
+  },
+  "table": {
+    "noHashlists": "Nebyly nalezeny žádné hashlisty."
+  },
+  "details": {
+    "title": "Podrobnosti hashlistu",
+    "overview": "Přehled",
+    "hashes": "Hashe",
+    "jobs": "Úlohy",
+    "stats": "Statistika"
+  },
+  "upload": {
+    "title": "Nahrát nový hashlist",
+    "name": "Název hashlistu",
+    "hashType": "Typ hashe",
+    "client": "Klient (volitelné)",
+    "file": "Soubor hashů",
+    "selectFile": "Vybrat soubor",
+    "uploading": "Nahrávání...",
+    "cancel": "Zrušit",
+    "executableBlocked": "Tento soubor se zdá být spustitelný binární soubor a nelze jej nahrát jako hashlist.",
+    "description": "Popis",
+    "methodLabel": "Metoda nahrávání",
+    "methodAriaLabel": "režim nahrávání",
+    "fileAriaLabel": "nahrávání souboru",
+    "pasteAriaLabel": "vložení hashů",
+    "uploadFile": "Nahrát soubor",
+    "pasteHashes": "Vložit hashe",
+    "dropHere": "Přetáhněte sem soubor hashlistu...",
+    "dragAndDrop": "Přetáhněte soubor hashlistu nebo kliknutím vyberte",
+    "allFileTypesExceptExecutables": "Všechny typy souborů jsou přijímány kromě spustitelných",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "Vymazat",
+    "hashCount_few": "{{count}} hashe",
+    "hashCount_many": "{{count}} hashů",
+    "hashCount_one": "{{count}} hash",
+    "hashCount_other": "{{count}} hashů",
+    "hashCountDetected_few": "{{count}} hashe zjištěny",
+    "hashCountDetected_many": "{{count}} hashů zjištěno",
+    "hashCountDetected_one": "{{count}} hash zjištěn",
+    "hashCountDetected_other": "{{count}} hashů zjištěno",
+    "pasteHashesLabel": "Vložte hashe zde (jeden na řádek)",
+    "pasteHashesPlaceholder": "Zadejte hashe, jeden na řádek...&#10;&#10;Příklad:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Vložte své hashe výše, jeden na řádek",
+    "excludeFromGlobalPotfile": "Vyloučit z globálního potfile",
+    "excludeFromGlobalPotfileHelper": "Prolomená hesla z tohoto hashlistu se neuloží do globálního potfile",
+    "globalPotfileDisabledNotice": "Poznámka: Globální potfile je aktuálně zakázán nastavením administrátora.",
+    "excludeFromClientPotfile": "Vyloučit z klientského potfile",
+    "excludeFromClientPotfileHelper": "Prolomená hesla z tohoto hashlistu se neuloží do klientského potfile",
+    "clientPotfilesDisabledNotice": "Poznámka: Klientské potfile jsou zakázány nastavením administrátora.",
+    "uploadButtonLabel": "Nahrát hashlist",
+    "selectTeamForNewClient": "Vyberte prosím tým pro nového klienta.",
+    "validationCancelled": "Nahrávání zrušeno. Opravte soubor a zkuste znovu.",
+    "errors": {
+      "nameRequired": "Je vyžadován název",
+      "hashTypeRequired": "Je vyžadován typ hashe",
+      "clientRequired": "Je vyžadován klient",
+      "noHashesToUpload": "Žádné hashe k nahrání",
+      "uploadFailedWithStatus": "Nahrávání selhalo (HTTP {{status}})",
+      "uploadFailedWithMessage": "Nahrávání selhalo: {{message}}",
+      "uploadFailedUnknown": "Nahrávání selhalo (neznámá chyba)",
+      "uploadErrorPrefix": "Chyba při nahrávání hashlistu: {{message}}",
+      "unknownError": "Došlo k neznámé chybě"
+    },
+    "linkDialog": {
+      "title": "Zjištěny hashe LM/NTLM",
+      "detected": "Zjištěn soubor formátu pwdump s:",
+      "lmCount_few": "{{count}} LM hashe (nevyplněné)",
+      "lmCount_many": "{{count}} LM hashů (nevyplněných)",
+      "lmCount_one": "{{count}} LM hash (nevyplněný)",
+      "lmCount_other": "{{count}} LM hashů (nevyplněných)",
+      "ntlmCount_few": "{{count}} NTLM hashe",
+      "ntlmCount_many": "{{count}} NTLM hashů",
+      "ntlmCount_one": "{{count}} NTLM hash",
+      "ntlmCount_other": "{{count}} NTLM hashů",
+      "blankLmCount_few": "{{count}} prázdné LM hashe (prázdné heslo - budou přeskočeny)",
+      "blankLmCount_many": "{{count}} prázdných LM hashů (prázdné heslo - bude přeskočeno)",
+      "blankLmCount_one": "{{count}} prázdný LM hash (prázdné heslo - bude přeskočen)",
+      "blankLmCount_other": "{{count}} prázdných LM hashů (prázdné heslo - bude přeskočeno)",
+      "question": "Chcete vytvořit dva propojené hashlisty pro oddělené pracovní postupy prolomení?",
+      "explanation": "Tím se vytvoří hashlisty \"{{lmName}}\" a \"{{ntlmName}}\", které jsou navzájem propojeny.",
+      "uploadSingle": "Nahrát jako jeden seznam",
+      "createLinked": "Vytvořit propojené seznamy"
+    }
+  },
+  "actions": {
+    "viewDetails": "Zobrazit podrobnosti",
+    "createJob": "Vytvořit úlohu",
+    "download": "Stáhnout",
+    "delete": "Smazat"
+  },
+  "createJob": {
+    "additionalArgs": "Další argumenty hashcatu (volitelné)",
+    "additionalArgsHelper": "Další příznaky hashcatu pro tuto úlohu. Příznaky na úrovni agenta mají prioritu v případě konfliktů.",
+    "title": "Vytvořit úlohu pro \"{{name}}\"",
+    "successRedirect": "Úlohy byly úspěšně vytvořeny! Přesměrování na stránku úloh...",
+    "successDefault": "Úloha byla úspěšně vytvořena!",
+    "loadingDefault": "Vytváření...",
+    "loadingCreating": "Vytváření úlohy...",
+    "loadingKeyspace": "Vypočítávání keyspace...",
+    "cancel": "Zrušit",
+    "submit": "Vytvořit úlohu(y)",
+    "canInterrupt": "Lze přerušit",
+    "tabs": {
+      "workflows": "Pracovní postupy",
+      "presetJobs": "Přednastavené úlohy",
+      "customJob": "Vlastní úloha"
+    },
+    "attackModes": {
+      "dictionary": "Slovníkový útok",
+      "combination": "Kombinovaný útok",
+      "bruteforce": "Útok hrubou silou",
+      "hybridWordlistMask": "Hybridní slovník + maska",
+      "hybridMaskWordlist": "Hybridní maska + slovník",
+      "association": "Asociační útok",
+      "modeFallback": "Režim {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Vyberte prosím alespoň jeden pracovní postup",
+      "selectPresetJob": "Vyberte prosím alespoň jednu přednastavenou úlohu",
+      "wordlistRequired": "Vybraný režim útoku vyžaduje alespoň jeden slovník",
+      "combinationRequiresTwo": "Kombinovaný útok vyžaduje výběr obou slovníků",
+      "maskRequired": "Vybraný režim útoku vyžaduje masku",
+      "associationMixedWorkFactors": "Asociační útoky nelze spouštět na hashlistech se smíšenými pracovními faktory",
+      "associationWordlistRequired": "Asociační útok vyžaduje asociační slovník",
+      "chunkDurationMin": "Doba trvání bloku musí být alespoň 5 sekund",
+      "chunkDurationMax": "Doba trvání bloku nemůže překročit 24 hodin (86400 sekund)",
+      "partialFailure": "{{message}}. Nevytvořeno: {{details}}",
+      "unnamedItem": "položka",
+      "createFailed": "Nepodařilo se vytvořit úlohu",
+      "loadFailed": "Nepodařilo se načíst dostupné úlohy"
+    },
+    "workflows": {
+      "empty": "Nejsou dostupné žádné pracovní postupy. Prosím vytvořte pracovní postupy nejprve v administračním panelu.",
+      "jobNameHelper": "Vaše jméno bude připojeno k názvu každého pracovního postupu",
+      "description": "Vyberte jeden nebo více pracovních postupů ke spuštění. Můžete vybrat více pracovních postupů - každý vytvoří svou vlastní sekvenci spuštění úloh. Nastavení loopbacku je konfigurováno přímo v pracovním postupu — pracovní postup označený jako „Loopback“ automaticky znovu spustí své vhodné kroky proti nově prolomeným heslům.",
+      "jobsCount_few": "{{count}} úlohy",
+      "jobsCount_many": "{{count}} úloh",
+      "jobsCount_one": "{{count}} úloha",
+      "jobsCount_other": "{{count}} úloh",
+      "loopbackAllEligible": "Loopback: všechny vhodné",
+      "loopbackSteps_few": "Loopback: {{count}} kroky",
+      "loopbackSteps_many": "Loopback: {{count}} kroků",
+      "loopbackSteps_one": "Loopback: {{count}} krok",
+      "loopbackSteps_other": "Loopback: {{count}} kroků",
+      "jobsList": "Úlohy: {{names}}",
+      "selectedCount_few": "{{count}} pracovní postupy vybrány",
+      "selectedCount_many": "{{count}} pracovních postupů vybráno",
+      "selectedCount_one": "{{count}} pracovní postup vybrán",
+      "selectedCount_other": "{{count}} pracovních postupů vybráno"
+    },
+    "presetJobs": {
+      "empty": "Nejsou dostupné žádné přednastavené úlohy. Prosím vytvořte přednastavené úlohy nejprve v administračním panelu.",
+      "jobNameHelper": "Vaše jméno bude připojeno k typu každé úlohy (např. 'Moje jméno - Spuštění Potfile')",
+      "description": "Vyberte jednu nebo více přednastavených úloh ke spuštění. Můžete vybrat více úloh - budou vytvořeny jako oddělená spuštění úloh.",
+      "priorityLabel": "Priorita: {{priority}}",
+      "selectedCount_few": "{{count}} úlohy vybrány",
+      "selectedCount_many": "{{count}} úloh vybráno",
+      "selectedCount_one": "{{count}} úloha vybrána",
+      "selectedCount_other": "{{count}} úloh vybráno"
+    },
+    "loopback": {
+      "label": "Loopback do sucha",
+      "helperEligible": "Spustí vybrané úlohy, potom znovu spustí vhodné z nich (přímý útok + pravidla, nebo hybridní útok) pouze proti nově prolomeným heslům — opakuje se dokud nejsou nalezena nová prolomení.",
+      "helperSelectEligible": "Vyberte níže vhodnou přednastavenou úlohu (přímý útok + pravidla, nebo hybridní útok), aby se povolil loopback.",
+      "helperNoneEligible": "Žádná z vybraných úloh nemá mutaci vhodnou pro loopback (jsou pouze ze slovníku, útok hrubou silou nebo asociační).",
+      "helperFilterConflict": "Loopback není dostupný, pokud je pro tuto úlohu povoleno předběžné filtrování.",
+      "helperCustom": "Spustí tento útok, potom znovu spustí jeho mutaci (pravidla nebo masku) pouze proti nově prolomeným heslům — opakuje se dokud nejsou nalezena nová prolomení."
+    },
+    "filter": {
+      "enableLabel": "Předběžně filtrovat vybrané slovníky pro tuto úlohu",
+      "ephemeralNotice": "Tento filtrovaný seznam je efemérní a používá se pouze pro tuto úlohu. Chcete-li vytvořit opakovaně použitelný filtrovaný slovník, použijte správu slovníků. Generace běží na pozadí; úloha se spustí automaticky, až bude připravena."
+    },
+    "association": {
+      "explainer": "Asociační útok mapuje každý hash na odpovídající řádek slovníku 1:1. Počet řádků slovníku se musí shodovat s celkovým počtem hashů ({{hashCount}}).",
+      "falsePositiveWarning": "<strong>Poznámka:</strong> Asociační útoky mohou vést k falešně pozitivním výsledkům. Doporučuje se ověřit výsledky stažením prolomených hashů, smazáním hashlistu, opětovným nahráním a potvrzením slovníkovým útokem.",
+      "wordlistLabel": "Asociační slovník",
+      "selectWordlist": "Vybrat asociační slovník",
+      "wordlistOptionLabel": "{{name}} ({{lines}} řádků, {{size}} KB)",
+      "wordlistHelper": "Nahrajte asociační slovníky prostřednictvím sekce asociačních slovníků hashlistu"
+    },
+    "cloud": {
+      "allowBurst": "Povolit cloudový burst",
+      "allowBurstHelper": "Pronajmout GPU instance, pokud místní flotila nemůže držet krok. Vyžaduje financování klienta a přihlášení u poskytovatele.",
+      "allowPeerHosts": "Povolit hostitele provozované třetí stranou (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "Jedná se o stroje někoho jiného. Vlastník hostitele má root přístup ke kontejneru, takže hashe tohoto klienta, slovníky a prolomená hesla jsou čitelné třetí stranou a <strong>nejsou šifrována v klidovém stavu na hostiteli</strong>. Není doporučeno pro produkci nebo data týkající se zapojení klienta. Ponechte vypnuté a úloha bude stále používat bezpečnou kapacitu (AWS, RunPod Secure Cloud), pokud to klient umožňuje.",
+      "maxInstances": "Max. instancí v cloudu",
+      "maxInstancesHelper": "Odděleno od Max. agentů, které řídí místní fond. Prázdné pole přenechá rozhodnutí rozpočtu."
+    },
+    "form": {
+      "jobName": "Název úlohy (volitelné)",
+      "jobNamePlaceholder": "Ponechte prázdné pro automaticky generovaný název",
+      "jobNameHelper": "Ponechte prázdné pro automaticky generovaný název na základě konfigurace útoku",
+      "attackModeLabel": "Režim útoku",
+      "attackModeDictionary": "Slovníkový útok",
+      "attackModeCombination": "Kombinovaný útok",
+      "attackModeBruteforce": "Útok hrubou silou",
+      "attackModeHybridWordlistMask": "Hybridní slovník + maska",
+      "attackModeHybridMaskWordlist": "Hybridní maska + slovník",
+      "attackModeAssociation": "Asociační útok",
+      "associationBlockedMixed": " (Blokováno: Smíšené pracovní faktory)",
+      "associationNoWordlists": " (Nejsou nahrány žádné slovníky)",
+      "binaryVersionHelper": "Vybrat vzor verze binárního souboru",
+      "wordlists": "Slovníky",
+      "selectWordlists": "Vybrat slovníky",
+      "ruleOptional": "Pravidlo (volitelné)",
+      "ruleOptionLabel_few": "{{name}} ({{count}} pravidla)",
+      "ruleOptionLabel_many": "{{name}} ({{count}} pravidel)",
+      "ruleOptionLabel_one": "{{name}} ({{count}} pravidlo)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} pravidel)",
+      "selectRule": "Vybrat pravidlo",
+      "firstWordlist": "První slovník",
+      "secondWordlist": "Druhý slovník",
+      "selectFirstWordlist": "Vybrat první slovník",
+      "selectSecondWordlist": "Vybrat druhý slovník",
+      "categoryClientSpecific": "Specifické pro klienta",
+      "categoryGlobal": "Globální",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} řádků)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} MB)",
+      "clientPotfileName_few": "Klientský potfile ({{count, number}} hesla)",
+      "clientPotfileName_many": "Klientský potfile ({{count, number}} hesel)",
+      "clientPotfileName_one": "Klientský potfile ({{count, number}} heslo)",
+      "clientPotfileName_other": "Klientský potfile ({{count, number}} hesel)",
+      "mask": "Maska",
+      "maskPlaceholder": "např. ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = malá písmena, ?u = velká písmena, ?d = číslice, ?s = speciální, ?1-?4 = vlastní",
+      "incrementModeLabel": "Režim inkrementace",
+      "incrementModeOff": "Vypnuto",
+      "incrementModeForward": "Inkrementace (L→P)",
+      "incrementModeInverse": "Inverzní inkrementace (P→L)",
+      "incrementModeHelper": "Inkrementace se nejdříve pokouší o kratší masky a postupně roste",
+      "minLength": "Minimální délka",
+      "maxLength": "Maximální délka",
+      "priority": "Priorita",
+      "priorityHelper": "Úlohy s vyšší prioritou se spouštějí jako první (1-1000)",
+      "chunkDuration": "Doba trvání bloku (sekundy)",
+      "chunkDurationHelper": "Čas v sekundách pro každý blok (5-86400 sekund)",
+      "maxAgents": "Max. agentů",
+      "maxAgentsHelper": "Maximální počet agentů (0 = neomezeno)",
+      "allowHighPriorityOverride": "Povolit přepsání vysokou prioritou",
+      "additionalArgsPlaceholder": "např. -w 4 -O --force"
+    }
+  },
+  "confirmDelete": {
+    "title": "Potvrzení smazání",
+    "message": "Jste si jistý, že chcete smazat hashlist \"{{name}}\"? Tuto akci není možné vrátit zpět.",
+    "cancel": "Zrušit",
+    "delete": "Smazat",
+    "deleting": "Mazání...",
+    "removeFromGlobalPotfile": "Odebrat prolomená hesla z globálního potfile",
+    "removeFromClientPotfile": "Odebrat prolomená hesla z klientského potfile"
+  },
+  "deletionProgress": {
+    "title": "Mazání hashlistu",
+    "successTitle": "Hashlist byl úspěšně smazán",
+    "complete": "Smazání dokončeno!",
+    "failed": "Smazání se nezdařilo",
+    "summary": "Shrnutí:",
+    "totalProcessed": "Celkem zpracovaných hashů: {{value}}",
+    "orphansDeleted": "Odstraněné osiřelé hashe: {{value}}",
+    "sharedPreserved": "Zachované sdílené hashe: {{value}}",
+    "jobsDeleted": "Smazané úlohy: {{value}}",
+    "duration": "Doba trvání: {{duration}}",
+    "phase": "Fáze {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Příprava...",
+      "removingHashes": "Odstraňování hashů",
+      "clearingReferences": "Čištění referencí na úkoly",
+      "cleaningOrphans": "Čištění osiřelých hashů",
+      "finalizing": "Finalizace smazání"
+    },
+    "units": {
+      "hashes": "hashů",
+      "references": "referencí"
+    },
+    "error": "Chyba: {{error}}",
+    "done": "Hotovo",
+    "close": "Zavřít"
+  },
+  "notifications": {
+    "deleteSuccess": "Hashlist byl úspěšně smazán",
+    "uploadSuccess": "Hashlist byl úspěšně nahrán",
+    "downloaded": "Staženo {{filename}}",
+    "archiveSuccess": "Hashlist byl úspěšně archivován",
+    "unarchiveSuccess": "Hashlist byl úspěšně obnoven z archivu",
+    "bulkArchiveSuccess_few": "{{count}} hashlisty byly úspěšně archivovány",
+    "bulkArchiveSuccess_many": "{{count}} hashlistů bylo úspěšně archivováno",
+    "bulkArchiveSuccess_one": "{{count}} hashlist byl úspěšně archivován",
+    "bulkArchiveSuccess_other": "{{count}} hashlistů bylo úspěšně archivováno",
+    "bulkUnarchiveSuccess_few": "{{count}} hashlisty byly úspěšně obnoveny z archivu",
+    "bulkUnarchiveSuccess_many": "{{count}} hashlistů bylo úspěšně obnoveno z archivu",
+    "bulkUnarchiveSuccess_one": "{{count}} hashlist byl úspěšně obnoven z archivu",
+    "bulkUnarchiveSuccess_other": "{{count}} hashlistů bylo úspěšně obnoveno z archivu"
+  },
+  "errors": {
+    "loadFailed": "Chyba při načítání hashlistů.",
+    "uploadFailed": "Nahrání hashlistu se nezdařilo",
+    "deleteFailed": "Smazání se nezdařilo: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Zobrazit archivované",
+    "archive": "Archivovat",
+    "unarchive": "Obnovit z archivu",
+    "archived": "Archivováno",
+    "selectedCount": "{{count}} vybráno",
+    "archiveSelected": "Archivovat vybrané",
+    "unarchiveSelected": "Obnovit vybrané z archivu",
+    "deleteSelected": "Smazat vybrané",
+    "confirmBulkDelete": {
+      "title": "Potvrzení hromadného smazání",
+      "message_few": "Jste si jistý, že chcete smazat {{count}} hashlisty? Tuto akci není možné vrátit zpět.",
+      "message_many": "Jste si jistý, že chcete smazat {{count}} hashlistů? Tuto akci není možné vrátit zpět.",
+      "message_one": "Jste si jistý, že chcete smazat {{count}} hashlist? Tuto akci není možné vrátit zpět.",
+      "message_other": "Jste si jistý, že chcete smazat {{count}} hashlistů? Tuto akci není možné vrátit zpět.",
+      "warning": "Tímto dojde k trvalému smazání vybraných hashlistů a všech jejich přidružených dat."
+    },
+    "bulkDeleteSuccess_few": "{{count}} hashlisty byly úspěšně smazány",
+    "bulkDeleteSuccess_many": "{{count}} hashlistů bylo úspěšně smazáno",
+    "bulkDeleteSuccess_one": "{{count}} hashlist byl úspěšně smazán",
+    "bulkDeleteSuccess_other": "{{count}} hashlistů bylo úspěšně smazáno"
+  },
+  "hashDetails": {
+    "title": "Podrobnosti hashe",
+    "originalHash": "Původní hash",
+    "password": "Heslo",
+    "cracked": "Prolomeno",
+    "crackedAt": "Prolomeno dne"
+  },
+  "detail": {
+    "backToHashlists": "Zpět na hashlisty",
+    "viewCrackedHashes": "Zobrazit prolomené hashe",
+    "noDescription": "Žádný popis",
+    "statusLabel": "Stav:",
+    "hashType": "Typ hashe: {{name}}",
+    "clientLabel": "Klient:",
+    "noClient": "Žádný",
+    "editClient": "Upravit klienta",
+    "created": "Vytvořeno: {{date}}",
+    "crackProgress": "Pokrok v prolomení ({{cracked}} z {{total}})",
+    "fallbackHashlistName": "Hashlist",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} řádků",
+      "rate": "({{rate}}/s)",
+      "eta": "• ETA: {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Tento hashlist se maže — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Načítání…",
+      "resumeReview": "Pokračovat v přezkumu",
+      "title": "Tento hashlist je pozastaven a čeká na rozhodnutí o ověření.",
+      "message": "Ověření hashů označilo <strong>{{invalidCount}}</strong> z <strong>{{totalLines}}</strong> řádků jako poškozené. Otevřete dialog přezkumu, abyste mohli pokračovat s platnými hashi, změnit typ hashe nebo zrušit nahrání."
+    },
+    "jobsRun": {
+      "title": "Spuštěné úlohy",
+      "subtitle": "Úlohy, které byly spuštěny proti tomuto hashlistu, včetně archivovaných.",
+      "empty": "Zatím nebyly proti tomuto hashlistu spuštěny žádné úlohy"
+    },
+    "editClientDialog": {
+      "title": "Úprava přiřazení klienta",
+      "description": "Vyberte klienta pro tento hashlist nebo nechte prázdné, abyste odebrali přiřazení klienta.",
+      "save": "Uložit",
+      "saving": "Ukládání..."
+    },
+    "notifications": {
+      "clientUpdated": "Klient byl úspěšně aktualizován",
+      "processingResumed": "Zpracování obnoveno.",
+      "uploadCancelled": "Nahrání zrušeno."
+    },
+    "errors": {
+      "deleteFailed": "Smazání hashlistu se nezdařilo",
+      "clientUpdateFailed": "Aktualizace klienta se nezdařila",
+      "clientNotFound": "Klient nenalezen",
+      "clientLookupFailed": "Vyhledání klienta se nezdařilo",
+      "downloadFailed": "Stažení souboru se nezdařilo",
+      "downloadHashlistFailed": "Stažení hashlistu se nezdařilo",
+      "serverError": "Chyba serveru ({{status}})",
+      "loadInvalidHashesFailed": "Načtení neplatných hashů se nezdařilo"
+    }
+  },
+  "associationWordlists": {
+    "header": "Klientské slovníky",
+    "blocked": "Blokováno",
+    "blockedTooltip": "Asociační útoky jsou blokovány z důvodu smíšených pracovních faktorů v hashlistu",
+    "delete": "Smazat",
+    "uploadAssociation": "Nahrát slovník asociačního útoku",
+    "uploadClient": "Nahrát klientský slovník",
+    "uploadingPercent": "Nahrávání... {{percent}}%",
+    "emptyAssociation": "Zatím nebyly nahrány žádné slovníky asociačního útoku.",
+    "emptyClient": "Zatím nebyly nahrány žádné klientské slovníky.",
+    "mixedWorkFactorsWarning": "Tento hashlist má smíšené pracovní faktory. Asociační útoky nelze spustit na hashlistech s různými hodnotami bcrypt nebo podobnými proměnnými pracovními faktory. Stále můžete nahrávat slovníky, ale vytváření úloh asociačního útoku bude blokováno.",
+    "explainer": "Slovníky asociačního útoku mapují každý hash na kandidáta hesla v poměru 1:1 podle čísla řádku. Slovník musí mít přesně <strong>{{lines}}</strong> řádků, aby odpovídal počtu hashů tohoto hashlistu.",
+    "tabs": {
+      "associationAttack": "Asociační útok",
+      "clientWordlists": "Klientské slovníky"
+    },
+    "columns": {
+      "fileName": "Název souboru",
+      "lineCount": "Počet řádků",
+      "fileSize": "Velikost souboru",
+      "status": "Stav",
+      "uploaded": "Nahráno",
+      "actions": "Akce"
+    },
+    "status": {
+      "ready": "Připraveno",
+      "lineCountMismatch": "Neshoda počtu řádků",
+      "lineCountMismatchTooltip": "Očekáváno {{expected}} řádků, obdrženo {{actual}}"
+    },
+    "deleteConfirm": {
+      "title": "Smazat slovník",
+      "message": "Smazat \"{{fileName}}\"? Tuto akci není možné vrátit zpět."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Klientské slovníky jsou dostupné pouze pro hashlisty přidružené ke klientovi.",
+      "description": "Klientské slovníky jsou dostupné ve všech hashlistech pro tohoto klienta. Lze je používat s jakýmkoli režimem útoku, nejen s asociačními útoky."
+    },
+    "clientPotfile": {
+      "title": "Klientský potfile (automaticky generován)",
+      "description": "Tento potfile obsahuje všechna prolomená hesla pro tohoto klienta. Je automaticky aktualizován, když jsou hashe prolomeny.",
+      "passwordCount_few": "{{count}} hesla",
+      "passwordCount_many": "{{count}} hesel",
+      "passwordCount_one": "{{count}} heslo",
+      "passwordCount_other": "{{count}} hesel",
+      "updated": "Aktualizováno: {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "Slovník asociačního útoku byl smazán",
+      "clientDeleted": "Klientský slovník byl smazán",
+      "associationUploaded": "Slovník asociačního útoku byl úspěšně nahrán",
+      "clientUploaded": "Klientský slovník byl úspěšně nahrán"
+    },
+    "errors": {
+      "deleteFailed": "Smazání slovníku se nezdařilo",
+      "uploadFailed": "Nahrání slovníku se nezdařilo",
+      "loadAssociationFailed": "Načtení slovníků asociačního útoku se nezdařilo",
+      "loadClientFailed": "Načtení klientských slovníků se nezdařilo",
+      "lineCountMismatch": "Slovník má {{wordlistLines}} řádků, ale hashlist má {{hashlistLines}} platných hashů."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Klient",
+    "placeholder": "Vyberte klienta...",
+    "createNewClient": "Vytvořit nového klienta",
+    "newClientDetails": "Podrobnosti nového klienta",
+    "team": "Tým",
+    "teamHelper": "Nový klient bude přiřazen tomuto týmu.",
+    "clientName": "Název klienta",
+    "description": "Popis",
+    "contactInfo": "Kontaktní informace",
+    "dataRetention": "Uchovávání dat (měsíce)",
+    "dataRetentionPlaceholderDefault": "Výchozí systému: {{months}}",
+    "dataRetentionPlaceholderUnset": "Nenastaveno (uchovávat neurčitě)",
+    "dataRetentionHelperDefault": "Nechte prázdné, abyste použili výchozí nastavení systému ({{months}} měsíců). Nastavte na 0, abyste zachovali trvale.",
+    "dataRetentionHelperUnset": "Nechte prázdné, abyste použili výchozí nastavení systému. Nastavte na 0, abyste zachovali trvale.",
+    "excludeFromGlobalPotfile": "Vyloučit z globálního potfile",
+    "excludeFromGlobalPotfileHelper": "Prolomená hesla od tohoto klienta nebudou přidána do globálního potfile.",
+    "excludeFromClientPotfile": "Vyloučit z klientského potfile",
+    "excludeFromClientPotfileHelper": "Prolomená hesla od tohoto klienta nebudou přidána do jejich klientského potfile.",
+    "errors": {
+      "fetchFailed": "Načtení klientů se nezdařilo"
+    }
+  },
+  "hashesTable": {
+    "title": "Hashe",
+    "subtitle": "{{cracked}} z {{total}} prolomeno ({{pct}}%)",
+    "searchPlaceholder": "Hledat hashe...",
+    "ariaLabel": "tabulka hashů hashlistu",
+    "copiedToClipboard": "Zkopírováno do schránky",
+    "copyPassword": "Kopírovat heslo",
+    "copyHash": "Kopírovat hash",
+    "loadFailed": "Načtení hashů se nezdařilo",
+    "columns": {
+      "originalHash": "Původní hash",
+      "username": "Uživatelské jméno",
+      "domain": "Doména",
+      "password": "Heslo",
+      "status": "Stav"
+    },
+    "status": {
+      "cracked": "Prolomeno",
+      "partial": "Částečné",
+      "pending": "Nevyřešeno"
+    }
+  },
+  "validationPreview": {
+    "title": "Ověření hashů: kontrola neplatných řádků",
+    "modeFallback": "režim {{id}}",
+    "truncatedNotice": "Prvních 10 000 neplatných řádků je zaznamenáno k přezkumu; v souboru existují další neplatné řádky, ale nejsou zde uvedeny.",
+    "hashTypeLabel": "Typ hashe",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Probíhá revalidace…",
+    "revalidateButton": "Revalidovat",
+    "cancelAndFix": "Zrušit a opravit",
+    "cancelling": "Probíhá zrušení…",
+    "starting": "Probíhá spouštění…",
+    "proceedButton": "Pokračovat s {{validCount}} platnými hashi",
+    "noInvalidLines": "Žádné neplatné řádky k zobrazení.",
+    "allInvalid": {
+      "body1": "<strong>Žádný</strong> z {{totalLines}} řádků v <em>{{hashlistName}}</em> se neshoduje s <strong>{{hashTypeName}}</strong>. Výběr typu hashe je pravděpodobně chybný.",
+      "body2": "Níže vyberte správný typ a klepněte na <strong>Revalidovat</strong> — soubor zůstane nahrán, takže nemusíte začínat znovu."
+    },
+    "notAllInvalid": {
+      "body": "<strong>{{invalidCount}}</strong> z <strong>{{totalLines}}</strong> řádků v <em>{{hashlistName}}</em> selhalo při ověření a budou přeskočeny, pokud budete pokračovat. <strong>{{validCount}}</strong> platných hashů bude importováno."
+    },
+    "chooseActionText": "Vyberte <strong>Pokračovat pouze s platnými</strong> pro import {{validCount}} platných hashů (uvedené chybné řádky budou ignorovány) nebo <strong>Zrušit a opravit</strong> pro smazání tohoto uploadu, abyste mohli opravit zdrojový soubor a zkusit znovu.",
+    "columns": {
+      "line": "Řádek",
+      "hashTruncated": "Hash (zkrácen)",
+      "reason": "Důvod"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "Nepodařilo se načíst neplatné hashe",
+      "proceedFailed": "Nepodařilo se pokračovat",
+      "cancelFailed": "Nepodařilo se zrušit",
+      "revalidationFailed": "Nepodařilo se revalidovat"
+    }
+  }
+}

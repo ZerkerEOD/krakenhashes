@@ -1,0 +1,549 @@
+{
+  "title": "Списки хешів",
+  "uploadButton": "Завантажити список хешів",
+  "page": {
+    "title": "Управління списком хешів",
+    "description": "Завантажуйте та керуйте списками хешів паролів для операцій зламування"
+  },
+  "columns": {
+    "name": "Назва",
+    "hashType": "Тип хешу",
+    "totalHashes": "Усього хешів",
+    "crackedHashes": "Зламано",
+    "progress": "Зламано (%)",
+    "client": "Клієнт",
+    "status": "Статус",
+    "createdAt": "Створено",
+    "actions": "Дії"
+  },
+  "filters": {
+    "filterByName": "Фільтрувати за назвою",
+    "status": "Статус",
+    "all": "Всі"
+  },
+  "status": {
+    "uploading": "Завантажується",
+    "processing": "Обробляється",
+    "ready": "Готово",
+    "error": "Помилка"
+  },
+  "table": {
+    "noHashlists": "Список хешів не знайдено."
+  },
+  "details": {
+    "title": "Деталі списку хешів",
+    "overview": "Огляд",
+    "hashes": "Хеші",
+    "jobs": "Завдання",
+    "stats": "Статистика"
+  },
+  "upload": {
+    "title": "Завантажити новий список хешів",
+    "name": "Назва списку хешів",
+    "hashType": "Тип хешу",
+    "client": "Клієнт (необов'язково)",
+    "file": "Файл хешів",
+    "selectFile": "Вибрати файл",
+    "uploading": "Завантажується...",
+    "cancel": "Скасувати",
+    "executableBlocked": "Цей файл виглядає як виконуваний файл і не може бути завантажений як список хешів.",
+    "description": "Опис",
+    "methodLabel": "Метод завантаження",
+    "methodAriaLabel": "режим завантаження",
+    "fileAriaLabel": "завантаження файлу",
+    "pasteAriaLabel": "вставлення хешів",
+    "uploadFile": "Завантажити файл",
+    "pasteHashes": "Вставити хеші",
+    "dropHere": "Перетягніть файл списку хешів сюди...",
+    "dragAndDrop": "Перетягніть файл списку хешів або натисніть для вибору",
+    "allFileTypesExceptExecutables": "Приймаються всі типи файлів, крім виконуваних",
+    "fileSizeKB": "{{size}} КБ",
+    "clear": "Очистити",
+    "hashCount_few": "{{count}} хеші",
+    "hashCount_many": "{{count}} хешів",
+    "hashCount_one": "{{count}} хеш",
+    "hashCount_other": "{{count}} хеша",
+    "hashCountDetected_few": "{{count}} хеші виявлено",
+    "hashCountDetected_many": "{{count}} хешів виявлено",
+    "hashCountDetected_one": "{{count}} хеш виявлено",
+    "hashCountDetected_other": "{{count}} хеша виявлено",
+    "pasteHashesLabel": "Вставте хеші сюди (по одному в рядок)",
+    "pasteHashesPlaceholder": "Введіть хеші, по одному в рядок...&#10;&#10;Приклад:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Вставте свої хеші вище, по одному в рядок",
+    "excludeFromGlobalPotfile": "Виключити з глобального potfile",
+    "excludeFromGlobalPotfileHelper": "Зламані паролі з цього списку хешів не будуть збережені у глобальному potfile",
+    "globalPotfileDisabledNotice": "Примітка: глобальний potfile наразі вимкнено через налаштування адміністратора.",
+    "excludeFromClientPotfile": "Виключити з potfile клієнта",
+    "excludeFromClientPotfileHelper": "Зламані паролі з цього списку хешів не будуть збережені у potfile клієнта",
+    "clientPotfilesDisabledNotice": "Примітка: potfile клієнтів вимкнено через налаштування адміністратора.",
+    "uploadButtonLabel": "Завантажити список хешів",
+    "selectTeamForNewClient": "Будь ласка, виберіть команду для нового клієнта.",
+    "validationCancelled": "Завантаження скасовано. Виправте файл і спробуйте ще раз.",
+    "errors": {
+      "nameRequired": "Потрібна назва",
+      "hashTypeRequired": "Потрібен тип хешу",
+      "clientRequired": "Потрібен клієнт",
+      "noHashesToUpload": "Немає хешів для завантаження",
+      "uploadFailedWithStatus": "Завантаження не вдалось (HTTP {{status}})",
+      "uploadFailedWithMessage": "Завантаження не вдалось: {{message}}",
+      "uploadFailedUnknown": "Завантаження не вдалось (невідома помилка)",
+      "uploadErrorPrefix": "Помилка при завантаженні списку хешів: {{message}}",
+      "unknownError": "Сталася невідома помилка"
+    },
+    "linkDialog": {
+      "title": "Виявлені хеші LM/NTLM",
+      "detected": "Виявлено файл формату pwdump з:",
+      "lmCount_few": "{{count}} хеші LM (непусті)",
+      "lmCount_many": "{{count}} хешів LM (непустих)",
+      "lmCount_one": "{{count}} хеш LM (непустий)",
+      "lmCount_other": "{{count}} хеша LM (непустого)",
+      "ntlmCount_few": "{{count}} хеші NTLM",
+      "ntlmCount_many": "{{count}} хешів NTLM",
+      "ntlmCount_one": "{{count}} хеш NTLM",
+      "ntlmCount_other": "{{count}} хеша NTLM",
+      "blankLmCount_few": "{{count}} пусті хеші LM (порожній пароль - буде пропущено)",
+      "blankLmCount_many": "{{count}} пустих хешів LM (порожній пароль - буде пропущено)",
+      "blankLmCount_one": "{{count}} пустий хеш LM (порожній пароль - буде пропущено)",
+      "blankLmCount_other": "{{count}} пустого хеша LM (порожній пароль - буде пропущено)",
+      "question": "Бажаєте створити два пов'язані списки хешів для окремих робочих процесів зламування?",
+      "explanation": "Це створить \"{{lmName}}\" та \"{{ntlmName}}\" списки хешів, які пов'язані разом.",
+      "uploadSingle": "Завантажити як один список",
+      "createLinked": "Створити пов'язані списки"
+    }
+  },
+  "actions": {
+    "viewDetails": "Переглянути деталі",
+    "createJob": "Створити завдання",
+    "download": "Завантажити",
+    "delete": "Видалити"
+  },
+  "createJob": {
+    "additionalArgs": "Додаткові аргументи hashcat (необов'язково)",
+    "additionalArgsHelper": "Додаткові прапорці hashcat для цього завдання. Прапорці на рівні агента мають пріоритет при конфліктах.",
+    "title": "Створити завдання для \"{{name}}\"",
+    "successRedirect": "Завдання успішно створено! Перенаправлення на сторінку завдань...",
+    "successDefault": "Завдання успішно створено!",
+    "loadingDefault": "Створення...",
+    "loadingCreating": "Створення завдання...",
+    "loadingKeyspace": "Розрахунок простору ключів...",
+    "cancel": "Скасувати",
+    "submit": "Створити завдання",
+    "canInterrupt": "Можна переривати",
+    "tabs": {
+      "workflows": "Робочі процеси",
+      "presetJobs": "Шаблони завдань",
+      "customJob": "Користувацьке завдання"
+    },
+    "attackModes": {
+      "dictionary": "Словник",
+      "combination": "Комбінація",
+      "bruteforce": "Перебір",
+      "hybridWordlistMask": "Гібридна атака: словник + маска",
+      "hybridMaskWordlist": "Гібридна атака: маска + словник",
+      "association": "Асоціація",
+      "modeFallback": "Режим {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Будь ласка, виберіть хоча б один робочий процес",
+      "selectPresetJob": "Будь ласка, виберіть хоча б один шаблон завдання",
+      "wordlistRequired": "Вибраний режим атаки потребує принаймні один словник",
+      "combinationRequiresTwo": "Комбінована атака потребує вибору обох словників",
+      "maskRequired": "Вибраний режим атаки потребує маску",
+      "associationMixedWorkFactors": "Асоціативні атаки не можна запустити на списках хешів зі змішаними коефіцієнтами роботи",
+      "associationWordlistRequired": "Асоціативна атака потребує словника асоціацій",
+      "chunkDurationMin": "Тривалість блоку повинна бути щонайменше 5 секунд",
+      "chunkDurationMax": "Тривалість блоку не може перевищувати 24 години (86400 секунд)",
+      "partialFailure": "{{message}}. Не створено: {{details}}",
+      "unnamedItem": "елемент",
+      "createFailed": "Не вдалось створити завдання",
+      "loadFailed": "Не вдалось завантажити доступні завдання"
+    },
+    "workflows": {
+      "empty": "Немає доступних робочих процесів. Будь ласка, спочатку створіть робочі процеси на панелі адміністратора.",
+      "jobNameHelper": "Ваша назва буде додана до кожної назви робочого процесу",
+      "description": "Виберіть один або більше робочих процесів для запуску. Ви можете вибрати кілька робочих процесів - кожен створить власну послідовність виконань завдань. Налаштування loopback налаштовуються в самому робочому процесі — робочий процес, позначений як \"Loopback\", автоматично повторно запустить свої придатні кроки для щойно зламаних паролів.",
+      "jobsCount_few": "{{count}} завдання",
+      "jobsCount_many": "{{count}} завдань",
+      "jobsCount_one": "{{count}} завдання",
+      "jobsCount_other": "{{count}} завдання",
+      "loopbackAllEligible": "Loopback: усі придатні",
+      "loopbackSteps_few": "Loopback: {{count}} кроки",
+      "loopbackSteps_many": "Loopback: {{count}} кроків",
+      "loopbackSteps_one": "Loopback: {{count}} крок",
+      "loopbackSteps_other": "Loopback: {{count}} кроку",
+      "jobsList": "Завдання: {{names}}",
+      "selectedCount_few": "{{count}} робочі процеси вибрано",
+      "selectedCount_many": "{{count}} робочих процесів вибрано",
+      "selectedCount_one": "{{count}} робочий процес вибрано",
+      "selectedCount_other": "{{count}} робочого процесу вибрано"
+    },
+    "presetJobs": {
+      "empty": "Немає доступних шаблонів завдань. Будь ласка, спочатку створіть шаблони завдань на панелі адміністратора.",
+      "jobNameHelper": "Ваша назва буде додана до кожного типу завдання (наприклад, 'Моя назва - запуск potfile')",
+      "description": "Виберіть один або більше шаблонів завдань для запуску. Ви можете вибрати кілька завдань - вони будуть створені як окремі виконання завдань.",
+      "priorityLabel": "Пріоритет: {{priority}}",
+      "selectedCount_few": "{{count}} завдання вибрано",
+      "selectedCount_many": "{{count}} завдань вибрано",
+      "selectedCount_one": "{{count}} завдання вибрано",
+      "selectedCount_other": "{{count}} завдання вибрано"
+    },
+    "loopback": {
+      "label": "Loopback до вичерпання",
+      "helperEligible": "Виконує вибрані завдання, потім повторно запускає ті з них, що підтримують мутацію (прямі + правила, або гібридна атака), лише для щойно зламаних паролів — і повторює, доки не перестануть з'являтися нові зламані паролі.",
+      "helperSelectEligible": "Виберіть придатний шаблон (прямий + правила або гібридна атака) нижче, щоб ввімкнути loopback.",
+      "helperNoneEligible": "Жодне з вибраних завдань не має мутації для loopback (вони мають лише словник, перебір або асоціацію).",
+      "helperFilterConflict": "Loopback недоступний під час ввімкнення попередньої фільтрації для цього завдання.",
+      "helperCustom": "Запускає цю атаку, потім повторно запускає її мутацію (правила або маску) лише для щойно зламаних паролів — і повторює, доки не перестануть з'являтися нові зламані паролі."
+    },
+    "filter": {
+      "enableLabel": "Попередньо відфільтрувати вибрані словники для цього завдання",
+      "ephemeralNotice": "Цей відфільтрований список є тимчасовим і використовується тільки для цього завдання. Щоб створити багаторазово використовуваний відфільтрований словник, використовуйте Управління словниками. Генерація працює у фоновому режимі; завдання стартує автоматично, коли воно готове."
+    },
+    "association": {
+      "explainer": "Асоціативна атака зіставляє кожен хеш з відповідним рядком словника у співвідношенні 1:1. Кількість рядків словника повинна відповідати загальній кількості хешів ({{hashCount}}).",
+      "falsePositiveWarning": "<strong>Примітка:</strong> Асоціативні атаки можуть давати хибні позитиви. Рекомендується перевірити результати, завантажуючи зламані хеші, видаляючи список хешів, повторно завантажуючи та підтверджуючи словниковою атакою.",
+      "wordlistLabel": "Словник асоціацій",
+      "selectWordlist": "Виберіть словник асоціацій",
+      "wordlistOptionLabel": "{{name}} ({{lines}} рядків, {{size}} КБ)",
+      "wordlistHelper": "Завантажте словники асоціацій через розділ Словники асоціацій списку хешів"
+    },
+    "cloud": {
+      "allowBurst": "Дозволити розширення в хмару",
+      "allowBurstHelper": "Орендує екземпляри GPU, коли локальний парк не встигає впоратися. Потребує, щоб клієнт був профінансований і погодився на використання провайдера.",
+      "allowPeerHosts": "Дозволити однорівневі хости (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "Це машини когось іншого. Власник хоста має кореневий доступ до контейнера, тому хеші цього клієнта, словники та зламані паролі читаються третьою стороною і <strong>не зашифровані на хості</strong>. Не рекомендується для виробничих даних або даних проєкту клієнта. Залиште це вимкненим, і завдання все одно використовуватиме безпечні потужності (AWS, RunPod Secure Cloud), якщо клієнт дозволить.",
+      "maxInstances": "Максимум хмарних екземплярів",
+      "maxInstancesHelper": "Окремо від поля «Максимум агентів», яке керує локальним пулом. Якщо залишити порожнім, рішення приймає бюджет."
+    },
+    "form": {
+      "jobName": "Назва завдання (необов'язково)",
+      "jobNamePlaceholder": "Залиште порожнім для автоматично згенерованої назви",
+      "jobNameHelper": "Залиште порожнім для автоматично згенерованої назви на основі конфігурації атаки",
+      "attackModeLabel": "Режим атаки",
+      "attackModeDictionary": "Словникова атака",
+      "attackModeCombination": "Комбінована атака",
+      "attackModeBruteforce": "Атака перебором",
+      "attackModeHybridWordlistMask": "Гібридна атака: словник + маска",
+      "attackModeHybridMaskWordlist": "Гібридна атака: маска + словник",
+      "attackModeAssociation": "Асоціативна атака",
+      "associationBlockedMixed": " (Заблоковано: змішані коефіцієнти роботи)",
+      "associationNoWordlists": " (Словники не завантажені)",
+      "binaryVersionHelper": "Виберіть шаблон версії виконуваного файлу",
+      "wordlists": "Словники",
+      "selectWordlists": "Виберіть словники",
+      "ruleOptional": "Правило (необов'язково)",
+      "ruleOptionLabel_few": "{{name}} ({{count}} правила)",
+      "ruleOptionLabel_many": "{{name}} ({{count}} правил)",
+      "ruleOptionLabel_one": "{{name}} ({{count}} правило)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} правила)",
+      "selectRule": "Виберіть правило",
+      "firstWordlist": "Перший словник",
+      "secondWordlist": "Другий словник",
+      "selectFirstWordlist": "Виберіть перший словник",
+      "selectSecondWordlist": "Виберіть другий словник",
+      "categoryClientSpecific": "Специфічне для клієнта",
+      "categoryGlobal": "Глобальне",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} рядків)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} МБ)",
+      "clientPotfileName_few": "Potfile клієнта ({{count, number}} паролі)",
+      "clientPotfileName_many": "Potfile клієнта ({{count, number}} паролів)",
+      "clientPotfileName_one": "Potfile клієнта ({{count, number}} пароль)",
+      "clientPotfileName_other": "Potfile клієнта ({{count, number}} пароля)",
+      "mask": "Маска",
+      "maskPlaceholder": "наприклад, ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = нижній регістр, ?u = верхній регістр, ?d = цифра, ?s = спеціальний, ?1-?4 = власний",
+      "incrementModeLabel": "Режим збільшення",
+      "incrementModeOff": "Вимкнено",
+      "incrementModeForward": "Збільшення (Л→П)",
+      "incrementModeInverse": "Зворотне збільшення (П→Л)",
+      "incrementModeHelper": "Збільшення спочатку пробує коротші маски, поступово збільшуючи довжину",
+      "minLength": "Мінімальна довжина",
+      "maxLength": "Максимальна довжина",
+      "priority": "Пріоритет",
+      "priorityHelper": "Завдання з вищим пріоритетом виконуються першими (1-1000)",
+      "chunkDuration": "Тривалість блоку (секунди)",
+      "chunkDurationHelper": "Час у секундах для кожного блоку (5-86400 секунд)",
+      "maxAgents": "Максимум агентів",
+      "maxAgentsHelper": "Максимальна кількість агентів (0 = необмежено)",
+      "allowHighPriorityOverride": "Дозволити переривання з високим пріоритетом",
+      "additionalArgsPlaceholder": "наприклад, -w 4 -O --force"
+    }
+  },
+  "confirmDelete": {
+    "title": "Підтвердження видалення",
+    "message": "Ви впевнені, що хочете видалити список хешів \"{{name}}\"? Цю дію неможливо скасувати.",
+    "cancel": "Скасувати",
+    "delete": "Видалити",
+    "deleting": "Видалення...",
+    "removeFromGlobalPotfile": "Видалити зламані паролі з глобального potfile",
+    "removeFromClientPotfile": "Видалити зламані паролі з potfile клієнта"
+  },
+  "deletionProgress": {
+    "title": "Видалення списку хешів",
+    "successTitle": "Список хешів успішно видалено",
+    "complete": "Видалення завершено!",
+    "failed": "Видалення не вдалося",
+    "summary": "Підсумок:",
+    "totalProcessed": "Всього оброблено хешів: {{value}}",
+    "orphansDeleted": "Сирітські хеші видалено: {{value}}",
+    "sharedPreserved": "Спільні хеші збережено: {{value}}",
+    "jobsDeleted": "Завдання видалено: {{value}}",
+    "duration": "Тривалість: {{duration}}",
+    "phase": "Етап {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Підготовка...",
+      "removingHashes": "Видалення хешів",
+      "clearingReferences": "Очищення посилань на задачі",
+      "cleaningOrphans": "Очищення сирітських хешів",
+      "finalizing": "Завершення видалення"
+    },
+    "units": {
+      "hashes": "хешів",
+      "references": "посилань"
+    },
+    "error": "Помилка: {{error}}",
+    "done": "Готово",
+    "close": "Закрити"
+  },
+  "notifications": {
+    "deleteSuccess": "Список хешів успішно видалено",
+    "uploadSuccess": "Список хешів успішно завантажено",
+    "downloaded": "Завантажено {{filename}}",
+    "archiveSuccess": "Список хешів успішно заархівовано",
+    "unarchiveSuccess": "Список хешів успішно розархівовано",
+    "bulkArchiveSuccess_few": "{{count}} списки хешів успішно заархівовано",
+    "bulkArchiveSuccess_many": "{{count}} списків хешів успішно заархівовано",
+    "bulkArchiveSuccess_one": "{{count}} список хешів успішно заархівовано",
+    "bulkArchiveSuccess_other": "{{count}} списків хешів успішно заархівовано",
+    "bulkUnarchiveSuccess_few": "{{count}} списки хешів успішно розархівовано",
+    "bulkUnarchiveSuccess_many": "{{count}} списків хешів успішно розархівовано",
+    "bulkUnarchiveSuccess_one": "{{count}} список хешів успішно розархівовано",
+    "bulkUnarchiveSuccess_other": "{{count}} списків хешів успішно розархівовано"
+  },
+  "errors": {
+    "loadFailed": "Помилка під час завантаження списків хешів.",
+    "uploadFailed": "Не вдалося завантажити список хешів",
+    "deleteFailed": "Видалення не вдалося: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Показати архівовані",
+    "archive": "Заархівувати",
+    "unarchive": "Розархівувати",
+    "archived": "Архівовано",
+    "selectedCount": "{{count}} вибрано",
+    "archiveSelected": "Заархівувати вибрані",
+    "unarchiveSelected": "Розархівувати вибрані",
+    "deleteSelected": "Видалити вибрані",
+    "confirmBulkDelete": {
+      "title": "Підтвердження масового видалення",
+      "message_few": "Ви впевнені, що хочете видалити {{count}} списки хешів? Цю дію неможливо скасувати.",
+      "message_many": "Ви впевнені, що хочете видалити {{count}} списків хешів? Цю дію неможливо скасувати.",
+      "message_one": "Ви впевнені, що хочете видалити {{count}} список хешів? Цю дію неможливо скасувати.",
+      "message_other": "Ви впевнені, що хочете видалити {{count}} списків хешів? Цю дію неможливо скасувати.",
+      "warning": "Це остаточно видалить вибрані списки хешів та всі пов'язані дані."
+    },
+    "bulkDeleteSuccess_few": "{{count}} списки хешів успішно видалено",
+    "bulkDeleteSuccess_many": "{{count}} списків хешів успішно видалено",
+    "bulkDeleteSuccess_one": "{{count}} список хешів успішно видалено",
+    "bulkDeleteSuccess_other": "{{count}} списків хешів успішно видалено"
+  },
+  "hashDetails": {
+    "title": "Деталі хешу",
+    "originalHash": "Оригінальний хеш",
+    "password": "Пароль",
+    "cracked": "Зламаний",
+    "crackedAt": "Зламано"
+  },
+  "detail": {
+    "backToHashlists": "Назад до списків хешів",
+    "viewCrackedHashes": "Переглянути зламані хеші",
+    "noDescription": "Немає опису",
+    "statusLabel": "Статус:",
+    "hashType": "Тип хешу: {{name}}",
+    "clientLabel": "Клієнт:",
+    "noClient": "Немає",
+    "editClient": "Редагувати клієнта",
+    "created": "Створено: {{date}}",
+    "crackProgress": "Прогрес злому ({{cracked}} з {{total}})",
+    "fallbackHashlistName": "Список хешів",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} рядків",
+      "rate": "({{rate}}/сек)",
+      "eta": "• ETA: {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Цей список хешів видаляється — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Завантаження…",
+      "resumeReview": "Продовжити перегляд",
+      "title": "Цей список хешів призупинено в очікуванні рішення щодо валідації.",
+      "message": "Валідація хешу позначила <strong>{{invalidCount}}</strong> з <strong>{{totalLines}}</strong> рядків як неправильно оформлені. Відкрийте діалог перегляду, щоб продовжити з дійсними хешами, змінити тип хешу або скасувати завантаження."
+    },
+    "jobsRun": {
+      "title": "Запущені завдання",
+      "subtitle": "Завдання, які запущені для цього списку хешів, включно з архівованими.",
+      "empty": "Для цього списку хешів ще не запущено жодних завдань"
+    },
+    "editClientDialog": {
+      "title": "Редагувати призначення клієнта",
+      "description": "Виберіть клієнта для цього списку хешів або залиште порожнім, щоб видалити призначення клієнта.",
+      "save": "Зберегти",
+      "saving": "Збереження..."
+    },
+    "notifications": {
+      "clientUpdated": "Клієнта успішно оновлено",
+      "processingResumed": "Обробка відновлена.",
+      "uploadCancelled": "Завантаження скасовано."
+    },
+    "errors": {
+      "deleteFailed": "Не вдалося видалити список хешів",
+      "clientUpdateFailed": "Не вдалося оновити клієнта",
+      "clientNotFound": "Клієнта не знайдено",
+      "clientLookupFailed": "Не вдалося знайти клієнта",
+      "downloadFailed": "Не вдалося завантажити файл",
+      "downloadHashlistFailed": "Не вдалося завантажити список хешів",
+      "serverError": "Помилка сервера ({{status}})",
+      "loadInvalidHashesFailed": "Не вдалося завантажити неправильні хеші"
+    }
+  },
+  "associationWordlists": {
+    "header": "Специфічні словники клієнта",
+    "blocked": "Заблоковано",
+    "blockedTooltip": "Асоціативні атаки заблоковані через змішані коефіцієнти роботи в списку хешів",
+    "delete": "Видалити",
+    "uploadAssociation": "Завантажити словник асоціативної атаки",
+    "uploadClient": "Завантажити словник клієнта",
+    "uploadingPercent": "Завантаження... {{percent}}%",
+    "emptyAssociation": "Словники асоціативної атаки ще не завантажені.",
+    "emptyClient": "Словники клієнта ще не завантажені.",
+    "mixedWorkFactorsWarning": "Цей список хешів має змішані коефіцієнти роботи. Асоціативні атаки не можна запускати для списків хешів із різними витратами bcrypt або подібними змінними коефіцієнтами роботи. Ви все ще можете завантажувати словники, але створення завдань асоціативної атаки буде заблоковано.",
+    "explainer": "Словники асоціативної атаки відображають кожен хеш на кандидата паролю 1:1 за номером рядка. Словник повинен мати рівно <strong>{{lines}}</strong> рядків, щоб відповідати кількості хешів цього списку хешів.",
+    "tabs": {
+      "associationAttack": "Асоціативна атака",
+      "clientWordlists": "Словники клієнта"
+    },
+    "columns": {
+      "fileName": "Ім'я файлу",
+      "lineCount": "Кількість рядків",
+      "fileSize": "Розмір файлу",
+      "status": "Статус",
+      "uploaded": "Завантажено",
+      "actions": "Дії"
+    },
+    "status": {
+      "ready": "Готово",
+      "lineCountMismatch": "Невідповідність кількості рядків",
+      "lineCountMismatchTooltip": "Очікувалось {{expected}} рядків, отримано {{actual}}"
+    },
+    "deleteConfirm": {
+      "title": "Видалити словник",
+      "message": "Видалити \"{{fileName}}\"? Це не можна скасувати."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Словники клієнта доступні лише для списків хешів, пов'язаних з клієнтом.",
+      "description": "Словники клієнта доступні для всіх списків хешів цього клієнта. Їх можна використовувати з будь-яким режимом атаки, не лише асоціативними атаками."
+    },
+    "clientPotfile": {
+      "title": "potfile клієнта (автоматично створений)",
+      "description": "Цей potfile містить усі зламані паролі для цього клієнта. Він автоматично оновлюється під час злому хешів.",
+      "passwordCount_few": "{{count}} паролі",
+      "passwordCount_many": "{{count}} паролів",
+      "passwordCount_one": "{{count}} пароль",
+      "passwordCount_other": "{{count}} паролів",
+      "updated": "Оновлено: {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "Словник асоціативної атаки видалено",
+      "clientDeleted": "Словник клієнта видалено",
+      "associationUploaded": "Словник асоціативної атаки успішно завантажено",
+      "clientUploaded": "Словник клієнта успішно завантажено"
+    },
+    "errors": {
+      "deleteFailed": "Не вдалося видалити словник",
+      "uploadFailed": "Не вдалося завантажити словник",
+      "loadAssociationFailed": "Не вдалося завантажити словники асоціативної атаки",
+      "loadClientFailed": "Не вдалося завантажити словники клієнта",
+      "lineCountMismatch": "Словник має {{wordlistLines}} рядків, але список хешів має {{hashlistLines}} дійсних хешів."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Клієнт",
+    "placeholder": "Виберіть клієнта...",
+    "createNewClient": "Створити нового клієнта",
+    "newClientDetails": "Деталі нового клієнта",
+    "team": "Команда",
+    "teamHelper": "Новий клієнт буде призначений цій команді.",
+    "clientName": "Назва клієнта",
+    "description": "Опис",
+    "contactInfo": "Контактна інформація",
+    "dataRetention": "Період збереження даних (місяців)",
+    "dataRetentionPlaceholderDefault": "За замовчуванням системи: {{months}}",
+    "dataRetentionPlaceholderUnset": "Не встановлено (зберігати нескінченно)",
+    "dataRetentionHelperDefault": "Залиште порожнім, щоб використовувати значення за замовчуванням ({{months}} місяців). Встановіть 0, щоб зберігати назавжди.",
+    "dataRetentionHelperUnset": "Залиште порожнім, щоб використовувати значення за замовчуванням. Встановіть 0, щоб зберігати назавжди.",
+    "excludeFromGlobalPotfile": "Виключити з глобального potfile",
+    "excludeFromGlobalPotfileHelper": "Зламані паролі від цього клієнта не будуть додані до глобального potfile.",
+    "excludeFromClientPotfile": "Виключити з potfile клієнта",
+    "excludeFromClientPotfileHelper": "Зламані паролі від цього клієнта не будуть додані до специфічного для клієнта potfile.",
+    "errors": {
+      "fetchFailed": "Не вдалося отримати клієнтів"
+    }
+  },
+  "hashesTable": {
+    "title": "Хеші",
+    "subtitle": "{{cracked}} з {{total}} зламаних ({{pct}}%)",
+    "searchPlaceholder": "Пошук хешів...",
+    "ariaLabel": "таблиця хешів списку хешів",
+    "copiedToClipboard": "Скопійовано до буфера обміну",
+    "copyPassword": "Копіювати пароль",
+    "copyHash": "Копіювати хеш",
+    "loadFailed": "Не вдалося завантажити хеші",
+    "columns": {
+      "originalHash": "Оригінальний хеш",
+      "username": "Ім'я користувача",
+      "domain": "Домен",
+      "password": "Пароль",
+      "status": "Статус"
+    },
+    "status": {
+      "cracked": "Зламаний",
+      "partial": "Частковий",
+      "pending": "Очікує"
+    }
+  },
+  "validationPreview": {
+    "title": "Валідація хешів: перегляд помилково сформованих рядків",
+    "modeFallback": "режим {{id}}",
+    "truncatedNotice": "Записано перші 10 000 невалідних рядків для перегляду; у файлі є додаткові невалідні рядки, але вони не виведені тут.",
+    "hashTypeLabel": "Тип хешу",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Переперевірка…",
+    "revalidateButton": "Переперевірити",
+    "cancelAndFix": "Скасувати й виправити",
+    "cancelling": "Скасування…",
+    "starting": "Запуск…",
+    "proceedButton": "Продовжити з {{validCount}} валідними хешами",
+    "noInvalidLines": "Немає невалідних рядків для відображення.",
+    "allInvalid": {
+      "body1": "<strong>Жоден</strong> з {{totalLines}} рядків у <em>{{hashlistName}}</em> не відповідає <strong>{{hashTypeName}}</strong>. Вибір типу хешу, ймовірно, неправильний.",
+      "body2": "Виберіть правильний тип нижче й натисніть <strong>Переперевірити</strong> — файл залишається завантаженим, тому вам не потрібно починати спочатку."
+    },
+    "notAllInvalid": {
+      "body": "<strong>{{invalidCount}}</strong> з <strong>{{totalLines}}</strong> рядків у <em>{{hashlistName}}</em> не пройшли валідацію й будуть пропущені, якщо ви продовжите. <strong>{{validCount}}</strong> валідних хешів буде імпортовано."
+    },
+    "chooseActionText": "Виберіть <strong>Продовжити лише з валідними</strong>, щоб імпортувати {{validCount}} валідних хешів (перераховані погані рядки будуть ігноровані), або <strong>Скасувати й виправити</strong>, щоб видалити це завантаження — тоді ви зможете виправити вихідний файл і спробувати знову.",
+    "columns": {
+      "line": "Рядок",
+      "hashTruncated": "Хеш (скорочено)",
+      "reason": "Причина"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "Не вдалося завантажити невалідні хеші",
+      "proceedFailed": "Не вдалося продовжити",
+      "cancelFailed": "Не вдалося скасувати",
+      "revalidationFailed": "Переперевірка не вдалася"
+    }
+  }
+}

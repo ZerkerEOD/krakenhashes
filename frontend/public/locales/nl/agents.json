@@ -3,7 +3,7 @@
   "columns": {
     "name": "Naam",
     "status": "Status",
-    "gpus": "GPUs",
+    "gpus": "GPU's",
     "currentTask": "Huidige taak",
     "hashRate": "Hashsnelheid",
     "lastSeen": "Laatst gezien",
@@ -16,7 +16,14 @@
     "idle": "Inactief",
     "error": "Fout",
     "enabled": "Ingeschakeld",
-    "disabled": "Uitgeschakeld"
+    "disabled": "Uitgeschakeld",
+    "updatePending": "Update in behandeling",
+    "updateFailed": "Update mislukt",
+    "updating": "Bijwerken",
+    "updateStatus": "Updatestatus",
+    "currentVersion": "Huidige versie",
+    "targetVersion": "Bijwerken naar",
+    "standaloneNotice": "Dit is een zelfstandige agent en werkt niet automatisch bij."
   },
   "details": {
     "title": "Agent-details",
@@ -36,7 +43,8 @@
     "type": "Type",
     "name": "Naam",
     "runtime": "Runtime",
-    "specs": "Specificaties"
+    "specs": "Specificaties",
+    "defaultDeviceType": "GPU"
   },
   "actions": {
     "viewDetails": "Details bekijken",
@@ -44,7 +52,8 @@
     "restart": "Herstarten",
     "deactivateVoucher": "Voucher deactiveren",
     "removeAgent": "Agent verwijderen",
-    "clearBusyStatus": "Bezig-status wissen"
+    "clearBusyStatus": "Bezig-status wissen",
+    "retry": "Opnieuw proberen"
   },
   "vouchers": {
     "title": "Vouchers",
@@ -56,15 +65,53 @@
     "available": "Beschikbaar",
     "claimed": "Geclaimd",
     "continuous": "Doorlopend",
-    "singleUse": "Eenmalig gebruik"
+    "singleUse": "Eenmalig gebruik",
+    "pageTitle": "Voucherbeheer",
+    "pageDescription": "Claimcodes die agents gebruiken om zich op deze server te registreren.",
+    "generate": "Voucher genereren",
+    "includeInactive": "Inclusief inactieve",
+    "active": "Actief",
+    "inactive": "Inactief",
+    "systemLabel": "Systeem",
+    "manage": "Vouchers beheren"
   },
   "downloads": {
+    "expectedVersion": "Verwacht: v{{version}}",
     "title": "Agent-downloads",
     "selectPlatform": "Selecteer platform",
     "downloadAgent": "Agent downloaden",
     "version": "Versie {{version}}",
     "download": "Downloaden",
     "copyUrl": "URL kopiëren",
+    "copied": "Gekopieerd!"
+  },
+  "version": {
+    "updateAvailable": "Update beschikbaar",
+    "upToDate": "Bijgewerkt"
+  },
+  "install": {
+    "sectionTitle": "Een agent installeren",
+    "sectionBlurb": "Kies uw besturingssysteem om de exacte installatiecommando's te krijgen. De automatisch bijwerkende launcher houdt uw agent op de nieuwste versie; de zelfstandige binary wordt handmatig beheerd.",
+    "dialogTitle": "Agent op {{os}} installeren",
+    "mode": "Modus",
+    "modeAutoUpdate": "Automatisch bijwerken (aanbevolen)",
+    "modeStandalone": "Zelfstandig",
+    "architecture": "Architectuur",
+    "key": "Claimcode (sleutel)",
+    "registerLater": "Later registreren (geen code)",
+    "registerLaterNote": "Geen claimcode geselecteerd — de agent zal een code nodig hebben om te registreren. Genereer er een hierboven of registreer deze later.",
+    "generateCode": "Nieuwe code genereren",
+    "serverUrl": "Server URL",
+    "noBinaries": "Er zijn nog geen binaries beschikbaar voor dit platform.",
+    "serviceTitle": "Installeren als service (start bij aanmelding)",
+    "serviceRootUnix": "Wordt uitgevoerd als uw gebruiker vanaf deze map en start bij aanmelding — geen root nodig. Voor een systeemservice die vóór aanmelding wordt gestart, voegt u --system toe (vereist sudo).",
+    "serviceRootWindows": "Wordt uitgevoerd als uw gebruiker bij aanmelding via een geplande taak — geen beheerder nodig. Voor een systeemservice voegt u --system toe in een verhoogde PowerShell.",
+    "runTitle": "Uitvoeren in een terminal",
+    "downloadTitle": "Direct downloaden",
+    "downloadButton": "Downloaden",
+    "launcherBlurb": "De launcher superviseert de agent en werkt de binary automatisch bij wanneer een nieuwe versie wordt uitgebracht.",
+    "standaloneBlurb": "De zelfstandige agent wordt niet automatisch bijgewerkt — download deze opnieuw om bij te werken.",
+    "copy": "Kopiëren",
     "copied": "Gekopieerd!"
   },
   "errors": {
@@ -140,7 +187,8 @@
       "continuousLabel": "Doorlopend (code kan hergebruikt worden)",
       "claimCodeLabel": "Uw claimcode:",
       "continuousDescription": "Deze code kan meerdere keren worden gebruikt om agents te registreren.",
-      "singleUseDescription": "Deze code kan slechts één keer worden gebruikt."
+      "singleUseDescription": "Deze code kan slechts één keer worden gebruikt.",
+      "systemLabel": "Systeemagent (dient alle teams)"
     },
     "clearStatus": {
       "title": "Bezig-status wissen",
@@ -183,7 +231,9 @@
     "owner": "Eigenaar",
     "machineName": "Machinenaam",
     "operatingSystem": "Besturingssysteem",
-    "agentVersion": "Agent-versie"
+    "agentVersion": "Agent-versie",
+    "systemOwner": "Systeem",
+    "registeredBy": "Geregistreerd door {{name}}"
   },
   "common": {
     "unknown": "Onbekend",
@@ -215,7 +265,10 @@
     "temperature": "Temperatuur",
     "utilization": "Belasting",
     "fanSpeed": "Ventilatorsnelheid",
-    "hashRate": "Hashsnelheid"
+    "hashRate": "Hashsnelheid",
+    "noDataAvailable": "Geen gegevens beschikbaar",
+    "deviceFallback": "Apparaat {{id}}",
+    "allDevices": "Alle apparaten"
   },
   "placeholders": {
     "enterHashcatParameters": "Voer Hashcat-parameters in..."
@@ -261,6 +314,58 @@
       "24Hours": "24 uur",
       "24HoursDesc1": "Alle dagen: 00:00 - 23:59",
       "24HoursDesc2": "Agent draait continu"
+    }
+  },
+  "diagReasons": {
+    "noCompatibleJob": "Geen compatibele taak",
+    "blocklisted": "Benchmark op blocklist",
+    "benchmarking": "Voert een benchmark uit",
+    "outsideSchedule": "Buiten geplande uren",
+    "agentDisabled": "Agent uitgeschakeld",
+    "shuttingDown": "Wordt afgesloten",
+    "rejectionCooldown": "Koelperiode na subtaakafwijzing",
+    "noSchedulableWork": "Geen taken hebben werk om te verzenden",
+    "atCapacity": "Compatibele taken op capaciteit"
+  },
+  "activity": {
+    "currentWork": "Huidig werk",
+    "job": "Taak",
+    "taskStatus": "Subtaakstatus",
+    "jobProgress": "Taakvoortgang",
+    "taskProgress": "Subtaakvoortgang",
+    "keyspaceRange": "Keyspace-bereik",
+    "started": "Gestart",
+    "lastCheckpoint": "Laatste controlepunt",
+    "whyNotWorking": "Waarom deze agent niet werkt",
+    "recentFailuresAlert_one": "Recente subtaak mislukt ({{count}} in de afgelopen minuten)",
+    "recentFailuresAlert_other": "Recente subtaken mislukken ({{count}} in de afgelopen minuten)",
+    "lastFailedJob": "Laatste mislukte taak:",
+    "lastFailureTime": "laatste fout {{time}}",
+    "lastSeenTime": "laatst gezien {{time}}",
+    "occurrencesSuffix_one": " · {{countDisplay}} voorkomst",
+    "occurrencesSuffix_other": " · {{countDisplay}} voorkomsten",
+    "idleNoDiagnostics": "Deze agent is inactief. Geen planningsdiagnostiek in de afgelopen minuten — deze kan offline zijn, uitgeschakeld, of gewoon wachten op werk."
+  },
+  "storage": {
+    "title": "Opslaglaag",
+    "tiers": {
+      "fullCache": "Volledige cache — alle lijsten behouden",
+      "onDemand": "On-demand — download + LRU verwijderen",
+      "networkDirect": "Netwerk direct — lezen uit gekoppelde share"
+    },
+    "helperText": {
+      "fullCache": "Downloads en behoudt alle woordenlijsten/regels lokaal (snelste opstart).",
+      "onDemand": "Downloads per subtaak via HTTP en verwijdert minst recent gebruikte lijsten onder schijfdruk.",
+      "networkDirect": "Leest woordenlijsten/regels rechtstreeks van een netwerkshare die op deze agenthosts is gekoppeld (geen lokale kopie)."
+    },
+    "mountPathLabel": "Netwerkshare-koppelpad (alleen-lezen, op de agenthost)",
+    "mountPathHelper": "De operator koppelt de share hier op deze agenthosts; de agent leest er alleen uit. Referenties worden door de operator ingevoerd, nooit door de server verzonden.",
+    "messages": {
+      "enterMountPathHint": "Voer het alleen-lezen pad in op deze agenthost, dan slaat het automatisch op.",
+      "tierUpdated": "Opslaglaag bijgewerkt",
+      "tierUpdateFailed": "Bijwerken van opslaglaag mislukt",
+      "mountPathUpdated": "Koppelpad bijgewerkt",
+      "mountPathUpdateFailed": "Bijwerken van koppelpad mislukt"
     }
   }
 }

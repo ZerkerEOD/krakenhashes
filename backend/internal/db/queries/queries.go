@@ -28,9 +28,11 @@ const (
 			a.binary_version,
 			a.update_pending, a.target_version, a.update_started_at, a.update_attempts, a.update_error, a.update_last_attempt_at,
 			a.storage_tier, a.network_share_mount_path,
-			u.id, u.username, u.email, u.role
+			u.id, u.username, u.email, u.role,
+			o.username AS owner_username
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
+		LEFT JOIN users o ON a.owner_id = o.id
 		WHERE a.id = $1`
 
 	ListAgents = `
@@ -44,9 +46,11 @@ const (
 			a.binary_version,
 			a.update_pending, a.target_version, a.update_started_at, a.update_attempts, a.update_error, a.update_last_attempt_at,
 			a.storage_tier, a.network_share_mount_path,
-			u.id, u.username, u.email, u.role
+			u.id, u.username, u.email, u.role,
+			o.username AS owner_username
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
+		LEFT JOIN users o ON a.owner_id = o.id
 		WHERE ($1::text IS NULL OR a.status = $1)
 		  -- Retired cloud agents are hidden by DEFAULT, not permanently.
 		  --

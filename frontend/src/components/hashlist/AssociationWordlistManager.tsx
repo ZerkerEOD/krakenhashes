@@ -5,12 +5,6 @@ import {
   Paper,
   Button,
   IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   LinearProgress,
   Alert,
   Tooltip,
@@ -30,8 +24,9 @@ import {
   FolderSpecial as ClientFolderIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation, Trans } from 'react-i18next';
 import { api } from '../../services/api';
-import { useSnackbar } from 'notistack';
+import { SimpleTable, SimpleColumn, useConfirm, useToast } from '../ui';
 
 interface AssociationWordlist {
   id: string;
@@ -97,7 +92,9 @@ export default function AssociationWordlistManager({
   const [uploadingClient, setUploadingClient] = useState(false);
   const [uploadProgressClient, setUploadProgressClient] = useState(0);
   const queryClient = useQueryClient();
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const { t } = useTranslation('hashlists');
 
   // Fetch association wordlists
   const { data: associationWordlists = [], isLoading: isLoadingAssociation, error: errorAssociation } = useQuery({
@@ -137,11 +134,11 @@ export default function AssociationWordlistManager({
       await api.delete(`/api/hashlists/${hashlistId}/association-wordlists/${wordlistId}`);
     },
     onSuccess: () => {
-      enqueueSnackbar('Association wordlist deleted', { variant: 'success' });
+      toast.success(t('associationWordlists.notifications.associationDeleted') as string);
       queryClient.invalidateQueries({ queryKey: ['association-wordlists', hashlistId] });
     },
     onError: (error: any) => {
-      enqueueSnackbar(error.response?.data?.error || 'Failed to delete wordlist', { variant: 'error' });
+      toast.error(error.response?.data?.error || (t('associationWordlists.errors.deleteFailed') as string));
     }
   });
 
@@ -151,11 +148,11 @@ export default function AssociationWordlistManager({
       await api.delete(`/api/clients/${clientId}/wordlists/${wordlistId}`);
     },
     onSuccess: () => {
-      enqueueSnackbar('Client wordlist deleted', { variant: 'success' });
+      toast.success(t('associationWordlists.notifications.clientDeleted') as string);
       queryClient.invalidateQueries({ queryKey: ['client-wordlists', clientId] });
     },
     onError: (error: any) => {
-      enqueueSnackbar(error.response?.data?.error || 'Failed to delete wordlist', { variant: 'error' });
+      toast.error(error.response?.data?.error || (t('associationWordlists.errors.deleteFailed') as string));
     }
   });
 
@@ -186,7 +183,7 @@ export default function AssociationWordlistManager({
         }
       });
 
-      enqueueSnackbar('Association wordlist uploaded successfully', { variant: 'success' });
+      toast.success(t('associationWordlists.notifications.associationUploaded') as string);
       queryClient.invalidateQueries({ queryKey: ['association-wordlists', hashlistId] });
     } catch (error: any) {
       // 422 line-count mismatch carries a structured payload with the
@@ -195,19 +192,22 @@ export default function AssociationWordlistManager({
       const status = error?.response?.status;
       const data = error?.response?.data;
       if (status === 422 && data?.error === 'line_count_mismatch') {
-        enqueueSnackbar(
+        toast.error(
           data.message ||
-            `Wordlist has ${data.wordlist_lines} lines but the hashlist has ${data.hashlist_lines} valid hashes.`,
-          { variant: 'error', persist: true },
+            (t('associationWordlists.errors.lineCountMismatch', {
+              wordlistLines: data.wordlist_lines,
+              hashlistLines: data.hashlist_lines,
+            }) as string),
+          { persist: true },
         );
       } else {
-        enqueueSnackbar(data?.error || 'Failed to upload wordlist', { variant: 'error' });
+        toast.error(data?.error || (t('associationWordlists.errors.uploadFailed') as string));
       }
     } finally {
       setUploading(false);
       setUploadProgress(0);
     }
-  }, [hashlistId, queryClient, enqueueSnackbar]);
+  }, [hashlistId, queryClient, toast, t]);
 
   // Handle client wordlist file upload
   const handleClientUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,15 +236,15 @@ export default function AssociationWordlistManager({
         }
       });
 
-      enqueueSnackbar('Client wordlist uploaded successfully', { variant: 'success' });
+      toast.success(t('associationWordlists.notifications.clientUploaded') as string);
       queryClient.invalidateQueries({ queryKey: ['client-wordlists', clientId] });
     } catch (error: any) {
-      enqueueSnackbar(error.response?.data?.error || 'Failed to upload wordlist', { variant: 'error' });
+      toast.error(error.response?.data?.error || (t('associationWordlists.errors.uploadFailed') as string));
     } finally {
       setUploadingClient(false);
       setUploadProgressClient(0);
     }
-  }, [clientId, queryClient, enqueueSnackbar]);
+  }, [clientId, queryClient, toast, t]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -260,6 +260,89 @@ export default function AssociationWordlistManager({
     setTabValue(newValue);
   };
 
+  const renderDelete = (fileName: string, onConfirmed: () => void, deleting: boolean) => (
+    <Tooltip title={t('associationWordlists.delete') as string}>
+      <span>
+        <IconButton
+          size="small"
+          color="error"
+          aria-label={t('associationWordlists.delete') as string}
+          disabled={deleting}
+          onClick={async () => {
+            const ok = await confirm({
+              title: t('associationWordlists.deleteConfirm.title') as string,
+              message: t('associationWordlists.deleteConfirm.message', { fileName }) as string,
+              severity: 'danger',
+              confirmLabel: t('associationWordlists.delete') as string,
+            });
+            if (ok) onConfirmed();
+          }}
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </span>
+    </Tooltip>
+  );
+
+  const associationColumns: SimpleColumn<AssociationWordlist>[] = [
+    { field: 'file_name', headerName: t('associationWordlists.columns.fileName') as string },
+    {
+      field: 'line_count',
+      headerName: t('associationWordlists.columns.lineCount') as string,
+      align: 'right',
+      render: (w) => w.line_count.toLocaleString(),
+    },
+    { field: 'file_size', headerName: t('associationWordlists.columns.fileSize') as string, align: 'right', render: (w) => formatFileSize(w.file_size) },
+    {
+      field: 'status',
+      headerName: t('associationWordlists.columns.status') as string,
+      render: (w) =>
+        w.line_count === totalHashes ? (
+          <Chip size="small" icon={<CheckIcon />} label={t('associationWordlists.status.ready') as string} color="success" />
+        ) : (
+          <Tooltip
+            title={t('associationWordlists.status.lineCountMismatchTooltip', {
+              expected: totalHashes.toLocaleString(),
+              actual: w.line_count.toLocaleString(),
+            }) as string}
+          >
+            <Chip size="small" icon={<WarningIcon />} label={t('associationWordlists.status.lineCountMismatch') as string} color="error" />
+          </Tooltip>
+        ),
+    },
+    { field: 'created_at', headerName: t('associationWordlists.columns.uploaded') as string, noWrap: true, render: (w) => formatDate(w.created_at) },
+    {
+      field: 'actions',
+      headerName: t('associationWordlists.columns.actions') as string,
+      align: 'center',
+      render: (w) =>
+        renderDelete(w.file_name, () => deleteAssociationMutation.mutate(w.id), deleteAssociationMutation.isPending),
+    },
+  ];
+
+  const clientColumns: SimpleColumn<ClientWordlist>[] = [
+    { field: 'file_name', headerName: t('associationWordlists.columns.fileName') as string },
+    {
+      field: 'line_count',
+      headerName: t('associationWordlists.columns.lineCount') as string,
+      align: 'right',
+      render: (w) => w.line_count?.toLocaleString() || '-',
+    },
+    {
+      field: 'file_size',
+      headerName: t('associationWordlists.columns.fileSize') as string,
+      align: 'right',
+      render: (w) => (w.file_size ? formatFileSize(w.file_size) : '-'),
+    },
+    { field: 'created_at', headerName: t('associationWordlists.columns.uploaded') as string, noWrap: true, render: (w) => formatDate(w.created_at) },
+    {
+      field: 'actions',
+      headerName: t('associationWordlists.columns.actions') as string,
+      align: 'center',
+      render: (w) => renderDelete(w.file_name, () => deleteClientMutation.mutate(w.id), deleteClientMutation.isPending),
+    },
+  ];
+
   return (
     <Paper sx={{ p: 2, mb: 3 }}>
       <Box
@@ -271,13 +354,13 @@ export default function AssociationWordlistManager({
       >
         <Box display="flex" alignItems="center" gap={1}>
           <LinkIcon color="primary" />
-          <Typography variant="h6">Client Specific Wordlists</Typography>
+          <Typography variant="h6">{t('associationWordlists.header') as string}</Typography>
           {hasMixedWorkFactors && (
-            <Tooltip title="Association attacks blocked due to mixed work factors in hashlist">
+            <Tooltip title={t('associationWordlists.blockedTooltip') as string}>
               <Chip
                 size="small"
                 icon={<WarningIcon />}
-                label="Blocked"
+                label={t('associationWordlists.blocked') as string}
                 color="warning"
               />
             </Tooltip>
@@ -293,12 +376,12 @@ export default function AssociationWordlistManager({
           {/* Tabs for switching between wordlist types */}
           <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <Tab
-              label="Association Attack"
+              label={t('associationWordlists.tabs.associationAttack') as string}
               icon={<LinkIcon fontSize="small" />}
               iconPosition="start"
             />
             <Tab
-              label="Client Wordlists"
+              label={t('associationWordlists.tabs.clientWordlists') as string}
               icon={<ClientFolderIcon fontSize="small" />}
               iconPosition="start"
               disabled={!clientId}
@@ -309,17 +392,18 @@ export default function AssociationWordlistManager({
           <TabPanel value={tabValue} index={0}>
             {hasMixedWorkFactors && (
               <Alert severity="warning" sx={{ mb: 2 }}>
-                This hashlist has mixed work factors. Association attacks cannot be run on hashlists
-                with different bcrypt costs or similar variable work factors. You can still upload
-                wordlists, but creating association attack jobs will be blocked.
+                {t('associationWordlists.mixedWorkFactorsWarning') as string}
               </Alert>
             )}
 
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="body2">
-                Association wordlists map each hash to a password candidate 1:1 by line number.
-                The wordlist must have exactly <strong>{totalHashes.toLocaleString()}</strong> lines
-                to match this hashlist's hash count.
+                <Trans
+                  t={t}
+                  i18nKey="associationWordlists.explainer"
+                  values={{ lines: totalHashes.toLocaleString() }}
+                  components={{ strong: <strong /> }}
+                />
               </Typography>
             </Alert>
 
@@ -340,14 +424,14 @@ export default function AssociationWordlistManager({
                   startIcon={<UploadIcon />}
                   disabled={uploading}
                 >
-                  Upload Association Wordlist
+                  {t('associationWordlists.uploadAssociation') as string}
                 </Button>
               </label>
               {uploading && (
                 <Box sx={{ mt: 1, width: '100%' }}>
                   <LinearProgress variant="determinate" value={uploadProgress} />
                   <Typography variant="caption" color="text.secondary">
-                    Uploading... {uploadProgress}%
+                    {t('associationWordlists.uploadingPercent', { percent: uploadProgress }) as string}
                   </Typography>
                 </Box>
               )}
@@ -357,74 +441,17 @@ export default function AssociationWordlistManager({
             {isLoadingAssociation ? (
               <LinearProgress />
             ) : errorAssociation ? (
-              <Alert severity="error">Failed to load association wordlists</Alert>
+              <Alert severity="error">{t('associationWordlists.errors.loadAssociationFailed') as string}</Alert>
             ) : associationWordlists.length === 0 ? (
               <Typography color="text.secondary" sx={{ py: 2 }}>
-                No association wordlists uploaded yet.
+                {t('associationWordlists.emptyAssociation') as string}
               </Typography>
             ) : (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>File Name</TableCell>
-                      <TableCell align="right">Line Count</TableCell>
-                      <TableCell align="right">File Size</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Uploaded</TableCell>
-                      <TableCell align="center">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {associationWordlists.map((wordlist: AssociationWordlist) => {
-                      const lineCountMatch = wordlist.line_count === totalHashes;
-                      return (
-                        <TableRow key={wordlist.id}>
-                          <TableCell>{wordlist.file_name}</TableCell>
-                          <TableCell align="right">
-                            {wordlist.line_count.toLocaleString()}
-                          </TableCell>
-                          <TableCell align="right">
-                            {formatFileSize(wordlist.file_size)}
-                          </TableCell>
-                          <TableCell>
-                            {lineCountMatch ? (
-                              <Chip
-                                size="small"
-                                icon={<CheckIcon />}
-                                label="Ready"
-                                color="success"
-                              />
-                            ) : (
-                              <Tooltip title={`Expected ${totalHashes.toLocaleString()} lines, got ${wordlist.line_count.toLocaleString()}`}>
-                                <Chip
-                                  size="small"
-                                  icon={<WarningIcon />}
-                                  label="Line count mismatch"
-                                  color="error"
-                                />
-                              </Tooltip>
-                            )}
-                          </TableCell>
-                          <TableCell>{formatDate(wordlist.created_at)}</TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="Delete">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => deleteAssociationMutation.mutate(wordlist.id)}
-                                disabled={deleteAssociationMutation.isPending}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <SimpleTable<AssociationWordlist>
+                rows={associationWordlists}
+                columns={associationColumns}
+                getRowKey={(w) => w.id}
+              />
             )}
           </TabPanel>
 
@@ -432,14 +459,13 @@ export default function AssociationWordlistManager({
           <TabPanel value={tabValue} index={1}>
             {!clientId ? (
               <Alert severity="info" sx={{ mb: 2 }}>
-                Client wordlists are only available for hashlists associated with a client.
+                {t('associationWordlists.clientWordlists.noClientNotice') as string}
               </Alert>
             ) : (
               <>
                 <Alert severity="info" sx={{ mb: 2 }}>
                   <Typography variant="body2">
-                    Client wordlists are available across all hashlists for this client.
-                    These can be used with any attack mode, not just association attacks.
+                    {t('associationWordlists.clientWordlists.description') as string}
                   </Typography>
                 </Alert>
 
@@ -451,16 +477,15 @@ export default function AssociationWordlistManager({
                     <Box display="flex" alignItems="center" gap={1} mb={1}>
                       <ClientFolderIcon color="primary" />
                       <Typography variant="subtitle2" fontWeight="bold">
-                        Client Potfile (Auto-generated)
+                        {t('associationWordlists.clientPotfile.title') as string}
                       </Typography>
                     </Box>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      This potfile contains all cracked passwords for this client.
-                      It is automatically updated when hashes are cracked.
+                      {t('associationWordlists.clientPotfile.description') as string}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Chip
-                        label={`${clientPotfile.line_count.toLocaleString()} passwords`}
+                        label={t('associationWordlists.clientPotfile.passwordCount', { count: clientPotfile.line_count }) as string}
                         size="small"
                         color="success"
                       />
@@ -470,7 +495,7 @@ export default function AssociationWordlistManager({
                         variant="outlined"
                       />
                       <Chip
-                        label={`Updated: ${formatDate(clientPotfile.updated_at)}`}
+                        label={t('associationWordlists.clientPotfile.updated', { date: formatDate(clientPotfile.updated_at) }) as string}
                         size="small"
                         variant="outlined"
                       />
@@ -495,14 +520,14 @@ export default function AssociationWordlistManager({
                       startIcon={<UploadIcon />}
                       disabled={uploadingClient}
                     >
-                      Upload Client Wordlist
+                      {t('associationWordlists.uploadClient') as string}
                     </Button>
                   </label>
                   {uploadingClient && (
                     <Box sx={{ mt: 1, width: '100%' }}>
                       <LinearProgress variant="determinate" value={uploadProgressClient} />
                       <Typography variant="caption" color="text.secondary">
-                        Uploading... {uploadProgressClient}%
+                        {t('associationWordlists.uploadingPercent', { percent: uploadProgressClient }) as string}
                       </Typography>
                     </Box>
                   )}
@@ -512,51 +537,17 @@ export default function AssociationWordlistManager({
                 {isLoadingClient ? (
                   <LinearProgress />
                 ) : errorClient ? (
-                  <Alert severity="error">Failed to load client wordlists</Alert>
+                  <Alert severity="error">{t('associationWordlists.errors.loadClientFailed') as string}</Alert>
                 ) : clientWordlists.length === 0 ? (
                   <Typography color="text.secondary" sx={{ py: 2 }}>
-                    No client wordlists uploaded yet.
+                    {t('associationWordlists.emptyClient') as string}
                   </Typography>
                 ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>File Name</TableCell>
-                          <TableCell align="right">Line Count</TableCell>
-                          <TableCell align="right">File Size</TableCell>
-                          <TableCell>Uploaded</TableCell>
-                          <TableCell align="center">Actions</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {clientWordlists.map((wordlist: ClientWordlist) => (
-                          <TableRow key={wordlist.id}>
-                            <TableCell>{wordlist.file_name}</TableCell>
-                            <TableCell align="right">
-                              {wordlist.line_count?.toLocaleString() || '-'}
-                            </TableCell>
-                            <TableCell align="right">
-                              {wordlist.file_size ? formatFileSize(wordlist.file_size) : '-'}
-                            </TableCell>
-                            <TableCell>{formatDate(wordlist.created_at)}</TableCell>
-                            <TableCell align="center">
-                              <Tooltip title="Delete">
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => deleteClientMutation.mutate(wordlist.id)}
-                                  disabled={deleteClientMutation.isPending}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                  <SimpleTable<ClientWordlist>
+                    rows={clientWordlists}
+                    columns={clientColumns}
+                    getRowKey={(w) => w.id}
+                  />
                 )}
               </>
             )}

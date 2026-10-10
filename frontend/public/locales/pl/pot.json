@@ -1,0 +1,98 @@
+{
+  "title": "Złamane hasze",
+  "page": {
+    "title": "Złamane hasze (Potfile)",
+    "description": "Przeglądaj wszystkie pomyślnie złamane hasze haseł we wszystkich listach haszy i klientach.",
+    "filterByHashlist": "Przejdź do listy haszy",
+    "hashlistPlaceholder": "Wybierz listę haszy..."
+  },
+  "table": {
+    "allCrackedHashes": "Wszystkie złamane hasze"
+  },
+  "navigation": {
+    "backToAll": "Wróć do wszystkich złamanych haszy",
+    "backToSource": "Wróć"
+  },
+  "client": {
+    "title": "Złamane hasze - Widok klienta",
+    "description": "Przeglądanie złamanych haszy dla klienta: {{clientName}}",
+    "tableTitle": "Złamane hasze dla \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Złamane hasze - Widok listy haszy",
+    "description": "Przeglądanie złamanych haszy dla listy haszy: {{hashlistName}}",
+    "tableTitle": "Złamane hasze dla \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Złamane hasze dla zadania: {{jobName}}",
+    "description": "Przeglądaj wszystkie pomyślnie złamane hasze haseł z tego wykonania zadania.",
+    "tableTitle": "Złamane hasze - {{jobName}}",
+    "defaultName": "Zadanie {{id}}"
+  },
+  "columns": {
+    "originalHash": "Oryginalny hasz",
+    "domain": "Domena",
+    "username": "Nazwa użytkownika",
+    "password": "Hasło",
+    "hashType": "Typ hasza",
+    "actions": "Czynności"
+  },
+  "search": {
+    "placeholder": "Przeszukaj bazę danych...",
+    "filterPlaceholder": "Filtruj tę stronę...",
+    "button": "Szukaj",
+    "resultsFound_few": "Znaleziono {{count}} wyniki",
+    "resultsFound_many": "Znaleziono {{count}} wyników",
+    "resultsFound_one": "Znaleziono {{count}} wynik",
+    "resultsFound_other": "Znaleziono {{count}} wyników",
+    "noResults": "Brak wyników",
+    "searching": "Wyszukiwanie..."
+  },
+  "export": {
+    "hashPass": "Hasz:Hasło",
+    "userPass": "Użytkownik:Hasło",
+    "username": "Nazwa użytkownika",
+    "password": "Hasło",
+    "domainUser": "Domena\\Użytkownik",
+    "domainUserPass": "Domena\\Użytkownik:Hasło",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "Eksportuj widoczne wyniki",
+    "downloaded": "Pobrano {{filename}}",
+    "downloadFailed": "Nie udało się pobrać pliku"
+  },
+  "tooltips": {
+    "copyHash": "Kopiuj hasz:hasło",
+    "copyDomain": "Kliknij, aby skopiować domenę",
+    "copyUsername": "Kliknij, aby skopiować nazwę użytkownika",
+    "copyPassword": "Kliknij, aby skopiować hasło"
+  },
+  "dialogs": {
+    "loadAllTitle": "Załadować wszystkie wyniki?",
+    "loadAllMessage": "Załadowanie wszystkich {{value}} wyników może zająć znaczną ilość czasu i wpłynąć na wydajność. Czy na pewno kontynuować?",
+    "loadingAll": "Ładowanie wszystkich wyników. To może zająć chwilę...",
+    "cancel": "Anuluj",
+    "loadAll": "Załaduj wszystkie"
+  },
+  "pagination": {
+    "all": "Wszystkie"
+  },
+  "notifications": {
+    "copiedToClipboard": "Skopiowano do schowka",
+    "exported": "Wyeksportowano złamane hasze"
+  },
+  "errors": {
+    "loadFailed": "Nie udało się załadować złamanych haszy",
+    "loadClientFailed": "Nie udało się załadować informacji o kliencie",
+    "loadHashlistFailed": "Nie udało się załadować informacji o liście haszy",
+    "loadJobFailed": "Nie udało się załadować informacji o zadaniu"
+  },
+  "filter": {
+    "filteredBy": "Filtrowane wg {{param}}: {{value}}"
+  },
+  "breadcrumb": "Złamane hasze",
+  "sourceLabel": {
+    "job": "Zadanie",
+    "client": "Klient",
+    "hashlist": "Lista haszy"
+  }
+}

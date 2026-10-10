@@ -1,0 +1,194 @@
+{
+  "title": "ダッシュボード",
+  "welcome": "KrakenHashesへようこそ",
+  "stats": {
+    "title": "概要",
+    "totalJobs": "ジョブ総数",
+    "activeJobs": "アクティブなジョブ",
+    "completedJobs": "完了したジョブ",
+    "totalHashes": "ハッシュ総数",
+    "crackedHashes": "クラック済みハッシュ",
+    "crackRate": "クラック率",
+    "activeAgents": "アクティブなエージェント",
+    "totalAgents": "エージェント総数"
+  },
+  "recentActivity": {
+    "title": "最近のアクティビティ",
+    "noActivity": "最近のアクティビティはありません",
+    "viewAll": "すべての通知"
+  },
+  "quickActions": {
+    "title": "クイックアクション",
+    "createJob": "ジョブを作成",
+    "uploadHashlist": "ハッシュリストをアップロード",
+    "viewAgents": "エージェントを表示"
+  },
+  "agents": {
+    "title": "マイエージェント",
+    "loadError": "エージェントの読み込みに失敗しました: {{message}}",
+    "noAgents": "登録されたエージェントはありません",
+    "hashRate": "ハッシュレート",
+    "notAvailable": "N/A",
+    "job": "ジョブ",
+    "unnamedJob": "無名ジョブ",
+    "noActiveTask": "アクティブなタスクなし"
+  },
+  "pagination": {
+    "previous": "前へ",
+    "next": "次へ",
+    "pageOf": "ページ {{current}} / {{total}}"
+  },
+  "jobs": {
+    "title": "マイジョブ",
+    "total": "合計",
+    "autoRefreshOn": "自動",
+    "autoRefreshOff": "オフ",
+    "lastUpdated": "最終更新: {{time}}",
+    "loadError": "ジョブの読み込みに失敗しました: {{message}}",
+    "noJobs": "ジョブが見つかりません。はじめるには新しいジョブを作成してください。"
+  },
+  "buttons": {
+    "refresh": "更新",
+    "deleteFinished": "完了したものを削除"
+  },
+  "filters": {
+    "status": "ステータス",
+    "priority": "優先度",
+    "all": "すべて",
+    "searchPlaceholder": "ジョブを検索...",
+    "clear": "フィルターをクリア"
+  },
+  "status": {
+    "pending": "保留中",
+    "running": "実行中",
+    "paused": "一時停止中",
+    "completed": "完了",
+    "failed": "失敗",
+    "cancelled": "キャンセル"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "完了したジョブの削除",
+      "message": "完了したすべてのジョブを削除してもよろしいですか？この操作は取り消せません。"
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "完了したジョブの削除に失敗しました",
+    "deleteJobFailed": "ジョブの削除に失敗しました",
+    "retryJobFailed": "ジョブの再試行に失敗しました",
+    "updateJobFailed": "ジョブの更新に失敗しました"
+  },
+  "hashlistOverview": {
+    "title": "ハッシュリスト概要",
+    "loadError": "ハッシュリストの読み込みに失敗しました",
+    "noHashlists": "ハッシュリストが見つかりません",
+    "columns": {
+      "name": "名前",
+      "client": "クライアント",
+      "status": "ステータス",
+      "total": "合計",
+      "cracked": "クラック済み",
+      "progress": "進捗"
+    },
+    "status": {
+      "ready": "準備完了",
+      "error": "エラー",
+      "uploading": "アップロード中",
+      "processing": "処理中"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "ジョブが見つかりません",
+    "noJobsHint": "はじめるにはハッシュリストページから新しいジョブを作成してください。",
+    "completedJobs": "完了したジョブ",
+    "columns": {
+      "jobName": "ジョブ名",
+      "hashlist": "ハッシュリスト / プリセット",
+      "createdBy": "作成者",
+      "progress": "進捗",
+      "keyspace": "キースペース",
+      "cracked": "クラック済み",
+      "agents": "エージェント",
+      "priority": "優先度",
+      "maxAgents": "最大エージェント数",
+      "actions": "アクション"
+    }
+  },
+  "kpi": {
+    "runningJobs": "実行中のジョブ",
+    "queued": "{{count}} 件待機中",
+    "agentsOnline": "オンラインのエージェント",
+    "agentProblems": "{{count}} 件要注意",
+    "hashRate": "ハッシュレート",
+    "cracks24h": "クラック済み（24時間）",
+    "cracks7d": "{{count}} 件（7日間）",
+    "crackRate": "クラック率",
+    "hashlistTotals": "{{total}} 件中 {{cracked}} 件のハッシュ",
+    "failed24h": "失敗（24時間）",
+    "completed24h": "{{count}} 件完了"
+  },
+  "agentHealth": {
+    "title": "エージェントヘルス",
+    "viewAll": "すべてのエージェント",
+    "utilization": "GPU使用率",
+    "temperature": "最高温GPU",
+    "lastSeen": "最終確認: {{when}}",
+    "warnings": {
+      "error": "エラー",
+      "offline": "オフライン",
+      "update_failed": "更新失敗",
+      "stale_heartbeat": "ハートビートなし",
+      "gpu_hot": "GPU高温"
+    }
+  },
+  "recentCracks": {
+    "title": "最近のクラック",
+    "viewAll": "すべてのクラック済みハッシュ",
+    "empty": "まだクラックされたものはありません",
+    "copy": "プレーンテキストをコピー",
+    "copied": "コピーしました"
+  },
+  "activeJobs": {
+    "title": "アクティブなジョブ",
+    "showing": "全 {{total}} 件中 10 件を表示",
+    "viewAll": "すべてのジョブ",
+    "empty": "実行中のものはありません",
+    "emptyHint": "ハッシュリストからジョブを開始してください。",
+    "goHashlists": "ハッシュリストに移動",
+    "recentTitle": "ジョブ",
+    "recentSubtitle": "実行中を先に、次に最近完了したもの",
+    "recentEmpty": "ジョブはまだありません"
+  },
+  "welcomeUser": "おかえりなさい、{{name}} さん",
+  "autoRefresh": {
+    "on": "ライブ",
+    "off": "一時停止"
+  },
+  "view": {
+    "label": "ダッシュボード表示",
+    "mine": "自分",
+    "teams": "自分のチーム",
+    "all": "すべて"
+  },
+  "attention": {
+    "title": "要対応",
+    "allClear": "問題なし",
+    "allClearHint": "失敗しているものや、対応を待っているものはありません。",
+    "kind": {
+      "job_failed": "ジョブ失敗: {{name}}",
+      "job_blocked": "ジョブ待機中: {{name}}",
+      "hashlist_error": "ハッシュリストの処理に失敗: {{name}}",
+      "hashlist_awaiting_decision": "ハッシュリストの確認が必要: {{name}}",
+      "hashlist_stuck": "ハッシュリストの処理が停止: {{name}}",
+      "agent_error": "エージェントエラー: {{name}}",
+      "agent_update_failed": "エージェントの更新に失敗: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "クラックの推移",
+    "subtitle_other": "過去 {{days}} 日間に {{count}} 件をクラック",
+    "tooltip_other": "{{count}} 件クラック",
+    "topHashlists": "今週のトップハッシュリスト",
+    "noCracksWeek": "過去 7 日間にクラックはありません"
+  }
+}

@@ -644,6 +644,9 @@ func (h *Handler) ListTrustedTeams(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Invalid team ID")
 		return
 	}
+	if !h.requireTeamMembership(w, ctx, teamID) {
+		return
+	}
 
 	trusts, err := h.teamService.GetTrustedTeams(ctx, teamID)
 	if err != nil {

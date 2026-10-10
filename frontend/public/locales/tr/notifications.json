@@ -1,0 +1,204 @@
+{
+  "title": "Bildirimler",
+  "connected": "Bildirimler",
+  "disconnected": "Yeniden bağlanıyor...",
+  "empty": "Bildirim yok",
+  "markAllRead": "Tümünü okundu olarak işaretle",
+  "markRead": "Okundu olarak işaretle",
+  "viewAll": "Tüm bildirimleri görüntüle",
+  "deleteSelected": "{{count}} seçileni sil",
+  "selectAll": "Tümünü seç",
+  "aria": {
+    "bellButton": "Bildirimleri göster"
+  },
+  "center": {
+    "title": "Bildirim Merkezi",
+    "description": "Bildirimlerinizi görüntüleyin ve yönetin"
+  },
+  "filters": {
+    "category": "Kategori",
+    "status": "Durum",
+    "allCategories": "Tüm kategoriler",
+    "all": "Tümü",
+    "unread": "Okunmamış",
+    "read": "Okunmuş"
+  },
+  "categories": {
+    "job": "İş",
+    "agent": "Ajan",
+    "security": "Güvenlik",
+    "system": "Sistem"
+  },
+  "types": {
+    "header": "Bildirim Türü",
+    "job_started": "İş Başladı",
+    "job_completed": "İş Tamamlandı",
+    "job_failed": "İş Başarısız",
+    "first_crack": "İlk Kırılma",
+    "task_completed_with_cracks": "Görev Tamamlanma Raporu",
+    "agent_offline": "Ajan Çevrimdışı",
+    "agent_error": "Ajan Hatası",
+    "security_suspicious_login": "Şüpheli Oturum Açma",
+    "security_mfa_disabled": "İki Faktörlü Kimlik Doğrulama Devre Dışı",
+    "security_password_changed": "Parola Değiştirildi",
+    "webhook_failure": "Webhook Hatası"
+  },
+  "typeDescriptions": {
+    "job_started": "Bir iş çalışmaya başladığında",
+    "job_completed": "Bir iş başarıyla tamamlandığında",
+    "job_failed": "Bir iş başarısız olduğunda",
+    "first_crack": "İlk hash kırıldığında (anında bildirim)",
+    "task_completed_with_cracks": "Bir görev tamamlandığında",
+    "agent_offline": "Bir ajan çevrimdışı olduğunda (bekleme süresinden sonra)",
+    "agent_error": "Bir ajan kritik bir hata bildirdiğinde",
+    "security_suspicious_login": "Yeni bir konumdan veya cihazdan oturum açma",
+    "security_mfa_disabled": "İki faktörlü kimlik doğrulama kapatıldığında (zorunlu)",
+    "security_password_changed": "Parola değiştirildiğinde (zorunlu)",
+    "webhook_failure": "Bir webhook teslimi başarısız olduğunda"
+  },
+  "channels": {
+    "inApp": "Uygulama İçi",
+    "email": "E-posta",
+    "webhook": "Webhook"
+  },
+  "settings": {
+    "title": "Bildirim Ayarları",
+    "description": "Bildirimleri nasıl ve ne zaman alacağınızı yapılandırın",
+    "enabledChannels": "Etkin Kanallar",
+    "taskReportMode": "Ne zaman bildirilsin",
+    "taskReportModeOnlyIfCracks": "Yalnızca kırılma bulunursa",
+    "taskReportModeAlways": "Her zaman bildir",
+    "modeUpdated": "Görev rapor modu güncellendi",
+    "onlyIfCracks": "Yalnızca kırılma bulunursa",
+    "always": "Her zaman bildir",
+    "mandatory": "Zorunlu",
+    "mandatoryDescription": "Bu bildirim devre dışı bırakılamaz",
+    "emailNotConfigured": "E-posta ağ geçidi yapılandırılmamış",
+    "emailNotConfiguredWarning": "E-posta ağ geçidi yapılandırılmamış. E-posta bildirimleri şu anda kullanılamıyor.",
+    "noWebhooksConfigured": "Yapılandırılan etkin webhook yok",
+    "toggleAll": "Tümünü aç/kapat"
+  },
+  "webhooks": {
+    "title": "Webhook Yapılandırması",
+    "description": "Webhook entegrasyonlarınızı yönetin",
+    "name": "Ad",
+    "url": "URL",
+    "secret": "Gizli Anahtar",
+    "secretPlaceholder": "İsteğe bağlı webhook gizli anahtarı",
+    "isActive": "Etkin",
+    "notificationTypes": "Bildirim Türleri",
+    "allTypes": "Tüm türler",
+    "retryCount": "Yeniden Deneme Sayısı",
+    "timeout": "Zaman Aşımı (saniye)",
+    "lastTriggered": "Son Tetikleme",
+    "lastSuccess": "Son Başarı",
+    "lastError": "Son Hata",
+    "totalSent": "Toplam Gönderilen",
+    "totalFailed": "Toplam Başarısız",
+    "create": "Webhook Oluştur",
+    "edit": "Webhook'u Düzenle",
+    "delete": "Webhook'u Sil",
+    "deleteConfirm": "Bu webhook'u silmek istediğinizden emin misiniz?",
+    "test": "Webhook'u Test Et",
+    "testUrl": "Test URL'si",
+    "testSuccess": "Webhook test başarılı",
+    "testFailed": "Webhook test başarısız",
+    "secretExists": "Gizli anahtar ayarlı. Mevcut değeri korumak için boş bırakın veya değiştirmek için yeni bir değer girin.",
+    "invalidJson": "Geçersiz JSON biçimi",
+    "noWebhooks": "Webhook yapılandırılmamış. Webhook aracılığıyla bildirim almak için bir tane oluşturun.",
+    "updated": "Webhook güncellendi",
+    "created": "Webhook oluşturuldu",
+    "deleted": "Webhook silindi",
+    "secretEditHelp": "Mevcut gizli anahtarı korumak için boş bırakın",
+    "validation": {
+      "nameAndUrl": "Ad ve URL gerekli"
+    }
+  },
+  "admin": {
+    "title": "Bildirim Ayarları",
+    "globalWebhook": {
+      "title": "Global Webhook",
+      "description": "Tüm bildirimler için sistem genelinde bir webhook yapılandırın",
+      "enabled": "Global webhook'u etkinleştir",
+      "url": "Webhook URL'si",
+      "secret": "Webhook Gizli Anahtarı",
+      "customHeaders": "Özel Başlıklar (JSON)",
+      "test": "Global Webhook'u Test Et",
+      "saved": "Global webhook ayarları kaydedildi"
+    },
+    "agentOffline": {
+      "title": "Ajan Çevrimdışı Bekleme Süresi",
+      "description": "Ajan çevrimdışı bildirimleri göndermeden önce ne kadar bekleyeceğinizi yapılandırın",
+      "bufferMinutes": "Bekleme Süresi (Dakika)",
+      "bufferHelp": "Çevrimdışı ajanlar hakkında bildirim almadan önce bu kadar dakika bekleyin",
+      "saved": "Ajan çevrimdışı ayarları kaydedildi"
+    },
+    "userWebhooks": {
+      "title": "Kullanıcı Webhook'ları",
+      "description": "Tüm kullanıcılar tarafından yapılandırılan webhook'ları görüntüleyin",
+      "username": "Kullanıcı Adı",
+      "email": "E-posta",
+      "empty": "Kullanıcı webhook'u yapılandırılmamış"
+    }
+  },
+  "auditLog": {
+    "title": "Denetim Günlüğü",
+    "description": "Tüm kullanıcılar arasında güvenlik ve kritik olaylar",
+    "noData": "Denetim günlüğü girişi bulunamadı",
+    "columns": {
+      "time": "Zaman",
+      "severity": "Önem Derecesi",
+      "eventType": "Olay Türü",
+      "user": "Kullanıcı",
+      "title": "Başlık",
+      "ip": "IP Adresi"
+    },
+    "filters": {
+      "eventType": "Olay Türü",
+      "severity": "Önem Derecesi",
+      "startDate": "Başlangıç Tarihi",
+      "endDate": "Bitiş Tarihi",
+      "all": "Tümü",
+      "clear": "Filtreleri temizle"
+    },
+    "severity": {
+      "critical": "Kritik",
+      "warning": "Uyarı",
+      "info": "Bilgi"
+    },
+    "details": {
+      "message": "Mesaj",
+      "ipAddress": "IP Adresi",
+      "userAgent": "Kullanıcı Ajanı",
+      "source": "Kaynak",
+      "data": "Ek Veriler"
+    },
+    "errors": {
+      "loadFailed": "Denetim günlükleri yüklenemedi"
+    },
+    "system": "Sistem"
+  },
+  "systemAlert": {
+    "title": "Sistem Uyarısı",
+    "dismiss": "Kapat",
+    "dismissAll": "Tümünü Kapat"
+  },
+  "errors": {
+    "fetchFailed": "Bildirimler yüklenemedi",
+    "markReadFailed": "Bildirim okundu olarak işaretlenemedi",
+    "deleteFailed": "Bildirimler silinemedi",
+    "saveFailed": "Ayarlar kaydedilemedi",
+    "webhookCreateFailed": "Webhook oluşturulamadı",
+    "webhookUpdateFailed": "Webhook güncellenemedi",
+    "webhookDeleteFailed": "Webhook silinemedi",
+    "webhookSaveFailed": "Webhook kaydedilemedi"
+  },
+  "common": {
+    "actions": "İşlemler",
+    "active": "Etkin",
+    "inactive": "Etkin Değil",
+    "cancel": "İptal Et",
+    "save": "Kaydet",
+    "delete": "Sil"
+  }
+}

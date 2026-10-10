@@ -1,0 +1,377 @@
+{
+  "buttons": {
+    "save": "Uložit",
+    "cancel": "Zrušit",
+    "delete": "Smazat",
+    "edit": "Upravit",
+    "create": "Vytvořit",
+    "submit": "Odeslat",
+    "close": "Zavřít",
+    "confirm": "Potvrdit",
+    "retry": "Zkusit znovu",
+    "refresh": "Obnovit",
+    "download": "Stáhnout",
+    "upload": "Nahrát",
+    "copy": "Kopírovat",
+    "search": "Hledat",
+    "filter": "Filtrovat",
+    "clearFilters": "Vymazat filtry",
+    "loadAll": "Načíst vše",
+    "signIn": "Přihlásit se",
+    "logIn": "Přihlásit se",
+    "logout": "Odhlásit se"
+  },
+  "labels": {
+    "loading": "Načítání...",
+    "noData": "Žádná dostupná data",
+    "error": "Došlo k chybě",
+    "success": "Úspěch",
+    "warning": "Varování",
+    "info": "Informace",
+    "required": "Povinné",
+    "optional": "Volitelné",
+    "all": "Vše",
+    "none": "Žádné",
+    "yes": "Ano",
+    "no": "Ne",
+    "enabled": "Povoleno",
+    "disabled": "Zakázáno",
+    "active": "Aktivní",
+    "inactive": "Neaktivní",
+    "updating": "Aktualizace",
+    "pending": "Nevyřízeno",
+    "completed": "Dokončeno",
+    "failed": "Selhalo",
+    "unknown": "Neznámé"
+  },
+  "pagination": {
+    "rowsPerPage": "Řádků na stránku",
+    "page": "Stránka {{current}} z {{total}}",
+    "showing": "Zobrazuji {{from}}–{{to}} z {{total}}",
+    "first": "První stránka",
+    "last": "Poslední stránka",
+    "next": "Další stránka",
+    "previous": "Předchozí stránka"
+  },
+  "language": {
+    "selectLanguage": "Vybrat jazyk",
+    "currentLanguage": "Aktuální jazyk"
+  },
+  "clipboard": {
+    "copied": "Zkopírováno do schránky",
+    "copyFailed": "Selhalo kopírování do schránky"
+  },
+  "errors": {
+    "networkError": "Chyba sítě. Zkontrolujte prosím vaše připojení.",
+    "serverError": "Chyba serveru. Zkuste to prosím později.",
+    "unknownError": "Došlo k neznámé chybě",
+    "validationError": "Zkontrolujte prosím svůj vstup a zkuste to znovu",
+    "permissionDenied": "Přístup zakázán",
+    "notFound": "Nenalezeno",
+    "sessionExpired": "Vaše relace vypršela. Přihlaste se prosím znovu."
+  },
+  "confirmations": {
+    "areYouSure": "Jste si jistí?",
+    "cannotBeUndone": "Tuto akci nelze vrátit zpět.",
+    "confirmDelete": "Potvrdit smazání",
+    "confirmAction": "Potvrdit akci",
+    "typeToConfirm": "Zadejte {{text}} k potvrzení"
+  },
+  "time": {
+    "justNow": "Právě teď",
+    "minutesAgo_few": "Před {{count}} minutami",
+    "minutesAgo_many": "Před {{count}} minutou",
+    "minutesAgo_one": "Před {{count}} minutou",
+    "minutesAgo_other": "Před {{count}} minutami",
+    "hoursAgo_few": "Před {{count}} hodinami",
+    "hoursAgo_many": "Před {{count}} hodinou",
+    "hoursAgo_one": "Před {{count}} hodinou",
+    "hoursAgo_other": "Před {{count}} hodinami",
+    "daysAgo_few": "Před {{count}} dny",
+    "daysAgo_many": "Před {{count}} dnem",
+    "daysAgo_one": "Před {{count}} dnem",
+    "daysAgo_other": "Před {{count}} dny",
+    "never": "Nikdy"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Táhněte a pusťte soubor zde, nebo kliknutím vyberte",
+    "selectFile": "Vybrat soubor",
+    "uploading": "Nahrávání...",
+    "uploadSuccess": "Soubor úspěšně nahrán",
+    "uploadFailed": "Nahrání souboru selhalo",
+    "chooseFile": "Zvolit soubor",
+    "description": "Popis",
+    "loading": "Načítání..."
+  },
+  "binaryVersionSelector": {
+    "label": "Verze binárního souboru",
+    "helperText": "Vyberte vzor verze binárního souboru pro tuto úlohu",
+    "default": "Výchozí",
+    "majorVersion": "Hlavní verze (nejnovější vedlejší)",
+    "minorVersion": "Vedlejší verze (nejnovější oprava)",
+    "exactVersion": "Přesná verze",
+    "loading": "Načítání...",
+    "loadingVersions": "Načítání verzí binárního souboru...",
+    "loadError": "Selhalo načtení verzí binárního souboru"
+  },
+  "passwordValidation": {
+    "requirements": "Požadavky na heslo:",
+    "minLength": "Alespoň {{length}} znaků",
+    "uppercase": "Alespoň jedno velké písmeno",
+    "lowercase": "Alespoň jedno malé písmeno",
+    "number": "Alespoň jedno číslo",
+    "specialChar": "Alespoň jeden speciální znak"
+  },
+  "footer": {
+    "documentation": "Dokumentace",
+    "issues": "Problémy",
+    "loading": "Načítání...",
+    "release": "Vydání v{{version}}",
+    "versionUnavailable": "Verze není dostupná"
+  },
+  "layout": {
+    "logoAlt": "Logo KrakenHashes",
+    "logoAltBranded": "Logo {{appName}}"
+  },
+  "table": {
+    "clearSearch": "Vyčistit vyhledávání",
+    "clearSelection": "Vyčistit výběr",
+    "selectedCount": "{{count}} vybráno",
+    "expandRow": "Rozbalit řádek",
+    "collapseRow": "Sbalit řádek",
+    "showAll": "Zobrazit vše",
+    "showFewer": "Zobrazit méně",
+    "showingOf": "Zobrazeno {{shown}} z {{total}}",
+    "actions": "Akce",
+    "noResults": "Žádné výsledky neodpovídají vašim filtrům",
+    "rowsPerPage": "Řádků na stránku"
+  },
+  "about": {
+    "title": "O KrakenHashes",
+    "versionInfo": {
+      "title": "Informace o verzi",
+      "release": "Vydání",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Verze agenta",
+      "api": "Verze API",
+      "database": "Databáze",
+      "build": "Build"
+    },
+    "projectInfo": {
+      "title": "Informace o projektu",
+      "description": "KrakenHashes je distribuovaný systém pro správu prolomování hesel určený ke koordinaci a správě úkolů pro prolomování hesel mezi více agenty.",
+      "license": "Toto je open-source projekt licencovaný podle GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "Úložiště GitHub"
+    },
+    "errors": {
+      "fetchFailed": "Selhalo načtení informací o verzi"
+    },
+    "titleBranded": "O {{appName}}"
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Není platný text. Přesné heslo je {{value}}. Zobrazené znaky jsou nejlepší odhad (Windows-1252), nikoli skutečné heslo.",
+    "copyExact": "Kopírovat přesnou hodnotu (pro hashcat)",
+    "copyGuess": "Kopírovat nejlepší odhad (není přesný)"
+  },
+  "empty": {
+    "noData": "Zatím nic",
+    "noResults": "Žádné výsledky",
+    "noResultsHint": "Zkuste upravit vyhledávání nebo filtry."
+  },
+  "theme": {
+    "appearance": "Vzhled",
+    "light": "Světlý",
+    "dark": "Tmavý",
+    "system": "Systém"
+  },
+  "status": {
+    "job": {
+      "preparing": "Příprava",
+      "pending": "Na vyřízení",
+      "running": "Běží",
+      "paused": "Pozastaveno",
+      "processing": "Zpracování",
+      "completed": "Dokončeno",
+      "failed": "Selhalo",
+      "cancelled": "Zrušeno",
+      "archived": "Archivováno"
+    },
+    "task": {
+      "pending": "Na vyřízení",
+      "assigned": "Přiřazeno",
+      "reconnect_pending": "Opětovné připojování",
+      "running": "Běží",
+      "processing": "Zpracování",
+      "processing_error": "Chyba zpracování",
+      "completed": "Dokončeno",
+      "failed": "Selhalo",
+      "cancelled": "Zrušeno"
+    },
+    "agent": {
+      "pending": "Na vyřízení",
+      "active": "Online",
+      "inactive": "Offline",
+      "error": "Chyba",
+      "disabled": "Zakázáno",
+      "updating": "Aktualizace",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "hashlist": {
+      "uploading": "Nahrávání",
+      "processing": "Zpracování",
+      "ready": "Připraveno",
+      "error": "Chyba",
+      "deleting": "Mazání",
+      "ready_with_errors": "Připraveno s chybami",
+      "awaiting_validation_decision": "Čekání na posouzení",
+      "cancelled": "Zrušeno"
+    },
+    "verification": {
+      "pending": "Na vyřízení",
+      "verified": "Ověřeno",
+      "failed": "Selhalo",
+      "deleted": "Odstraněno"
+    },
+    "cloud": {
+      "requested": "Požadováno",
+      "launching": "Spouštění",
+      "provisioning": "Zřizování",
+      "syncing": "Synchronizace",
+      "running": "Běží",
+      "draining": "Vyprazdňování",
+      "terminating": "Odstraňování",
+      "terminated": "Odstraněno",
+      "failed": "Selhalo"
+    },
+    "loopback": {
+      "waiting": "Čekání",
+      "active": "Aktivní",
+      "completed": "Dokončeno",
+      "failed": "Selhalo",
+      "cancelled": "Zrušeno"
+    },
+    "audit": {
+      "info": "Informace",
+      "warning": "Upozornění",
+      "critical": "Kritické"
+    },
+    "diagnostic": {
+      "info": "Informace",
+      "warning": "Upozornění",
+      "error": "Chyba"
+    },
+    "sync": {
+      "pending": "Na vyřízení",
+      "in_progress": "Probíhá",
+      "completed": "Dokončeno",
+      "failed": "Selhalo"
+    },
+    "generic": {
+      "success": "Úspěch",
+      "ok": "OK",
+      "healthy": "Funkční",
+      "enabled": "Povoleno",
+      "active": "Aktivní",
+      "verified": "Ověřeno",
+      "warning": "Upozornění",
+      "degraded": "Zhoršeno",
+      "error": "Chyba",
+      "failed": "Selhalo",
+      "critical": "Kritické",
+      "info": "Informace",
+      "running": "Běží",
+      "pending": "Na vyřízení",
+      "queued": "Ve frontě",
+      "disabled": "Zakázáno",
+      "inactive": "Neaktivní",
+      "unknown": "Neznámo"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Vlastní sady znaků (volitelné - definujte ?1 až ?4 pro použití v masce)",
+    "hexTooltip": "Pokud je povoleno, jsou vložené definice sad znaků interpretovány jako dvojice hexadecimálních bajtů (např. 41424344 = ABCD). Sady znaků souborů nejsou ovlivněny.",
+    "hexEncodedLabel": "Sady znaků zakódované hexadecimálně",
+    "charsetSlotLabel": "Sada znaků {{slot}} (-{{slot}})",
+    "fileValue_few": "[Soubor: {{name}} — {{count}} bajty]",
+    "fileValue_many": "[Soubor: {{name}} — {{count}} bajtu]",
+    "fileValue_one": "[Soubor: {{name}} — {{count}} bajt]",
+    "fileValue_other": "[Soubor: {{name}} — {{count}} bajtů]",
+    "fileHelperUsed_few": "{{count}} jedinečné bajty",
+    "fileHelperUsed_many": "{{count}} jedinečného bajtu",
+    "fileHelperUsed_one": "{{count}} jedinečný bajt",
+    "fileHelperUsed_other": "{{count}} jedinečných bajtů",
+    "fileHelperUnused_few": "{{count}} jedinečné bajty (neodkazovány v masce)",
+    "fileHelperUnused_many": "{{count}} jedinečného bajtu (neodkazován v masce)",
+    "fileHelperUnused_one": "{{count}} jedinečný bajt (neodkazován v masce)",
+    "fileHelperUnused_other": "{{count}} jedinečných bajtů (neodkazovány v masce)",
+    "placeholderHex": "např. 41424344 (dvojice hexadecimálních bajtů)",
+    "placeholderPlain": "např. ?u?d nebo abcdef0123456789",
+    "inlineHelperBytes_few": "{{count}} bajty",
+    "inlineHelperBytes_many": "{{count}} bajtu",
+    "inlineHelperBytes_one": "{{count}} bajt",
+    "inlineHelperBytes_other": "{{count}} bajtů",
+    "inlineHelperBytesUnused_few": "{{count}} bajty (neodkazovány v masce)",
+    "inlineHelperBytesUnused_many": "{{count}} bajtu (neodkazován v masce)",
+    "inlineHelperBytesUnused_one": "{{count}} bajt (neodkazován v masce)",
+    "inlineHelperBytesUnused_other": "{{count}} bajtů (neodkazovány v masce)",
+    "inlineHelperChars_few": "{{count}} znaky",
+    "inlineHelperChars_many": "{{count}} znaku",
+    "inlineHelperChars_one": "{{count}} znak",
+    "inlineHelperChars_other": "{{count}} znaků",
+    "inlineHelperCharsUnused_few": "{{count}} znaky (neodkazovány v masce)",
+    "inlineHelperCharsUnused_many": "{{count}} znaku (neodkazován v masce)",
+    "inlineHelperCharsUnused_one": "{{count}} znak (neodkazován v masce)",
+    "inlineHelperCharsUnused_other": "{{count}} znaků (neodkazovány v masce)",
+    "referencedNotDefined": "Odkazováno v masce, ale není definováno",
+    "savedLabel": "Uloženo",
+    "typeLabels": {
+      "file": "Soubor",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_few": "{{count}} jedinečné bajty",
+    "optionUniqueBytes_many": "{{count}} jedinečného bajtu",
+    "optionUniqueBytes_one": "{{count}} jedinečný bajt",
+    "optionUniqueBytes_other": "{{count}} jedinečných bajtů",
+    "optionBytesHex_few": "{{count}} bajty (hex)",
+    "optionBytesHex_many": "{{count}} bajtu (hex)",
+    "optionBytesHex_one": "{{count}} bajt (hex)",
+    "optionBytesHex_other": "{{count}} bajtů (hex)",
+    "willEnableHex": " — povolí režim hex",
+    "willDisableHex": " — zakáže režim hex",
+    "estimatedKeyspace": "Odhadované keyspace: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} bajtů",
+    "slotSizeChars": "?{{slot}} = {{size}} znaků"
+  },
+  "teamFilter": {
+    "label": "Tým",
+    "allTeams": "Všechny týmy",
+    "adminBadge": "Správce"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Heslo je povinné",
+    "currentPasswordLabel": "Aktuální heslo"
+  },
+  "hashDetailModal": {
+    "title": "Podrobnosti hashe",
+    "hashValue": "Hodnota hashe",
+    "copied": "Zkopírováno!",
+    "copyHash": "Kopírovat hash",
+    "copyPlaintext": "Kopírovat plaintext",
+    "originalHash": "Původní hash (ze souboru)",
+    "status": "Stav",
+    "cracked": "Prolomeno",
+    "notCracked": "Neprolomeno",
+    "hashType": "Typ hashe",
+    "typeId": "ID typu: {{id}}",
+    "username": "Uživatelské jméno",
+    "crackedText": "Prolomený text",
+    "hashlist": "Hashlist",
+    "lastUpdated": "Poslední aktualizace",
+    "crackedAt": "Prolomeno dne",
+    "hashCopied": "Hash zkopírován do schránky",
+    "crackedTextCopied": "Prolomený text zkopírován do schránky"
+  }
+}

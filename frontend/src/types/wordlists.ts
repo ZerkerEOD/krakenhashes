@@ -98,6 +98,7 @@ export interface DeletionImpactJob {
   name: string;
   status: string;
   hashlist_name: string;
+  hashlist_id?: number | null;
 }
 
 export interface DeletionImpactPresetJob {

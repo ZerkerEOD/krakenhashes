@@ -177,6 +177,7 @@ func (s *JobAnalyticsService) GetSuccessRates(ctx context.Context, filter *repos
 			pRL := sortedJSONIDs(p.RuleIDs)
 			if sliceEqual(pWL, rowWLSorted) && sliceEqual(pRL, rowRLSorted) {
 				entry.IsPreset = true
+				entry.PresetID = p.ID.String()
 				entry.PresetName = p.Name
 				break
 			}

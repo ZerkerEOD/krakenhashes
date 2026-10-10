@@ -1,0 +1,3097 @@
+{
+  "title": "관리자 설정",
+  "sections": {
+    "general": "일반 설정",
+    "authentication": "인증",
+    "email": "이메일 설정",
+    "security": "보안",
+    "sso": "SSO",
+    "monitoring": "모니터링"
+  },
+  "tabs": {
+    "emailSettings": "이메일 설정",
+    "authenticationSettings": "인증 설정",
+    "ssoSettings": "SSO 설정",
+    "binaryManagement": "바이너리 관리",
+    "systemSettings": "시스템 설정",
+    "clientSettings": "클라이언트 설정",
+    "hashTypes": "해시 유형",
+    "jobExecution": "작업 실행",
+    "monitoring": "모니터링",
+    "agentDownloads": "에이전트 다운로드",
+    "notifications": "알림",
+    "cloudProvisioning": "클라우드 프로비저닝",
+    "serverCertificate": "서버 인증서"
+  },
+  "common": {
+    "cancel": "취소",
+    "create": "생성",
+    "edit": "편집",
+    "delete": "삭제",
+    "save": "저장",
+    "saveChanges": "변경 사항 저장",
+    "copyToClipboard": "클립보드에 복사",
+    "never": "한 번도 없음",
+    "invalidDate": "잘못된 날짜",
+    "all": "전체",
+    "yes": "예",
+    "no": "아니요",
+    "note": "참고",
+    "default": "기본값",
+    "on": "켜짐",
+    "off": "꺼짐",
+    "none": "없음",
+    "unlimited": "무제한",
+    "close": "닫기",
+    "unknownError": "알 수 없는 오류",
+    "dialogs": {
+      "confirmDeleteNamed": "\"{{name}}\"을(를) 삭제하시겠습니까?"
+    },
+    "download": "다운로드",
+    "confirm": "확인"
+  },
+  "users": {
+    "title": "사용자 관리",
+    "description": "사용자 계정 및 권한 관리",
+    "addUser": "사용자 추가",
+    "createUser": "사용자 생성",
+    "columns": {
+      "username": "사용자명",
+      "email": "이메일",
+      "role": "역할",
+      "status": "상태",
+      "createdAt": "생성됨",
+      "lastLogin": "마지막 로그인",
+      "actions": "작업",
+      "provider": "제공자",
+      "providerLocal": "로컬",
+      "mfa": "MFA",
+      "apiKey": "API 키",
+      "lastApiUse": "마지막 API 사용"
+    },
+    "roles": {
+      "admin": "관리자",
+      "user": "사용자",
+      "system": "시스템"
+    },
+    "status": {
+      "active": "활성",
+      "pending": "승인 대기 중",
+      "disabled": "비활성화됨",
+      "locked": "잠김"
+    },
+    "actions": {
+      "edit": "사용자 편집",
+      "delete": "사용자 삭제",
+      "approve": "승인",
+      "disable": "비활성화",
+      "enable": "활성화",
+      "unlock": "잠금 해제",
+      "resetPassword": "비밀번호 재설정",
+      "disableMfa": "MFA 비활성화",
+      "revokeApiKey": "API 키 취소",
+      "cannotDeleteSystem": "시스템 사용자는 삭제할 수 없습니다",
+      "terminateSession": "세션 종료",
+      "terminateAllSessions": "모든 세션 종료"
+    },
+    "apiKey": {
+      "none": "없음"
+    },
+    "validation": {
+      "usernameRequired": "사용자명이 필요합니다",
+      "emailRequired": "이메일이 필요합니다",
+      "emailInvalid": "잘못된 이메일 형식입니다",
+      "passwordRequired": "비밀번호가 필요합니다",
+      "passwordMinLength": "최소 {{value}}자 이상",
+      "passwordUppercase": "1개 이상의 대문자",
+      "passwordLowercase": "1개 이상의 소문자",
+      "passwordNumber": "1개 이상의 숫자",
+      "passwordSpecial": "1개 이상의 특수 문자",
+      "passwordMustContain": "비밀번호에는 다음이 포함되어야 합니다: {{requirements}}",
+      "confirmPasswordRequired": "비밀번호를 확인하세요",
+      "passwordsMismatch": "비밀번호가 일치하지 않습니다"
+    },
+    "errors": {
+      "loadFailed": "사용자를 로드하지 못했습니다. 새로고침을 시도하세요.",
+      "loadDetailsFailed": "사용자 상세 정보를 로드하지 못했습니다",
+      "loadSessionsFailed": "세션을 로드하지 못했습니다",
+      "loadLoginAttemptsFailed": "로그인 시도를 로드하지 못했습니다",
+      "loadApiKeyFailed": "API 키 정보를 로드하지 못했습니다",
+      "createFailed": "사용자를 생성하지 못했습니다",
+      "updateFailed": "사용자를 업데이트하지 못했습니다",
+      "deleteFailed": "사용자를 삭제하지 못했습니다",
+      "enableFailed": "사용자를 활성화하지 못했습니다",
+      "disableFailed": "사용자를 비활성화하지 못했습니다",
+      "unlockFailed": "계정을 잠금 해제하지 못했습니다",
+      "reasonRequired": "이 사용자를 비활성화하는 이유를 입력하세요",
+      "passwordResetFailed": "비밀번호를 재설정하지 못했습니다",
+      "mfaDisableFailed": "MFA를 비활성화하지 못했습니다",
+      "accountStatusFailed": "계정 상태를 업데이트하지 못했습니다",
+      "terminateSessionFailed": "세션을 종료하지 못했습니다",
+      "terminateAllSessionsFailed": "모든 세션을 종료하지 못했습니다",
+      "revokeApiKeyFailed": "API 키를 취소하지 못했습니다",
+      "userNotFound": "사용자를 찾을 수 없습니다"
+    },
+    "messages": {
+      "createSuccess": "사용자가 성공적으로 생성되었습니다",
+      "updateSuccess": "사용자 상세 정보가 성공적으로 업데이트되었습니다",
+      "deleteSuccess": "사용자가 성공적으로 삭제되었습니다",
+      "enableSuccess": "사용자가 성공적으로 활성화되었습니다",
+      "disableSuccess": "사용자가 성공적으로 비활성화되었습니다",
+      "passwordResetSuccess": "비밀번호가 성공적으로 재설정되었습니다!",
+      "passwordCopied": "비밀번호가 클립보드에 복사되었습니다",
+      "mfaDisableSuccess": "MFA가 성공적으로 비활성화되었습니다",
+      "accountDisabled": "사용자 계정이 비활성화되었습니다",
+      "accountEnabled": "사용자 계정이 활성화되었습니다",
+      "accountUnlocked": "사용자 계정이 잠금 해제되었습니다",
+      "sessionTerminated": "세션이 성공적으로 종료되었습니다",
+      "allSessionsTerminated_other": "{{count}}개의 세션이 성공적으로 종료되었습니다",
+      "apiKeyRevoked": "API 키가 성공적으로 취소되었습니다"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "새 사용자 생성",
+        "password": "비밀번호",
+        "confirmPassword": "비밀번호 확인",
+        "roleHelperText": "시스템에서 사용자의 역할을 선택하세요"
+      },
+      "disableUser": {
+        "title": "사용자 계정 비활성화",
+        "description": "이 사용자 계정을 비활성화하는 이유를 입력하세요. 이것은 감사 목적으로 기록됩니다.",
+        "reasonLabel": "비활성화 이유",
+        "reasonPlaceholder": "예: 계정 손상, 약관 위반, 사용자 요청 등",
+        "disableAccount": "계정 비활성화"
+      },
+      "deleteUser": {
+        "title": "사용자 계정 삭제",
+        "warning": "이 작업은 취소할 수 없습니다. 사용자가 시스템에서 영구 삭제됩니다.",
+        "confirmation": "사용자 <strong>{{username}}</strong>을(를) 삭제하시겠습니까?",
+        "dataNote": "연관된 모든 데이터는 보관되지만 사용자는 더 이상 로그인할 수 없습니다."
+      },
+      "resetPassword": {
+        "title": "사용자 비밀번호 재설정",
+        "generateTemporary": "임시 비밀번호 생성",
+        "newPassword": "새 비밀번호",
+        "passwordHelperText": "최소 8자 이상이어야 합니다"
+      },
+      "disableMfa": {
+        "title": "MFA 비활성화",
+        "confirmation": "이 사용자의 MFA를 비활성화하시겠습니까? 필요한 경우 다시 설정해야 합니다."
+      },
+      "terminateSession": {
+        "title": "세션을 종료하시겠습니까?",
+        "description": "이것은 이 기기에서 사용자를 로그아웃합니다. 사용자는 애플리케이션을 계속 사용하려면 다시 로그인해야 합니다.",
+        "terminate": "종료"
+      },
+      "terminateAllSessions": {
+        "title": "모든 세션을 종료하시겠습니까?",
+        "description": "이것은 사용자를 모든 기기에서 로그아웃합니다(현재 세션 포함). 사용자는 다시 로그인해야 합니다. 이 작업은 취소할 수 없습니다.",
+        "warning": "이것은 활성 작업 세션을 포함합니다!",
+        "terminateAll": "모두 종료"
+      },
+      "revokeApiKey": {
+        "title": "사용자 API 키를 취소하시겠습니까?",
+        "warning": "이것은 이 사용자의 API 액세스를 즉시 비활성화합니다. 이 키를 사용하는 모든 애플리케이션이 작동을 중지합니다.",
+        "confirmation": "이 사용자의 API 키를 취소하시겠습니까?"
+      }
+    },
+    "detail": {
+      "title": "사용자 상세 정보",
+      "backToUsers": "사용자로 돌아가기",
+      "userInformation": "사용자 정보",
+      "userId": "사용자 ID",
+      "systemUserReadOnly": "시스템 사용자는 수정할 수 없습니다",
+      "accountStatus": "계정 상태",
+      "accountStatusLabel": "계정 상태",
+      "enabled": "활성화됨",
+      "disabled": "비활성화됨",
+      "noReasonProvided": "제공된 이유 없음",
+      "lockStatus": "잠금 상태",
+      "lockedUntil": "{{date}}까지 잠김",
+      "notLocked": "잠기지 않음",
+      "mfaStatus": "MFA 상태",
+      "mfaEnabled": "활성화됨({{types}})",
+      "mfaDisabled": "비활성화됨",
+      "apiKeyManagement": "API 키 관리",
+      "apiKeyStatus": "API 키 상태",
+      "noApiKeyGenerated": "생성된 API 키 없음",
+      "created": "생성됨",
+      "lastUsed": "마지막 사용",
+      "apiKeySecurityNote": "관리자는 API 키를 취소할 수 있지만 보안상의 이유로 평문 키를 볼 수 없습니다.",
+      "activityInformation": "활동 정보",
+      "passwordChanged": "비밀번호 변경됨",
+      "failedLoginAttempts": "실패한 로그인 시도",
+      "attemptsCount_other": "{{count}}회 시도",
+      "disabledAt": "비활성화된 시간",
+      "activeSessions": "활성 세션",
+      "noActiveSessions": "활성 세션 없음",
+      "loginHistory": "로그인 기록",
+      "noLoginAttempts": "로그인 시도가 없습니다",
+      "temporaryPassword": "임시 비밀번호",
+      "sharePasswordSecurely": "이 비밀번호를 사용자와 안전하게 공유하세요.",
+      "sessions": {
+        "ipAddress": "IP 주소",
+        "deviceBrowser": "기기 / 브라우저",
+        "lastActive": "마지막 활동"
+      },
+      "loginAttempts": {
+        "timestamp": "타임스탬프",
+        "success": "성공",
+        "failed": "실패",
+        "failureReason": "실패 이유"
+      },
+      "teams": "팀",
+      "teamName": "팀",
+      "teamDescription": "설명",
+      "noTeams": "팀의 멤버가 아닙니다",
+      "ownedAgents": "소유한 에이전트",
+      "noOwnedAgents": "이 사용자가 소유한 에이전트가 없습니다",
+      "agentName": "에이전트",
+      "agentVersion": "버전",
+      "agentLastSeen": "마지막 접속"
+    }
+  },
+  "clients": {
+    "title": "클라이언트 관리",
+    "addClient": "클라이언트 추가",
+    "columns": {
+      "name": "이름",
+      "description": "설명",
+      "contact": "연락처",
+      "cracked": "크래킹된",
+      "retention": "보관 기간 (월)",
+      "createdAt": "생성됨",
+      "actions": "작업",
+      "wordlists": "워드리스트"
+    },
+    "form": {
+      "clientName": "클라이언트 이름",
+      "description": "설명",
+      "contactInfo": "연락처 정보",
+      "dataRetention": "데이터 보관 기간 (월)",
+      "dataRetentionHelperText": "비워두면 시스템 기본값을 사용합니다. 0을 입력하면 영구적으로 보관합니다.",
+      "excludeFromPotfile": "potfile에서 제외 (크래킹된 비밀번호 저장 안 함)",
+      "excludeFromPotfileHelperText": "엄격한 데이터 보관 요구사항이 있는 클라이언트의 경우 이를 활성화합니다.",
+      "cloudInherit": "클라우드 버스트: 이 클라이언트는 서버 기본값을 상속받습니다 — {{state}}, {{period}}당 ${{amount}}. Cloud Provisioning → Client Budgets에서 변경할 수 있습니다.",
+      "cloudInheritUnfunded": "클라우드 버스트: 기본 예산이 설정되지 않았으므로 이 클라이언트는 자금이 없는 상태로 시작되며 유료 용량을 임차할 수 없습니다. Cloud Provisioning → Client Budgets에서 기본값을 설정할 수 있습니다.",
+      "cloudInheritUnknown": "클라우드 버스트 설정은 Cloud Provisioning → Client Budgets의 서버 기본값에서 상속받습니다.",
+      "cloudEnabledWord": "활성화됨",
+      "cloudDisabledWord": "비활성화됨",
+      "excludeFromClientPotfile": "클라이언트 potfile에서 제외",
+      "excludeFromClientPotfileHelperText": "선택하면 이 클라이언트의 크래킹된 비밀번호가 클라이언트 전용 potfile에 추가되지 않습니다.",
+      "clientPotfileSettings": "potfile 삭제 설정",
+      "useSystemDefault": "시스템 기본값 사용",
+      "alwaysRemove": "항상 삭제",
+      "neverRemove": "삭제 안 함",
+      "assignToTeam": "팀에 할당",
+      "assignToTeamHelperText": "새 클라이언트는 이 팀에 할당됩니다. 기존 클라이언트 재할당은 Admin Team Management를 통해 관리됩니다.",
+      "removeFromGlobalPotfileOnDelete": "삭제 시 전역 potfile에서 제거",
+      "removeFromGlobalPotfileHelperText": "해시 목록이 삭제될 때 비밀번호를 전역 potfile에서 제거할지 여부를 제어합니다.",
+      "removeFromClientPotfileOnDelete": "삭제 시 클라이언트 potfile에서 제거",
+      "removeFromClientPotfileHelperText": "해시 목록이 삭제될 때 비밀번호를 클라이언트 potfile에서 제거할지 여부를 제어합니다."
+    },
+    "validation": {
+      "nameRequired": "클라이언트 이름이 필요합니다.",
+      "retentionInvalid": "보관 기간은 음이 아닌 숫자이거나 비워두어야 합니다 (기본값의 경우).",
+      "teamRequired": "팀이 활성화되어 있을 때 팀 선택이 필요합니다."
+    },
+    "errors": {
+      "loadFailed": "클라이언트를 로드하지 못했습니다. 새로고침해 주십시오.",
+      "loadDefaultSettingsFailed": "기본 클라이언트 설정을 로드하지 못했습니다.",
+      "saveFailed": "클라이언트를 저장하지 못했습니다.",
+      "deleteFailed": "클라이언트를 삭제하지 못했습니다."
+    },
+    "messages": {
+      "createSuccess": "클라이언트가 생성되었습니다.",
+      "updateSuccess": "클라이언트가 업데이트되었습니다.",
+      "deleteSuccess": "클라이언트가 삭제되었습니다."
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "새 클라이언트 추가",
+        "createButton": "클라이언트 생성"
+      },
+      "editClient": {
+        "title": "클라이언트 편집"
+      },
+      "deleteClient": {
+        "title": "삭제 확인",
+        "confirmation": "\"{{name}}\" 클라이언트를 삭제하시겠습니까? 이 작업은 실행 취소할 수 없습니다. 관련된 해시 목록은 보관 정책에 따라 즉시 삭제되거나 고아 상태가 될 수 있습니다."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "이름",
+        "status": "상태",
+        "total": "해시",
+        "cracked": "크래킹된",
+        "created": "생성됨"
+      },
+      "notFound": "클라이언트를 찾을 수 없습니다.",
+      "notFoundHint": "삭제되었거나, 소속되지 않은 팀의 클라이언트일 수 있습니다.",
+      "backToClients": "클라이언트로 돌아가기",
+      "breadcrumb": "클라이언트",
+      "manageWordlists": "워드리스트 & potfile",
+      "stats": {
+        "hashlists": "해시 목록",
+        "cracked": "크래킹된",
+        "jobs": "작업",
+        "active": "{{count}}개 활성",
+        "wordlists": "워드리스트",
+        "hasPotfile": "클라이언트 potfile 있음"
+      },
+      "hashlists": "해시 목록",
+      "noHashlists": "이 클라이언트에 대한 해시 목록이 아직 없습니다.",
+      "jobs": "작업",
+      "noJobs": "이 클라이언트에 대해 실행된 작업이 없습니다.",
+      "teams": "팀",
+      "noTeams": "어떤 팀에도 할당되지 않음",
+      "policy": "보관 기간 & potfile",
+      "retention": "데이터 보관",
+      "retentionDefault": "시스템 기본값",
+      "retentionForever": "영구적으로 보관",
+      "retentionMonths_other": "{{count}}개월",
+      "globalPotfile": "전역 potfile",
+      "excluded": "제외됨",
+      "included": "포함됨",
+      "clientPotfile": "클라이언트 potfile",
+      "contact": "연락처",
+      "lastActivity": "마지막 활동"
+    },
+    "bulkAssign": {
+      "dialogTitle": "클라이언트를 팀에 할당",
+      "dialogDescription_other": "선택한 {{count}}개의 클라이언트를 팀에 할당합니다. 이미 선택한 팀에 있는 클라이언트는 건너뜁니다.",
+      "selectTeam": "팀 선택",
+      "assignButton": "할당",
+      "fallbackTeamName": "팀",
+      "success_other": "{{count}}개의 클라이언트를 {{team}}에 할당했습니다.",
+      "successWithSkipped_other": "{{count}}개의 클라이언트를 {{team}}에 할당했습니다 ({{skipped}}개는 이미 할당됨)",
+      "errors": {
+        "assignFailed": "클라이언트를 팀에 할당하지 못했습니다."
+      }
+    }
+  },
+  "wordlists": {
+    "title": "워드리스트 관리",
+    "description": "비밀번호 크래킹을 위한 워드리스트 관리",
+    "uploadWordlist": "워드리스트 업로드",
+    "refresh": "새로고침",
+    "loading": "워드리스트 로딩 중...",
+    "noWordlistsFound": "워드리스트를 찾을 수 없습니다.",
+    "tryDifferentSearch": "다른 검색어를 시도해 보십시오.",
+    "uploadToGetStarted": "워드리스트를 업로드하여 시작합니다.",
+    "noDescription": "설명이 제공되지 않음",
+    "searchPlaceholder": "워드리스트 검색...",
+    "tabs": {
+      "all": "모든 워드리스트",
+      "general": "일반",
+      "specialized": "전문",
+      "targeted": "타겟팅",
+      "custom": "사용자 정의"
+    },
+    "columns": {
+      "name": "이름",
+      "status": "상태",
+      "type": "유형",
+      "size": "크기",
+      "wordCount": "단어 수",
+      "updated": "업데이트됨",
+      "actions": "작업"
+    },
+    "status": {
+      "verified": "확인됨",
+      "pending": "대기 중",
+      "failed": "실패",
+      "missing": "디스크에 파일 없음",
+      "missingSince": "{{date}}부터 디스크에 파일이 없습니다. 다시 업로드하거나 항목을 제거하십시오."
+    },
+    "types": {
+      "general": "일반",
+      "specialized": "전문",
+      "targeted": "타겟팅",
+      "custom": "사용자 정의"
+    },
+    "fields": {
+      "name": "이름",
+      "description": "설명",
+      "wordlistType": "워드리스트 유형"
+    },
+    "tooltips": {
+      "refreshMetadata": "메타데이터 새로고침",
+      "download": "다운로드",
+      "edit": "편집",
+      "delete": "삭제"
+    },
+    "errors": {
+      "loadFailed": "워드리스트를 로드하지 못했습니다.",
+      "uploadFailed": "워드리스트를 업로드하지 못했습니다.",
+      "deleteFailed": "워드리스트를 삭제하지 못했습니다.",
+      "downloadFailed": "워드리스트를 다운로드하지 못했습니다.",
+      "refreshFailed": "워드리스트 메타데이터를 새로고침하지 못했습니다.",
+      "updateFailed": "워드리스트를 업데이트하지 못했습니다: {{error}}",
+      "sessionExpired": "세션이 만료되었습니다. 다시 로그인해 주십시오."
+    },
+    "messages": {
+      "uploadSuccess": "워드리스트가 업로드되었습니다.",
+      "duplicateWordlist": "\"{{name}}\" 워드리스트가 이미 존재합니다.",
+      "deleteSuccess": "\"{{name}}\" 워드리스트가 삭제되었습니다.",
+      "updateSuccess": "워드리스트가 업데이트되었습니다.",
+      "refreshSuccess": "워드리스트 메타데이터가 새로고침되었습니다."
+    },
+    "dialogs": {
+      "upload": {
+        "title": "워드리스트 업로드",
+        "fileUploadTitle": "워드리스트 파일 업로드",
+        "fileUploadDescription": "워드리스트 파일을 선택하여 업로드합니다. 지원되는 형식: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "워드리스트 편집"
+      },
+      "delete": {
+        "title": "삭제 확인",
+        "cascadeTitle": "계단식 삭제 확인",
+        "confirmation": "\"{{name}}\" 워드리스트를 삭제하시겠습니까? 이 작업은 실행 취소할 수 없습니다.",
+        "cascadeWarning": "\"{{name}}\" 워드리스트를 삭제하면 다음도 삭제됩니다:",
+        "checkingDependencies": "종속성을 확인하는 중...",
+        "jobsCount_other": "{{count}}개 작업 (대기 중/실행 중/실패):",
+        "presetJobsCount_other": "{{count}}개 프리셋 작업:",
+        "workflowStepsCount_other": "{{count}}개 워크플로우 단계:",
+        "emptyWorkflowsCount_other": "{{count}}개 빈 워크플로우가 삭제됩니다:",
+        "noHashlist": "해시 목록 없음",
+        "step": "단계 {{order}}",
+        "andMore": "...그리고 {{count}}개 더",
+        "confirmationPrompt": "이 계단식 삭제를 확인하려면 워드리스트 ID를 입력해 주십시오: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "{{id}}를 입력하여 확인",
+        "idMismatch": "ID가 일치하지 않습니다.",
+        "deleteAll": "모두 삭제"
+      }
+    },
+    "filterForm": {
+      "helpText": "모든 조건이 함께 적용됩니다 (AND) — 단어는 설정한 모든 조건을 만족해야 합니다. 정규식이 길이 필드보다 엄격한 경우 (예: 최소 길이 8이지만 정규식은 12+ 필요), 더 엄격한 규칙이 적용됩니다. 아래 추정값은 결합된 결과를 반영합니다.",
+      "minLength": "최소 길이",
+      "maxLength": "최대 길이",
+      "requiredClasses": "필수 문자 클래스",
+      "uppercase": "대문자",
+      "lowercase": "소문자",
+      "digit": "숫자",
+      "special": "특수 문자",
+      "minClasses": "최소 클래스 수 (1-4)",
+      "minClassesHelp": "예: 3 = 4개 클래스 중 최소 3개",
+      "regexLabel": "정규식 (RE2)",
+      "regexHelperDefault": "예: ^.{10,16}$",
+      "regexLookaroundError": "전후방탐색((?=…), (?!…), (?<=…), (?<!…))은 백엔드 정규식 엔진 (RE2)에서 지원되지 않습니다. 길이/클래스 필터를 대신 사용하십시오.",
+      "regexInvalidDefault": "잘못된 정규식",
+      "estimating": "추정 중...",
+      "previewTooltip": "원본 워드리스트의 시작 부분을 샘플링하여 추정됩니다. 정렬된 목록의 경우 실제 합계가 다를 수 있습니다.",
+      "previewLabel": "~{{countDisplay}}개 후보 (샘플의 {{rateDisplay}}%)",
+      "previewUnavailable": "미리보기 사용 불가"
+    },
+    "filtered": {
+      "badge": "필터링됨",
+      "regeneratingBadge": "재생성 중...",
+      "regeneratingTooltip": "상위 워드리스트가 변경되었습니다. 이 필터링된 워드리스트가 재생성 중입니다 (가능한 경우 새 항목만 다시 필터링됩니다).",
+      "staleBadge": "오래됨",
+      "staleTooltip": "이 필터링된 워드리스트가 생성된 이후 상위 워드리스트가 변경되었습니다. 필터링된 워드리스트는 상위 워드리스트가 변경되면 자동으로 재생성되며, 지금 재생성할 수도 있습니다.",
+      "namePlaceholder": "{{name}} (필터링됨)",
+      "wordCount_other": "{{count}}개 단어",
+      "plaintextChip": "비압축",
+      "compressedChip": "압축됨",
+      "messages": {
+        "generating": "필터링된 워드리스트가 생성 중입니다.",
+        "createFailed": "필터링된 워드리스트를 생성하지 못했습니다.",
+        "regenerating": "필터링된 워드리스트의 전체 재생성을 시작했습니다.",
+        "regenerateFailed": "필터링된 워드리스트를 재생성하지 못했습니다."
+      },
+      "createDialog": {
+        "title": "필터링된 워드리스트 생성",
+        "description": "조건과 일치하는 원본 워드리스트의 라인만 포함하는 새 워드리스트를 생성합니다. 결과는 작업 간에 재사용 가능하며 상위 워드리스트에 대해 추적됩니다.",
+        "sourceWordlistLabel": "원본 워드리스트",
+        "nameLabel": "이름",
+        "create": "생성"
+      },
+      "regenerateDialog": {
+        "title": "필터링된 워드리스트를 재생성하시겠습니까?",
+        "autoInfo": "필터링된 워드리스트는 일반적으로 상위 워드리스트가 변경될 때마다 <strong>백엔드에서 자동으로 재생성</strong>됩니다 — 직접 이 작업을 수행할 필요가 없습니다.",
+        "manualHint": "<strong>상위 워드리스트의 단어 순서가 변경된 것</strong>을 알고 있는 경우에만 수동으로 재생성하십시오 (단어를 편집, 제거 또는 재정렬한 경우, 끝에 추가한 것이 아닙니다).",
+        "warningWithExample": "이는 <strong>전체 재생성</strong>을 실행합니다 — 전체 상위 워드리스트가 다시 필터링되므로 큰 워드리스트의 경우 시간이 걸릴 수 있습니다 (예: \"{{name}}\").",
+        "warningNoExample": "이는 <strong>전체 재생성</strong>을 실행합니다 — 전체 상위 워드리스트가 다시 필터링되므로 큰 워드리스트의 경우 시간이 걸릴 수 있습니다.",
+        "confirmButton": "전체 재생성"
+      }
+    }
+  },
+  "rules": {
+    "title": "규칙 관리",
+    "description": "비밀번호 크래킹을 위한 Hashcat 규칙 관리",
+    "uploadRule": "규칙 업로드",
+    "refresh": "새로고침",
+    "loading": "규칙 로딩 중...",
+    "noRulesFound": "규칙을 찾을 수 없습니다",
+    "tryDifferentSearch": "다른 검색어를 시도해주세요",
+    "uploadToGetStarted": "시작하려면 규칙을 업로드하세요",
+    "noDescription": "설명이 제공되지 않음",
+    "searchPlaceholder": "규칙 검색...",
+    "tabs": {
+      "all": "모든 규칙",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "이름",
+      "status": "상태",
+      "type": "유형",
+      "size": "크기",
+      "ruleCount": "규칙 개수",
+      "updated": "업데이트일",
+      "actions": "작업"
+    },
+    "status": {
+      "verified": "확인됨",
+      "pending": "대기 중",
+      "failed": "실패",
+      "ready": "준비 완료",
+      "processing": "처리 중",
+      "missing": "디스크에서 파일 누락",
+      "missingSince": "{{date}}부터 디스크에서 파일이 누락되었습니다. 다시 업로드하거나 항목을 제거하세요."
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "이름",
+      "description": "설명",
+      "ruleType": "규칙 유형"
+    },
+    "tooltips": {
+      "download": "다운로드",
+      "edit": "편집",
+      "delete": "삭제"
+    },
+    "errors": {
+      "loadFailed": "규칙 로드 실패",
+      "uploadFailed": "규칙 업로드 실패",
+      "deleteFailed": "규칙 삭제 실패",
+      "downloadFailed": "규칙 다운로드 실패",
+      "updateFailed": "규칙 업데이트 실패: {{error}}",
+      "verifyFailed": "규칙 검증 실패",
+      "sessionExpired": "세션이 만료되었습니다. 다시 로그인해주세요."
+    },
+    "messages": {
+      "uploadSuccess": "규칙이 성공적으로 업로드되었습니다",
+      "duplicateRule": "규칙 \"{{name}}\"이(가) 이미 존재합니다",
+      "deleteSuccess": "규칙 \"{{name}}\"이(가) 성공적으로 삭제되었습니다",
+      "updateSuccess": "규칙이 성공적으로 업데이트되었습니다",
+      "verifySuccess": "규칙 \"{{name}}\"이(가) 성공적으로 확인되었습니다"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "규칙 업로드",
+        "fileUploadTitle": "규칙 파일 업로드",
+        "fileUploadDescription": "업로드할 규칙 파일을 선택하세요. 지원 형식: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "규칙 편집"
+      },
+      "delete": {
+        "title": "삭제 확인",
+        "cascadeTitle": "연쇄 삭제 확인",
+        "confirmation": "규칙 \"{{name}}\"을(를) 삭제하시겠습니까? 이 작업은 실행 취소할 수 없습니다.",
+        "cascadeWarning": "규칙 \"{{name}}\"을(를) 삭제하면 다음도 삭제됩니다:",
+        "checkingDependencies": "종속성 확인 중...",
+        "jobsCount_other": "{{count}}개 작업 (대기 중/실행 중/실패):",
+        "presetJobsCount_other": "{{count}}개 프리셋 작업:",
+        "workflowStepsCount_other": "{{count}}개 워크플로우 단계:",
+        "emptyWorkflowsCount_other": "{{count}}개 빈 워크플로우가 삭제됩니다:",
+        "noHashlist": "해시 목록 없음",
+        "step": "단계 {{order}}",
+        "andMore": "...외 {{count}}개 더",
+        "confirmationPrompt": "이 연쇄 삭제를 확인하려면 규칙 ID를 입력하세요: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "{{id}}을(를) 입력하여 확인",
+        "idMismatch": "ID가 일치하지 않습니다",
+        "deleteAll": "모두 삭제"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "프리셋 작업 관리",
+    "createNew": "프리셋 작업 생성",
+    "confirmDelete": "이 프리셋 작업을 삭제하시겠습니까?",
+    "noJobsFound": "프리셋 작업이 없습니다. 시작하려면 하나를 생성하세요.",
+    "keyspaceNotCalculated": "계산되지 않음",
+    "calculating": "계산 중...",
+    "calculateKeyspace": "키스페이스 계산",
+    "calculateAllMissingKeyspaces": "누락된 모든 키스페이스 계산",
+    "calculatingKeyspaces": "계산 중...",
+    "calculatingAllKeyspacesMessage": "모든 프리셋 작업의 키스페이스를 계산하고 있습니다. 잠시 기다려주세요...",
+    "canInterruptRunningJobs": "실행 중인 작업 중단 가능",
+    "columns": {
+      "name": "이름",
+      "description": "설명",
+      "attackMode": "공격 모드",
+      "priority": "우선순위",
+      "highPriorityOverride": "높은 우선순위 재정의",
+      "maxAgents": "최대 에이전트 수",
+      "keyspace": "키스페이스",
+      "binaryVersion": "바이너리 버전",
+      "wordlists": "워드리스트",
+      "rules": "규칙",
+      "createdAt": "생성일",
+      "actions": "작업"
+    },
+    "messages": {
+      "deleteSuccess": "프리셋 작업이 성공적으로 삭제되었습니다",
+      "deleteFailed": "프리셋 작업 삭제 실패: {{error}}",
+      "fetchError": "프리셋 작업 로드 오류: {{error}}",
+      "deleteError": "프리셋 작업 삭제 오류: {{error}}",
+      "keyspaceRecalculateSuccess": "키스페이스가 성공적으로 다시 계산되었습니다",
+      "keyspaceRecalculateFailed": "키스페이스 다시 계산 실패: {{error}}",
+      "keyspaceAllComplete": "업데이트됨 {{updated}}, 건너뜀 {{skipped}}, 실패 {{failed}}",
+      "keyspaceAllFailed": "키스페이스 다시 계산 실패: {{error}}"
+    },
+    "form": {
+      "createTitle": "프리셋 작업 생성",
+      "editTitle": "프리셋 작업 편집",
+      "createJob": "프리셋 작업 생성",
+      "updateJob": "프리셋 작업 업데이트",
+      "attackModeRequirements": "공격 모드 요구사항",
+      "wordlistSelectionCombination": "워드리스트 선택 (조합 모드)",
+      "selectFirstWordlist": "첫 번째 워드리스트 선택",
+      "selectSecondWordlist": "두 번째 워드리스트 선택",
+      "fields": {
+        "jobName": "작업 이름",
+        "attackMode": "공격 모드",
+        "priority": "우선순위",
+        "chunkSize": "청크 기간 (초)",
+        "maxAgents": "최대 에이전트 수",
+        "maskPattern": "마스크 패턴",
+        "incrementMode": "증분 모드",
+        "incrementMin": "증분 최소 길이",
+        "incrementMax": "증분 최대 길이",
+        "wordlists": "워드리스트",
+        "rules": "규칙",
+        "mask": "마스크",
+        "ruleOptional": "규칙 (선택사항)",
+        "firstWordlist": "첫 번째 워드리스트",
+        "secondWordlist": "두 번째 워드리스트",
+        "allowHighPriorityOverride": "높은 우선순위 재정의 허용 (실행 중인 작업 중단 가능)",
+        "additionalArgs": "추가 Hashcat 인수",
+        "cloudBurstEnabled": "클라우드 버스트 허용",
+        "cloudMaxInstances": "최대 클라우드 인스턴스",
+        "cloudAllowCommunityHosts": "피어 운영 호스트 허용 (Vast.ai, RunPod Community)"
+      },
+      "incrementModes": {
+        "off": "끔 (전체 마스크 사용)",
+        "increment": "증분 (1부터 최대값까지)",
+        "incrementInverse": "역 증분 (최대값부터 1까지)"
+      },
+      "helperText": {
+        "binaryVersion": "사용할 hashcat 바이너리 버전을 선택하세요",
+        "priority": "우선순위가 높은 작업이 먼저 실행됩니다 (0-{{maxPriority}})",
+        "maskPattern": "Hashcat 마스크 패턴 (예: ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=소문자, ?u=대문자, ?d=숫자, ?s=특수 문자, ?a=모두",
+        "incrementMode": "증분 모드를 사용하여 다양한 길이의 마스크를 시도하세요",
+        "incrementMin": "시도할 최소 마스크 길이",
+        "incrementMax": "시도할 최대 마스크 길이",
+        "chunkSize": "각 작업 청크의 기간(초)",
+        "maxAgents": "최대 에이전트 수 (0 = 제한 없음)",
+        "allowHighPriorityOverride": "활성화되면 이 작업이 우선순위가 낮은 실행 중인 작업을 중단하여 에이전트를 가져갈 수 있습니다",
+        "wordlistsNotUsed": "이 공격 모드에 사용되지 않는 워드리스트",
+        "selectWordlists_other": "정확히 {{count}}개의 워드리스트를 선택하세요",
+        "rulesNotUsed": "이 공격 모드에 사용되지 않는 규칙",
+        "selectRule": "변환을 적용하기 위해 선택적으로 규칙 파일을 선택하세요",
+        "firstWordlist": "이 목록의 단어는 첫 번째 부분으로 사용됩니다",
+        "secondWordlist": "이 목록의 단어는 첫 번째 부분에 추가됩니다",
+        "additionalArgs": "이 작업을 위한 추가 hashcat 플래그입니다. 충돌 시 에이전트 수준 플래그가 우선합니다.",
+        "cloudBurstEnabled": "온프레미스 플릿이 따라갈 수 없을 때 이 프리셋에서 생성된 작업을 위해 GPU 인스턴스를 임차합니다. 클라이언트가 자금을 지원받고 제공자에 옵트인해야 합니다.",
+        "cloudMaxInstances": "공유 온프레미스 풀을 관리하는 최대 에이전트 수와 별개입니다. 남은 예산이 결정하도록 공백으로 둡니다.",
+        "cloudAllowCommunityHosts": "이것은 다른 사람의 머신입니다. 호스트 소유자가 컨테이너에 루트 권한을 가지고 있으므로 이 클라이언트의 해시, 워드리스트 및 크래킹된 평문은 제3자가 읽을 수 있으며 호스트에서 암호화되지 않습니다. 프로덕션 또는 클라이언트 업무 데이터에는 권장되지 않습니다. 이를 끄면 클라이언트가 허용할 경우 작업이 안전한 용량(AWS, RunPod Secure Cloud)을 사용합니다.",
+        "prefilteredWordlistHint": "프리셋 작업에서 사전 필터링된 워드리스트를 사용하려면 먼저 워드리스트 관리에서 생성하세요. 그러면 이 목록에 나타납니다. 인라인 임시 필터링은 일회성 사용자 정의 작업에서만 사용할 수 있습니다."
+      },
+      "errors": {
+        "nameRequired": "작업 이름이 필요합니다",
+        "binaryVersionRequired": "바이너리 버전이 필요합니다",
+        "straightModeWordlist": "스트레이트 공격 모드에는 정확히 1개의 워드리스트가 필요합니다",
+        "combinationModeWordlists": "조합 공격 모드에는 정확히 2개의 워드리스트가 필요합니다",
+        "selectBothWordlists": "조합 모드의 두 워드리스트를 선택하세요",
+        "bruteForceModeMask": "브루트 포스 공격 모드에는 마스크가 필요합니다",
+        "hybridModeWordlist": "하이브리드 공격 모드에는 정확히 1개의 워드리스트가 필요합니다",
+        "hybridModeMask": "하이브리드 공격 모드에는 마스크가 필요합니다",
+        "associationModeNotImplemented": "연관 공격 모드는 구현되지 않았습니다",
+        "noWordlistsAvailable": "사용 가능한 워드리스트가 없습니다. 먼저 워드리스트를 업로드하세요.",
+        "loadFailed": "프리셋 작업 로드 실패",
+        "loadFormDataFailed": "폼 데이터 로드 실패",
+        "saveFailed": "프리셋 작업 저장 실패"
+      },
+      "messages": {
+        "createSuccess": "프리셋 작업이 성공적으로 생성되었습니다",
+        "updateSuccess": "프리셋 작업이 성공적으로 업데이트되었습니다"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "스트레이트",
+          "description": "워드리스트의 단어를 사용하여 선택적으로 규칙을 적용하여 변환합니다",
+          "wordlistRequirement": "정확히 1개의 워드리스트 필요",
+          "rulesRequirement": "0개 또는 1개의 규칙 파일",
+          "maskRequirement": "마스크 필요 없음"
+        },
+        "combination": {
+          "name": "조합",
+          "description": "두 워드리스트의 단어를 결합합니다 (first_word + second_word)",
+          "wordlistRequirement": "정확히 2개의 워드리스트 필요",
+          "rulesRequirement": "규칙 필요 없음",
+          "maskRequirement": "마스크 필요 없음"
+        },
+        "bruteForce": {
+          "name": "브루트 포스 (마스크)",
+          "description": "패턴/마스크를 기반으로 비밀번호를 생성합니다",
+          "wordlistRequirement": "워드리스트 필요 없음",
+          "rulesRequirement": "규칙 필요 없음",
+          "maskRequirement": "마스크 필요 (예: ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "하이브리드: 워드리스트 + 마스크",
+          "description": "워드리스트의 단어에 마스크로 생성된 문자를 추가합니다",
+          "wordlistRequirement": "정확히 1개의 워드리스트 필요",
+          "rulesRequirement": "규칙 필요 없음",
+          "maskRequirement": "마스크 필요 (예: ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "하이브리드: 마스크 + 워드리스트",
+          "description": "워드리스트의 단어 앞에 마스크로 생성된 문자를 추가합니다",
+          "wordlistRequirement": "정확히 1개의 워드리스트 필요",
+          "rulesRequirement": "규칙 필요 없음",
+          "maskRequirement": "마스크 필요 (예: ?d?d?d?d)"
+        },
+        "association": {
+          "name": "연관 (구현되지 않음)",
+          "description": "이 공격 모드는 현재 구현되지 않았습니다",
+          "wordlistRequirement": "해당 없음",
+          "rulesRequirement": "해당 없음",
+          "maskRequirement": "해당 없음"
+        }
+      }
+    }
+  },
+  "workflows": {
+    "title": "작업 워크플로우 관리",
+    "create": "워크플로우 생성",
+    "deleteTitle": "워크플로우 삭제",
+    "confirmDelete": "\"{{name}}\" 워크플로우를 삭제하시겠습니까?",
+    "noWorkflowsFound": "워크플로우를 찾을 수 없습니다. 시작하려면 하나를 생성하세요.",
+    "canInterrupt": "중단 가능",
+    "normal": "일반",
+    "loopbackAllEligible": "모두 적격",
+    "loopbackStepCount_other": "{{count}} 단계",
+    "columns": {
+      "name": "이름",
+      "description": "설명",
+      "steps": "단계",
+      "jobCount": "작업 수",
+      "highPriority": "우선순위 모드",
+      "loopback": "루프백",
+      "created": "생성됨",
+      "lastUpdated": "마지막 업데이트",
+      "actions": "작업"
+    },
+    "messages": {
+      "loadFailed": "워크플로우를 로드하지 못했습니다",
+      "deleteFailed": "워크플로우를 삭제하지 못했습니다"
+    },
+    "form": {
+      "createTitle": "워크플로우 생성",
+      "editTitle": "워크플로우 편집",
+      "createWorkflow": "워크플로우 생성",
+      "saveChanges": "변경 사항 저장",
+      "workflowSteps": "워크플로우 단계",
+      "noJobsAdded": "이 워크플로우에 추가된 작업이 없습니다. 위에서 프리셋 작업을 검색하고 추가하세요.",
+      "priority": "우선순위: {{priority}}",
+      "binary": "바이너리: {{name}}",
+      "wordlistCount_other": "{{count}} 워드리스트",
+      "ruleCount_other": "{{count}} 규칙",
+      "loopback": {
+        "masterToggle": "모든 적격 단계에 루프백 활성화",
+        "masterHelperText": "활성화되면 전체 워크플로우가 실행되고, 모든 적격 단계(워드리스트 + 규칙 또는 하이브리드 워드리스트 ± 마스크 공격)가 새로 크래킹된 비밀번호에 대해서만 다시 실행됩니다 — 새로운 크래킹이 더 이상 없을 때까지 지능형으로 반복됩니다. 변이가 아닌 단계(워드리스트 전용, 브루트 포스, 연관 공격)는 여전히 새로운 크래킹을 루프에 공급합니다. 이것이 활성화되는 동안 아래 단계별 토글은 비활성화됩니다.",
+        "stepLabel": "루프백",
+        "tooltipIneligible": "변이할 것이 없습니다(워드리스트 전용, 브루트 포스, 연관 공격 또는 결합 공격). 이 단계는 여전히 새로운 크래킹을 루프에 공급하지만 다시 실행되지 않습니다.",
+        "tooltipMasterOn": "워크플로우 수준 루프백이 활성화되어 있으므로 모든 적격 단계가 루프백됩니다.",
+        "tooltipStep": "새로 크래킹된 비밀번호에 대해서만 이 단계를 다시 실행하고 새로운 크래킹이 더 이상 없을 때까지 반복합니다."
+      },
+      "fields": {
+        "workflowName": "워크플로우 이름",
+        "searchPresetJobs": "프리셋 작업 검색"
+      },
+      "helperText": {
+        "searchPresetJobs": "이 워크플로우에 추가할 프리셋 작업을 검색하세요"
+      },
+      "errors": {
+        "nameRequired": "워크플로우 이름이 필요합니다",
+        "presetJobRequired": "최소한 하나의 프리셋 작업이 필요합니다",
+        "noPresetJobsAvailable": "사용 가능한 프리셋 작업이 없습니다. 먼저 프리셋 작업을 생성하세요.",
+        "loadFailed": "워크플로우를 로드하지 못했습니다",
+        "loadFormDataFailed": "양식 데이터를 로드하지 못했습니다",
+        "saveFailed": "워크플로우를 저장하지 못했습니다"
+      },
+      "messages": {
+        "createSuccess": "워크플로우가 성공적으로 생성되었습니다",
+        "updateSuccess": "워크플로우가 성공적으로 업데이트되었습니다"
+      },
+      "cloudBurst": {
+        "toggle": "모든 단계에 클라우드 버스트 사용 허용",
+        "helperText": "모든 단계에 적용되며 각 프리셋의 자체 설정을 무시합니다. 단계 간에 인스턴스가 종료되었다가 다시 임차되는 대신 하나의 임차된 인스턴스가 전체 워크플로우를 처리할 수 있도록 워크플로우 수준에서 설정합니다."
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "바이너리 관리",
+    "title": "해시캣 바이너리",
+    "addBinary": "바이너리 추가",
+    "showingActiveOnly": "활성 바이너리만 표시 중",
+    "showingAll": "모든 바이너리 표시 중",
+    "noBinaries": "바이너리를 찾을 수 없습니다",
+    "noActiveBinaries": "활성 바이너리를 찾을 수 없습니다",
+    "default": "기본값",
+    "verifyBinary": "바이너리 검증",
+    "deleteBinary": "바이너리 삭제",
+    "sourceUpload": "업로드",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "버전",
+      "type": "유형",
+      "source": "출처",
+      "size": "크기",
+      "status": "상태",
+      "default": "기본값",
+      "lastVerified": "마지막 검증",
+      "actions": "작업"
+    },
+    "messages": {
+      "fetchFailed": "바이너리를 가져오지 못했습니다",
+      "verifySuccess": "바이너리가 성공적으로 검증되었습니다",
+      "verifyFailed": "바이너리를 검증하지 못했습니다",
+      "deleteSuccess": "바이너리가 성공적으로 삭제되었습니다",
+      "deleteFailed": "바이너리를 삭제하지 못했습니다",
+      "cannotDeleteLast": "마지막 활성 {{type}} 바이너리를 삭제할 수 없습니다",
+      "cannotDeleteOnly": "이 유형의 유일한 바이너리를 삭제할 수 없습니다",
+      "setDefaultSuccess": "기본 바이너리가 성공적으로 업데이트되었습니다",
+      "setDefaultFailed": "기본 바이너리를 설정하지 못했습니다",
+      "addSuccess": "바이너리가 성공적으로 추가되었습니다",
+      "addFailed": "바이너리를 추가하지 못했습니다"
+    },
+    "deleteDialog": {
+      "title": "삭제 확인",
+      "message": "바이너리 \"{{fileName}}\"을(를) 삭제하시겠습니까? 이 작업은 실행 취소할 수 없습니다."
+    },
+    "form": {
+      "addDialogTitle": "새 바이너리 추가",
+      "sourceLabel": "출처",
+      "downloadFromUrl": "URL에서 다운로드",
+      "uploadFile": "파일 업로드",
+      "binaryTypeLabel": "바이너리 유형",
+      "johnPending": "John the Ripper (지원 대기 중)",
+      "compressionTypeLabel": "압축 유형",
+      "sourceUrlLabel": "출처 URL",
+      "sourceUrlHelp": "바이너리를 다운로드할 URL입니다(예: https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "압축 파일 선택",
+      "uploadHelp": "바이너리를 포함하는 .7z, .zip, .tar.gz 또는 .tar.xz 압축 파일을 업로드합니다",
+      "fileNameLabel": "파일 이름",
+      "fileNameHelp": "URL/파일에서 자동으로 채워지지만 필요에 따라 수정할 수 있습니다",
+      "versionLabel": "버전",
+      "versionHelp": "파일 이름에서 자동 감지됩니다. 사용자 정의 빌드의 경우 재정의하세요.",
+      "descriptionLabel": "설명",
+      "descriptionHelp": "이 바이너리에 대한 선택적 메모(예: 사용자 정의 빌드 세부 정보)",
+      "setAsDefault": "기본 바이너리로 설정",
+      "selectFileRequired": "업로드할 파일을 선택하세요",
+      "uploadBinarySubmit": "바이너리 업로드"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "시스템 진단",
+    "diagnosticPackage": "진단 패키지",
+    "diagnosticPackageDescription": "시스템 정보, 로그 및 구성 세부 정보를 포함하는 진단 패키지를 다운로드하세요.",
+    "refreshData": "데이터 새로 고침",
+    "hours": "시간",
+    "hoursTooltip": "포함할 로그의 시간 수",
+    "includeAgentLogs": "에이전트 로그 포함",
+    "includeNginxLogs": "Nginx 로그 포함",
+    "includePostgresLogs": "PostgreSQL 로그 포함",
+    "preparing": "준비 중...",
+    "downloadDiagnostics": "진단 다운로드",
+    "systemInfo": "시스템 정보",
+    "runtime": "런타임",
+    "cpus": "CPU",
+    "goroutines": "고루틴",
+    "memory": "메모리",
+    "heap": "힙",
+    "system": "시스템",
+    "gcRuns": "GC 실행",
+    "database": "데이터베이스",
+    "size": "크기",
+    "connections": "연결",
+    "agents": "에이전트",
+    "connected": "연결됨",
+    "withDebugStatus": "디버그 활성화됨",
+    "serverDebugStatus": "서버 디버그 상태",
+    "serverDebugDescription": "서버의 상세 로깅을 활성화합니다. 이로 인해 로그 파일 크기가 증가하고 성능에 영향을 미칠 수 있습니다.",
+    "debugEnabled": "디버그 활성화됨",
+    "debugDisabled": "디버그 비활성화됨",
+    "level": "수준",
+    "enableDebug": "디버그 활성화",
+    "disableDebug": "디버그 비활성화",
+    "loadingServerDebugStatus": "서버 디버그 상태 로드 중...",
+    "serverLogs": "서버 로그",
+    "serverLogsDescription": "서버 로그 파일을 관리합니다. 로그 제거는 영구적이며 실행 취소할 수 없습니다.",
+    "refreshLogStats": "로그 통계 새로 고침",
+    "directory": "디렉토리",
+    "files": "파일",
+    "actions": "작업",
+    "backend": "백엔드",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "합계",
+    "purge": "제거",
+    "purgeAll": "모두 제거",
+    "loadingLogStatistics": "로그 통계 로드 중...",
+    "agentDebugStatus": "에이전트 디버그 상태",
+    "enableAll": "모두 활성화",
+    "disableAll": "모두 비활성화",
+    "noAgentsWithDebugStatus": "디버그 상태인 에이전트가 없습니다",
+    "agentId": "에이전트 ID",
+    "logLevel": "로그 수준",
+    "fileLogging": "파일 로깅",
+    "logFileSize": "로그 파일 크기",
+    "buffer": "버퍼",
+    "lastUpdated": "마지막 업데이트",
+    "viewLogs": "로그 보기",
+    "purgeLogs": "로그 제거",
+    "agentLogs": "에이전트 로그",
+    "agent": "에이전트",
+    "allLevels": "모든 수준",
+    "refresh": "새로 고침",
+    "showingEntries": "{{total}}개 중 {{shown}}개 항목 표시",
+    "filtered": "필터링됨",
+    "truncated": "잘림",
+    "time": "시간",
+    "message": "메시지",
+    "location": "위치",
+    "noEntriesForLevel": "{{level}} 수준에 대한 항목이 없습니다",
+    "noLogEntriesAvailable": "사용 가능한 로그 항목이 없습니다",
+    "logFileContent": "로그 파일 내용",
+    "noLogsAvailable": "사용 가능한 로그가 없습니다",
+    "securityWarning": "보안 경고",
+    "postgresLogsWarning": "PostgreSQL 로그에는 민감한 데이터가 포함될 수 있습니다. 문제 해결 후 제거하는 것을 고려하세요.",
+    "nginxLogsWarning": "Nginx 액세스 로그에는 민감한 요청 데이터가 포함될 수 있습니다. 문제 해결 후 제거하는 것을 고려하세요.",
+    "sensitiveNginxLogsWarning": "Nginx 액세스 로그에는 요청 헤더 및 쿼리 매개변수의 인증 토큰을 포함한 민감한 정보가 포함될 수 있습니다.",
+    "sensitivePostgresLogsWarning": "PostgreSQL 로그에는 사용자 데이터, 비밀번호 및 연결 세부 정보가 있는 쿼리를 포함한 민감한 정보가 포함될 수 있습니다.",
+    "sensitiveLogsTestEnvironmentWarning": "테스트/개발 환경이나 디버깅에 반드시 필요할 때만 이러한 로그를 포함하세요.",
+    "sensitiveLogsProductionWarning": "외부와 공유하는 프로덕션 진단 패키지에 민감한 로그를 포함하지 마세요.",
+    "iUnderstandIncludeLogs": "확인, 로그 포함",
+    "allServerLogs": "모든 서버 로그",
+    "directoryLogs": "{{directory}} 로그",
+    "purgeServerLogs": "서버 로그 제거",
+    "confirmPurgeLogs": "{{dirLabel}}을(를) 제거하시겠습니까?",
+    "cannotBeUndone": "이 작업은 실행 취소할 수 없습니다.",
+    "purgeAgentLogs": "에이전트 로그 제거",
+    "confirmPurgeAgentLogs": "에이전트 {{agentId}}의 로그를 제거하시겠습니까?",
+    "enable": "활성화",
+    "disable": "비활성화",
+    "serverDebugModeTitle": "서버 디버그 모드 {{action}}",
+    "serverDebugModeMessage": "이렇게 하면 서버의 로깅 수준이 변경됩니다. Nginx 서버가 다시 로드되어 변경 사항이 적용됩니다.",
+    "serverDebugModeWarning": "페이지가 변경 사항을 적용한 후 잠깐 다시 연결됩니다.",
+    "reconnectingToServer": "서버에 다시 연결 중",
+    "pleaseWaitReconnecting": "서버가 다시 시작되는 동안 기다려주세요...",
+    "nginxLogsTooltip": "경고: 민감한 요청 데이터가 포함될 수 있습니다",
+    "postgresLogsTooltip": "경고: 민감한 데이터베이스 쿼리가 포함될 수 있습니다",
+    "messages": {
+      "loadFailed": "진단 데이터를 로드하지 못했습니다:",
+      "logStatsFailed": "로그 통계를 로드하지 못했습니다:",
+      "purgeFailed": "로그를 제거하지 못했습니다:",
+      "reconnectionTimedOut": "다시 연결 시간 초과. 페이지를 새로 고치세요.",
+      "toggleDebugFailed": "디버그 모드를 전환하지 못했습니다:",
+      "downloadFailed": "진단을 다운로드하지 못했습니다:",
+      "toggleAgentDebugFailed": "에이전트 디버그를 전환하지 못했습니다:",
+      "toggleAllAgentsDebugFailed": "모든 에이전트의 디버그를 전환하지 못했습니다:",
+      "fetchAgentLogsFailed": "에이전트 로그를 가져오지 못했습니다:",
+      "purgeAgentLogsFailed": "에이전트 로그를 제거하지 못했습니다:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "인증 설정",
+    "unsavedChanges": "저장하지 않은 변경 사항이 있습니다. '설정 저장'을 클릭하여 적용합니다.",
+    "saving": "저장 중...",
+    "saveSettings": "설정 저장",
+    "resetToSaved": "저장된 상태로 재설정",
+    "passwordPolicy": {
+      "title": "비밀번호 정책",
+      "minLength": "최소 비밀번호 길이",
+      "requireUppercase": "대문자 필수",
+      "requireLowercase": "소문자 필수",
+      "requireNumbers": "숫자 필수",
+      "requireSpecialChars": "특수 문자 필수"
+    },
+    "accountSecurity": {
+      "title": "계정 보안",
+      "maxFailedAttempts": "최대 로그인 실패 횟수",
+      "lockoutDuration": "계정 잠금 기간(분)",
+      "jwtExpiry": "JWT 만료 시간(분)",
+      "notificationAggregation": "알림 집계 기간(분)",
+      "notificationAggregationHelper": "유사한 알림을 보내기 전에 집계하는 시간입니다."
+    },
+    "mfa": {
+      "title": "다중 인증",
+      "requireMfa": "모든 사용자에게 다중 인증 필수",
+      "requireMfaEmailRequired": "다중 인증 필수(이메일 게이트웨이 필요)",
+      "allowedMethods": "허용된 다중 인증 방법",
+      "methodEmail": "이메일 코드",
+      "methodAuthenticator": "인증 앱(TOTP)",
+      "methodPasskey": "패스키(WebAuthn)",
+      "methodPasskeyNotSupported": "패스키(이 브라우저에서 지원되지 않음)",
+      "codeSettings": "코드 설정",
+      "emailCodeValidity": "이메일 코드 유효 기간(분)",
+      "emailCodeValidityHelper": "이메일 인증 코드가 유효한 기간입니다.",
+      "codeCooldown": "코드 요청 대기 시간(분)",
+      "codeCooldownHelper": "코드 요청 간 최소 시간입니다.",
+      "codeExpiry": "코드 만료 시간(분)",
+      "codeExpiryHelper": "다중 인증 코드가 유효한 기간입니다.",
+      "maxCodeAttempts": "최대 코드 시도 횟수",
+      "maxCodeAttemptsHelper": "계정 잠금 전 최대 코드 시도 실패 횟수입니다.",
+      "backupCodesCount": "백업 코드 개수",
+      "backupCodesCountHelper": "생성할 백업 코드 개수입니다.",
+      "requireMfaHelper": "모든 사용자는 로그인 시 다중 인증을 완료해야 합니다. 코드 전달을 위해 구성된 이메일 제공자가 필요합니다."
+    },
+    "webauthn": {
+      "title": "WebAuthn / 패스키 구성",
+      "notSupported": "이 브라우저에서 WebAuthn을 지원하지 않습니다.",
+      "requiresDomain": "패스키는 적절한 도메인과 HTTPS가 필요합니다. 아래에서 도메인 설정을 구성합니다.",
+      "rpId": "신뢰 당사자 ID",
+      "rpIdHelper": "도메인 이름(예: krakenhashes.example.com)",
+      "rpDisplayName": "표시명",
+      "rpDisplayNameHelper": "패스키 등록 중 사용자에게 표시되는 이름입니다.",
+      "allowedOrigins": "허용된 출처",
+      "allowedOriginsHelper": "줄당 하나의 출처(예: https://krakenhashes.example.com)",
+      "configured": "WebAuthn은 구성되었으며 사용 준비가 완료되었습니다.",
+      "save": "WebAuthn 설정 저장"
+    },
+    "session": {
+      "title": "세션 관리",
+      "tokenCleanupInterval": "토큰 정리 간격(초)",
+      "tokenCleanupIntervalHelper": "만료된 토큰을 정리하는 빈도입니다.",
+      "maxConcurrentSessions": "최대 동시 세션 수",
+      "maxConcurrentSessionsHelper": "사용자당 최대 세션 수(0 = 무제한)",
+      "absoluteTimeout": "절대 세션 시간 초과(시간)",
+      "absoluteTimeoutHelper": "이 시간 후 강제로 재인증합니다(0 = 비활성화)"
+    },
+    "errors": {
+      "loadFailed": "인증 설정을 로드하지 못했습니다.",
+      "noSettingsToSave": "저장할 설정이 없습니다.",
+      "saveFailed": "설정을 저장하지 못했습니다.",
+      "emailProviderRequired": "이메일 기반 다중 인증에는 이메일 제공자가 필요합니다.",
+      "webauthnSaveFailed": "WebAuthn 설정을 저장하지 못했습니다.",
+      "resetFailed": "설정을 재설정하지 못했습니다."
+    },
+    "messages": {
+      "updateSuccess": "인증 설정이 성공적으로 업데이트되었습니다.",
+      "updateFailed": "인증 설정을 업데이트하지 못했습니다."
+    },
+    "teams": {
+      "title": "다중 팀 격리",
+      "description": "활성화되면 클라이언트, 해시 목록, 작업 및 에이전트가 팀으로 범위가 지정되고 사용자는 해당 팀이 소유한 항목만 봅니다.",
+      "enable": "팀 활성화",
+      "enableHelper": "기존 데이터는 기본 팀에 배치됩니다."
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "SSO 설정",
+    "pageDescription": "SSO 제공자 및 인증 옵션을 구성합니다.",
+    "warnings": {
+      "ephemeralKeyTitle": "SSO 암호화 키가 구성되지 않음",
+      "ephemeralKeyDescription": "SSO 제공자 암호(클라이언트 암호, 바인드 암호, 개인 키)는 현재 서버 재시작 시 손실될 임시 키로 암호화됩니다. 구성된 SSO 제공자는 재시작 후 작동을 중지합니다.",
+      "ephemeralKeyInstructions": "이를 해결하려면 다음을 실행하여 영구 암호화 키를 생성합니다:",
+      "ephemeralKeyAddToEnv": "그런 다음 다음을 .env 파일에 추가하고 서버를 재시작합니다:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "명령이 클립보드에 복사되었습니다."
+    },
+    "authMethods": {
+      "title": "인증 방법",
+      "description": "인증 방법을 전역으로 활성화 또는 비활성화합니다.",
+      "localAuth": "로컬 인증",
+      "localAuthDescription": "사용자명/비밀번호 로그인",
+      "ldapAuth": "LDAP 인증",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "SAML 인증",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "OAuth/OIDC 인증",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "사용자 프로비저닝",
+      "description": "SSO 로그인에서 자동 사용자 생성을 구성합니다.",
+      "autoCreateUsers": "사용자 자동 생성",
+      "autoCreateUsersDescription": "새 SSO 로그인에 대해 자동으로 사용자 계정을 생성합니다.",
+      "autoEnableUsers": "사용자 자동 활성화",
+      "autoEnableUsersDescription": "새로 생성된 SSO 사용자를 자동으로 활성화합니다(그렇지 않으면 관리자 승인 필요)"
+    },
+    "providers": {
+      "title": "SSO 제공자",
+      "addProvider": "제공자 추가",
+      "noProviders": "구성된 SSO 제공자가 없습니다. \"제공자 추가\"를 클릭하여 생성합니다.",
+      "enabled": "활성화됨",
+      "disabled": "비활성화됨",
+      "callbackUrl": "콜백 URL",
+      "acsUrl": "ACS URL",
+      "metadata": "메타데이터",
+      "viewXml": "XML 보기",
+      "testConnection": "연결 테스트",
+      "downloadCertificate": "SP 인증서 다운로드"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "제공자 삭제",
+        "confirmation": "제공자 \"{{name}}\"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없으며 연동된 모든 사용자 계정의 연결이 해제됩니다."
+      },
+      "providerForm": {
+        "addTitle": "제공자 추가",
+        "editTitle": "제공자 편집",
+        "providerName": "제공자 이름",
+        "providerType": "제공자 유형",
+        "enabled": "활성화됨"
+      }
+    },
+    "ldapConfig": {
+      "title": "LDAP 구성",
+      "serverUrl": "서버 URL",
+      "serverUrlHelper": "안전한 연결을 위해 ldaps://를 사용합니다.",
+      "baseDn": "기본 DN",
+      "userSearchFilter": "사용자 검색 필터",
+      "userSearchFilterHelper": "{{username}}을(를) 자리 표시자로 사용합니다.",
+      "bindDn": "바인드 DN(선택사항)",
+      "bindPassword": "바인드 암호",
+      "emailAttribute": "이메일 속성",
+      "usernameAttribute": "사용자명 속성",
+      "usernameAttributeHelper": "사용자명을 포함하는 LDAP 속성(예: sAMAccountName, uid)",
+      "connectionTimeout": "연결 시간 초과(초)",
+      "useStartTls": "StartTLS 사용",
+      "skipCertVerify": "인증서 확인 건너뛰기(테스트 전용)"
+    },
+    "samlConfig": {
+      "title": "SAML 구성",
+      "spEntityId": "SP 엔티티 ID",
+      "spEntityIdHelper": "애플리케이션의 SAML 식별자",
+      "idpEntityId": "IdP 엔티티 ID",
+      "idpSsoUrl": "IdP SSO URL",
+      "idpCertificate": "IdP 인증서",
+      "emailAttribute": "이메일 속성",
+      "usernameAttribute": "사용자명 속성",
+      "usernameAttributeHelper": "사용자명을 포함하는 SAML 속성(예: uid, username)",
+      "requireSignedAssertions": "서명된 어설션 필수"
+    },
+    "oauthConfig": {
+      "title": "OAuth/OIDC 구성",
+      "isOidc": "OpenID Connect(OIDC)",
+      "clientId": "클라이언트 ID",
+      "clientSecret": "클라이언트 암호",
+      "discoveryUrl": "검색 URL",
+      "discoveryUrlHelper": "OIDC 검색 엔드포인트(다른 URL 자동 구성)",
+      "authorizationUrl": "승인 URL",
+      "tokenUrl": "토큰 URL",
+      "userInfoUrl": "사용자 정보 URL",
+      "scopes": "범위",
+      "scopesHelper": "공백으로 구분된 목록",
+      "emailAttribute": "이메일 속성",
+      "usernameAttribute": "사용자명 속성",
+      "usernameAttributeHelper": "사용자명을 포함하는 클레임(예: preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "SSO 설정을 로드하지 못했습니다.",
+      "settingsUpdated": "SSO 설정이 성공적으로 업데이트되었습니다.",
+      "updateFailed": "SSO 설정을 업데이트하지 못했습니다.",
+      "loadProviderFailed": "제공자 세부 정보를 로드하지 못했습니다.",
+      "providerDeleted": "제공자가 성공적으로 삭제되었습니다.",
+      "deleteFailed": "제공자를 삭제하지 못했습니다.",
+      "testSuccess": "연결 테스트가 성공했습니다.",
+      "testFailed": "연결 테스트가 실패했습니다.",
+      "certificateDownloaded": "인증서가 성공적으로 다운로드되었습니다.",
+      "certificateNotFound": "메타데이터에서 인증서를 찾을 수 없습니다.",
+      "certificateDownloadFailed": "인증서를 다운로드하지 못했습니다.",
+      "providerUpdated": "제공자가 성공적으로 업데이트되었습니다.",
+      "providerCreated": "제공자가 성공적으로 생성되었습니다.",
+      "saveProviderFailed": "제공자를 저장하지 못했습니다."
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "제공자 구성",
+      "emailTemplates": "이메일 템플릿"
+    },
+    "provider": {
+      "titles": {
+        "current": "현재 이메일 구성",
+        "create": "이메일 구성 생성",
+        "edit": "이메일 구성 편집"
+      },
+      "labels": {
+        "provider": "제공자",
+        "apiKey": "API 키",
+        "password": "암호",
+        "smtpHost": "SMTP 호스트",
+        "port": "포트",
+        "username": "사용자명",
+        "encryption": "암호화",
+        "fromEmail": "발신 이메일",
+        "fromName": "발신 이름",
+        "domain": "도메인",
+        "region": "지역",
+        "monthlyLimit": "월간 한도",
+        "skipTlsVerify": "TLS 인증서 확인 건너뛰기(안전하지 않음, 권장되지 않음)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "테스트 이메일 주소"
+      },
+      "helpers": {
+        "keepCurrentPassword": "비워 두면 현재 값을 유지합니다.",
+        "monthlyLimit": "비워 두면 무제한으로 적용됩니다.",
+        "mailgunFromEmail": "보통 noreply@yourdomain",
+        "fromName": "이메일의 표시 이름"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "없음(포트 25)",
+        "encryptionStarttls": "STARTTLS(포트 587)",
+        "encryptionTls": "TLS/SSL(포트 465)",
+        "regionUS": "미국(api.mailgun.net)",
+        "regionEU": "EU(api.eu.mailgun.net)"
+      },
+      "buttons": {
+        "edit": "구성 편집",
+        "cancel": "취소",
+        "testConnection": "연결 테스트",
+        "save": "구성 저장",
+        "saveOnly": "저장만",
+        "saveAndTest": "저장 및 테스트",
+        "sendTestEmail": "테스트 이메일 보내기"
+      },
+      "dialogs": {
+        "test": {
+          "title": "이메일 구성 테스트",
+          "content": "테스트 이메일을 보낼 이메일 주소를 입력합니다:"
+        },
+        "save": {
+          "title": "구성 저장",
+          "content": "저장 후 구성을 테스트하시겠습니까?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "TLS 인증서 확인이 비활성화됩니다.",
+        "tlsVerifyWarning": "TLS 확인을 비활성화하면 중간자 공격에 연결이 취약해집니다. 자체 서명 인증서를 사용한 테스트에만 사용합니다."
+      },
+      "messages": {
+        "testSuccess": "테스트 이메일이 성공적으로 전송되었습니다.",
+        "testFailed": "테스트 이메일을 보내지 못했습니다.",
+        "saveSuccess": "구성이 성공적으로 저장되었습니다.",
+        "saveFailed": "구성을 저장하지 못했습니다.",
+        "loadFailed": "구성을 로드하지 못했습니다."
+      }
+    },
+    "templates": {
+      "title": "이메일 템플릿",
+      "createTemplate": "이메일 템플릿 생성",
+      "editTemplate": "이메일 템플릿 편집",
+      "labels": {
+        "templateType": "템플릿 유형",
+        "name": "이름",
+        "subject": "제목",
+        "htmlContent": "HTML 콘텐츠",
+        "textContent": "텍스트 콘텐츠"
+      },
+      "menuItems": {
+        "securityEvent": "보안 이벤트",
+        "jobCompletion": "작업 완료",
+        "adminError": "관리자 오류",
+        "mfaCode": "다중 인증 코드",
+        "securityPasswordChanged": "비밀번호 변경됨",
+        "securityMfaDisabled": "다중 인증 비활성화됨",
+        "securitySuspiciousLogin": "의심스러운 로그인",
+        "jobStarted": "작업 시작됨",
+        "jobFailed": "작업 실패",
+        "firstCrack": "첫 크래킹",
+        "taskCompleted": "태스크 완료됨",
+        "agentOffline": "에이전트 오프라인",
+        "agentError": "에이전트 오류",
+        "webhookFailure": "웹훅 실패"
+      },
+      "buttons": {
+        "create": "템플릿 생성",
+        "cancel": "취소",
+        "test": "테스트",
+        "save": "저장",
+        "edit": "편집",
+        "delete": "삭제"
+      },
+      "table": {
+        "name": "이름",
+        "type": "유형",
+        "subject": "제목",
+        "actions": "동작"
+      },
+      "preview": "라이브 미리보기(샘플 데이터 포함):",
+      "messages": {
+        "loadSuccess": "템플릿이 성공적으로 로드되었습니다.",
+        "loadFailed": "템플릿을 로드하지 못했습니다.",
+        "createSuccess": "템플릿이 성공적으로 생성되었습니다",
+        "createFailed": "템플릿 생성에 실패했습니다",
+        "updateSuccess": "템플릿이 성공적으로 업데이트되었습니다",
+        "updateFailed": "템플릿 업데이트에 실패했습니다",
+        "deleteSuccess": "템플릿이 성공적으로 삭제되었습니다",
+        "deleteFailed": "템플릿 삭제에 실패했습니다",
+        "testSuccess": "테스트 이메일이 성공적으로 전송되었습니다",
+        "testFailed": "테스트 이메일 전송에 실패했습니다",
+        "saveFailed": "템플릿 저장에 실패했습니다"
+      }
+    }
+  },
+  "settings": {
+    "saved": "설정이 성공적으로 저장되었습니다",
+    "saveFailed": "설정 저장에 실패했습니다"
+  },
+  "clientSettings": {
+    "title": "클라이언트 설정",
+    "retentionPeriod": "기본 데이터 보관 기간(개월)",
+    "retentionHelperText": "새로운 클라이언트의 기본 보관 기간(0 = 무기한 보관)",
+    "saveButton": "설정 저장",
+    "errors": {
+      "invalidRetention": "보관 기간은 음수가 아닌 숫자여야 합니다",
+      "saveFailed": "클라이언트 설정 저장에 실패했습니다"
+    },
+    "messages": {
+      "updateSuccess": "클라이언트 설정이 성공적으로 업데이트되었습니다"
+    }
+  },
+  "systemSettings": {
+    "title": "시스템 설정",
+    "priority": {
+      "title": "우선순위 설정",
+      "tooltip": "작업 및 프리셋 작업에 할당할 수 있는 최대 우선순위 값을 구성합니다. 이렇게 하면 조직 전체에서 일관된 우선순위 범위를 유지하는 데 도움이 됩니다.",
+      "maxPriority": "최대 작업 우선순위",
+      "helperText": "최대 우선순위 값(1-1,000,000)을 설정합니다. 작업 및 프리셋 작업은 이 우선순위를 초과할 수 없습니다.",
+      "saveButton": "설정 저장",
+      "saving": "저장 중...",
+      "reset": "재설정"
+    },
+    "priorityInfo": {
+      "title": "우선순위 시스템 정보",
+      "description": "우선순위 시스템은 0부터 설정된 최대 우선순위까지의 범위를 사용합니다. 숫자가 높을수록 우선순위가 높습니다.",
+      "currentMax": "현재 최대값",
+      "note": "기존 프리셋 작업의 우선순위보다 낮은 최대 우선순위를 설정할 수 없습니다. 필요한 경우 먼저 높은 우선순위의 프리셋 작업을 업데이트하거나 제거하세요.",
+      "recommended": "조직 규모별 권장 범위:",
+      "small": "소규모 조직: 0-100",
+      "medium": "중형/대형 조직: 0-1,000",
+      "large": "업무량이 과도한 조직: 0-10,000"
+    },
+    "agentScheduling": {
+      "title": "에이전트 일정",
+      "tooltip": "에이전트 일정 시스템을 전역적으로 활성화 또는 비활성화합니다. 활성화되면 에이전트에 일일 일정을 구성할 수 있습니다.",
+      "enable": "에이전트 일정 시스템 활성화",
+      "description": "활성화되면 에이전트를 일일 일정으로 구성할 수 있습니다. 현재 시간에 일정이 있는 에이전트만 작업이 할당됩니다.",
+      "note": "이 기능이 작동하려면 개별 에이전트도 일정이 활성화되고 일정이 구성되어야 합니다."
+    },
+    "agentOverflow": {
+      "title": "에이전트 초과 할당",
+      "tooltip": "모든 우선순위 계층의 모든 작업이 최대 에이전트 수에 도달한 후 여유 에이전트를 배포하는 방법을 구성합니다.",
+      "modeLabel": "초과 할당 모드",
+      "priorityFifoMode": "우선순위 - FIFO",
+      "priorityRoundRobinMode": "우선순위 - 라운드 로빈",
+      "enforceMaxAgentsMode": "최대 에이전트 수 적용",
+      "maxAgentsFifoMode": "최대 에이전트 수 - FIFO",
+      "maxAgentsRoundRobinMode": "최대 에이전트 수 - 라운드 로빈",
+      "priorityFifoDescription": "상위 계층부터 최고 우선순위로 채워집니다. 계층이 최대 에이전트 수에 도달하면 남은 에이전트가 해당 계층의 가장 오래된 작업에 쌓이므로 상한을 초과합니다. 낮은 우선순위 작업은 높은 계층이 소진될 때까지 처리되지 않을 수 있습니다.",
+      "priorityRoundRobinDescription": "상위 계층부터 최고 우선순위로 채워집니다. 계층이 최대 에이전트 수에 도달하면 남은 에이전트가 해당 계층의 작업들에 균등하게 배치되므로 상한을 초과합니다. 낮은 우선순위 작업은 처리되지 않을 수 있습니다.",
+      "enforceMaxAgentsDescription": "각 작업을 최대 에이전트 수 제한으로 엄격하게 제한합니다. 초과 없음. 여유 에이전트는 유휴 상태로 유지됩니다. 가장 예측 가능하지만 용량을 낭비할 수 있습니다.",
+      "maxAgentsFifoDescription": "모든 우선순위의 모든 작업이 먼저 최대 에이전트 수로 채워집니다(엄격한 상한). 남은 에이전트는 우선순위를 무시하고 전체에서 가장 오래된 작업에 쌓입니다. 처리량을 최대화하면서도 모든 작업에 기본 할당량을 제공합니다.",
+      "maxAgentsRoundRobinDescription": "모든 우선순위의 모든 작업이 먼저 최대 에이전트 수로 채워집니다(엄격한 상한). 남은 에이전트는 우선순위를 무시하고 모든 작업에 균등하게 배치됩니다. 처리량을 최대화하면서도 기본 할당량을 초과하여 공정하게 배포합니다."
+    },
+    "hashlist": {
+      "title": "해시 목록 설정",
+      "tooltip": "해시 목록 업로드 및 관리와 관련된 설정을 구성합니다",
+      "requireClient": "해시 목록에 클라이언트 필수",
+      "requireClientDescription": "활성화되면 사용자가 새로운 해시 목록을 업로드할 때 클라이언트를 할당해야 합니다. 이렇게 하면 클라이언트별 해시 목록을 더 잘 정리하고 추적할 수 있습니다.",
+      "batchSize": "대량 가져오기 배치 크기",
+      "batchSizeHelper": "업로드 중 배치당 처리되는 해시 수입니다. 기본값: 100,000. 권장: 큰 해시 목록(47M+)의 경우 500,000-1,000,000",
+      "performanceGuide": "성능 가이드:",
+      "performance100k": "100K(기본값): 대부분의 사용 사례에 적합합니다",
+      "performance500k": "500K: 큰 해시 목록에 더 적합하며 처리량이 향상될 수 있습니다",
+      "performance1m": "1M: 매우 큰 해시 목록(50M+)에 가장 적합하며 더 많은 RAM이 필요합니다"
+    },
+    "potfile": {
+      "title": "Potfile 설정",
+      "tooltip": "potfile이 크래킹된 비밀번호를 작업 전체에서 재사용하도록 처리하는 방법을 구성합니다",
+      "maxBatchSize": "최대 배치 크기",
+      "maxBatchSizeHelper": "각 배치 주기에서 처리할 스테이징된 비밀번호의 수(1,000 - 500,000)",
+      "batchInterval": "배치 간격(초)",
+      "batchIntervalHelper": "potfile 배치 처리 주기 간의 초 단위 시간(10 - 600)",
+      "description": "potfile은 모든 작업에서 크래킹된 비밀번호를 수집하여 후속 공격에서 재사용합니다. 더 높은 배치 크기는 한 번에 더 많은 비밀번호를 처리하지만 주기당 더 오래 걸립니다.",
+      "processingRate": "처리 속도",
+      "passwordsPerSecond": "비밀번호/초",
+      "currentSettings": "현재 설정",
+      "passwordsEvery": "개 비밀번호당",
+      "seconds": "초"
+    },
+    "speedTest": {
+      "title": "속도 테스트(벤치마크)",
+      "tooltip": "속도 테스트에 실패하기 전에 에이전트가 hashcat에서 사용 가능한 벤치마크를 생성할 때까지 기다리는 시간을 조정합니다. 압축된 워드리스트는 dictstat 전처리에 훨씬 더 많은 시간이 필요합니다.",
+      "timeoutUncompressed": "시간 초과: 평문 워드리스트(초)",
+      "timeoutUncompressedHelper": "에이전트가 평문 워드리스트에서 유효한 속도 판정을 기다릴 최대 초 단위 시간입니다. 기본값: 120.",
+      "timeoutCompressed": "시간 초과: 압축된 워드리스트(초)",
+      "timeoutCompressedHelper": ".gz / .zip / .xz 워드리스트의 최대 초 단위 시간입니다. hashcat이 기본적으로 읽는 세 형식입니다. 이들은 압축 해제 및 dictstat 전처리에 더 오래 걸립니다. 기본값: 300.",
+      "minStatusUpdates": "최소 상태 업데이트",
+      "minStatusUpdatesHelper": "에이전트가 결과를 반환하기 전에 수집해야 할 최소 hashcat --status-json 카운트입니다. 기본값: 3.",
+      "minUpdatesLowWarning": "3 미만의 값은 부정확한 판정을 생성할 수 있습니다: GPU가 아직 완전히 가동되지 않았을 수 있습니다.",
+      "description": "에이전트가 시간 초과될 때까지 0이 아닌 속도를 생성하지 못하면 벤치마크가 실패로 보고되고, 작업에 관리자가 조치할 수 있는 오류가 표시됩니다. 청킹 파이프라인도 후보가 1개뿐인 태스크의 디스패치를 거부하므로, 오래된 0 H/s 벤치마크가 무한 루프에 빠질 수 없습니다."
+    },
+    "errors": {
+      "loadFailed": "시스템 설정 로드에 실패했습니다",
+      "maxPriorityRequired": "최대 우선순위가 필요합니다",
+      "maxPriorityPositive": "최대 우선순위는 양수여야 합니다",
+      "maxPriorityMax": "최대 우선순위는 1,000,000을 초과할 수 없습니다",
+      "saveFailed": "시스템 설정 저장에 실패했습니다",
+      "batchSizeRange": "배치 크기는 {{min}}~{{max}} 사이여야 합니다",
+      "intervalRange": "간격은 {{min}}~{{max}} 초 사이여야 합니다",
+      "speedTestTimeoutRange": "속도 테스트 시간 초과는 {{min}}~{{max}} 초 사이여야 합니다",
+      "minStatusUpdatesRange": "최소 상태 업데이트는 {{min}}~{{max}} 사이여야 합니다"
+    },
+    "messages": {
+      "updateSuccess": "시스템 설정이 성공적으로 업데이트되었습니다",
+      "schedulingUpdated": "에이전트 일정 설정이 업데이트되었습니다",
+      "schedulingFailed": "일정 설정 업데이트에 실패했습니다",
+      "overflowUpdated": "에이전트 초과 할당 모드가 업데이트되었습니다",
+      "overflowFailed": "초과 할당 모드 업데이트에 실패했습니다",
+      "hashlistClientUpdated": "해시 목록 클라이언트 요구사항이 업데이트되었습니다",
+      "hashlistBatchUpdated": "해시 목록 배치 크기가 업데이트되었습니다",
+      "potfileBatchUpdated": "Potfile 배치 크기가 업데이트되었습니다",
+      "potfileIntervalUpdated": "Potfile 배치 간격이 업데이트되었습니다",
+      "speedTestTimeoutUpdated": "속도 테스트 시간 초과가 업데이트되었습니다",
+      "speedTestMinUpdatesUpdated": "속도 테스트 최소 상태 업데이트가 업데이트되었습니다",
+      "updateFailed": "설정 업데이트에 실패했습니다"
+    }
+  },
+  "jobExecution": {
+    "title": "작업 실행 설정",
+    "description": "작업이 실행되고 에이전트 간에 배포되는 방법을 구성합니다",
+    "chunking": {
+      "title": "작업 청킹",
+      "defaultChunkDuration": "기본 청크 지속 시간",
+      "defaultChunkDurationHelper": "청크당 목표 벽시간(scheduler-v2가 각 에이전트의 청크 크기를 이 값에 맞도록 조정함)",
+      "minChunkSeconds": "최소 청크 지속 시간",
+      "minChunkSecondsHelper": "단일 청크의 벽시간 하한; 작은 고아 청크를 방지합니다",
+      "minutes": "분",
+      "overrunTolerance": "청크 초과 실행 허용도",
+      "overrunToleranceHelper": "청크가 계획된 지속 시간을 초과할 수 있는 정도로, 보호 장치가 이를 중지하고 나머지를 재디스패치합니다.",
+      "overrunGuard": "청크 초과 실행 보호 활성화",
+      "overrunGuardHelper": "계획된 청크 지속 시간을 훨씬 초과하는 태스크를 중지하고 미완료 부분을 재디스패치합니다."
+    },
+    "agentConfig": {
+      "title": "에이전트 구성",
+      "hashlistRetention": "해시 목록 보관",
+      "hashlistRetentionHelper": "에이전트가 해시 목록을 보관하는 기간",
+      "maxConcurrentJobs": "에이전트당 최대 동시 작업",
+      "maxConcurrentJobsHelper": "에이전트가 동시에 실행할 수 있는 최대 작업 수",
+      "progressReporting": "진행률 보고 간격",
+      "progressReportingHelper": "에이전트가 진행률을 보고하는 빈도",
+      "benchmarkCache": "벤치마크 캐시 지속 시간",
+      "benchmarkCacheHelper": "에이전트 벤치마크를 캐시하는 기간",
+      "benchmarkHistoryRetention": "벤치마크 기록 보관",
+      "benchmarkHistoryRetentionHelper": "벤치마크 기록을 보관할 일 수(0 = 무기한)",
+      "reconnectGrace": "재연결 유예 기간",
+      "reconnectGraceHelper": "서버 재시작 후 에이전트가 재연결될 때까지 기다릴 시간",
+      "days": "일",
+      "seconds": "초",
+      "minutes": "분"
+    },
+    "jobControl": {
+      "title": "작업 제어",
+      "allowInterruption": "작업 중단 허용",
+      "allowInterruptionHelper": "높은 우선순위 작업이 실행 중인 작업을 중단할 수 있습니다",
+      "realtimeNotifications": "실시간 크래킹 알림",
+      "realtimeNotificationsHelper": "해시가 크래킹될 때 알림을 전송합니다",
+      "refreshInterval": "작업 새로고침 간격",
+      "refreshIntervalHelper": "UI에서 작업 상태를 새로고칠 빈도",
+      "maxRetryAttempts": "최대 청크 재시도 횟수",
+      "maxRetryAttemptsHelper": "실패한 청크를 재시도할 횟수",
+      "jobsPerPage": "페이지당 작업 수",
+      "jobsPerPageHelper": "작업 목록의 기본 페이지 크기",
+      "keyspaceTimeout": "키스페이스 계산 시간 초과",
+      "keyspaceTimeoutHelper": "hashcat --keyspace 및 --total-candidates 명령의 최대 시간. 큰 워드리스트/규칙의 경우 증가시키세요."
+    },
+    "potfile": {
+      "title": "Potfile 설정",
+      "enablePotfile": "Potfile 활성화",
+      "enablePotfileHelper": "크래킹된 비밀번호를 자동으로 저장하여 향후 작업에서 사용합니다. 개별 해시 목록은 여전히 제외할 수 있습니다.",
+      "maxBatchSize": "최대 배치 크기",
+      "maxBatchSizeHelper": "각 배치 주기에서 처리할 스테이징된 비밀번호의 수(1,000 - 500,000)",
+      "batchInterval": "배치 간격",
+      "batchIntervalHelper": "potfile 배치 처리 주기 간의 초 단위 시간(10 - 600)",
+      "enableClientPotfiles": "클라이언트 potfile 활성화",
+      "enableClientPotfilesHelper": "전역 potfile 외에 클라이언트별 별도의 potfile을 유지합니다.",
+      "removeGlobalDefault": "해시 목록이 삭제되면 전역 potfile에서 제거(기본값)",
+      "removeClientDefault": "해시 목록이 삭제되면 클라이언트 potfile에서 제거(기본값)"
+    },
+    "scheduler": {
+      "title": "스케줄러(v2)",
+      "description": "v2 스케줄러의 태스크 생존성 및 초과 실행 처리를 위한 고급 튜닝입니다. 기본값은 대부분의 배포에 안전합니다.",
+      "taskHeartbeatTimeout": "태스크 하트비트 시간 초과",
+      "taskHeartbeatTimeoutHelper": "생존 신호가 없는 초 단위 시간으로, 이 시간이 지나면 실행 중인 태스크가 손실로 표시되고 복구됩니다",
+      "taskStartupGrace": "태스크 시작 유예 기간",
+      "taskStartupGraceHelper": "첫 번째 진행률 이전의 추가 유예(파일 다운로드, 압축 해제, autotune)",
+      "networkGrace": "네트워크 유예 기간",
+      "networkGraceHelper": "연결 해제 시 복구가 작동하기 전의 WebSocket 재연결 허용도",
+      "overrunGuardEnabled": "청크 초과 실행 보호",
+      "overrunGuardEnabledHelper": "아래 허용도를 초과해 청크 목표를 넘는 태스크를 중지합니다.",
+      "overrunTolerance": "초과 실행 허용도",
+      "overrunToleranceHelper": "유예 기간: 벽시간이 이 백분율만큼 청크 목표를 초과하면 중지합니다."
+    },
+    "buttons": {
+      "save": "설정 저장"
+    },
+    "errors": {
+      "loadFailed": "설정 로드에 실패했습니다",
+      "outOfRange": "{{label}}은(는) {{min}}~{{max}} 사이여야 합니다"
+    },
+    "messages": {
+      "updateSuccess": "작업 실행 설정이 성공적으로 업데이트되었습니다",
+      "loadFailed": "작업 실행 설정 로드에 실패했습니다",
+      "saveFailed": "설정 저장에 실패했습니다"
+    },
+    "keyspaceBenchmark": {
+      "title": "키스페이스 및 벤치마크",
+      "caption": "KrakenHashes가 공격을 측정하는 데 쓸 수 있는 시간입니다. 첫 번째 설정은 작업 생성 시 워드리스트를 측정하는 서버 쪽 시간을 제한하고, 속도 테스트 설정은 자체 해시 속도를 측정하는 에이전트 쪽 시간을 제한합니다. 이 둘은 서로 다른 단계이므로, 하나를 늘려도 다른 하나에는 영향을 주지 않습니다.",
+      "keyspaceTimeout": "키스페이스 계산 시간 초과",
+      "keyspaceTimeoutHelper": "서버 측. 작업이 생성될 때 hashcat --keyspace / --total-candidates에 허용되는 시간입니다. 백그라운드에서 실행되므로 이 값을 높여도 작업 생성이 느려지지 않습니다. 시간이 초과되면 사전 공격은 워드리스트 단어 수로 대체되며 사용자에게 알림이 표시됩니다.",
+      "speedTestUncompressed": "에이전트 속도 테스트 시간 초과",
+      "speedTestUncompressedHelper": "에이전트 측. 압축되지 않은 워드리스트에서 에이전트 벤치마크의 벽시간 제한입니다.",
+      "speedTestCompressed": "에이전트 속도 테스트 시간 초과(압축됨)",
+      "speedTestCompressedHelper": "에이전트 측. 압축된 워드리스트의 더 긴 제한입니다. hashcat이 속도를 보고할 수 있기 전에 압축을 해제해야 합니다.",
+      "minStatusUpdates": "최소 상태 업데이트",
+      "minStatusUpdatesHelper": "속도 테스트가 결과를 신뢰할 수 있기 전에 생성해야 할 hashcat 상태 보고서 수입니다. 값이 낮으면 GPU가 안정화되기 전에 측정된 속도가 기록될 위험이 있습니다.",
+      "cacheDuration": "벤치마크 캐시 지속 시간",
+      "cacheDurationHelper": "기록된 벤치마크가 유효한 기간으로, 이 시간이 지나면 에이전트에 재측정을 요청합니다.",
+      "historyRetention": "벤치마크 기록 보관",
+      "historyRetentionHelper": "개별 벤치마크 레코드를 추세 분석을 위해 보관하는 기간입니다.",
+      "hours": "시간",
+      "days": "일"
+    },
+    "benchmarkReliability": {
+      "title": "벤치마크 신뢰성",
+      "caption": "벤치마크가 반복적으로 실패할 때 어떤 일이 발생하는지에 대한 설정입니다. 이 설정들은 문제가 있는 에이전트 하나 또는 잘못된 작업 구성 하나가 성공할 수 없는 벤치마크를 반복 실행하여 플릿 전체를 소모하는 것을 방지합니다.",
+      "failureThreshold": "실패 임계값",
+      "failureThresholdHelper": "하나의 에이전트/작업/공격 조합에 대한 연속 벤치마크 실패 후 차단 목록에 추가됩니다.",
+      "hardFailureCap": "하드 실패 상한",
+      "hardFailureCapHelper": "임계값과 무관하게 특정 조합에 대한 벤치마크 시도의 절대 상한선입니다.",
+      "blocklistCooldown": "차단 목록 유예 기간",
+      "blocklistCooldownHelper": "차단된 에이전트/작업/공격 조합이 다시 시도되기 전에 차단된 상태를 유지하는 기간입니다.",
+      "stormThreshold": "벤치마크 폭증 임계값",
+      "stormThresholdHelper": "관리자 알림을 발생시키는 폭증 윈도우 내 벤치마크 실패 수입니다.",
+      "stormWindow": "벤치마크 폭증 윈도우",
+      "stormWindowHelper": "폭증 임계값 실패가 집계되는 기간입니다.",
+      "streakReset": "실패 연속 기록 초기화",
+      "streakResetHelper": "에이전트의 실패 연속 기록이 0으로 초기화되기 전에 벤치마크 실패 없이 지나야 할 기간입니다.",
+      "quarantineStreak": "격리 실패 연속 기록",
+      "quarantineStreakHelper": "에이전트 자체가 벤치마크에서 격리되기 전에 임의의 조합에 걸친 연속 실패입니다.",
+      "quarantineDistinct": "격리 고유 조합 수",
+      "quarantineDistinctHelper": "작업이 아니라 에이전트 자체에 결함이 있는 것으로 취급되기 전에 실패해야 하는 서로 다른 공격/해시 유형 조합의 수입니다."
+    },
+    "scheduling": {
+      "title": "일정 수립 & 할당",
+      "overflowMode": "에이전트 초과 할당 모드",
+      "overflowModeHelper": "작업이 최대 에이전트 수 한계에 도달한 후 남은 에이전트를 어떻게 분배할 것인지입니다.",
+      "maxConcurrentJobs": "에이전트당 최대 동시 작업 수",
+      "maxConcurrentJobsHelper": "단일 에이전트가 한 번에 작업할 수 있는 작업 수입니다.",
+      "agentScheduling": "에이전트 일정 수립 활성화",
+      "agentSchedulingHelper": "에이전트별 근무 시간 일정을 전역적으로 활성화합니다. 이를 비활성화하면 에이전트 일정이 무시됩니다.",
+      "jobInterruption": "작업 중단 허용",
+      "jobInterruptionHelper": "선점의 전역 게이트입니다. 무엇이든 중단되기 전에 작업에는 자체 높은 우선순위 재정의 플래그와 0이 아닌 우선순위가 모두 있어야 합니다.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "라운드 로빈",
+        "enforceMaxAgents": "최대 에이전트 수 시행",
+        "maxAgentsFifo": "최대 에이전트 수, 그 다음 FIFO",
+        "maxAgentsRoundRobin": "최대 에이전트 수, 그 다음 라운드 로빈"
+      }
+    },
+    "taskHealth": {
+      "title": "태스크 상태",
+      "caption": "실행 중인 태스크가 손실된 것으로 간주되는 시점과, 작업이 얼마나 적극적으로 복구되는지입니다. 너무 엄격하게 설정하면 정상 태스크가 제거되고, 너무 느슨하게 설정하면 중단된 태스크가 키스페이스를 수 시간 동안 점유합니다.",
+      "heartbeatTimeout": "태스크 하트비트 타임아웃",
+      "heartbeatTimeoutHelper": "실행 중인 태스크가 손실된 것으로 취급되고 키스페이스가 다시 열리기 전까지 하트비트 없이 지날 수 있는 기간입니다.",
+      "startupGrace": "태스크 시작 유예 기간",
+      "startupGraceHelper": "hashcat 시작 및 파일 로딩을 포함하여 할당 후 하트비트 규칙이 적용되기 전에 허용되는 추가 시간입니다.",
+      "networkGrace": "네트워크 유예 기간",
+      "networkGraceHelper": "놓친 하트비트가 계산되기 전에 일시적인 네트워크 중단에 대한 짧은 허용입니다.",
+      "reconnectGrace": "재연결 유예 기간",
+      "reconnectGraceHelper": "연결이 끊긴 에이전트가 재연결하고 실행 중인 태스크를 회수할 수 있는 기간입니다.",
+      "offlineBuffer": "에이전트 오프라인 유예 기간",
+      "offlineBufferHelper": "잠시 오프라인 상태인 에이전트의 메시지가 폐기되기 전에 버퍼링되는 기간입니다.",
+      "maxRetryAttempts": "최대 청크 재시도 횟수",
+      "maxRetryAttemptsHelper": "태스크가 실패하기 전에 실패한 청크를 재시도할 수 있는 횟수입니다. 재시도를 비활성화하려면 0으로 설정하세요.",
+      "progressInterval": "진행률 보고 간격",
+      "progressIntervalHelper": "에이전트가 진행률을 보고하는 빈도입니다. 낮은 값은 더 세밀한 진행률을 제공하지만 더 많은 부하를 발생시킵니다.",
+      "hashlistRetention": "에이전트 해시 목록 보관 기간",
+      "hashlistRetentionHelper": "에이전트가 다운로드한 해시 목록을 완료 후 유지하는 기간입니다."
+    },
+    "loopback": {
+      "title": "루프백",
+      "maxRounds": "최대 루프백 라운드 수",
+      "maxRoundsHelper": "루프백 세션이 새로 크래킹된 평문에 대해 공격을 다시 실행하는 횟수의 안전 상한선입니다. 여전히 새로운 크랙을 찾아내고 있어도 이 횟수 후에는 중지됩니다."
+    },
+    "jobNotifications": {
+      "title": "작업 알림",
+      "realtimeCracks": "실시간 크래킹 알림",
+      "realtimeCracksHelper": "해시가 크래킹될 때 알립니다. 매우 큰 작업에 눈에 띄는 부하를 추가할 수 있습니다."
+    }
+  },
+  "monitoring": {
+    "title": "모니터링 설정",
+    "metricsRetention": {
+      "title": "📊 메트릭 보관 기간",
+      "description": "다양한 세부 수준의 메트릭 보관 기간을 구성합니다. 데이터는 시간 경과에 따라 세밀한 것에서 집계된 것으로 계단식으로 전환됩니다.",
+      "realtimeData": "실시간 데이터 보관 기간",
+      "realtimeDataHelper": "최근 활동에 대한 세밀한 메트릭을 보관할 일 수입니다(예: 7일)",
+      "dailyAggregates": "일일 집계 보관 기간",
+      "dailyAggregatesHelper": "실시간 기간 후 일일 요약을 저장할 일 수입니다(예: 30일)",
+      "weeklyAggregates": "주간 집계 보관 기간",
+      "weeklyAggregatesHelper": "장기 추세를 주간 요약으로 보관할 일 수입니다(예: 365일)"
+    },
+    "aggregation": {
+      "title": "⚙️ 집계 설정",
+      "enableAggregation": "자동 집계 활성화",
+      "enableAggregationDescription": "추세를 보존하면서 저장 공간을 절약하기 위해 오래된 메트릭을 자동으로 통합합니다.",
+      "interval": "집계 간격",
+      "intervalHelper": "집계 프로세스를 실행할 빈도입니다.",
+      "hourly": "시간별",
+      "daily": "일일",
+      "weekly": "주간"
+    },
+    "cascading": {
+      "title": "계단식 집계 작동 방식:",
+      "realtime": "실시간 데이터는 최근 활동에 대한 자세한 메트릭을 제공합니다.",
+      "daily": "실시간 기간 후 데이터는 일일 요약으로 집계됩니다.",
+      "weekly": "일일 기간 후 데이터는 주간 요약으로 추가로 집계됩니다.",
+      "benefit": "이 방식은 차트를 읽기 쉽게 유지하면서 과거 추세를 보존합니다."
+    },
+    "buttons": {
+      "save": "설정 저장",
+      "saving": "저장 중..."
+    },
+    "errors": {
+      "loadFailed": "설정을 로드하지 못했습니다. 다시 시도하세요.",
+      "saveFailed": "설정을 저장하지 못했습니다. 다시 시도하세요."
+    },
+    "messages": {
+      "updateSuccess": "모니터링 설정이 성공적으로 저장되었습니다."
+    }
+  },
+  "agentDownloads": {
+    "title": "에이전트 파일 전송 설정",
+    "description": "에이전트가 백엔드에서 파일을 다운로드하는 방식을 구성합니다. 이 설정은 모든 연결된 에이전트에 적용됩니다.",
+    "concurrentDownloads": {
+      "title": "동시 다운로드",
+      "description": "동시에 다운로드할 수 있는 최대 파일 수입니다."
+    },
+    "downloadTimeout": {
+      "title": "다운로드 타임아웃",
+      "description": "단일 파일 다운로드에 허용되는 최대 시간입니다.",
+      "helper": "1분에서 24시간 사이(1440분)",
+      "unit": "분"
+    },
+    "retryAttempts": {
+      "title": "재시도 횟수",
+      "description": "실패한 다운로드를 재시도할 횟수입니다."
+    },
+    "progressInterval": {
+      "title": "진행률 보고 간격",
+      "description": "에이전트가 다운로드 진행률을 보고하는 빈도입니다.",
+      "helper": "1초에서 5분 사이(300초)",
+      "unit": "초"
+    },
+    "chunkSize": {
+      "title": "청크 크기",
+      "description": "향후 재개 기능을 위한 다운로드 청크 크기입니다.",
+      "helper": "1MB와 100MB 사이",
+      "unit": "MB"
+    },
+    "applyNote": "변경 사항은 다음 연결 시 에이전트에 적용됩니다. 현재 연결된 에이전트는 자동으로 업데이트를 받습니다.",
+    "buttons": {
+      "save": "설정 저장",
+      "saving": "저장 중..."
+    },
+    "errors": {
+      "loadFailed": "에이전트 다운로드 설정을 로드하지 못했습니다.",
+      "saveFailed": "에이전트 다운로드 설정을 업데이트하지 못했습니다."
+    },
+    "messages": {
+      "updateSuccess": "에이전트 다운로드 설정이 성공적으로 업데이트되었습니다."
+    }
+  },
+  "hashTypes": {
+    "title": "해시 유형 관리",
+    "description": "비밀번호 크래킹 작업을 위해 지원되는 해시 유형을 관리합니다.",
+    "addHashType": "해시 유형 추가",
+    "searchPlaceholder": "해시 유형 검색...",
+    "hashTypesFound_other": "{{count}}개의 해시 유형을 찾음",
+    "table": {
+      "id": "ID",
+      "name": "이름",
+      "description": "설명",
+      "example": "예시",
+      "slow": "느림",
+      "salted": "솔트됨",
+      "actions": "작업",
+      "loading": "해시 유형 로드 중...",
+      "noResults": "해시 유형을 찾을 수 없음"
+    },
+    "dialog": {
+      "addTitle": "새로운 해시 유형 추가",
+      "editTitle": "해시 유형 편집",
+      "hashIdLabel": "해시 ID(Hashcat 모드 번호)",
+      "hashIdHelper": "예: NTLM의 경우 1000",
+      "nameLabel": "이름",
+      "descriptionLabel": "설명",
+      "exampleLabel": "예시 해시",
+      "exampleHelper": "이 해시 형식의 예시",
+      "slowLabel": "느린 해시 알고리즘",
+      "saltedLabel": "솔트된 해시 유형(예: NTLMv2, bcrypt)",
+      "processingInfo": "이 해시 유형에는 특수 처리가 필요합니다. 처리 논리는 프로그래밍 방식으로 관리됩니다.",
+      "cancel": "취소",
+      "save": "저장",
+      "saving": "저장 중..."
+    },
+    "validation": {
+      "hashIdRequired": "해시 ID는 필수이며 양수여야 합니다.",
+      "hashIdExists": "이 해시 ID는 이미 존재합니다.",
+      "nameRequired": "이름은 필수입니다."
+    },
+    "tooltips": {
+      "requiresProcessing": "특수 처리 필요",
+      "processing": "특수 처리",
+      "slowAlgorithm": "느린 해시 알고리즘(계산량이 많음)",
+      "salted": "해시별 솔트를 사용합니다(키스페이스 계산에 영향을 줌)"
+    },
+    "confirmDelete": {
+      "title": "삭제 확인",
+      "warning": "이 해시 유형은 현재 활성화되어 있습니다. 이를 삭제하면 기존 기능에 영향을 줄 수 있습니다.",
+      "cancel": "취소",
+      "delete": "삭제",
+      "deleting": "삭제 중..."
+    },
+    "messages": {
+      "createSuccess": "해시 유형이 성공적으로 생성되었습니다.",
+      "createFailed": "해시 유형 생성 실패",
+      "updateSuccess": "해시 유형이 성공적으로 업데이트되었습니다.",
+      "updateFailed": "해시 유형 업데이트 실패",
+      "deleteSuccess": "해시 유형이 성공적으로 삭제되었습니다.",
+      "deleteFailed": "해시 유형 삭제 실패",
+      "deleteInUse": "삭제할 수 없음: 이 해시 유형은 기존 해시 목록에서 사용 중입니다.",
+      "loadFailed": "해시 유형을 로드하지 못했습니다. 페이지를 새로 고쳐 주세요."
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "클라우드 GPU 프로비저닝",
+      "body": "온프레미스 플릿이 따라잡지 못할 때 필요에 따라 GPU 인스턴스를 임대합니다. 인스턴스는 기존 VPN에 참여하고, 작업에 필요한 파일만 받으며, 자동으로 종료됩니다. 지출은 인스턴스 시작 전에 클라이언트별 예산에 대해 약정되므로, 상한선은 사후 측정이 아닌 실제 한계입니다.",
+      "fleetLink": "실시간 플릿 보기"
+    },
+    "sections": {
+      "providers": "제공자",
+      "clients": "클라이언트 예산",
+      "policy": "임계값 정책",
+      "rules": "프로비저닝 규칙",
+      "system": "제한 & 작업"
+    },
+    "providers": {
+      "title": "클라우드 제공자",
+      "description": "임대된 인스턴스의 출처와 이 서버에 도달하는 방식입니다.",
+      "add": "제공자 추가",
+      "addTitle": "클라우드 제공자 추가",
+      "editTitle": "클라우드 제공자 편집",
+      "edit": "편집",
+      "delete": "삭제",
+      "save": "저장",
+      "saved": "제공자가 저장되었습니다.",
+      "saveFailed": "제공자 저장 실패",
+      "deleted": "제공자가 삭제되었습니다.",
+      "deleteFailed": "제공자 삭제 실패",
+      "deleteTitle": "제공자를 삭제하시겠습니까?",
+      "deleteBody": "\"{{name}}\"을(를) 삭제하시겠습니까? 임대된 인스턴스가 여전히 이를 참조하는 동안에는 실패합니다.",
+      "loadFailed": "제공자를 로드하지 못했습니다.",
+      "empty": "구성된 클라우드 제공자가 없습니다. 아무것도 임대되지 않습니다.",
+      "enabled": "활성화됨",
+      "disabled": "비활성화됨",
+      "noCredentials": "자격증명 없음",
+      "noVpn": "VPN 없음",
+      "credentialExpired": "자격증명 만료됨",
+      "credentialExpiresIn": "{{days}}일 후 만료",
+      "limitsValue": "최대 {{instances}}개, {{rate}}/시간 상한선",
+      "thirdPartyBadge": "제3자 머신에서 실행됨",
+      "preflight": "사전 확인",
+      "preflightTitle": "사전 확인 보고서",
+      "preflightOk": "이 제공자는 인스턴스를 시작할 수 있습니다.",
+      "preflightFailed": "사전 확인 요청 실패",
+      "preflightFailedBody": "이 제공자는 아직 인스턴스를 시작할 수 없습니다.",
+      "preflightIdentity": "{{identity}}로 인증됨",
+      "preflightQuota": "할당량: {{used}}/{{limit}} 사용 중({{source}})",
+      "preflightSections": {
+        "missing_permissions": "누락된 권한",
+        "inconclusive": "확인할 수 없음(실패로 처리됨)",
+        "errors": "오류",
+        "warnings": "경고"
+      },
+      "acknowledge": "승인",
+      "acknowledged": "승인이 기록되었습니다.",
+      "ackFailed": "승인 기록 실패",
+      "ackTitle": "제3자 데이터 노출 승인",
+      "ackBody": {
+        "vastai": "Vast.ai는 운영자가 컨테이너에 대한 루트 액세스 권한을 가진 개별 소유 머신에서 GPU를 임대합니다. 그곳에 배치된 해시, 워드리스트 및 크래킹된 평문은 제3자에게 표시됩니다. 이는 인스턴스가 자신의 계정 또는 SOC 2 데이터 센터 내에서 실행되는 AWS 또는 RunPod Secure Cloud와는 근본적으로 다릅니다.",
+        "runpod_community": "RunPod Community Cloud는 소유자가 컨테이너에 대한 루트 액세스 권한을 가진 피어 운영 머신에서 GPU를 임대합니다. 그곳에 배치된 해시, 워드리스트 및 크래킹된 평문은 제3자에게 표시됩니다. RunPod의 준수 증명은 Secure Cloud만 다루며 이 계층까지는 확장되지 않습니다."
+      },
+      "ackConfirm": "이 제공자로 전송되는 워크로드에 대해 이러한 노출을 수락하시겠습니까?",
+      "ackAccept": "이해하고 수락합니다.",
+      "ephemeralKeyTitle": "암호화 키는 일시적입니다.",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY가 설정되어 있지 않아 시작 시 임의의 키가 생성되었습니다. 다음 재시작 후 저장된 모든 자격증명을 읽을 수 없게 됩니다. 제공자 자격증명을 저장하기 전에 KH_ENCRYPTION_KEY를 설정하세요.",
+      "vpnSection": "VPN 연결성",
+      "vpnSectionHelp": "이 서버는 인터넷에 노출되지 않으므로 임대된 인스턴스는 이미 실행 중인 VPN에 참여합니다. OpenVPN은 지원되지 않습니다: /dev/net/tun과 CAP_NET_ADMIN이 필요하며, Vast.ai의 권한이 없는 컨테이너는 이를 제공하지 않습니다.",
+      "reusableKeyWarning": {
+        "tailscale": "재사용 가능한 키는 모든 인스턴스에서 공유되고 만료됩니다 — Tailscale은 인증 키를 90일로 제한합니다. 만료되면 연결할 수 없는 인스턴스를 시작하는 대신 프로비저닝이 거부됩니다. OAuth 클라이언트는 대신 KrakenHashes가 인스턴스당 한 번 사용되는 일시적 태그된 키를 발급할 수 있게 합니다.",
+        "netbird": "재사용 가능한 설정 키는 모든 인스턴스에서 공유되므로 동일한 비밀이 모든 임대된 호스트에 도달합니다. 키에 만료 시간이 있는 경우 아래의 자격증명 만료를 설정하세요 — 만료 후 연결할 수 없는 인스턴스를 시작하는 대신 프로비저닝이 거부됩니다. 만료되지 않는 키의 경우 비워두세요. 이 자격증명 유형의 경우 태그 또는 그룹이 무시됩니다: 그룹과 일시적 플래그는 NetBird의 키 자체 구성에서 가져옵니다. 액세스 토큰을 사용하면 KrakenHashes는 인스턴스당 한 번 사용되는 일시적 설정 키를 발급하고 그룹 자체를 설정할 수 있습니다."
+      },
+      "staticConfigWarning": "WireGuard는 정적 피어 구성을 사용합니다: 인스턴스별 자격증명이 없으며 인스턴스가 종료될 때 자동 등록 해제가 없습니다. Tailscale 또는 NetBird가 더 안전합니다.",
+      "kinds": {
+        "aws": "AWS EC2(자신의 계정)",
+        "vastai": "Vast.ai(제3자 머신)",
+        "mock": "Mock(로컬 테스트 에이전트, 무료)",
+        "runpod": "RunPod Secure Cloud(SOC 2 데이터 센터)",
+        "runpod_community": "RunPod Community Cloud(피어 운영 머신)"
+      },
+      "credentialKinds": {
+        "oauth": "OAuth 클라이언트 — 인스턴스당 한 번 사용되는 일시적 키 발급(권장)",
+        "pat": "액세스 토큰 — 인스턴스당 한 번 사용되는 일시적 키 발급(권장)",
+        "reusable_key": "재사용 가능한 키 — 모든 인스턴스에서 공유됨",
+        "static_config": "정적 구성 — 인스턴스별 자격증명 없음"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "client_id:client_secret 형식의 Tailscale OAuth 클라이언트입니다. auth_keys 범위와 선택된 태그가 필요합니다.",
+        "pat": "NetBird 개인 액세스 토큰 또는 서비스 사용자 토큰.",
+        "reusable_key": "모든 인스턴스가 사용할 사전 승인된 키입니다.",
+        "static_config": "전체 WireGuard 피어 구성입니다."
+      },
+      "columns": {
+        "name": "이름",
+        "provider": "제공자",
+        "status": "상태",
+        "vpn": "VPN",
+        "limits": "제한",
+        "actions": "작업"
+      },
+      "fields": {
+        "name": "이름",
+        "provider": "제공자",
+        "credentials": "제공자 자격 증명",
+        "credentialsHelp": "{{provider}}의 API 자격 증명입니다. 암호화되어 저장되며 반환되지 않습니다.",
+        "credentialsKeepHelp": "저장된 자격 증명을 변경하지 않으려면 비워 둡니다.",
+        "maxConcurrent": "최대 동시 인스턴스",
+        "maxHourlyCents": "최대 시간당 요금(센트)",
+        "maxHourlyHelp": "이 요금 이상의 오퍼링은 예산이 허용하더라도 절대 임차되지 않습니다.",
+        "vpnProvider": "VPN 제공자",
+        "credentialKind": "자격 증명 유형",
+        "vpnCredential": "VPN 자격 증명",
+        "credentialExpiry": "자격 증명 만료 시간",
+        "credentialExpiryHelp": "선택 사항 — 만료되지 않는 키의 경우 비워 둡니다. 이 시간 이후에는 프로비저닝이 거부되며, 만료 시점이 다가오면 경고가 표시됩니다.",
+        "vpnTag": "태그 또는 그룹",
+        "vpnTagHelp": "예: tag:kraken-worker. Tailscale OAuth에 필요하며, 이 노드가 접근할 수 있는 범위를 정합니다.",
+        "backendVpnHost": "VPN상 이 서버의 주소",
+        "backendVpnHostHelp": "클라우드 에이전트가 사용하는 KH_HOST 값입니다. 서버 인증서가 이를 포함해야 합니다 — 서버 인증서 탭에서 추가한 후 적용 및 재발급을 클릭하세요. 그렇지 않으면 에이전트가 TLS 호스트 이름 확인에 실패합니다.",
+        "enabled": "사용 설정",
+        "awsAccessKeyId": "AWS 액세스 키 ID",
+        "awsAccessKeyIdHelp": "EC2 프로비저닝으로 범위가 지정된 IAM 사용자 또는 역할 키입니다. 암호화되어 저장되며 반환되지 않습니다.",
+        "awsSecretAccessKey": "AWS 비밀 액세스 키",
+        "awsRegion": "리전",
+        "awsRegionHelp": "예: us-east-2. 아래의 다른 모든 AWS 필드는 이 리전에 있어야 합니다.",
+        "awsSubnet": "서브넷 ID",
+        "awsSubnetHelp": "예: subnet-0abc123. 공용 IP를 자동 할당해야 하며, 그렇지 않으면 인스턴스가 VPN의 제어 평면에 접근할 수 없습니다.",
+        "awsSecurityGroups": "보안 그룹 ID",
+        "awsSecurityGroupsHelp": "쉼표로 구분, 예: sg-0abc123. 아웃바운드 액세스만 필요하며 인바운드 규칙은 필요하지 않습니다.",
+        "awsAmiSsm": "AMI SSM 매개변수",
+        "awsAmiSsmHelp": "시작 시 확인되므로 이미지가 오래되지 않습니다. 예: /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "AMI ID(SSM 매개변수 재정의)",
+        "awsAmiIdHelp": "대신 특정 이미지를 고정합니다. SSM을 통해 해결하려면 비워 둡니다. 둘 중 하나는 필수입니다.",
+        "awsInstanceProfile": "IAM 인스턴스 프로필 ARN",
+        "awsInstanceProfileHelp": "선택 사항. 에이전트 자체가 AWS API를 호출해야 하는 경우에만 필요합니다.",
+        "awsRootVolume": "루트 볼륨(GB)",
+        "awsRootVolumeHelp": "최소값이며, 작업의 파일 집합은 더 필요할 수 있습니다. AMI의 스냅샷 크기 이상이어야 하며, 그렇지 않으면 시작이 실패합니다.",
+        "awsEbsRate": "EBS 요금(센트/GB-월)",
+        "awsEbsRateHelp": "gp3 스토리지 가격입니다. 0으로 설정하면 예산이 디스크를 위해 예약되지 않습니다.",
+        "awsUseSpot": "스팟 용량 사용",
+        "awsUseSpotHelp": "스팟 요청은 일회성이며 중단되면 종료됩니다. 현재 세대 GPU의 할인은 종종 적으므로 자동으로 더 저렴하지 않습니다. 스팟과 온디맨드는 별도의 vCPU 할당량을 사용합니다.",
+        "awsInstanceType": "인스턴스 유형",
+        "awsHourlyCents": "센트/시간",
+        "awsGpuModel": "GPU 모델",
+        "awsGpuCount": "GPU 수",
+        "awsVram": "VRAM/GPU",
+        "mockAgentBinary": "에이전트 바이너리 경로",
+        "mockAgentBinaryHelp": "서버가 --test-mode로 실행할 수 있는 에이전트 바이너리의 경로입니다.",
+        "mockBackendHost": "생성된 에이전트에 대한 백엔드 호스트",
+        "mockBackendHostHelp": "예: localhost:31337.",
+        "mockHourlyRate": "시뮬레이션된 요금(센트/시간)",
+        "mockBootDelay": "시뮬레이션된 부팅 지연(초)",
+        "mockFailLaunch": "장애: 모든 시작 실패",
+        "mockDropLaunchResponse": "장애: 시작 응답 삭제(인스턴스는 실행되지만 실패로 보고됨)",
+        "mockNeverRegister": "장애: 인스턴스가 등록되지 않음",
+        "mockFailDestroy": "장애: 모든 종료 실패",
+        "vpnTagIgnoredHelp": "NetBird 재사용 가능 키의 경우 무시됩니다: 그룹 멤버십과 임시 플래그는 NetBird의 설정 키 자체 구성에서 제공됩니다. 각 발급된 키에서 auto_groups로서 액세스 토큰 경로에서만 사용됩니다.",
+        "vpnUrl": {
+          "netbird": "NetBird 관리 URL",
+          "tailscale": "Tailscale 로그인 서버(Headscale)"
+        },
+        "vpnUrlHelp": {
+          "netbird": "자체 호스팅 NetBird 관리 서버, 예: https://netbird.example.com. 설정 키를 발급하고 클라이언트를 시작하는 데 사용됩니다. NetBird의 호스팅 서비스의 경우 비워 둡니다.",
+          "tailscale": "자체 호스팅 제어 서버에만 해당합니다. 액세스 토큰 발급은 항상 api.tailscale.com을 사용하며 Headscale을 지원하지 않습니다."
+        },
+        "vastCountries": "국가(쉼표로 구분)",
+        "vastCountriesHelp": "Vast.ai 국가 코드, 예: US, DE, SE. 비어 있으면 모든 지역이 허용됩니다. 보고된 지리 위치에 대해 대소문자를 구분하지 않고 일치하므로 'US'는 'US, Texas'와 일치합니다. 데이터 거주 제어로도 작동합니다.",
+        "vastGpuModels": "허용된 GPU 모델(쉼표로 구분)",
+        "vastGpuModelsHelp": "비어 있으면 모든 카드입니다. 정규화된 키로 일치하므로 'rtx_4090'은 'NVIDIA GeForce RTX 4090'과 'RTX 4090' 모두와 일치합니다. 이 목록을 넓히는 것이 가용성을 높이는 가장 저렴한 방법입니다.",
+        "vastDeniedGpuModels": "거부된 GPU 모델(쉼표로 구분)",
+        "vastDeniedGpuModelsHelp": "항상 허용 목록보다 우선합니다. 이것은 '그 카드가 계속 실패하므로 임차를 중지합니다'를 위한 긴급 레버입니다.",
+        "vastMinReliability": "최소 호스트 신뢰성(0-1)",
+        "vastMinReliabilityHelp": "Vast.ai의 호스트 신뢰성 점수입니다. 0은 최소값을 비활성화합니다. 점수를 보고하지 않은 호스트는 유지됩니다. 가용성을 약간 포기하는 대신 중단된 임차를 줄입니다 — 청크 처리 중 인스턴스를 중단시킨 호스트도 가동 비용은 이미 지급받았습니다.",
+        "vastAllowUnverified": "미검증 호스트 허용(가용성 증가, 검증되지 않은 시스템)",
+        "vastAllowResidential": "가정용 호스트 허용(가용성 증가, 가정용 시스템, 데이터센터 아님)",
+        "runpodDataCenters": "데이터 센터(쉼표로 구분)",
+        "runpodDataCentersHelp": "RunPod 데이터 센터 ID, 예: EU-RO-1, US-KS-2. 빈 설정이 가장 넓은 설정이며, 가장 좁은 설정이 아닙니다 — RunPod의 자체 스케줄러가 포드를 어디든지 배치할 수 있습니다. 이것은 AWS 영역과 반대이며, 비워 두면 여전히 하나로 고정됩니다. 데이터 거주를 위해 설정하거나, 시작 재시도 루프가 독립적인 풀을 순회하도록 하십시오.",
+        "runpodGpuTypes": "허용된 GPU 유형(쉼표로 구분)",
+        "runpodGpuTypesHelp": "RunPod gpuType ID는 가용성 그리드에 나타나는 그대로, 예: 'NVIDIA GeForce RTX 4090'. 비어 있으면 이 계층이 제공하는 모든 카드입니다.",
+        "runpodDiskGb": "컨테이너 디스크 최소값(GB)",
+        "runpodDiskGbHelp": "최소값이며 상한선이 아닙니다: 파일 집합이 더 필요한 작업은 더 많이 할당받습니다. 컨테이너 디스크는 포드가 다시 시작될 때 삭제되며, 네트워크 볼륨은 절대 연결되지 않습니다 — 연결하면 포드보다 오래 남아 종료 후에도 크래킹된 평문을 보유하게 됩니다.",
+        "runpodDiskRate": "컨테이너 디스크(센트/GB-월)",
+        "runpodDiskRateHelp": "예산 예약의 저장소 부분에 반영됩니다. 저장소를 과소 평가하면 고객에게 반드시 지켜진다고 안내한 상한을 초과하게 되므로 올림 처리합니다.",
+        "runpodSelfDestruct": "VPN이 중단되면 포드가 자신을 삭제하도록 허용(보안 계층만)",
+        "runpodSelfDestructHelp": "포드가 접촉을 잃을 때 자신을 삭제할 수 있도록 세 번째 종료 레일을 추가하여 Vast.ai와 일치합니다. RunPod에는 포드 범위의 자격 증명이 없으므로 각 포드 내에 계정 범위의 키를 배치하며 — 계정의 다른 모든 포드를 생성하고 삭제할 수 있습니다. 프로비저닝 키를 재사용하지 않고 자격 증명 JSON의 self_destruct_api_key로 별도의 더 좁은 키를 제공합니다. 커뮤니티 계층에서는 절대 사용할 수 없습니다."
+      },
+      "peerWarningTitle": "제3자 하드웨어",
+      "peerWarningBody": {
+        "vastai": "Vast.ai 인스턴스는 제어하지 않는 개별 소유 시스템에서 실행됩니다. 데이터가 제3자에게 노출될 수 있는 클라이언트에 대해서만 활성화하고 클라이언트별로 인정합니다.",
+        "runpod_community": "RunPod 커뮤니티 클라우드는 소유자가 컨테이너에 대한 루트 액세스 권한이 있는 피어 운영 시스템에서 실행됩니다. RunPod의 SOC 2, ISO 27001, PCI DSS 증명서는 보안 클라우드에만 적용되며 이 계층에는 적용되지 않습니다. 데이터가 제3자에게 노출될 수 있는 클라이언트에 대해서만 활성화하고 클라이언트별로 인정합니다."
+      },
+      "awsSection": "AWS 배치 및 가격 책정",
+      "awsSectionHelp": "인스턴스가 시작되는 위치와 비용입니다. EC2는 이 코드에 기계 판독 가능한 GPU 모델 또는 시간당 요금을 노출하지 않으므로 둘 다 여기에 선언됩니다.",
+      "awsInstanceTypes": "제공되는 인스턴스 유형",
+      "awsInstanceTypesHelp": "여기에 나열된 유형만 임차할 수 있습니다. 청구될 용의가 있는 요금을 선언합니다 — 예산이 이 숫자에 대해 예약하며 아무것도 송장과 대조하지 않으므로 올림합니다. GPU 모델과 수를 선언하면 작업량 대비 비용 순위가 가능해지며, 선언하지 않으면 순위는 시간당 가격으로 돌아갑니다.",
+      "awsAddInstanceType": "인스턴스 유형 추가",
+      "awsRemoveInstanceType": "제거",
+      "mockSection": "모의 동작 및 장애 주입",
+      "mockSectionHelp": "모의 제공자는 로컬 에이전트 --test-mode 프로세스를 생성합니다. 장애 토글은 재컴파일 없이 장애 분기를 실행합니다.",
+      "providerNotImplemented": "이 제공자에게는 아직 어댑터가 없습니다: 백엔드는 시작 시 \"지원되지 않는 클라우드 제공자\"로 거부합니다. 저장할 수 있지만 아무것도 프로비저닝할 수 없습니다.",
+      "zones": {
+        "title": "배치 및 하드웨어",
+        "help": "임차하려는 모든 장소와 GPU에 체크합니다. 용량은 대개 하드웨어나 배치 각각이 아니라 (하드웨어, 배치) 쌍에 속하므로, 각 체크된 셀은 시스템을 얻을 수 있는 한 가지 독립적인 기회입니다 — 단일 체크된 셀은 용량 거부가 폴백할 수 있는 곳이 없다는 의미입니다. 행의 카드를 모두 체크된 상태로 두면 \"승인한 모든 하드웨어\"(나중에 추가되는 하드웨어 포함)를 의미합니다.",
+        "probe": "가용성 확인",
+        "probeHelp": "AWS에서 실시간 영역, 서브넷, 오퍼링, 스팟 가격 및 배치 점수 데이터를 읽습니다. 읽기 전용입니다: 아무것도 시작되지 않으며 비용이 들지 않습니다.",
+        "probeIdle": "이 제공자에 대한 실시간 영역, 서브넷 및 스팟 가격을 로드합니다.",
+        "probeFailed": "AWS에서 용량을 읽을 수 없습니다.",
+        "saveFirst": "먼저 제공자를 저장합니다. 가용성은 저장된 자격 증명과 영역을 사용하여 조회되므로, 저장하지 않은 양식은 조회할 대상이 없습니다.",
+        "selectAll": "모든 사용 가능한 영역 선택",
+        "colZone": "영역",
+        "colSubnet": "서브넷",
+        "notOffered": "EC2는 이 영역에서 이 인스턴스 유형을 제공하지 않습니다. 이것은 확정적입니다 — 여기서 시작하면 지원되지 않음으로 실패합니다.",
+        "unusable": "이 배치에는 시작할 수 없습니다. 이름 옆의 메모를 확인합니다.",
+        "freeIps_other": "{{count}}개의 사용 가능한 IP",
+        "scoreHelp": "이 영역의 이 카드에 대한 AWS의 자체 1-10 순위이며, 약한 증거이기도 합니다: 이 계정에서는 이 지역의 모든 영역이 1/10을 기록했지만, 그중 한 곳에서의 시작 시도가 불과 몇 분 후 첫 시도에 성공했습니다. 이 점수는 어느 풀을 먼저 시도할지 결정할 뿐, 목록에서 풀을 절대 제거하지 않습니다. 영역 이름 옆의 모든 유형 점수와 비교합니다.",
+        "spotVsConfigured": "스팟 요금은 여기서 시간당 {{spot}}입니다. 이 유형에 설정된 요금은 시간당 {{configured}}입니다. 예약은 설정된 수치를 사용하므로, 실시간 요금보다 낮게 설정하면 반드시 지켜진다고 안내받은 예산 상한보다 적게 예약하게 됩니다.",
+        "poolCount_other": "{{count}}개의 용량 풀 선택됨",
+        "poolCountWarning": "한 풀은 한 번의 기회입니다. 소진되면 시작 재시도 루프가 갈 곳이 없으며, 용량이 다시 확보될 때까지 프로비저닝이 그대로 멈춥니다. 더 많은 영역, 더 많은 인스턴스 유형, 또는 둘 다에 체크합니다.",
+        "poolCountOk": "한 풀의 용량 거부는 가장 가능성 높은 순서로 다음 풀로 통과합니다.",
+        "legacyOverridden": "영역이 구성되어 있으므로 위의 단일 서브넷 ID({{subnet}})는 무시됩니다. 모든 영역이 체크 해제된 경우 폴백으로 유지됩니다.",
+        "combinedScore": "모든 유형: {{score}}/10",
+        "combinedScoreHelp": "이 영역에서 함께 고려된, 가격이 책정된 모든 인스턴스 유형에 대한 AWS의 배치 점수이며, 이는 단일 카드 점수와는 다른 질문이고 보통 훨씬 더 나은 답입니다. 한 지역에서 1분 사이에 측정됨: g6.xlarge 혼자서는 여기서 1/10을 기록한 반면 g4dn + g5 + g6을 합치면 9/10을 기록했습니다. 다양성은 부족에 대한 대비책이 아니라, 바로 점수를 받는 대상입니다.",
+        "availableCount": "{{count}}개 사용 가능",
+        "availableCountHelp": "지금 바로 대여할 수 있는 머신의 실시간 개수입니다. 이는 실제 인벤토리이며 화면에서 가장 신뢰할 수 있는 지표입니다 — 단순한 의견에 불과한 배치 점수보다 훨씬 낫습니다.",
+        "livePriceHelp": "공급자가 현재 청구하는 요금입니다.",
+        "trust": {
+          "definitive": "확정",
+          "measured": "실시간",
+          "advisory": "참고용"
+        },
+        "axesModeNote": "이 공급자는 국가와 GPU 모델을 두 개의 독립적인 목록으로 저장하므로 카드를 선택하면 선택한 모든 국가에 적용됩니다. 아래의 셀별 개수와 가격은 여전히 실제이며 해당 국가에 맞춰져 있습니다."
+      },
+      "vastSection": "Vast.ai 배치 및 하드웨어 정책",
+      "vastSectionHelp": "이 공급자가 대여할 수 있는 국가와 카드입니다. 목록을 비워두면 제한이 없다는 뜻이며, 가장 광범위한 풀이자 기본값입니다.",
+      "vastTierWarningTitle": "검증되지 않은 호스트 계층을 열려고 합니다",
+      "vastTierWarningBody": "이는 Vast.ai에서 사용 가능한 가장 큰 가용성 증가이며, 클라이언트 해시, 워드리스트, potfile 및 크래킹된 평문을 Vast.ai가 검증하지 않은 머신에 배치합니다. 모든 Vast 호스트는 이미 컨테이너에 대한 루트 권한을 가지고 있습니다. 이 토글은 Vast가 확인한 호스트로만 제한하는 유일한 필터를 제거합니다. 검증되지 않은 계층은 '연결 안 됨' 및 '드라이버 오류' 보고가 집중되는 곳이므로, 일부 추가 가용성은 허상입니다. 유용한 작업에 도달하지 않은 대여는 여전히 프로비저닝 비용이 듭니다.",
+      "runpodSection": "RunPod 배치 및 하드웨어 정책",
+      "runpodSectionHelp": "이 공급자가 대여할 수 있는 데이터 센터 및 GPU 유형입니다. RunPod는 실시간 가격 책정이므로 여기서 선언할 요금이 없습니다(AWS와 다릅니다).",
+      "runpodCommunityTeardownTitle": "커뮤니티 종료는 백엔드 수거 프로세스뿐입니다",
+      "runpodCommunityTeardownBody": "RunPod는 pod별 스코프 자격증명을 발급하지 않으므로 커뮤니티 pod가 스스로를 안전하게 삭제할 방법이 없습니다. 작동할 유일한 키는 계정 스코프이며, 커뮤니티 호스트 운영자는 컨테이너에 대한 루트 권한을 가지고 있어 환경에서 이를 읽을 수 있습니다. 게스트 내 데드라인은 여전히 hashcat을 종료하고 데이터 노출을 끝내지만, pod 과금은 절대 중지할 수 없습니다. 이 백엔드가 다운되거나 멈춘 경우, 커뮤니티 pod는 클라우드 플릿 페이지에서 수동으로 제거할 때까지 계속 과금됩니다. 이 계층 사용이 허용된 모든 클라이언트에 대해 낮은 인스턴스 TTL 상한과 작은 예산 상한을 설정합니다.",
+      "experimentalChip": "실험적",
+      "experimentalTooltip": "실험적 — 아직 테스트되지 않음. 이 어댑터는 실제 자금을 사용하여 실제 공급자에 대해 처음부터 끝까지 구동된 적이 없습니다. 버그가 있을 수 있으니 작업을 모니터링하고 발견한 내용을 보고해 주세요.",
+      "experimentalTitle": "실험적 — 아직 테스트되지 않음",
+      "experimentalBody": "이 공급자는 실제 자금으로 처음부터 끝까지 입증되지 않았습니다. 부팅, 프로비저닝, 크래킹, 깔끔한 릴리스 및 예산 환불이 모두 함께 작동하는 것이 관찰되지 않았습니다. 작동해야 하며 버그가 있을 것입니다. 작은 예산 상한과 낮은 인스턴스 제한으로 시작하고 클라우드 플릿 페이지에서 릴리스되지 않는 인스턴스를 관찰하세요. 잘못된 사항을 보고해 주세요.",
+      "testedChip": "테스트됨",
+      "testedTooltip": "테스트됨 — 부팅, 크래킹, 깔끔한 릴리스 및 정산된 예산 환불을 거쳐 실제 자금으로 실제 공급자에 대해 처음부터 끝까지 구동되었습니다.",
+      "reportIssueLink": "GitHub에 버그 보고",
+      "reportDiagnosticsLink": "Discord로 진단 정보 전송(이슈에는 포함 안 함)"
+    },
+    "budgets": {
+      "title": "클라이언트 예산",
+      "description": "각 클라이언트가 지출할 수 있는 금액과 해당 데이터가 갈 수 있는 공급자입니다. 빈 필드가 있는 클라이언트는 아래의 서버 기본값을 따릅니다.",
+      "loadFailed": "클라이언트 예산을 불러오지 못했습니다",
+      "empty": "아직 클라이언트가 없습니다. 먼저 클라이언트를 생성한 후 여기에서 예산을 설정하세요.",
+      "edit": "편집",
+      "editTitle": "클라우드 설정 — {{name}}",
+      "saved": "클라이언트 클라우드 설정이 저장되었습니다",
+      "saveFailed": "클라이언트 클라우드 설정을 저장하지 못했습니다",
+      "enabled": "활성화됨",
+      "disabled": "비활성화됨",
+      "unfunded": "예산 없음",
+      "noProviders": "허용된 공급자 없음",
+      "ttlValue": "{{minutes}} 분",
+      "spendSummary": "{{cap}} 중 {{used}} 약정됨 ({{pct}}%)",
+      "acknowledged": "확인이 기록되었습니다",
+      "acknowledgedChip": "확인됨",
+      "ackFailed": "확인을 기록하지 못했습니다",
+      "ackTitle": "이 클라이언트의 제3자 노출 확인",
+      "ackWarningTitle": "이 클라이언트의 데이터가 통제를 벗어날 것입니다",
+      "ackWarningBody": "{{name}}에 대해 Vast.ai를 허용하면 이 클라이언트의 해시, 워드리스트 및 크래킹된 평문이 컨테이너에 대한 루트 권한이 있는 제3자가 소유한 머신에 배치될 수 있습니다.",
+      "ackConfirm": "이 클라이언트에 대해 이 노출을 수락합니까?",
+      "ackAccept": "이해하고 수락합니다",
+      "actions": {
+        "none": "예산 내",
+        "notify": "임계값 도달",
+        "stop_provisioning": "프로비저닝 중지됨",
+        "drain": "드레인 중",
+        "hard_stop": "강제 중지"
+      },
+      "columns": {
+        "client": "클라이언트",
+        "status": "상태",
+        "providers": "허용된 공급자",
+        "spend": "지출",
+        "ttl": "최대 TTL",
+        "actions": "관리"
+      },
+      "fields": {
+        "budget": "예산",
+        "budgetHelp": "현재 예산 기간의 지출 상한입니다. 서버 기본값을 상속하려면 비워두세요. 클라이언트는 기본값도 설정되지 않은 경우에만 자금이 없게 됩니다.",
+        "ttl": "최대 인스턴스 수명(분)",
+        "ttlHelp": "인스턴스는 진행 상황과 관계없이 이 수명에 도달하면 종료됩니다. 시스템 기본값을 사용하려면 비워두세요.",
+        "providers": "허용된 공급자",
+        "providersHelp": "비어있음은 이 클라이언트에 대해 아무것도 대여할 수 없음을 의미합니다. AWS를 허용하면서 Vast.ai를 금지하는 것은 일반적인 구성입니다.",
+        "enabled": "클라우드 버스트",
+        "period": "예산 기간",
+        "periodHelp": "서버 기본값을 상속하려면 비워두세요."
+      },
+      "errors": {
+        "invalidBudget": "예산은 숫자여야 합니다(예: 25.00)",
+        "negativeBudget": "예산은 음수가 아니어야 합니다",
+        "invalidTtl": "최대 수명은 분 단위의 양수여야 합니다",
+        "enabledWithoutBudget": "클라우드 버스트를 활성화하기 전에 예산을 설정해야 합니다. 자금이 없는 클라이언트는 프로비저닝할 수 없습니다.",
+        "enabledWithoutProvider": "클라우드 버스트를 활성화하기 전에 공급자를 최소 하나 이상 허용해야 합니다."
+      },
+      "peerTooltip": "피어 운영 하드웨어: 이 클라이언트의 데이터는 머신 소유자가 읽을 수 있습니다.",
+      "defaults": {
+        "title": "서버 기본값",
+        "description": "클라이언트가 자신의 값을 설정하지 않았을 때 사용하는 값입니다. 클라이언트의 필드를 비워두면 여기의 기본값을 따릅니다. 따라서 이를 변경하면 여전히 상속받는 모든 클라이언트가 변경됩니다.",
+        "summary": "{{period}}당 {{amount}}",
+        "summaryUnset": "기본 예산이 설정되지 않음 — 상속받는 클라이언트는 자금이 없습니다",
+        "budget": "기본 예산",
+        "budgetHelp": "기본값이 없으려면 비워두세요. 상속받는 클라이언트는 자금이 없고 버스트할 수 없습니다.",
+        "period": "기본 예산 기간",
+        "enabled": "클라이언트는 기본적으로 유료 용량으로 버스트할 수 있습니다",
+        "providers": "기본 공급자",
+        "providersHelp": "자신의 공급자 목록이 비어있는 모든 클라이언트에 적용됩니다.",
+        "peerAckNote": "피어 운영 공급자는 여전히 클라이언트별 확인이 필요합니다. 기본값으로 설정해도 해당 동의가 부여되지 않습니다. 데이터가 그곳으로 가기 전에 각 클라이언트는 여전히 개별적으로 확인되어야 합니다.",
+        "appliesNow": "클라우드 버스트는 기본적으로 활성화되어 있고 기본 예산이 설정되어 있으므로 여전히 상속받는 모든 클라이언트는 이제 유료 용량을 프로비저닝할 수 있습니다.",
+        "save": "기본값 저장",
+        "saved": "기본값이 저장되었습니다",
+        "saveFailed": "기본값을 저장하지 못했습니다",
+        "fundedButDisabled": "기본 예산이 설정되어 있지만 클라우드 버스트는 기본적으로 비활성화되어 있으므로 상속받는 클라이언트는 아무것도 프로비저닝할 수 없습니다. 위의 확인란을 선택하면 예산을 사용할 수 있습니다.",
+        "enabledWithoutProviders": "클라우드 버스트는 기본적으로 활성화되어 있지만 기본 공급자가 선택되지 않았으므로 상속받는 클라이언트는 여전히 아무것도 대여할 수 없습니다. 위에서 공급자를 최소 하나 이상 선택하세요.",
+        "willEnableTitle_other": "이렇게 하면 {{count}}개 클라이언트가 유료 용량을 대여할 수 있습니다",
+        "willEnableBody": "이 클라이언트들은 자신의 설정이 없으므로 위의 기본값을 따릅니다. 저장하면 각각이 클라우드 인스턴스를 프로비저닝하고 이 예산에 대해 지출할 수 있습니다. 특정 클라이언트를 제외하려면 해당 클라이언트의 클라우드 버스트를 비활성화로 설정하세요.",
+        "andMore": "+{{count}}개 더",
+        "confirmTitle_other": "{{count}}개 클라이언트에 대해 클라우드 지출을 활성화합니까?",
+        "confirmBody_other": "{{count}}개 클라이언트는 현재 아무것도 대여할 수 없습니다. 이 기본값을 저장하면 각각이 {{period}}당 {{amount}}의 상한과 지출 권한을 얻습니다. 예산은 클라이언트별로 적용되며 공유되지 않으므로, 전체 노출 금액은 이 금액에 나열된 클라이언트 수를 곱한 값입니다.",
+        "confirmAlternative": "클라이언트별로 하나씩 적용하고 싶으신가요? 취소한 뒤 클라우드 버스트를 기본적으로 비활성화 상태로 두고, 각 클라이언트에서 개별적으로 클라우드 버스트와 예산을 설정하세요.",
+        "confirmAccept_other": "{{count}}개 클라이언트 활성화"
+      },
+      "periods": {
+        "monthly": "월",
+        "quarterly": "분기",
+        "semiannual": "6개월"
+      },
+      "inheritLabel": "기본값 상속({{value}})",
+      "on": "활성화됨",
+      "off": "비활성화됨",
+      "inheriting": "상속 중"
+    },
+    "policy": {
+      "title": "지출 임계값 정책",
+      "description": "클라이언트가 한도에 가까워질 때 어떤 일이 일어나는지를 정의합니다. 이 임계값들은 한도에 얼마나 매끄럽게 도달하는지를 결정하며, 실제로 초과 지출을 막는 것은 인스턴스의 전체 수명 비용이 부팅 전에 미리 약정된다는 점입니다.",
+      "loadFailed": "임계값 정책을 불러오지 못했습니다",
+      "saved": "임계값 정책이 저장되었습니다",
+      "saveFailed": "임계값 정책을 저장하지 못했습니다",
+      "overageWarning": "초과 지출이 허용됩니다: 예약이 남은 예산을 초과할 수 있습니다. 이 경우 한도는 절대적 제한이 아닌 참고용이 됩니다.",
+      "hardStopAboveCapNote": "강제 중지가 {{pct}}%로 설정되어 있지만 초과 지출이 비활성화되어 있으므로, 예약은 여전히 예산의 100%를 초과할 수 없습니다. 한도를 초과하여 지출하도록 허용하려면 초과 지출을 활성화하세요.",
+      "fields": {
+        "notifyEnabled": "지출이 한도에 가까워지면 알림 받기",
+        "notifyPct": "알림 시점 (예산의 %)",
+        "notifyPctHelp": "한 번만 알림을 전송합니다. 알림을 받지 않으려면 확인란의 선택을 해제하세요.",
+        "stopProvisionPct": "프로비저닝 중지 시점 (%)",
+        "stopProvisionPctHelp": "이 시점을 지나면 새 인스턴스가 시작되지 않습니다. 이미 실행 중인 인스턴스는 계속 작동합니다.",
+        "drainPct": "드레인 시작 시점 (%)",
+        "drainPctHelp": "새 작업이 배정되지 않으며, 진행 중인 청크는 완료될 수 있습니다.",
+        "hardStopPct": "강제 중지 시점 (%)",
+        "hardStopPctHelp": "인스턴스는 완료 여부와 관계없이 즉시 종료됩니다.",
+        "drainTimeout": "드레인 타임아웃(초)",
+        "drainTimeoutHelp": "인스턴스가 어차피 종료되기 전까지 청크를 완료하는 데 허용되는 최대 시간입니다.",
+        "allowOverage": "한도 초과 지출 허용",
+        "allowOverageHelp": "비활성화 상태로 두면 한도가 절대적인 제한이 됩니다. 비활성화되어 있으면 $10 예산은 $10에서 지출이 중단됩니다."
+      },
+      "errors": {
+        "notifyRange": "알림 임계값은 1%에서 프로비저닝 중지 임계값 사이여야 합니다.",
+        "stopBeforeDrain": "프로비저닝 중지 임계값은 드레인 임계값을 초과할 수 없습니다.",
+        "drainBeforeHardStop": "드레인 임계값은 강제 중지 임계값을 초과할 수 없습니다.",
+        "negativeTimeout": "드레인 타임아웃은 음수가 될 수 없습니다."
+      }
+    },
+    "fleet": {
+      "title": "클라우드 플릿",
+      "description": "여전히 비용이 발생할 수 있는 모든 대여 인스턴스입니다.",
+      "loadFailed": "클라우드 플릿을 불러오지 못했습니다",
+      "empty": "실행 중인 인스턴스가 없습니다. 과금되는 항목이 없습니다.",
+      "summary_other": "{{count}}개의 실행 중인 인스턴스, {{hourly}}/시간, {{reserved}} 약정.",
+      "destroy": "종료",
+      "destroyed": "인스턴스가 종료되었습니다",
+      "destroyFailed": "공급자가 이 인스턴스 종료를 거부했습니다 — 계속 과금되고 있습니다",
+      "destroyTitle": "인스턴스를 종료하시겠습니까?",
+      "destroyBody": "\"{{label}}\"을(를) 지금 종료하시겠습니까? 공급자가 확인하는 즉시 과금이 중지됩니다.",
+      "destroyJobWarning": "이 인스턴스는 현재 작업을 처리 중입니다. 진행 중인 청크는 손실되며 다른 곳에 재배정됩니다.",
+      "teardownFailingTitle": "종료 실패",
+      "teardownFailingBody_other": "{{count}}개의 인스턴스를 종료할 수 없어 계속 비용이 발생하고 있습니다. 공급자 콘솔을 확인하세요.",
+      "teardownFailingTooltip": "종료에 실패했습니다. 이 인스턴스는 계속 과금되고 있습니다",
+      "estimated": "예상",
+      "estimatedTooltip": "경과 시간과 요금을 기준으로 추정한 값이며, 공급자의 실제 금액은 나중에 반영됩니다.",
+      "perHour": "{{rate}}/시간",
+      "ttlExpired": "만료됨",
+      "states": {
+        "requested": "요청됨",
+        "launching": "시작 중",
+        "provisioning": "프로비저닝 중",
+        "syncing": "파일 동기화 중",
+        "running": "실행 중",
+        "draining": "드레인 중",
+        "terminating": "종료 중",
+        "terminated": "종료됨",
+        "failed": "실패"
+      },
+      "columns": {
+        "label": "인스턴스",
+        "state": "상태",
+        "client": "클라이언트",
+        "gpu": "GPU",
+        "rate": "요금",
+        "spend": "지출",
+        "ttl": "남은 TTL",
+        "disk": "디스크",
+        "actions": "관리",
+        "agent": "에이전트",
+        "job": "작업"
+      },
+      "experimentalRunningTitle_other": "실험적 공급자에서 실행 중인 인스턴스 {{count}}개",
+      "experimentalRunningBody": "{{providers}}는 실제 비용으로 종단 간 검증된 적이 없습니다. 이러한 인스턴스가 'terminated' 상태에 도달할 것이라고 가정하지 말고, 실제로 도달하는지 확인하세요. 종료 경로는 모든 신규 어댑터에서 가장 덜 테스트된 부분이며, 해제되지 않는 인스턴스는 여기서 직접 삭제하기 전까지 계속 비용이 청구됩니다. 확인한 내용을 보고해 주세요.",
+      "experimentalTooltip": "{{provider}}는 실험적 공급자입니다(아직 테스트되지 않음). 버그를 예상하세요. 작업이 완료될 때 이 인스턴스가 실제로 해제되는지 확인하세요."
+    },
+    "rules": {
+      "title": "시스템이 지출할 수 있는 시기",
+      "description": "예산은 지출할 수 있는 금액을 규정합니다. 이 규칙들은 지출이 가능한 시기를 규정합니다. 이들이 없으면 자동 스케일러는 단 한 번의 대기 틱 후 모든 작업에 대해 언제든 비용을 지불하며 작업당 상한이 없습니다.",
+      "inheritTitle": "이것들은 시스템 기본값입니다",
+      "inheritBody": "클라이언트는 각 필드를 개별적으로 상속하므로, 여기서 기본값을 강화하면 해당 필드를 재정의하지 않은 모든 클라이언트에 영향을 미칩니다. 클라이언트별 재정의는 클라이언트 화면에서 편집됩니다.",
+      "saved": "프로비저닝 규칙이 저장되었습니다",
+      "saveFailed": "프로비저닝 규칙 저장 실패",
+      "loadFailed": "프로비저닝 규칙 로드 실패",
+      "save": "규칙 저장",
+      "fields": {
+        "minJobPriority": "최소 작업 우선순위",
+        "minStarvation": "최소 대기 시간 (분)",
+        "skipIfFinishing": "완료 예상 시간 이내면 건너뛰기 (분)",
+        "maxSpendPerJob": "작업당 최대 지출",
+        "windowEnabled": "프로비저닝을 시간 범위로 제한",
+        "windowStart": "시간 범위 시작",
+        "windowEnd": "시간 범위 종료",
+        "windowTz": "시간대"
+      },
+      "helperText": {
+        "minJobPriority": "절대 우선순위이며, 백분율이 아닙니다. 현재 상한은 {{ceiling}}입니다.",
+        "floorOff": "최소값 없음: 모든 클라우드 버스트 작업이 자동 프로비저닝에 적격입니다.",
+        "minStarvation": "유료 용량이 임차되기 전에 작업이 진행하지 않아야 하는 기간입니다. 0은 첫 번째 대기 틱에서 임차합니다. 자동 스케일러에만 적용됩니다.",
+        "skipIfFinishing": "기존 용량으로 곧 완료될 것으로 예상되는 작업에는 임차하지 마세요. 임차된 인스턴스는 부팅 및 동기화에 5-10분이 필요합니다. 0은 절대 건너뛰지 않습니다.",
+        "maxSpendPerJob": "하나의 작업에 대한 클라우드 지출의 전체 수명 한도이며, 월별이 아닙니다. 공백은 제한 없음을 의미합니다. 수동 관리자 프로비저닝을 포함한 모든 곳에서 시행됩니다.",
+        "windowEnabled": "시작만 규정합니다. 시간 범위가 닫혀도 인스턴스가 종료되지 않습니다. TTL 및 유휴 드레인이 종료를 담당합니다.",
+        "windowTz": "IANA 이름(예: America/Chicago). UTC의 경우 공백으로 남기세요.",
+        "windowWrap": "종료 시간이 시작 시간보다 빠르면 자정을 넘어 '야간에만 임차'를 의미합니다. 둘을 같은 값으로 설정하면 항상 열려 있습니다."
+      },
+      "bands": {
+        "minimal": "최소",
+        "low": "낮음",
+        "normal": "보통",
+        "high": "높음",
+        "critical": "심각"
+      }
+    },
+    "system": {
+      "ceilings": "지출 및 동시성 상한",
+      "ceilingsHelp": "모든 클라이언트 예산이 확인되기 전에 적용되는 절대적인 시스템 전체 한도입니다.",
+      "work": "작업 크기 조정 및 종료",
+      "workHelp": "임차된 인스턴스에 한 번에 주어지는 작업량과 유휴 인스턴스가 해제되는 속도입니다. 청크당 오버헤드는 임차료로 청구되므로, 처리량과 낭비의 균형을 맞춥니다.",
+      "reconciliation": "조정",
+      "reconciliationHelp": "데이터베이스를 공급자가 실제로 실행 중인 것과 비교하는 빈도 및 인식되지 않은 인스턴스가 삭제되기 전에 허용되는 시간입니다.",
+      "capDisabledWarning": "클라우드 프로비저닝이 현재 비활성화되었습니다. 전역 월간 상한이 0입니다. 공급자, 클라이언트 예산 및 클라우드 활성화 작업이 모두 올바르게 구성되지만 아무것도 임차되지 않습니다. 0이 아닌 상한을 설정하여 활성화하세요.",
+      "saved": "설정이 저장되었습니다",
+      "saveFailed": "설정 저장 실패",
+      "loadFailed": "클라우드 설정 로드 실패",
+      "units": {
+        "seconds": "초",
+        "minutes": "분"
+      },
+      "fields": {
+        "monthlyCap": "전역 월간 지출 상한",
+        "monthlyCapHelp": "모든 클라이언트 및 공급자에 걸쳐. 0은 클라우드 프로비저닝을 완전히 비활성화합니다. 무제한이 아닙니다.",
+        "concurrentCap": "전역 동시 인스턴스 상한",
+        "concurrentCapHelp": "모든 공급자 및 클라이언트에 걸쳐 한 번에 최대 임차 인스턴스 수입니다. 0은 무제한이지만 여전히 예산 및 공급자 할당량으로 제한됩니다.",
+        "defaultMaxInstancesPerJob": "작업당 기본 최대 인스턴스 수",
+        "defaultMaxInstancesPerJobHelp": "자신의 한도를 공백으로 남긴 작업에 대한 최대 임차 인스턴스 수입니다. 공백은 무제한을 의미했지만, 클라우드 전용 배포에서는 클라이언트 예산만 굶주린 작업의 분당 한 번 임차를 방지합니다. 작업별 값은 여전히 이를 재정의합니다. 0은 무제한을 복원합니다.",
+        "chunkDuration": "최소 클라우드 청크 기간",
+        "chunkDurationHelp": "클라우드 에이전트의 최소 청크 기간입니다. 임차된 GPU는 hashcat이 시작하고 커널을 자동 조정하며 워드리스트를 로드하는 동안 청구되므로, 클라우드 청크는 작업이 더 적게 요청해도 이 값 아래로 내려가지 않습니다. 더 많이 요청하는 작업은 자신의 값을 유지합니다. 항상 인스턴스의 남은 수명으로 다시 제한됩니다. 바닥을 비활성화하려면 0으로 설정하세요.",
+        "teardownSlack": "종료 여유 시간",
+        "teardownSlackHelp": "인스턴스의 수명 끝에 드레인 및 삭제를 위해 예약되므로, 청크는 인스턴스가 죽는 지점을 넘어 계획되지 않습니다.",
+        "idleDrain": "유휴 드레인",
+        "idleDrainHelp": "보류 중인 작업이 없는 상태로 이 시간 이후 임차 인스턴스를 삭제합니다. 할 일이 없는 GPU에 지불하는 금액을 제한합니다.",
+        "commissioningGrace": "설치 유예",
+        "commissioningGraceHelp": "에이전트 등록 후 이 시간이 지날 때까지 태스크를 받지 못한 임차 인스턴스를 삭제합니다. 콜드 인스턴스는 먼저 파일을 다운로드하고 벤치마크를 실행해야 하므로, 이를 약 20분 이하로 설정하면 건강한 인스턴스를 시작 중 삭제합니다. 작업이 여전히 대기 중이므로 다른 인스턴스가 즉시 임차됩니다. 0은 비활성화합니다.",
+        "reaperInterval": "리퍼 간격",
+        "reaperIntervalHelp": "데이터베이스를 공급자 재고와 조정하고 존재해서는 안 될 모든 것을 삭제하는 빈도입니다.",
+        "orphanGrace": "고아 유예 기간",
+        "orphanGraceHelp": "공급자 계정에서 일치하는 데이터베이스 행이 없는 인스턴스를 이 시간 후 삭제합니다. 이것은 레코드가 저장되지 않은 시작의 유일한 복구입니다.",
+        "agentImage": "에이전트 이미지",
+        "agentImageHelp": "예: zerkereod/krakenhashes-agent-cloud:cloud-gpu. 공백으로 두면 KH_CLOUD_AGENT_IMAGE로 대체되고, 그 다음 기본 제공 기본값으로 대체됩니다. 기본 제공 기본값은 :latest이며, 이는 릴리스가 태그되었을 때만 존재합니다. 사전 출시 배포는 이를 설정해야 합니다.",
+        "defaultBurstEnabled": "모든 작업에 대해 클라우드 버스트 활성화",
+        "defaultBurstEnabledHelp": "각 프리셋, 워크플로우 및 작업에서 확인 상자를 선택하지 않고 모든 작업을 클라우드 버스트 활성화로 취급합니다. 온프레미스 GPU가 없는 배포를 위한 것이며, 임차가 작업을 실행하는 유일한 방법입니다. 클라이언트 예산 및 인스턴스 상한이 여전히 적용됩니다. 이미 대기 중인 작업을 포함하여 즉시 적용됩니다.",
+        "defaultClient": "기본 청구 클라이언트",
+        "defaultClientHelp": "자신의 클라이언트가 없는 해시 목록의 클라우드 지출은 여기에서 청구됩니다. 없음으로 두면 할당되지 않은 작업은 용량을 임차할 수 없습니다. 예산, 인스턴스 상한 및 임계값 단계가 선택한 클라이언트에 정확히 평상시대로 적용됩니다. \"미할당 작업\"과 같은 이름의 클라이언트는 지출 보고서를 정직하게 유지합니다.",
+        "defaultClientNone": "없음 - 미할당 작업은 클라우드를 사용할 수 없습니다",
+        "crackDrainGrace": "크래킹 드레인 유예",
+        "crackDrainGraceHelp": "임차 인스턴스를 삭제하기 전에, 여전히 소유한 태스크가 크래킹된 비밀번호 업로드를 마칠 때까지 이 시간까지 대기합니다. 시작한 시간부터가 아니라 해당 태스크가 마지막으로 기록된 시간부터 측정되므로, 작동 중인 에이전트는 절대 삭제되지 않으며 갇힌 에이전트도 영원히 대기하지 않습니다. 유휴 드레인보다 길어야 하고 30분보다 짧아야 합니다. 0은 즉시 삭제하며, 이는 에이전트가 이미 찾아낸 크래킹된 비밀번호를 영구적으로 잃을 수 있다는 의미입니다. 더 이상 존재하지 않는 컴퓨터에서는 다시 전송할 수 없습니다."
+      },
+      "agent": "클라우드 에이전트 이미지",
+      "agentHelp": "임차 인스턴스가 끌어오고 실행하는 컨테이너 이미지입니다. 레지스트리에 존재하는 태그여야 합니다. 누락된 태그는 시작 오류가 아닙니다. 인스턴스가 부팅되고, 끌어오기가 실패하며, 호스트가 약 1분 후 자동으로 종료되고 청구됩니다.",
+      "save": "변경 사항 저장",
+      "discard": "폐기",
+      "unsaved_other": "{{count}}개의 저장되지 않은 변경 사항",
+      "eligibility": "클라우드 전용 배포",
+      "eligibilityHelp": "작업이 임차 대상으로 고려되는지 여부입니다. 위의 모든 항목이 지출할 수 있는 것을 제한합니다. 이는 무엇이든 지출되는지를 결정합니다."
+    }
+  },
+  "serverCertificate": {
+    "title": "서버 인증서",
+    "description": "서버의 TLS 인증서가 적용되는 주소를 관리합니다. 에이전트는 여기에 나열된 주소로만 연결할 수 있습니다.",
+    "apply": "적용 및 재발급",
+    "warning": {
+      "title": "KrakenHashes는 내부 도구입니다",
+      "body": "공개 인터넷에서 도달할 수 없어야 합니다. 크래킹된 자격 증명을 처리하므로 인증서에는 비공개 주소 및 VPN 주소만 추가할 수 있습니다. 공개 IP 주소는 거부됩니다. 이 배포가 공개적으로 노출되면 계속하기 전에 오프라인으로 전환하세요."
+    },
+    "summary": {
+      "title": "현재 인증서",
+      "unavailable": "서버 인증서를 읽을 수 없습니다.",
+      "subject": "주체",
+      "issuer": "발급자",
+      "validity": "유효",
+      "serial": "일련번호",
+      "covers": "이 인증서의 유효 범위",
+      "coversNothing": "이 인증서는 주소를 나열하지 않습니다. 에이전트가 연결할 수 없습니다.",
+      "daysRemaining_other": "{{count}}일 남음",
+      "caSubject": "인증서 발급 기관",
+      "caExpires": "CA 만료",
+      "caFingerprint": "CA 지문 (SHA-256)",
+      "pending_other": "{{count}}개의 주소가 저장되었지만 아직 인증서에 없습니다. 적용 및 재발급을 클릭하세요.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES 또는 KH_ADDITIONAL_DNS_NAMES이 여전히 환경에 설정되어 있습니다. 더 이상 읽지 않습니다. 이 설정이 이를 대체합니다. 혼동을 피하려면 변수를 제거하세요."
+    },
+    "sans": {
+      "title": "이 인증서가 적용되어야 할 주소",
+      "add": "추가",
+      "empty": "추가 주소가 구성되지 않았습니다.",
+      "unsaved": "저장되지 않은 변경 사항이 있습니다. 적용 및 재발급을 클릭하여 인증서에 입력하세요.",
+      "lockedTooltip": "항상 포함됩니다. 제거하면 내부 프록시 및 상태 확인이 중단됩니다.",
+      "ip": {
+        "title": "IP 주소",
+        "help": "비공개 및 VPN 주소만: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local 및 IPv6 ULA.",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "DNS 이름",
+        "help": "에이전트 및 브라우저가 이 서버에 도달하는 데 사용하는 호스트명입니다.",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "\"{{address}}\"는 유효한 주소가 아닙니다.",
+      "public_ip": "{{address}}는 공개 IP 주소이므로 추가할 수 없습니다. KrakenHashes는 내부 전용 도구입니다. 크래킹된 자격 증명을 처리하므로 인터넷에서 도달할 수 없어야 합니다. 비공개 주소(10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local 및 IPv6 ULA)만 추가할 수 있습니다. 이것이 VPN의 주소인 경우 VPN이 인터넷의 다른 사람에게 속하는 주소 공간을 사용하고 있습니다. 네트워크 범위를 비공개 또는 CGNAT 범위로 변경하세요.",
+      "duplicate": "{{address}}는 이미 목록에 있습니다.",
+      "bind_address": "{{address}}는 바인드 주소이지 도달 가능한 주소가 아닙니다. 클라이언트가 연결하지 않습니다.",
+      "multicast": "{{address}}는 멀티캐스트 주소이므로 서버를 식별할 수 없습니다.",
+      "wildcard_dns": "와일드카드 이름은 지원되지 않습니다.",
+      "has_port": "호스트명만 입력하고 포트는 제외하세요.",
+      "is_ip": "이는 IP 주소입니다. 대신 IP 주소 목록에 추가하세요.",
+      "too_long": "해당 이름이 253자 제한을 초과합니다."
+    },
+    "discovered": {
+      "title": "발견된 주소",
+      "help": "이 서버에 도달했지만 인증서가 적용되지 않는 주소입니다. 여기의 아무것도 자동으로 적용되지 않습니다.",
+      "empty": "아직 발견된 주소가 없습니다. 에이전트를 시작하거나 에이전트가 사용하는 주소에서 이 페이지를 열면 여기에 나타납니다.",
+      "address": "주소",
+      "source": "출처",
+      "reportedBy": "보고자",
+      "lastSeen": "마지막 확인",
+      "hits": "시도",
+      "actions": "작업",
+      "add": "추가",
+      "added": "{{address}}가 추가되었습니다. 인증서에 포함시키려면 적용 및 다시 발급을 클릭하십시오.",
+      "dismiss": "무시",
+      "pending": "다시 발급 대기 중",
+      "sources": {
+        "agent_tls_failure": "에이전트 TLS 오류",
+        "host_header": "브라우저 / Host 헤더",
+        "tls_sni": "TLS SNI",
+        "manual": "수동"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "인증된 에이전트가 이 주소에 대한 서버 인증서를 확인할 수 없다고 보고했습니다.",
+        "host_header": "요청의 Host 헤더에서 관찰되었습니다. 이 서버에 도달할 수 있는 모든 사용자가 이 값에 영향을 줄 수 있으므로 추가하기 전에 확인하십시오.",
+        "tls_sni": "TLS 핸드셰이크에서 서버 이름으로 관찰되었습니다.",
+        "manual": "관리자가 추가했습니다."
+      }
+    },
+    "reissue": {
+      "doneTitle": "인증서가 다시 발급되었습니다.",
+      "noChangeTitle": "변경이 필요하지 않습니다.",
+      "noChangeBody": "인증서가 이미 구성된 모든 주소를 포함하고 있으며 만료가 임박하지 않았습니다.",
+      "changes": "변경 사항",
+      "validUntil": "새 인증서는 {{date}}까지 유효합니다.",
+      "backendReloaded": "포트 31337의 API가 이미 새 인증서를 제공하고 있습니다. 다시 시작할 필요가 없습니다.",
+      "nginxReloaded": "포트 443의 웹 UI가 다시 로드되었으며 새 인증서를 제공하고 있습니다.",
+      "nginxFailed": "포트 443의 웹 UI가 여전히 이전 인증서를 제공하고 있습니다",
+      "backup": "이전 인증서 자료가 {{path}}에 백업되었습니다.",
+      "agentsReconnect": "실패했던 에이전트는 30초 이내에 자동으로 다시 연결됩니다. 에이전트를 다시 시작할 필요가 없습니다.",
+      "agentsRefetch": "모든 에이전트는 CA를 다시 가져와야 합니다. 에이전트는 핸드셰이크가 실패할 때마다 자동으로 이를 수행하지만, 이전 CA를 신뢰하는 브라우저는 새 CA를 수동으로 설치해야 합니다.",
+      "close": "닫기",
+      "nginxFailedBody": "API가 이미 새 인증서를 제공하고 있으므로 에이전트는 영향을 받지 않습니다. 포트 443의 웹 UI는 KrakenHashes가 다시 시작될 때까지 이전 인증서를 계속 제공합니다."
+    },
+    "confirmRemoval": {
+      "title": "인증서에서 주소를 제거하시겠습니까?",
+      "body": "다음 주소가 현재 인증서에 있으며 제거될 예정입니다: {{addresses}}. 이 중 하나로 연결되는 모든 에이전트는 다시 추가될 때까지 연결할 수 없게 됩니다.",
+      "cancel": "취소",
+      "confirm": "제거 및 다시 발급"
+    },
+    "rotateCa": {
+      "section": "고급",
+      "title": "인증 기관 회전",
+      "warning": "인증 기관을 회전하면 새로운 CA를 발급하고 서버 및 에이전트 인증서에 다시 서명합니다. 모든 에이전트는 다시 연결하기 전에 CA를 다시 다운로드해야 하며, 이전 CA를 신뢰하는 모든 브라우저는 새로운 ca.crt가 설치될 때까지 경고를 표시합니다. CA 개인 키가 노출되었을 가능성이 있는 경우에만 이를 수행하십시오.",
+      "instruction": "{{phrase}}를 입력하여 확인하십시오.",
+      "action": "CA 회전"
+    },
+    "banner": {
+      "title_other": "{{count}}개 에이전트가 이 서버의 인증서를 확인할 수 없습니다",
+      "body": "{{agents}}이(가) 서버 인증서에 나열되지 않은 {{address}}에 연결하려고 합니다. 계속 재시도하며 인증서가 다시 발급될 때까지 온라인 상태가 될 수 없습니다.",
+      "anAgent": "에이전트",
+      "action": "서버 인증서 설정에서 수정"
+    }
+  },
+  "branding": {
+    "title": "브랜딩",
+    "description": "이 인스턴스를 조직의 이름, 색상 및 로고로 제시합니다. 여기의 모든 항목은 웹 UI, 브라우저 탭, 알림 이메일(AppName 템플릿 변수를 통해), 새 인증 앱 등록 및 분석 PDF 내보내기에 적용됩니다.",
+    "attributionNote": "\"powered by KrakenHashes\" 표시는 항상 사용자 정의 이름 옆과 내보낸 PDF에 표시됩니다. 이는 서버에서 추가되며 제거할 수 없습니다.",
+    "identity": "이름 및 색상",
+    "appName": "애플리케이션 이름",
+    "appNameHelper": "헤더, 로그인 페이지, 이메일 및 보고서에 표시됩니다. 비워 두면 KrakenHashes로 표시됩니다.",
+    "pageTitle": "브라우저 페이지 제목",
+    "pageTitleHelper": "적용되는 제목: {{title}}",
+    "primaryColor": "기본 강조 색상",
+    "secondaryColor": "보조 강조 색상",
+    "colorHint": "16진수 색상(#rrggbb). 어두운 배경은 고정되어 있습니다. 검은색에 가까운 표면에서 읽을 수 있는 강조 색상을 선택하십시오. 기본 색상은 PDF 보고서의 선과 막대에도 사용됩니다.",
+    "save": "브랜딩 저장",
+    "logo": "로고",
+    "logoHint": "PNG 또는 JPEG, 최대 2 MB 및 2048×2048 픽셀입니다. 헤더, 로그인 페이지 및 PDF 보고서에 사용됩니다(RGB 이미지가 가장 잘 렌더링됨).",
+    "favicon": "파비콘",
+    "faviconHint": "PNG 또는 ICO, 최대 512 KB 및 512×512 픽셀입니다. 브라우저는 아이콘을 적극적으로 캐시하므로 하드 새로고침이 한 번 필요할 수 있습니다.",
+    "upload": "업로드",
+    "replace": "교체",
+    "remove": "제거",
+    "messages": {
+      "saved": "브랜딩이 저장되었습니다.",
+      "uploaded": "이미지가 업로드되었습니다.",
+      "removed": "이미지가 제거되었습니다."
+    },
+    "errors": {
+      "loadFailed": "브랜딩 설정을 로드하지 못했습니다.",
+      "saveFailed": "브랜딩 설정을 저장하지 못했습니다.",
+      "uploadFailed": "이미지를 업로드하지 못했습니다.",
+      "removeFailed": "이미지를 제거하지 못했습니다.",
+      "invalidHex": "#1e88e5와 같은 16진수 색상을 입력하십시오.",
+      "tooLarge": "파일이 너무 큽니다(최대 {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "설정 섹션",
+    "groups": {
+      "general": "일반",
+      "security": "보안",
+      "jobs": "작업",
+      "agents": "에이전트",
+      "integrations": "통합",
+      "cloud": "클라우드"
+    },
+    "sections": {
+      "branding": "브랜딩",
+      "brandingDesc": "애플리케이션 이름, 색상, 로고 및 파비콘.",
+      "data": "데이터",
+      "dataDesc": "보관 기간 기본값 및 해시 목록 수집.",
+      "storage": "저장소",
+      "storageDesc": "워드리스트 및 규칙용 네트워크 공유 저장소.",
+      "certificate": "인증서",
+      "certificateDesc": "서버 인증서 이름 및 주소.",
+      "authentication": "인증",
+      "authenticationDesc": "비밀번호 정책, 잠금 및 세션.",
+      "mfa": "다중 인증",
+      "mfaDesc": "MFA 정책 및 패스키 신뢰 당사자.",
+      "sso": "SSO",
+      "ssoDesc": "ID 공급자 및 프로비저닝.",
+      "access": "액세스 모델",
+      "accessDesc": "다중 팀 격리.",
+      "execution": "실행",
+      "executionDesc": "청킹, 키스페이스 및 벤치마크.",
+      "scheduling": "스케줄링",
+      "schedulingDesc": "에이전트 할당 및 작업 우선순위.",
+      "potfile": "Potfile 및 루프백",
+      "potfileDesc": "potfile 동작 및 루프백 라운드.",
+      "health": "상태",
+      "healthDesc": "하트비트, 유예 기간 및 오프라인 유예 기간.",
+      "downloads": "다운로드",
+      "downloadsDesc": "에이전트가 서버에서 파일을 가져오는 방법.",
+      "updates": "업데이트",
+      "updatesDesc": "자동 에이전트 바이너리 업데이트.",
+      "monitoring": "모니터링",
+      "monitoringDesc": "메트릭 보관 기간 및 집계.",
+      "email": "이메일",
+      "emailDesc": "공급자 설정 및 템플릿.",
+      "webhooks": "웹훅",
+      "webhooksDesc": "전역 웹훅 및 사용자 웹훅.",
+      "notifications": "알림",
+      "notificationsDesc": "어떤 작업 이벤트가 알림을 보내는지.",
+      "providers": "공급자",
+      "providersDesc": "클라우드 GPU 공급자 자격 증명.",
+      "budgets": "클라이언트 예산",
+      "budgetsDesc": "클라이언트별 월별 상한.",
+      "policy": "임계값 정책",
+      "policyDesc": "지출 임계값 단계.",
+      "rules": "프로비저닝 규칙",
+      "rulesDesc": "오토스케일러가 지출할 수 있는 시기.",
+      "limits": "제한",
+      "limitsDesc": "시스템 전체 상한 및 타이밍."
+    }
+  },
+  "hub": {
+    "pageDescription": "이 서버를 구성하는 모든 것을 영향을 미치는 범주별로 그룹화합니다. 섹션에서 명시하지 않는 한 필드는 떠날 때 자동으로 저장됩니다.",
+    "navLabel": "개요",
+    "attentionTitle": "주의 필요",
+    "attentionSubtitle": "서버 작동 방식에 영향을 미치는 문제.",
+    "allGood": "모든 것이 정상입니다.",
+    "allGoodHint": "구성 문제가 감지되지 않았습니다.",
+    "loadFailed": "설정 상태를 로드할 수 없습니다.",
+    "overviewTitle": "상태",
+    "attentionCount": "{{count}}개 검토 필요",
+    "browseTitle": "모든 설정",
+    "loading": "확인 중…",
+    "cards": {
+      "email": "이메일",
+      "certificate": "인증서",
+      "sso": "SSO",
+      "binaries": "바이너리",
+      "cloud": "클라우드",
+      "storage": "저장소",
+      "webhook": "전역 웹훅"
+    },
+    "detail": {
+      "emailConfigured": "구성됨({{provider}})",
+      "emailNotConfigured": "구성된 공급자 없음",
+      "certUnmanaged": "KrakenHashes 외부에서 관리됨({{mode}})",
+      "certDays": "남은 {{days}}일",
+      "certPending": "아직 발급되지 않음",
+      "ssoProviders_other": "{{count}}개 공급자 활성화됨",
+      "binaries": "{{verified}} / {{total}} 검증됨",
+      "cloudNoProviders": "구성된 공급자 없음",
+      "cloudCap": "{{providers}}개 공급자, 월별 상한 {{cap}}",
+      "storageLocal": "로컬 저장소",
+      "storageReachable": "공유 마운트됨 및 접근 가능",
+      "storageUnreachable": "공유에 접근할 수 없음",
+      "webhookOff": "사용 안 함",
+      "webhookOn": "사용함",
+      "webhookNoUrl": "URL 없이 사용함"
+    },
+    "attention": {
+      "ok": "정상",
+      "probeFailed": "상태를 확인할 수 없습니다.",
+      "emailNotConfigured": "이메일이 구성되지 않았습니다. MFA 코드 및 알림을 보낼 수 없습니다.",
+      "certExpiring": "서버 인증서가 {{days}}일 후 만료됩니다.",
+      "ssoEphemeralKey": "SSO가 임시 서명 키를 사용하고 있습니다. 세션은 다시 시작 후에도 유지되지 않습니다.",
+      "noVerifiedBinary": "검증된 hashcat 바이너리가 없어 작업을 실행할 수 없습니다.",
+      "cloudCapZero": "클라우드 공급자가 구성되어 있지만 월별 상한이 0이므로 아무것도 프로비저닝되지 않습니다.",
+      "shareUnreachable": "네트워크 공유가 활성화되어 있지만 접근할 수 없습니다.",
+      "migration": "저장소 마이그레이션이 {{state}}입니다.",
+      "webhookNoUrl": "전역 웹훅이 활성화되어 있지만 URL이 없습니다."
+    },
+    "severity": {
+      "default": "정보",
+      "success": "정상",
+      "warning": "경고",
+      "error": "오류"
+    }
+  },
+  "fieldState": {
+    "saving": "저장 중…",
+    "saved": "저장됨",
+    "error": "저장되지 않음",
+    "minSelected": "최소 {{count}}개를 선택하십시오",
+    "autosaveHint": "자동으로 저장됨",
+    "autosaveHintLong": "각 필드는 떠나는 즉시 자동으로 저장됩니다.",
+    "applyHint": "적용 필요",
+    "applyHintLong": "여기의 변경 사항은 적용해야 반영됩니다."
+  },
+  "unsaved": {
+    "title": "저장되지 않은 변경 사항",
+    "body": "적용되지 않은 변경 사항이 있습니다. 이 페이지를 떠나고 변경 사항을 버리시겠습니까?",
+    "stay": "머무르기",
+    "leave": "떠나기"
+  },
+  "agentAutoUpdate": {
+    "title": "자동 업데이트",
+    "description": "서버에서 연결된 에이전트로 새로운 에이전트 바이너리를 푸시하도록 허용합니다.",
+    "enable": "자동 에이전트 업데이트 활성화",
+    "maxConcurrent": "동시 업데이트",
+    "maxConcurrentHelper": "동시에 업데이트할 수 있는 에이전트 수입니다.",
+    "maxAttempts": "에이전트당 시도 횟수",
+    "maxAttemptsHelper": "이 횟수만큼 업데이트에 실패한 후 에이전트를 포기합니다.",
+    "healthTimeout": "상태 확인 타임아웃",
+    "healthTimeoutHelper": "업데이트된 에이전트가 다시 연결될 때까지 대기하는 시간입니다. 이 시간 내에 연결되지 않으면 업데이트가 실패한 것으로 표시됩니다.",
+    "applyNote": "에이전트는 다음 체크인에서 이 값들을 수신합니다."
+  },
+  "networkShare": {
+    "intro": "워드리스트와 규칙을 네트워크 공유에 저장하여 서버가 큰 로컬 디스크를 필요로 하지 않도록 합니다. 관리자는 <code>KH_SHARE_DIR</code>로 서버 호스트(docker-compose를 통해)와 네트워크 직접 에이전트 호스트에 공유를 마운트합니다. KrakenHashes는 마운트된 경로만 읽으며 공유 자체에 연결하지도 않고 자격 증명을 저장하지도 않습니다. 클라우드 GPU 에이전트는 공유를 마운트하지 않습니다. 대신 VPN을 통해 서버에서 워드리스트/규칙을 다운로드합니다.",
+    "migrationLocked": "마이그레이션이 진행 중입니다({{state}}). 완료될 때까지 설정이 잠겨 있습니다.",
+    "server": {
+      "title": "서버 저장소 마운트",
+      "description": "서버는 이 관리자가 마운트한 경로에서 워드리스트와 규칙을 읽습니다(<code>KH_SHARE_DIR</code>로 docker-compose에서 설정됨). KrakenHashes는 공유 자체에 연결하지 않습니다. 마운트는 관리자의 책임입니다.",
+      "mountedPath": "마운트된 경로(읽기 전용)",
+      "shareDirNotSet": "KH_SHARE_DIR이 설정되지 않았습니다. docker-compose에서 공유를 마운트하세요.",
+      "servingFromShare": "제공 위치: 네트워크 공유",
+      "servingFromLocal": "제공 위치: 로컬 디스크",
+      "shareReachable": "공유 도달 가능",
+      "shareNotMounted": "공유가 마운트되지 않음",
+      "migrationChip": "마이그레이션: {{state}}",
+      "lastValidated": "마지막 검증 {{date}}",
+      "enable": "네트워크 공유 활성화",
+      "saving": "저장 중…",
+      "save": "설정 저장",
+      "validating": "검증 중…",
+      "validate": "서버 마운트 검증",
+      "validatedOk": "정상"
+    },
+    "validation": {
+      "mountPath": "마운트 경로: <code>{{path}}</code>",
+      "unset": "(설정 안 함)",
+      "yes": "예",
+      "no": "아니요",
+      "summary": "마운트됨: {{mounted}} · 쓰기 가능: {{writable}} · 여유 공간: {{free}} · 쓰기: {{write}} MB/s · 읽기: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "데이터 마이그레이션",
+      "descriptionToShare": "기존 워드리스트와 규칙을 네트워크 공유에 복사하고 활성 저장소 백엔드를 전환합니다. 이는 유지 관리 작업입니다. 새 작업 발송이 중지되고 플릿이 드레인될 때까지 기다린 후 워드리스트/규칙 업로드가 중지되고 파일이 복사 및 체크섬 확인된 후 전환됩니다. 데이터 크기에 따라 오랜 시간이 걸릴 수 있으며 그동안 서버는 업로드 및 새 작업에 사용할 수 없습니다. 클라이언트 및 연관 워드리스트, 바이너리, 문자 집합 및 해시 목록은 항상 로컬에 유지됩니다.",
+      "descriptionToLocal": "기존 워드리스트와 규칙을 로컬 디스크로 복사하고 활성 저장소 백엔드를 전환합니다. 이는 유지 관리 작업입니다. 새 작업 발송이 중지되고 플릿이 드레인될 때까지 기다린 후 워드리스트/규칙 업로드가 중지되고 파일이 복사 및 체크섬 확인된 후 전환됩니다. 데이터 크기에 따라 오랜 시간이 걸릴 수 있으며 그동안 서버는 업로드 및 새 작업에 사용할 수 없습니다. 클라이언트 및 연관 워드리스트, 바이너리, 문자 집합 및 해시 목록은 항상 로컬에 유지됩니다.",
+      "phase": "단계: {{phase}}",
+      "directionToShare": "로컬 → 공유",
+      "directionToLocal": "공유 → 로컬",
+      "waitingTasks_other": "{{count}}개 태스크 완료 대기 중",
+      "earliestLock": " — 가장 빠른 잠금 {{time}}",
+      "filesProgress": "{{done}}/{{total}} 파일 · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "취소 중…",
+      "abort": "마이그레이션 중단",
+      "abortHelp": "다음 체크포인트에서 마이그레이션을 중지합니다(공유가 느리거나 응답하지 않을 때 유용함). 저장소는 현재 백엔드에 유지되고 발송이 재개됩니다. 이미 복사된 파일은 유지되며 재시도 시 재사용됩니다.",
+      "complete": "마이그레이션이 완료되었습니다.",
+      "failed": "마이그레이션이 실패했습니다.",
+      "migrateToShare": "워드리스트 및 규칙을 공유로 마이그레이션",
+      "migrateToLocal": "로컬 디스크로 다시 마이그레이션",
+      "enableFirst": "공유를 활성화하고 마이그레이션하기 전에 검증을 확인하세요."
+    },
+    "agent": {
+      "title": "온프레미스 에이전트 마운트 명령(선택 사항)",
+      "description": "이 필드는 <b>network_direct</b> 계층으로 설정된 온프레미스 에이전트의 마운트 명령을 생성하기 위해<b>만</b> 사용됩니다. 위의 서버와 클라우드 GPU 에이전트는 이를 사용하지 <b>않습니다</b>. 클라우드 에이전트는 VPN을 통해 다운로드합니다. 이들은 비밀이 아니며 자격 증명은 저장되거나 전송되지 않습니다.",
+      "protocol": "프로토콜",
+      "protocolHelp": "SMB는 Windows/macOS/Linux 에이전트에서 가장 이식성이 높습니다. NFS는 읽기 전용 내보내기로 VPN을 통해 잘 작동합니다.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "에이전트가 마운트할 공유 호스트(VPN 주소)",
+      "hostHelp": "에이전트가 VPN을 통해 도달하는 공유의 주소입니다. 서버 설정이 아닙니다(서버는 위의 마운트된 경로를 사용함).",
+      "exportPath": "내보내기 경로",
+      "shareName": "공유 이름",
+      "mountOptions": "마운트 옵션(한 줄에 하나의 key=value)",
+      "runThis": "에이전트 호스트에서 이를 실행한 다음 해당 에이전트의 에이전트 페이지에서 저장소 계층을 “네트워크 직접”으로 설정하고 마운트 경로를 입력하세요:",
+      "replaceSmb": "실행하기 전에 <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> 및 <code>&lt;PASSWORD&gt;</code>를 바꾸세요. 명령에는 여전히 자리 표시자가 포함되어 있습니다.",
+      "replaceNfs": "실행하기 전에 <code>&lt;MOUNT_PATH&gt;</code>를 바꾸세요. 명령에는 여전히 자리 표시자가 포함되어 있습니다.",
+      "softSmb": "명령에 <code>soft</code>가 포함되어 있으므로 공유가 느리거나 끊어질 경우 매달리지 않고 빠르게 실패합니다(커널의 <code>hard</code> 기본값 대신). 이는 마운트를 읽을 수 없을 때 작업을 재라우팅하는 에이전트의 실패 시 폐쇄되는 공유 확인과 쌍을 이룹니다. <b>network_direct</b>는 낮은 지연 시간/LAN 인접 공유용입니다. 원격 또는 높은 지연 시간 공유는 대신 <b>on_demand</b>/<b>full_cache</b> 다운로드 계층에 넣으세요. 위의 설정으로 옵션을 재정의할 수 있습니다.",
+      "softNfs": "명령에 <code>soft</code>, <code>timeo</code> 및 <code>retrans</code>가 포함되어 있으므로 공유가 느리거나 끊어질 경우 매달리지 않고 빠르게 실패합니다(커널의 <code>hard</code> 기본값 대신). 이는 마운트를 읽을 수 없을 때 작업을 재라우팅하는 에이전트의 실패 시 폐쇄되는 공유 확인과 쌍을 이룹니다. <b>network_direct</b>는 낮은 지연 시간/LAN 인접 공유용입니다. 원격 또는 높은 지연 시간 공유는 대신 <b>on_demand</b>/<b>full_cache</b> 다운로드 계층에 넣으세요. 위의 설정으로 옵션을 재정의할 수 있습니다.",
+      "otherOs": "macOS: <code>mount_smbfs</code>(SMB) 또는 <code>mount -t nfs</code>(NFS) 사용. Windows: <code>{{uncPath}}</code>에 대해 <code>net use</code> 사용. 에이전트는 마운트에서만 읽습니다. 이 필드는 위의 <b>설정 저장</b>으로 저장됩니다."
+    },
+    "confirm": {
+      "title": "데이터 마이그레이션을 시작하시겠습니까?",
+      "intro": "다음을 수행합니다:",
+      "step1": "새 작업 발송을 중지하고 실행 중인 태스크가 완료될 때까지 기다립니다(에이전트가 다시 연결될 때까지 약 12분, 긴 작업이 실행 중인 경우 더 길 수 있음).",
+      "step2": "워드리스트/규칙 업로드를 중지하고 파일이 복사 및 체크섬 확인되는 동안 유지 관리 페이지를 제공합니다.",
+      "step3ToShare": "완료되면 활성 저장소 백엔드를 네트워크 공유로 전환합니다.",
+      "step3ToLocal": "완료되면 활성 저장소 백엔드를 로컬 디스크로 전환합니다.",
+      "outro": "일시 중지된 작업은 이후 자동으로 재개됩니다. 문제가 발생하면 저장소는 변경되지 않은 상태로 유지되고 서버는 계속 작동합니다.",
+      "cancel": "취소",
+      "start": "마이그레이션 시작"
+    },
+    "toast": {
+      "loadFailed": "네트워크 공유 설정을 로드하지 못했습니다",
+      "migrationStarted": "마이그레이션이 시작되었습니다.",
+      "startFailed": "마이그레이션을 시작하지 못했습니다",
+      "migrationCanceled": "마이그레이션이 취소되었습니다. 저장소는 변경되지 않았습니다.",
+      "cancelFailed": "마이그레이션을 취소하지 못했습니다",
+      "saved": "네트워크 공유 설정이 저장되었습니다.",
+      "saveFailed": "설정을 저장하지 못했습니다",
+      "validated": "공유가 성공적으로 검증되었습니다.",
+      "validationProblems": "공유 검증에서 문제가 보고되었습니다.",
+      "validationFailed": "검증을 실행하지 못했습니다"
+    }
+  },
+  "jobAnalytics": {
+    "title": "작업 성능 분석",
+    "description": "에이전트 전체에서 작업 실행 성능, 해시레이트 및 벤치마크 기록을 분석합니다.",
+    "loadFiltersFailed": "필터 옵션을 로드하지 못했습니다",
+    "tabs": {
+      "jobPerformance": "작업 성능",
+      "successRate": "성공률",
+      "benchmarkHistory": "벤치마크 기록"
+    },
+    "summary": {
+      "totalJobs": "전체 작업",
+      "totalJobsSubtitle": "{{completed}}개 완료, {{failed}}개 실패",
+      "totalCracks": "전체 크래킹",
+      "totalCracksSubtitle": "필터링된 전체 작업 기준",
+      "avgSpeed": "평균 속도",
+      "avgSpeedSubtitle": "작업당 평균 해시레이트",
+      "avgDuration": "평균 기간",
+      "avgDurationSubtitle": "{{keys}}개 키 처리됨"
+    },
+    "hashRateChart": {
+      "title": "해시레이트 타임라인",
+      "daily": "일별",
+      "weekly": "주별",
+      "empty": "선택한 필터에 대해 사용 가능한 타임라인 데이터가 없습니다",
+      "hashRate": "해시레이트",
+      "tooltipHashRate": "해시레이트: {{speed}}",
+      "tooltipJobs": "작업: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "벤치마크 속도 추세",
+      "agent": "에이전트",
+      "selectAgent": "에이전트 선택",
+      "hashType": "해시 유형",
+      "attackMode": "공격 모드",
+      "all": "모두",
+      "range90d": "90일",
+      "range1y": "1년",
+      "rangeAll": "모두",
+      "selectAgentPrompt": "벤치마크 추세를 보려면 에이전트를 선택하세요",
+      "empty": "이 에이전트에 대한 벤치마크 기록이 없습니다",
+      "speed": "속도",
+      "tooltipSpeed": "속도: {{speed}}"
+    },
+    "filters": {
+      "title": "필터",
+      "active": "활성",
+      "dateStart": "시작 날짜",
+      "dateEnd": "종료 날짜",
+      "hashlist": "해시 목록",
+      "status": "상태",
+      "minKeyspace": "최소 키스페이스",
+      "maxKeyspace": "최대 키스페이스",
+      "reset": "초기화",
+      "apply": "적용"
+    },
+    "attackModes": {
+      "straight": "사전 공격",
+      "combination": "조합",
+      "bruteforce": "브루트 포스",
+      "hybridWlMask": "하이브리드 WL+마스크",
+      "hybridMaskWl": "하이브리드 마스크+WL",
+      "association": "연관 공격",
+      "modeNumber": "모드 {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "벤치마크 기록",
+      "empty": "벤치마크 기록을 찾을 수 없습니다",
+      "columns": {
+        "date": "날짜",
+        "agentFallback": "에이전트 #{{id}}",
+        "status": "상태"
+      },
+      "success": "성공",
+      "failed": "실패"
+    },
+    "successRate": {
+      "title": "작업 구성별 성공률",
+      "subtitle": "워드리스트, 규칙, 공격 모드 및 해시 유형별로 그룹화됩니다. 프리셋 작업에는 일치하는 사용자 지정 작업이 포함됩니다.",
+      "empty": "선택한 필터에 대해 사용 가능한 성공률 데이터가 없습니다",
+      "preset": "프리셋",
+      "columns": {
+        "configuration": "구성",
+        "runs": "실행",
+        "hashes": "해시",
+        "cracks": "크래킹",
+        "successRate": "성공률",
+        "avgDuration": "평균 기간",
+        "totalCompute": "총 컴퓨팅 시간"
+      }
+    },
+    "jobExecution": {
+      "title": "작업 실행 세부 정보",
+      "empty": "선택한 필터에 대해 작업을 찾을 수 없습니다",
+      "noTaskData": "사용 가능한 태스크 데이터가 없습니다",
+      "taskBreakdown": "태스크 세부 내역({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_other": "{{count}}개 태스크",
+      "metricPointCount_other": "{{count}}개 측정 포인트",
+      "columns": {
+        "name": "이름",
+        "attack": "공격",
+        "duration": "기간",
+        "keyspace": "키스페이스",
+        "agents": "에이전트",
+        "progress": "진행률",
+        "benchmark": "벤치마크",
+        "started": "시작됨",
+        "completed": "완료됨"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "워드리스트 관리 - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "클라이언트 워드리스트({{count}})",
+      "clientPotfile": "클라이언트 potfile",
+      "associationWordlists": "연관 워드리스트({{count}})"
+    },
+    "columns": {
+      "fileName": "파일 이름",
+      "lineCount": "라인 수",
+      "fileSize": "파일 크기",
+      "uploaded": "업로드됨",
+      "hashlist": "해시 목록",
+      "actions": "작업"
+    },
+    "hashlistFallback": "해시 목록 #{{id}}",
+    "clientTab": {
+      "info": "클라이언트 워드리스트는 이 클라이언트의 모든 해시 목록에서 사용할 수 있습니다. 이들은 모든 공격 모드에서 사용할 수 있습니다.",
+      "uploadWordlist": "워드리스트 업로드",
+      "uploading": "업로드 중... {{progress}}%",
+      "noWordlists": "아직 업로드된 클라이언트 워드리스트가 없습니다."
+    },
+    "potfileTab": {
+      "noPotfile": "클라이언트 potfile이 아직 없습니다. 이 클라이언트의 해시 목록에 대해 해시가 크래킹될 때 자동으로 생성됩니다.",
+      "autoGenerated": "클라이언트 potfile(자동 생성됨)",
+      "description": "이 potfile에는 이 클라이언트의 모든 크래킹된 비밀번호가 포함되어 있습니다. 해시가 크래킹될 때 자동으로 업데이트됩니다.",
+      "passwordCount_other": "{{countDisplay}}개 비밀번호",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "업데이트됨: {{date}}",
+      "downloadPotfile": "potfile 다운로드"
+    },
+    "associationTab": {
+      "info": "연관 워드리스트는 해시 목록별이며 각 해시를 라인 번호별로 비밀번호 후보에 1:1로 매핑합니다. 이들은 해시 목록 세부 정보 페이지에서 업로드 및 관리됩니다. 이 보기는 이 클라이언트의 모든 해시 목록의 모든 연관 워드리스트를 표시합니다.",
+      "noWordlists": "이 클라이언트의 해시 목록에 대한 연관 워드리스트를 찾을 수 없습니다."
+    },
+    "messages": {
+      "wordlistDeleted": "클라이언트 워드리스트 삭제됨",
+      "associationDeleted": "연관 워드리스트 삭제됨",
+      "deleteFailed": "워드리스트를 삭제하지 못했습니다",
+      "uploadSuccess": "클라이언트 워드리스트가 성공적으로 업로드되었습니다",
+      "uploadFailed": "워드리스트를 업로드하지 못했습니다",
+      "downloaded": "{{filename}} 다운로드됨",
+      "downloadFailed": "파일을 다운로드하지 못했습니다"
+    },
+    "deleteConfirm": {
+      "title": "워드리스트 삭제",
+      "message": "\"{{fileName}}\"을(를) 삭제하시겠습니까? 이 작업은 실행 취소할 수 없습니다."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "팀 관리",
+      "titleMine": "내 팀",
+      "description": "시스템의 모든 팀을 관리합니다",
+      "descriptionMine": "멤버로 소속된 팀",
+      "createTeam": "팀 생성",
+      "bulkAssignHint": "<link>클라이언트 관리</link> 페이지의 일괄 할당 기능을 사용하여 여러 클라이언트를 한 번에 팀에 할당할 수 있습니다.",
+      "columns": {
+        "name": "팀 이름",
+        "description": "설명",
+        "members": "멤버",
+        "clients": "클라이언트",
+        "hashlists": "해시 목록",
+        "agents": "에이전트",
+        "created": "생성됨"
+      },
+      "rowActions": {
+        "manage": "팀 관리",
+        "edit": "팀 편집",
+        "delete": "팀 삭제"
+      },
+      "empty": "팀이 없습니다",
+      "emptyMine": "아직 팀의 멤버가 아닙니다.",
+      "viewDetails": "세부 정보 보기",
+      "memberCount_other": "{{count}}명의 멤버",
+      "clientCount_other": "{{count}}개의 클라이언트",
+      "hashlistCount_other": "{{count}}개의 해시 목록",
+      "agentCount_other": "{{count}}개의 에이전트",
+      "dialogs": {
+        "create": {
+          "title": "새 팀 생성",
+          "nameLabel": "팀 이름",
+          "descriptionLabel": "설명",
+          "creatingButton": "생성 중..."
+        },
+        "delete": {
+          "title": "팀 삭제",
+          "confirmation": "팀 \"{{name}}\"을(를) 삭제하시겠습니까? 모든 팀 멤버십 및 클라이언트 할당이 제거됩니다."
+        }
+      },
+      "messages": {
+        "createSuccess": "팀이 성공적으로 생성되었습니다",
+        "deleteSuccess": "팀이 성공적으로 삭제되었습니다",
+        "updateSuccess": "팀이 성공적으로 업데이트되었습니다"
+      },
+      "errors": {
+        "loadFailed": "팀 로드 실패",
+        "createFailed": "팀 생성 실패",
+        "deleteFailed": "팀 삭제 실패",
+        "updateFailed": "팀 업데이트 실패"
+      }
+    },
+    "detail": {
+      "notFound": "팀을 찾을 수 없습니다",
+      "noDescription": "설명 없음",
+      "breadcrumb": "팀",
+      "editTeam": "팀 편집",
+      "confirmActionTitle": "확인",
+      "tabs": {
+        "members": "멤버 ({{count}})",
+        "clients": "클라이언트 ({{count}})",
+        "trustedTeams": "신뢰된 팀 ({{count}})",
+        "agents": "에이전트 ({{count}})"
+      },
+      "addMember": "멤버 추가",
+      "assignClient": "클라이언트 할당",
+      "addTrust": "신뢰 추가",
+      "trustInfo": "다른 팀을 신뢰하면 해당 팀의 에이전트가 이 팀의 작업을 실행할 수 있습니다. 이는 일방향 관계입니다. 팀 B를 신뢰한다고 해서 이 팀의 에이전트가 팀 B의 작업에 액세스할 수 있는 것은 아닙니다.",
+      "agentsInfo": "<strong>직접</strong> 에이전트는 이 팀의 멤버가 소유합니다. <strong>신뢰된</strong> 에이전트는 신뢰 관계를 설정한 팀에서 제공됩니다.",
+      "systemOwner": "시스템",
+      "columns": {
+        "username": "사용자명",
+        "email": "이메일",
+        "role": "역할",
+        "joined": "가입됨",
+        "clientName": "클라이언트 이름",
+        "description": "설명",
+        "trustedTeam": "신뢰된 팀",
+        "trustedSince": "신뢰 시작일",
+        "agentName": "에이전트 이름",
+        "status": "상태",
+        "version": "버전",
+        "owner": "소유자",
+        "source": "출처"
+      },
+      "roles": {
+        "member": "멤버",
+        "admin": "관리자",
+        "adminManager": "관리자 (팀 관리자)"
+      },
+      "source": {
+        "direct": "직접",
+        "trusted": "신뢰된 {{team}}",
+        "trustedBadge": "신뢰됨",
+        "unknown": "알 수 없음"
+      },
+      "rowActions": {
+        "removeMember": "멤버 제거",
+        "removeClientFromTeam": "팀에서 클라이언트 제거",
+        "removeTrust": "신뢰 제거"
+      },
+      "empty": {
+        "noMembers": "이 팀에 멤버가 없습니다",
+        "noClients": "이 팀에 할당된 클라이언트가 없습니다",
+        "noTrustedTeams": "신뢰된 팀이 없습니다. 시스템 에이전트 및 이 팀의 자체 에이전트만 작업을 실행할 수 있습니다.",
+        "noAgents": "이 팀이 액세스할 수 있는 에이전트가 없습니다",
+        "noAgentsHint": "에이전트가 있는 팀 멤버를 추가하거나 신뢰 관계를 설정합니다."
+      },
+      "confirm": {
+        "removeMember": "이 멤버를 제거하시겠습니까?",
+        "removeClient": "이 팀에서 \"{{name}}\"을(를) 제거하시겠습니까? 팀 멤버는 이 클라이언트의 데이터에 대한 액세스 권한을 잃게 됩니다.",
+        "removeTrust": "이 신뢰 관계를 제거하시겠습니까? 이 팀의 에이전트는 더 이상 우리 팀의 작업을 실행할 수 없습니다."
+      },
+      "messages": {
+        "memberAdded": "멤버가 성공적으로 추가되었습니다",
+        "memberRemoved": "멤버 제거됨",
+        "roleUpdated": "역할 업데이트됨",
+        "teamUpdated": "팀이 성공적으로 업데이트되었습니다",
+        "clientAssigned": "팀에 클라이언트 할당됨",
+        "clientRemoved": "팀에서 클라이언트 제거됨",
+        "trustAdded": "신뢰 관계 추가됨",
+        "trustRemoved": "신뢰 관계 제거됨"
+      },
+      "errors": {
+        "loadFailed": "팀 데이터 로드 실패",
+        "addMemberFailed": "멤버 추가 실패",
+        "removeMemberFailed": "멤버 제거 실패",
+        "updateRoleFailed": "역할 업데이트 실패",
+        "loadClientsFailed": "클라이언트 로드 실패",
+        "assignClientFailed": "클라이언트 할당 실패",
+        "removeClientFailed": "클라이언트 제거 실패",
+        "updateTeamFailed": "팀 업데이트 실패",
+        "loadTeamNamesFailed": "팀 이름 로드 실패",
+        "addTrustFailed": "신뢰 관계 추가 실패",
+        "removeTrustFailed": "신뢰 관계 제거 실패"
+      },
+      "dialogs": {
+        "cancel": "취소",
+        "editTeam": {
+          "title": "팀 편집",
+          "nameLabel": "팀 이름",
+          "descriptionLabel": "설명",
+          "saveButton": "저장",
+          "savingButton": "저장 중..."
+        },
+        "addMember": {
+          "title": "팀 멤버 추가",
+          "searchLabel": "사용자 검색",
+          "searchPlaceholder": "최소 2자 이상 입력하세요...",
+          "typeToSearch": "검색하려면 입력하세요...",
+          "noUsersFound": "사용자를 찾을 수 없습니다",
+          "roleLabel": "역할",
+          "addButton": "멤버 추가"
+        },
+        "addTrust": {
+          "title": "신뢰된 팀 추가",
+          "info": "신뢰된 팀의 멤버가 소유한 에이전트는 이 팀의 작업을 실행할 수 있습니다.",
+          "selectLabel": "신뢰할 팀 선택",
+          "searchPlaceholder": "팀 검색...",
+          "noTeamsAvailable": "사용 가능한 팀이 없습니다",
+          "optionLabel_other": "{{name}} ({{count}}개의 에이전트)"
+        },
+        "assignClient": {
+          "title": "팀에 클라이언트 할당",
+          "info": "클라이언트를 할당하면 모든 팀 멤버가 이 클라이언트의 해시 목록, 작업 및 크래킹된 데이터에 액세스할 수 있습니다.",
+          "selectLabel": "클라이언트 선택",
+          "searchPlaceholder": "클라이언트 검색...",
+          "noClientsAvailable": "할당되지 않은 클라이언트가 없습니다"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "사용자 정의 문자 집합 관리",
+    "description": "모든 프리셋 작업 및 사용자가 사용할 수 있는 전역 사용자 정의 문자 집합을 관리합니다. 인라인 정의와 바이너리 .hcchr 문자 집합 파일을 모두 지원합니다.",
+    "createCharset": "문자 집합 생성",
+    "columns": {
+      "name": "이름",
+      "type": "유형",
+      "definition": "정의 / 정보",
+      "description": "설명",
+      "created": "생성됨"
+    },
+    "typeLabels": {
+      "file": "파일",
+      "inline": "인라인",
+      "hex": "16진수"
+    },
+    "uniqueBytes_other": "{{count}}개의 고유 바이트",
+    "rowActions": {
+      "edit": "편집",
+      "delete": "삭제"
+    },
+    "empty": "사용자 정의 문자 집합을 찾을 수 없습니다. 시작하려면 하나를 생성합니다.",
+    "dialogs": {
+      "create": {
+        "title": "사용자 정의 문자 집합 생성"
+      },
+      "edit": {
+        "title": "사용자 정의 문자 집합 편집"
+      },
+      "delete": {
+        "title": "문자 집합 삭제",
+        "confirmation": "문자 집합 \"{{name}}\"을(를) 삭제하시겠습니까?"
+      },
+      "modeToggle": {
+        "inline": "인라인 정의",
+        "file": "파일 업로드 (.hcchr)"
+      },
+      "fields": {
+        "name": "이름",
+        "namePlaceholder": "예: DES 전체 문자 집합",
+        "definition": "정의",
+        "definitionPlaceholderHex": "예: 41424344 (16진수 바이트 쌍)",
+        "definitionPlaceholderPlain": "예: ?u?d 또는 abcdef0123456789",
+        "definitionHelperHex": "16진수 바이트 쌍 — 각 쌍 = 하나의 문자 집합 바이트. {{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}}개의 바이트",
+        "definitionHelperPlain": "Hashcat 문자 집합 정의. ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H 또는 리터럴 문자를 사용합니다.",
+        "hexTooltip": "활성화되면 정의가 16진수 바이트 쌍(예: 41424344 = 바이트 A, B, C, D)으로 해석됩니다. 이 문자 집합을 사용하는 작업은 자동으로 --hex-charset을 주입합니다.",
+        "hexLabel": "16진수로 인코딩된 정의",
+        "selectFile": ".hcchr 파일 선택",
+        "fileSizeBytes_other": "{{count}}개의 바이트",
+        "fileHelperText": "원시 바이트 값을 포함하는 바이너리 문자 집합 파일(최대 1023바이트, 최대 256개의 고유 바이트). DES 크래킹, NTLMv1 및 언어별 인코딩에 사용됩니다.",
+        "fileCharsetInfo_other": "파일 문자 집합: {{count}}개의 고유 바이트. 이름과 설명만 편집할 수 있습니다.",
+        "description": "설명",
+        "descriptionPlaceholder": "이 문자 집합이 사용되는 목적에 대한 선택적 설명"
+      },
+      "update": "업데이트",
+      "upload": "업로드"
+    },
+    "messages": {
+      "createSuccess": "문자 집합이 성공적으로 생성되었습니다",
+      "uploadSuccess": "파일 문자 집합이 성공적으로 업로드되었습니다",
+      "updateSuccess": "문자 집합이 성공적으로 업데이트되었습니다",
+      "deleteSuccess": "문자 집합이 성공적으로 삭제되었습니다"
+    },
+    "errors": {
+      "onlyHcchrAllowed": ".hcchr 파일만 허용됩니다",
+      "fileTooLarge": "파일이 너무 큽니다(최대 1023바이트 — hashcat 읽기 버퍼 제한)",
+      "nameRequired": "이름이 필요합니다",
+      "definitionRequired": "정의가 필요합니다",
+      "selectFile": ".hcchr 파일을 선택하세요",
+      "loadFailed": "문자 집합 로드 실패: {{message}}",
+      "deleteFailed": "문자 집합 삭제 실패: {{message}}"
+    }
+  }
+}

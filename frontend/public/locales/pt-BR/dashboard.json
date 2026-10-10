@@ -1,0 +1,198 @@
+{
+  "title": "Painel",
+  "welcome": "Bem-vindo ao KrakenHashes",
+  "stats": {
+    "title": "Visão Geral",
+    "totalJobs": "Total de Jobs",
+    "activeJobs": "Jobs Ativos",
+    "completedJobs": "Jobs Concluídos",
+    "totalHashes": "Total de Hashes",
+    "crackedHashes": "Hashes Quebrados",
+    "crackRate": "Taxa de Quebra",
+    "activeAgents": "Agentes Ativos",
+    "totalAgents": "Total de Agentes"
+  },
+  "recentActivity": {
+    "title": "Atividade Recente",
+    "noActivity": "Nenhuma atividade recente",
+    "viewAll": "Todas as notificações"
+  },
+  "quickActions": {
+    "title": "Ações Rápidas",
+    "createJob": "Criar Job",
+    "uploadHashlist": "Enviar Hashlist",
+    "viewAgents": "Visualizar Agentes"
+  },
+  "agents": {
+    "title": "Seus Agentes",
+    "loadError": "Falha ao carregar agentes: {{message}}",
+    "noAgents": "Nenhum agente registrado",
+    "hashRate": "Taxa de Hash",
+    "notAvailable": "N/D",
+    "job": "Job",
+    "unnamedJob": "Job Sem Nome",
+    "noActiveTask": "Nenhuma tarefa ativa"
+  },
+  "pagination": {
+    "previous": "Anterior",
+    "next": "Próximo",
+    "pageOf": "Página {{current}} de {{total}}"
+  },
+  "jobs": {
+    "title": "Seus Jobs",
+    "total": "Total",
+    "autoRefreshOn": "Auto",
+    "autoRefreshOff": "Desativado",
+    "lastUpdated": "Última atualização: {{time}}",
+    "loadError": "Falha ao carregar jobs: {{message}}",
+    "noJobs": "Nenhum job encontrado. Crie um novo job para começar."
+  },
+  "buttons": {
+    "refresh": "Atualizar",
+    "deleteFinished": "Deletar Concluídos"
+  },
+  "filters": {
+    "status": "Status",
+    "priority": "Prioridade",
+    "all": "Todos",
+    "searchPlaceholder": "Buscar jobs...",
+    "clear": "Limpar Filtros"
+  },
+  "status": {
+    "pending": "Pendente",
+    "running": "Em Execução",
+    "paused": "Pausado",
+    "completed": "Concluído",
+    "failed": "Falhou",
+    "cancelled": "Cancelado"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Deletar Jobs Concluídos",
+      "message": "Tem certeza de que deseja deletar todos os jobs concluídos? Esta ação não pode ser desfeita."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Falha ao deletar jobs concluídos",
+    "deleteJobFailed": "Falha ao deletar job",
+    "retryJobFailed": "Falha ao tentar novamente o job",
+    "updateJobFailed": "Falha ao atualizar job"
+  },
+  "hashlistOverview": {
+    "title": "Visão Geral de Hashlists",
+    "loadError": "Falha ao carregar hashlists",
+    "noHashlists": "Nenhuma hashlist encontrada",
+    "columns": {
+      "name": "Nome",
+      "client": "Cliente",
+      "status": "Status",
+      "total": "Total",
+      "cracked": "Quebrados",
+      "progress": "Progresso"
+    },
+    "status": {
+      "ready": "Pronto",
+      "error": "Erro",
+      "uploading": "Enviando",
+      "processing": "Processando"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Nenhum job encontrado",
+    "noJobsHint": "Crie um novo job a partir da página de Hashlists para começar.",
+    "completedJobs": "Jobs Concluídos",
+    "columns": {
+      "jobName": "Nome do Job",
+      "hashlist": "Hashlist / Predefinido",
+      "createdBy": "Criado por",
+      "progress": "Progresso",
+      "keyspace": "Keyspace",
+      "cracked": "Quebrados",
+      "agents": "Agentes",
+      "priority": "Prioridade",
+      "maxAgents": "Máximo de Agentes",
+      "actions": "Ações"
+    }
+  },
+  "kpi": {
+    "runningJobs": "Jobs em execução",
+    "queued": "{{count}} na fila",
+    "agentsOnline": "Agentes online",
+    "agentProblems": "{{count}} precisam de atenção",
+    "hashRate": "Taxa de hash",
+    "cracks24h": "Quebrados (24h)",
+    "cracks7d": "{{count}} em 7 dias",
+    "crackRate": "Taxa de quebra",
+    "hashlistTotals": "{{cracked}} de {{total}} hashes",
+    "failed24h": "Falharam (24h)",
+    "completed24h": "{{count}} concluídos"
+  },
+  "agentHealth": {
+    "title": "Saúde do agente",
+    "viewAll": "Todos os agentes",
+    "utilization": "Utilização de GPU",
+    "temperature": "GPU mais quente",
+    "lastSeen": "Visto pela última vez {{when}}",
+    "warnings": {
+      "error": "Erro",
+      "offline": "Offline",
+      "update_failed": "Falha na atualização",
+      "stale_heartbeat": "Sem heartbeat",
+      "gpu_hot": "GPU quente"
+    }
+  },
+  "recentCracks": {
+    "title": "Quebras recentes",
+    "viewAll": "Todos os hashes quebrados",
+    "empty": "Nada quebrado ainda",
+    "copy": "Copiar texto plano",
+    "copied": "Copiado"
+  },
+  "activeJobs": {
+    "title": "Jobs ativos",
+    "showing": "Mostrando 10 de {{total}}",
+    "viewAll": "Todos os jobs",
+    "empty": "Nada em execução",
+    "emptyHint": "Inicie um job a partir de uma hashlist.",
+    "goHashlists": "Ir para hashlists",
+    "recentTitle": "Jobs",
+    "recentSubtitle": "Ativos primeiro, depois os concluídos recentemente",
+    "recentEmpty": "Nenhum job ainda"
+  },
+  "welcomeUser": "Bem-vindo de volta, {{name}}",
+  "autoRefresh": {
+    "on": "Ativo",
+    "off": "Pausado"
+  },
+  "view": {
+    "label": "Visualização do painel",
+    "mine": "Meus",
+    "teams": "Minhas equipes",
+    "all": "Todos"
+  },
+  "attention": {
+    "title": "Requer atenção",
+    "allClear": "Tudo certo",
+    "allClearHint": "Nada está falhando nem aguardando sua ação.",
+    "kind": {
+      "job_failed": "Job com falha: {{name}}",
+      "job_blocked": "Job aguardando: {{name}}",
+      "hashlist_error": "Falha ao processar a hashlist: {{name}}",
+      "hashlist_awaiting_decision": "A hashlist precisa da sua revisão: {{name}}",
+      "hashlist_stuck": "Hashlist travada no processamento: {{name}}",
+      "agent_error": "Erro do agente: {{name}}",
+      "agent_update_failed": "Falha na atualização do agente: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Hashes quebrados ao longo do tempo",
+    "subtitle_many": "{{count}} hashes quebrados nos últimos {{days}} dias",
+    "subtitle_one": "{{count}} hash quebrado nos últimos {{days}} dias",
+    "subtitle_other": "{{count}} hashes quebrados nos últimos {{days}} dias",
+    "tooltip_many": "{{count}} hashes quebrados",
+    "tooltip_one": "{{count}} hash quebrado",
+    "tooltip_other": "{{count}} hashes quebrados",
+    "topHashlists": "Principais hashlists da semana",
+    "noCracksWeek": "Nenhum hash quebrado nos últimos 7 dias"
+  }
+}

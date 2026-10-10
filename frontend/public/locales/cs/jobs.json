@@ -1,0 +1,470 @@
+{
+  "title": "Úlohy",
+  "createJob": "Vytvořit úlohu",
+  "page": {
+    "title": "Úlohy"
+  },
+  "columns": {
+    "name": "Název úlohy",
+    "hashlist": "Hashlist",
+    "createdBy": "Vytvořil",
+    "progress": "Pokrok",
+    "keyspace": "Keyspace",
+    "cracked": "Prolomeno",
+    "agents": "Agenti",
+    "priority": "Priorita",
+    "maxAgents": "Max. agentů",
+    "actions": "Akce",
+    "status": "Stav",
+    "createdAt": "Vytvořeno",
+    "client": "Klient"
+  },
+  "status": {
+    "preparing": "Příprava",
+    "pending": "Čekání",
+    "running": "Běžící",
+    "completed": "Dokončeno",
+    "failed": "Selhalo",
+    "stopped": "Zastaveno",
+    "paused": "Pozastaveno",
+    "active": "Aktivní",
+    "cancelled": "Zrušeno"
+  },
+  "actions": {
+    "delete": "Smazat úlohu",
+    "retry": "Znovu spustit úlohu",
+    "stop": "Zastavit úlohu",
+    "pause": "Pozastavit úlohu",
+    "resume": "Obnovit úlohu",
+    "viewDetails": "Zobrazit podrobnosti"
+  },
+  "sections": {
+    "activeJobs": "Aktivní úlohy",
+    "completedJobs": "Dokončené úlohy"
+  },
+  "confirmDelete": {
+    "title": "Smazat úlohu",
+    "message": "Opravdu chcete smazat tuto úlohu? Tuto akci nelze vrátit zpět.",
+    "messageNamed": "Opravdu chcete smazat úlohu \"{{name}}\"? Tuto akci nelze vrátit zpět."
+  },
+  "row": {
+    "completed": "Dokončeno:",
+    "unknown": "Neznámý",
+    "error": "Chyba:",
+    "rulesLabel": "(pravidla)",
+    "custom": "Vlastní útok"
+  },
+  "tooltips": {
+    "combinedHashRate": "Kombinovaná rychlost hashování",
+    "retry": "Znovu spustit úlohu",
+    "delete": "Smazat úlohu",
+    "save": "Uložit",
+    "cancel": "Zrušit"
+  },
+  "validation": {
+    "priorityRange": "Priorita musí být mezi 0 a {{max}}",
+    "maxAgentsRange": "Max. agentů musí být mezi 1 a 100",
+    "maxAgentsPositive": "Max. agentů musí být 0 (neomezeno) nebo kladný",
+    "chunkSizeMin": "Velikost bloku musí být alespoň 5 sekund",
+    "chunkSizeMax": "Velikost bloku nesmí překročit 24 hodin (86 400 sekund)",
+    "invalidNumber": "Prosím zadejte platné číslo",
+    "minValue": "Hodnota musí být alespoň {{min}}",
+    "maxValue": "Hodnota musí být maximálně {{max}}"
+  },
+  "errors": {
+    "loadFailed": "Nepodařilo se načíst úlohy",
+    "loadDetailsFailed": "Nepodařilo se načíst podrobnosti úlohy",
+    "deleteFailed": "Nepodařilo se smazat úlohu",
+    "updateFailed": "Nepodařilo se aktualizovat úlohu",
+    "fetchFailed": "Nepodařilo se načíst úlohy: {{message}}",
+    "willRetry": "Bude automaticky zopakován pokus.",
+    "notFound": "Úloha nenalezena",
+    "saveFailed": "Nepodařilo se uložit změny",
+    "updatePriorityFailed": "Nepodařilo se aktualizovat prioritu",
+    "updateMaxAgentsFailed": "Nepodařilo se aktualizovat max. agentů",
+    "updateChunkSizeFailed": "Nepodařilo se aktualizovat velikost bloku",
+    "retryTaskFailed": "Nepodařilo se znovu spustit úkol",
+    "forceCompleteFailed": "Nepodařilo se vynutit dokončení úlohy"
+  },
+  "details": {
+    "title": "Podrobnosti úlohy",
+    "pageTitle": "Podrobnosti úlohy",
+    "overview": "Přehled",
+    "tasks": "Úkoly",
+    "results": "Výsledky",
+    "logs": "Logy",
+    "jobInformation": "Informace o úloze",
+    "timeRemaining": "Zbývající čas",
+    "estimatedCompletion": "Odhadovaný čas dokončení",
+    "crackingCompletedAt": "Čas dokončení prolomení",
+    "totalRunningTime": "Celkový čas běhu",
+    "chunkSizeDefault": "Není nastaveno (používá se výchozí)",
+    "noActiveTasksEstimate": "Nelze odhadnout — momentálně nejsou spuštěny žádné úkoly",
+    "lessThanOneMinute": "Méně než 1 minuta",
+    "jobCompleted": "Úloha dokončena",
+    "finishingUp": "Probíhá dokončování…",
+    "completingShortly": "Bude brzy dokončeno",
+    "processingDuration": "Zpracování: {{duration}}",
+    "wordlists": "Slovník/slovníky",
+    "rules": "Pravidla",
+    "splittingMode": "Režim rozdělení",
+    "ruleSplitting": "Rozdělení pravidel",
+    "firstWordlist": "První slovník",
+    "secondWordlist": "Druhý slovník",
+    "wordlist": "Slovník",
+    "mask": "Maska",
+    "incrementMode": "Režim inkrementace",
+    "incrementRange": "Rozsah inkrementace",
+    "maskSuffix": "Maska (přípona)",
+    "maskPrefix": "Maska (předpona)",
+    "associationHints": "Nápovědy k asociaci",
+    "autoRefreshOn": "Automatická aktualizace: ZAPNUTO",
+    "autoRefreshPaused": "Automatická aktualizace: POZASTAVENO",
+    "forceComplete": "Vynutit dokončení",
+    "refreshNow": "Aktualizovat nyní",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=neomezeno",
+    "chunkSizeHint": "Sekundy (5-86 400)",
+    "incrementLayers": "Vrstvy inkrementace ({{count}} celkem)",
+    "estimatedKeyspace": "Odhadovaný",
+    "taskProgressVisualization": "Vizualizace pokroku úkolu",
+    "activeTasks": "Aktivní úkoly ({{count}} spuštěno)",
+    "noActiveTasks": "Žádné aktivní úkoly",
+    "failedTasks": "Selhané úkoly ({{count}} celkem)",
+    "completedTasks": "Dokončené úkoly ({{count}} celkem)",
+    "noCompletedTasks": "Žádné dokončené úkoly",
+    "increment": "Inkrementace",
+    "incrementInverse": "Inverzní inkrementace",
+    "jobNotFound": "Úloha nenalezena",
+    "priority": "Priorita",
+    "timeUnits": {
+      "year": "rok",
+      "years": "roky",
+      "month": "měsíc",
+      "months": "měsíce",
+      "day": "den",
+      "days": "dny",
+      "hour": "hodina",
+      "hours": "hodiny",
+      "minute": "minuta",
+      "minutes": "minuty",
+      "second": "sekunda",
+      "seconds": "sekundy"
+    },
+    "layerTable": {
+      "layer": "Vrstva",
+      "mask": "Maska",
+      "minLength": "Minimální délka",
+      "maxLength": "Maximální délka",
+      "keyspace": "Keyspace",
+      "effectiveKeyspace": "Efektivní keyspace",
+      "progress": "Pokrok",
+      "tasks": "Úkoly",
+      "cracks": "Prolomení",
+      "status": "Stav",
+      "running": "běžící",
+      "total": "celkem",
+      "failed": "{{count}} selhalo"
+    },
+    "activeTasksTable": {
+      "agentId": "ID agenta",
+      "taskId": "ID úkolu",
+      "agent": "Agent",
+      "skip": "Skip",
+      "limit": "Limit",
+      "keyspaceRange": "Rozsah keyspace",
+      "progress": "Pokrok",
+      "speed": "Rychlost",
+      "currentSpeed": "Aktuální rychlost",
+      "cracks": "Prolomení",
+      "startedAt": "Spuštěno"
+    },
+    "failedTasksTable": {
+      "agentId": "ID agenta",
+      "taskId": "ID úkolu",
+      "agent": "Agent",
+      "status": "Stav",
+      "retryCount": "Počet pokusů",
+      "error": "Chyba",
+      "errorMessage": "Chybová zpráva",
+      "lastUpdated": "Poslední aktualizace",
+      "failedAt": "Selhalo",
+      "actions": "Akce"
+    },
+    "completedTasksTable": {
+      "agentId": "ID agenta",
+      "taskId": "ID úkolu",
+      "agent": "Agent",
+      "completedAt": "Dokončeno",
+      "keyspaceRange": "Rozsah keyspace",
+      "finalProgress": "Konečný pokrok",
+      "averageSpeed": "Průměrná rychlost",
+      "cracks": "Prolomení",
+      "cracksFound": "Nalezena prolomení"
+    },
+    "additionalArgs": "Další argumenty",
+    "attackModes": {
+      "dictionary": "Slovníkový útok",
+      "combination": "Kombinační útok",
+      "bruteforce": "Útok hrubou silou",
+      "hybridWordlistMask": "Hybridní útok: Slovník + Maska",
+      "hybridMaskWordlist": "Hybridní útok: Maska + Slovník",
+      "association": "Asociační útok",
+      "modeNumber": "Režim {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Dosažen limit cloudového rozpočtu",
+      "cloud_cap_reached": "Dosažen limit cloudových instancí",
+      "cloud_settling": "Čekání na spuštění pronajaté instance",
+      "cloud_no_capacity": "Není dostupná cloudová kapacita",
+      "cloud_dead_on_arrival": "Pronajaté instance se nemohly vrátit a připojit",
+      "cloud_launch_failed": "Nepodařilo se pronajmout cloudovou instanci",
+      "seenTimes_few": "Viděno {{count}}krát",
+      "seenTimes_many": "Viděno {{count}}krát",
+      "seenTimes_one": "Viděno {{count}}krát",
+      "seenTimes_other": "Viděno {{count}}krát",
+      "cloud_rental_too_short": "Pronájem by byl příliš krátký na to, aby byl užitečný",
+      "cloud_cracks_lost": "Prolomená hesla mohla být ztracena",
+      "cloud_draining": "Cloudová instance se vyprazdňuje (není přijímána nová práce)"
+    },
+    "client": "Klient",
+    "presetJob": "Přednastavená úloha",
+    "workflow": "Pracovní postup",
+    "createdBy": "Vytvořil",
+    "system": "Systém"
+  },
+  "common": {
+    "id": "ID",
+    "name": "Název",
+    "status": "Stav",
+    "hashlist": "Hashlist",
+    "hashType": "Typ hashe",
+    "attackMode": "Režim útoku",
+    "keyspace": "Keyspace",
+    "effectiveKeyspace": "Efektivní keyspace",
+    "processedKeyspace": "Zpracovaný keyspace",
+    "dispatchedKeyspace": "Přidělený keyspace",
+    "progress": "Pokrok",
+    "cracksFound": "Nalezená prolomení",
+    "createdAt": "Vytvořeno",
+    "startedAt": "Zahájeno",
+    "completedAt": "Dokončeno",
+    "error": "Chyba",
+    "warning": "Varování",
+    "maxAgents": "Max. agentů",
+    "chunkSize": "Velikost bloku",
+    "unassigned": "Nepřiděleno",
+    "noErrorMessage": "Žádná chybová zpráva",
+    "notAvailable": "N/A",
+    "back": "Zpět",
+    "rulesMultiplier": "(pravidla)"
+  },
+  "editableCell": {
+    "clickToEdit": "Kliknutím upravit"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Smazat dokončené úlohy",
+      "message": "Opravdu chcete smazat všechny dokončené úlohy? Tuto akci nelze vrátit zpět."
+    },
+    "forceComplete": {
+      "title": "Vynutit dokončení úlohy",
+      "warning": "Tím se označí všechny nedokončené úkoly jako dokončené a stav úlohy se nastaví na dokončeno.",
+      "onlyUseIf": "Používejte pouze pokud:",
+      "reason1": "Úloha skutečně dokončila zpracování veškeré práce",
+      "reason2": "Úloha se zasekla v běžícím/čekajícím stavu",
+      "reason3": "Ověřili jste, že keyspace byl zcela prohledán",
+      "note": "Poznámka: Pracujeme na lepších způsobech zpracování výpočtů keyspace a detekce dokončení úlohy za různých okolností.",
+      "confirmation": "Opravdu chcete vynutit dokončení této úlohy?",
+      "completing": "Dokončování...",
+      "button": "Vynutit dokončení"
+    },
+    "deleteConfirm": {
+      "deleting": "Mazání..."
+    }
+  },
+  "buttons": {
+    "refresh": "Obnovit",
+    "deleteFinished": "Smazat dokončené",
+    "cancel": "Zrušit",
+    "delete": "Smazat",
+    "save": "Uložit",
+    "retry": "Zkusit znovu"
+  },
+  "success": {
+    "chunkSizeUpdated": "Velikost bloku byla úspěšně aktualizována. Změny se projeví při vytvoření dalšího úkolu.",
+    "forceCompleted": "Úloha byla úspěšně vynuceně dokončena"
+  },
+  "form": {
+    "name": "Název úlohy",
+    "hashlist": "Vybrat Hashlist",
+    "attackMode": "Režim útoku",
+    "wordlist": "Slovník",
+    "rules": "Pravidla",
+    "priority": "Priorita",
+    "maxAgents": "Maximální počet agentů"
+  },
+  "autoRefresh": {
+    "on": "Automatické obnovování zapnuto",
+    "off": "Automatické obnovování vypnuto"
+  },
+  "pagination": {
+    "jobsPerPage": "Úloh na stránku"
+  },
+  "filters": {
+    "searchPlaceholder": "Hledat úlohy...",
+    "priority": "Priorita",
+    "status": "Stav",
+    "all": "Vše"
+  },
+  "priority": {
+    "low": "Nízká",
+    "medium": "Střední",
+    "high": "Vysoká",
+    "critical": "Kritická",
+    "maximum": "Maximální"
+  },
+  "lastUpdated": "Poslední aktualizace: {{time}}",
+  "filtered": "(filtrováno)",
+  "loading": "Načítání úloh...",
+  "archive": {
+    "showArchived": "Zobrazit archivované",
+    "archive": "Archivovat",
+    "unarchive": "Obnovit z archivu",
+    "archived": "Archivováno",
+    "archiveSelected": "Archivovat vybrané",
+    "unarchiveSelected": "Obnovit vybrané",
+    "deleteSelected": "Smazat vybrané",
+    "selectedCount": "{{count}} vybráno",
+    "confirmBulkDelete": {
+      "title": "Potvrdit hromadné smazání",
+      "message_few": "Opravdu chcete smazat {{count}} úlohy? Tuto akci nelze vrátit zpět.",
+      "message_many": "Opravdu chcete smazat {{count}} úloh? Tuto akci nelze vrátit zpět.",
+      "message_one": "Opravdu chcete smazat {{count}} úlohu? Tuto akci nelze vrátit zpět.",
+      "message_other": "Opravdu chcete smazat {{count}} úloh? Tuto akci nelze vrátit zpět.",
+      "warning": "Tím se trvale smažou vybrané úlohy a všechna související data.",
+      "cancel": "Zrušit",
+      "delete": "Smazat",
+      "deleting": "Mazání..."
+    },
+    "bulkArchiveSuccess_few": "{{count}} úlohy byly úspěšně archivovány",
+    "bulkArchiveSuccess_many": "{{count}} úloh bylo úspěšně archivováno",
+    "bulkArchiveSuccess_one": "{{count}} úloha byla úspěšně archivována",
+    "bulkArchiveSuccess_other": "{{count}} úloh bylo úspěšně archivováno",
+    "bulkUnarchiveSuccess_few": "{{count}} úlohy byly úspěšně obnoveny z archivu",
+    "bulkUnarchiveSuccess_many": "{{count}} úloh bylo úspěšně obnoveno z archivu",
+    "bulkUnarchiveSuccess_one": "{{count}} úloha byla úspěšně obnovena z archivu",
+    "bulkUnarchiveSuccess_other": "{{count}} úloh bylo úspěšně obnoveno z archivu",
+    "bulkDeleteSuccess_few": "{{count}} úlohy byly úspěšně smazány",
+    "bulkDeleteSuccess_many": "{{count}} úloh bylo úspěšně smazáno",
+    "bulkDeleteSuccess_one": "{{count}} úloha byla úspěšně smazána",
+    "bulkDeleteSuccess_other": "{{count}} úloh bylo úspěšně smazáno"
+  },
+  "cloud": {
+    "projection": {
+      "title": "Dokončí se úloha v rámci rozpočtu?",
+      "loadFailed": "Nepodařilo se projektovat tuto úlohu",
+      "coverageLabel": "Pokrytí rozpočtem",
+      "coverageValue": "{{pct}}% zbývající práce je financováno",
+      "timeToFinish": "Odhadovaný čas na dokončení",
+      "projectedCost": "Odhadovaná cena cloudu",
+      "availableBudget": "Dostupný rozpočet",
+      "onpremSpeed": "Rychlost on-prem",
+      "cloudSpeed": "Rychlost cloudu",
+      "unknown": "Neznámý",
+      "confirm": "Spustit",
+      "pessimistic": "Toto je typ hashe se solí, takže skutečná propustnost bude překračovat tento odhad, když se soli prolomou. Považujte projekci za nejhorší případ.",
+      "shortfallTitle": "Rozpočet se vyčerpá dříve, než práce skončí",
+      "shortfallBody": "Při projektovaném tempu rozpočet pokrývá {{pct}}% zbývajícího keyspace. Úloha se zastaví v polovině. Částečný pokrok může stále stát za koupi — ale mělo by to být vědomé rozhodnutí.",
+      "shortfallAcknowledge": "Chápu, že tato úloha se nedokončí v rámci rozpočtu",
+      "metric": "Metrika",
+      "value": "Hodnota"
+    },
+    "cloudBurst": {
+      "label": "Povolit cloud burst pro tuto úlohu",
+      "help": "Pronajímá GPU instance, když on-prem flotila nestíhá. Vyžaduje, aby byl klient financován a přihlášen k poskytovateli. Bez toho se nic nepronajímá.",
+      "maxInstances": "Maximální počet pronajatých instancí",
+      "maxInstancesHelp": "Odděleno od max. agentů, který řídí sdílený on-prem fond. Ponechte prázdné, aby zbývající rozpočet rozhodl.",
+      "badge": "Cloud burst",
+      "thirdPartyBadge": "Hostitel třetí strany",
+      "provisionNow": "Zřídit nyní",
+      "provisionConfirm": "Pronajmout si jednu cloudovou instanci pro tuto úlohu nyní?\n\nTím se obejdou pravidla autoscaleru týkající se hladovění a blížícího se konce a budou se vynakládat prostředky z rozpočtu tohoto klienta. Rozpočet, okno výdajů, limit na úlohu a souhlas poskytovatele se stále vztahují.",
+      "provisionRequested": "Cloudová instance požadována",
+      "provisionFailed": "Nepodařilo se zřídit cloudovou instanci"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Celkový pokrok: {{percent}}%",
+    "noTasks": "Zatím nejsou přiděleny žádné úkoly",
+    "notAvailable": "N/A",
+    "tooltip": {
+      "taskId": "ID úkolu: {{id}}",
+      "status": "Stav: {{status}}",
+      "keyspace": "Keyspace: {{start}} - {{end}}",
+      "progress": "Pokrok: {{percent}}%",
+      "speed": "Rychlost: {{speed}}",
+      "cracksFound": "Nalezená prolomení: {{count}}",
+      "agentId": "ID agenta: {{id}}"
+    },
+    "legend": {
+      "pending": "Čekající",
+      "running": "Běžící",
+      "processing": "Zpracovávání",
+      "completed": "Dokončeno",
+      "processingError": "Chyba zpracovávání",
+      "failed": "Selhalo",
+      "crackFound": "Prolomení nalezeno"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Chladicí lhůty benchmarku",
+    "subtitle": "Agenti aktuálně na seznamu blokování pro benchmarking této úlohy po opakovaných selháních. Vymazáním položky je můžete znovu zkusit v příštím cyklu plánování.",
+    "loadFailed": "Nepodařilo se načíst seznam blokování",
+    "clearSuccess": "Položka seznamu blokování vymazána — plánovač se pokusí znovu v příštím cyklu",
+    "clearFailedPrefix": "Nepodařilo se vymazat: {{error}}",
+    "clearFailedDefault": "Nepodařilo se vymazat položku",
+    "expired": "vypršelo",
+    "retryNow": "Zkusit nyní",
+    "scope": {
+      "thisJob": "tato úloha",
+      "global": "globální"
+    },
+    "columns": {
+      "agent": "Agent",
+      "scope": "Rozsah",
+      "hashMode": "Hash / Režim",
+      "failures": "Selhání",
+      "reason": "Důvod",
+      "expires": "Vyprší",
+      "action": "Akce"
+    }
+  },
+  "loopback": {
+    "title": "Loopback",
+    "subtitle": "Každý loopback znovu spustí mutaci útoku pouze na nově prolámané hesla a opakuje se, dokud nejsou nalezena nová prolomení.",
+    "runningCount": "{{count}} běží",
+    "statusLabel": {
+      "waiting": "Čekání na dokončení kola",
+      "active": "Probíhá",
+      "completed": "Hotovo",
+      "failed": "Selhalo",
+      "cancelled": "Zrušeno"
+    },
+    "roundLabel": "Kolo {{current}} / {{max}}",
+    "hashlistFallback": "Hashlist #{{id}}",
+    "jobCount_few": "{{count}} úlohy",
+    "jobCount_many": "{{count}} úloh",
+    "jobCount_one": "{{count}} úloha",
+    "jobCount_other": "{{count}} úloh",
+    "noJobsYet": "Zatím nejsou zaznamenány žádné úlohy.",
+    "loopsBackYes": "Ano",
+    "loopsBackFeedsDelta": "Plní deltu",
+    "columns": {
+      "round": "Kolo",
+      "original": "Původní",
+      "job": "Úloha",
+      "role": "Role",
+      "loopsBack": "Návrat do smyčky"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Box, Typography, Tabs, Tab, Alert } from '@mui/material';
 import JobAnalyticsFilters from '../../components/admin/job-analytics/JobAnalyticsFilters';
 import JobAnalyticsSummaryCards from '../../components/admin/job-analytics/JobAnalyticsSummaryCards';
@@ -19,6 +20,7 @@ import { jobAnalyticsService } from '../../services/jobAnalytics';
 const emptyFilter: JobAnalyticsFilterParams = {};
 
 const JobAnalyticsPage: React.FC = () => {
+  const { t } = useTranslation('admin');
   const [tab, setTab] = useState(0);
   const [filter, setFilter] = useState<JobAnalyticsFilterParams>(emptyFilter);
   const [appliedFilter, setAppliedFilter] = useState<JobAnalyticsFilterParams>(emptyFilter);
@@ -51,7 +53,8 @@ const JobAnalyticsPage: React.FC = () => {
   useEffect(() => {
     jobAnalyticsService.getFilters()
       .then(opts => { setFilterOptions(opts); setFilterOptionsLoading(false); })
-      .catch(err => { setError('Failed to load filter options'); setFilterOptionsLoading(false); });
+      .catch(err => { setError(t('jobAnalytics.loadFiltersFailed') as string); setFilterOptionsLoading(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load summary
@@ -132,10 +135,10 @@ const JobAnalyticsPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Job Performance Analytics
+        {t('jobAnalytics.title')}
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Analyze job execution performance, hash rates, and benchmark history across your agents.
+        {t('jobAnalytics.description')}
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
@@ -156,9 +159,9 @@ const JobAnalyticsPage: React.FC = () => {
         onChange={(_, v) => setTab(v)}
         sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
       >
-        <Tab label="Job Performance" />
-        <Tab label="Success Rate" />
-        <Tab label="Benchmark History" />
+        <Tab label={t('jobAnalytics.tabs.jobPerformance')} />
+        <Tab label={t('jobAnalytics.tabs.successRate')} />
+        <Tab label={t('jobAnalytics.tabs.benchmarkHistory')} />
       </Tabs>
 
       {tab === 0 && (

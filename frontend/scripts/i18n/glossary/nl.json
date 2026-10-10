@@ -1,0 +1,397 @@
+{
+  "language": "nl",
+  "formality": "Formal register (\"u/uw\"), never \"je/jij\" — confirmed throughout the existing UI (\"Weet u het zeker?\", \"Controleer uw invoer\", \"Uw sessie is verlopen. Log opnieuw in.\").",
+  "styleNotes": "1) Keep established English loanwords for hashcat/infra-specific nouns exactly as the shipped app already does (hash, potfile, keyspace, chunk, workflow, benchmark, overflow, voucher, claimcode, cloud fleet, provisioning, webhook, dashboard, budget, SAN) rather than inventing Dutch equivalents — several drafted terms had drifted from the live app and are corrected here (wordlist→woordenlijst not woordlijst, attack mode→aanvalsmodus not aanvalstype, chunk→chunk not blok, workflow→workflow not werkstroom, claim code→claimcode not inschrijvingscode, cloud fleet→cloud fleet not cloudbatterij). 2) Noun-noun compounds are written as one word (hashlijst, woordenlijst, hashsnelheid, auditlogboek, wachtwoordhergebruik), except when the first element is itself a borrowed attack-mode name, which takes a hyphen before the Dutch suffix (Associatie-aanvalsmodus, Combinatie-aanvalsmodus, woordenboek-aanval) — confirmed by admin.json's '*-aanvalsmodus' strings. 3) 'Taak' (job) and 'subtaak' (task — one chunk assignment on one agent) are distinct levels of the same hierarchy in the shipped UI (Taken vs. Subtaken/Subtaak-ID) and must never be collapsed into the same word. 4) Capitalize only as the surrounding UI string requires (sentence case for labels); the glossary entries below give the dictionary/base form.",
+  "terms": {
+    "hash": {
+      "translation": "hash",
+      "keepEnglish": true,
+      "note": "Standard loanword throughout the UI (hashType, hashRate, plural 'Hashes' in hashlists.json/analytics.json) — never translated."
+    },
+    "hashlist": {
+      "translation": "hashlijst",
+      "keepEnglish": false,
+      "note": "Matches the established, extensively used term (Hashlijst/Hashlijsten, Hashlijstbeheer, Hashlijst-details) throughout hashlists.json and jobs.json."
+    },
+    "hash type": {
+      "translation": "hashtype",
+      "keepEnglish": false,
+      "note": "One word; matches the dominant existing form (Hashtype) in jobs.json, hashlists.json and pot.json. One outlier, 'Hash-type', appears in analytics.json but is inconsistent with the rest of the app — don't propagate the hyphen."
+    },
+    "crack": {
+      "translation": "kraken",
+      "keepEnglish": false,
+      "note": "Infinitive verb; matches existing nominalized use ('Kraken voltooid op' in jobs.json). Note the same word 'Kraken' is also used in the app as the plural noun for recovered cracks (cracksFound columns) — a pre-existing overload, not something to fix here."
+    },
+    "cracked": {
+      "translation": "gekraakt",
+      "keepEnglish": false,
+      "note": "Past participle used as adjective/label; matches 'Gekraakt' column in hashlists.json."
+    },
+    "cracked hashes": {
+      "translation": "gekraakte hashes",
+      "keepEnglish": false,
+      "note": "Exact match for the widely used phrase ('Gekraakte hashes' in dashboard.json, navigation.json, and throughout pot.json)."
+    },
+    "plaintext": {
+      "translation": "platte tekst",
+      "keepEnglish": false,
+      "note": "Changed from kept-English. Every existing occurrence translates this literally as 'platte tekst' (admin.json apiKeySecurityNote, analytics.json hashReuseAnalysis and internalUseOnly) — the English word 'plaintext' does not appear anywhere in the app. Separately: when the UI shows the actual recovered value to a user it just says 'Wachtwoord' (Password), e.g. hashlists.json hashDetails — use 'platte tekst' only for the generic technical concept, not as a relabel of that field."
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "hashcat-specific filename convention; kept throughout (Potfile-instellingen, potfile-batchverwerking) — never translated."
+    },
+    "client potfile": {
+      "translation": "klant-potfile",
+      "keepEnglish": false,
+      "note": "Changed from 'client-potfile'. 'Client' is always translated as 'klant' in this app (Klant, Klantbeheer, Klantnaam) — it would be inconsistent to keep it in English only in this one compound. 'Potfile' itself stays an English loanword, matching the Potfile-instellingen pattern of [English noun]-[Dutch noun]; here the order is reversed, so 'klant-potfile' keeps the hyphen for legibility."
+    },
+    "wordlist": {
+      "translation": "woordenlijst",
+      "keepEnglish": false,
+      "note": "Changed from 'woordlijst'. The established, extremely frequent term everywhere in the app is 'woordenlijst/woordenlijsten' (Woordenlijstbeheer, Woordenlijst uploaden, Eerste/Tweede woordenlijst, hybride woordenlijst + masker). 'Woordlijst' does not appear anywhere in the shipped UI."
+    },
+    "rule": {
+      "translation": "regel",
+      "keepEnglish": false,
+      "note": "Matches 'Regel'/'Regels' throughout (navigation.json, jobs.json, admin.json)."
+    },
+    "rule file": {
+      "translation": "regelbestand",
+      "keepEnglish": false,
+      "note": "Confirmed directly: admin.json enableRuleSplittingHelper says 'Automatisch grote regelbestanden splitsen...' — plural 'regelbestanden' matches this singular exactly."
+    },
+    "mask": {
+      "translation": "masker",
+      "keepEnglish": false,
+      "note": "Matches 'Masker'/'Maskerpatroon' throughout jobs.json and analytics.json."
+    },
+    "charset": {
+      "translation": "karakterset",
+      "keepEnglish": false,
+      "note": "No existing occurrence to confirm against (feature not yet surfaced in nl locale strings), but this is the standard Dutch IT rendering and is not contradicted anywhere."
+    },
+    "attack mode": {
+      "translation": "aanvalsmodus",
+      "keepEnglish": false,
+      "note": "Changed from 'aanvalstype'. 'Aanvalsmodus' is the term used consistently and repeatedly (jobs.json 'Aanvalsmodus', admin.json 'Vereisten aanvalsmodus' plus every '...-aanvalsmodus' string). 'Aanvalstype' does not appear anywhere in the product."
+    },
+    "brute force": {
+      "translation": "brute-force",
+      "keepEnglish": true,
+      "note": "Matches the mode label 'Brute-force' (jobs.json attackModes.bruteforce). Note the app's own compound with 'aanvalsmodus' is written with a space instead, 'Brute force-aanvalsmodus' (admin.json) — a minor pre-existing inconsistency, not something to imitate when 'brute force' stands alone."
+    },
+    "dictionary attack": {
+      "translation": "woordenboek-aanval",
+      "keepEnglish": false,
+      "note": "Hyphenated to match the established pattern of [mode-name noun]-aanval(smodus): 'Straight-aanvalsmodus', 'Combinatie-aanvalsmodus', 'Associatie-aanvalsmodus' (all admin.json). The bare mode-dropdown label itself is just 'Woordenboek' without 'aanval' — that's a different, shorter context (jobs.json attackModes.dictionary) and not a contradiction."
+    },
+    "hybrid attack": {
+      "translation": "hybride aanval",
+      "keepEnglish": false,
+      "note": "Two words, no hyphen — matches 'Hybride aanvalsmodus' / 'hybride aanval met woordenlijst' (admin.json). Unlike the noun-name compounds above, 'hybride' is a plain adjective, which this app never hyphenates onto the following noun."
+    },
+    "association attack": {
+      "translation": "associatie-aanval",
+      "keepEnglish": false,
+      "note": "Matches the hyphenation convention confirmed by admin.json's 'Associatie-aanvalsmodus'."
+    },
+    "keyspace": {
+      "translation": "keyspace",
+      "keepEnglish": true,
+      "note": "Matches the dominant usage (jobs.json common.keyspace, layerTable.keyspace; analytics.json 'Totaal geschatte keyspace'). One outlier exists — dashboard.json translates it as 'Sleutelruimte' — which is inconsistent with the rest of the app; standardize on 'keyspace' rather than imitating that outlier."
+    },
+    "effective keyspace": {
+      "translation": "effectieve keyspace",
+      "keepEnglish": false,
+      "note": "Exact match for the existing 'Effectieve keyspace' column label (jobs.json layerTable and common sections)."
+    },
+    "chunk": {
+      "translation": "chunk",
+      "keepEnglish": true,
+      "note": "Changed from 'blok'. The app keeps 'chunk' as an English loanword compounded directly onto Dutch nouns throughout: 'Chunkgrootte', 'Chunkduur', 'Taakchunking', 'Chunkfluctuatiepercentage', 'Regelchunk-map', 'Maximum regelchunks'. 'Blok' never appears for this concept."
+    },
+    "task": {
+      "translation": "subtaak",
+      "keepEnglish": false,
+      "note": "Changed from 'taak'. A task (one chunk assignment on one agent) is consistently called 'subtaak' in this app — the Job Details 'Subtaken' tab, 'Subtaak-ID' columns, 'Opnieuw uitvoeren van subtaak mislukt' — specifically to distinguish it from the job-level 'taak'. Reusing 'taak' for both concepts (as the draft did) would collapse a real UI distinction."
+    },
+    "job": {
+      "translation": "taak",
+      "keepEnglish": false,
+      "note": "Matches 'Taken' (page title), 'Taak aanmaken', 'Taakdetails' throughout jobs.json. See 'task' above for why this must stay distinct from 'subtaak'."
+    },
+    "preset job": {
+      "translation": "vooringestelde taak",
+      "keepEnglish": false,
+      "note": "Changed from 'vooraf ingestelde taak'. The app uses the single compound adjective 'vooringesteld': 'vooringestelde taken toevoegen', 'Zoek naar vooringestelde taken' (admin.json workflows section)."
+    },
+    "workflow": {
+      "translation": "workflow",
+      "keepEnglish": true,
+      "note": "Changed from 'werkstroom'. Kept fully in English everywhere: 'Workflow aanmaken', 'Workflowstappen', 'Workflownaam', 'Taakworkflows' (navigation.json, admin.json). 'Werkstroom' does not appear anywhere in the product."
+    },
+    "loopback": {
+      "translation": "loopback",
+      "keepEnglish": true,
+      "note": "Matches 'Loopback', 'Loopback inschakelen voor alle geschikte stappen' (admin.json)."
+    },
+    "priority": {
+      "translation": "prioriteit",
+      "keepEnglish": false,
+      "note": "Matches 'Prioriteit' throughout dashboard.json, jobs.json, admin.json."
+    },
+    "max agents": {
+      "translation": "max. agents",
+      "keepEnglish": true,
+      "note": "Changed from 'max. agenten'. The established label is 'Max. agents' (dashboard.json, jobs.json, admin.json) — the plural stays the English 'agents', matching how 'agent' itself is pluralized in this app (see 'agent' below); Dutch 'agenten' does not appear."
+    },
+    "overflow": {
+      "translation": "overflow",
+      "keepEnglish": true,
+      "note": "Matches 'Agent-overflowtoewijzing', 'Overflow-toewijzingsmodus' (admin.json)."
+    },
+    "benchmark": {
+      "translation": "benchmark",
+      "keepEnglish": true,
+      "note": "Matches 'Benchmark cacheduur', 'Benchmarkgeschiedenis bewaren' (admin.json)."
+    },
+    "hash rate": {
+      "translation": "hashsnelheid",
+      "keepEnglish": false,
+      "note": "Changed from 'hash-snelheid'. Written as one word everywhere it appears: 'Hashsnelheid' (agents.json ×2, dashboard.json), 'Gecombineerde hashsnelheid' (jobs.json) — never hyphenated."
+    },
+    "progress": {
+      "translation": "voortgang",
+      "keepEnglish": false,
+      "note": "Matches 'Voortgang' throughout dashboard.json and jobs.json."
+    },
+    "agent": {
+      "translation": "agent",
+      "keepEnglish": true,
+      "note": "Singular is identical in English and Dutch. Plural is kept English, 'agents' (agents.json title, 'Actieve agents' in admin.json) rather than Dutch 'agenten' — confirms the fix to 'max agents' above."
+    },
+    "device": {
+      "translation": "apparaat",
+      "keepEnglish": false,
+      "note": "Matches 'Apparaat-ID', 'Apparaatmonitoring', 'Geen apparaten gedetecteerd' (agents.json)."
+    },
+    "claim code": {
+      "translation": "claimcode",
+      "keepEnglish": true,
+      "note": "Changed from 'inschrijvingscode', which does not appear anywhere in the product. The established, UI-wide term is 'claimcode' (one word): 'Claimcode', 'Uw claimcode:', 'Genereren van claimcode mislukt' (agents.json)."
+    },
+    "voucher": {
+      "translation": "voucher",
+      "keepEnglish": true,
+      "note": "Matches 'Voucher', 'Vouchers', 'Vouchercode' throughout agents.json. Distinct, established term from 'claimcode' even though terms.json treats them as synonyms — the UI uses both words for slightly different contexts (voucher = the registration record; claimcode = the code string itself) and both should be kept as-is."
+    },
+    "heartbeat": {
+      "translation": "heartbeat",
+      "keepEnglish": true,
+      "note": "No existing nl-locale occurrence either way. Kept English as a reasonable default alongside the app's other kept networking/infra terms (webhook, API, TLS, SSL)."
+    },
+    "offline buffer": {
+      "translation": "offline buffer",
+      "keepEnglish": true,
+      "note": "Changed from hyphenated 'offline-buffer'. The one existing string keeps this as two plain English words: 'Agent Offline Buffer' (notifications.json title) — not hyphenated."
+    },
+    "auto-update": {
+      "translation": "automatische update",
+      "keepEnglish": false,
+      "note": "No exact existing phrase to confirm against (the one related string, admin.json applyNote, phrases it descriptively as '...ontvangen updates automatisch'), but this matches the app's established 'automatisch(e) + noun' pattern used elsewhere ('Automatische aggregatie', 'automatisch aanmaken')."
+    },
+    "binary": {
+      "translation": "binary",
+      "keepEnglish": true,
+      "note": "Changed from 'binair bestand'. When referring to the managed hashcat executable itself, the app keeps the English noun unchanged and even uses the English plural: 'Hashcat binary' (agents.json hashcatBinary), 'Geen agent-binaries beschikbaar' (agents.json noAgentBinaries). Reserve the translated adjective 'binair' for unrelated generic file-type descriptions, e.g. hashlists.json's 'uitvoerbaar binair bestand' for a generic uploaded executable — that is a different concept, not this feature."
+    },
+    "client": {
+      "translation": "klant",
+      "keepEnglish": false,
+      "note": "Matches 'Klant', 'Klantbeheer', 'Klantnaam' throughout hashlists.json, admin.json, navigation.json. See 'client potfile' above — this translation must be applied consistently in compounds too."
+    },
+    "team": {
+      "translation": "team",
+      "keepEnglish": true,
+      "note": "No existing nl-locale occurrence (the multi-team feature is still planned, not yet built/localized). 'Team' is a widely adopted loanword in Dutch and a reasonable default; revisit once the feature ships and real strings exist."
+    },
+    "member": {
+      "translation": "lid",
+      "keepEnglish": false,
+      "note": "No existing occurrence (same unshipped feature as 'team'). Standard Dutch term; plural 'leden'."
+    },
+    "owner": {
+      "translation": "eigenaar",
+      "keepEnglish": false,
+      "note": "Matches 'Eigenaar', 'Agent-eigenaar bijgewerkt' throughout agents.json."
+    },
+    "retention": {
+      "translation": "retentie",
+      "keepEnglish": false,
+      "note": "Matches 'Retentie (maanden)', 'Gegevensretentie (maanden)' throughout admin.json."
+    },
+    "archive": {
+      "translation": "archiveren",
+      "keepEnglish": false,
+      "note": "Changed from the noun 'archief'. The term describes an action ('hide from default lists without deleting'), and the app's established rendering is the verb 'Archiveren' with adjective/status 'Gearchiveerd' for the resulting state (jobs.json, hashlists.json archive sections) — not the noun 'archief', which describes a storage place, a different concept."
+    },
+    "analytics report": {
+      "translation": "analyserapport",
+      "keepEnglish": false,
+      "note": "Matches the plural 'analyserapporten' used in analytics.json's page description."
+    },
+    "password reuse": {
+      "translation": "wachtwoordhergebruik",
+      "keepEnglish": false,
+      "note": "Exact match for 'Wachtwoordhergebruik' (analytics.json passwordReuse)."
+    },
+    "hash reuse": {
+      "translation": "hash-hergebruik",
+      "keepEnglish": false,
+      "note": "Matches 'Geen hash-hergebruik gedetecteerd' (analytics.json noHashReuse) exactly. Note the app also has a longer descriptive rendering, 'Hash-gebaseerd wachtwoordhergebruik', used as a report section title (analytics.json hashReuse) — that's a section heading, not the base-term translation; use the shorter compound as the glossary term."
+    },
+    "complexity": {
+      "translation": "complexiteit",
+      "keepEnglish": false,
+      "note": "Matches 'Tekencomplexiteitsanalyse' (analytics.json)."
+    },
+    "entropy": {
+      "translation": "entropie",
+      "keepEnglish": false,
+      "note": "Matches 'Entropieverdeling', 'Entropieniveau', 'Shannon-entropie' (analytics.json)."
+    },
+    "domain": {
+      "translation": "domein",
+      "keepEnglish": false,
+      "note": "Matches 'Domein', 'Domeinuitsplitsing', 'domeinbeheerders' throughout analytics.json."
+    },
+    "username": {
+      "translation": "gebruikersnaam",
+      "keepEnglish": false,
+      "note": "Matches 'Gebruikersnaam' throughout auth.json and notifications.json."
+    },
+    "audit log": {
+      "translation": "auditlogboek",
+      "keepEnglish": false,
+      "note": "One word; matches 'Auditlogboek' (navigation.json, notifications.json) exactly."
+    },
+    "dashboard": {
+      "translation": "dashboard",
+      "keepEnglish": true,
+      "note": "Matches 'Dashboard' (dashboard.json title, navigation.json)."
+    },
+    "settings": {
+      "translation": "instellingen",
+      "keepEnglish": false,
+      "note": "Confirmed via consistent compounds throughout the app: 'Klantinstellingen', 'Meldingsinstellingen', 'Planningsinstellingen'."
+    },
+    "autosave": {
+      "translation": "automatisch opslaan",
+      "keepEnglish": false,
+      "note": "No existing occurrence found, but matches the app's established 'automatisch + verb' pattern (see 'auto-update')."
+    },
+    "apply": {
+      "translation": "toepassen",
+      "keepEnglish": false,
+      "note": "Confirmed by admin.json: 'na het toepassen van wijzigingen' ('after applying changes')."
+    },
+    "certificate": {
+      "translation": "certificaat",
+      "keepEnglish": false,
+      "note": "Matches 'CA-certificaat', 'IdP-certificaat' throughout settings.json and admin.json."
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "No existing nl-locale occurrence (the certificate-SAN admin feature is not yet localized), but this is the correct call — it's a fixed technical abbreviation (Subject Alternative Name) that Dutch security professionals use as-is."
+    },
+    "network share": {
+      "translation": "netwerkshare",
+      "keepEnglish": true,
+      "note": "No existing occurrence (feature in progress, not yet localized). 'Netwerkshare' is the natural Dutch IT rendering, keeping 'share' as an understood English loanword — reasonable default to apply once the feature ships."
+    },
+    "mount": {
+      "translation": "koppelen",
+      "keepEnglish": false,
+      "note": "No direct existing occurrence for network-share mounting specifically, but matches the app's established verb for 'attach/link' elsewhere: settings.json 'Account koppelen' (link account) / 'Ontkoppelen' (unlink)."
+    },
+    "cloud fleet": {
+      "translation": "cloud fleet",
+      "keepEnglish": true,
+      "note": "Changed from 'cloudbatterij', which does not appear anywhere. 'Cloud Fleet' is kept fully in English as the section title in both navigation.json and admin.json."
+    },
+    "provisioning": {
+      "translation": "provisioning",
+      "keepEnglish": true,
+      "note": "Changed from 'inrichting'. Kept as an English loanword throughout: the section title is literally 'Cloud Provisioning' (navigation.json, admin.json), and it's also compounded directly onto a Dutch noun elsewhere, 'Gebruikersprovisioning' (admin.json) — 'inrichting' does not appear."
+    },
+    "budget": {
+      "translation": "budget",
+      "keepEnglish": true,
+      "note": "Matches 'Cloudbudget' (jobs.json cloud_budget_blocked) and compounds consistently as an English loanword."
+    },
+    "threshold": {
+      "translation": "drempel",
+      "keepEnglish": false,
+      "note": "Matches the one existing precedent, 'Regelsplitsingsdrempel' (admin.json). Newer cloud-budget threshold strings in admin.json are still shipped as untranslated English placeholders ('Threshold policy', etc.) — that's translation debt in that in-progress feature, not evidence against 'drempel' as the right term."
+    },
+    "drain": {
+      "translation": "draineren",
+      "keepEnglish": true,
+      "note": "Changed from 'uitputten'. The one existing string keeps this fully in English, 'Draining' (admin.json), rather than translating it. Dutch sysadmins/DevOps commonly loan this verb directly ('een instance draineren') the same way as 'updaten' or 'downloaden'; 'uitputten' literally means 'to exhaust/deplete' and doesn't clearly convey 'stop accepting new work, let what's running finish'."
+    },
+    "teardown": {
+      "translation": "afbraak",
+      "keepEnglish": false,
+      "note": "No existing nl-locale occurrence (shipped as untranslated English placeholders, e.g. admin.json 'Teardown is failing'). 'Afbraak' is a natural, understandable Dutch noun for destroying a cloud instance; kept as a reasonable default."
+    },
+    "webhook": {
+      "translation": "webhook",
+      "keepEnglish": true,
+      "note": "Matches 'Webhook', 'Webhook-URL', 'webhook-levering' throughout notifications.json."
+    },
+    "notification": {
+      "translation": "melding",
+      "keepEnglish": false,
+      "note": "Matches 'Melding(en)' throughout notifications.json and settings.json (not 'notificatie')."
+    },
+    "two-factor authentication": {
+      "translation": "tweefactorauthenticatie",
+      "keepEnglish": false,
+      "note": "Exact match for 'Tweefactorauthenticatie' (auth.json mfa.title)."
+    },
+    "backup codes": {
+      "translation": "backupcodes",
+      "keepEnglish": false,
+      "note": "Changed from hyphenated 'back-upcodes'. Established as one word throughout: 'Backupcode' (singular, auth.json), 'Backupcodes' (settings.json), 'Aantal backupcodes' (admin.json)."
+    },
+    "authenticator app": {
+      "translation": "authenticator-app",
+      "keepEnglish": false,
+      "note": "Matches 'Authenticator-app' exactly (auth.json, settings.json, admin.json methodAuthenticator)."
+    },
+    "session": {
+      "translation": "sessie",
+      "keepEnglish": false,
+      "note": "Matches 'Sessie', 'Sessie beëindigen' throughout common.json, errors.json, admin.json."
+    },
+    "API key": {
+      "translation": "API-sleutel",
+      "keepEnglish": false,
+      "note": "Exact match throughout admin.json ('API-sleutel', 'API-sleutelbeheer', 'Intrekken van API-sleutel')."
+    },
+    "branding": {
+      "translation": "huisstijl",
+      "keepEnglish": false,
+      "note": "Exact match for 'Huisstijl' (admin.json branding.title, 'Huisstijl opslaan')."
+    },
+    "diagnostics": {
+      "translation": "diagnostiek",
+      "keepEnglish": false,
+      "note": "Matches 'Systeemdiagnostiek', 'Diagnostiek downloaden' (admin.json, jobs.json)."
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "title": "Prolomené hashe",
+  "page": {
+    "title": "Prolomené hashe (Potfile)",
+    "description": "Zobrazte všechny úspěšně prolomené hashe hesel ze všech hashlistů a klientů.",
+    "filterByHashlist": "Přejít na Hashlist",
+    "hashlistPlaceholder": "Vyberte hashlist..."
+  },
+  "table": {
+    "allCrackedHashes": "Všechny prolomené hashe"
+  },
+  "navigation": {
+    "backToAll": "Zpět na všechny prolomené hashe",
+    "backToSource": "Zpět"
+  },
+  "client": {
+    "title": "Prolomené hashe - Zobrazení klienta",
+    "description": "Zobrazení prolomených hashů pro klienta: {{clientName}}",
+    "tableTitle": "Prolomené hashe pro \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Prolomené hashe - Zobrazení hashlistu",
+    "description": "Zobrazení prolomených hashů pro hashlist: {{hashlistName}}",
+    "tableTitle": "Prolomené hashe pro \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Prolomené hashe pro úlohu: {{jobName}}",
+    "description": "Zobrazte všechny úspěšně prolomené hashe hesel z tohoto spuštění úlohy.",
+    "tableTitle": "Prolomené hashe - {{jobName}}",
+    "defaultName": "Úloha {{id}}"
+  },
+  "columns": {
+    "originalHash": "Původní hash",
+    "domain": "Doména",
+    "username": "Uživatelské jméno",
+    "password": "Heslo",
+    "hashType": "Typ hashe",
+    "actions": "Akce"
+  },
+  "search": {
+    "placeholder": "Hledat v databázi...",
+    "filterPlaceholder": "Filtrovat tuto stránku...",
+    "button": "Hledat",
+    "resultsFound_few": "Nalezeny {{count}} výsledky",
+    "resultsFound_many": "Nalezeno {{count}} výsledku",
+    "resultsFound_one": "Nalezen {{count}} výsledek",
+    "resultsFound_other": "Nalezeno {{count}} výsledků",
+    "noResults": "Žádné výsledky nenalezeny",
+    "searching": "Vyhledávání..."
+  },
+  "export": {
+    "hashPass": "Hash:Heslo",
+    "userPass": "Uživatel:Heslo",
+    "username": "Uživatelské jméno",
+    "password": "Heslo",
+    "domainUser": "Doména\\Uživatel",
+    "domainUserPass": "Doména\\Uživatel:Heslo",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "Exportovat viditelné výsledky",
+    "downloaded": "Staženo {{filename}}",
+    "downloadFailed": "Nepodařilo se stáhnout soubor"
+  },
+  "tooltips": {
+    "copyHash": "Zkopírovat hash:heslo",
+    "copyDomain": "Kliknutím zkopírujte doménu",
+    "copyUsername": "Kliknutím zkopírujte uživatelské jméno",
+    "copyPassword": "Kliknutím zkopírujte heslo"
+  },
+  "dialogs": {
+    "loadAllTitle": "Načíst všechny výsledky?",
+    "loadAllMessage": "Načtení všech {{value}} výsledků může trvat značnou dobu a může ovlivnit výkon. Jste si jistí, že chcete pokračovat?",
+    "loadingAll": "Načítání všech výsledků. Chvíli to může trvat...",
+    "cancel": "Zrušit",
+    "loadAll": "Načíst vše"
+  },
+  "pagination": {
+    "all": "Vše"
+  },
+  "notifications": {
+    "copiedToClipboard": "Zkopírováno do schránky",
+    "exported": "Exportovány prolomené hashe"
+  },
+  "errors": {
+    "loadFailed": "Nepodařilo se načíst prolomené hashe",
+    "loadClientFailed": "Nepodařilo se načíst informace o klientovi",
+    "loadHashlistFailed": "Nepodařilo se načíst informace o hashlistu",
+    "loadJobFailed": "Nepodařilo se načíst informace o úloze"
+  },
+  "filter": {
+    "filteredBy": "Filtrováno podle {{param}}: {{value}}"
+  },
+  "breadcrumb": "Prolomené hashe",
+  "sourceLabel": {
+    "job": "Úloha",
+    "client": "Klient",
+    "hashlist": "Hashlist"
+  }
+}

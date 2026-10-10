@@ -92,10 +92,21 @@
       "copied": "Clé API copiée dans le presse-papiers"
     }
   },
+  "security": {
+    "title": "Sécurité",
+    "caCertificate": {
+      "title": "Certificat CA",
+      "description": "Si vous utilisez des certificats autosignés, téléchargez et installez le certificat CA pour faire confiance à ce serveur.",
+      "download": "Télécharger le certificat CA",
+      "docsLink": "Voir la documentation SSL/TLS"
+    }
+  },
   "common": {
     "cancel": "Annuler",
     "never": "Jamais",
-    "invalidDate": "Date invalide"
+    "invalidDate": "Date invalide",
+    "create": "Créer",
+    "delete": "Supprimer"
   },
   "mfa": {
     "title": "Authentification à deux facteurs",
@@ -108,19 +119,144 @@
       "title": "Méthodes d'authentification",
       "totp": "Application d'authentification",
       "email": "E-mail",
-      "backupCodes": "Codes de récupération"
+      "backupCodes": "Codes de récupération",
+      "passkey": "Passkey"
     },
     "setup": {
       "scanQR": "Scannez ce code QR avec votre application d'authentification",
       "enterCode": "Saisissez le code de votre application pour vérifier",
       "backupCodesGenerated": "Enregistrez ces codes de récupération dans un endroit sûr"
+    },
+    "methodSelection": {
+      "title": "Choisir une méthode MFA",
+      "description": "Sélectionnez comment vous souhaitez vérifier votre identité lors de la connexion.",
+      "authenticatorDescription": "Utilisez un code temporel d'une application d'authentification comme Google Authenticator, Authy ou 1Password.",
+      "passkeyDescription": "Utilisez une clé de sécurité, empreinte digitale, reconnaissance faciale ou code PIN d'appareil pour une authentification rapide et sécurisée."
+    },
+    "card": {
+      "title": "Authentification multifacteur",
+      "requiredByPolicy": "La MFA est requise par la politique de sécurité de votre organisation",
+      "enableLabel": "Activer l'authentification multifacteur",
+      "preferredMethod": "Méthode MFA préférée",
+      "preferredMethodNames": {
+        "authenticator": "Application d'authentification",
+        "email": "E-mail",
+        "passkey": "Passkey"
+      },
+      "emailAuth": "Authentification par e-mail",
+      "emailRequired": "Requis pour la sécurité du compte",
+      "optional": "Optionnel",
+      "required": "Requis",
+      "configured": "Configuré",
+      "notConfigured": "Non configuré",
+      "disable": "Désactiver",
+      "setup": "Configurer",
+      "passkeys": "Passkeys",
+      "passkeysRegistered_many": "{{count}} passkeys enregistrées",
+      "passkeysRegistered_one": "{{count}} passkey enregistrée",
+      "passkeysRegistered_other": "{{count}} passkeys enregistrées",
+      "addPasskey": "Ajouter une Passkey",
+      "passkeyAdded": "Ajoutée : {{date}}",
+      "passkeyLastUsed": " | Dernière utilisation : {{date}}",
+      "rename": "Renommer",
+      "delete": "Supprimer",
+      "passkeysUnsupported": "Les Passkeys ne sont pas prises en charge par ce navigateur. Veuillez utiliser un navigateur moderne pour activer l'authentification par passkey.",
+      "backupCodesRemaining_many": "{{count}} codes de récupération restants",
+      "backupCodesRemaining_one": "{{count}} code de récupération restant",
+      "backupCodesRemaining_other": "{{count}} codes de récupération restants",
+      "noBackupCodes": "Aucun code de récupération disponible",
+      "regenerate": "Régénérer",
+      "generate": "Générer"
+    },
+    "dialogs": {
+      "cancel": "Annuler",
+      "close": "Fermer",
+      "warning": "Avertissement",
+      "setupAuthenticatorTitle": "Configurer l'application d'authentification",
+      "qrAlt": "Code QR",
+      "manualEntry": "Si vous ne pouvez pas scanner le code QR, entrez ce code manuellement : <strong>{{secret}}</strong>",
+      "scanInstructions": "Scannez ce code QR avec votre application d'authentification (par exemple, Google Authenticator, Authy)",
+      "verificationCode": "Code de vérification",
+      "verificationPlaceholder": "Entrez le code à 6 chiffres",
+      "verify": "Vérifier",
+      "backupCodesTitle": "Codes de récupération",
+      "generateBackupPrompt": "Générez des codes de récupération à utiliser quand vous ne pouvez pas accéder à votre méthode d'authentification principale",
+      "generateBackupCodes": "Générer des codes de récupération",
+      "saveCodesWarning": "Enregistrez ces codes dans un endroit sûr. Ils ne seront plus affichés !",
+      "copied": "Copié !",
+      "copyAll": "COPIER TOUS LES CODES",
+      "regenerateWarning": "Cela invalidera tous vos codes de récupération existants. Voulez-vous vraiment en générer de nouveaux ?",
+      "generateNewCodes": "Générer de nouveaux codes",
+      "disableAuthWarning": "Voulez-vous vraiment désactiver l'application d'authentification ? Cela la supprimera de votre compte et vous devrez la reconfigurer si vous souhaitez l'utiliser à l'avenir.",
+      "disableAuthenticator": "Désactiver l'application d'authentification",
+      "addPasskeyTitle": "Ajouter une Passkey",
+      "addPasskeyDescription": "Enregistrez une nouvelle passkey (clé de sécurité, empreinte digitale ou appareil) pour l'authentification à deux facteurs.",
+      "passkeyName": "Nom de la Passkey",
+      "passkeyNamePlaceholder": "par exemple, YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn n'est pas pris en charge par ce navigateur. Veuillez utiliser un navigateur moderne.",
+      "webauthnUnsupportedBrowsers": "WebAuthn n'est pas pris en charge par ce navigateur. Veuillez utiliser un navigateur moderne comme Chrome, Firefox, Safari ou Edge.",
+      "registering": "Enregistrement...",
+      "registerPasskey": "Enregistrer une Passkey",
+      "renamePasskeyTitle": "Renommer la Passkey",
+      "saving": "Enregistrement...",
+      "save": "Enregistrer",
+      "deletePasskeyTitle": "Supprimer la Passkey",
+      "deletePasskeyConfirm": "Voulez-vous vraiment supprimer la passkey \"{{name}}\" ? Cette action ne peut pas être annulée.",
+      "deleting": "Suppression...",
+      "delete": "Supprimer",
+      "setupPasskeyTitle": "Configurer une Passkey pour la MFA",
+      "setupPasskeyDescription": "Enregistrez une passkey pour activer l'authentification multifacteur. Utilisez une clé de sécurité, empreinte digitale, reconnaissance faciale ou code PIN d'appareil.",
+      "registerAndEnable": "Enregistrer et activer la MFA"
+    },
+    "messages": {
+      "loadFailed": "Impossible de charger les paramètres MFA",
+      "disabled": "MFA désactivée avec succès",
+      "passkeyBrowserRequired": "L'authentification par passkey est requise mais votre navigateur ne prend pas en charge WebAuthn. Veuillez utiliser un navigateur moderne comme Chrome, Firefox, Safari ou Edge pour activer la MFA.",
+      "enabledEmail": "MFA activée avec authentification par e-mail",
+      "noMethods": "Aucune méthode MFA n'est disponible. Veuillez contacter votre administrateur.",
+      "toggleFailed": "Impossible de basculer la MFA",
+      "passkeyNameRequired": "Veuillez entrer un nom pour la passkey",
+      "passkeyRegisteredSaveCodes": "Passkey enregistrée avec succès ! Veuillez enregistrer vos codes de récupération.",
+      "passkeyRegisteredNoCodes": "Passkey enregistrée avec succès. Vous pouvez générer des codes de récupération à partir des paramètres MFA.",
+      "authenticatorSetupFailed": "Impossible de configurer l'application d'authentification",
+      "authenticatorSetup": "L'application d'authentification a été configurée avec succès",
+      "verifyFailed": "Impossible de vérifier le code",
+      "backupCodesGenerated": "De nouveaux codes de récupération ont été générés",
+      "backupCodesFailed": "Impossible de générer des codes de récupération",
+      "preferredUpdated": "Méthode MFA préférée mise à jour avec succès",
+      "preferredFailed": "Impossible de mettre à jour la méthode MFA préférée",
+      "disableAuthFailed": "Impossible de désactiver l'application d'authentification",
+      "authenticatorDisabled": "L'application d'authentification a été désactivée avec succès",
+      "newBackupCodesFailed": "Impossible de générer de nouveaux codes de récupération",
+      "newBackupCodesGenerated": "De nouveaux codes de récupération ont été générés avec succès",
+      "invalidResponse": "Format de réponse invalide du serveur",
+      "passkeyRegistered": "Passkey enregistrée avec succès",
+      "passkeyDeleted": "Passkey supprimée avec succès",
+      "passkeyDeleteFailed": "Impossible de supprimer la passkey",
+      "passkeyRenamed": "Passkey renommée avec succès",
+      "passkeyRenameFailed": "Impossible de renommer la passkey"
     }
   },
   "linkedAccounts": {
     "title": "Comptes liés",
     "noAccounts": "Aucun compte lié",
     "link": "Lier un compte",
-    "unlink": "Dissocier"
+    "unlink": "Dissocier",
+    "description": "Fournisseurs d'authentification externes liés à votre compte",
+    "noAccountsMessage": "Aucun compte externe n'est lié à votre profil. Vous pouvez lier des comptes en vous connectant via un fournisseur SSO.",
+    "emailLabel": "E-mail : {{email}}",
+    "usernameLabel": "Nom d'utilisateur : {{username}}",
+    "lastLoginLinked": "Dernière connexion : {{lastLogin}} | Lié : {{linked}}",
+    "unlinkTooltip": "Dissocier le compte",
+    "errors": {
+      "loadFailed": "Impossible de charger les comptes liés",
+      "unlinkFailed": "Impossible de dissocier le compte"
+    },
+    "unlinkDialog": {
+      "title": "Dissocier le compte",
+      "warning": "Vous ne pourrez plus vous connecter via ce fournisseur.",
+      "confirmation": "Voulez-vous vraiment dissocier votre compte {{provider}} ?"
+    }
   },
   "notifications": {
     "title": "Notifications",
@@ -139,11 +275,117 @@
       "light": "Clair",
       "dark": "Sombre",
       "system": "Système"
-    }
+    },
+    "languageHelper": "S'applique à ce navigateur uniquement.",
+    "themeHelper": "Le système suit le paramètre de votre système d'exploitation."
   },
   "errors": {
     "updateFailed": "Impossible de mettre à jour les paramètres",
     "passwordMismatch": "Les mots de passe ne correspondent pas",
     "invalidPassword": "Mot de passe actuel invalide"
+  },
+  "nav": {
+    "description": "Votre compte, sécurité et préférences.",
+    "groupAccount": "Compte",
+    "profile": "Profil",
+    "profileDesc": "Adresse e-mail, langue et apparence.",
+    "security": "Sécurité",
+    "securityDesc": "Mot de passe, authentification à deux facteurs, comptes liés et certificat CA.",
+    "notifications": "Notifications",
+    "notificationsDesc": "Quels événements vous atteignent et comment.",
+    "api": "Clé API",
+    "apiDesc": "Clé personnelle pour l'API HTTP.",
+    "charsets": "Jeux de caractères enregistrés",
+    "charsetsDesc": "Jeux de caractères personnalisés pour les attaques par masque."
+  },
+  "savedCharsets": {
+    "title": "Jeux de caractères enregistrés",
+    "description": "Gérez vos jeux de caractères personnalisés pour une utilisation dans les attaques par masque. Prend en charge les définitions en ligne et les fichiers .hcchr binaires.",
+    "createCharset": "Créer un jeu de caractères",
+    "sections": {
+      "mine": "Mes jeux de caractères",
+      "team": "Jeux de caractères d'équipe",
+      "global": "Jeux de caractères globaux",
+      "globalSubtitle": "Ces jeux de caractères sont gérés par les administrateurs et disponibles pour tous."
+    },
+    "columns": {
+      "name": "Nom",
+      "team": "Équipe",
+      "definition": "Définition / Informations",
+      "description": "Description",
+      "created": "Créé"
+    },
+    "typeLabels": {
+      "file": "Fichier",
+      "hex": "Hexadécimal"
+    },
+    "uniqueBytes_many": "{{count}} octets uniques",
+    "uniqueBytes_one": "{{count}} octet unique",
+    "uniqueBytes_other": "{{count}} octets uniques",
+    "hexBytes_many": "{{count}} octets",
+    "hexBytes_one": "{{count}} octet",
+    "hexBytes_other": "{{count}} octets",
+    "rowActions": {
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "empty": "Aucun jeu de caractères dans cette catégorie.",
+    "dialogs": {
+      "create": {
+        "title": "Créer un jeu de caractères personnel"
+      },
+      "edit": {
+        "title": "Modifier le jeu de caractères"
+      },
+      "delete": {
+        "title": "Supprimer le jeu de caractères",
+        "confirmation": "Voulez-vous vraiment supprimer le jeu de caractères \"{{name}}\" ?"
+      },
+      "modeToggle": {
+        "inline": "Définition en ligne",
+        "file": "Téléchargement de fichier (.hcchr)"
+      },
+      "fields": {
+        "name": "Nom",
+        "namePlaceholder": "par exemple, Jeu de caractères DES complet",
+        "definition": "Définition",
+        "definitionPlaceholderHex": "par exemple, 41424344 (paires d'octets hexadécimaux)",
+        "definitionPlaceholderPlain": "par exemple, ?u?d ou abcdef0123456789",
+        "definitionHelperHex": "Paires d'octets hexadécimaux — chaque paire = un octet du jeu de caractères. {{bytes}}",
+        "definitionHelperHexBytes_many": "{{count}} octets",
+        "definitionHelperHexBytes_one": "{{count}} octet",
+        "definitionHelperHexBytes_other": "{{count}} octets",
+        "definitionHelperPlain": "Définition du jeu de caractères Hashcat. Utilisez ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H ou des caractères littéraux.",
+        "hexTooltip": "Lorsqu'il est activé, la définition est interprétée comme des paires d'octets hexadécimaux (par exemple, 41424344 = octets A, B, C, D). Les Jobs utilisant ce jeu de caractères injecteront automatiquement --hex-charset.",
+        "hexLabel": "Définition encodée en hexadécimal",
+        "selectFile": "Sélectionner un fichier .hcchr",
+        "fileSizeBytes_many": "{{count}} octets",
+        "fileSizeBytes_one": "{{count}} octet",
+        "fileSizeBytes_other": "{{count}} octets",
+        "fileHelperText": "Fichier de jeu de caractères binaire contenant des valeurs d'octets bruts (max 1023 octets, jusqu'à 256 octets uniques).",
+        "fileCharsetInfo_many": "Jeu de caractères fichier : {{count}} octets uniques. Seuls le nom et la description peuvent être modifiés.",
+        "fileCharsetInfo_one": "Jeu de caractères fichier : {{count}} octet unique. Seuls le nom et la description peuvent être modifiés.",
+        "fileCharsetInfo_other": "Jeu de caractères fichier : {{count}} octets uniques. Seuls le nom et la description peuvent être modifiés.",
+        "description": "Description",
+        "descriptionPlaceholder": "Description optionnelle de l'utilisation de ce jeu de caractères"
+      },
+      "update": "Mettre à jour",
+      "upload": "Télécharger"
+    },
+    "messages": {
+      "createSuccess": "Jeu de caractères créé avec succès",
+      "uploadSuccess": "Jeu de caractères fichier téléchargé avec succès",
+      "updateSuccess": "Jeu de caractères mis à jour avec succès",
+      "deleteSuccess": "Jeu de caractères supprimé avec succès"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Seuls les fichiers .hcchr sont autorisés",
+      "fileTooLarge": "Fichier trop volumineux (max 1023 octets — limite du tampon de lecture hashcat)",
+      "nameRequired": "Le nom est requis",
+      "definitionRequired": "La définition est requise",
+      "selectFile": "Veuillez sélectionner un fichier .hcchr",
+      "deleteFailed": "Impossible de supprimer le jeu de caractères : {{message}}",
+      "globalDeleteForbidden": "Les jeux de caractères globaux ne peuvent être supprimés que par les administrateurs dans le panneau d'administration"
+    }
   }
 }

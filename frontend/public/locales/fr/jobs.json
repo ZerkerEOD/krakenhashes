@@ -16,9 +16,11 @@
     "maxAgents": "Agents max.",
     "actions": "Actions",
     "status": "Statut",
-    "createdAt": "Créé le"
+    "createdAt": "Créé le",
+    "client": "Client"
   },
   "status": {
+    "preparing": "Préparation",
     "pending": "En attente",
     "running": "En cours",
     "completed": "Terminé",
@@ -49,7 +51,8 @@
     "completed": "Terminé :",
     "unknown": "Inconnu",
     "error": "Erreur :",
-    "rulesLabel": "(règles)"
+    "rulesLabel": "(règles)",
+    "custom": "Attaque personnalisée"
   },
   "tooltips": {
     "combinedHashRate": "Hash rate cumulé",
@@ -216,8 +219,18 @@
       "cloud_no_capacity": "Aucune capacité cloud disponible",
       "cloud_dead_on_arrival": "Les instances louées n'ont pas pu se reconnecter",
       "cloud_launch_failed": "Impossible de louer une instance cloud",
-      "seenTimes": "Vu {{count}} fois"
-    }
+      "seenTimes_many": "Vu {{count}} fois",
+      "seenTimes_one": "Vu {{count}} fois",
+      "seenTimes_other": "Vu {{count}} fois",
+      "cloud_rental_too_short": "La location serait trop courte pour être utile",
+      "cloud_cracks_lost": "Les mots de passe cassés auraient pu être perdus",
+      "cloud_draining": "L'instance cloud est en phase de drainage (aucun nouveau travail)"
+    },
+    "client": "Client",
+    "presetJob": "Job prédéfini",
+    "workflow": "Workflow",
+    "createdBy": "Créé par",
+    "system": "Système"
   },
   "common": {
     "id": "ID",
@@ -322,52 +335,130 @@
     "unarchiveSelected": "Désarchiver la sélection",
     "deleteSelected": "Supprimer la sélection",
     "selectedCount": "{{count}} sélectionné",
-    "selectedCount_plural": "{{count}} sélectionnés",
     "confirmBulkDelete": {
       "title": "Confirmer la suppression multiple",
-      "message": "Voulez-vous vraiment supprimer {{count}} job ? Cette action est irréversible.",
-      "message_plural": "Voulez-vous vraiment supprimer {{count}} jobs ? Cette action est irréversible.",
+      "message_many": "Êtes-vous sûr de vouloir supprimer {{count}} jobs ? Cette action ne peut pas être annulée.",
+      "message_one": "Êtes-vous sûr de vouloir supprimer {{count}} job ? Cette action ne peut pas être annulée.",
+      "message_other": "Êtes-vous sûr de vouloir supprimer {{count}} jobs ? Cette action ne peut pas être annulée.",
       "warning": "Les jobs sélectionnés et toutes leurs données associées seront supprimés définitivement.",
       "cancel": "Annuler",
       "delete": "Supprimer",
       "deleting": "Suppression..."
     },
-    "bulkArchiveSuccess": "{{count}} job archivé avec succès",
-    "bulkArchiveSuccess_plural": "{{count}} jobs archivés avec succès",
-    "bulkUnarchiveSuccess": "{{count}} job désarchivé avec succès",
-    "bulkUnarchiveSuccess_plural": "{{count}} jobs désarchivés avec succès",
-    "bulkDeleteSuccess": "{{count}} job supprimé avec succès",
-    "bulkDeleteSuccess_plural": "{{count}} jobs supprimés avec succès"
+    "bulkArchiveSuccess_many": "{{count}} jobs archivés avec succès",
+    "bulkArchiveSuccess_one": "{{count}} job archivé avec succès",
+    "bulkArchiveSuccess_other": "{{count}} jobs archivés avec succès",
+    "bulkUnarchiveSuccess_many": "{{count}} jobs désarchivés avec succès",
+    "bulkUnarchiveSuccess_one": "{{count}} job désarchivé avec succès",
+    "bulkUnarchiveSuccess_other": "{{count}} jobs désarchivés avec succès",
+    "bulkDeleteSuccess_many": "{{count}} jobs supprimés avec succès",
+    "bulkDeleteSuccess_one": "{{count}} job supprimé avec succès",
+    "bulkDeleteSuccess_other": "{{count}} jobs supprimés avec succès"
   },
   "cloud": {
     "projection": {
-      "title": "Will this finish within budget?",
-      "loadFailed": "Failed to project this job",
-      "coverageLabel": "Budget coverage",
-      "coverageValue": "{{pct}}% of the remaining work is funded",
-      "timeToFinish": "Projected time to finish",
-      "projectedCost": "Projected cloud cost",
-      "availableBudget": "Available budget",
-      "onpremSpeed": "On-prem speed",
-      "cloudSpeed": "Cloud speed",
-      "unknown": "Unknown",
-      "confirm": "Launch",
-      "pessimistic": "This is a salted hash type, so real throughput will exceed this estimate as salts crack. Treat the projection as a worst case.",
-      "shortfallTitle": "The budget runs out before the work does",
-      "shortfallBody": "At the projected rate, the budget covers {{pct}}% of the remaining keyspace. The job will stop partway through. Partial progress may still be worth buying — but it should be a deliberate choice.",
-      "shortfallAcknowledge": "I understand this job will not finish within budget"
+      "title": "Ce job se terminera-t-il dans le budget ?",
+      "loadFailed": "Impossible de projeter ce job",
+      "coverageLabel": "Couverture du budget",
+      "coverageValue": "{{pct}}% du travail restant est financé",
+      "timeToFinish": "Temps projeté pour terminer",
+      "projectedCost": "Coût cloud projeté",
+      "availableBudget": "Budget disponible",
+      "onpremSpeed": "Vitesse sur site",
+      "cloudSpeed": "Vitesse cloud",
+      "unknown": "Inconnu",
+      "confirm": "Lancer",
+      "pessimistic": "Ceci est un type de hash salé, le véritable débit dépassera donc cette estimation au fur et à mesure que les sels se cassent. Considérez la projection comme un scénario du pire cas.",
+      "shortfallTitle": "Le budget s'épuise avant la fin du travail",
+      "shortfallBody": "Au taux projeté, le budget couvre {{pct}}% de la Keyspace restante. Le job s'arrêtera à mi-chemin. Les résultats partiels peuvent toujours être rentables — mais ce devrait être un choix délibéré.",
+      "shortfallAcknowledge": "Je comprends que ce job ne se terminera pas dans le budget",
+      "metric": "Métrique",
+      "value": "Valeur"
     },
     "cloudBurst": {
-      "label": "Allow cloud burst for this job",
-      "help": "Rent GPU instances when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider. Nothing is rented without this.",
-      "maxInstances": "Maximum rented instances",
-      "maxInstancesHelp": "Separate from max agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
+      "label": "Autoriser le cloud burst pour ce job",
+      "help": "Loue des instances GPU quand la flotte sur site ne peut pas suivre. Nécessite que le client soit financé et inscrit auprès d'un fournisseur. Rien n'est loué sans cela.",
+      "maxInstances": "Nombre maximal d'instances louées",
+      "maxInstancesHelp": "Distinct du nombre maximal d'agents, qui régit le pool partagé sur site. Laissez vide pour laisser le budget restant décider.",
       "badge": "Cloud burst",
-      "thirdPartyBadge": "Third-party host",
-      "provisionNow": "Provision now",
-      "provisionConfirm": "Rent one cloud instance for this job now?\n\nThis bypasses the autoscaler's starvation and finishing-soon rules, and will spend money against this client's budget. The budget, spend window, per-job cap and provider consent still apply.",
-      "provisionRequested": "Cloud instance requested",
-      "provisionFailed": "Could not provision a cloud instance"
+      "thirdPartyBadge": "Hôte tiers",
+      "provisionNow": "Provisionner maintenant",
+      "provisionConfirm": "Louer une instance cloud pour ce job maintenant ?\n\nCela contourne les règles de famine et de fin imminente du redimensionnement automatique, et dépensera de l'argent sur le budget de ce client. Le budget, la fenêtre de dépense, la limite par job et le consentement du fournisseur s'appliquent toujours.",
+      "provisionRequested": "Instance cloud demandée",
+      "provisionFailed": "Impossible de provisionner une instance cloud"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Progression globale : {{percent}}%",
+    "noTasks": "Aucune tâche assignée pour le moment",
+    "notAvailable": "N/A",
+    "tooltip": {
+      "taskId": "ID de tâche : {{id}}",
+      "status": "Statut : {{status}}",
+      "keyspace": "Keyspace : {{start}} - {{end}}",
+      "progress": "Progression : {{percent}}%",
+      "speed": "Vitesse : {{speed}}",
+      "cracksFound": "Cassures trouvées : {{count}}",
+      "agentId": "ID d'agent : {{id}}"
+    },
+    "legend": {
+      "pending": "En attente",
+      "running": "En cours",
+      "processing": "Traitement",
+      "completed": "Terminé",
+      "processingError": "Erreur de traitement",
+      "failed": "Échoué",
+      "crackFound": "Cassure trouvée"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Cooldowns de benchmark",
+    "subtitle": "Agents actuellement bloqués pour les benchmarks de ce job après des défaillances répétées. Effacez une entrée pour réessayer sur le prochain cycle de planification.",
+    "loadFailed": "Impossible de charger la liste de blocage",
+    "clearSuccess": "Entrée de liste de blocage effacée — le planificateur réessayera au prochain cycle",
+    "clearFailedPrefix": "Impossible d'effacer : {{error}}",
+    "clearFailedDefault": "Impossible d'effacer l'entrée",
+    "expired": "expiré",
+    "retryNow": "Réessayer maintenant",
+    "scope": {
+      "thisJob": "ce job",
+      "global": "global"
+    },
+    "columns": {
+      "agent": "Agent",
+      "scope": "Portée",
+      "hashMode": "Hash / Mode",
+      "failures": "Défaillances",
+      "reason": "Raison",
+      "expires": "Expire",
+      "action": "Action"
+    }
+  },
+  "loopback": {
+    "title": "Loopback",
+    "subtitle": "Chaque loopback ré-exécute une mutation d'attaque uniquement sur les mots de passe nouvellement cassés, répétant jusqu'à ce qu'aucune nouvelle cassure ne soit trouvée.",
+    "runningCount": "{{count}} en cours d'exécution",
+    "statusLabel": {
+      "waiting": "En attente de la fin du cycle",
+      "active": "En bouclage",
+      "completed": "Terminé",
+      "failed": "Échoué",
+      "cancelled": "Annulé"
+    },
+    "roundLabel": "Cycle {{current}} / {{max}}",
+    "hashlistFallback": "Hashlist #{{id}}",
+    "jobCount_many": "{{count}} jobs",
+    "jobCount_one": "{{count}} job",
+    "jobCount_other": "{{count}} jobs",
+    "noJobsYet": "Aucun job enregistré pour le moment.",
+    "loopsBackYes": "Oui",
+    "loopsBackFeedsDelta": "Alimente le delta",
+    "columns": {
+      "round": "Cycle",
+      "original": "Original",
+      "job": "Job",
+      "role": "Rôle",
+      "loopsBack": "Boucle de retour"
     }
   }
 }

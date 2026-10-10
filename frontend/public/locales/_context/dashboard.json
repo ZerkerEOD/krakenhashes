@@ -1,0 +1,16 @@
+{
+  "stats": {
+    "crackRate": "Percentage of hashes successfully cracked so far, not a speed/rate of cracking."
+  },
+  "jobs": {
+    "autoRefreshOn": "Label for the auto-refresh toggle button when auto-refresh is on.",
+    "autoRefreshOff": "Label for the auto-refresh toggle button when auto-refresh is off."
+  },
+  "recentCracks": {
+    "copy": "'Plaintext' is the recovered password itself (hashcat terminology for the decrypted value)."
+  },
+  "autoRefresh": {
+    "on": "'Live' means this dashboard is auto-refreshing; unrelated to a job's 'Running' status.",
+    "off": "'Paused' means auto-refresh is paused; unrelated to a job's own 'Paused' status."
+  }
+}

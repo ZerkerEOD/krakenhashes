@@ -1,0 +1,341 @@
+{
+  "buttons": {
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "edit": "편집",
+    "create": "생성",
+    "submit": "제출",
+    "close": "닫기",
+    "confirm": "확인",
+    "retry": "재시도",
+    "refresh": "새로고침",
+    "download": "다운로드",
+    "upload": "업로드",
+    "copy": "복사",
+    "search": "검색",
+    "filter": "필터",
+    "clearFilters": "필터 지우기",
+    "loadAll": "모두 로드",
+    "signIn": "로그인",
+    "logIn": "로그인",
+    "logout": "로그아웃"
+  },
+  "labels": {
+    "loading": "로드 중...",
+    "noData": "사용 가능한 데이터 없음",
+    "error": "오류가 발생했습니다",
+    "success": "성공",
+    "warning": "경고",
+    "info": "정보",
+    "required": "필수",
+    "optional": "선택 사항",
+    "all": "모두",
+    "none": "없음",
+    "yes": "예",
+    "no": "아니오",
+    "enabled": "활성화됨",
+    "disabled": "비활성화됨",
+    "active": "활성",
+    "inactive": "비활성",
+    "updating": "업데이트 중",
+    "pending": "대기 중",
+    "completed": "완료됨",
+    "failed": "실패",
+    "unknown": "알 수 없음"
+  },
+  "pagination": {
+    "rowsPerPage": "페이지당 행 수",
+    "page": "페이지 {{current}} / {{total}}",
+    "showing": "{{from}}-{{to}} / {{total}} 표시 중",
+    "first": "첫 페이지",
+    "last": "마지막 페이지",
+    "next": "다음 페이지",
+    "previous": "이전 페이지"
+  },
+  "language": {
+    "selectLanguage": "언어 선택",
+    "currentLanguage": "현재 언어"
+  },
+  "clipboard": {
+    "copied": "클립보드에 복사됨",
+    "copyFailed": "클립보드에 복사 실패"
+  },
+  "errors": {
+    "networkError": "네트워크 오류입니다. 연결을 확인하십시오.",
+    "serverError": "서버 오류입니다. 나중에 다시 시도해 주십시오.",
+    "unknownError": "알 수 없는 오류가 발생했습니다",
+    "validationError": "입력을 확인하고 다시 시도해 주십시오",
+    "permissionDenied": "권한이 없습니다",
+    "notFound": "찾을 수 없음",
+    "sessionExpired": "세션이 만료되었습니다. 다시 로그인해 주십시오."
+  },
+  "confirmations": {
+    "areYouSure": "정말 확인하시겠습니까?",
+    "cannotBeUndone": "이 작업은 실행 취소할 수 없습니다.",
+    "confirmDelete": "삭제 확인",
+    "confirmAction": "작업 확인",
+    "typeToConfirm": "{{text}}를 입력하여 확인해 주십시오"
+  },
+  "time": {
+    "justNow": "방금",
+    "minutesAgo_other": "{{count}}분 전",
+    "hoursAgo_other": "{{count}}시간 전",
+    "daysAgo_other": "{{count}}일 전",
+    "never": "없음"
+  },
+  "fileUpload": {
+    "dragAndDrop": "파일을 여기로 끌어서 놓거나 클릭하여 선택하십시오",
+    "selectFile": "파일 선택",
+    "uploading": "업로드 중...",
+    "uploadSuccess": "파일이 성공적으로 업로드되었습니다",
+    "uploadFailed": "파일 업로드에 실패했습니다",
+    "chooseFile": "파일 선택",
+    "description": "설명",
+    "loading": "로드 중..."
+  },
+  "binaryVersionSelector": {
+    "label": "바이너리 버전",
+    "helperText": "이 작업에 대한 바이너리 버전 패턴을 선택하십시오",
+    "default": "기본값",
+    "majorVersion": "주 버전 (최신 부 버전)",
+    "minorVersion": "부 버전 (최신 패치)",
+    "exactVersion": "정확한 버전",
+    "loading": "로드 중...",
+    "loadingVersions": "바이너리 버전 로드 중...",
+    "loadError": "바이너리 버전을 로드하지 못했습니다"
+  },
+  "passwordValidation": {
+    "requirements": "비밀번호 요구 사항:",
+    "minLength": "최소 {{length}}자 이상",
+    "uppercase": "최소 1자의 대문자 포함",
+    "lowercase": "최소 1자의 소문자 포함",
+    "number": "최소 1자의 숫자 포함",
+    "specialChar": "최소 1자의 특수 문자 포함"
+  },
+  "footer": {
+    "documentation": "설명서",
+    "issues": "이슈",
+    "loading": "로드 중...",
+    "release": "릴리스 v{{version}}",
+    "versionUnavailable": "버전 사용 불가"
+  },
+  "layout": {
+    "logoAlt": "KrakenHashes 로고",
+    "logoAltBranded": "{{appName}} 로고"
+  },
+  "table": {
+    "clearSearch": "검색 지우기",
+    "clearSelection": "선택 지우기",
+    "selectedCount": "{{count}}개 선택됨",
+    "expandRow": "행 확장",
+    "collapseRow": "행 축소",
+    "showAll": "모두 표시",
+    "showFewer": "적게 표시",
+    "showingOf": "{{shown}} / {{total}} 표시 중",
+    "actions": "작업",
+    "noResults": "필터와 일치하는 결과가 없습니다",
+    "rowsPerPage": "페이지당 행 수"
+  },
+  "about": {
+    "title": "KrakenHashes 정보",
+    "versionInfo": {
+      "title": "버전 정보",
+      "release": "릴리스",
+      "backend": "백엔드",
+      "frontend": "프론트엔드",
+      "agent": "에이전트 버전",
+      "api": "API 버전",
+      "database": "데이터베이스",
+      "build": "빌드"
+    },
+    "projectInfo": {
+      "title": "프로젝트 정보",
+      "description": "KrakenHashes는 여러 에이전트에서 비밀번호 크래킹 태스크를 조율하고 관리하도록 설계된 분산 비밀번호 크래킹 관리 시스템입니다.",
+      "license": "이것은 GNU Affero General Public License v3.0(AGPL-3.0)에 따라 라이선스된 오픈 소스 프로젝트입니다.",
+      "githubLink": "GitHub 저장소"
+    },
+    "errors": {
+      "fetchFailed": "버전 정보를 가져올 수 없습니다"
+    },
+    "titleBranded": "{{appName}} 정보"
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "유효한 텍스트가 아닙니다. 정확한 비밀번호는 {{value}}입니다. 표시된 문자는 최선의 추측(Windows-1252)이며 실제 비밀번호가 아닙니다.",
+    "copyExact": "정확한 값 복사(hashcat용)",
+    "copyGuess": "최선의 추측 복사(정확하지 않음)"
+  },
+  "empty": {
+    "noData": "아직 아무것도 없습니다",
+    "noResults": "결과 없음",
+    "noResultsHint": "검색 또는 필터를 조정해 보십시오."
+  },
+  "theme": {
+    "appearance": "모양",
+    "light": "밝음",
+    "dark": "어두움",
+    "system": "시스템"
+  },
+  "status": {
+    "job": {
+      "preparing": "준비 중",
+      "pending": "대기 중",
+      "running": "실행 중",
+      "paused": "일시 중지됨",
+      "processing": "처리 중",
+      "completed": "완료됨",
+      "failed": "실패",
+      "cancelled": "취소됨",
+      "archived": "보관됨"
+    },
+    "task": {
+      "pending": "대기 중",
+      "assigned": "할당됨",
+      "reconnect_pending": "다시 연결 중",
+      "running": "실행 중",
+      "processing": "처리 중",
+      "processing_error": "처리 오류",
+      "completed": "완료됨",
+      "failed": "실패",
+      "cancelled": "취소됨"
+    },
+    "agent": {
+      "pending": "대기 중",
+      "active": "온라인",
+      "inactive": "오프라인",
+      "error": "오류",
+      "disabled": "비활성화됨",
+      "updating": "업데이트 중",
+      "online": "온라인",
+      "offline": "오프라인"
+    },
+    "hashlist": {
+      "uploading": "업로드 중",
+      "processing": "처리 중",
+      "ready": "준비됨",
+      "error": "오류",
+      "deleting": "삭제 중",
+      "ready_with_errors": "오류와 함께 준비됨",
+      "awaiting_validation_decision": "검토 대기 중",
+      "cancelled": "취소됨"
+    },
+    "verification": {
+      "pending": "대기 중",
+      "verified": "검증됨",
+      "failed": "실패",
+      "deleted": "삭제됨"
+    },
+    "cloud": {
+      "requested": "요청됨",
+      "launching": "시작 중",
+      "provisioning": "프로비저닝 중",
+      "syncing": "동기화 중",
+      "running": "실행 중",
+      "draining": "드레인 중",
+      "terminating": "종료 중",
+      "terminated": "종료됨",
+      "failed": "실패"
+    },
+    "loopback": {
+      "waiting": "대기 중",
+      "active": "활성",
+      "completed": "완료됨",
+      "failed": "실패",
+      "cancelled": "취소됨"
+    },
+    "audit": {
+      "info": "정보",
+      "warning": "경고",
+      "critical": "심각"
+    },
+    "diagnostic": {
+      "info": "정보",
+      "warning": "경고",
+      "error": "오류"
+    },
+    "sync": {
+      "pending": "대기 중",
+      "in_progress": "진행 중",
+      "completed": "완료됨",
+      "failed": "실패"
+    },
+    "generic": {
+      "success": "성공",
+      "ok": "OK",
+      "healthy": "정상",
+      "enabled": "활성화됨",
+      "active": "활성",
+      "verified": "검증됨",
+      "warning": "경고",
+      "degraded": "저하됨",
+      "error": "오류",
+      "failed": "실패",
+      "critical": "심각",
+      "info": "정보",
+      "running": "실행 중",
+      "pending": "대기 중",
+      "queued": "큐에 있음",
+      "disabled": "비활성화됨",
+      "inactive": "비활성",
+      "unknown": "알 수 없음"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "사용자 정의 문자 집합(선택사항 - 마스크에서 사용할 ?1에서 ?4까지 정의)",
+    "hexTooltip": "활성화되면 인라인 문자 집합 정의가 16진수 바이트 쌍으로 해석됩니다(예: 41424344 = ABCD). 파일 문자 집합은 영향을 받지 않습니다.",
+    "hexEncodedLabel": "16진수 인코딩 문자 집합",
+    "charsetSlotLabel": "문자 집합 {{slot}} (-{{slot}})",
+    "fileValue_other": "[파일: {{name}} — {{count}} 바이트]",
+    "fileHelperUsed_other": "{{count}} 고유 바이트",
+    "fileHelperUnused_other": "{{count}} 고유 바이트(마스크에서 참조되지 않음)",
+    "placeholderHex": "예: 41424344(16진수 바이트 쌍)",
+    "placeholderPlain": "예: ?u?d 또는 abcdef0123456789",
+    "inlineHelperBytes_other": "{{count}} 바이트",
+    "inlineHelperBytesUnused_other": "{{count}} 바이트(마스크에서 참조되지 않음)",
+    "inlineHelperChars_other": "{{count}}자",
+    "inlineHelperCharsUnused_other": "{{count}}자(마스크에서 참조되지 않음)",
+    "referencedNotDefined": "마스크에서 참조되지만 정의되지 않음",
+    "savedLabel": "저장됨",
+    "typeLabels": {
+      "file": "파일",
+      "hex": "16진수"
+    },
+    "optionUniqueBytes_other": "{{count}} 고유 바이트",
+    "optionBytesHex_other": "{{count}} 바이트(16진수)",
+    "willEnableHex": " — 16진수 모드가 활성화됩니다",
+    "willDisableHex": " — 16진수 모드가 비활성화됩니다",
+    "estimatedKeyspace": "예상 키스페이스: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} 바이트",
+    "slotSizeChars": "?{{slot}} = {{size}}자"
+  },
+  "teamFilter": {
+    "label": "팀",
+    "allTeams": "모든 팀",
+    "adminBadge": "관리자"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "비밀번호는 필수입니다",
+    "currentPasswordLabel": "현재 비밀번호"
+  },
+  "hashDetailModal": {
+    "title": "해시 상세 정보",
+    "hashValue": "해시 값",
+    "copied": "복사됨!",
+    "copyHash": "해시 복사",
+    "copyPlaintext": "평문 복사",
+    "originalHash": "원본 해시(파일에서)",
+    "status": "상태",
+    "cracked": "크래킹됨",
+    "notCracked": "크래킹 안 됨",
+    "hashType": "해시 유형",
+    "typeId": "유형 ID: {{id}}",
+    "username": "사용자명",
+    "crackedText": "크래킹된 텍스트",
+    "hashlist": "해시 목록",
+    "lastUpdated": "마지막 업데이트",
+    "crackedAt": "크래킹된 시간",
+    "hashCopied": "해시가 클립보드에 복사됨",
+    "crackedTextCopied": "크래킹된 텍스트가 클립보드에 복사됨"
+  }
+}

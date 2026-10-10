@@ -1,0 +1,98 @@
+{
+  "title": "Зламані хеші",
+  "page": {
+    "title": "Зламані хеші (Pot)",
+    "description": "Переглядайте всі успішно зламані хеші паролів у всіх списках хешів та клієнтах.",
+    "filterByHashlist": "Перейти до списку хешів",
+    "hashlistPlaceholder": "Виберіть список хешів..."
+  },
+  "table": {
+    "allCrackedHashes": "Усі зламані хеші"
+  },
+  "navigation": {
+    "backToAll": "Повернутися до всіх зламаних хешів",
+    "backToSource": "Повернутися"
+  },
+  "client": {
+    "title": "Зламані хеші - Вид клієнта",
+    "description": "Перегляд зламаних хешів для клієнта: {{clientName}}",
+    "tableTitle": "Зламані хеші для «{{clientName}}»"
+  },
+  "hashlist": {
+    "title": "Зламані хеші - Вид списку хешів",
+    "description": "Перегляд зламаних хешів для списку хешів: {{hashlistName}}",
+    "tableTitle": "Зламані хеші для «{{hashlistName}}»"
+  },
+  "job": {
+    "title": "Зламані хеші для завдання: {{jobName}}",
+    "description": "Переглядайте всі успішно зламані хеші паролів із цього виконання завдання.",
+    "tableTitle": "Зламані хеші - {{jobName}}",
+    "defaultName": "Завдання {{id}}"
+  },
+  "columns": {
+    "originalHash": "Оригінальний хеш",
+    "domain": "Домен",
+    "username": "Ім'я користувача",
+    "password": "Пароль",
+    "hashType": "Тип хешу",
+    "actions": "Дії"
+  },
+  "search": {
+    "placeholder": "Пошук у базі даних...",
+    "filterPlaceholder": "Фільтрувати цю сторінку...",
+    "button": "Пошук",
+    "resultsFound_few": "Знайдено {{count}} результати",
+    "resultsFound_many": "Знайдено {{count}} результатів",
+    "resultsFound_one": "Знайдено {{count}} результат",
+    "resultsFound_other": "Знайдено {{count}} результатів",
+    "noResults": "Результатів не знайдено",
+    "searching": "Пошук..."
+  },
+  "export": {
+    "hashPass": "Хеш:Пароль",
+    "userPass": "Користувач:Пароль",
+    "username": "Ім'я користувача",
+    "password": "Пароль",
+    "domainUser": "Домен\\Користувач",
+    "domainUserPass": "Домен\\Користувач:Пароль",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "Експортувати видимі результати",
+    "downloaded": "Завантажено {{filename}}",
+    "downloadFailed": "Помилка завантаження файлу"
+  },
+  "tooltips": {
+    "copyHash": "Копіювати хеш:пароль",
+    "copyDomain": "Клацніть, щоб скопіювати домен",
+    "copyUsername": "Клацніть, щоб скопіювати ім'я користувача",
+    "copyPassword": "Клацніть, щоб скопіювати пароль"
+  },
+  "dialogs": {
+    "loadAllTitle": "Завантажити всі результати?",
+    "loadAllMessage": "Завантаження всіх {{value}} результатів може зайняти значну кількість часу та вплинути на продуктивність. Ви впевнені, що хочете продовжити?",
+    "loadingAll": "Завантаження всіх результатів. Це може зайняти деякий час...",
+    "cancel": "Скасувати",
+    "loadAll": "Завантажити все"
+  },
+  "pagination": {
+    "all": "Усі"
+  },
+  "notifications": {
+    "copiedToClipboard": "Скопійовано в буфер обміну",
+    "exported": "Експортовано зламані хеші"
+  },
+  "errors": {
+    "loadFailed": "Помилка завантаження зламаних хешів",
+    "loadClientFailed": "Помилка завантаження інформації про клієнта",
+    "loadHashlistFailed": "Помилка завантаження інформації про список хешів",
+    "loadJobFailed": "Помилка завантаження інформації про завдання"
+  },
+  "filter": {
+    "filteredBy": "Відфільтровано за {{param}}: {{value}}"
+  },
+  "breadcrumb": "Зламані хеші",
+  "sourceLabel": {
+    "job": "Завдання",
+    "client": "Клієнт",
+    "hashlist": "Список хешів"
+  }
+}

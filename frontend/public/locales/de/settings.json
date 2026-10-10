@@ -104,7 +104,9 @@
   "common": {
     "cancel": "Abbrechen",
     "never": "Nie",
-    "invalidDate": "Ungültiges Datum"
+    "invalidDate": "Ungültiges Datum",
+    "create": "Erstellen",
+    "delete": "Löschen"
   },
   "mfa": {
     "title": "Zwei-Faktor-Authentifizierung",
@@ -117,19 +119,142 @@
       "title": "Authentifizierungsmethoden",
       "totp": "Authentifizierungs-App",
       "email": "E-Mail",
-      "backupCodes": "Backup-Codes"
+      "backupCodes": "Backup-Codes",
+      "passkey": "Passkey"
     },
     "setup": {
       "scanQR": "Scannen Sie diesen QR-Code mit Ihrer Authentifizierungs-App",
       "enterCode": "Geben Sie den Code aus Ihrer App zur Bestätigung ein",
       "backupCodesGenerated": "Speichern Sie diese Backup-Codes an einem sicheren Ort"
+    },
+    "methodSelection": {
+      "title": "MFA-Methode wählen",
+      "description": "Wählen Sie, wie Sie Ihre Identität beim Anmelden überprüfen möchten.",
+      "authenticatorDescription": "Verwenden Sie einen zeitgesteuerten Code aus einer Authentifizierungs-App wie Google Authenticator, Authy oder 1Password.",
+      "passkeyDescription": "Verwenden Sie einen Sicherheitsschlüssel, Fingerabdruck, Gesichtserkennung oder Geräte-PIN für schnelle und sichere Authentifizierung."
+    },
+    "card": {
+      "title": "Multi-Faktor-Authentifizierung",
+      "requiredByPolicy": "MFA ist gemäß der Sicherheitsrichtlinie Ihrer Organisation erforderlich",
+      "enableLabel": "Multi-Faktor-Authentifizierung aktivieren",
+      "preferredMethod": "Bevorzugte MFA-Methode",
+      "preferredMethodNames": {
+        "authenticator": "Authentifizierungs-App",
+        "email": "E-Mail",
+        "passkey": "Passkey"
+      },
+      "emailAuth": "E-Mail-Authentifizierung",
+      "emailRequired": "Erforderlich für die Kontosicherheit",
+      "optional": "Optional",
+      "required": "Erforderlich",
+      "configured": "Konfiguriert",
+      "notConfigured": "Nicht konfiguriert",
+      "disable": "Deaktivieren",
+      "setup": "Einrichten",
+      "passkeys": "Passkeys",
+      "passkeysRegistered_one": "{{count}} Passkey registriert",
+      "passkeysRegistered_other": "{{count}} Passkeys registriert",
+      "addPasskey": "Passkey hinzufügen",
+      "passkeyAdded": "Hinzugefügt: {{date}}",
+      "passkeyLastUsed": " | Zuletzt verwendet: {{date}}",
+      "rename": "Umbenennen",
+      "delete": "Löschen",
+      "passkeysUnsupported": "Passkeys werden in diesem Browser nicht unterstützt. Bitte verwenden Sie einen modernen Browser, um die Passkey-Authentifizierung zu aktivieren.",
+      "backupCodesRemaining_one": "{{count}} Backup-Code verbleibend",
+      "backupCodesRemaining_other": "{{count}} Backup-Codes verbleibend",
+      "noBackupCodes": "Keine Backup-Codes verfügbar",
+      "regenerate": "Erneut generieren",
+      "generate": "Generieren"
+    },
+    "dialogs": {
+      "cancel": "Abbrechen",
+      "close": "Schließen",
+      "warning": "Warnung",
+      "setupAuthenticatorTitle": "Authentifizierungs-App einrichten",
+      "qrAlt": "QR-Code",
+      "manualEntry": "Wenn Sie den QR-Code nicht scannen können, geben Sie diesen Code manuell ein: <strong>{{secret}}</strong>",
+      "scanInstructions": "Scannen Sie diesen QR-Code mit Ihrer Authentifizierungs-App (z. B. Google Authenticator, Authy)",
+      "verificationCode": "Bestätigungscode",
+      "verificationPlaceholder": "Geben Sie den 6-stelligen Code ein",
+      "verify": "Überprüfen",
+      "backupCodesTitle": "Backup-Codes",
+      "generateBackupPrompt": "Generieren Sie Backup-Codes zur Verwendung, wenn Sie nicht auf Ihre primäre Authentifizierungsmethode zugreifen können",
+      "generateBackupCodes": "Backup-Codes generieren",
+      "saveCodesWarning": "Speichern Sie diese Codes an einem sicheren Ort. Sie werden nicht erneut angezeigt!",
+      "copied": "Kopiert!",
+      "copyAll": "ALLE CODES KOPIEREN",
+      "regenerateWarning": "Dies macht alle vorhandenen Backup-Codes ungültig. Sind Sie sicher, dass Sie neue generieren möchten?",
+      "generateNewCodes": "Neue Codes generieren",
+      "disableAuthWarning": "Sind Sie sicher, dass Sie die Authentifizierungs-App deaktivieren möchten? Dies entfernt sie von Ihrem Konto und Sie müssen sie später erneut einrichten, wenn Sie sie verwenden möchten.",
+      "disableAuthenticator": "Authentifizierungs-App deaktivieren",
+      "addPasskeyTitle": "Passkey hinzufügen",
+      "addPasskeyDescription": "Registrieren Sie einen neuen Passkey (Sicherheitsschlüssel, Fingerabdruck oder Gerät) für die Zwei-Faktor-Authentifizierung.",
+      "passkeyName": "Passkey-Name",
+      "passkeyNamePlaceholder": "z. B. YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn wird in diesem Browser nicht unterstützt. Bitte verwenden Sie einen modernen Browser.",
+      "webauthnUnsupportedBrowsers": "WebAuthn wird in diesem Browser nicht unterstützt. Bitte verwenden Sie einen modernen Browser wie Chrome, Firefox, Safari oder Edge.",
+      "registering": "Wird registriert...",
+      "registerPasskey": "Passkey registrieren",
+      "renamePasskeyTitle": "Passkey umbenennen",
+      "saving": "Wird gespeichert...",
+      "save": "Speichern",
+      "deletePasskeyTitle": "Passkey löschen",
+      "deletePasskeyConfirm": "Sind Sie sicher, dass Sie den Passkey \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleting": "Wird gelöscht...",
+      "delete": "Löschen",
+      "setupPasskeyTitle": "Passkey für MFA einrichten",
+      "setupPasskeyDescription": "Registrieren Sie einen Passkey, um die Multi-Faktor-Authentifizierung zu aktivieren. Verwenden Sie einen Sicherheitsschlüssel, Fingerabdruck, Gesichtserkennung oder Geräte-PIN.",
+      "registerAndEnable": "Registrieren & MFA aktivieren"
+    },
+    "messages": {
+      "loadFailed": "MFA-Einstellungen konnten nicht geladen werden",
+      "disabled": "MFA erfolgreich deaktiviert",
+      "passkeyBrowserRequired": "Passkey-Authentifizierung ist erforderlich, aber Ihr Browser unterstützt WebAuthn nicht. Bitte verwenden Sie einen modernen Browser wie Chrome, Firefox, Safari oder Edge, um MFA zu aktivieren.",
+      "enabledEmail": "MFA mit E-Mail-Authentifizierung aktiviert",
+      "noMethods": "Keine MFA-Methoden verfügbar. Bitte wenden Sie sich an Ihren Administrator.",
+      "toggleFailed": "MFA konnte nicht umgeschaltet werden",
+      "passkeyNameRequired": "Bitte geben Sie einen Namen für den Passkey ein",
+      "passkeyRegisteredSaveCodes": "Passkey erfolgreich registriert! Bitte speichern Sie Ihre Backup-Codes.",
+      "passkeyRegisteredNoCodes": "Passkey erfolgreich registriert. Sie können Backup-Codes in den MFA-Einstellungen generieren.",
+      "authenticatorSetupFailed": "Authentifizierungs-App konnte nicht eingerichtet werden",
+      "authenticatorSetup": "Authentifizierungs-App wurde erfolgreich eingerichtet",
+      "verifyFailed": "Code konnte nicht überprüft werden",
+      "backupCodesGenerated": "Neue Backup-Codes wurden generiert",
+      "backupCodesFailed": "Backup-Codes konnten nicht generiert werden",
+      "preferredUpdated": "Bevorzugte MFA-Methode erfolgreich aktualisiert",
+      "preferredFailed": "Bevorzugte MFA-Methode konnte nicht aktualisiert werden",
+      "disableAuthFailed": "Authentifizierungs-App konnte nicht deaktiviert werden",
+      "authenticatorDisabled": "Authentifizierungs-App wurde erfolgreich deaktiviert",
+      "newBackupCodesFailed": "Neue Backup-Codes konnten nicht generiert werden",
+      "newBackupCodesGenerated": "Neue Backup-Codes wurden erfolgreich generiert",
+      "invalidResponse": "Ungültiges Antwortformat vom Server",
+      "passkeyRegistered": "Passkey erfolgreich registriert",
+      "passkeyDeleted": "Passkey erfolgreich gelöscht",
+      "passkeyDeleteFailed": "Passkey konnte nicht gelöscht werden",
+      "passkeyRenamed": "Passkey erfolgreich umbenannt",
+      "passkeyRenameFailed": "Passkey konnte nicht umbenannt werden"
     }
   },
   "linkedAccounts": {
     "title": "Verknüpfte Konten",
     "noAccounts": "Keine verknüpften Konten",
     "link": "Konto verknüpfen",
-    "unlink": "Verknüpfung aufheben"
+    "unlink": "Verknüpfung aufheben",
+    "description": "Externe Authentifizierungsanbieter, die mit Ihrem Konto verknüpft sind",
+    "noAccountsMessage": "Es sind keine externen Konten mit Ihrem Profil verknüpft. Sie können Konten verknüpfen, indem Sie sich über einen SSO-Anbieter anmelden.",
+    "emailLabel": "E-Mail: {{email}}",
+    "usernameLabel": "Benutzername: {{username}}",
+    "lastLoginLinked": "Letzte Anmeldung: {{lastLogin}} | Verknüpft: {{linked}}",
+    "unlinkTooltip": "Konto trennen",
+    "errors": {
+      "loadFailed": "Verknüpfte Konten konnten nicht geladen werden",
+      "unlinkFailed": "Konto konnte nicht getrennt werden"
+    },
+    "unlinkDialog": {
+      "title": "Konto trennen",
+      "warning": "Sie können sich nicht mehr über diesen Anbieter anmelden.",
+      "confirmation": "Möchten Sie Ihr {{provider}}-Konto wirklich trennen?"
+    }
   },
   "notifications": {
     "title": "Benachrichtigungen",
@@ -148,11 +273,112 @@
       "light": "Hell",
       "dark": "Dunkel",
       "system": "System"
-    }
+    },
+    "languageHelper": "Gilt nur für diesen Browser.",
+    "themeHelper": "System folgt Ihrer Betriebssystemeinstellung."
   },
   "errors": {
     "updateFailed": "Fehler beim Aktualisieren der Einstellungen",
     "passwordMismatch": "Passwörter stimmen nicht überein",
     "invalidPassword": "Ungültiges aktuelles Passwort"
+  },
+  "nav": {
+    "description": "Ihr Konto, Sicherheit und Einstellungen.",
+    "groupAccount": "Konto",
+    "profile": "Profil",
+    "profileDesc": "E-Mail-Adresse, Sprache und Darstellung.",
+    "security": "Sicherheit",
+    "securityDesc": "Passwort, Zwei-Faktor-Authentifizierung, verknüpfte Konten und das CA-Zertifikat.",
+    "notifications": "Benachrichtigungen",
+    "notificationsDesc": "Welche Ereignisse Sie erreichen und wie.",
+    "api": "API-Schlüssel",
+    "apiDesc": "Persönlicher Schlüssel für die HTTP-API.",
+    "charsets": "Gespeicherte Zeichensätze",
+    "charsetsDesc": "Benutzerdefinierte Zeichensätze für Masken-Angriffe."
+  },
+  "savedCharsets": {
+    "title": "Gespeicherte Zeichensätze",
+    "description": "Verwalten Sie Ihre persönlichen benutzerdefinierten Zeichensätze zur Verwendung in maskenbasierten Angriffen. Unterstützt Inline-Definitionen und binäre .hcchr-Zeichensatzdateien.",
+    "createCharset": "Zeichensatz erstellen",
+    "sections": {
+      "mine": "Meine Zeichensätze",
+      "team": "Team-Zeichensätze",
+      "global": "Globale Zeichensätze",
+      "globalSubtitle": "Diese Zeichensätze werden von Administratoren verwaltet und sind für alle verfügbar."
+    },
+    "columns": {
+      "name": "Name",
+      "team": "Team",
+      "definition": "Definition / Info",
+      "description": "Beschreibung",
+      "created": "Erstellt"
+    },
+    "typeLabels": {
+      "file": "Datei",
+      "hex": "Hex"
+    },
+    "uniqueBytes_one": "{{count}} eindeutiges Byte",
+    "uniqueBytes_other": "{{count}} eindeutige Bytes",
+    "hexBytes_one": "{{count}} Byte",
+    "hexBytes_other": "{{count}} Bytes",
+    "rowActions": {
+      "edit": "Bearbeiten",
+      "delete": "Löschen"
+    },
+    "empty": "Keine Zeichensätze in dieser Kategorie.",
+    "dialogs": {
+      "create": {
+        "title": "Persönlichen Zeichensatz erstellen"
+      },
+      "edit": {
+        "title": "Zeichensatz bearbeiten"
+      },
+      "delete": {
+        "title": "Zeichensatz löschen",
+        "confirmation": "Möchten Sie den Zeichensatz \"{{name}}\" wirklich löschen?"
+      },
+      "modeToggle": {
+        "inline": "Inline-Definition",
+        "file": "Datei-Upload (.hcchr)"
+      },
+      "fields": {
+        "name": "Name",
+        "namePlaceholder": "z. B. DES-Vollzeichensatz",
+        "definition": "Definition",
+        "definitionPlaceholderHex": "z. B. 41424344 (Hex-Byte-Paare)",
+        "definitionPlaceholderPlain": "z. B. ?u?d oder abcdef0123456789",
+        "definitionHelperHex": "Hex-Byte-Paare — jedes Paar = ein Zeichensatz-Byte. {{bytes}}",
+        "definitionHelperHexBytes_one": "{{count}} Byte",
+        "definitionHelperHexBytes_other": "{{count}} Bytes",
+        "definitionHelperPlain": "Hashcat-Zeichensatzdefinition. Verwenden Sie ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H oder wörtliche Zeichen.",
+        "hexTooltip": "Wenn aktiviert, wird die Definition als Hex-Byte-Paare interpretiert (z. B. 41424344 = Bytes A, B, C, D). Aufträge mit diesem Zeichensatz fügen automatisch --hex-charset hinzu.",
+        "hexLabel": "Hex-kodierte Definition",
+        "selectFile": ".hcchr-Datei auswählen",
+        "fileSizeBytes_one": "{{count}} Byte",
+        "fileSizeBytes_other": "{{count}} Bytes",
+        "fileHelperText": "Binäre Zeichensatzdatei mit rohen Byte-Werten (max. 1023 Bytes, bis zu 256 eindeutige Bytes).",
+        "fileCharsetInfo_one": "Datei-Zeichensatz: {{count}} eindeutiges Byte. Es können nur Name und Beschreibung bearbeitet werden.",
+        "fileCharsetInfo_other": "Datei-Zeichensatz: {{count}} eindeutige Bytes. Es können nur Name und Beschreibung bearbeitet werden.",
+        "description": "Beschreibung",
+        "descriptionPlaceholder": "Optionale Beschreibung, wofür dieser Zeichensatz verwendet wird"
+      },
+      "update": "Aktualisieren",
+      "upload": "Hochladen"
+    },
+    "messages": {
+      "createSuccess": "Zeichensatz erfolgreich erstellt",
+      "uploadSuccess": "Datei-Zeichensatz erfolgreich hochgeladen",
+      "updateSuccess": "Zeichensatz erfolgreich aktualisiert",
+      "deleteSuccess": "Zeichensatz erfolgreich gelöscht"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Nur .hcchr-Dateien sind zulässig",
+      "fileTooLarge": "Datei zu groß (max. 1023 Bytes — hashcat-Lesepuffer-Grenzwert)",
+      "nameRequired": "Name ist erforderlich",
+      "definitionRequired": "Definition ist erforderlich",
+      "selectFile": "Bitte wählen Sie eine .hcchr-Datei",
+      "deleteFailed": "Zeichensatz konnte nicht gelöscht werden: {{message}}",
+      "globalDeleteForbidden": "Globale Zeichensätze können nur von Administratoren im Admin-Panel gelöscht werden"
+    }
   }
 }

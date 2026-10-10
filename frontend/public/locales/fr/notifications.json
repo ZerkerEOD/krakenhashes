@@ -7,18 +7,14 @@
   "markRead": "Marquer comme lu",
   "viewAll": "Voir toutes les notifications",
   "deleteSelected": "Supprimer {{count}} sélectionné",
-  "deleteSelected_plural": "Supprimer {{count}} sélectionnés",
   "selectAll": "Tout sélectionner",
-
   "aria": {
     "bellButton": "Afficher les notifications"
   },
-
   "center": {
     "title": "Centre de notifications",
     "description": "Consultez et gérez vos notifications"
   },
-
   "filters": {
     "category": "Catégorie",
     "status": "Statut",
@@ -27,14 +23,12 @@
     "unread": "Non lues",
     "read": "Lues"
   },
-
   "categories": {
     "job": "Job",
     "agent": "Agent",
     "security": "Sécurité",
     "system": "Système"
   },
-
   "types": {
     "header": "Type de notification",
     "job_started": "Job démarré",
@@ -49,7 +43,6 @@
     "security_password_changed": "Mot de passe modifié",
     "webhook_failure": "Échec du webhook"
   },
-
   "typeDescriptions": {
     "job_started": "Quand un job démarre",
     "job_completed": "Quand un job se termine avec succès",
@@ -63,13 +56,11 @@
     "security_password_changed": "Quand le mot de passe est modifié (obligatoire)",
     "webhook_failure": "Quand l'envoi d'un webhook échoue"
   },
-
   "channels": {
     "inApp": "Dans l'application",
     "email": "E-mail",
-    "webhook": "Webhook"
+    "webhook": "webhook"
   },
-
   "settings": {
     "title": "Paramètres de notification",
     "description": "Configurez comment et quand vous recevez des notifications",
@@ -87,7 +78,6 @@
     "noWebhooksConfigured": "Aucun webhook actif configuré",
     "toggleAll": "Tout activer/désactiver"
   },
-
   "webhooks": {
     "title": "Configuration des webhooks",
     "description": "Gérez vos intégrations webhook",
@@ -95,7 +85,7 @@
     "url": "URL",
     "secret": "Secret",
     "secretPlaceholder": "Secret webhook facultatif",
-    "isActive": "Active",
+    "isActive": "Actif",
     "notificationTypes": "Types de notification",
     "allTypes": "Tous les types",
     "retryCount": "Nombre de tentatives",
@@ -124,7 +114,6 @@
       "nameAndUrl": "Le nom et l'URL sont requis"
     }
   },
-
   "admin": {
     "title": "Paramètres de notification",
     "globalWebhook": {
@@ -152,7 +141,6 @@
       "empty": "Aucun webhook utilisateur configuré"
     }
   },
-
   "auditLog": {
     "title": "Journal d'audit",
     "description": "Événements de sécurité et événements critiques pour tous les utilisateurs",
@@ -187,15 +175,14 @@
     },
     "errors": {
       "loadFailed": "Échec du chargement des journaux d'audit"
-    }
+    },
+    "system": "Système"
   },
-
   "systemAlert": {
     "title": "Alerte système",
     "dismiss": "Ignorer",
     "dismissAll": "Tout ignorer"
   },
-
   "errors": {
     "fetchFailed": "Échec du chargement des notifications",
     "markReadFailed": "Impossible de marquer la notification comme lue",
@@ -206,7 +193,6 @@
     "webhookDeleteFailed": "Échec de la suppression du webhook",
     "webhookSaveFailed": "Échec de l'enregistrement du webhook"
   },
-
   "common": {
     "actions": "Actions",
     "active": "Actif",

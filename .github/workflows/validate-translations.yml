@@ -48,6 +48,11 @@ jobs:
           fi
           echo "All JSON files are valid"
 
+      - name: Validate placeholders, markup and plural forms
+        # Fails on broken {{placeholders}}, mismatched <tags>, empty strings or
+        # missing plural categories. Missing keys stay a warning (next step).
+        run: node frontend/scripts/i18n/validate.mjs --allow-missing
+
       - name: Check for missing keys (compared to English)
         run: |
           echo "Checking for missing translation keys..."
@@ -62,6 +67,8 @@ jobs:
 
           for lang_dir in frontend/public/locales/*/; do
             lang=$(basename "$lang_dir")
+            # Helper folders (e.g. _context translator notes) are not languages
+            case "$lang" in _*) continue ;; esac
 
             # Skip English (reference)
             if [ "$lang" = "en" ]; then
@@ -121,6 +128,8 @@ jobs:
 
           for lang_dir in frontend/public/locales/*/; do
             lang=$(basename "$lang_dir")
+            # Helper folders (e.g. _context translator notes) are not languages
+            case "$lang" in _*) continue ;; esac
 
             if [ "$lang" = "en" ]; then
               echo "| English | 100% | Reference |" >> $GITHUB_STEP_SUMMARY

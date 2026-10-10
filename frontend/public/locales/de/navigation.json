@@ -9,6 +9,7 @@
     "wordlists": "Wortlisten",
     "rules": "Regeln",
     "clientManagement": "Kundenverwaltung",
+    "teams": "Teams",
     "analytics": "Analysen",
     "about": "Über",
     "logout": "Abmelden"
@@ -17,21 +18,35 @@
     "title": "Administration",
     "settings": "Admin-Einstellungen",
     "userManagement": "Benutzerverwaltung",
+    "customCharsets": "Benutzerdefinierte Zeichensätze",
     "presetJobs": "Vorlagen-Aufträge",
     "jobWorkflows": "Auftrags-Workflows",
     "diagnostics": "Diagnose",
     "auditLog": "Audit-Protokoll",
     "jobAnalytics": "Auftragsanalysen",
-    "cloudFleet": "Cloud Fleet"
+    "teamManagement": "Teamverwaltung",
+    "cloudFleet": "Cloud-Flotte",
+    "binaries": "Binärdateien",
+    "hashTypes": "Hash-Typen",
+    "vouchers": "Registrierungscodes",
+    "clients": "Kunden",
+    "teams": "Teams"
   },
   "userMenu": {
     "userSettings": "Benutzereinstellungen",
+    "savedCharsets": "Gespeicherte Zeichensätze",
     "logout": "Abmelden",
     "user": "Benutzer"
   },
   "aria": {
     "toggleDrawer": "Menü ein-/ausblenden",
     "mainNavigation": "Hauptnavigation",
-    "adminNavigation": "Admin-Navigation"
+    "adminNavigation": "Admin-Navigation",
+    "downloadCaCert": "CA-Zertifikat herunterladen"
+  },
+  "groups": {
+    "resources": "Ressourcen",
+    "peopleAccess": "Personen & Zugriff",
+    "operations": "Betrieb"
   }
 }

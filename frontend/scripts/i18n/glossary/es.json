@@ -1,0 +1,397 @@
+{
+  "language": "es",
+  "formality": "Informal 'tú' address throughout the UI (never 'usted', never 'vos') — confirmed by the existing translations: 'Estás seguro?', 'Ingresa tu contraseña actual', 'Guarda estos códigos...'. A handful of newer cloud-provisioning strings in admin.json slipped into formal 'usted' imperatives ('Empiece con un límite...', 'Compruebe que estas instancias...', 'Actívelo solo para clientes...') — that is an existing inconsistency in the app, not a precedent to follow. New copy should use 'tú'.",
+  "styleNotes": "Keep hashcat/security jargon that pentesters already use in English exactly as-is (hash, SAN, webhook, loopback) — these ship untranslated in the app today, including loopback, which is NOT translated as 'retroalimentación' anywhere. Prefer the short, established UI term over a literal dictionary translation: 'wordlist' is always 'Diccionario' (never 'lista de palabras'), 'crack/cracked' is always 'descifrar/descifrado' (never 'crackear/crackeado' — that slang does not appear anywhere in the shipped UI), and 'potfile' is a bare lowercase loanword ('el potfile', 'Configuración de potfile'), never 'archivo potfile'. Favor compact, UI-friendly phrasing for labels and columns (e.g. 'Máx. agentes', 'Espacio de claves') and reserve fuller descriptive phrases for help text and tooltips. Some existing locale files (common.json, jobs.json, analytics.json, and parts of admin.json) are missing accents and ñ tildes due to an old encoding gap (e.g. 'Configuracion', 'contrasenas') — that is a known defect in those files, not a style to copy; write all new strings, and this glossary, with correct orthography (Configuración, contraseñas, Período, Entropía, etc.).",
+  "terms": {
+    "hash": {
+      "translation": "Hash",
+      "keepEnglish": true,
+      "note": "Standard loanword in Spanish security/pentest contexts; never translated anywhere in the app ('Hash original', 'Tipo de hash', 'Hash:Contraseña')."
+    },
+    "hashlist": {
+      "translation": "Lista de hashes",
+      "keepEnglish": false,
+      "note": "Product concept; exact match of existing usage throughout (jobs.columns.hashlist, pot.json, navigation 'Listas de hashes')."
+    },
+    "hash type": {
+      "translation": "Tipo de hash",
+      "keepEnglish": false,
+      "note": "e.g., NTLM (modo 1000) — keep hash type names themselves in English. Exact match everywhere ('Tipo de hash')."
+    },
+    "crack": {
+      "translation": "Descifrar",
+      "keepEnglish": false,
+      "note": "Changed from the draft's 'Crackear': the shipped UI consistently uses descifrar/descifrado for this concept (page title 'Hashes descifrados', 'Tasa de descifrado', 'crackRate') and never uses crackear/crackeado anywhere. Follow the app's established, more formal convention rather than pentest slang."
+    },
+    "cracked": {
+      "translation": "Descifrado",
+      "keepEnglish": false,
+      "note": "Changed from 'Crackeado' — see 'crack'. Exact match of hashlists.hashDetails.cracked = 'Descifrado' and pot.json's 'crackedAt'."
+    },
+    "cracked hashes": {
+      "translation": "Hashes descifrados",
+      "keepEnglish": false,
+      "note": "Changed from 'Hashes crackeados' — exact match of the existing page title and nav label 'Hashes descifrados' (pot.json, navigation.menu.crackedHashes, dashboard.stats.crackedHashes)."
+    },
+    "plaintext": {
+      "translation": "Contraseña",
+      "keepEnglish": false,
+      "note": "Changed from 'Contraseña recuperada' — the UI's actual field/column label for the recovered password is simply 'Contraseña' (pot.columns.password, hashlists.hashDetails.password). Use 'texto plano' only for generic technical copy contrasting plaintext vs. a hash value (as analytics.json's internalUseOnly warning already does), not as the field label."
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "Changed from 'Archivo potfile' (keepEnglish:false) — the app always uses the bare, lowercase loanword 'potfile' untranslated ('Configuración de potfile', 'Habilitar potfile', export label 'Potfile (Hashcat)'), never 'archivo potfile'."
+    },
+    "client potfile": {
+      "translation": "Potfile del cliente",
+      "keepEnglish": false,
+      "note": "Changed from 'Archivo potfile del cliente' to match the bare-loanword convention above; only 'client' gets translated, 'potfile' stays as-is, same pattern as 'hash' inside 'Tipo de hash'."
+    },
+    "wordlist": {
+      "translation": "Diccionario",
+      "keepEnglish": false,
+      "note": "Changed from 'Lista de palabras' — this was the most significant fix: the shipped UI uses 'Diccionario'/'Diccionarios' everywhere (nav menu 'Diccionarios', job form 'Diccionario', job details 'Primer diccionario'/'Segundo diccionario'). The literal translation is never used in the app."
+    },
+    "rule": {
+      "translation": "Regla",
+      "keepEnglish": false,
+      "note": "hashcat rule; singular. Matches jobs.form.rules / 'Reglas'."
+    },
+    "rule file": {
+      "translation": "Archivo de reglas",
+      "keepEnglish": false,
+      "note": "File containing hashcat rules; no existing usage to contradict this, sets the convention."
+    },
+    "mask": {
+      "translation": "Máscara",
+      "keepEnglish": false,
+      "note": "hashcat mask pattern such as ?u?l?l?d; exact match throughout jobs.json and analytics.json."
+    },
+    "charset": {
+      "translation": "Conjunto de caracteres",
+      "keepEnglish": false,
+      "note": "Custom character set for masks; not yet present in any locale file, so this entry sets the convention."
+    },
+    "attack mode": {
+      "translation": "Modo de ataque",
+      "keepEnglish": false,
+      "note": "straight, combination, brute-force, or hybrid. Exact match of jobs.form.attackMode and validation copy ('El modo de ataque de combinación...')."
+    },
+    "brute force": {
+      "translation": "Fuerza bruta",
+      "keepEnglish": false,
+      "note": "Matches attackModes.bruteforce = 'Fuerza bruta' and the brute-force validation message."
+    },
+    "dictionary attack": {
+      "translation": "Ataque de diccionario",
+      "keepEnglish": false,
+      "note": "Straight wordlist attack. Full descriptive form for help/tooltip copy; the compact attack-mode table cell is just 'Diccionario' (see wordlist note) — use that short form where space is tight, this fuller phrase in prose."
+    },
+    "hybrid attack": {
+      "translation": "Ataque híbrido",
+      "keepEnglish": false,
+      "note": "Wordlist + mask combination. Matches the 'Hibrido' used in attackModes.hybridWordlistMask ('Hibrido diccionario + mascara')."
+    },
+    "association attack": {
+      "translation": "Ataque de asociación",
+      "keepEnglish": false,
+      "note": "hashcat mode 9. Matches validation copy 'modo de ataque de asociación' and the compact table label 'Asociación'."
+    },
+    "keyspace": {
+      "translation": "Espacio de claves",
+      "keepEnglish": false,
+      "note": "Total candidates in an attack. Exact match everywhere (columns.keyspace, details.estimatedKeyspace, etc.)."
+    },
+    "effective keyspace": {
+      "translation": "Espacio de claves efectivo",
+      "keepEnglish": false,
+      "note": "After rule multiplication. Exact match of jobs.common.effectiveKeyspace / layerTable.effectiveKeyspace."
+    },
+    "chunk": {
+      "translation": "Fragmento",
+      "keepEnglish": false,
+      "note": "Slice of keyspace. Matches jobs.common.chunkSize = 'Tamaño de fragmento' and the chunk-size validation messages."
+    },
+    "task": {
+      "translation": "Tarea",
+      "keepEnglish": false,
+      "note": "One chunk assignment on an agent. Matches jobs.details.tasks, activeTasksTable 'ID de tarea', etc."
+    },
+    "job": {
+      "translation": "Trabajo",
+      "keepEnglish": false,
+      "note": "Cracking job against a hashlist; standard throughout ('Trabajos', 'Crear trabajo')."
+    },
+    "preset job": {
+      "translation": "Trabajo predefinido",
+      "keepEnglish": false,
+      "note": "Changed from 'Trabajo preestablecido' — the existing nav label is 'Trabajos predefinidos' (navigation.admin.presetJobs), not 'preestablecido'."
+    },
+    "workflow": {
+      "translation": "Flujo de trabajo",
+      "keepEnglish": false,
+      "note": "Ordered sequence of preset jobs. Matches navigation.admin.jobWorkflows = 'Flujos de trabajo' (plural there; singular for this glossary entry)."
+    },
+    "loopback": {
+      "translation": "Loopback",
+      "keepEnglish": true,
+      "note": "Changed from 'Retroalimentación' (keepEnglish:false) — the shipped loopback feature keeps the English term verbatim as the UI label itself (admin.json: 'loopback': 'Loopback', stepLabel 'Loopback', 'Habilitar loopback para todos los pasos elegibles'). It is not translated at all, not even as a secondary option."
+    },
+    "priority": {
+      "translation": "Prioridad",
+      "keepEnglish": false,
+      "note": "Scheduling priority. Standard, matches everywhere."
+    },
+    "max agents": {
+      "translation": "Máx. agentes",
+      "keepEnglish": false,
+      "note": "Matches the majority existing form (jobs.columns.maxAgents / common.maxAgents = 'Max. agentes'); dashboard.jobsTable uses the reversed 'Agentes máx.' in one spot — an existing minor inconsistency, prefer this more common word order."
+    },
+    "overflow": {
+      "translation": "Desbordamiento",
+      "keepEnglish": false,
+      "note": "Extra agents beyond limit. Exact match of admin.agentOverflow.title = 'Asignación de desbordamiento de agentes'."
+    },
+    "benchmark": {
+      "translation": "Prueba de velocidad",
+      "keepEnglish": false,
+      "note": "hashcat speed test. admin settings mix this with the bare loanword 'benchmark' in a couple of keys (benchmarkCache, benchmarkHistoryRetention); prefer the translated 'prueba de velocidad' for new UI text, matching the existing speedtestTimeout translation."
+    },
+    "hash rate": {
+      "translation": "Tasa de hash",
+      "keepEnglish": false,
+      "note": "Speed in hashes per second. Exact match everywhere (agents.columns.hashRate, dashboard, monitoring)."
+    },
+    "progress": {
+      "translation": "Progreso",
+      "keepEnglish": false,
+      "note": "Percentage of keyspace completed. Standard, matches everywhere."
+    },
+    "agent": {
+      "translation": "Agente",
+      "keepEnglish": false,
+      "note": "Machine running the KrakenHashes agent and hashcat. Standard, matches everywhere."
+    },
+    "device": {
+      "translation": "Dispositivo",
+      "keepEnglish": false,
+      "note": "GPU/CPU on an agent. Matches agents.hardware.* and messages.noDevicesDetected."
+    },
+    "claim code": {
+      "translation": "código de registro",
+      "keepEnglish": false,
+      "note": "Agent registration code; not a coupon (vale)"
+    },
+    "voucher": {
+      "translation": "código de registro",
+      "keepEnglish": false,
+      "note": "Agent registration code; not a coupon (vale)"
+    },
+    "heartbeat": {
+      "translation": "Latido",
+      "keepEnglish": false,
+      "note": "Periodic agent check-in. Not present in any locale file (backend-only concept today); kept as the standard technical term in case it's ever surfaced in UI."
+    },
+    "offline buffer": {
+      "translation": "Período de gracia",
+      "keepEnglish": false,
+      "note": "Grace period before an agent is reported offline. Matches the established 'Periodo de gracia de X' pattern already used for other grace periods (reconnectGrace, commissioningGrace) — written here with the accent those two admin.json keys happen to be missing."
+    },
+    "auto-update": {
+      "translation": "Actualización automática",
+      "keepEnglish": false,
+      "note": "Automatic agent binary update. Not yet present in any locale file; sets the convention for the agent auto-update feature."
+    },
+    "binary": {
+      "translation": "Binario",
+      "keepEnglish": false,
+      "note": "hashcat binary version managed by the server. Exact match throughout admin.binaryManagement ('Gestión de binarios', 'Agregar binario')."
+    },
+    "client": {
+      "translation": "Cliente",
+      "keepEnglish": false,
+      "note": "Customer/engagement. Standard, matches everywhere."
+    },
+    "team": {
+      "translation": "Equipo",
+      "keepEnglish": false,
+      "note": "Group of users sharing resources. Matches the one place it's used today, community-cloud copy ('equipos ajenos', 'el propietario del equipo'); the multi-team feature is still planned, so this entry sets the convention for it."
+    },
+    "member": {
+      "translation": "Miembro",
+      "keepEnglish": false,
+      "note": "User in a team. Not yet in any locale file (multi-team feature is planned, not shipped); standard, unambiguous choice."
+    },
+    "owner": {
+      "translation": "Propietario",
+      "keepEnglish": false,
+      "note": "User an agent or resource belongs to. Matches agents.table.owner, agents.fields.owner, and community-cloud copy ('su propietario')."
+    },
+    "retention": {
+      "translation": "Retención",
+      "keepEnglish": false,
+      "note": "Data retention period. Matches admin.retention / retentionPeriod / dataRetention everywhere — written here with the accent several admin.json keys are missing."
+    },
+    "archive": {
+      "translation": "Archivar",
+      "keepEnglish": false,
+      "note": "Hide without deleting; verb/action. Exact match of hashlists.archive / jobs.archive ('Archivar', 'Archivado', 'Desarchivar')."
+    },
+    "analytics report": {
+      "translation": "Informe de análisis",
+      "keepEnglish": false,
+      "note": "Password-analysis report for cracked hashes. Since analytics reports are the only report type in the app, the UI usually shortens this to plain 'informe' ('Generar informe', 'Ver informe') — use the fuller phrase when first introducing the concept, the bare 'informe' elsewhere for brevity."
+    },
+    "password reuse": {
+      "translation": "Reutilización de contraseñas",
+      "keepEnglish": false,
+      "note": "Same password used by multiple accounts. Exact match of analytics.passwordReuse."
+    },
+    "hash reuse": {
+      "translation": "Reutilización de hashes",
+      "keepEnglish": false,
+      "note": "Same hash for multiple accounts. analytics.json's prose uses the fuller 'Reutilización de contraseñas basada en hash'; both forms coexist there — this shorter form is fine as the glossary head term."
+    },
+    "complexity": {
+      "translation": "Complejidad",
+      "keepEnglish": false,
+      "note": "Character-class complexity. Matches analytics.complexityAnalysis = 'Análisis de complejidad de caracteres'."
+    },
+    "entropy": {
+      "translation": "Entropía",
+      "keepEnglish": false,
+      "note": "Measured in bits; standard security term. Matches analytics.entropyDistribution/entropyLevels — written with the accent analytics.json's own strings are missing."
+    },
+    "domain": {
+      "translation": "Dominio",
+      "keepEnglish": false,
+      "note": "Windows/Active Directory domain. Standard, matches everywhere (pot.columns.domain, analytics.domain)."
+    },
+    "username": {
+      "translation": "Nombre de usuario",
+      "keepEnglish": false,
+      "note": "Account name. Standard, matches everywhere."
+    },
+    "audit log": {
+      "translation": "Registro de auditoría",
+      "keepEnglish": false,
+      "note": "Security event log. Exact match of navigation.admin.auditLog and notifications.auditLog.title."
+    },
+    "dashboard": {
+      "translation": "Panel de control",
+      "keepEnglish": false,
+      "note": "Home overview page. Changed from bare 'Panel' — the existing UI always says 'Panel de control' (dashboard.title, navigation.menu.dashboard), never 'Panel' alone."
+    },
+    "settings": {
+      "translation": "Configuración",
+      "keepEnglish": false,
+      "note": "Configuration pages. Standard menu label, matches everywhere."
+    },
+    "autosave": {
+      "translation": "Guardado automático",
+      "keepEnglish": false,
+      "note": "Saved automatically when leaving a field. Not directly present yet; standard, unambiguous phrasing."
+    },
+    "apply": {
+      "translation": "Aplicar",
+      "keepEnglish": false,
+      "note": "Button label; standard Spanish UI term. One unrelated admin.json string ('Apply & Reissue', certificate reissue) still ships unlocalized — a gap in the app, not a convention to follow."
+    },
+    "certificate": {
+      "translation": "Certificado",
+      "keepEnglish": false,
+      "note": "Server TLS certificate. Standard, matches settings.security.caCertificate and SSO/TLS copy throughout admin.json."
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "Subject Alternative Name; technical acronym kept in English in Spanish contexts. No existing counter-example."
+    },
+    "network share": {
+      "translation": "Recurso compartido de red",
+      "keepEnglish": false,
+      "note": "SMB/NFS share for wordlist storage. This feature is still in development and not yet in any locale file; this entry sets the convention."
+    },
+    "mount": {
+      "translation": "Montar",
+      "keepEnglish": false,
+      "note": "Attach network share to a path; verb form. Not yet in UI, sets the convention alongside 'network share'."
+    },
+    "cloud fleet": {
+      "translation": "Flota en la nube",
+      "keepEnglish": false,
+      "note": "Rented cloud GPU instances. Matches the admin.json body copy that already says 'la página Flota en la nube'. Note: the nav-menu entry itself (navigation.admin.cloudFleet) currently ships untranslated as literal 'Cloud Fleet' — that's an existing localization gap in the app to fix, not a pattern to copy."
+    },
+    "provisioning": {
+      "translation": "Aprovisionamiento",
+      "keepEnglish": false,
+      "note": "Starting cloud instances automatically. Exact match of admin's cloud-provisioning copy ('Reglas de aprovisionamiento', 'Restringir el aprovisionamiento a una franja horaria')."
+    },
+    "budget": {
+      "translation": "Presupuesto",
+      "keepEnglish": false,
+      "note": "Monthly spending limit. Exact match of admin cloud-provisioning copy and jobs.cloud.projection.availableBudget."
+    },
+    "threshold": {
+      "translation": "Umbral",
+      "keepEnglish": false,
+      "note": "Percentage of budget that triggers action. Matches admin.threshold = 'Umbral de división de reglas' and 'la escala de umbrales' in cloud-provisioning copy."
+    },
+    "drain": {
+      "translation": "Drenaje",
+      "keepEnglish": false,
+      "note": "Let running work finish without starting new work. Matches admin's existing 'drenaje por inactividad' (idle drain); use 'drenar' for the verb form if needed."
+    },
+    "teardown": {
+      "translation": "Destrucción",
+      "keepEnglish": false,
+      "note": "Destroying a cloud instance. Changed from 'Desmantelamiento'/'desmantelar' — the app's cloud-provisioning copy always uses destruir/destruye/destruyen for killing a rented instance ('Antes de destruir una instancia alquilada...', '...hasta que la destruya aquí'); 'desmantelar' does not appear anywhere. Verb form: destruir."
+    },
+    "webhook": {
+      "translation": "Webhook",
+      "keepEnglish": true,
+      "note": "Standard technical term kept in English throughout (notifications.webhooks.*, 'Webhook Global', 'Probar Webhook')."
+    },
+    "notification": {
+      "translation": "Notificación",
+      "keepEnglish": false,
+      "note": "In-app/email/webhook message. Standard, matches notifications.json throughout."
+    },
+    "two-factor authentication": {
+      "translation": "Autenticación de dos factores",
+      "keepEnglish": false,
+      "note": "MFA expansion; keep '2FA' abbreviation as-is where space is tight (settings.mfa.status = 'Estado de 2FA'). Exact match of settings.mfa.title and auth.json's title."
+    },
+    "backup codes": {
+      "translation": "Códigos de respaldo",
+      "keepEnglish": false,
+      "note": "One-time MFA recovery codes. Exact match of settings.mfa.methods.backupCodes."
+    },
+    "authenticator app": {
+      "translation": "Aplicación de autenticación",
+      "keepEnglish": false,
+      "note": "TOTP app. Changed from 'Aplicación autenticadora' — the existing UI says 'Aplicación de autenticación' (settings.mfa.methods.totp) and 'tu aplicación de autenticación' (setup.scanQR)."
+    },
+    "session": {
+      "translation": "Sesión",
+      "keepEnglish": false,
+      "note": "Logged-in browser session. Standard, matches everywhere ('Iniciar sesión', 'Terminar sesión')."
+    },
+    "API key": {
+      "translation": "Clave API",
+      "keepEnglish": false,
+      "note": "Personal HTTP API key. Standard singular form, matches admin.apiKey and settings.apiKey.* throughout; the settings page section heading pluralizes it as 'Claves de API'."
+    },
+    "branding": {
+      "translation": "Marca",
+      "keepEnglish": false,
+      "note": "Custom app name, colors, and logo. Exact match of admin.branding.title = 'Marca'."
+    },
+    "diagnostics": {
+      "translation": "Diagnósticos",
+      "keepEnglish": false,
+      "note": "Troubleshooting/debug tools page. Changed from singular 'Diagnóstico' — the existing UI is plural throughout (navigation.admin.diagnostics = 'Diagnósticos', admin.diagnostics.pageTitle = 'Diagnósticos del sistema')."
+    }
+  }
+}

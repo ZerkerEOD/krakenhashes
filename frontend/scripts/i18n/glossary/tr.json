@@ -1,0 +1,351 @@
+{
+  "language": "tr",
+  "formality": "Bare second-person imperative verb stem for buttons/actions (Kaydet, Uygula, Arşivle, Kır) — the Turkish software-UI norm, not marked for formality one way or the other. Prose and messages addressing the user (confirmations, errors, help text) use the polite 'siz' register (e.g. 'özelleştirebilirsiniz', 'emin misiniz?'), never the informal 'sen'.",
+  "styleNotes": "Keep hashcat/pentest jargon that Turkish security professionals already use untranslated (hash, potfile, wordlist, keyspace, loopback, benchmark, drain, provisioning) rather than forcing a literal calque that reads as unused or ambiguous. English loanwords take Turkish suffixes directly, or with an apostrophe when the loanword keeps non-Turkish spelling (hashler, potfile'ı). UI buttons/actions use the bare imperative stem (Kaydet, Uygula, Arşivle, Kır); feature/state labels use the noun or gerund form instead (Otomatik Kaydetme, Kırılmış), never the imperative. Watch for English terms with more than one plausible sense (client, domain, agent, keyspace) and translate to the sense this product's data model actually uses, not the first/generic guess — the wrong sense reads fluently but misleads a security professional who knows the other sense.",
+  "terms": {
+    "hash": {
+      "translation": "hash",
+      "keepEnglish": true,
+      "note": "Universal technical term in Turkish security contexts"
+    },
+    "hashlist": {
+      "translation": "hash listesi",
+      "keepEnglish": false,
+      "note": "Two-word form to match 'hash type'→'hash türü'; gluing into one word ('hashlist') isn't natural Turkish orthography and was inconsistent with how the rest of the glossary treats hash-prefixed hybrids"
+    },
+    "hash type": {
+      "translation": "hash türü",
+      "keepEnglish": false
+    },
+    "crack": {
+      "translation": "kır",
+      "keepEnglish": false,
+      "note": "Bare imperative verb stem for buttons/actions, matching 'apply'→'uygula' and 'mount'→'bağla' (infinitive: 'kırmak'). Native 'kırmak' is the established term in Turkish password-cracking literature ('hash kırma', 'parola kırma'); 'crack' doesn't inflect naturally in Turkish grammar"
+    },
+    "cracked": {
+      "translation": "kırılmış",
+      "keepEnglish": false,
+      "note": "Passive/perfect participle adjective, consistent with the 'crack' fix"
+    },
+    "cracked hashes": {
+      "translation": "kırılmış hashler",
+      "keepEnglish": false,
+      "note": "Replaces the draft's 'cracked hashler', which code-switched mid-phrase (uninflected English adjective + Turkish-pluralized English noun); 'hash' stays English per the 'hash' entry, 'cracked' is now translated so the phrase reads as one grammatical unit"
+    },
+    "plaintext": {
+      "translation": "düz metin",
+      "keepEnglish": false
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "hashcat-specific file format term"
+    },
+    "client potfile": {
+      "translation": "müşteri potfile'ı",
+      "keepEnglish": false,
+      "note": "Updated for the 'client'→'müşteri' fix — this is the pentest customer's potfile, not a network client's"
+    },
+    "wordlist": {
+      "translation": "wordlist",
+      "keepEnglish": true,
+      "note": "Kept English like 'hash' and 'potfile' — hashcat's own -w flag and Turkish pentest usage keep 'wordlist' untranslated; 'sözcük listesi' reads as an unused literal calque"
+    },
+    "rule": {
+      "translation": "kural",
+      "keepEnglish": false
+    },
+    "rule file": {
+      "translation": "kural dosyası",
+      "keepEnglish": false
+    },
+    "mask": {
+      "translation": "maske",
+      "keepEnglish": false
+    },
+    "charset": {
+      "translation": "karakter seti",
+      "keepEnglish": false
+    },
+    "attack mode": {
+      "translation": "saldırı modu",
+      "keepEnglish": false
+    },
+    "brute force": {
+      "translation": "kaba kuvvet",
+      "keepEnglish": false,
+      "note": "Established Turkish technical term"
+    },
+    "dictionary attack": {
+      "translation": "sözlük saldırısı",
+      "keepEnglish": false
+    },
+    "hybrid attack": {
+      "translation": "hibrit saldırı",
+      "keepEnglish": false
+    },
+    "association attack": {
+      "translation": "ilişkilendirme saldırısı",
+      "keepEnglish": false,
+      "note": "hashcat association attack mode"
+    },
+    "keyspace": {
+      "translation": "keyspace",
+      "keepEnglish": true,
+      "note": "hashcat's own CLI/benchmark output literally shows 'Keyspace'; translating to 'anahtar uzayı' uses 'anahtar' (cryptographic key), which wrongly suggests a key-space rather than the candidate/search space this term actually means"
+    },
+    "effective keyspace": {
+      "translation": "etkili keyspace",
+      "keepEnglish": false,
+      "note": "'effective' translated, 'keyspace' kept per the keyspace fix — same hybrid pattern as 'hash type'→'hash türü'"
+    },
+    "chunk": {
+      "translation": "parça",
+      "keepEnglish": false
+    },
+    "task": {
+      "translation": "görev",
+      "keepEnglish": false
+    },
+    "job": {
+      "translation": "iş",
+      "keepEnglish": false
+    },
+    "preset job": {
+      "translation": "ön tanımlı iş",
+      "keepEnglish": false,
+      "note": "'Ön tanımlı' (pre-defined) is the standard Turkish software term for preset/default (cf. 'ön tanımlı ayarlar'); the draft's literal 'önceden ayarlanmış iş' is accurate but needlessly long for a UI label"
+    },
+    "workflow": {
+      "translation": "iş akışı",
+      "keepEnglish": false
+    },
+    "loopback": {
+      "translation": "loopback",
+      "keepEnglish": true,
+      "note": "This is hashcat's own --loopback flag/feature name, which Turkish hashcat users recognize directly from the tool; 'geri döngü' risks reading as a generic programming-loop term instead of this specific re-run-until-dry feature"
+    },
+    "priority": {
+      "translation": "öncelik",
+      "keepEnglish": false
+    },
+    "max agents": {
+      "translation": "maksimum ajan sayısı",
+      "keepEnglish": false,
+      "note": "Updated for the 'agent'→'ajan' fix; keep lowercase in UI context"
+    },
+    "overflow": {
+      "translation": "taşma",
+      "keepEnglish": false
+    },
+    "benchmark": {
+      "translation": "benchmark",
+      "keepEnglish": true,
+      "note": "Ubiquitous loanword in Turkish tech/hardware and pentest communities for a timed speed test; 'kıyaslama' just means a generic 'comparison' and loses the speed-test-specific meaning"
+    },
+    "hash rate": {
+      "translation": "hash hızı",
+      "keepEnglish": false
+    },
+    "progress": {
+      "translation": "ilerleme",
+      "keepEnglish": false
+    },
+    "agent": {
+      "translation": "ajan",
+      "keepEnglish": false,
+      "note": "'Ajan' is the established Turkish IT term for a software agent (cf. 'izleme ajanı', 'kullanıcı ajanı' for user-agent). The draft's 'aracı' means a human intermediary/broker (real-estate agent, customs agent) and misdescribes a worker node"
+    },
+    "device": {
+      "translation": "cihaz",
+      "keepEnglish": false
+    },
+    "claim code": {
+      "translation": "kayıt kodu",
+      "keepEnglish": false,
+      "note": "Agent registration code; not a coupon (kupon)"
+    },
+    "voucher": {
+      "translation": "kayıt kodu",
+      "keepEnglish": false,
+      "note": "Agent registration code; not a coupon (kupon)"
+    },
+    "heartbeat": {
+      "translation": "nabız sinyali",
+      "keepEnglish": false,
+      "note": "Bare 'sinyal' is too generic (any signal); 'nabız sinyali' (pulse/heartbeat signal) is the established Turkish networking metaphor for a periodic liveness check-in"
+    },
+    "offline buffer": {
+      "translation": "çevrimdışı bekleme süresi",
+      "keepEnglish": false,
+      "note": "This is a grace period (a duration), not a data buffer; 'tampon' (buffer) strongly implies a memory/network buffer and would confuse readers about what the setting controls"
+    },
+    "auto-update": {
+      "translation": "otomatik güncelleme",
+      "keepEnglish": false
+    },
+    "binary": {
+      "translation": "ikili dosya",
+      "keepEnglish": false
+    },
+    "client": {
+      "translation": "müşteri",
+      "keepEnglish": false,
+      "note": "This 'client' is the pentest customer/engagement (per source: 'a customer/engagement the hashlists belong to'), not a network client. 'İstemci' is the Turkish client-server networking term and is the wrong sense here — a Turkish security professional reading 'İstemci' would think of a client machine, not a customer"
+    },
+    "team": {
+      "translation": "takım",
+      "keepEnglish": false
+    },
+    "member": {
+      "translation": "üye",
+      "keepEnglish": false
+    },
+    "owner": {
+      "translation": "sahip",
+      "keepEnglish": false
+    },
+    "retention": {
+      "translation": "saklama",
+      "keepEnglish": false
+    },
+    "archive": {
+      "translation": "arşivle",
+      "keepEnglish": false,
+      "note": "Bare imperative verb form (archive is defined as an action: 'hide from default lists'), matching the 'apply'→'uygula' / 'mount'→'bağla' pattern; use 'arşivlenmiş' for the resulting state label ('Archived')"
+    },
+    "analytics report": {
+      "translation": "analiz raporu",
+      "keepEnglish": false
+    },
+    "password reuse": {
+      "translation": "parola yeniden kullanımı",
+      "keepEnglish": false
+    },
+    "hash reuse": {
+      "translation": "hash yeniden kullanımı",
+      "keepEnglish": false
+    },
+    "complexity": {
+      "translation": "karmaşıklık",
+      "keepEnglish": false
+    },
+    "entropy": {
+      "translation": "entropi",
+      "keepEnglish": false,
+      "note": "Standard Turkicized spelling used throughout Turkish physics/information-theory and security writing (e.g. 'parola entropisi'); the raw English spelling 'entropy' is nonstandard in running Turkish text"
+    },
+    "domain": {
+      "translation": "etki alanı",
+      "keepEnglish": false,
+      "note": "This is specifically a Windows/AD domain (per source), and 'etki alanı' is Microsoft's own established Turkish term for it (cf. 'etki alanı denetleyicisi' = domain controller). Bare 'alan' is ambiguous (field/area/web domain) and doesn't match what AD admins already expect"
+    },
+    "username": {
+      "translation": "kullanıcı adı",
+      "keepEnglish": false
+    },
+    "audit log": {
+      "translation": "denetim günlüğü",
+      "keepEnglish": false
+    },
+    "dashboard": {
+      "translation": "pano",
+      "keepEnglish": false
+    },
+    "settings": {
+      "translation": "ayarlar",
+      "keepEnglish": false
+    },
+    "autosave": {
+      "translation": "otomatik kaydetme",
+      "keepEnglish": false,
+      "note": "Gerund/noun form for a passive background behavior and feature/toggle label ('Otomatik Kaydetme: Açık'); the draft's imperative 'otomatik kaydet' reads as a button command, not a state"
+    },
+    "apply": {
+      "translation": "uygula",
+      "keepEnglish": false,
+      "note": "Button action; keep lowercase in button context"
+    },
+    "certificate": {
+      "translation": "sertifika",
+      "keepEnglish": false
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "Technical acronym: Subject Alternative Name"
+    },
+    "network share": {
+      "translation": "ağ paylaşımı",
+      "keepEnglish": false
+    },
+    "mount": {
+      "translation": "bağla",
+      "keepEnglish": false
+    },
+    "cloud fleet": {
+      "translation": "bulut filosu",
+      "keepEnglish": false
+    },
+    "provisioning": {
+      "translation": "provisioning",
+      "keepEnglish": true,
+      "note": "Turkish cloud/DevOps usage commonly keeps 'provisioning' in English; the literal translation 'sağlama' collides with the Turkish term for 'checksum' ('sağlama toplamı'), which would be confusing in a security tool"
+    },
+    "budget": {
+      "translation": "bütçe",
+      "keepEnglish": false
+    },
+    "threshold": {
+      "translation": "eşik",
+      "keepEnglish": false
+    },
+    "drain": {
+      "translation": "drain",
+      "keepEnglish": true,
+      "note": "Standard Kubernetes/cloud DevOps loanword in Turkish ('node'u drain etmek'); 'drenaj' means plumbing/medical drainage and is unnatural for this cloud-instance meaning"
+    },
+    "teardown": {
+      "translation": "sonlandırma",
+      "keepEnglish": false
+    },
+    "webhook": {
+      "translation": "webhook",
+      "keepEnglish": true,
+      "note": "API technical term"
+    },
+    "notification": {
+      "translation": "bildirim",
+      "keepEnglish": false
+    },
+    "two-factor authentication": {
+      "translation": "iki faktörlü kimlik doğrulama",
+      "keepEnglish": false
+    },
+    "backup codes": {
+      "translation": "yedek kodlar",
+      "keepEnglish": false
+    },
+    "authenticator app": {
+      "translation": "kimlik doğrulayıcı uygulaması",
+      "keepEnglish": false
+    },
+    "session": {
+      "translation": "oturum",
+      "keepEnglish": false
+    },
+    "API key": {
+      "translation": "API anahtarı",
+      "keepEnglish": false,
+      "note": "Standard technical term, API kept in English"
+    },
+    "branding": {
+      "translation": "markalama",
+      "keepEnglish": false
+    },
+    "diagnostics": {
+      "translation": "tanılama",
+      "keepEnglish": false
+    }
+  }
+}

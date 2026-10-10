@@ -1,0 +1,458 @@
+{
+  "title": "İşler",
+  "createJob": "İş Oluştur",
+  "page": {
+    "title": "İşler"
+  },
+  "columns": {
+    "name": "İş Adı",
+    "hashlist": "Hash Listesi",
+    "createdBy": "Oluşturan",
+    "progress": "İlerleme",
+    "keyspace": "Keyspace",
+    "cracked": "Kırılmış",
+    "agents": "Ajanlar",
+    "priority": "Öncelik",
+    "maxAgents": "Maks. Ajan Sayısı",
+    "actions": "Eylemler",
+    "status": "Durum",
+    "createdAt": "Oluşturuldu",
+    "client": "Müşteri"
+  },
+  "status": {
+    "preparing": "Hazırlanıyor",
+    "pending": "Beklemede",
+    "running": "Çalışıyor",
+    "completed": "Tamamlandı",
+    "failed": "Başarısız",
+    "stopped": "Durduruldu",
+    "paused": "Duraklatılmış",
+    "active": "Etkin",
+    "cancelled": "İptal Edildi"
+  },
+  "actions": {
+    "delete": "İşi Sil",
+    "retry": "İşi Yeniden Dene",
+    "stop": "İşi Durdur",
+    "pause": "İşi Duraklat",
+    "resume": "İşi Devam Et",
+    "viewDetails": "Ayrıntıları Görüntüle"
+  },
+  "sections": {
+    "activeJobs": "Etkin İşler",
+    "completedJobs": "Tamamlanmış İşler"
+  },
+  "confirmDelete": {
+    "title": "İşi Sil",
+    "message": "Bu işi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+    "messageNamed": "\"{{name}}\" işini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+  },
+  "row": {
+    "completed": "Tamamlandı:",
+    "unknown": "Bilinmiyor",
+    "error": "Hata:",
+    "rulesLabel": "(kurallar)",
+    "custom": "Özel saldırı"
+  },
+  "tooltips": {
+    "combinedHashRate": "Toplam hash hızı",
+    "retry": "İşi yeniden dene",
+    "delete": "İşi sil",
+    "save": "Kaydet",
+    "cancel": "İptal et"
+  },
+  "validation": {
+    "priorityRange": "Öncelik 0 ile {{max}} arasında olmalıdır",
+    "maxAgentsRange": "Maksimum ajan sayısı 1 ile 100 arasında olmalıdır",
+    "maxAgentsPositive": "Maksimum ajan sayısı 0 (sınırsız) veya pozitif olmalıdır",
+    "chunkSizeMin": "Parça boyutu en az 5 saniye olmalıdır",
+    "chunkSizeMax": "Parça boyutu 24 saati (86400 saniye) aşamaz",
+    "invalidNumber": "Lütfen geçerli bir sayı girin",
+    "minValue": "Değer en az {{min}} olmalıdır",
+    "maxValue": "Değer en fazla {{max}} olmalıdır"
+  },
+  "errors": {
+    "loadFailed": "İşler yüklenemedi",
+    "loadDetailsFailed": "İş ayrıntıları yüklenemedi",
+    "deleteFailed": "İş silinemedi",
+    "updateFailed": "İş güncellenemedi",
+    "fetchFailed": "İşler alınamadı: {{message}}",
+    "willRetry": "Otomatik olarak yeniden denenecektir.",
+    "notFound": "İş bulunamadı",
+    "saveFailed": "Değişiklikler kaydedilemedi",
+    "updatePriorityFailed": "Öncelik güncellenemedi",
+    "updateMaxAgentsFailed": "Maksimum ajan sayısı güncellenemedi",
+    "updateChunkSizeFailed": "Parça boyutu güncellenemedi",
+    "retryTaskFailed": "Görev yeniden denenemedi",
+    "forceCompleteFailed": "İş tamamlanmaya zorlanamadı"
+  },
+  "details": {
+    "title": "İş Ayrıntıları",
+    "pageTitle": "İş Ayrıntıları",
+    "overview": "Genel Bakış",
+    "tasks": "Görevler",
+    "results": "Sonuçlar",
+    "logs": "Günlükler",
+    "jobInformation": "İş Bilgileri",
+    "timeRemaining": "Kalan Süre",
+    "estimatedCompletion": "Tahmini Tamamlanma",
+    "crackingCompletedAt": "Kırma Tamamlandı",
+    "totalRunningTime": "Toplam Çalışma Süresi",
+    "chunkSizeDefault": "Ayarlanmamış (varsayılan kullanılıyor)",
+    "noActiveTasksEstimate": "Tahmin yapılamıyor - şu anda çalışan görev yok",
+    "lessThanOneMinute": "1 dakikadan az",
+    "jobCompleted": "İş tamamlandı",
+    "finishingUp": "Son işlemler yapılıyor...",
+    "completingShortly": "Yakında tamamlanacak",
+    "processingDuration": "İşleniyor: {{duration}}",
+    "wordlists": "Wordlist(ler)",
+    "rules": "Kurallar",
+    "splittingMode": "Bölme Modu",
+    "ruleSplitting": "Kural Bölme",
+    "firstWordlist": "İlk Wordlist",
+    "secondWordlist": "İkinci Wordlist",
+    "wordlist": "Wordlist",
+    "mask": "Maske",
+    "incrementMode": "Artış Modu",
+    "incrementRange": "Artış Aralığı",
+    "maskSuffix": "Maske (sonek)",
+    "maskPrefix": "Maske (önek)",
+    "associationHints": "İlişkilendirme İpuçları",
+    "autoRefreshOn": "Otomatik Yenileme: AÇIK",
+    "autoRefreshPaused": "Otomatik Yenileme: DURAKLATILMIŞ",
+    "forceComplete": "Zorla Tamamla",
+    "refreshNow": "Şimdi Yenile",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=sınırsız",
+    "chunkSizeHint": "Saniye (5-86400)",
+    "incrementLayers": "Artış Katmanları ({{count}} toplam)",
+    "estimatedKeyspace": "Tahmini",
+    "taskProgressVisualization": "Görev İlerleme Görselleştirmesi",
+    "activeTasks": "Etkin Görevler ({{count}} çalışıyor)",
+    "noActiveTasks": "Etkin görev yok",
+    "failedTasks": "Başarısız Görevler ({{count}} toplam)",
+    "completedTasks": "Tamamlanmış Görevler ({{count}} toplam)",
+    "noCompletedTasks": "Tamamlanmış görev yok",
+    "increment": "Artış",
+    "incrementInverse": "Ters Artış",
+    "jobNotFound": "İş bulunamadı",
+    "priority": "Öncelik",
+    "timeUnits": {
+      "year": "yıl",
+      "years": "yıl",
+      "month": "ay",
+      "months": "ay",
+      "day": "gün",
+      "days": "gün",
+      "hour": "saat",
+      "hours": "saat",
+      "minute": "dakika",
+      "minutes": "dakika",
+      "second": "saniye",
+      "seconds": "saniye"
+    },
+    "layerTable": {
+      "layer": "Katman",
+      "mask": "Maske",
+      "minLength": "Min Uzunluk",
+      "maxLength": "Maks. Uzunluk",
+      "keyspace": "Keyspace",
+      "effectiveKeyspace": "Etkili Keyspace",
+      "progress": "İlerleme",
+      "tasks": "Görevler",
+      "cracks": "Kırılan",
+      "status": "Durum",
+      "running": "çalışıyor",
+      "total": "toplam",
+      "failed": "{{count}} başarısız"
+    },
+    "activeTasksTable": {
+      "agentId": "Ajan Kimliği",
+      "taskId": "Görev Kimliği",
+      "agent": "Ajan",
+      "skip": "Atlama",
+      "limit": "Limit",
+      "keyspaceRange": "Keyspace Aralığı",
+      "progress": "İlerleme",
+      "speed": "Hız",
+      "currentSpeed": "Mevcut Hız",
+      "cracks": "Kırılan",
+      "startedAt": "Başlandı"
+    },
+    "failedTasksTable": {
+      "agentId": "Ajan Kimliği",
+      "taskId": "Görev Kimliği",
+      "agent": "Ajan",
+      "status": "Durum",
+      "retryCount": "Yeniden Deneme Sayısı",
+      "error": "Hata",
+      "errorMessage": "Hata İletisi",
+      "lastUpdated": "Son Güncelleme",
+      "failedAt": "Başarısız Oldu",
+      "actions": "Eylemler"
+    },
+    "completedTasksTable": {
+      "agentId": "Ajan Kimliği",
+      "taskId": "Görev Kimliği",
+      "agent": "Ajan",
+      "completedAt": "Tamamlandı",
+      "keyspaceRange": "Keyspace Aralığı",
+      "finalProgress": "Son İlerleme",
+      "averageSpeed": "Ortalama Hız",
+      "cracks": "Kırılan",
+      "cracksFound": "Bulunan Kırılan"
+    },
+    "additionalArgs": "Ek Argümanlar",
+    "attackModes": {
+      "dictionary": "Sözlük",
+      "combination": "Kombinasyon",
+      "bruteforce": "Kaba Kuvvet",
+      "hybridWordlistMask": "Hibrit Wordlist + Maske",
+      "hybridMaskWordlist": "Hibrit Maske + Wordlist",
+      "association": "İlişkilendirme",
+      "modeNumber": "Mod {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Bulut bütçesine ulaşıldı",
+      "cloud_cap_reached": "Bulut örneği sınırına ulaşıldı",
+      "cloud_settling": "Kiralanan örneğin başlaması bekleniyor",
+      "cloud_no_capacity": "Kullanılabilir bulut kapasitesi yok",
+      "cloud_dead_on_arrival": "Kiralanan örnekler geri bağlanamadı",
+      "cloud_launch_failed": "Bulut örneği kiralanamadı",
+      "seenTimes_one": "{{count}} kez görüldü",
+      "seenTimes_other": "{{count}} kez görüldü",
+      "cloud_rental_too_short": "Kiralama faydalı olamayacak kadar kısa olurdu",
+      "cloud_cracks_lost": "Kırılan parolalar kaybolmuş olabilir",
+      "cloud_draining": "Bulut örneği drain ediliyor (yeni çalışma yok)"
+    },
+    "client": "Müşteri",
+    "presetJob": "Ön Tanımlı İş",
+    "workflow": "İş Akışı",
+    "createdBy": "Oluşturan",
+    "system": "Sistem"
+  },
+  "common": {
+    "id": "Kimlik",
+    "name": "Ad",
+    "status": "Durum",
+    "hashlist": "Hash listesi",
+    "hashType": "Hash türü",
+    "attackMode": "Saldırı modu",
+    "keyspace": "Keyspace",
+    "effectiveKeyspace": "Etkili keyspace",
+    "processedKeyspace": "İşlenen keyspace",
+    "dispatchedKeyspace": "Gönderilen keyspace",
+    "progress": "İlerleme",
+    "cracksFound": "Kırılmış hashler",
+    "createdAt": "Oluşturulma tarihi",
+    "startedAt": "Başlatılma tarihi",
+    "completedAt": "Tamamlanma tarihi",
+    "error": "Hata",
+    "warning": "Uyarı",
+    "maxAgents": "Maksimum ajan sayısı",
+    "chunkSize": "Parça boyutu",
+    "unassigned": "Atanmamış",
+    "noErrorMessage": "Hata mesajı yok",
+    "notAvailable": "Yok",
+    "back": "Geri",
+    "rulesMultiplier": "(kurallar)"
+  },
+  "editableCell": {
+    "clickToEdit": "Düzenlemek için tıklayın"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Tamamlanan işleri sil",
+      "message": "Tamamlanan tüm işleri silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+    },
+    "forceComplete": {
+      "title": "İşi zorla tamamla",
+      "warning": "Bu, tüm tamamlanmamış görevleri tamamlandı olarak işaretleyecek ve iş durumunu tamamlandı olarak ayarlayacaktır.",
+      "onlyUseIf": "Yalnızca şu durumlarda kullanın:",
+      "reason1": "İş gerçekten tüm işlemleri tamamlamıştır",
+      "reason2": "İş, çalışıyor/beklemede durumunda takılı kalmış",
+      "reason3": "Keyspace'in tamamen arandığını doğruladınız",
+      "note": "Not: keyspace hesaplamaları ve iş tamamlanma algılamasını çeşitli koşullar altında işlemek için daha iyi yollar üzerinde çalışıyoruz.",
+      "confirmation": "Bu işi zorla tamamlamak istediğinizden emin misiniz?",
+      "completing": "Tamamlanıyor...",
+      "button": "Zorla tamamla"
+    },
+    "deleteConfirm": {
+      "deleting": "Siliniyor..."
+    }
+  },
+  "buttons": {
+    "refresh": "Yenile",
+    "deleteFinished": "Tamamlanmışları sil",
+    "cancel": "İptal",
+    "delete": "Sil",
+    "save": "Kaydet",
+    "retry": "Yeniden dene"
+  },
+  "success": {
+    "chunkSizeUpdated": "Parça boyutu başarıyla güncellendi. Değişiklikler, bir sonraki görev oluşturulduğunda geçerli olacaktır.",
+    "forceCompleted": "İş başarıyla zorla tamamlandı"
+  },
+  "form": {
+    "name": "İş adı",
+    "hashlist": "Hash listesi seç",
+    "attackMode": "Saldırı modu",
+    "wordlist": "Wordlist",
+    "rules": "Kurallar",
+    "priority": "Öncelik",
+    "maxAgents": "Maksimum ajan sayısı"
+  },
+  "autoRefresh": {
+    "on": "Otomatik yenileme açık",
+    "off": "Otomatik yenileme kapalı"
+  },
+  "pagination": {
+    "jobsPerPage": "Sayfa başına iş sayısı"
+  },
+  "filters": {
+    "searchPlaceholder": "İş arayın...",
+    "priority": "Öncelik",
+    "status": "Durum",
+    "all": "Tümü"
+  },
+  "priority": {
+    "low": "Düşük",
+    "medium": "Orta",
+    "high": "Yüksek",
+    "critical": "Kritik",
+    "maximum": "Maksimum"
+  },
+  "lastUpdated": "Son güncelleme: {{time}}",
+  "filtered": "(filtrelenmiş)",
+  "loading": "İşler yükleniyor...",
+  "archive": {
+    "showArchived": "Arşivlenenleri göster",
+    "archive": "Arşivle",
+    "unarchive": "Arşivden çıkar",
+    "archived": "Arşivlenmiş",
+    "archiveSelected": "Seçilenleri arşivle",
+    "unarchiveSelected": "Seçilenleri arşivden çıkar",
+    "deleteSelected": "Seçilenleri sil",
+    "selectedCount": "{{count}} seçildi",
+    "confirmBulkDelete": {
+      "title": "Toplu silmeyi onayla",
+      "message_one": "{{count}} işi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "message_other": "{{count}} işi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "warning": "Bu, seçili işleri ve ilişkili tüm verileri kalıcı olarak silecektir.",
+      "cancel": "İptal",
+      "delete": "Sil",
+      "deleting": "Siliniyor..."
+    },
+    "bulkArchiveSuccess_one": "{{count}} iş başarıyla arşivlendi",
+    "bulkArchiveSuccess_other": "{{count}} iş başarıyla arşivlendi",
+    "bulkUnarchiveSuccess_one": "{{count}} iş başarıyla arşivden çıkarıldı",
+    "bulkUnarchiveSuccess_other": "{{count}} iş başarıyla arşivden çıkarıldı",
+    "bulkDeleteSuccess_one": "{{count}} iş başarıyla silindi",
+    "bulkDeleteSuccess_other": "{{count}} iş başarıyla silindi"
+  },
+  "cloud": {
+    "projection": {
+      "title": "Bu, bütçe içinde bitecek mi?",
+      "loadFailed": "Bu iş için tahmin yapılamadı",
+      "coverageLabel": "Bütçe kapsamı",
+      "coverageValue": "Kalan işin %{{pct}}'i finanse edilmiştir",
+      "timeToFinish": "Tamamlanması için planlanan süre",
+      "projectedCost": "Planlanan bulut maliyeti",
+      "availableBudget": "Mevcut bütçe",
+      "onpremSpeed": "Şirket içi hız",
+      "cloudSpeed": "Bulut hızı",
+      "unknown": "Bilinmeyen",
+      "confirm": "Başlat",
+      "pessimistic": "Bu, tuzlanmış bir hash türüdür, bu nedenle tuzlar kırıldıkça gerçek aktarım hızı bu tahmini aşacaktır. Tahmini en kötü durum olarak değerlendirin.",
+      "shortfallTitle": "Bütçe, iş tamamlanmadan tükenir",
+      "shortfallBody": "Planlanan oranında, bütçe kalan keyspace'in %{{pct}}'ünü kapsar. İş yarıda duracak. Kısmi ilerleme yine de satın almaya değer olabilir — ancak bu kasıtlı bir seçim olmalıdır.",
+      "shortfallAcknowledge": "Bu işin bütçe içinde bitmeyeceğini anladım",
+      "metric": "Metrik",
+      "value": "Değer"
+    },
+    "cloudBurst": {
+      "label": "Bu iş için bulut patlamasına izin verin",
+      "help": "Şirket içi filo yetişemediğinde GPU örnekleri kiralanır. Müşterinin finanse edilmesini ve bir sağlayıcıya katılmasını gerektirir. Bunu olmadan hiçbir şey kiralanmaz.",
+      "maxInstances": "Maksimum kiralanan örnekler",
+      "maxInstancesHelp": "Paylaşılan şirket içi havuzu yöneten maksimum ajan sayısından ayrıdır. Kalan bütçenin karar vermesine izin vermek için boş bırakın.",
+      "badge": "Bulut patlaması",
+      "thirdPartyBadge": "Üçüncü taraf sağlayıcı",
+      "provisionNow": "Şimdi hazırla",
+      "provisionConfirm": "Bu iş için şimdi bir bulut örneği kiralasın mı?\n\nBu, otomatik ölçekleyicinin kıtlık ve yakında bitecek kurallarını atlar ve bu müşterinin bütçesine karşı para harcayacaktır. Bütçe, harcama penceresi, iş başına sınır ve sağlayıcı onayı yine de geçerlidir.",
+      "provisionRequested": "Bulut örneği talep edildi",
+      "provisionFailed": "Bulut örneği sağlanamadı"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Genel ilerleme: {{percent}}%",
+    "noTasks": "Henüz görev atanmamış",
+    "notAvailable": "Yok",
+    "tooltip": {
+      "taskId": "Görev kimliği: {{id}}",
+      "status": "Durum: {{status}}",
+      "keyspace": "Keyspace: {{start}} - {{end}}",
+      "progress": "İlerleme: {{percent}}%",
+      "speed": "Hız: {{speed}}",
+      "cracksFound": "Kırılmış hashler: {{count}}",
+      "agentId": "Ajan kimliği: {{id}}"
+    },
+    "legend": {
+      "pending": "Beklemede",
+      "running": "Çalışıyor",
+      "processing": "İşleniyor",
+      "completed": "Tamamlandı",
+      "processingError": "İşleme hatası",
+      "failed": "Başarısız",
+      "crackFound": "Kırılma bulundu"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Benchmark soğutma periyotları",
+    "subtitle": "Tekrarlanan hatalar nedeniyle bu iş için şu anda benchmark yapmaktan kara listeye alınan ajanlar. Bir girdinin engelini kaldırın; planlayıcı sonraki döngüde yeniden dener.",
+    "loadFailed": "Kara liste yükleme başarısız",
+    "clearSuccess": "Kara liste girdisi temizlendi — planlayıcı sonraki döngüde yeniden dener",
+    "clearFailedPrefix": "Temizleme başarısız: {{error}}",
+    "clearFailedDefault": "Girdinin temizlenmesi başarısız oldu",
+    "expired": "süresi doldu",
+    "retryNow": "Şimdi yeniden dene",
+    "scope": {
+      "thisJob": "bu iş",
+      "global": "genel"
+    },
+    "columns": {
+      "agent": "Ajan",
+      "scope": "Kapsam",
+      "hashMode": "Hash / Mod",
+      "failures": "Hatalar",
+      "reason": "Neden",
+      "expires": "Süre sonu",
+      "action": "İşlem"
+    }
+  },
+  "loopback": {
+    "title": "Loopback",
+    "subtitle": "Her loopback, bir saldırının mutasyonunu yalnızca yeni kırılmış parolalara karşı yeniden çalıştırır ve yeni kırılmış parolalar bulunmayana kadar tekrarlanır.",
+    "runningCount": "{{count}} çalışıyor",
+    "statusLabel": {
+      "waiting": "Tur bitişi için bekleniyor",
+      "active": "Loopback yapılıyor",
+      "completed": "Tamamlandı",
+      "failed": "Başarısız",
+      "cancelled": "İptal edildi"
+    },
+    "roundLabel": "Tur {{current}} / {{max}}",
+    "hashlistFallback": "Hash listesi #{{id}}",
+    "jobCount_one": "{{count}} iş",
+    "jobCount_other": "{{count}} iş",
+    "noJobsYet": "Henüz hiçbir iş kaydedilmedi.",
+    "loopsBackYes": "Evet",
+    "loopsBackFeedsDelta": "Delta besleme",
+    "columns": {
+      "round": "Tur",
+      "original": "Orijinal",
+      "job": "İş",
+      "role": "Rol",
+      "loopsBack": "Geri döngü"
+    }
+  }
+}

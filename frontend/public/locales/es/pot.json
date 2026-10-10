@@ -10,7 +10,8 @@
     "allCrackedHashes": "Todos los hashes descifrados"
   },
   "navigation": {
-    "backToAll": "Volver a todos los hashes descifrados"
+    "backToAll": "Volver a todos los hashes descifrados",
+    "backToSource": "Atrás"
   },
   "client": {
     "title": "Hashes descifrados - Vista de cliente",
@@ -40,8 +41,9 @@
     "placeholder": "Buscar en la base de datos...",
     "filterPlaceholder": "Filtrar esta página...",
     "button": "Buscar",
-    "resultsFound": "Se encontró {{count}} resultado",
-    "resultsFound_plural": "Se encontraron {{count}} resultados",
+    "resultsFound_many": "Se encontraron {{count}} resultados",
+    "resultsFound_one": "Se encontró {{count}} resultado",
+    "resultsFound_other": "Se encontraron {{count}} resultados",
     "noResults": "No se encontraron resultados",
     "searching": "Buscando..."
   },
@@ -85,5 +87,11 @@
   },
   "filter": {
     "filteredBy": "Filtrado por {{param}}: {{value}}"
+  },
+  "breadcrumb": "Hashes descifrados",
+  "sourceLabel": {
+    "job": "Trabajo",
+    "client": "Cliente",
+    "hashlist": "Lista de hashes"
   }
 }

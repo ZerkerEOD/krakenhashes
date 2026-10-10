@@ -18,24 +18,11 @@ import {
   Box,
   Button,
   Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
   Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControlLabel,
-  Switch,
-  CircularProgress,
-  Alert,
-  Link,
   Tooltip,
 } from '@mui/material';
 import {
@@ -44,11 +31,25 @@ import {
   Cancel as CancelIcon,
   Clear as ClearIcon
 } from '@mui/icons-material';
+import type { GridColDef } from '@mui/x-data-grid';
 import { Agent, ClaimVoucher, AgentDevice } from '../types/agent';
+import { ROUTES } from '../constants/routes';
+import { useAuth } from '../contexts/AuthContext';
+import GenerateVoucherDialog from '../components/vouchers/GenerateVoucherDialog';
+import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
 import { api } from '../services/api';
 import AgentInstall from '../components/agent/AgentInstall';
 import SanFailureBanner from '../components/admin/certificates/SanFailureBanner';
 import { formatAgentVersion, agentVersionStatus } from '../utils/agentVersion';
+import { DataTable, EntityLink, PageHeader, StatusChip, useConfirm, useToast } from '../components/ui';
+import { useLiveQuery } from '../hooks/useLiveQuery';
+import { getErrorMessage } from '../utils/errors';
+
+const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+
+/** System/ownerless agents have no owner (empty, nil or the all-zero UUID). */
+const isSystemOwned = (agent: Agent): boolean =>
+  Boolean((agent as any).isSystemAgent) || !agent.ownerId || agent.ownerId === NIL_UUID;
 
 /**
  * Render the Agent Management page for viewing and managing agents, active claim vouchers, and device/status details.
@@ -59,31 +60,41 @@ import { formatAgentVersion, agentVersionStatus } from '../utils/agentVersion';
  */
 export default function AgentManagement() {
   const { t } = useTranslation('agents');
+  const tr = (k: string, o?: any) => t(k, o) as string;
+  const { userRole } = useAuth();
   const queryClient = useQueryClient();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [openDialog, setOpenDialog] = useState(false);
-  const [isContinuous, setIsContinuous] = useState(false);
-  const [isSystemVoucher, setIsSystemVoucher] = useState(false);
   const [claimCode, setClaimCode] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
   const [clearBusyDialogOpen, setClearBusyDialogOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // --- Queries (React Query keeps previous data on refetch, so background
   // polling updates the tables in place without blanking the page) ---
-  const { data: agents = [], isLoading } = useQuery({
-    queryKey: ['agents'],
-    queryFn: async () => (await api.get<Agent[]>('/api/agents')).data || [],
-    refetchInterval: 15000,
-    placeholderData: keepPreviousData,
-  });
+  const {
+    data: agents = [],
+    isLoading,
+    isFetching,
+    error: agentsError,
+    refetch: refetchAgents,
+  } = useLiveQuery(
+    {
+      queryKey: ['agents'],
+      queryFn: async () => (await api.get<Agent[]>('/api/agents')).data || [],
+      placeholderData: keepPreviousData,
+    },
+    { tier: 'list' }
+  );
 
-  const { data: vouchersRaw = [] } = useQuery({
-    queryKey: ['vouchers'],
-    queryFn: async () => (await api.get<ClaimVoucher[]>('/api/vouchers')).data || [],
-    refetchInterval: 15000,
-    placeholderData: keepPreviousData,
-  });
+  const { data: vouchersRaw = [] } = useLiveQuery(
+    {
+      queryKey: ['vouchers'],
+      queryFn: async () => (await api.get<ClaimVoucher[]>('/api/vouchers')).data || [],
+      placeholderData: keepPreviousData,
+    },
+    { tier: 'list' }
+  );
   const claimVouchers = vouchersRaw.filter(v => v.is_active);
 
   // Devices keyed on the agent-id SET (only refetches when agents are
@@ -123,49 +134,37 @@ export default function AgentManagement() {
       setClaimCode(data.code);
       queryClient.invalidateQueries({ queryKey: ['vouchers'] });
     },
-    onError: () => setError(t('errors.generateFailed') as string),
-  });
-
-  const deactivateVoucherMutation = useMutation({
-    mutationFn: (code: string) => api.delete(`/api/vouchers/${code}/disable`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vouchers'] }),
-    onError: () => setError(t('errors.deactivateFailed') as string),
-  });
-
-  const removeAgentMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/agents/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['agents'] }),
-    onError: () => setError(t('errors.removeFailed') as string),
+    onError: () => toast.error(tr('errors.generateFailed')),
   });
 
   const clearBusyMutation = useMutation({
     mutationFn: (id: string) => api.post(`/api/agents/${id}/clear-busy-status`),
     onSuccess: () => {
-      setSuccessMessage(t('messages.busyStatusCleared') as string);
+      toast.success(tr('messages.busyStatusCleared'));
       queryClient.invalidateQueries({ queryKey: ['agents'] });
     },
-    onError: () => setError(t('errors.clearBusyFailed') as string),
+    onError: () => toast.error(tr('errors.clearBusyFailed')),
   });
 
-  const handleCreateClaimCode = () => {
-    setError(null);
-    generateCodeMutation.mutate({ isContinuous, isSystem: isSystemVoucher });
-  };
-
-  const handleDeactivateVoucher = (code: string) => {
-    setError(null);
-    deactivateVoucherMutation.mutate(code);
-  };
-
-  const handleRemoveAgent = (agentId: string) => {
-    setError(null);
-    removeAgentMutation.mutate(agentId);
+  const handleRemoveAgent = async (agent: Agent) => {
+    await confirm({
+      title: tr('actions.removeAgent'),
+      message: agent.name || agent.id,
+      severity: 'danger',
+      confirmLabel: tr('actions.removeAgent'),
+      action: async () => {
+        try {
+          await api.delete(`/api/agents/${agent.id}`);
+        } catch (err) {
+          throw new Error(getErrorMessage(err) || tr('errors.removeFailed'));
+        }
+        queryClient.invalidateQueries({ queryKey: ['agents'] });
+      },
+    });
   };
 
   const handleClearBusyStatus = () => {
     if (!selectedAgentId) return;
-    setError(null);
-    setSuccessMessage(null);
     clearBusyMutation.mutate(selectedAgentId);
     setClearBusyDialogOpen(false);
     setSelectedAgentId(null);
@@ -188,361 +187,233 @@ export default function AgentManagement() {
     return busyStatus === 'true' && !currentTaskId;
   };
 
-  // Spinner only on the very first load (RQ keeps data on background refetch).
-  if (isLoading) {
-    return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const columns: GridColDef<Agent>[] = [
+    {
+      field: 'id',
+      headerName: tr('table.columns.agentId'),
+      width: 100,
+      type: 'number',
+      align: 'left',
+      headerAlign: 'left',
+      valueGetter: (_v, row) => Number(row.id),
+    },
+    {
+      field: 'name',
+      headerName: tr('table.columns.name'),
+      flex: 1,
+      minWidth: 150,
+      renderCell: (p) => <EntityLink type="agent" id={p.row.id} label={p.row.name} />,
+    },
+    {
+      field: 'isEnabled',
+      headerName: tr('table.columns.enabled'),
+      width: 110,
+      valueGetter: (_v, row) => row.isEnabled !== false,
+      renderCell: (p) => (
+        <StatusChip entity="generic" status={p.value ? 'enabled' : 'disabled'} label={p.value ? tr('status.enabled') : tr('status.disabled')} />
+      ),
+    },
+    {
+      field: 'owner',
+      headerName: tr('table.columns.owner'),
+      flex: 0.8,
+      minWidth: 130,
+      valueGetter: (_v, row) => (isSystemOwned(row) ? tr('fields.systemOwner') : row.ownerUsername || row.createdBy?.username || ''),
+      renderCell: (p) =>
+        isSystemOwned(p.row) ? (
+          <Chip label={tr('fields.systemOwner')} color="secondary" size="small" />
+        ) : (
+          <EntityLink
+            type="user"
+            id={p.row.ownerId}
+            label={p.row.ownerUsername || p.row.createdBy?.username || tr('common.unknown')}
+          />
+        ),
+    },
+    {
+      field: 'version',
+      headerName: tr('table.columns.version'),
+      width: 160,
+      renderCell: (p) => (
+        <Box sx={{ py: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+            <Typography variant="body2">{formatAgentVersion(p.row.version)}</Typography>
+            {agentVersionStatus(p.row.version, expectedVersion) === 'update-available' && (
+              <Chip label={tr('version.updateAvailable')} color="warning" size="small" variant="outlined" />
+            )}
+          </Box>
+          {p.row.status === 'updating' && p.row.targetVersion && (
+            <Typography variant="caption" color="info.main" sx={{ display: 'block' }}>
+              → {formatAgentVersion(p.row.targetVersion)}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      field: 'hardware',
+      headerName: tr('table.columns.hardware'),
+      flex: 1.6,
+      minWidth: 240,
+      sortable: false,
+      valueGetter: (_v, row) => (agentDevices[row.id] || []).map((d) => d.device_name).join(', '),
+      renderCell: (p) => {
+        const devices = agentDevices[p.row.id] || [];
+        return devices.length > 0 ? (
+          <Box sx={{ py: 1 }}>
+            {devices.map((device) => (
+              <Box key={device.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                {device.enabled ? (
+                  <CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />
+                ) : (
+                  <CancelIcon sx={{ fontSize: 18, color: 'error.main' }} />
+                )}
+                <Typography variant="body2">
+                  {device.device_type || tr('hardware.defaultDeviceType')} {device.device_id}: {device.device_name}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            {tr('messages.noDevices')}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: 'status',
+      headerName: tr('table.columns.status'),
+      width: 150,
+      renderCell: (p) => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start', py: 1 }}>
+          <StatusChip entity="agent" status={p.row.status} />
+          {p.row.updatePending && p.row.status !== 'updating' && (
+            <Chip label={tr('status.updatePending')} color="warning" size="small" variant="outlined" />
+          )}
+          {p.row.updateError && (
+            <Tooltip title={p.row.updateError}>
+              <Chip label={tr('status.updateFailed')} color="error" size="small" variant="outlined" />
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+  ];
 
   return (
     <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {t('page.title') as string}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {t('page.description') as string}
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setOpenDialog(true)}
-          >
-            {t('buttons.registerAgent') as string}
+      <PageHeader
+        title={tr('page.title')}
+        description={tr('page.description')}
+        actions={
+          <Button variant="contained" color="primary" onClick={() => setOpenDialog(true)}>
+            {tr('buttons.registerAgent')}
+          </Button>
+        }
+      />
+
+      {/* An agent that cannot verify the server certificate never appears in
+          the list below, so the explanation has to be here rather than on a
+          row. */}
+      <SanFailureBanner />
+
+      {/* Agent Install Section (collapsed accordion + per-OS wizard) */}
+      <AgentInstall
+        vouchers={claimVouchers}
+        defaultCode={claimCode || undefined}
+        onGenerateCode={handleWizardGenerateCode}
+      />
+
+      {userRole === 'admin' && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, mb: 3 }}>
+          <Button component={RouterLink} to={ROUTES.admin.vouchers} startIcon={<ConfirmationNumberIcon />}>
+            {tr('vouchers.manage')}
           </Button>
         </Box>
+      )}
 
-        {/* An agent that cannot verify the server certificate never appears in
-            the list below, so the explanation has to be here rather than on a
-            row. */}
-        <SanFailureBanner />
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        {successMessage && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage(null)}>
-            {successMessage}
-          </Alert>
-        )}
-
-        {/* Agent Install Section (collapsed accordion + per-OS wizard) */}
-        <AgentInstall
-          vouchers={claimVouchers}
-          defaultCode={claimCode || undefined}
-          onGenerateCode={handleWizardGenerateCode}
+      {/* Active Agents Table */}
+      <Box sx={{ mt: 4 }}>
+        <DataTable<Agent>
+          rows={agents}
+          columns={columns}
+          getRowId={(r) => r.id}
+          loading={isLoading}
+          fetching={isFetching && !isLoading}
+          error={agentsError}
+          onRetry={() => refetchAgents()}
+          pagination={{ mode: 'client', initialPageSize: 25 }}
+          sorting={{ mode: 'client', initial: [{ field: 'id', sort: 'asc' }] }}
+          toolbar={{ title: tr('sections.activeAgents') }}
+          rowActions={(agent) => [
+            {
+              key: 'clear-busy',
+              label: tr('actions.clearBusyStatus'),
+              icon: <ClearIcon fontSize="small" />,
+              hidden: !isAgentStuck(agent),
+              placement: 'inline',
+              onClick: (a) => {
+                setSelectedAgentId(a.id);
+                setClearBusyDialogOpen(true);
+              },
+            },
+            {
+              key: 'remove',
+              label: tr('actions.removeAgent'),
+              icon: <DeleteIcon fontSize="small" />,
+              danger: true,
+              placement: 'inline',
+              onClick: (a) => handleRemoveAgent(a),
+            },
+          ]}
+          emptyState={{ title: tr('messages.noAgents') }}
+          tableKey="agents"
         />
+      </Box>
 
-        {/* Active Claim Vouchers Table */}
-        <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>
-          {t('sections.activeVouchers') as string}
-        </Typography>
-        <TableContainer component={Paper} sx={{ mb: 4 }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('table.columns.claimCode') as string}</TableCell>
-                <TableCell>{t('table.columns.createdBy') as string}</TableCell>
-                <TableCell>{t('table.columns.createdAt') as string}</TableCell>
-                <TableCell>{t('table.columns.type') as string}</TableCell>
-                <TableCell>{t('table.columns.actions') as string}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {claimVouchers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    {t('messages.noVouchers') as string}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                claimVouchers.map((voucher) => (
-                  <TableRow key={voucher.code}>
-                    <TableCell>{voucher.code}</TableCell>
-                    <TableCell>{voucher.created_by?.username || (t('common.unknown') as string)}</TableCell>
-                    <TableCell>{new Date(voucher.created_at).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        <Chip
-                          label={voucher.is_continuous ? (t('vouchers.continuous') as string) : (t('vouchers.singleUse') as string)}
-                          color={voucher.is_continuous ? "primary" : "default"}
-                          size="small"
-                        />
-                        {voucher.created_by_id === '00000000-0000-0000-0000-000000000000' && (
-                          <Chip label="System" color="secondary" size="small" />
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        onClick={() => handleDeactivateVoucher(voucher.code)}
-                        color="error"
-                        title={t('actions.deactivateVoucher') as string}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      {/* Clear Busy Status Confirmation Dialog */}
+      <Dialog
+        open={clearBusyDialogOpen}
+        onClose={() => {
+          setClearBusyDialogOpen(false);
+          setSelectedAgentId(null);
+        }}
+      >
+        <DialogTitle>{tr('dialogs.clearStatus.title')}</DialogTitle>
+        <DialogContent>
+          <Typography>
+            {tr('dialogs.clearStatus.description')}
+          </Typography>
+          <Typography sx={{ mt: 2, fontWeight: 'bold', color: 'warning.main' }}>
+            {tr('dialogs.clearStatus.confirmation')}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setClearBusyDialogOpen(false);
+              setSelectedAgentId(null);
+            }}
+          >
+            {tr('buttons.cancel')}
+          </Button>
+          <Button
+            onClick={handleClearBusyStatus}
+            variant="contained"
+            color="warning"
+          >
+            {tr('buttons.clearStatus')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Active Agents Table */}
-        <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>
-          {t('sections.activeAgents') as string}
-        </Typography>
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('table.columns.agentId') as string}</TableCell>
-                <TableCell>{t('table.columns.name') as string}</TableCell>
-                <TableCell>{t('table.columns.enabled') as string}</TableCell>
-                <TableCell>{t('table.columns.owner') as string}</TableCell>
-                <TableCell>{t('table.columns.version') as string}</TableCell>
-                <TableCell>{t('table.columns.hardware') as string}</TableCell>
-                <TableCell>{t('table.columns.status') as string}</TableCell>
-                <TableCell>{t('table.columns.actions') as string}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {agents.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    {t('messages.noAgents') as string}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                agents.map((agent) => (
-                  <TableRow key={agent.id}>
-                    <TableCell>{agent.id}</TableCell>
-                    <TableCell>
-                      <Link
-                        component={RouterLink}
-                        to={`/agents/${agent.id}`}
-                        color="primary"
-                        underline="hover"
-                        sx={{ fontWeight: 'medium' }}
-                      >
-                        {agent.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={agent.isEnabled !== false ? (t('status.enabled') as string) : (t('status.disabled') as string)}
-                        color={agent.isEnabled !== false ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {(agent as any).isSystemAgent ? (
-                        <Chip label="System" color="secondary" size="small" />
-                      ) : (
-                        agent.createdBy?.username || (t('common.unknown') as string)
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                        <Typography variant="body2">{formatAgentVersion(agent.version)}</Typography>
-                        {agentVersionStatus(agent.version, expectedVersion) === 'update-available' && (
-                          <Chip label={t('version.updateAvailable') as string} color="warning" size="small" variant="outlined" />
-                        )}
-                      </Box>
-                      {agent.status === 'updating' && agent.targetVersion && (
-                        <Typography variant="caption" color="info.main" sx={{ display: 'block' }}>
-                          → {formatAgentVersion(agent.targetVersion)}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {agentDevices[agent.id]?.length > 0 ? (
-                        agentDevices[agent.id].map((device) => (
-                          <Box key={device.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                            {device.enabled ? (
-                              <CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />
-                            ) : (
-                              <CancelIcon sx={{ fontSize: 18, color: 'error.main' }} />
-                            )}
-                            <Typography variant="body2">
-                              {device.device_type || 'GPU'} {device.device_id}: {device.device_name}
-                            </Typography>
-                          </Box>
-                        ))
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          {t('messages.noDevices') as string}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
-                        <Chip
-                          label={t(`labels.${agent.status}`, { ns: 'common' }) as string}
-                          color={
-                            agent.status === 'active'
-                              ? 'success'
-                              : agent.status === 'error'
-                                ? 'error'
-                                : agent.status === 'updating'
-                                  ? 'info'
-                                  : 'default'
-                          }
-                          icon={agent.status === 'updating' ? <CircularProgress size={12} color="inherit" /> : undefined}
-                          size="small"
-                        />
-                        {agent.updatePending && agent.status !== 'updating' && (
-                          <Chip label={t('status.updatePending') as string} color="warning" size="small" variant="outlined" />
-                        )}
-                        {agent.updateError && (
-                          <Tooltip title={agent.updateError}>
-                            <Chip label={t('status.updateFailed') as string} color="error" size="small" variant="outlined" />
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      {isAgentStuck(agent) && (
-                        <IconButton
-                          onClick={() => {
-                            setSelectedAgentId(agent.id);
-                            setClearBusyDialogOpen(true);
-                          }}
-                          color="warning"
-                          title={t('actions.clearBusyStatus') as string}
-                          sx={{ mr: 1 }}
-                        >
-                          <ClearIcon />
-                        </IconButton>
-                      )}
-                      <IconButton
-                        onClick={() => handleRemoveAgent(agent.id)}
-                        color="error"
-                        title={t('actions.removeAgent') as string}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        {/* Clear Busy Status Confirmation Dialog */}
-        <Dialog
-          open={clearBusyDialogOpen}
-          onClose={() => {
-            setClearBusyDialogOpen(false);
-            setSelectedAgentId(null);
-          }}
-        >
-          <DialogTitle>{t('dialogs.clearStatus.title') as string}</DialogTitle>
-          <DialogContent>
-            <Typography>
-              {t('dialogs.clearStatus.description') as string}
-            </Typography>
-            <Typography sx={{ mt: 2, fontWeight: 'bold', color: 'warning.main' }}>
-              {t('dialogs.clearStatus.confirmation') as string}
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => {
-                setClearBusyDialogOpen(false);
-                setSelectedAgentId(null);
-              }}
-            >
-              {t('buttons.cancel') as string}
-            </Button>
-            <Button
-              onClick={handleClearBusyStatus}
-              variant="contained"
-              color="warning"
-            >
-              {t('buttons.clearStatus') as string}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Registration Dialog */}
-        <Dialog
-          open={openDialog}
-          onClose={() => {
-            setOpenDialog(false);
-            setClaimCode('');
-            setIsContinuous(false);
-            setError(null);
-          }}
-        >
-          <DialogTitle>{claimCode ? (t('dialogs.register.generatedTitle') as string) : (t('dialogs.register.title') as string)}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ pt: 2 }}>
-              {!claimCode && (
-                <>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={isContinuous}
-                        onChange={(e) => setIsContinuous(e.target.checked)}
-                      />
-                    }
-                    label={t('dialogs.register.continuousLabel') as string}
-                  />
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={isSystemVoucher}
-                        onChange={(e) => setIsSystemVoucher(e.target.checked)}
-                      />
-                    }
-                    label="System Agent (serves all teams)"
-                  />
-                </>
-              )}
-              {claimCode && (
-                <Box sx={{ mt: 2, textAlign: 'center' }}>
-                  <Typography variant="subtitle1">{t('dialogs.register.claimCodeLabel') as string}</Typography>
-                  <Typography variant="h5" sx={{ mt: 1, mb: 2 }}>
-                    {claimCode}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    {isContinuous
-                      ? (t('dialogs.register.continuousDescription') as string)
-                      : (t('dialogs.register.singleUseDescription') as string)}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
-              setOpenDialog(false);
-              setClaimCode('');
-              setIsContinuous(false);
-              setIsSystemVoucher(false);
-              setError(null);
-            }}>
-              {t('buttons.close') as string}
-            </Button>
-            {!claimCode && (
-              <Button onClick={handleCreateClaimCode} variant="contained">
-                {t('buttons.generateCode') as string}
-              </Button>
-            )}
-          </DialogActions>
-        </Dialog>
-
+      {/* Registration Dialog */}
+      <GenerateVoucherDialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        onGenerated={(code) => setClaimCode(code)}
+      />
     </Box>
   );
-} 
+}

@@ -23,6 +23,26 @@ module.exports = {
     'react/prop-types': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    // Colours come from the theme (src/styles); a hex/rgba literal in a component
+    // breaks light mode and branding.
+    'no-restricted-syntax': [
+      'warn',
+      {
+        selector: "Literal[value=/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",
+        message: 'Use a theme palette token instead of a hard-coded hex colour.',
+      },
+      {
+        selector: "Literal[value=/^rgba?\\(/]",
+        message: 'Use a theme palette token instead of a hard-coded rgb()/rgba() colour.',
+      },
+    ],
   },
+  overrides: [
+    {
+      // The token/theme layer and branding data legitimately hold raw colours.
+      files: ['src/styles/**', 'src/services/branding.ts', 'src/contexts/BrandingContext.tsx', 'src/components/ui/toast.tsx'],
+      rules: { 'no-restricted-syntax': 'off' },
+    },
+  ],
   ignorePatterns: ['build', 'dist', 'node_modules', 'vite.config.ts'],
 };

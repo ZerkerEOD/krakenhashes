@@ -74,16 +74,17 @@
     "areYouSure": "Are you sure?",
     "cannotBeUndone": "This action cannot be undone.",
     "confirmDelete": "Confirm Delete",
-    "confirmAction": "Confirm Action"
+    "confirmAction": "Confirm Action",
+    "typeToConfirm": "Type {{text}} to confirm"
   },
   "time": {
     "justNow": "Just now",
-    "minutesAgo": "{{count}} minute ago",
-    "minutesAgo_plural": "{{count}} minutes ago",
-    "hoursAgo": "{{count}} hour ago",
-    "hoursAgo_plural": "{{count}} hours ago",
-    "daysAgo": "{{count}} day ago",
-    "daysAgo_plural": "{{count}} days ago",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago",
     "never": "Never"
   },
   "fileUpload": {
@@ -127,9 +128,17 @@
     "logoAltBranded": "{{appName}} logo"
   },
   "table": {
-    "noResults": "No results found",
-    "loading": "Loading data...",
-    "emptyState": "No data to display"
+    "clearSearch": "Clear search",
+    "clearSelection": "Clear selection",
+    "selectedCount": "{{count}} selected",
+    "expandRow": "Expand row",
+    "collapseRow": "Collapse row",
+    "showAll": "Show all",
+    "showFewer": "Show fewer",
+    "showingOf": "Showing {{shown}} of {{total}}",
+    "actions": "Actions",
+    "noResults": "No results match your filters",
+    "rowsPerPage": "Rows per page"
   },
   "about": {
     "title": "About KrakenHashes",
@@ -159,5 +168,186 @@
     "tooltip": "Not valid text. The exact password is {{value}}. The characters shown are a best guess (Windows-1252), not the real password.",
     "copyExact": "Copy exact value (for hashcat)",
     "copyGuess": "Copy best guess (not exact)"
+  },
+  "empty": {
+    "noData": "Nothing here yet",
+    "noResults": "No results",
+    "noResultsHint": "Try adjusting your search or filters."
+  },
+  "theme": {
+    "appearance": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "status": {
+    "job": {
+      "preparing": "Preparing",
+      "pending": "Pending",
+      "running": "Running",
+      "paused": "Paused",
+      "processing": "Processing",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "archived": "Archived"
+    },
+    "task": {
+      "pending": "Pending",
+      "assigned": "Assigned",
+      "reconnect_pending": "Reconnecting",
+      "running": "Running",
+      "processing": "Processing",
+      "processing_error": "Processing error",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "agent": {
+      "pending": "Pending",
+      "active": "Online",
+      "inactive": "Offline",
+      "error": "Error",
+      "disabled": "Disabled",
+      "updating": "Updating",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "hashlist": {
+      "uploading": "Uploading",
+      "processing": "Processing",
+      "ready": "Ready",
+      "error": "Error",
+      "deleting": "Deleting",
+      "ready_with_errors": "Ready with errors",
+      "awaiting_validation_decision": "Awaiting review",
+      "cancelled": "Cancelled"
+    },
+    "verification": {
+      "pending": "Pending",
+      "verified": "Verified",
+      "failed": "Failed",
+      "deleted": "Deleted"
+    },
+    "cloud": {
+      "requested": "Requested",
+      "launching": "Launching",
+      "provisioning": "Provisioning",
+      "syncing": "Syncing",
+      "running": "Running",
+      "draining": "Draining",
+      "terminating": "Terminating",
+      "terminated": "Terminated",
+      "failed": "Failed"
+    },
+    "loopback": {
+      "waiting": "Waiting",
+      "active": "Active",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "audit": {
+      "info": "Info",
+      "warning": "Warning",
+      "critical": "Critical"
+    },
+    "diagnostic": {
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error"
+    },
+    "sync": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "generic": {
+      "success": "Success",
+      "ok": "OK",
+      "healthy": "Healthy",
+      "enabled": "Enabled",
+      "active": "Active",
+      "verified": "Verified",
+      "warning": "Warning",
+      "degraded": "Degraded",
+      "error": "Error",
+      "failed": "Failed",
+      "critical": "Critical",
+      "info": "Info",
+      "running": "Running",
+      "pending": "Pending",
+      "queued": "Queued",
+      "disabled": "Disabled",
+      "inactive": "Inactive",
+      "unknown": "Unknown"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Custom Charsets (optional - define ?1 through ?4 for use in mask)",
+    "hexTooltip": "When enabled, inline charset definitions are interpreted as hex byte pairs (e.g., 41424344 = ABCD). File charsets are unaffected.",
+    "hexEncodedLabel": "Hex-encoded charsets",
+    "charsetSlotLabel": "Charset {{slot}} (-{{slot}})",
+    "fileValue_one": "[File: {{name}} — {{count}} byte]",
+    "fileValue_other": "[File: {{name}} — {{count}} bytes]",
+    "fileHelperUsed_one": "{{count}} unique byte",
+    "fileHelperUsed_other": "{{count}} unique bytes",
+    "fileHelperUnused_one": "{{count}} unique byte (not referenced in mask)",
+    "fileHelperUnused_other": "{{count}} unique bytes (not referenced in mask)",
+    "placeholderHex": "e.g., 41424344 (hex byte pairs)",
+    "placeholderPlain": "e.g., ?u?d or abcdef0123456789",
+    "inlineHelperBytes_one": "{{count}} byte",
+    "inlineHelperBytes_other": "{{count}} bytes",
+    "inlineHelperBytesUnused_one": "{{count}} byte (not referenced in mask)",
+    "inlineHelperBytesUnused_other": "{{count}} bytes (not referenced in mask)",
+    "inlineHelperChars_one": "{{count}} char",
+    "inlineHelperChars_other": "{{count}} chars",
+    "inlineHelperCharsUnused_one": "{{count}} char (not referenced in mask)",
+    "inlineHelperCharsUnused_other": "{{count}} chars (not referenced in mask)",
+    "referencedNotDefined": "Referenced in mask but not defined",
+    "savedLabel": "Saved",
+    "typeLabels": {
+      "file": "File",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_one": "{{count}} unique byte",
+    "optionUniqueBytes_other": "{{count}} unique bytes",
+    "optionBytesHex_one": "{{count}} byte (hex)",
+    "optionBytesHex_other": "{{count}} bytes (hex)",
+    "willEnableHex": " — will enable hex mode",
+    "willDisableHex": " — will disable hex mode",
+    "estimatedKeyspace": "Estimated keyspace: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} bytes",
+    "slotSizeChars": "?{{slot}} = {{size}} chars"
+  },
+  "teamFilter": {
+    "label": "Team",
+    "allTeams": "All Teams",
+    "adminBadge": "Admin"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Password is required",
+    "currentPasswordLabel": "Current Password"
+  },
+  "hashDetailModal": {
+    "title": "Hash Details",
+    "hashValue": "Hash Value",
+    "copied": "Copied!",
+    "copyHash": "Copy hash",
+    "copyPlaintext": "Copy plaintext",
+    "originalHash": "Original Hash (from file)",
+    "status": "Status",
+    "cracked": "Cracked",
+    "notCracked": "Not Cracked",
+    "hashType": "Hash Type",
+    "typeId": "Type ID: {{id}}",
+    "username": "Username",
+    "crackedText": "Cracked Text",
+    "hashlist": "Hashlist",
+    "lastUpdated": "Last Updated",
+    "crackedAt": "Cracked At",
+    "hashCopied": "Hash copied to clipboard",
+    "crackedTextCopied": "Cracked text copied to clipboard"
   }
 }

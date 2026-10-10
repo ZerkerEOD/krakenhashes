@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   TextField,
   CircularProgress,
@@ -16,6 +16,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { listClients } from '../../services/api';
 import { Client } from '../../types/client';
 import { Team } from '../../types/team';
@@ -27,11 +28,7 @@ interface ClientOption {
   isCreateNew?: boolean;
 }
 
-const CREATE_NEW_OPTION: ClientOption = {
-  id: '__create_new__',
-  name: 'Create New Client',
-  isCreateNew: true,
-};
+const CREATE_NEW_OPTION_ID = '__create_new__';
 
 // Data passed back to the parent form when "Create New Client" is active
 export interface NewClientData {
@@ -65,6 +62,12 @@ export default function ClientAutocomplete({
   defaultRetention,
   onNewClientDataChange,
 }: ClientAutocompleteProps) {
+  const { t } = useTranslation('hashlists');
+  const createNewOption: ClientOption = useMemo(() => ({
+    id: CREATE_NEW_OPTION_ID,
+    name: t('clientAutocomplete.createNewClient') as string,
+    isCreateNew: true,
+  }), [t]);
   const [options, setOptions] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +107,7 @@ export default function ClientAutocomplete({
       setOptions(clientOptions);
     } catch (err: any) {
       console.error('Error fetching clients:', err);
-      setError(err.response?.data?.error || err.message || 'Failed to fetch clients');
+      setError(err.response?.data?.error || err.message || (t('clientAutocomplete.errors.fetchFailed') as string));
       setOptions([]);
     } finally {
       setLoading(false);
@@ -161,7 +164,7 @@ export default function ClientAutocomplete({
 
   const handleOptionChange = (_event: React.SyntheticEvent, newValue: ClientOption | null) => {
     if (newValue?.isCreateNew) {
-      setSelectedOption(CREATE_NEW_OPTION);
+      setSelectedOption(createNewOption);
       setIsCreateMode(true);
       setNewClientName('');
       setNewClientDescription('');
@@ -187,7 +190,7 @@ export default function ClientAutocomplete({
   };
 
   // Build options list with "Create New Client" at top
-  const allOptions: ClientOption[] = [CREATE_NEW_OPTION, ...options];
+  const allOptions: ClientOption[] = [createNewOption, ...options];
 
   return (
     <Box sx={{ my: 2 }}>
@@ -218,8 +221,8 @@ export default function ClientAutocomplete({
         renderInput={(params) => (
           <TextField
             {...params}
-            label="Client"
-            placeholder="Select a client..."
+            label={t('clientAutocomplete.label') as string}
+            placeholder={t('clientAutocomplete.placeholder') as string}
             InputProps={{
               ...params.InputProps,
               endAdornment: (
@@ -237,7 +240,7 @@ export default function ClientAutocomplete({
       <Collapse in={isCreateMode}>
         <Box sx={{ mt: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
           <Typography variant="subtitle2" gutterBottom>
-            New Client Details
+            {t('clientAutocomplete.newClientDetails') as string}
           </Typography>
           <Divider sx={{ mb: 2 }} />
 
@@ -245,11 +248,11 @@ export default function ClientAutocomplete({
               team, so the new client is filed under the intended team. */}
           {teams && teams.length > 1 && (
             <FormControl fullWidth required={isCreateMode} sx={{ mb: 2 }}>
-              <InputLabel id="new-client-team-label">Team</InputLabel>
+              <InputLabel id="new-client-team-label">{t('clientAutocomplete.team') as string}</InputLabel>
               <Select
                 labelId="new-client-team-label"
                 value={newClientTeamId}
-                label="Team"
+                label={t('clientAutocomplete.team') as string}
                 onChange={(e) => setNewClientTeamId(e.target.value)}
               >
                 {teams.map((team) => (
@@ -259,7 +262,7 @@ export default function ClientAutocomplete({
                 ))}
               </Select>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
-                The new client will be assigned to this team.
+                {t('clientAutocomplete.teamHelper') as string}
               </Typography>
             </FormControl>
           )}
@@ -267,7 +270,7 @@ export default function ClientAutocomplete({
           <TextField
             fullWidth
             required={isCreateMode}
-            label="Client Name"
+            label={t('clientAutocomplete.clientName') as string}
             value={newClientName}
             onChange={(e) => handleNewClientNameChange(e.target.value)}
             sx={{ mb: 2 }}
@@ -275,7 +278,7 @@ export default function ClientAutocomplete({
 
           <TextField
             fullWidth
-            label="Description"
+            label={t('clientAutocomplete.description') as string}
             value={newClientDescription}
             onChange={(e) => setNewClientDescription(e.target.value)}
             multiline
@@ -285,7 +288,7 @@ export default function ClientAutocomplete({
 
           <TextField
             fullWidth
-            label="Contact Info"
+            label={t('clientAutocomplete.contactInfo') as string}
             value={newClientContactInfo}
             onChange={(e) => setNewClientContactInfo(e.target.value)}
             sx={{ mb: 2 }}
@@ -294,18 +297,18 @@ export default function ClientAutocomplete({
           <TextField
             fullWidth
             type="number"
-            label="Data Retention (months)"
+            label={t('clientAutocomplete.dataRetention') as string}
             value={newClientRetention}
             onChange={(e) => setNewClientRetention(e.target.value)}
             placeholder={
               defaultRetention !== null && defaultRetention !== undefined
-                ? `System default: ${defaultRetention}`
-                : 'Not set (keep indefinitely)'
+                ? (t('clientAutocomplete.dataRetentionPlaceholderDefault', { months: defaultRetention }) as string)
+                : (t('clientAutocomplete.dataRetentionPlaceholderUnset') as string)
             }
             helperText={
               defaultRetention !== null && defaultRetention !== undefined
-                ? `Leave empty to use system default (${defaultRetention} months). Set 0 to keep forever.`
-                : 'Leave empty to use system default. Set 0 to keep forever.'
+                ? (t('clientAutocomplete.dataRetentionHelperDefault', { months: defaultRetention }) as string)
+                : (t('clientAutocomplete.dataRetentionHelperUnset') as string)
             }
             InputProps={{ inputProps: { min: 0 } }}
             sx={{ mb: 2 }}
@@ -318,10 +321,10 @@ export default function ClientAutocomplete({
                 onChange={(e) => setNewClientExcludePotfile(e.target.checked)}
               />
             }
-            label="Exclude from global potfile"
+            label={t('clientAutocomplete.excludeFromGlobalPotfile') as string}
           />
           <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: -0.5, mb: 1 }}>
-            Cracked passwords from this client won't be added to the global potfile.
+            {t('clientAutocomplete.excludeFromGlobalPotfileHelper') as string}
           </Typography>
 
           <FormControlLabel
@@ -331,10 +334,10 @@ export default function ClientAutocomplete({
                 onChange={(e) => setNewClientExcludeClientPotfile(e.target.checked)}
               />
             }
-            label="Exclude from client potfile"
+            label={t('clientAutocomplete.excludeFromClientPotfile') as string}
           />
           <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: -0.5 }}>
-            Cracked passwords from this client won't be added to their client-specific potfile.
+            {t('clientAutocomplete.excludeFromClientPotfileHelper') as string}
           </Typography>
         </Box>
       </Collapse>

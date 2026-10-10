@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -67,9 +68,12 @@ func (r *JobExecutionRepository) ListWithPagination(ctx context.Context, limit, 
 // JobFilter contains filter criteria for job queries
 type JobFilter struct {
 	Status          *string
+	Statuses        []string // Multi-status filter (status = ANY); takes precedence over Status when set
 	Priority        *int
 	Search          *string
 	UserID          *string
+	HashlistID      *int64      // Only jobs against this hashlist
+	ClientID        *uuid.UUID  // Only jobs whose hashlist belongs to this client
 	TeamsEnabled    bool        // Whether team filtering is active (fail-closed when true + empty TeamIDs)
 	TeamIDs         []uuid.UUID // When set, filter jobs by team access (via hashlist → client → client_teams)
 	IncludeArchived bool        // When false (default), exclude archived jobs
@@ -78,8 +82,90 @@ type JobFilter struct {
 // JobExecutionWithUser represents a job execution with user information
 type JobExecutionWithUser struct {
 	models.JobExecution
-	CreatedByUsername *string `db:"created_by_username"`
-	PresetJobName     *string `db:"preset_job_name"` // nil for custom jobs (no preset)
+	CreatedByUsername *string    `db:"created_by_username"`
+	PresetJobName     *string    `db:"preset_job_name"` // nil for custom jobs (no preset)
+	ClientID          *uuid.UUID `db:"client_id"`       // hashlist's client (nil when unassigned)
+	ClientName        *string    `db:"client_name"`
+	WorkflowID        *uuid.UUID `db:"workflow_id"` // workflow that created the job (nil for preset/custom)
+	WorkflowName      *string    `db:"workflow_name"`
+}
+
+// jobEntityFilters appends the hashlist/client/multi-status predicates shared by
+// the list, count and status-count queries. `h` must alias hashlists.
+func jobEntityFilters(query string, args []interface{}, argCount int, filter JobFilter) (string, []interface{}, int) {
+	if filter.HashlistID != nil {
+		argCount++
+		query += fmt.Sprintf(" AND je.hashlist_id = $%d", argCount)
+		args = append(args, *filter.HashlistID)
+	}
+	if filter.ClientID != nil {
+		argCount++
+		query += fmt.Sprintf(" AND h.client_id = $%d", argCount)
+		args = append(args, *filter.ClientID)
+	}
+	return query, args, argCount
+}
+
+// GetByIDWithUser loads one job execution with the creator, preset, client and
+// workflow names resolved, for the job detail page.
+func (r *JobExecutionRepository) GetByIDWithUser(ctx context.Context, id uuid.UUID) (*JobExecutionWithUser, error) {
+	query := `
+		SELECT
+			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
+			je.processed_keyspace, je.attack_mode, je.created_by,
+			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by, je.updated_at,
+			je.base_keyspace, je.effective_keyspace, je.multiplication_factor,
+			je.overall_progress_percent, je.dispatched_keyspace,
+			je.name, je.archived_at,
+			u.username as created_by_username,
+			pj.name as preset_job_name,
+			h.client_id, c.name as client_name,
+			je.workflow_id, jw.name as workflow_name
+		FROM job_executions je
+		LEFT JOIN preset_jobs pj ON je.preset_job_id = pj.id
+		JOIN hashlists h ON je.hashlist_id = h.id
+		LEFT JOIN clients c ON c.id = h.client_id
+		LEFT JOIN job_workflows jw ON jw.id = je.workflow_id
+		LEFT JOIN users u ON je.created_by = u.id
+		WHERE je.id = $1`
+	var exec JobExecutionWithUser
+	var clientID sql.Null[uuid.UUID]
+	var workflowID sql.Null[uuid.UUID]
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
+		&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+		&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy, &exec.UpdatedAt,
+		&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
+		&exec.OverallProgressPercent, &exec.DispatchedKeyspace,
+		&exec.Name, &exec.ArchivedAt,
+		&exec.CreatedByUsername,
+		&exec.PresetJobName,
+		&clientID, &exec.ClientName,
+		&workflowID, &exec.WorkflowName,
+	)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get job execution with user: %w", err)
+	}
+	if clientID.Valid {
+		v := clientID.V
+		exec.ClientID = &v
+	}
+	if workflowID.Valid {
+		v := workflowID.V
+		exec.WorkflowID = &v
+	}
+	return &exec, nil
+}
+
+// SetWorkflowID records the workflow that created a job (linking only).
+func (r *JobExecutionRepository) SetWorkflowID(ctx context.Context, id, workflowID uuid.UUID) error {
+	if _, err := r.db.ExecContext(ctx, `UPDATE job_executions SET workflow_id = $1 WHERE id = $2`, workflowID, id); err != nil {
+		return fmt.Errorf("failed to set workflow id: %w", err)
+	}
+	return nil
 }
 
 // ListWithFilters retrieves job executions with pagination and filters
@@ -104,12 +190,17 @@ func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, off
 		query += " AND je.archived_at IS NULL"
 	}
 
-	// Apply status filter
-	if filter.Status != nil && *filter.Status != "" {
+	// Apply status filter (multi-status takes precedence)
+	if len(filter.Statuses) > 0 {
+		argCount++
+		query += fmt.Sprintf(" AND je.status = ANY($%d::text[])", argCount)
+		args = append(args, pq.Array(filter.Statuses))
+	} else if filter.Status != nil && *filter.Status != "" {
 		argCount++
 		query += fmt.Sprintf(" AND je.status = $%d", argCount)
 		args = append(args, *filter.Status)
 	}
+	query, args, argCount = jobEntityFilters(query, args, argCount, filter)
 
 	// Apply priority filter
 	if filter.Priority != nil {
@@ -218,12 +309,17 @@ func (r *JobExecutionRepository) GetFilteredCount(ctx context.Context, filter Jo
 		query += " AND je.archived_at IS NULL"
 	}
 
-	// Apply status filter
-	if filter.Status != nil && *filter.Status != "" {
+	// Apply status filter (multi-status takes precedence)
+	if len(filter.Statuses) > 0 {
+		argCount++
+		query += fmt.Sprintf(" AND je.status = ANY($%d::text[])", argCount)
+		args = append(args, pq.Array(filter.Statuses))
+	} else if filter.Status != nil && *filter.Status != "" {
 		argCount++
 		query += fmt.Sprintf(" AND je.status = $%d", argCount)
 		args = append(args, *filter.Status)
 	}
+	query, args, argCount = jobEntityFilters(query, args, argCount, filter)
 
 	// Apply priority filter
 	if filter.Priority != nil {
@@ -235,7 +331,7 @@ func (r *JobExecutionRepository) GetFilteredCount(ctx context.Context, filter Jo
 	// Apply search filter
 	if filter.Search != nil && *filter.Search != "" {
 		argCount++
-		query += fmt.Sprintf(" AND (pj.name ILIKE $%d OR h.name ILIKE $%d)", argCount, argCount)
+		query += fmt.Sprintf(" AND (je.name ILIKE $%d OR pj.name ILIKE $%d OR h.name ILIKE $%d)", argCount, argCount, argCount)
 		searchPattern := "%" + *filter.Search + "%"
 		args = append(args, searchPattern)
 	}
@@ -342,6 +438,8 @@ func (r *JobExecutionRepository) GetStatusCountsFiltered(ctx context.Context, fi
 		query += fmt.Sprintf(" AND je.created_by = $%d", argCount)
 		args = append(args, *filter.UserID)
 	}
+
+	query, args, argCount = jobEntityFilters(query, args, argCount, filter)
 
 	// Teams enabled but no teams — fail-closed: no results (mirror GetFilteredCount).
 	if filter.TeamsEnabled && len(filter.TeamIDs) == 0 {
@@ -591,10 +689,14 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 			je.overall_progress_percent, je.dispatched_keyspace,
 			je.name, je.archived_at,
 			u.username as created_by_username,
-			pj.name as preset_job_name
+			pj.name as preset_job_name,
+			h.client_id, c.name as client_name,
+			je.workflow_id, jw.name as workflow_name
 		FROM job_executions je
 		LEFT JOIN preset_jobs pj ON je.preset_job_id = pj.id
 		JOIN hashlists h ON je.hashlist_id = h.id
+		LEFT JOIN clients c ON c.id = h.client_id
+		LEFT JOIN job_workflows jw ON jw.id = je.workflow_id
 		LEFT JOIN users u ON je.created_by = u.id
 		WHERE 1=1`
 
@@ -606,12 +708,17 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 		query += " AND je.archived_at IS NULL"
 	}
 
-	// Apply status filter
-	if filter.Status != nil && *filter.Status != "" {
+	// Apply status filter (multi-status takes precedence)
+	if len(filter.Statuses) > 0 {
+		argCount++
+		query += fmt.Sprintf(" AND je.status = ANY($%d::text[])", argCount)
+		args = append(args, pq.Array(filter.Statuses))
+	} else if filter.Status != nil && *filter.Status != "" {
 		argCount++
 		query += fmt.Sprintf(" AND je.status = $%d", argCount)
 		args = append(args, *filter.Status)
 	}
+	query, args, argCount = jobEntityFilters(query, args, argCount, filter)
 
 	// Apply priority filter
 	if filter.Priority != nil {
@@ -692,6 +799,8 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 	var executions []JobExecutionWithUser
 	for rows.Next() {
 		var exec JobExecutionWithUser
+		var clientID sql.Null[uuid.UUID]
+		var workflowID sql.Null[uuid.UUID]
 		err := rows.Scan(
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
 			&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
@@ -701,9 +810,19 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 			&exec.Name, &exec.ArchivedAt,
 			&exec.CreatedByUsername,
 			&exec.PresetJobName,
+			&clientID, &exec.ClientName,
+			&workflowID, &exec.WorkflowName,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution with user: %w", err)
+		}
+		if clientID.Valid {
+			v := clientID.V
+			exec.ClientID = &v
+		}
+		if workflowID.Valid {
+			v := workflowID.V
+			exec.WorkflowID = &v
 		}
 		executions = append(executions, exec)
 	}

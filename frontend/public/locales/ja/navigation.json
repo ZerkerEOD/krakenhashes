@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "ダッシュボード",
+    "jobs": "ジョブ",
+    "agents": "エージェント",
+    "hashlists": "ハッシュリスト",
+    "crackedHashes": "クラック済みハッシュ",
+    "wordlists": "ワードリスト",
+    "rules": "ルール",
+    "clientManagement": "クライアント管理",
+    "teams": "チーム",
+    "analytics": "分析",
+    "about": "アプリについて",
+    "logout": "ログアウト"
+  },
+  "admin": {
+    "title": "管理",
+    "settings": "設定",
+    "userManagement": "ユーザー管理",
+    "customCharsets": "カスタム文字セット",
+    "presetJobs": "プリセットジョブ",
+    "jobWorkflows": "ジョブワークフロー",
+    "diagnostics": "診断",
+    "auditLog": "監査ログ",
+    "jobAnalytics": "ジョブ分析",
+    "teamManagement": "チーム管理",
+    "cloudFleet": "クラウドフリート",
+    "binaries": "バイナリ",
+    "hashTypes": "ハッシュタイプ",
+    "vouchers": "バウチャー",
+    "clients": "クライアント",
+    "teams": "チーム"
+  },
+  "userMenu": {
+    "userSettings": "ユーザー設定",
+    "savedCharsets": "保存済み文字セット",
+    "logout": "ログアウト",
+    "user": "ユーザー"
+  },
+  "aria": {
+    "toggleDrawer": "ドロワーを切り替える",
+    "mainNavigation": "メインナビゲーション",
+    "adminNavigation": "管理ナビゲーション",
+    "downloadCaCert": "CA証明書をダウンロード"
+  },
+  "groups": {
+    "resources": "リソース",
+    "peopleAccess": "ユーザーとアクセス",
+    "operations": "運用"
+  }
+}

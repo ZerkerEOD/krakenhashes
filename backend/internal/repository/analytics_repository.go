@@ -1568,6 +1568,7 @@ func (r *AnalyticsRepository) GetLMPartialCracks(ctx context.Context, hashlistID
 			lm.first_half_password,
 			lm.second_half_cracked,
 			lm.second_half_password,
+			hl.id as hashlist_id,
 			hl.name as hashlist_name
 		FROM lm_hash_metadata lm
 		JOIN hashes h ON lm.hash_id = h.id
@@ -1599,6 +1600,7 @@ func (r *AnalyticsRepository) GetLMPartialCracks(ctx context.Context, hashlistID
 			&detail.FirstHalfPwd,
 			&detail.SecondHalfCracked,
 			&detail.SecondHalfPwd,
+			&detail.HashlistID,
 			&detail.HashlistName,
 		)
 		if err != nil {
@@ -1910,6 +1912,7 @@ func (r *AnalyticsRepository) GetLMPartialCracksDomain(ctx context.Context, hash
 			lm.first_half_password,
 			lm.second_half_cracked,
 			lm.second_half_password,
+			hl.id as hashlist_id,
 			hl.name as hashlist_name
 		FROM lm_hash_metadata lm
 		JOIN hashes h ON lm.hash_id = h.id
@@ -1942,6 +1945,7 @@ func (r *AnalyticsRepository) GetLMPartialCracksDomain(ctx context.Context, hash
 			&detail.FirstHalfPwd,
 			&detail.SecondHalfCracked,
 			&detail.SecondHalfPwd,
+			&detail.HashlistID,
 			&detail.HashlistName,
 		)
 		if err != nil {

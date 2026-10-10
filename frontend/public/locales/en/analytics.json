@@ -19,7 +19,18 @@
     "endDate": "End Date",
     "customPatterns": "Custom Patterns (comma-separated)",
     "customPatternsPlaceholder": "e.g., goog, ggl, micro, soft",
-    "customPatternsHelper": "Add custom organization name variations to check"
+    "customPatternsHelper": "Add custom organization name variations to check",
+    "quickSelect": "Quick Select",
+    "datePresets": {
+      "lastMonth": "Last Month",
+      "lastQuarter": "Last Quarter",
+      "last6Months": "Last 6 Months",
+      "lastYear": "Last Year",
+      "priorMonth": "Prior Month",
+      "priorQuarter": "Prior Quarter",
+      "prior6Months": "Prior 6 Months",
+      "priorYear": "Prior Year"
+    }
   },
   "hashlistSelection": {
     "title": "Hashlists",
@@ -32,7 +43,8 @@
     "cracked": "Cracked",
     "status": "Status",
     "active": "Active",
-    "archived": "Archived"
+    "archived": "Archived",
+    "titleWithCount": "{{title}} ({{selected}}/{{total}})"
   },
   "table": {
     "dateRange": "Date Range",
@@ -89,7 +101,8 @@
     "copiedSuccess": "Usernames copied to clipboard!",
     "noRecommendations": "No specific recommendations at this time. Password policies appear adequate.",
     "top50Hashes": "Showing top 50 most reused hashes",
-    "top50PartialCracks": "Showing top 50 partial cracks"
+    "top50PartialCracks": "Showing top 50 partial cracks",
+    "confirmDeleteReport": "Delete this analytics report? This cannot be undone."
   },
   "sections": {
     "lengthDistribution": "Length Distribution",
@@ -126,7 +139,8 @@
     "kerberos": "Kerberos",
     "encryptionTypes": "Encryption Types",
     "linkedHashCorrelation": "LM/NTLM Linked Hash Correlation",
-    "reusedPasswords": "Reused Passwords by Occurrence"
+    "reusedPasswords": "Reused Passwords by Occurrence",
+    "overviewWithDomain": "{{base}} - {{domain}}"
   },
   "charts": {
     "count": "Count",
@@ -206,7 +220,8 @@
     "totalEstimatedKeyspace": "Total Estimated Keyspace",
     "underOrEqual7Chars": "<=7 chars:",
     "8To14Chars": "8-14 chars:",
-    "partiallyCracked": "Partially Cracked:"
+    "partiallyCracked": "Partially Cracked:",
+    "domainFilterTabs": "Domain filter tabs"
   },
   "cards": {
     "totalHashes": "Total Hashes",
@@ -343,11 +358,13 @@
     "chars": "chars"
   },
   "pagination": {
-    "masks": "{{from}}-{{to}} of {{count}} masks"
+    "masks_one": "{{from}}-{{to}} of {{count}} mask",
+    "masks_other": "{{from}}-{{to}} of {{count}} masks"
   },
   "export": {
     "header": "# LM-to-NTLM Hashcat Masks",
-    "generatedFrom": "# Generated from {{count}} cracked LM passwords",
+    "generatedFrom_one": "# Generated from {{count}} cracked LM password",
+    "generatedFrom_other": "# Generated from {{count}} cracked LM passwords",
     "totalMasks": "# Total masks: {{count}}",
     "totalKeyspace": "# Total estimated keyspace: {{keyspace}}",
     "format": "# Format: mask | pattern | count | match% | keyspace | example"
@@ -403,5 +420,12 @@
     "largestSingleReach": "Largest single-account reach",
     "computers": "Computers",
     "notApplicable": "n/a"
+  },
+  "bloodhoundUpload": {
+    "attachButton": "Attach BloodHound Dump (optional)",
+    "filesSelected_one": "{{count}} file selected",
+    "filesSelected_other": "{{count}} files selected",
+    "clear": "Clear",
+    "helperText": "Upload a SharpHound .zip (or BloodHound .json files) to enrich the report with AD-privilege analysis. The dump is processed in memory and never stored — re-upload to re-analyze."
   }
 }

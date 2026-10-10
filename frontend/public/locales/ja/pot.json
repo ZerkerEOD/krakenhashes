@@ -1,0 +1,95 @@
+{
+  "title": "クラック済みハッシュ",
+  "page": {
+    "title": "クラック済みハッシュ (Pot)",
+    "description": "すべてのハッシュリストとクライアント全体でクラック済みのパスワードハッシュを表示します。",
+    "filterByHashlist": "ハッシュリストへジャンプ",
+    "hashlistPlaceholder": "ハッシュリストを選択..."
+  },
+  "table": {
+    "allCrackedHashes": "すべてのクラック済みハッシュ"
+  },
+  "navigation": {
+    "backToAll": "すべてのクラック済みハッシュに戻る",
+    "backToSource": "戻る"
+  },
+  "client": {
+    "title": "クラック済みハッシュ - クライアントビュー",
+    "description": "クライアント {{clientName}} のクラック済みハッシュを表示しています。",
+    "tableTitle": "\"{{clientName}}\" のクラック済みハッシュ"
+  },
+  "hashlist": {
+    "title": "クラック済みハッシュ - ハッシュリストビュー",
+    "description": "ハッシュリスト {{hashlistName}} のクラック済みハッシュを表示しています。",
+    "tableTitle": "\"{{hashlistName}}\" のクラック済みハッシュ"
+  },
+  "job": {
+    "title": "ジョブ: {{jobName}} のクラック済みハッシュ",
+    "description": "このジョブ実行からのすべてのクラック済みパスワードハッシュを表示します。",
+    "tableTitle": "クラック済みハッシュ - {{jobName}}",
+    "defaultName": "ジョブ {{id}}"
+  },
+  "columns": {
+    "originalHash": "元のハッシュ値",
+    "domain": "ドメイン",
+    "username": "ユーザー名",
+    "password": "パスワード",
+    "hashType": "ハッシュタイプ",
+    "actions": "アクション"
+  },
+  "search": {
+    "placeholder": "データベースを検索...",
+    "filterPlaceholder": "このページをフィルター...",
+    "button": "検索",
+    "resultsFound_other": "{{count}} 件の結果が見つかりました",
+    "noResults": "結果が見つかりません",
+    "searching": "検索中..."
+  },
+  "export": {
+    "hashPass": "ハッシュ:パスワード",
+    "userPass": "ユーザー:パスワード",
+    "username": "ユーザー名",
+    "password": "パスワード",
+    "domainUser": "ドメイン\\ユーザー",
+    "domainUserPass": "ドメイン\\ユーザー:パスワード",
+    "potfile": "potファイル (hashcat)",
+    "exportVisible": "表示されている結果をエクスポート",
+    "downloaded": "{{filename}} をダウンロードしました",
+    "downloadFailed": "ファイルのダウンロードに失敗しました"
+  },
+  "tooltips": {
+    "copyHash": "ハッシュ:パスワードをコピー",
+    "copyDomain": "クリックしてドメインをコピー",
+    "copyUsername": "クリックしてユーザー名をコピー",
+    "copyPassword": "クリックしてパスワードをコピー"
+  },
+  "dialogs": {
+    "loadAllTitle": "すべての結果を読み込みますか？",
+    "loadAllMessage": "すべての {{value}} 件の結果を読み込むと、かなりの時間がかかり、パフォーマンスに影響する可能性があります。続行してもよろしいですか？",
+    "loadingAll": "すべての結果を読み込み中です。しばらくお待ちください...",
+    "cancel": "キャンセル",
+    "loadAll": "すべて読み込む"
+  },
+  "pagination": {
+    "all": "すべて"
+  },
+  "notifications": {
+    "copiedToClipboard": "クリップボードにコピーしました",
+    "exported": "クラック済みハッシュをエクスポートしました"
+  },
+  "errors": {
+    "loadFailed": "クラック済みハッシュの読み込みに失敗しました",
+    "loadClientFailed": "クライアント情報の読み込みに失敗しました",
+    "loadHashlistFailed": "ハッシュリスト情報の読み込みに失敗しました",
+    "loadJobFailed": "ジョブ情報の読み込みに失敗しました"
+  },
+  "filter": {
+    "filteredBy": "{{param}} でフィルター: {{value}}"
+  },
+  "breadcrumb": "クラック済みハッシュ",
+  "sourceLabel": {
+    "job": "ジョブ",
+    "client": "クライアント",
+    "hashlist": "ハッシュリスト"
+  }
+}

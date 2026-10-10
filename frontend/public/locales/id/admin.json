@@ -1,0 +1,3097 @@
+{
+  "title": "Pengaturan Admin",
+  "sections": {
+    "general": "Pengaturan Umum",
+    "authentication": "Autentikasi",
+    "email": "Pengaturan Email",
+    "security": "Keamanan",
+    "sso": "Single Sign-On",
+    "monitoring": "Monitoring"
+  },
+  "tabs": {
+    "emailSettings": "Pengaturan Email",
+    "authenticationSettings": "Pengaturan Autentikasi",
+    "ssoSettings": "Pengaturan SSO",
+    "binaryManagement": "Manajemen Binary",
+    "systemSettings": "Pengaturan Sistem",
+    "clientSettings": "Pengaturan Klien",
+    "hashTypes": "Tipe Hash",
+    "jobExecution": "Eksekusi Job",
+    "monitoring": "Monitoring",
+    "agentDownloads": "Unduhan Agent",
+    "notifications": "Notifikasi",
+    "cloudProvisioning": "Penyediaan Cloud",
+    "serverCertificate": "Sertifikat Server"
+  },
+  "common": {
+    "cancel": "Batal",
+    "create": "Buat",
+    "edit": "Edit",
+    "delete": "Hapus",
+    "save": "Simpan",
+    "saveChanges": "Simpan Perubahan",
+    "copyToClipboard": "Salin ke Papan Klip",
+    "never": "Tidak Pernah",
+    "invalidDate": "Tanggal tidak valid",
+    "all": "Semua",
+    "yes": "Ya",
+    "no": "Tidak",
+    "note": "Catatan",
+    "default": "Default",
+    "on": "Aktif",
+    "off": "Nonaktif",
+    "none": "Tidak Ada",
+    "unlimited": "Tidak Terbatas",
+    "close": "Tutup",
+    "unknownError": "Kesalahan tidak diketahui",
+    "dialogs": {
+      "confirmDeleteNamed": "Apakah Anda yakin ingin menghapus \"{{name}}\"?"
+    },
+    "download": "Unduh",
+    "confirm": "Konfirmasi"
+  },
+  "users": {
+    "title": "Manajemen Pengguna",
+    "description": "Kelola akun pengguna dan izin",
+    "addUser": "Tambah Pengguna",
+    "createUser": "Buat Pengguna",
+    "columns": {
+      "username": "Username",
+      "email": "Email",
+      "role": "Peran",
+      "status": "Status",
+      "createdAt": "Dibuat",
+      "lastLogin": "Login Terakhir",
+      "actions": "Tindakan",
+      "provider": "Provider",
+      "providerLocal": "Lokal",
+      "mfa": "MFA",
+      "apiKey": "Kunci API",
+      "lastApiUse": "Penggunaan API Terakhir"
+    },
+    "roles": {
+      "admin": "Admin",
+      "user": "Pengguna",
+      "system": "Sistem"
+    },
+    "status": {
+      "active": "Aktif",
+      "pending": "Menunggu Persetujuan",
+      "disabled": "Dinonaktifkan",
+      "locked": "Terkunci"
+    },
+    "actions": {
+      "edit": "Edit Pengguna",
+      "delete": "Hapus Pengguna",
+      "approve": "Setujui",
+      "disable": "Nonaktifkan",
+      "enable": "Aktifkan",
+      "unlock": "Buka Kunci",
+      "resetPassword": "Atur Ulang Kata Sandi",
+      "disableMfa": "Nonaktifkan MFA",
+      "revokeApiKey": "Cabut Kunci API",
+      "cannotDeleteSystem": "Tidak dapat menghapus pengguna sistem",
+      "terminateSession": "Akhiri sesi",
+      "terminateAllSessions": "Akhiri Semua Sesi"
+    },
+    "apiKey": {
+      "none": "Tidak Ada"
+    },
+    "validation": {
+      "usernameRequired": "Username diperlukan",
+      "emailRequired": "Email diperlukan",
+      "emailInvalid": "Format email tidak valid",
+      "passwordRequired": "Kata sandi diperlukan",
+      "passwordMinLength": "setidaknya {{value}} karakter",
+      "passwordUppercase": "satu huruf besar",
+      "passwordLowercase": "satu huruf kecil",
+      "passwordNumber": "satu angka",
+      "passwordSpecial": "satu karakter khusus",
+      "passwordMustContain": "Kata sandi harus berisi {{requirements}}",
+      "confirmPasswordRequired": "Silakan konfirmasi kata sandi",
+      "passwordsMismatch": "Kata sandi tidak cocok"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat pengguna. Silakan coba segarkan.",
+      "loadDetailsFailed": "Gagal memuat detail pengguna",
+      "loadSessionsFailed": "Gagal memuat sesi",
+      "loadLoginAttemptsFailed": "Gagal memuat upaya login",
+      "loadApiKeyFailed": "Gagal memuat informasi kunci API",
+      "createFailed": "Gagal membuat pengguna",
+      "updateFailed": "Gagal memperbarui pengguna",
+      "deleteFailed": "Gagal menghapus pengguna",
+      "enableFailed": "Gagal mengaktifkan pengguna",
+      "disableFailed": "Gagal menonaktifkan pengguna",
+      "unlockFailed": "Gagal membuka kunci akun",
+      "reasonRequired": "Silakan berikan alasan untuk menonaktifkan pengguna ini",
+      "passwordResetFailed": "Gagal mengatur ulang kata sandi",
+      "mfaDisableFailed": "Gagal menonaktifkan MFA",
+      "accountStatusFailed": "Gagal memperbarui status akun",
+      "terminateSessionFailed": "Gagal mengakhiri sesi",
+      "terminateAllSessionsFailed": "Gagal mengakhiri semua sesi",
+      "revokeApiKeyFailed": "Gagal mencabut kunci API",
+      "userNotFound": "Pengguna tidak ditemukan"
+    },
+    "messages": {
+      "createSuccess": "Pengguna berhasil dibuat",
+      "updateSuccess": "Detail pengguna berhasil diperbarui",
+      "deleteSuccess": "Pengguna berhasil dihapus",
+      "enableSuccess": "Pengguna berhasil diaktifkan",
+      "disableSuccess": "Pengguna berhasil dinonaktifkan",
+      "passwordResetSuccess": "Kata sandi berhasil diatur ulang!",
+      "passwordCopied": "Kata sandi disalin ke papan klip",
+      "mfaDisableSuccess": "MFA berhasil dinonaktifkan",
+      "accountDisabled": "Akun pengguna dinonaktifkan",
+      "accountEnabled": "Akun pengguna diaktifkan",
+      "accountUnlocked": "Akun pengguna dibuka kuncinya",
+      "sessionTerminated": "Sesi berhasil diakhiri",
+      "allSessionsTerminated_other": "{{count}} sesi berhasil diakhiri",
+      "apiKeyRevoked": "Kunci API berhasil dicabut"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Buat Pengguna Baru",
+        "password": "Kata Sandi",
+        "confirmPassword": "Konfirmasi Kata Sandi",
+        "roleHelperText": "Pilih peran pengguna dalam sistem"
+      },
+      "disableUser": {
+        "title": "Nonaktifkan Akun Pengguna",
+        "description": "Silakan berikan alasan untuk menonaktifkan akun pengguna ini. Ini akan dicatat untuk tujuan audit.",
+        "reasonLabel": "Alasan Penonaktifan",
+        "reasonPlaceholder": "Misalnya, Kompromi akun, Pelanggaran syarat, Permintaan pengguna, dll.",
+        "disableAccount": "Nonaktifkan Akun"
+      },
+      "deleteUser": {
+        "title": "Hapus Akun Pengguna",
+        "warning": "Tindakan ini tidak dapat dibatalkan. Pengguna akan dihapus secara permanen dari sistem.",
+        "confirmation": "Apakah Anda yakin ingin menghapus pengguna <strong>{{username}}</strong>?",
+        "dataNote": "Semua data terkait akan dipertahankan, tetapi pengguna tidak akan lagi dapat masuk."
+      },
+      "resetPassword": {
+        "title": "Atur Ulang Kata Sandi Pengguna",
+        "generateTemporary": "Buat kata sandi sementara",
+        "newPassword": "Kata Sandi Baru",
+        "passwordHelperText": "Harus setidaknya 8 karakter"
+      },
+      "disableMfa": {
+        "title": "Nonaktifkan MFA",
+        "confirmation": "Apakah Anda yakin ingin menonaktifkan MFA untuk pengguna ini? Mereka akan perlu mengaturnya lagi jika diperlukan."
+      },
+      "terminateSession": {
+        "title": "Akhiri Sesi?",
+        "description": "Ini akan mengeluarkan pengguna dari perangkat ini. Pengguna akan perlu masuk lagi untuk melanjutkan penggunaan aplikasi.",
+        "terminate": "Akhiri"
+      },
+      "terminateAllSessions": {
+        "title": "Akhiri Semua Sesi?",
+        "description": "Ini akan mengeluarkan pengguna dari SEMUA perangkat, termasuk sesi mereka yang aktif. Pengguna akan perlu masuk lagi. Tindakan ini tidak dapat dibatalkan.",
+        "warning": "Ini termasuk sesi kerja yang aktif!",
+        "terminateAll": "Akhiri Semua"
+      },
+      "revokeApiKey": {
+        "title": "Cabut Kunci API Pengguna?",
+        "warning": "Ini akan segera menonaktifkan akses API untuk pengguna ini. Aplikasi apa pun yang menggunakan kunci ini akan berhenti bekerja.",
+        "confirmation": "Apakah Anda yakin ingin mencabut kunci API pengguna ini?"
+      }
+    },
+    "detail": {
+      "title": "Detail Pengguna",
+      "backToUsers": "Kembali ke Pengguna",
+      "userInformation": "Informasi Pengguna",
+      "userId": "ID Pengguna",
+      "systemUserReadOnly": "Pengguna sistem tidak dapat dimodifikasi",
+      "accountStatus": "Status Akun",
+      "accountStatusLabel": "Status Akun",
+      "enabled": "Diaktifkan",
+      "disabled": "Dinonaktifkan",
+      "noReasonProvided": "Tidak ada alasan yang diberikan",
+      "lockStatus": "Status Kunci",
+      "lockedUntil": "Terkunci hingga {{date}}",
+      "notLocked": "Tidak terkunci",
+      "mfaStatus": "Status MFA",
+      "mfaEnabled": "Diaktifkan ({{types}})",
+      "mfaDisabled": "Dinonaktifkan",
+      "apiKeyManagement": "Manajemen Kunci API",
+      "apiKeyStatus": "Status Kunci API",
+      "noApiKeyGenerated": "Tidak Ada Kunci API yang Dihasilkan",
+      "created": "Dibuat",
+      "lastUsed": "Terakhir Digunakan",
+      "apiKeySecurityNote": "Admin dapat mencabut kunci API tetapi tidak dapat melihat kunci plaintext untuk alasan keamanan.",
+      "activityInformation": "Informasi Aktivitas",
+      "passwordChanged": "Kata Sandi Diubah",
+      "failedLoginAttempts": "Upaya Login Gagal",
+      "attemptsCount_other": "{{count}} upaya",
+      "disabledAt": "Dinonaktifkan pada",
+      "activeSessions": "Sesi Aktif",
+      "noActiveSessions": "Tidak ada sesi aktif",
+      "loginHistory": "Riwayat Login",
+      "noLoginAttempts": "Tidak ada upaya login yang ditemukan",
+      "temporaryPassword": "Kata sandi sementara",
+      "sharePasswordSecurely": "Silakan bagikan kata sandi ini dengan aman kepada pengguna.",
+      "sessions": {
+        "ipAddress": "Alamat IP",
+        "deviceBrowser": "Perangkat / Browser",
+        "lastActive": "Terakhir Aktif"
+      },
+      "loginAttempts": {
+        "timestamp": "Cap Waktu",
+        "success": "Berhasil",
+        "failed": "Gagal",
+        "failureReason": "Alasan Kegagalan"
+      },
+      "teams": "Tim",
+      "teamName": "Tim",
+      "teamDescription": "Deskripsi",
+      "noTeams": "Bukan anggota tim apa pun",
+      "ownedAgents": "Agent yang Dimiliki",
+      "noOwnedAgents": "Pengguna ini tidak memiliki agent",
+      "agentName": "Agent",
+      "agentVersion": "Versi",
+      "agentLastSeen": "Terakhir Dilihat"
+    }
+  },
+  "clients": {
+    "title": "Manajemen Klien",
+    "addClient": "Tambah Klien",
+    "columns": {
+      "name": "Nama",
+      "description": "Deskripsi",
+      "contact": "Kontak",
+      "cracked": "Tercrack",
+      "retention": "Retensi (Bulan)",
+      "createdAt": "Dibuat",
+      "actions": "Tindakan",
+      "wordlists": "Wordlists"
+    },
+    "form": {
+      "clientName": "Nama Klien",
+      "description": "Deskripsi",
+      "contactInfo": "Informasi Kontak",
+      "dataRetention": "Retensi Data (Bulan)",
+      "dataRetentionHelperText": "Biarkan kosong untuk menggunakan default sistem. Masukkan 0 untuk menyimpan selamanya.",
+      "excludeFromPotfile": "Kecualikan dari potfile (jangan simpan kata sandi tercrack)",
+      "excludeFromPotfileHelperText": "Aktifkan ini untuk klien dengan persyaratan retensi data yang ketat",
+      "cloudInherit": "Cloud burst: klien ini akan mewarisi default server — {{state}}, ${{amount}} per {{period}}. Ubah di Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnfunded": "Cloud burst: tidak ada anggaran default yang ditetapkan, jadi klien ini dimulai tanpa pendanaan dan tidak dapat menyewa kapasitas berbayar. Tetapkan default di Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnknown": "Pengaturan cloud burst diwarisi dari default server di Cloud Provisioning → Client Budgets.",
+      "cloudEnabledWord": "aktif",
+      "cloudDisabledWord": "nonaktif",
+      "excludeFromClientPotfile": "Kecualikan dari potfile klien",
+      "excludeFromClientPotfileHelperText": "Jika dicentang, kata sandi tercrack untuk klien ini TIDAK ditambahkan ke potfile khusus klien mereka.",
+      "clientPotfileSettings": "Pengaturan Penghapusan Potfile",
+      "useSystemDefault": "Gunakan default sistem",
+      "alwaysRemove": "Selalu hapus",
+      "neverRemove": "Jangan pernah hapus",
+      "assignToTeam": "Tetapkan ke Tim",
+      "assignToTeamHelperText": "Klien baru akan ditetapkan ke tim ini. Penetapan ulang klien yang ada dikelola melalui Admin Team Management.",
+      "removeFromGlobalPotfileOnDelete": "Hapus dari potfile global saat dihapus",
+      "removeFromGlobalPotfileHelperText": "Mengontrol apakah kata sandi dihapus dari potfile global saat hashlist dihapus.",
+      "removeFromClientPotfileOnDelete": "Hapus dari potfile klien saat dihapus",
+      "removeFromClientPotfileHelperText": "Mengontrol apakah kata sandi dihapus dari potfile klien saat hashlist dihapus."
+    },
+    "validation": {
+      "nameRequired": "Nama Klien diperlukan.",
+      "retentionInvalid": "Periode Retensi harus berupa angka non-negatif atau kosong (untuk default).",
+      "teamRequired": "Pemilihan tim diperlukan saat tim diaktifkan"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat klien. Silakan coba menyegarkan.",
+      "loadDefaultSettingsFailed": "Gagal memuat pengaturan klien default.",
+      "saveFailed": "Gagal menyimpan klien.",
+      "deleteFailed": "Gagal menghapus klien."
+    },
+    "messages": {
+      "createSuccess": "Klien berhasil dibuat",
+      "updateSuccess": "Klien berhasil diperbarui",
+      "deleteSuccess": "Klien berhasil dihapus"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Tambah Klien Baru",
+        "createButton": "Buat Klien"
+      },
+      "editClient": {
+        "title": "Ubah Klien"
+      },
+      "deleteClient": {
+        "title": "Konfirmasi Penghapusan",
+        "confirmation": "Apakah Anda yakin ingin menghapus klien \"{{name}}\"? Tindakan ini tidak dapat dibatalkan. Hashlist terkait dapat dihapus segera atau menjadi tidak terhubung ke klien mana pun, berdasarkan kebijakan retensi."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Nama",
+        "status": "Status",
+        "total": "Hash",
+        "cracked": "Tercrack",
+        "created": "Dibuat"
+      },
+      "notFound": "Klien tidak ditemukan",
+      "notFoundHint": "Mungkin telah dihapus, atau milik tim yang Anda bukan anggotanya.",
+      "backToClients": "Kembali ke klien",
+      "breadcrumb": "Klien",
+      "manageWordlists": "Wordlists & potfile",
+      "stats": {
+        "hashlists": "Hashlists",
+        "cracked": "Tercrack",
+        "jobs": "Jobs",
+        "active": "{{count}} aktif",
+        "wordlists": "Wordlists",
+        "hasPotfile": "Potfile klien hadir"
+      },
+      "hashlists": "Hashlists",
+      "noHashlists": "Belum ada hashlists untuk klien ini",
+      "jobs": "Jobs",
+      "noJobs": "Tidak ada jobs yang pernah berjalan untuk klien ini",
+      "teams": "Tim",
+      "noTeams": "Tidak ditetapkan ke tim mana pun",
+      "policy": "Retensi & potfile",
+      "retention": "Retensi data",
+      "retentionDefault": "Default sistem",
+      "retentionForever": "Simpan selamanya",
+      "retentionMonths_other": "{{count}} bulan",
+      "globalPotfile": "Potfile global",
+      "excluded": "Dikecualikan",
+      "included": "Disertakan",
+      "clientPotfile": "Potfile klien",
+      "contact": "Kontak",
+      "lastActivity": "Aktivitas terakhir"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Tetapkan Klien ke Tim",
+      "dialogDescription_other": "Tetapkan {{count}} klien yang dipilih ke tim. Klien yang sudah ada di tim yang dipilih akan dilewati.",
+      "selectTeam": "Pilih Tim",
+      "assignButton": "Tetapkan",
+      "fallbackTeamName": "tim",
+      "success_other": "{{count}} klien ditetapkan ke {{team}}",
+      "successWithSkipped_other": "{{count}} klien ditetapkan ke {{team}} ({{skipped}} sudah ditetapkan)",
+      "errors": {
+        "assignFailed": "Gagal menetapkan klien ke tim"
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Manajemen Wordlist",
+    "description": "Kelola wordlists untuk password cracking",
+    "uploadWordlist": "Unggah Wordlist",
+    "refresh": "Segarkan",
+    "loading": "Memuat wordlists...",
+    "noWordlistsFound": "Tidak ada wordlists ditemukan",
+    "tryDifferentSearch": "Coba istilah pencarian yang berbeda",
+    "uploadToGetStarted": "Unggah wordlist untuk memulai",
+    "noDescription": "Tidak ada deskripsi yang diberikan",
+    "searchPlaceholder": "Cari wordlists...",
+    "tabs": {
+      "all": "Semua Wordlists",
+      "general": "Umum",
+      "specialized": "Khusus",
+      "targeted": "Ditargetkan",
+      "custom": "Kustom"
+    },
+    "columns": {
+      "name": "Nama",
+      "status": "Status",
+      "type": "Tipe",
+      "size": "Ukuran",
+      "wordCount": "Jumlah Kata",
+      "updated": "Diperbarui",
+      "actions": "Tindakan"
+    },
+    "status": {
+      "verified": "Terverifikasi",
+      "pending": "Tertunda",
+      "failed": "Gagal",
+      "missing": "File hilang di disk",
+      "missingSince": "File hilang dari disk sejak {{date}}. Unggah ulang atau hapus entri."
+    },
+    "types": {
+      "general": "Umum",
+      "specialized": "Khusus",
+      "targeted": "Ditargetkan",
+      "custom": "Kustom"
+    },
+    "fields": {
+      "name": "Nama",
+      "description": "Deskripsi",
+      "wordlistType": "Tipe Wordlist"
+    },
+    "tooltips": {
+      "refreshMetadata": "Segarkan Metadata",
+      "download": "Unduh",
+      "edit": "Ubah",
+      "delete": "Hapus"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat wordlists",
+      "uploadFailed": "Gagal mengunggah wordlist",
+      "deleteFailed": "Gagal menghapus wordlist",
+      "downloadFailed": "Gagal mengunduh wordlist",
+      "refreshFailed": "Gagal menyegarkan metadata wordlist",
+      "updateFailed": "Gagal memperbarui wordlist: {{error}}",
+      "sessionExpired": "Sesi Anda telah berakhir. Silakan masuk lagi."
+    },
+    "messages": {
+      "uploadSuccess": "Wordlist berhasil diunggah",
+      "duplicateWordlist": "Wordlist \"{{name}}\" sudah ada",
+      "deleteSuccess": "Wordlist \"{{name}}\" berhasil dihapus",
+      "updateSuccess": "Wordlist berhasil diperbarui",
+      "refreshSuccess": "Metadata wordlist berhasil disegarkan"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Unggah Wordlist",
+        "fileUploadTitle": "Unggah file wordlist",
+        "fileUploadDescription": "Pilih file wordlist untuk diunggah. Format yang didukung: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Ubah Wordlist"
+      },
+      "delete": {
+        "title": "Konfirmasi Penghapusan",
+        "cascadeTitle": "Konfirmasi Penghapusan Bertingkat",
+        "confirmation": "Apakah Anda yakin ingin menghapus wordlist \"{{name}}\"? Tindakan ini tidak dapat dibatalkan.",
+        "cascadeWarning": "Menghapus wordlist \"{{name}}\" juga akan menghapus yang berikut:",
+        "checkingDependencies": "Memeriksa dependensi...",
+        "jobsCount_other": "{{count}} Jobs (pending/running/failed):",
+        "presetJobsCount_other": "{{count}} Preset Jobs:",
+        "workflowStepsCount_other": "{{count}} Langkah Workflow:",
+        "emptyWorkflowsCount_other": "{{count}} Workflow Kosong akan dihapus:",
+        "noHashlist": "Tidak ada hashlist",
+        "step": "Langkah {{order}}",
+        "andMore": "...dan {{count}} lagi",
+        "confirmationPrompt": "Untuk mengonfirmasi penghapusan bertingkat ini, ketikkan ID wordlist: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Ketik {{id}} untuk mengonfirmasi",
+        "idMismatch": "ID tidak cocok",
+        "deleteAll": "Hapus Semua"
+      }
+    },
+    "filterForm": {
+      "helpText": "Semua kriteria digabungkan (AND) — sebuah kata harus memenuhi setiap kriteria yang Anda tetapkan. Jika regex Anda lebih ketat daripada bidang panjang (misalnya panjang min 8 tetapi regex memerlukan 12+), aturan yang lebih ketat menang. Perkiraan di bawah mencerminkan hasil gabungan.",
+      "minLength": "Panjang min",
+      "maxLength": "Panjang maks",
+      "requiredClasses": "Kelas karakter yang diperlukan",
+      "uppercase": "Huruf besar",
+      "lowercase": "Huruf kecil",
+      "digit": "Digit",
+      "special": "Khusus",
+      "minClasses": "Min # kelas (1-4)",
+      "minClassesHelp": "mis. 3 = setidaknya 3 dari 4 kelas",
+      "regexLabel": "Regex (RE2)",
+      "regexHelperDefault": "mis. ^.{10,16}$",
+      "regexLookaroundError": "Lookarounds ((?=…), (?!…), (?<=…), (?<!…)) tidak didukung oleh mesin regex backend (RE2). Gunakan filter panjang/kelas sebagai gantinya.",
+      "regexInvalidDefault": "Ekspresi reguler tidak valid",
+      "estimating": "Memperkirakan…",
+      "previewTooltip": "Diperkirakan dengan sampling awal wordlist sumber. Untuk daftar yang diurutkan, total sebenarnya mungkin berbeda.",
+      "previewLabel": "~{{countDisplay}} kandidat ({{rateDisplay}}% dari sampel)",
+      "previewUnavailable": "Pratinjau tidak tersedia"
+    },
+    "filtered": {
+      "badge": "Tersaring",
+      "regeneratingBadge": "Meregenerasi…",
+      "regeneratingTooltip": "Parent berubah; wordlist tersaring ini sedang meregenerasi (hanya entri baru yang disaring ulang jika memungkinkan).",
+      "staleBadge": "Usang",
+      "staleTooltip": "Wordlist parent berubah sejak ini dihasilkan. Wordlist tersaring meregenerasi secara otomatis saat parent mereka berubah; Anda juga dapat meregenerasi sekarang.",
+      "namePlaceholder": "{{name}} (tersaring)",
+      "wordCount_other": "{{count}} kata",
+      "plaintextChip": "plaintext",
+      "compressedChip": "terkompres",
+      "messages": {
+        "generating": "Wordlist tersaring sedang dihasilkan",
+        "createFailed": "Gagal membuat wordlist tersaring",
+        "regenerating": "Memulai regenerasi penuh dari wordlist tersaring",
+        "regenerateFailed": "Gagal meregenerasi wordlist tersaring"
+      },
+      "createDialog": {
+        "title": "Buat Wordlist Tersaring",
+        "description": "Hasilkan wordlist baru yang hanya berisi baris dari wordlist sumber yang cocok dengan kriteria Anda. Hasilnya dapat digunakan kembali di seluruh jobs dan dilacak terhadap parent-nya.",
+        "sourceWordlistLabel": "Wordlist sumber",
+        "nameLabel": "Nama",
+        "create": "Buat"
+      },
+      "regenerateDialog": {
+        "title": "Regenerasi wordlist tersaring?",
+        "autoInfo": "Wordlist tersaring biasanya diregenerasi <strong>secara otomatis di backend</strong> kapan pun wordlist parent mereka berubah — Anda tidak perlu melakukan ini secara manual.",
+        "manualHint": "Hanya regenerasi secara manual jika Anda tahu <strong>urutan kata di parent berubah</strong> (kata-kata diedit, dihapus, atau diatur ulang daripada hanya ditambahkan ke akhir).",
+        "warningWithExample": "Ini menjalankan <strong>regenerasi penuh</strong> — seluruh parent disaring ulang, yang dapat memakan waktu untuk wordlist besar (mis. \"{{name}}\").",
+        "warningNoExample": "Ini menjalankan <strong>regenerasi penuh</strong> — seluruh parent disaring ulang, yang dapat memakan waktu untuk wordlist besar.",
+        "confirmButton": "Regenerasi sepenuhnya"
+      }
+    }
+  },
+  "rules": {
+    "title": "Manajemen Rule",
+    "description": "Kelola rule Hashcat untuk cracking kata sandi",
+    "uploadRule": "Unggah Rule",
+    "refresh": "Muat Ulang",
+    "loading": "Memuat rule...",
+    "noRulesFound": "Tidak ada rule ditemukan",
+    "tryDifferentSearch": "Coba istilah pencarian yang berbeda",
+    "uploadToGetStarted": "Unggah rule untuk memulai",
+    "noDescription": "Tidak ada deskripsi yang diberikan",
+    "searchPlaceholder": "Cari rule...",
+    "tabs": {
+      "all": "Semua Rule",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Nama",
+      "status": "Status",
+      "type": "Tipe",
+      "size": "Ukuran",
+      "ruleCount": "Jumlah Rule",
+      "updated": "Diperbarui",
+      "actions": "Tindakan"
+    },
+    "status": {
+      "verified": "Terverifikasi",
+      "pending": "Tertunda",
+      "failed": "Gagal",
+      "ready": "Siap",
+      "processing": "Diproses",
+      "missing": "File hilang di disk",
+      "missingSince": "File hilang dari disk sejak {{date}}. Unggah kembali atau hapus entri tersebut."
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Nama",
+      "description": "Deskripsi",
+      "ruleType": "Tipe Rule"
+    },
+    "tooltips": {
+      "download": "Unduh",
+      "edit": "Sunting",
+      "delete": "Hapus"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat rule",
+      "uploadFailed": "Gagal mengunggah rule",
+      "deleteFailed": "Gagal menghapus rule",
+      "downloadFailed": "Gagal mengunduh rule",
+      "updateFailed": "Gagal memperbarui rule: {{error}}",
+      "verifyFailed": "Gagal memverifikasi rule",
+      "sessionExpired": "Sesi Anda telah berakhir. Silakan masuk kembali."
+    },
+    "messages": {
+      "uploadSuccess": "Rule berhasil diunggah",
+      "duplicateRule": "Rule \"{{name}}\" sudah ada",
+      "deleteSuccess": "Rule \"{{name}}\" berhasil dihapus",
+      "updateSuccess": "Rule berhasil diperbarui",
+      "verifySuccess": "Rule \"{{name}}\" berhasil diverifikasi"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Unggah Rule",
+        "fileUploadTitle": "Unggah file rule",
+        "fileUploadDescription": "Pilih file rule untuk diunggah. Format yang didukung: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Sunting Rule"
+      },
+      "delete": {
+        "title": "Konfirmasi Penghapusan",
+        "cascadeTitle": "Konfirmasi Penghapusan Berantai",
+        "confirmation": "Apakah Anda yakin ingin menghapus rule \"{{name}}\"? Tindakan ini tidak dapat dibatalkan.",
+        "cascadeWarning": "Menghapus rule \"{{name}}\" juga akan menghapus hal berikut:",
+        "checkingDependencies": "Memeriksa dependensi...",
+        "jobsCount_other": "{{count}} Job (tertunda/berjalan/gagal):",
+        "presetJobsCount_other": "{{count}} Preset Job:",
+        "workflowStepsCount_other": "{{count}} Tahapan Workflow:",
+        "emptyWorkflowsCount_other": "{{count}} Workflow Kosong akan dihapus:",
+        "noHashlist": "Tidak ada hashlist",
+        "step": "Tahap {{order}}",
+        "andMore": "...dan {{count}} lainnya",
+        "confirmationPrompt": "Untuk mengonfirmasi penghapusan berantai ini, ketik ID rule: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Ketik {{id}} untuk mengonfirmasi",
+        "idMismatch": "ID tidak cocok",
+        "deleteAll": "Hapus Semua"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Manajemen Preset Job",
+    "createNew": "Buat Preset Job",
+    "confirmDelete": "Apakah Anda yakin ingin menghapus preset job ini?",
+    "noJobsFound": "Tidak ada preset job ditemukan. Buat satu untuk memulai.",
+    "keyspaceNotCalculated": "Belum dihitung",
+    "calculating": "Menghitung...",
+    "calculateKeyspace": "Hitung Keyspace",
+    "calculateAllMissingKeyspaces": "Hitung Semua Keyspace yang Belum Dihitung",
+    "calculatingKeyspaces": "Menghitung...",
+    "calculatingAllKeyspacesMessage": "Menghitung keyspace untuk semua preset job. Ini mungkin memerlukan beberapa saat...",
+    "canInterruptRunningJobs": "Dapat menghentikan job yang sedang berjalan",
+    "columns": {
+      "name": "Nama",
+      "description": "Deskripsi",
+      "attackMode": "Mode Serangan",
+      "priority": "Prioritas",
+      "highPriorityOverride": "Pengesampingan Prioritas Tinggi",
+      "maxAgents": "Max Agents",
+      "keyspace": "Keyspace",
+      "binaryVersion": "Versi Binary",
+      "wordlists": "Wordlist",
+      "rules": "Rule",
+      "createdAt": "Dibuat Pada",
+      "actions": "Tindakan"
+    },
+    "messages": {
+      "deleteSuccess": "Preset job berhasil dihapus",
+      "deleteFailed": "Gagal menghapus preset job: {{error}}",
+      "fetchError": "Kesalahan memuat preset job: {{error}}",
+      "deleteError": "Kesalahan menghapus preset job: {{error}}",
+      "keyspaceRecalculateSuccess": "Keyspace berhasil dihitung ulang",
+      "keyspaceRecalculateFailed": "Gagal menghitung ulang keyspace: {{error}}",
+      "keyspaceAllComplete": "Diperbarui {{updated}}, dilewati {{skipped}}, gagal {{failed}}",
+      "keyspaceAllFailed": "Gagal menghitung ulang keyspace: {{error}}"
+    },
+    "form": {
+      "createTitle": "Buat Preset Job",
+      "editTitle": "Sunting Preset Job",
+      "createJob": "Buat Preset Job",
+      "updateJob": "Perbarui Preset Job",
+      "attackModeRequirements": "Persyaratan Mode Serangan",
+      "wordlistSelectionCombination": "Pemilihan Wordlist (Mode Kombinasi)",
+      "selectFirstWordlist": "Pilih wordlist pertama",
+      "selectSecondWordlist": "Pilih wordlist kedua",
+      "fields": {
+        "jobName": "Nama Job",
+        "attackMode": "Mode Serangan",
+        "priority": "Prioritas",
+        "chunkSize": "Durasi Chunk (detik)",
+        "maxAgents": "Max Agents",
+        "maskPattern": "Pola Mask",
+        "incrementMode": "Mode Increment",
+        "incrementMin": "Panjang Minimum Increment",
+        "incrementMax": "Panjang Maksimum Increment",
+        "wordlists": "Wordlist",
+        "rules": "Rule",
+        "mask": "Mask",
+        "ruleOptional": "Rule (Opsional)",
+        "firstWordlist": "Wordlist Pertama",
+        "secondWordlist": "Wordlist Kedua",
+        "allowHighPriorityOverride": "Izinkan Pengesampingan Prioritas Tinggi (dapat menghentikan job yang sedang berjalan)",
+        "additionalArgs": "Argumen Hashcat Tambahan",
+        "cloudBurstEnabled": "Izinkan cloud burst",
+        "cloudMaxInstances": "Jumlah maksimal instance cloud",
+        "cloudAllowCommunityHosts": "Izinkan host yang dioperasikan peer (Vast.ai, RunPod Community)"
+      },
+      "incrementModes": {
+        "off": "Nonaktif (gunakan mask penuh)",
+        "increment": "Increment (1 ke maks)",
+        "incrementInverse": "Increment Terbalik (maks ke 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Pilih versi binary hashcat untuk digunakan",
+        "priority": "Job prioritas lebih tinggi berjalan terlebih dahulu (0-{{maxPriority}})",
+        "maskPattern": "Pola mask hashcat (mis., ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=huruf kecil, ?u=huruf besar, ?d=digit, ?s=khusus, ?a=semua",
+        "incrementMode": "Gunakan mode increment untuk mencoba mask dengan berbagai panjang",
+        "incrementMin": "Panjang mask minimum untuk dicoba",
+        "incrementMax": "Panjang mask maksimum untuk dicoba",
+        "chunkSize": "Durasi untuk setiap chunk kerja dalam detik",
+        "maxAgents": "Jumlah maksimal agent (0 = tidak terbatas)",
+        "allowHighPriorityOverride": "Ketika diaktifkan, job ini dapat menghentikan job yang sedang berjalan dengan prioritas lebih rendah untuk mengambil agent mereka",
+        "wordlistsNotUsed": "Wordlist tidak digunakan untuk mode serangan ini",
+        "selectWordlists_other": "Pilih tepat {{count}} wordlist",
+        "rulesNotUsed": "Rule tidak digunakan untuk mode serangan ini",
+        "selectRule": "Secara opsional pilih file rule untuk menerapkan transformasi",
+        "firstWordlist": "Kata-kata dari daftar ini akan digunakan sebagai bagian pertama",
+        "secondWordlist": "Kata-kata dari daftar ini akan ditambahkan ke bagian pertama",
+        "additionalArgs": "Flag hashcat tambahan untuk job ini. Flag tingkat agent memiliki prioritas pada konflik.",
+        "cloudBurstEnabled": "Sewa instance GPU untuk job yang dibuat dari preset ini ketika armada on-prem tidak dapat mengikuti. Memerlukan klien untuk didanai dan memilih provider.",
+        "cloudMaxInstances": "Terpisah dari Max Agents, yang mengatur kumpulan on-prem bersama. Biarkan kosong agar anggaran yang tersisa memutuskan.",
+        "cloudAllowCommunityHosts": "Ini adalah mesin milik orang lain. Pemilik host memiliki root di atas container, jadi hash, wordlist, dan plaintext tercrack klien ini dapat dibaca oleh pihak ketiga dan tidak terenkripsi saat istirahat di host. Tidak disarankan untuk data produksi atau keterlibatan klien. Matikan ini dan job akan tetap menggunakan kapasitas aman (AWS, RunPod Secure Cloud) jika klien memungkinkannya.",
+        "prefilteredWordlistHint": "Untuk menggunakan wordlist yang sudah difilter sebelumnya dalam preset job, buat terlebih dahulu di Manajemen Wordlist — kemudian akan muncul di daftar ini. Filter inline ephemeral hanya tersedia pada job kustom sekali pakai."
+      },
+      "errors": {
+        "nameRequired": "Nama job diperlukan",
+        "binaryVersionRequired": "Versi binary diperlukan",
+        "straightModeWordlist": "Mode serangan Straight memerlukan tepat 1 wordlist",
+        "combinationModeWordlists": "Mode serangan Combination memerlukan tepat 2 wordlist",
+        "selectBothWordlists": "Silakan pilih kedua wordlist untuk mode combination",
+        "bruteForceModeMask": "Mode serangan Brute Force memerlukan mask",
+        "hybridModeWordlist": "Mode serangan hibrida memerlukan tepat 1 wordlist",
+        "hybridModeMask": "Mode serangan hibrida memerlukan mask",
+        "associationModeNotImplemented": "Mode serangan asosiasi belum diimplementasikan",
+        "noWordlistsAvailable": "Tidak ada wordlist yang tersedia. Silakan unggah wordlist terlebih dahulu.",
+        "loadFailed": "Gagal memuat preset job",
+        "loadFormDataFailed": "Gagal memuat data form",
+        "saveFailed": "Gagal menyimpan preset job"
+      },
+      "messages": {
+        "createSuccess": "Preset job berhasil dibuat",
+        "updateSuccess": "Preset job berhasil diperbarui"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Straight",
+          "description": "Menggunakan kata-kata dari wordlist, secara opsional menerapkan rule untuk mengubahnya",
+          "wordlistRequirement": "Tepat 1 wordlist diperlukan",
+          "rulesRequirement": "0 atau 1 file rule",
+          "maskRequirement": "Tidak ada mask yang diperlukan"
+        },
+        "combination": {
+          "name": "Combination",
+          "description": "Menggabungkan kata-kata dari dua wordlist (first_word + second_word)",
+          "wordlistRequirement": "Tepat 2 wordlist diperlukan",
+          "rulesRequirement": "Tidak ada rule yang diperlukan",
+          "maskRequirement": "Tidak ada mask yang diperlukan"
+        },
+        "bruteForce": {
+          "name": "Brute Force (Mask)",
+          "description": "Menghasilkan kata sandi berdasarkan pola/mask",
+          "wordlistRequirement": "Tidak ada wordlist yang diperlukan",
+          "rulesRequirement": "Tidak ada rule yang diperlukan",
+          "maskRequirement": "Mask diperlukan (mis., ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Hybrid: Wordlist + Mask",
+          "description": "Menambahkan karakter yang dihasilkan mask ke kata-kata dari wordlist",
+          "wordlistRequirement": "Tepat 1 wordlist diperlukan",
+          "rulesRequirement": "Tidak ada rule yang diperlukan",
+          "maskRequirement": "Mask diperlukan (mis., ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Hybrid: Mask + Wordlist",
+          "description": "Menambahkan karakter yang dihasilkan mask di depan kata-kata dari wordlist",
+          "wordlistRequirement": "Tepat 1 wordlist diperlukan",
+          "rulesRequirement": "Tidak ada rule yang diperlukan",
+          "maskRequirement": "Mask diperlukan (mis., ?d?d?d?d)"
+        },
+        "association": {
+          "name": "Association (Belum Diimplementasikan)",
+          "description": "Mode serangan ini saat ini belum diimplementasikan",
+          "wordlistRequirement": "Tidak berlaku",
+          "rulesRequirement": "Tidak berlaku",
+          "maskRequirement": "Tidak berlaku"
+        }
+      }
+    }
+  },
+  "workflows": {
+    "title": "Manajemen Workflow Job",
+    "create": "Buat Workflow",
+    "deleteTitle": "Hapus Workflow",
+    "confirmDelete": "Apakah Anda yakin ingin menghapus workflow \"{{name}}\"?",
+    "noWorkflowsFound": "Tidak ada workflow ditemukan. Buat satu untuk memulai.",
+    "canInterrupt": "Dapat Menginterupsi",
+    "normal": "Normal",
+    "loopbackAllEligible": "Semua Memenuhi Syarat",
+    "loopbackStepCount_other": "{{count}} langkah",
+    "columns": {
+      "name": "Nama",
+      "description": "Deskripsi",
+      "steps": "Langkah",
+      "jobCount": "Job",
+      "highPriority": "Mode Prioritas",
+      "loopback": "Loopback",
+      "created": "Dibuat",
+      "lastUpdated": "Terakhir Diperbarui",
+      "actions": "Tindakan"
+    },
+    "messages": {
+      "loadFailed": "Gagal memuat workflow",
+      "deleteFailed": "Gagal menghapus workflow"
+    },
+    "form": {
+      "createTitle": "Buat Workflow",
+      "editTitle": "Ubah Workflow",
+      "createWorkflow": "Buat Workflow",
+      "saveChanges": "Simpan Perubahan",
+      "workflowSteps": "Langkah Workflow",
+      "noJobsAdded": "Tidak ada job yang ditambahkan ke workflow ini. Cari dan tambahkan preset job di atas.",
+      "priority": "Prioritas: {{priority}}",
+      "binary": "Binary: {{name}}",
+      "wordlistCount_other": "{{count}} wordlist",
+      "ruleCount_other": "{{count}} rule",
+      "loopback": {
+        "masterToggle": "Aktifkan loopback untuk semua langkah yang memenuhi syarat",
+        "masterHelperText": "Ketika diaktifkan, seluruh workflow berjalan, kemudian setiap langkah yang memenuhi syarat (straight + rule, atau serangan hibrida wordlist ± mask) dijalankan kembali hanya terhadap kata sandi yang baru tercrack — berulang secara pintar hingga tidak ada crack baru yang ditemukan. Langkah non-mutasi (wordlist saja, serangan brute force, serangan asosiasi) tetap mengirimkan crack baru mereka ke loop. Toggle per-langkah di bawah dinonaktifkan selama opsi ini aktif.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Tidak ada yang dimutasi (wordlist saja, serangan brute force, serangan asosiasi atau combinator). Langkah ini masih mengirimkan crack baru ke loop, tetapi tidak dijalankan kembali.",
+        "tooltipMasterOn": "Loopback tingkat workflow aktif, jadi setiap langkah yang memenuhi syarat melakukan loopback.",
+        "tooltipStep": "Jalankan kembali langkah ini hanya terhadap kata sandi yang baru tercrack hingga tidak ada crack baru yang ditemukan."
+      },
+      "fields": {
+        "workflowName": "Nama Workflow",
+        "searchPresetJobs": "Cari Preset Job"
+      },
+      "helperText": {
+        "searchPresetJobs": "Cari preset job untuk ditambahkan ke workflow ini"
+      },
+      "errors": {
+        "nameRequired": "Nama workflow diperlukan",
+        "presetJobRequired": "Setidaknya satu preset job diperlukan",
+        "noPresetJobsAvailable": "Tidak ada preset job yang tersedia. Buat preset job terlebih dahulu.",
+        "loadFailed": "Gagal memuat workflow",
+        "loadFormDataFailed": "Gagal memuat data formulir",
+        "saveFailed": "Gagal menyimpan workflow"
+      },
+      "messages": {
+        "createSuccess": "Workflow berhasil dibuat",
+        "updateSuccess": "Workflow berhasil diperbarui"
+      },
+      "cloudBurst": {
+        "toggle": "Izinkan cloud burst untuk setiap langkah",
+        "helperText": "Berlaku untuk semua langkah, menggantikan pengaturan preset masing-masing. Tetapkan di tingkat workflow agar satu instance yang disewa dapat menjalankan seluruh workflow daripada di-teardown dan disewa kembali di antara langkah."
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Manajemen Binary",
+    "title": "Binary Hashcat",
+    "addBinary": "Tambah Binary",
+    "showingActiveOnly": "Menampilkan binary aktif saja",
+    "showingAll": "Menampilkan semua binary",
+    "noBinaries": "Tidak ada binary ditemukan",
+    "noActiveBinaries": "Tidak ada binary aktif ditemukan",
+    "default": "Standar",
+    "verifyBinary": "Verifikasi Binary",
+    "deleteBinary": "Hapus Binary",
+    "sourceUpload": "Unggah",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Versi",
+      "type": "Tipe",
+      "source": "Sumber",
+      "size": "Ukuran",
+      "status": "Status",
+      "default": "Standar",
+      "lastVerified": "Terakhir Diverifikasi",
+      "actions": "Tindakan"
+    },
+    "messages": {
+      "fetchFailed": "Gagal mengambil binary",
+      "verifySuccess": "Binary berhasil diverifikasi",
+      "verifyFailed": "Gagal memverifikasi binary",
+      "deleteSuccess": "Binary berhasil dihapus",
+      "deleteFailed": "Gagal menghapus binary",
+      "cannotDeleteLast": "Tidak dapat menghapus binary {{type}} aktif terakhir",
+      "cannotDeleteOnly": "Tidak dapat menghapus satu-satunya binary dari tipe ini",
+      "setDefaultSuccess": "Binary standar berhasil diperbarui",
+      "setDefaultFailed": "Gagal menetapkan binary standar",
+      "addSuccess": "Binary berhasil ditambahkan",
+      "addFailed": "Gagal menambahkan binary"
+    },
+    "deleteDialog": {
+      "title": "Konfirmasi Penghapusan",
+      "message": "Apakah Anda yakin ingin menghapus binary \"{{fileName}}\"? Tindakan ini tidak dapat dibatalkan."
+    },
+    "form": {
+      "addDialogTitle": "Tambah Binary Baru",
+      "sourceLabel": "Sumber",
+      "downloadFromUrl": "Unduh dari URL",
+      "uploadFile": "Unggah File",
+      "binaryTypeLabel": "Tipe Binary",
+      "johnPending": "John the Ripper (dukungan tertunda)",
+      "compressionTypeLabel": "Tipe Kompresi",
+      "sourceUrlLabel": "URL Sumber",
+      "sourceUrlHelp": "URL untuk mengunduh binary (mis., https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Pilih File Arsip",
+      "uploadHelp": "Unggah arsip .7z, .zip, .tar.gz, atau .tar.xz yang berisi binary",
+      "fileNameLabel": "Nama File",
+      "fileNameHelp": "Diisi otomatis dari URL/file, tetapi dapat diubah jika diperlukan",
+      "versionLabel": "Versi",
+      "versionHelp": "Terdeteksi otomatis dari nama file. Ganti untuk build kustom.",
+      "descriptionLabel": "Deskripsi",
+      "descriptionHelp": "Catatan opsional tentang binary ini (mis., detail build kustom)",
+      "setAsDefault": "Tetapkan sebagai binary standar",
+      "selectFileRequired": "Silakan pilih file untuk diunggah",
+      "uploadBinarySubmit": "Unggah Binary"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Diagnostik Sistem",
+    "diagnosticPackage": "Paket Diagnostik",
+    "diagnosticPackageDescription": "Unduh paket diagnostik yang berisi informasi sistem, log, dan detail konfigurasi untuk pemecahan masalah.",
+    "refreshData": "Segarkan Data",
+    "hours": "Jam",
+    "hoursTooltip": "Jumlah jam log yang akan disertakan",
+    "includeAgentLogs": "Sertakan Log Agent",
+    "includeNginxLogs": "Sertakan Log Nginx",
+    "includePostgresLogs": "Sertakan Log PostgreSQL",
+    "preparing": "Mempersiapkan...",
+    "downloadDiagnostics": "Unduh Diagnostik",
+    "systemInfo": "Informasi Sistem",
+    "runtime": "Runtime",
+    "cpus": "CPU",
+    "goroutines": "Goroutines",
+    "memory": "Memori",
+    "heap": "Heap",
+    "system": "Sistem",
+    "gcRuns": "Siklus GC",
+    "database": "Database",
+    "size": "Ukuran",
+    "connections": "Koneksi",
+    "agents": "Agent",
+    "connected": "Terhubung",
+    "withDebugStatus": "Dengan Status Debug",
+    "serverDebugStatus": "Status Debug Server",
+    "serverDebugDescription": "Aktifkan pencatatan verbose untuk server. Ini akan meningkatkan ukuran file log dan mungkin berdampak pada kinerja.",
+    "debugEnabled": "Debug Diaktifkan",
+    "debugDisabled": "Debug Dinonaktifkan",
+    "level": "Level",
+    "enableDebug": "Aktifkan Debug",
+    "disableDebug": "Nonaktifkan Debug",
+    "loadingServerDebugStatus": "Memuat status debug server...",
+    "serverLogs": "Log Server",
+    "serverLogsDescription": "Kelola file log server. Pembersihan log bersifat permanen dan tidak dapat dibatalkan.",
+    "refreshLogStats": "Segarkan Statistik Log",
+    "directory": "Direktori",
+    "files": "File",
+    "actions": "Tindakan",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Total",
+    "purge": "Bersihkan",
+    "purgeAll": "Bersihkan Semua",
+    "loadingLogStatistics": "Memuat statistik log...",
+    "agentDebugStatus": "Status Debug Agent",
+    "enableAll": "Aktifkan Semua",
+    "disableAll": "Nonaktifkan Semua",
+    "noAgentsWithDebugStatus": "Tidak ada agent dengan status debug yang tersedia",
+    "agentId": "ID Agent",
+    "logLevel": "Level Log",
+    "fileLogging": "Pencatatan File",
+    "logFileSize": "Ukuran File Log",
+    "buffer": "Buffer",
+    "lastUpdated": "Terakhir Diperbarui",
+    "viewLogs": "Lihat Log",
+    "purgeLogs": "Bersihkan Log",
+    "agentLogs": "Log Agent",
+    "agent": "Agent",
+    "allLevels": "Semua Level",
+    "refresh": "Segarkan",
+    "showingEntries": "Menampilkan {{shown}} dari {{total}} entri",
+    "filtered": "disaring",
+    "truncated": "terpotong",
+    "time": "Waktu",
+    "message": "Pesan",
+    "location": "Lokasi",
+    "noEntriesForLevel": "Tidak ada entri ditemukan untuk level {{level}}",
+    "noLogEntriesAvailable": "Tidak ada entri log yang tersedia",
+    "logFileContent": "Konten File Log",
+    "noLogsAvailable": "Tidak ada log yang tersedia",
+    "securityWarning": "Peringatan Keamanan",
+    "postgresLogsWarning": "Log PostgreSQL mungkin berisi data sensitif. Pertimbangkan untuk membersihkannya setelah pemecahan masalah.",
+    "nginxLogsWarning": "Log akses Nginx mungkin berisi data permintaan sensitif. Pertimbangkan untuk membersihkannya setelah pemecahan masalah.",
+    "sensitiveNginxLogsWarning": "Log akses Nginx mungkin berisi informasi sensitif termasuk token autentikasi di header permintaan dan parameter kueri.",
+    "sensitivePostgresLogsWarning": "Log PostgreSQL mungkin berisi informasi sensitif termasuk kueri dengan data pengguna, kata sandi, dan detail koneksi.",
+    "sensitiveLogsTestEnvironmentWarning": "Hanya sertakan log ini untuk lingkungan pengujian/pengembangan atau bila sangat diperlukan untuk debugging.",
+    "sensitiveLogsProductionWarning": "Jangan sertakan log sensitif dalam paket diagnostik produksi yang dibagikan secara eksternal.",
+    "iUnderstandIncludeLogs": "Saya Mengerti, Sertakan Log",
+    "allServerLogs": "semua log server",
+    "directoryLogs": "log {{directory}}",
+    "purgeServerLogs": "Bersihkan Log Server",
+    "confirmPurgeLogs": "Apakah Anda yakin ingin membersihkan {{dirLabel}}?",
+    "cannotBeUndone": "Tindakan ini tidak dapat dibatalkan.",
+    "purgeAgentLogs": "Bersihkan Log Agent",
+    "confirmPurgeAgentLogs": "Apakah Anda yakin ingin membersihkan log untuk agent {{agentId}}?",
+    "enable": "Aktifkan",
+    "disable": "Nonaktifkan",
+    "serverDebugModeTitle": "{{action}} Mode Debug Server",
+    "serverDebugModeMessage": "Ini akan mengubah tingkat pencatatan server. Server nginx akan dimuat ulang untuk menerapkan perubahan.",
+    "serverDebugModeWarning": "Halaman akan terhubung kembali sejenak setelah menerapkan perubahan.",
+    "reconnectingToServer": "Menghubungkan Kembali ke Server",
+    "pleaseWaitReconnecting": "Silakan tunggu sementara server dimulai ulang...",
+    "nginxLogsTooltip": "Peringatan: Mungkin berisi data permintaan sensitif",
+    "postgresLogsTooltip": "Peringatan: Mungkin berisi kueri database sensitif",
+    "messages": {
+      "loadFailed": "Gagal memuat data diagnostik:",
+      "logStatsFailed": "Gagal memuat statistik log:",
+      "purgeFailed": "Gagal membersihkan log:",
+      "reconnectionTimedOut": "Koneksi ulang kehabisan waktu. Silakan segarkan halaman.",
+      "toggleDebugFailed": "Gagal mengaktifkan/menonaktifkan mode debug:",
+      "downloadFailed": "Gagal mengunduh diagnostik:",
+      "toggleAgentDebugFailed": "Gagal mengaktifkan/menonaktifkan debug agent:",
+      "toggleAllAgentsDebugFailed": "Gagal mengaktifkan/menonaktifkan debug untuk semua agent:",
+      "fetchAgentLogsFailed": "Gagal mengambil log agent:",
+      "purgeAgentLogsFailed": "Gagal membersihkan log agent:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Pengaturan Autentikasi",
+    "unsavedChanges": "Anda memiliki perubahan yang belum disimpan. Klik 'Simpan Pengaturan' untuk menerapkannya.",
+    "saving": "Menyimpan...",
+    "saveSettings": "Simpan Pengaturan",
+    "resetToSaved": "Kembalikan ke Tersimpan",
+    "passwordPolicy": {
+      "title": "Kebijakan Kata Sandi",
+      "minLength": "Panjang Kata Sandi Minimum",
+      "requireUppercase": "Wajib Huruf Besar",
+      "requireLowercase": "Wajib Huruf Kecil",
+      "requireNumbers": "Wajib Angka",
+      "requireSpecialChars": "Wajib Karakter Khusus"
+    },
+    "accountSecurity": {
+      "title": "Keamanan Akun",
+      "maxFailedAttempts": "Percobaan Masuk Gagal Maksimal",
+      "lockoutDuration": "Durasi Penguncian (menit)",
+      "jwtExpiry": "Kedaluwarsa JWT (menit)",
+      "notificationAggregation": "Agregasi Notifikasi (menit)",
+      "notificationAggregationHelper": "Berapa lama mengagregasi notifikasi serupa sebelum dikirim"
+    },
+    "mfa": {
+      "title": "Autentikasi Multi-Faktor",
+      "requireMfa": "Wajib MFA untuk Semua Pengguna",
+      "requireMfaEmailRequired": "Wajib MFA (memerlukan gateway email)",
+      "allowedMethods": "Metode MFA yang Diizinkan",
+      "methodEmail": "Kode Email",
+      "methodAuthenticator": "Aplikasi Autentikator (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (tidak didukung di browser ini)",
+      "codeSettings": "Pengaturan Kode",
+      "emailCodeValidity": "Validitas Kode Email (menit)",
+      "emailCodeValidityHelper": "Berapa lama kode verifikasi email berlaku",
+      "codeCooldown": "Jeda Permintaan Kode (menit)",
+      "codeCooldownHelper": "Waktu minimum antara permintaan kode",
+      "codeExpiry": "Kedaluwarsa Kode (menit)",
+      "codeExpiryHelper": "Berapa lama kode MFA berlaku",
+      "maxCodeAttempts": "Percobaan Kode Maksimal",
+      "maxCodeAttemptsHelper": "Maksimal percobaan kode gagal sebelum penguncian",
+      "backupCodesCount": "Jumlah Kode Cadangan",
+      "backupCodesCountHelper": "Jumlah kode cadangan yang akan dibuat",
+      "requireMfaHelper": "Setiap pengguna harus menyelesaikan MFA saat masuk. Memerlukan penyedia email yang dikonfigurasi agar kode dapat dikirim."
+    },
+    "webauthn": {
+      "title": "Konfigurasi WebAuthn / Passkey",
+      "notSupported": "WebAuthn tidak didukung di browser ini.",
+      "requiresDomain": "Passkey memerlukan domain yang tepat dan HTTPS. Konfigurasikan pengaturan domain Anda di bawah.",
+      "rpId": "ID Relying Party",
+      "rpIdHelper": "Nama domain Anda (misalnya, krakenhashes.example.com)",
+      "rpDisplayName": "Nama Tampilan",
+      "rpDisplayNameHelper": "Nama yang ditampilkan kepada pengguna selama pendaftaran passkey",
+      "allowedOrigins": "Asal yang Diizinkan",
+      "allowedOriginsHelper": "Satu asal per baris (misalnya, https://krakenhashes.example.com)",
+      "configured": "WebAuthn telah dikonfigurasi dan siap digunakan.",
+      "save": "Simpan Pengaturan WebAuthn"
+    },
+    "session": {
+      "title": "Manajemen Sesi",
+      "tokenCleanupInterval": "Interval Pembersihan Token (detik)",
+      "tokenCleanupIntervalHelper": "Seberapa sering membersihkan token yang kedaluwarsa",
+      "maxConcurrentSessions": "Sesi Bersamaan Maksimal",
+      "maxConcurrentSessionsHelper": "Sesi maksimal per pengguna (0 = tidak terbatas)",
+      "absoluteTimeout": "Batas Waktu Sesi Absolut (jam)",
+      "absoluteTimeoutHelper": "Memaksa reautentikasi setelah waktu ini (0 = dinonaktifkan)"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat pengaturan autentikasi",
+      "noSettingsToSave": "Tidak ada pengaturan untuk disimpan",
+      "saveFailed": "Gagal menyimpan pengaturan",
+      "emailProviderRequired": "Penyedia email diperlukan untuk MFA berbasis email",
+      "webauthnSaveFailed": "Gagal menyimpan pengaturan WebAuthn",
+      "resetFailed": "Gagal mereset pengaturan"
+    },
+    "messages": {
+      "updateSuccess": "Pengaturan autentikasi berhasil diperbarui",
+      "updateFailed": "Gagal memperbarui pengaturan autentikasi"
+    },
+    "teams": {
+      "title": "Isolasi multi-tim",
+      "description": "Ketika diaktifkan, klien, hashlist, job, dan agent dibatasi pada tim dan pengguna hanya melihat apa yang dimiliki tim mereka.",
+      "enable": "Aktifkan tim",
+      "enableHelper": "Data yang ada ditempatkan di Tim Default."
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "Pengaturan SSO",
+    "pageDescription": "Konfigurasikan penyedia SSO dan opsi autentikasi",
+    "warnings": {
+      "ephemeralKeyTitle": "Kunci Enkripsi SSO Tidak Dikonfigurasi",
+      "ephemeralKeyDescription": "Rahasia penyedia SSO (rahasia klien, sandi bind, kunci pribadi) saat ini dienkripsi dengan kunci sementara yang akan hilang ketika server dimulai ulang. Semua penyedia SSO yang dikonfigurasi akan berhenti berfungsi setelah dimulai ulang.",
+      "ephemeralKeyInstructions": "Untuk memperbaiki ini, hasilkan kunci enkripsi persisten dengan menjalankan:",
+      "ephemeralKeyAddToEnv": "Kemudian tambahkan berikut ke file .env Anda dan mulai ulang server:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Perintah disalin ke clipboard"
+    },
+    "authMethods": {
+      "title": "Metode Autentikasi",
+      "description": "Aktifkan atau nonaktifkan metode autentikasi secara global",
+      "localAuth": "Autentikasi Lokal",
+      "localAuthDescription": "Login username/kata sandi",
+      "ldapAuth": "Autentikasi LDAP",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "Autentikasi SAML",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "Autentikasi OAuth/OIDC",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Penyediaan Pengguna",
+      "description": "Konfigurasikan pembuatan pengguna otomatis dari login SSO",
+      "autoCreateUsers": "Buat Pengguna Otomatis",
+      "autoCreateUsersDescription": "Secara otomatis membuat akun pengguna untuk login SSO baru",
+      "autoEnableUsers": "Aktifkan Pengguna Otomatis",
+      "autoEnableUsersDescription": "Secara otomatis mengaktifkan pengguna SSO yang baru dibuat (sebaliknya perlu persetujuan admin)"
+    },
+    "providers": {
+      "title": "Penyedia SSO",
+      "addProvider": "Tambah Penyedia",
+      "noProviders": "Tidak ada penyedia SSO yang dikonfigurasi. Klik \"Tambah Penyedia\" untuk membuat satu.",
+      "enabled": "Diaktifkan",
+      "disabled": "Dinonaktifkan",
+      "callbackUrl": "URL Callback",
+      "acsUrl": "URL ACS",
+      "metadata": "Metadata",
+      "viewXml": "Lihat XML",
+      "testConnection": "Uji Koneksi",
+      "downloadCertificate": "Unduh Sertifikat SP"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Hapus Penyedia",
+        "confirmation": "Apakah Anda yakin ingin menghapus penyedia \"{{name}}\"? Tindakan ini tidak dapat dibatalkan dan akan menghapus tautan semua identitas pengguna yang terkait."
+      },
+      "providerForm": {
+        "addTitle": "Tambah Penyedia",
+        "editTitle": "Edit Penyedia",
+        "providerName": "Nama Penyedia",
+        "providerType": "Tipe Penyedia",
+        "enabled": "Diaktifkan"
+      }
+    },
+    "ldapConfig": {
+      "title": "Konfigurasi LDAP",
+      "serverUrl": "URL Server",
+      "serverUrlHelper": "Gunakan ldaps:// untuk koneksi aman",
+      "baseDn": "Base DN",
+      "userSearchFilter": "Filter Pencarian Pengguna",
+      "userSearchFilterHelper": "Gunakan {{username}} sebagai placeholder",
+      "bindDn": "Bind DN (opsional)",
+      "bindPassword": "Sandi Bind",
+      "emailAttribute": "Atribut Email",
+      "usernameAttribute": "Atribut Username",
+      "usernameAttributeHelper": "Atribut LDAP yang berisi username (misalnya, sAMAccountName, uid)",
+      "connectionTimeout": "Batas Waktu Koneksi (detik)",
+      "useStartTls": "Gunakan StartTLS",
+      "skipCertVerify": "Lewati Verifikasi Sertifikat (hanya pengujian)"
+    },
+    "samlConfig": {
+      "title": "Konfigurasi SAML",
+      "spEntityId": "ID Entitas SP",
+      "spEntityIdHelper": "Pengenal SAML aplikasi Anda",
+      "idpEntityId": "ID Entitas IdP",
+      "idpSsoUrl": "URL SSO IdP",
+      "idpCertificate": "Sertifikat IdP",
+      "emailAttribute": "Atribut Email",
+      "usernameAttribute": "Atribut Username",
+      "usernameAttributeHelper": "Atribut SAML yang berisi username (misalnya, uid, username)",
+      "requireSignedAssertions": "Wajib Assertion Ditandatangani"
+    },
+    "oauthConfig": {
+      "title": "Konfigurasi OAuth/OIDC",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "ID Klien",
+      "clientSecret": "Rahasia Klien",
+      "discoveryUrl": "URL Discovery",
+      "discoveryUrlHelper": "Endpoint discovery OIDC (mengonfigurasi URL lain secara otomatis)",
+      "authorizationUrl": "URL Otorisasi",
+      "tokenUrl": "URL Token",
+      "userInfoUrl": "URL Info Pengguna",
+      "scopes": "Scopes",
+      "scopesHelper": "Daftar yang dipisahkan spasi",
+      "emailAttribute": "Atribut Email",
+      "usernameAttribute": "Atribut Username",
+      "usernameAttributeHelper": "Claim yang berisi username (misalnya, preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Gagal memuat pengaturan SSO",
+      "settingsUpdated": "Pengaturan SSO berhasil diperbarui",
+      "updateFailed": "Gagal memperbarui pengaturan SSO",
+      "loadProviderFailed": "Gagal memuat detail penyedia",
+      "providerDeleted": "Penyedia berhasil dihapus",
+      "deleteFailed": "Gagal menghapus penyedia",
+      "testSuccess": "Uji koneksi berhasil",
+      "testFailed": "Uji koneksi gagal",
+      "certificateDownloaded": "Sertifikat berhasil diunduh",
+      "certificateNotFound": "Sertifikat tidak ditemukan di metadata",
+      "certificateDownloadFailed": "Gagal mengunduh sertifikat",
+      "providerUpdated": "Penyedia berhasil diperbarui",
+      "providerCreated": "Penyedia berhasil dibuat",
+      "saveProviderFailed": "Gagal menyimpan penyedia"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Konfigurasi Penyedia",
+      "emailTemplates": "Template Email"
+    },
+    "provider": {
+      "titles": {
+        "current": "Konfigurasi Email Saat Ini",
+        "create": "Buat Konfigurasi Email",
+        "edit": "Edit Konfigurasi Email"
+      },
+      "labels": {
+        "provider": "Penyedia",
+        "apiKey": "Kunci API",
+        "password": "Kata Sandi",
+        "smtpHost": "Host SMTP",
+        "port": "Port",
+        "username": "Username",
+        "encryption": "Enkripsi",
+        "fromEmail": "Email Dari",
+        "fromName": "Nama Dari",
+        "domain": "Domain",
+        "region": "Wilayah",
+        "monthlyLimit": "Batas Bulanan",
+        "skipTlsVerify": "Lewati Verifikasi Sertifikat TLS (tidak aman, tidak disarankan)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "Alamat Email Uji"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Biarkan kosong untuk mempertahankan yang sekarang",
+        "monthlyLimit": "Biarkan kosong untuk tidak terbatas",
+        "mailgunFromEmail": "Biasanya noreply@yourdomain",
+        "fromName": "Nama tampilan untuk email"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Tidak Ada (Port 25)",
+        "encryptionStarttls": "STARTTLS (Port 587)",
+        "encryptionTls": "TLS/SSL (Port 465)",
+        "regionUS": "US (api.mailgun.net)",
+        "regionEU": "EU (api.eu.mailgun.net)"
+      },
+      "buttons": {
+        "edit": "Edit Konfigurasi",
+        "cancel": "Batal",
+        "testConnection": "Uji Koneksi",
+        "save": "Simpan Konfigurasi",
+        "saveOnly": "Hanya Simpan",
+        "saveAndTest": "Simpan dan Uji",
+        "sendTestEmail": "Kirim Email Uji"
+      },
+      "dialogs": {
+        "test": {
+          "title": "Uji Konfigurasi Email",
+          "content": "Masukkan alamat email untuk mengirim email uji ke:"
+        },
+        "save": {
+          "title": "Simpan Konfigurasi",
+          "content": "Apakah Anda ingin menguji konfigurasi setelah menyimpan?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "Verifikasi sertifikat TLS dinonaktifkan",
+        "tlsVerifyWarning": "Menonaktifkan verifikasi TLS membuat koneksi Anda rentan terhadap serangan man-in-the-middle. Gunakan hanya untuk pengujian dengan sertifikat yang ditandatangani sendiri."
+      },
+      "messages": {
+        "testSuccess": "Email uji berhasil dikirim",
+        "testFailed": "Gagal mengirim email uji",
+        "saveSuccess": "Konfigurasi berhasil disimpan",
+        "saveFailed": "Gagal menyimpan konfigurasi",
+        "loadFailed": "Gagal memuat konfigurasi"
+      }
+    },
+    "templates": {
+      "title": "Template Email",
+      "createTemplate": "Buat Template Email",
+      "editTemplate": "Edit Template Email",
+      "labels": {
+        "templateType": "Tipe Template",
+        "name": "Nama",
+        "subject": "Subjek",
+        "htmlContent": "Konten HTML",
+        "textContent": "Konten Teks"
+      },
+      "menuItems": {
+        "securityEvent": "Peristiwa Keamanan",
+        "jobCompletion": "Penyelesaian Job",
+        "adminError": "Kesalahan Admin",
+        "mfaCode": "Kode MFA",
+        "securityPasswordChanged": "Kata Sandi Diubah",
+        "securityMfaDisabled": "MFA Dinonaktifkan",
+        "securitySuspiciousLogin": "Login Mencurigakan",
+        "jobStarted": "Job Dimulai",
+        "jobFailed": "Job Gagal",
+        "firstCrack": "Crack Pertama",
+        "taskCompleted": "Task Selesai",
+        "agentOffline": "Agent Offline",
+        "agentError": "Kesalahan Agent",
+        "webhookFailure": "Kegagalan Webhook"
+      },
+      "buttons": {
+        "create": "Buat Template",
+        "cancel": "Batal",
+        "test": "Uji",
+        "save": "Simpan",
+        "edit": "Edit",
+        "delete": "Hapus"
+      },
+      "table": {
+        "name": "Nama",
+        "type": "Tipe",
+        "subject": "Subjek",
+        "actions": "Tindakan"
+      },
+      "preview": "Pratinjau Langsung (dengan data sampel):",
+      "messages": {
+        "loadSuccess": "Template berhasil dimuat",
+        "loadFailed": "Gagal memuat template",
+        "createSuccess": "Templat berhasil dibuat",
+        "createFailed": "Gagal membuat templat",
+        "updateSuccess": "Templat berhasil diperbarui",
+        "updateFailed": "Gagal memperbarui templat",
+        "deleteSuccess": "Templat berhasil dihapus",
+        "deleteFailed": "Gagal menghapus templat",
+        "testSuccess": "Email uji berhasil dikirim",
+        "testFailed": "Gagal mengirim email uji",
+        "saveFailed": "Gagal menyimpan templat"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Pengaturan berhasil disimpan",
+    "saveFailed": "Gagal menyimpan pengaturan"
+  },
+  "clientSettings": {
+    "title": "Pengaturan Klien",
+    "retentionPeriod": "Retensi Data Default (Bulan)",
+    "retentionHelperText": "Periode retensi default untuk klien baru (0 = simpan selamanya)",
+    "saveButton": "Simpan Pengaturan",
+    "errors": {
+      "invalidRetention": "Periode retensi harus berupa angka non-negatif",
+      "saveFailed": "Gagal menyimpan pengaturan klien"
+    },
+    "messages": {
+      "updateSuccess": "Pengaturan klien berhasil diperbarui"
+    }
+  },
+  "systemSettings": {
+    "title": "Pengaturan Sistem",
+    "priority": {
+      "title": "Pengaturan Prioritas",
+      "tooltip": "Konfigurasi nilai prioritas maksimum yang dapat ditetapkan pada job dan preset job. Ini membantu mempertahankan rentang prioritas yang konsisten di seluruh organisasi Anda.",
+      "maxPriority": "Prioritas Job Maksimum",
+      "helperText": "Tetapkan nilai prioritas maksimum (1-1.000.000). Job dan preset job tidak dapat melebihi prioritas ini.",
+      "saveButton": "Simpan Pengaturan",
+      "saving": "Menyimpan...",
+      "reset": "Reset"
+    },
+    "priorityInfo": {
+      "title": "Informasi Sistem Prioritas",
+      "description": "Sistem prioritas menggunakan rentang dari 0 hingga prioritas maksimum yang Anda konfigurasi. Angka lebih tinggi menunjukkan prioritas lebih tinggi.",
+      "currentMax": "Maksimum Saat Ini",
+      "note": "Anda tidak dapat menetapkan prioritas maksimum lebih rendah dari prioritas preset job yang ada. Perbarui atau hapus preset job dengan prioritas tinggi terlebih dahulu jika diperlukan.",
+      "recommended": "Rentang yang disarankan berdasarkan ukuran organisasi:",
+      "small": "Organisasi kecil: 0-100",
+      "medium": "Organisasi sedang/besar: 0-1.000",
+      "large": "Organisasi dengan beban kerja gila-gilaan: 0-10.000"
+    },
+    "agentScheduling": {
+      "title": "Penjadwalan Agent",
+      "tooltip": "Aktifkan atau nonaktifkan sistem penjadwalan agent secara global. Ketika diaktifkan, agent dapat memiliki jadwal harian yang dikonfigurasi.",
+      "enable": "Aktifkan Sistem Penjadwalan Agent",
+      "description": "Ketika diaktifkan, agent dapat dikonfigurasi dengan jadwal harian. Hanya agent yang dijadwalkan untuk waktu saat ini yang akan diberi tugas job.",
+      "note": "Agent individual juga harus memiliki penjadwalan yang diaktifkan dan jadwal yang dikonfigurasi agar ini berlaku."
+    },
+    "agentOverflow": {
+      "title": "Alokasi Overflow Agent",
+      "tooltip": "Konfigurasi bagaimana agent yang tersedia didistribusikan setelah setiap job di setiap tier prioritas telah terisi ke batas max_agents-nya.",
+      "modeLabel": "Mode alokasi overflow",
+      "priorityFifoMode": "Prioritas - FIFO",
+      "priorityRoundRobinMode": "Prioritas - Round Robin",
+      "enforceMaxAgentsMode": "Batasi Max Agents",
+      "maxAgentsFifoMode": "Max Agents - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agents - Round Robin",
+      "priorityFifoDescription": "Tier terisi dari prioritas tertinggi terlebih dahulu. Setelah tier mencapai max_agents, agent yang tersisa menumpuk pada job TERTUA di tier tersebut — melampaui batasnya. Job dengan prioritas lebih rendah mungkin kelaparan hingga tier yang lebih tinggi habis.",
+      "priorityRoundRobinDescription": "Tier terisi dari prioritas tertinggi terlebih dahulu. Setelah tier mencapai max_agents, agent yang tersisa berputar secara merata di antara job di tier tersebut — melampaui batas. Job dengan prioritas lebih rendah mungkin kelaparan.",
+      "enforceMaxAgentsDescription": "Membatasi setiap job secara ketat pada batas max_agents-nya — tidak ada overflow. Agent surplus tetap idle. Paling dapat diprediksi; dapat membuang kapasitas.",
+      "maxAgentsFifoDescription": "Semua job di semua prioritas terisi hingga max_agents terlebih dahulu (batas ketat). Agent yang tersisa kemudian menumpuk pada job TERTUA secara keseluruhan — melampaui prioritas. Memaksimalkan throughput sambil tetap memberikan setiap job garis dasarnya.",
+      "maxAgentsRoundRobinDescription": "Semua job di semua prioritas terisi hingga max_agents terlebih dahulu (batas ketat). Agent yang tersisa kemudian berputar secara merata di antara SEMUA job — melewati prioritas. Memaksimalkan throughput dengan distribusi yang adil di luar garis dasar."
+    },
+    "hashlist": {
+      "title": "Pengaturan Hashlist",
+      "tooltip": "Konfigurasi pengaturan terkait unggahan dan pengelolaan hashlist",
+      "requireClient": "Wajibkan Klien untuk Hashlist",
+      "requireClientDescription": "Ketika diaktifkan, pengguna harus menetapkan klien saat mengunggah hashlist baru. Ini membantu mempertahankan organisasi dan pelacakan hashlist yang lebih baik menurut klien.",
+      "batchSize": "Ukuran Batch Impor Massal",
+      "batchSizeHelper": "Jumlah hash yang diproses per batch selama unggahan. Default: 100.000. Direkomendasikan: 500.000-1.000.000 untuk hashlist besar (47M+)",
+      "performanceGuide": "Panduan Performa:",
+      "performance100k": "100K (default): Bagus untuk sebagian besar use case",
+      "performance500k": "500K: Lebih baik untuk hashlist besar, mungkin meningkatkan throughput",
+      "performance1m": "1M: Terbaik untuk hashlist yang sangat besar (50M+), memerlukan lebih banyak RAM"
+    },
+    "potfile": {
+      "title": "Pengaturan Potfile",
+      "tooltip": "Konfigurasi bagaimana potfile memproses kata sandi tercrack untuk digunakan kembali di antara job",
+      "maxBatchSize": "Ukuran Batch Maksimum",
+      "maxBatchSizeHelper": "Jumlah kata sandi yang menunggu untuk diproses dalam setiap siklus batch (1.000 - 500.000)",
+      "batchInterval": "Interval Batch (detik)",
+      "batchIntervalHelper": "Detik antara siklus pemrosesan batch pot-file (10 - 600)",
+      "description": "Potfile mengumpulkan kata sandi tercrack dari semua job dan menggunakannya kembali dalam serangan berikutnya. Ukuran batch lebih tinggi memproses lebih banyak kata sandi sekaligus tetapi membutuhkan waktu lebih lama per siklus.",
+      "processingRate": "Tingkat Pemrosesan",
+      "passwordsPerSecond": "kata sandi/detik",
+      "currentSettings": "Pengaturan Saat Ini",
+      "passwordsEvery": "kata sandi setiap",
+      "seconds": "detik"
+    },
+    "speedTest": {
+      "title": "Tes Kecepatan (Benchmark)",
+      "tooltip": "Sesuaikan berapa lama agent menunggu hashcat menghasilkan benchmark yang dapat digunakan sebelum gagal tes kecepatan. Wordlist terkompresi memerlukan waktu jauh lebih lama untuk pra-pemrosesan dictstat.",
+      "timeoutUncompressed": "Waktu Tunggu: wordlist plaintext (detik)",
+      "timeoutUncompressedHelper": "Detik maksimum agent akan menunggu pembacaan kecepatan yang valid pada wordlist plaintext. Default: 120.",
+      "timeoutCompressed": "Waktu Tunggu: wordlist terkompresi (detik)",
+      "timeoutCompressedHelper": "Detik maksimum untuk wordlist .gz / .zip / .xz — tiga format yang dibaca hashcat secara native. Ini memerlukan waktu lebih lama untuk dekompresi dan pra-pemrosesan dictstat. Default: 300.",
+      "minStatusUpdates": "Pembaruan status minimum",
+      "minStatusUpdatesHelper": "Jumlah minimum hashcat --status-json tick yang harus dikumpulkan agent sebelum mengembalikan hasil. Default: 3.",
+      "minUpdatesLowWarning": "Nilai di bawah 3 mungkin menghasilkan pembacaan yang tidak akurat: GPU mungkin belum stabil.",
+      "description": "Jika agent habis waktu tanpa menghasilkan kecepatan bukan nol, benchmark dilaporkan sebagai gagal dan job menampilkan error yang dapat ditindaklanjuti oleh admin. Pipeline chunking juga menolak untuk mengirim task 1-kandidat, jadi benchmark 0 H/s yang basi tidak dapat terjadi selamanya."
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat pengaturan sistem",
+      "maxPriorityRequired": "Prioritas maksimum diperlukan",
+      "maxPriorityPositive": "Prioritas maksimum harus berupa angka positif",
+      "maxPriorityMax": "Prioritas maksimum tidak dapat melebihi 1.000.000",
+      "saveFailed": "Gagal menyimpan pengaturan sistem",
+      "batchSizeRange": "Ukuran batch harus antara {{min}} dan {{max}}",
+      "intervalRange": "Interval harus antara {{min}} dan {{max}} detik",
+      "speedTestTimeoutRange": "Waktu tunggu tes-kecepatan harus antara {{min}} dan {{max}} detik",
+      "minStatusUpdatesRange": "Pembaruan status minimum harus antara {{min}} dan {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Pengaturan sistem berhasil diperbarui",
+      "schedulingUpdated": "Pengaturan penjadwalan agent diperbarui",
+      "schedulingFailed": "Gagal memperbarui pengaturan penjadwalan",
+      "overflowUpdated": "Mode alokasi overflow agent diperbarui",
+      "overflowFailed": "Gagal memperbarui mode alokasi overflow",
+      "hashlistClientUpdated": "Persyaratan klien hashlist diperbarui",
+      "hashlistBatchUpdated": "Ukuran batch hashlist diperbarui",
+      "potfileBatchUpdated": "Ukuran batch potfile diperbarui",
+      "potfileIntervalUpdated": "Interval batch potfile diperbarui",
+      "speedTestTimeoutUpdated": "Waktu tunggu tes-kecepatan diperbarui",
+      "speedTestMinUpdatesUpdated": "Pembaruan status minimum tes-kecepatan diperbarui",
+      "updateFailed": "Gagal memperbarui pengaturan"
+    }
+  },
+  "jobExecution": {
+    "title": "Pengaturan Eksekusi Job",
+    "description": "Konfigurasi bagaimana job dijalankan dan didistribusikan di antara agent",
+    "chunking": {
+      "title": "Chunking Job",
+      "defaultChunkDuration": "Durasi Chunk Default",
+      "defaultChunkDurationHelper": "Target waktu dinding per chunk (scheduler-v2 mengubah ukuran chunk setiap agent agar mencapai ini)",
+      "minChunkSeconds": "Durasi Chunk Minimum",
+      "minChunkSecondsHelper": "Batas bawah untuk waktu dinding chunk tunggal; mencegah chunk yatim piatu yang kecil",
+      "minutes": "menit",
+      "overrunTolerance": "Toleransi overrun chunk",
+      "overrunToleranceHelper": "Seberapa jauh melampaui durasi yang direncanakan sebuah chunk dapat berjalan sebelum guard menghentikannya dan mengirim ulang sisanya.",
+      "overrunGuard": "Aktifkan guard overrun chunk",
+      "overrunGuardHelper": "Menghentikan task yang berjalan jauh melampaui durasi chunk yang direncanakan dan mengirim ulang bagian yang belum selesai."
+    },
+    "agentConfig": {
+      "title": "Konfigurasi Agent",
+      "hashlistRetention": "Retensi Hashlist",
+      "hashlistRetentionHelper": "Berapa lama agent mempertahankan hashlist",
+      "maxConcurrentJobs": "Max Job Konkuren per Agent",
+      "maxConcurrentJobsHelper": "Job maksimum yang dapat dijalankan agent secara bersamaan",
+      "progressReporting": "Interval Pelaporan Progres",
+      "progressReportingHelper": "Seberapa sering agent melaporkan progres",
+      "benchmarkCache": "Durasi Cache Benchmark",
+      "benchmarkCacheHelper": "Berapa lama untuk cache benchmark agent",
+      "benchmarkHistoryRetention": "Retensi Riwayat Benchmark",
+      "benchmarkHistoryRetentionHelper": "Hari untuk mempertahankan catatan riwayat benchmark (0 = tanpa batas)",
+      "reconnectGrace": "Periode Tenggang Reconnect",
+      "reconnectGraceHelper": "Waktu untuk menunggu agent untuk reconnect setelah server dimulai ulang",
+      "days": "hari",
+      "seconds": "detik",
+      "minutes": "menit"
+    },
+    "jobControl": {
+      "title": "Kontrol Job",
+      "allowInterruption": "Izinkan Gangguan Job",
+      "allowInterruptionHelper": "Job dengan prioritas lebih tinggi dapat mengganggu job yang sedang berjalan",
+      "realtimeNotifications": "Notifikasi Crack Real-time",
+      "realtimeNotificationsHelper": "Kirim notifikasi ketika hash tercrack",
+      "refreshInterval": "Interval Refresh Job",
+      "refreshIntervalHelper": "Seberapa sering refresh status job di UI",
+      "maxRetryAttempts": "Max Upaya Retry Chunk",
+      "maxRetryAttemptsHelper": "Jumlah kali untuk mencoba ulang chunk yang gagal",
+      "jobsPerPage": "Job Per Halaman",
+      "jobsPerPageHelper": "Ukuran paginasi default untuk daftar job",
+      "keyspaceTimeout": "Waktu Tunggu Perhitungan Keyspace",
+      "keyspaceTimeoutHelper": "Waktu maksimum untuk hashcat --keyspace dan perintah --total-candidates. Tingkatkan untuk wordlist/rule besar."
+    },
+    "potfile": {
+      "title": "Pengaturan Potfile",
+      "enablePotfile": "Aktifkan Potfile",
+      "enablePotfileHelper": "Otomatis menyimpan kata sandi tercrack untuk digunakan di job berikutnya. Hashlist individual masih dapat dikecualikan.",
+      "maxBatchSize": "Ukuran Batch Maksimum",
+      "maxBatchSizeHelper": "Jumlah kata sandi yang menunggu untuk diproses dalam setiap siklus batch (1.000 - 500.000)",
+      "batchInterval": "Interval Batch",
+      "batchIntervalHelper": "Detik antara siklus pemrosesan batch pot-file (10 - 600)",
+      "enableClientPotfiles": "Aktifkan pot-file klien",
+      "enableClientPotfilesHelper": "Simpan pot-file terpisah per klien, selain yang global.",
+      "removeGlobalDefault": "Hapus dari pot-file global saat hashlist dihapus (default)",
+      "removeClientDefault": "Hapus dari pot-file klien saat hashlist dihapus (default)"
+    },
+    "scheduler": {
+      "title": "Scheduler (v2)",
+      "description": "Penyetelan lanjutan untuk liveness task dan penanganan overrun scheduler v2. Default aman untuk sebagian besar deployment.",
+      "taskHeartbeatTimeout": "Waktu Tunggu Heartbeat Task",
+      "taskHeartbeatTimeoutHelper": "Detik tanpa sinyal liveness sebelum task yang berjalan ditandai hilang dan dipulihkan",
+      "taskStartupGrace": "Tenggang Startup Task",
+      "taskStartupGraceHelper": "Tenggang ekstra sebelum progres pertama (download file, dekompresi, autotune)",
+      "networkGrace": "Tenggang Jaringan",
+      "networkGraceHelper": "Toleransi reconnect WebSocket sebelum recovery terjadi pada disconnect",
+      "overrunGuardEnabled": "Guard Overrun Chunk",
+      "overrunGuardEnabledHelper": "Hentikan task yang berjalan melampaui target chunk mereka di luar toleransi di bawah",
+      "overrunTolerance": "Toleransi Overrun",
+      "overrunToleranceHelper": "Jendela grace: hentikan ketika waktu dinding melampaui target chunk berdasarkan persentase ini"
+    },
+    "buttons": {
+      "save": "Simpan Pengaturan"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat pengaturan",
+      "outOfRange": "{{label}} harus antara {{min}} dan {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Pengaturan eksekusi job berhasil diperbarui",
+      "loadFailed": "Gagal memuat pengaturan eksekusi job",
+      "saveFailed": "Gagal menyimpan pengaturan"
+    },
+    "keyspaceBenchmark": {
+      "title": "Keyspace & Benchmark",
+      "caption": "Berapa lama KrakenHashes dapat menghabiskan waktu untuk mengukur serangan. Pengaturan pertama membatasi SERVER yang mengukur wordlist pada pembuatan job; pengaturan tes-kecepatan membatasi AGENT yang mengukur hash rate miliknya sendiri. Mereka adalah tahap berbeda — menaikkan satu tidak mempengaruhi yang lain.",
+      "keyspaceTimeout": "Waktu tunggu perhitungan keyspace",
+      "keyspaceTimeoutHelper": "Sisi server. Waktu yang diizinkan untuk hashcat --keyspace / --total-candidates ketika job dibuat. Berjalan di background, jadi menaikkan ini tidak membuat pembuatan job lebih lambat. Jika terlampaui, serangan kamus kembali ke jumlah kata dalam wordlist dan memberitahu pengguna.",
+      "speedTestUncompressed": "Waktu tunggu tes-kecepatan agent",
+      "speedTestUncompressedHelper": "Sisi agent. Batas waktu dinding untuk benchmark agent pada wordlist yang tidak terkompresi.",
+      "speedTestCompressed": "Waktu tunggu tes-kecepatan agent (terkompresi)",
+      "speedTestCompressedHelper": "Sisi agent. Batas lebih lama untuk wordlist terkompresi, yang harus didekompresi hashcat sebelum dapat melaporkan rate.",
+      "minStatusUpdates": "Pembaruan status minimum",
+      "minStatusUpdatesHelper": "Berapa banyak laporan status hashcat yang harus dihasilkan tes-kecepatan sebelum hasilnya dipercaya. Nilai rendah berisiko merekam rate yang diambil sebelum GPU stabil.",
+      "cacheDuration": "Durasi cache benchmark",
+      "cacheDurationHelper": "Berapa lama benchmark yang dicatat tetap valid sebelum agent diminta untuk mengukur ulang.",
+      "historyRetention": "Retensi riwayat benchmark",
+      "historyRetentionHelper": "Berapa lama catatan benchmark individual disimpan untuk analisis tren.",
+      "hours": "jam",
+      "days": "hari"
+    },
+    "benchmarkReliability": {
+      "title": "Keandalan Benchmark",
+      "caption": "Apa yang terjadi ketika benchmark berulang kali gagal. Ini melindungi terhadap satu agent buruk, atau satu konfigurasi job buruk, yang mengonsumsi armada dengan menjalankan kembali benchmark yang tidak dapat berhasil.",
+      "failureThreshold": "Ambang batas kegagalan",
+      "failureThresholdHelper": "Kegagalan benchmark secara berturut-turut untuk kombinasi satu agent/job/attack sebelum ditambahkan ke daftar hitam.",
+      "hardFailureCap": "Batas Kegagalan Maksimum",
+      "hardFailureCapHelper": "Batas mutlak pada jumlah upaya benchmark untuk suatu kombinasi, terlepas dari ambang batas di atas.",
+      "blocklistCooldown": "Masa tunggu daftar blokir",
+      "blocklistCooldownHelper": "Berapa lama kombinasi agent/job/attack yang terdaftar dalam daftar blokir tetap diblokir sebelum dapat dicoba kembali.",
+      "stormThreshold": "Ambang batas badai benchmark",
+      "stormThresholdHelper": "Jumlah kegagalan benchmark dalam jendela badai yang memicu notifikasi administrator.",
+      "stormWindow": "Jendela badai benchmark",
+      "stormWindowHelper": "Periode di mana kegagalan ambang batas badai dihitung.",
+      "streakReset": "Pengaturan ulang rangkaian kegagalan",
+      "streakResetHelper": "Berapa lama agent harus berjalan tanpa kegagalan benchmark sebelum rangkaian kegagalannya direset ke nol.",
+      "quarantineStreak": "Rangkaian kegagalan karantina",
+      "quarantineStreakHelper": "Kegagalan berturut-turut di seluruh kombinasi apa pun sebelum agent itu sendiri dikarantina dari benchmark.",
+      "quarantineDistinct": "Kombinasi berbeda karantina",
+      "quarantineDistinctHelper": "Berapa banyak kombinasi serangan/tipe hash BERBEDA yang harus gagal sebelum agent diperlakukan sebagai rusak, bukan job."
+    },
+    "scheduling": {
+      "title": "Penjadwalan & Alokasi",
+      "overflowMode": "Mode alokasi overflow agent",
+      "overflowModeHelper": "Bagaimana agent yang tersisa setelah job mencapai batas Max Agents mereka didistribusikan.",
+      "maxConcurrentJobs": "Maksimal job yang berjalan bersamaan per agent",
+      "maxConcurrentJobsHelper": "Berapa banyak job yang dapat dikerjakan oleh satu agent secara bersamaan.",
+      "agentScheduling": "Aktifkan penjadwalan agent",
+      "agentSchedulingHelper": "Secara global mengaktifkan jadwal jam kerja per-agent. Ketika ini dimatikan, jadwal agent diabaikan.",
+      "jobInterruption": "Izinkan interupsi job",
+      "jobInterruptionHelper": "Gerbang global untuk interupsi. Sebuah job JUGA harus memiliki flag override prioritas tinggi sendiri dan prioritas bukan nol sebelum ada yang diinterupsi.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Round robin",
+        "enforceMaxAgents": "Terapkan Max Agents",
+        "maxAgentsFifo": "Max Agents, kemudian FIFO",
+        "maxAgentsRoundRobin": "Max Agents, kemudian round robin"
+      }
+    },
+    "taskHealth": {
+      "title": "Kesehatan Task",
+      "caption": "Ketika task yang sedang berjalan dianggap hilang, dan seberapa agresif pekerjaan dipulihkan. Atur ini terlalu ketat dan task yang sehat akan dikeluarkan; terlalu longgar dan task yang mati menahan keyspace-nya selama berjam-jam.",
+      "heartbeatTimeout": "Timeout heartbeat task",
+      "heartbeatTimeoutHelper": "Berapa lama task yang sedang berjalan dapat berjalan tanpa heartbeat sebelum dianggap hilang dan keyspace-nya dibuka kembali.",
+      "startupGrace": "Masa tenggang startup task",
+      "startupGraceHelper": "Waktu ekstra yang diizinkan setelah penugasan sebelum aturan heartbeat berlaku, mencakup startup hashcat dan pemuatan file.",
+      "networkGrace": "Masa tenggang jaringan",
+      "networkGraceHelper": "Jatah singkat untuk gangguan jaringan transien sebelum heartbeat yang terlewat dihitung.",
+      "reconnectGrace": "Masa tenggang penyambungan kembali",
+      "reconnectGraceHelper": "Berapa lama agent yang terputus dapat menyambung kembali dan mengklaim kembali task yang sedang dijalankannya.",
+      "offlineBuffer": "Masa tenggang offline agent",
+      "offlineBufferHelper": "Berapa lama pesan untuk agent yang offline secara singkat dibuffer sebelum dibuang.",
+      "maxRetryAttempts": "Maksimal upaya retry chunk",
+      "maxRetryAttemptsHelper": "Berapa kali chunk yang gagal dicoba ulang sebelum task gagal. Atur ke 0 untuk menonaktifkan retry.",
+      "progressInterval": "Interval pelaporan progres",
+      "progressIntervalHelper": "Seberapa sering agent melaporkan progres. Nilai yang lebih rendah memberikan progres yang lebih halus tetapi lebih banyak beban.",
+      "hashlistRetention": "Retensi hashlist agent",
+      "hashlistRetentionHelper": "Berapa lama agent menyimpan hashlist yang diunduh setelah selesai dengannya."
+    },
+    "loopback": {
+      "title": "Loopback",
+      "maxRounds": "Maksimal putaran loopback",
+      "maxRoundsHelper": "Batas keselamatan pada berapa kali sesi loopback menjalankan kembali serangan terhadap plaintext yang baru tercrack sebelum berhenti, bahkan jika masih menemukan crack baru."
+    },
+    "jobNotifications": {
+      "title": "Notifikasi Job",
+      "realtimeCracks": "Notifikasi crack real-time",
+      "realtimeCracksHelper": "Beri notifikasi saat hash tercrack. Dapat menambah beban yang terlihat pada job yang sangat besar."
+    }
+  },
+  "monitoring": {
+    "title": "Pengaturan Pemantauan",
+    "metricsRetention": {
+      "title": "📊 Periode Retensi Metrik",
+      "description": "Konfigurasikan berapa lama untuk menyimpan metrik pada tingkat detail yang berbeda. Data berjenjang dari granular menjadi teragregasi seiring waktu.",
+      "realtimeData": "Retensi Data Real-time",
+      "realtimeDataHelper": "Hari untuk menyimpan metrik granular untuk aktivitas terkini (misalnya 7 hari)",
+      "dailyAggregates": "Retensi Agregat Harian",
+      "dailyAggregatesHelper": "Hari untuk menyimpan ringkasan harian setelah periode real-time (misalnya 30 hari)",
+      "weeklyAggregates": "Retensi Agregat Mingguan",
+      "weeklyAggregatesHelper": "Hari untuk mempertahankan tren jangka panjang sebagai ringkasan mingguan (misalnya 365 hari)"
+    },
+    "aggregation": {
+      "title": "⚙️ Pengaturan Agregasi",
+      "enableAggregation": "Aktifkan Agregasi Otomatis",
+      "enableAggregationDescription": "Secara otomatis menggabungkan metrik yang lebih lama untuk menghemat ruang penyimpanan sambil mempertahankan tren",
+      "interval": "Interval Agregasi",
+      "intervalHelper": "Seberapa sering menjalankan proses agregasi",
+      "hourly": "Per jam",
+      "daily": "Harian",
+      "weekly": "Mingguan"
+    },
+    "cascading": {
+      "title": "Bagaimana agregasi berjenjang bekerja:",
+      "realtime": "Data real-time memberikan metrik terperinci untuk aktivitas terkini",
+      "daily": "Setelah periode real-time, data diagregasi menjadi ringkasan harian",
+      "weekly": "Setelah periode harian, data lebih lanjut diagregasi menjadi ringkasan mingguan",
+      "benefit": "Pendekatan ini menjaga bagan tetap dapat dibaca sambil mempertahankan tren historis"
+    },
+    "buttons": {
+      "save": "Simpan Pengaturan",
+      "saving": "Menyimpan..."
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat pengaturan. Silakan coba lagi.",
+      "saveFailed": "Gagal menyimpan pengaturan. Silakan coba lagi."
+    },
+    "messages": {
+      "updateSuccess": "Pengaturan pemantauan berhasil disimpan"
+    }
+  },
+  "agentDownloads": {
+    "title": "Pengaturan Transfer File Agent",
+    "description": "Konfigurasikan cara agent mengunduh file dari backend. Pengaturan ini berlaku untuk semua agent yang terhubung.",
+    "concurrentDownloads": {
+      "title": "Unduhan Bersamaan",
+      "description": "Jumlah maksimal file yang dapat diunduh secara bersamaan"
+    },
+    "downloadTimeout": {
+      "title": "Timeout Unduhan",
+      "description": "Waktu maksimal yang diizinkan untuk unduhan file tunggal",
+      "helper": "Antara 1 menit dan 24 jam (1440 menit)",
+      "unit": "menit"
+    },
+    "retryAttempts": {
+      "title": "Upaya Retry",
+      "description": "Jumlah kali untuk mencoba ulang unduhan yang gagal"
+    },
+    "progressInterval": {
+      "title": "Interval Laporan Progres",
+      "description": "Seberapa sering agent melaporkan progres unduhan",
+      "helper": "Antara 1 detik dan 5 menit (300 detik)",
+      "unit": "detik"
+    },
+    "chunkSize": {
+      "title": "Ukuran Chunk",
+      "description": "Ukuran chunk unduhan untuk kemampuan melanjutkan di masa depan",
+      "helper": "Antara 1 MB dan 100 MB",
+      "unit": "MB"
+    },
+    "applyNote": "Perubahan akan diterapkan pada agent pada koneksi mereka berikutnya. Agent yang saat ini terhubung akan menerima pembaruan secara otomatis.",
+    "buttons": {
+      "save": "Simpan Pengaturan",
+      "saving": "Menyimpan..."
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat pengaturan unduhan agent",
+      "saveFailed": "Gagal memperbarui pengaturan unduhan agent"
+    },
+    "messages": {
+      "updateSuccess": "Pengaturan unduhan agent berhasil diperbarui"
+    }
+  },
+  "hashTypes": {
+    "title": "Manajemen Tipe Hash",
+    "description": "Kelola tipe hash yang didukung untuk operasi crack kata sandi",
+    "addHashType": "Tambah Tipe Hash",
+    "searchPlaceholder": "Cari tipe hash...",
+    "hashTypesFound_other": "{{count}} tipe hash ditemukan",
+    "table": {
+      "id": "ID",
+      "name": "Nama",
+      "description": "Deskripsi",
+      "example": "Contoh",
+      "slow": "Lambat",
+      "salted": "Bergaram",
+      "actions": "Aksi",
+      "loading": "Memuat tipe hash...",
+      "noResults": "Tidak ada tipe hash yang ditemukan"
+    },
+    "dialog": {
+      "addTitle": "Tambah Tipe Hash Baru",
+      "editTitle": "Edit Tipe Hash",
+      "hashIdLabel": "Hash ID (Nomor Mode Hashcat)",
+      "hashIdHelper": "misalnya 1000 untuk NTLM",
+      "nameLabel": "Nama",
+      "descriptionLabel": "Deskripsi",
+      "exampleLabel": "Contoh Hash",
+      "exampleHelper": "Contoh format hash ini",
+      "slowLabel": "Algoritma Hash Lambat",
+      "saltedLabel": "Tipe Hash Bergaram (misalnya NTLMv2, bcrypt)",
+      "processingInfo": "Tipe hash ini memerlukan pemrosesan khusus. Logika pemrosesan dikelola secara programatis.",
+      "cancel": "Batal",
+      "save": "Simpan",
+      "saving": "Menyimpan..."
+    },
+    "validation": {
+      "hashIdRequired": "Hash ID diperlukan dan harus positif",
+      "hashIdExists": "Hash ID ini sudah ada",
+      "nameRequired": "Nama diperlukan"
+    },
+    "tooltips": {
+      "requiresProcessing": "Memerlukan pemrosesan khusus",
+      "processing": "Pemrosesan",
+      "slowAlgorithm": "Algoritma hash lambat (komputasi mahal)",
+      "salted": "Menggunakan garam per-hash (mempengaruhi perhitungan keyspace)"
+    },
+    "confirmDelete": {
+      "title": "Konfirmasi Hapus",
+      "warning": "Tipe hash ini sedang diaktifkan. Menghapusnya dapat mempengaruhi fungsi yang ada.",
+      "cancel": "Batal",
+      "delete": "Hapus",
+      "deleting": "Menghapus..."
+    },
+    "messages": {
+      "createSuccess": "Tipe hash berhasil dibuat",
+      "createFailed": "Gagal membuat tipe hash",
+      "updateSuccess": "Tipe hash berhasil diperbarui",
+      "updateFailed": "Gagal memperbarui tipe hash",
+      "deleteSuccess": "Tipe hash berhasil dihapus",
+      "deleteFailed": "Gagal menghapus tipe hash",
+      "deleteInUse": "Tidak dapat dihapus: Tipe hash ini sedang digunakan oleh hashlist yang ada",
+      "loadFailed": "Gagal memuat tipe hash. Silakan coba menyegarkan halaman."
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "Penyediaan GPU cloud",
+      "body": "Sewa instance GPU sesuai permintaan ketika armada on-prem tidak dapat mengikuti. Instance bergabung dengan VPN Anda yang sudah ada, hanya menerima file yang dibutuhkan oleh job mereka, dan secara otomatis di-teardown. Pengeluaran dicadangkan dari anggaran per-klien sebelum instance boot, jadi pagu adalah batas nyata, bukan sekadar pengukuran setelah fakta.",
+      "fleetLink": "Lihat armada langsung"
+    },
+    "sections": {
+      "providers": "Penyedia",
+      "clients": "Anggaran klien",
+      "policy": "Kebijakan ambang batas",
+      "rules": "Aturan penyediaan",
+      "system": "Batas & operasi"
+    },
+    "providers": {
+      "title": "Penyedia cloud",
+      "description": "Dari mana instance yang disewa berasal, dan bagaimana mereka mencapai server ini.",
+      "add": "Tambah penyedia",
+      "addTitle": "Tambah penyedia cloud",
+      "editTitle": "Edit penyedia cloud",
+      "edit": "Edit",
+      "delete": "Hapus",
+      "save": "Simpan",
+      "saved": "Penyedia disimpan",
+      "saveFailed": "Gagal menyimpan penyedia",
+      "deleted": "Penyedia dihapus",
+      "deleteFailed": "Gagal menghapus penyedia",
+      "deleteTitle": "Hapus penyedia?",
+      "deleteBody": "Hapus \"{{name}}\"? Ini gagal selama ada instance yang disewa masih mereferensikannya.",
+      "loadFailed": "Gagal memuat penyedia",
+      "empty": "Tidak ada penyedia cloud yang dikonfigurasi. Tidak ada yang akan disewa.",
+      "enabled": "Diaktifkan",
+      "disabled": "Dinonaktifkan",
+      "noCredentials": "Tidak ada kredensial",
+      "noVpn": "Tidak ada VPN",
+      "credentialExpired": "Kredensial kedaluwarsa",
+      "credentialExpiresIn": "Kedaluwarsa dalam {{days}}h",
+      "limitsValue": "{{instances}} maks, pagu {{rate}}/jam",
+      "thirdPartyBadge": "Berjalan pada mesin pihak ketiga",
+      "preflight": "Preflight",
+      "preflightTitle": "Laporan preflight",
+      "preflightOk": "Penyedia ini dapat meluncurkan instance.",
+      "preflightFailed": "Permintaan preflight gagal",
+      "preflightFailedBody": "Penyedia ini belum dapat meluncurkan instance.",
+      "preflightIdentity": "Diautentikasi sebagai {{identity}}",
+      "preflightQuota": "Kuota: {{used}} dari {{limit}} sedang digunakan ({{source}})",
+      "preflightSections": {
+        "missing_permissions": "Izin yang hilang",
+        "inconclusive": "Tidak dapat diverifikasi (dianggap sebagai kegagalan)",
+        "errors": "Kesalahan",
+        "warnings": "Peringatan"
+      },
+      "acknowledge": "Akui",
+      "acknowledged": "Pengakuan tercatat",
+      "ackFailed": "Gagal mencatat pengakuan",
+      "ackTitle": "Akui paparan data pihak ketiga",
+      "ackBody": {
+        "vastai": "Vast.ai menyewa GPU pada mesin yang dimiliki secara individual yang operatornya memiliki akses root ke container. Hash, wordlist, dan plaintext tercrack yang ditempatkan di sana terlihat oleh pihak ketiga. Ini secara kategoris berbeda dari AWS atau RunPod Secure Cloud, di mana instance berjalan di dalam akun Anda sendiri atau di pusat data SOC 2.",
+        "runpod_community": "RunPod Community Cloud menyewa GPU pada mesin yang dioperasikan oleh rekan yang pemiliknya memiliki akses root ke container. Hash, wordlist, dan plaintext tercrack yang ditempatkan di sana terlihat oleh pihak ketiga. Atestasi kepatuhan RunPod hanya mencakup Secure Cloud dan tidak meluas ke tingkat ini."
+      },
+      "ackConfirm": "Apakah Anda menerima paparan ini untuk beban kerja yang dikirim ke penyedia ini?",
+      "ackAccept": "Saya mengerti dan menerima",
+      "ephemeralKeyTitle": "Kunci enkripsi bersifat efemeral",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY tidak disetel, jadi kunci acak dibuat saat startup. Setiap kredensial yang disimpan menjadi tidak dapat dibaca setelah restart berikutnya. Tetapkan KH_ENCRYPTION_KEY sebelum menyimpan kredensial penyedia.",
+      "vpnSection": "Konektivitas VPN",
+      "vpnSectionHelp": "Server ini tidak pernah terbuka ke internet, jadi instance yang disewa bergabung dengan VPN yang sudah Anda jalankan. OpenVPN tidak didukung: memerlukan /dev/net/tun dan CAP_NET_ADMIN, yang tidak disediakan oleh container Vast.ai yang tidak memiliki hak istimewa.",
+      "reusableKeyWarning": {
+        "tailscale": "Kunci yang dapat digunakan kembali dibagikan oleh setiap instance dan kedaluwarsa — Tailscale membatasi kunci auth hingga 90 hari. Setelah kedaluwarsa, penyediaan ditolak daripada meluncurkan instance yang tidak dapat terhubung. Klien OAuth memungkinkan KrakenHashes membuat kunci yang diberi tag efemeral untuk penggunaan tunggal per instance.",
+        "netbird": "Kunci setup yang dapat digunakan kembali dibagikan oleh setiap instance, jadi rahasia yang sama mencapai setiap host yang disewa. Tetapkan 'Kredensial kedaluwarsa pada' di bawah ini jika kunci memiliki kedaluwarsa — penyediaan kemudian ditolak setelah kedaluwarsa, daripada meluncurkan instance yang tidak dapat terhubung; biarkan kosong untuk kunci yang tidak pernah kedaluwarsa. Tag atau grup diabaikan untuk tipe kredensial ini: grup dan flag efemeral berasal dari konfigurasi kunci itu sendiri di NetBird. Token akses memungkinkan KrakenHashes membuat kunci setup efemeral untuk penggunaan tunggal per instance dan mengatur grup itu sendiri."
+      },
+      "staticConfigWarning": "WireGuard menggunakan konfigurasi peer statis: tidak ada kredensial per-instance dan tidak ada pembatalan registrasi otomatis ketika instance mati. Tailscale atau NetBird lebih aman.",
+      "kinds": {
+        "aws": "AWS EC2 (akun Anda sendiri)",
+        "vastai": "Vast.ai (mesin pihak ketiga)",
+        "mock": "Mock (agent uji lokal, tanpa biaya)",
+        "runpod": "RunPod Secure Cloud (pusat data SOC 2)",
+        "runpod_community": "RunPod Community Cloud (mesin yang dioperasikan oleh rekan)"
+      },
+      "credentialKinds": {
+        "oauth": "Klien OAuth — buat satu kunci efemeral per instance (direkomendasikan)",
+        "pat": "Token akses — buat satu kunci efemeral per instance (direkomendasikan)",
+        "reusable_key": "Kunci yang dapat digunakan kembali — dibagikan oleh setiap instance",
+        "static_config": "Konfigurasi statis — tidak ada kredensial per-instance"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "Klien OAuth Tailscale sebagai client_id:client_secret. Memerlukan cakupan auth_keys dan tag yang dipilih.",
+        "pat": "Token akses pribadi NetBird atau token pengguna layanan.",
+        "reusable_key": "Kunci pra-otorisasi yang akan digunakan setiap instance.",
+        "static_config": "Konfigurasi peer WireGuard yang lengkap."
+      },
+      "columns": {
+        "name": "Nama",
+        "provider": "Provider",
+        "status": "Status",
+        "vpn": "VPN",
+        "limits": "Batas",
+        "actions": "Tindakan"
+      },
+      "fields": {
+        "name": "Nama",
+        "provider": "Provider",
+        "credentials": "Kredensial provider",
+        "credentialsHelp": "Kredensial API untuk {{provider}}. Disimpan terenkripsi dan tidak pernah dikembalikan.",
+        "credentialsKeepHelp": "Biarkan kosong agar kredensial yang disimpan tetap tidak berubah.",
+        "maxConcurrent": "Jumlah maksimal instance bersamaan",
+        "maxHourlyCents": "Tarif per jam maksimal (sen)",
+        "maxHourlyHelp": "Penawaran di atas tarif ini tidak pernah disewa, terlepas dari anggaran yang diizinkan.",
+        "vpnProvider": "Provider VPN",
+        "credentialKind": "Jenis kredensial",
+        "vpnCredential": "Kredensial VPN",
+        "credentialExpiry": "Kredensial berakhir pada",
+        "credentialExpiryHelp": "Opsional — biarkan kosong untuk kunci yang tidak pernah berakhir. Penyediaan ditolak setelah waktu ini, dan Anda akan diperingatkan saat mendekatinya.",
+        "vpnTag": "Tag atau grup",
+        "vpnTagHelp": "mis. tag:kraken-worker. Diperlukan untuk Tailscale OAuth; membatasi apa yang dapat dijangkau node-node ini.",
+        "backendVpnHost": "Alamat server ini di VPN",
+        "backendVpnHostHelp": "Nilai KH_HOST yang digunakan agent cloud. Sertifikat server harus mencakupnya — tambahkan di bawah tab Server Certificate dan klik Apply & Reissue, atau agent akan gagal memverifikasi hostname TLS.",
+        "enabled": "Diaktifkan",
+        "awsAccessKeyId": "AWS access key ID",
+        "awsAccessKeyIdHelp": "Kunci pengguna atau peran IAM yang dibatasi untuk penyediaan EC2. Disimpan terenkripsi dan tidak pernah dikembalikan.",
+        "awsSecretAccessKey": "AWS secret access key",
+        "awsRegion": "Region",
+        "awsRegionHelp": "mis. us-east-2. Setiap field AWS lainnya di bawah harus berada di region ini.",
+        "awsSubnet": "Subnet ID",
+        "awsSubnetHelp": "mis. subnet-0abc123. Harus auto-assign IP publik, atau instance tidak dapat mencapai control plane VPN Anda.",
+        "awsSecurityGroups": "Security group IDs",
+        "awsSecurityGroupsHelp": "Dipisahkan koma, mis. sg-0abc123. Hanya memerlukan akses outbound; tidak ada aturan inbound yang diperlukan.",
+        "awsAmiSsm": "AMI SSM parameter",
+        "awsAmiSsmHelp": "Diselesaikan saat peluncuran, sehingga image tidak pernah ketinggalan zaman. mis. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "AMI ID (menggantikan AMI SSM parameter)",
+        "awsAmiIdHelp": "Tentukan image tertentu sebagai gantinya. Biarkan kosong untuk diselesaikan melalui SSM. Salah satu dari keduanya diperlukan.",
+        "awsInstanceProfile": "IAM instance profile ARN",
+        "awsInstanceProfileHelp": "Opsional. Hanya diperlukan jika agent itu sendiri harus memanggil AWS APIs.",
+        "awsRootVolume": "Root volume (GB)",
+        "awsRootVolumeHelp": "Batas minimum; set file job mungkin memerlukan lebih banyak. Harus setidaknya ukuran snapshot AMI atau peluncuran gagal.",
+        "awsEbsRate": "EBS rate (sen/GB-bulan)",
+        "awsEbsRateHelp": "Harga penyimpanan gp3. Jika dibiarkan 0, anggaran tidak memesan apa pun untuk disk.",
+        "awsUseSpot": "Gunakan kapasitas spot",
+        "awsUseSpotHelp": "Permintaan Spot adalah satu kali dan dihentikan saat gangguan. Diskon pada GPU generasi saat ini sering kali kecil, jadi ini tidak otomatis lebih murah. Spot dan on-demand menggunakan kuota vCPU yang terpisah.",
+        "awsInstanceType": "Instance type",
+        "awsHourlyCents": "Sen/jam",
+        "awsGpuModel": "GPU model",
+        "awsGpuCount": "GPU",
+        "awsVram": "VRAM/GPU",
+        "mockAgentBinary": "Jalur binary agent",
+        "mockAgentBinaryHelp": "Jalur ke binary agent yang dapat dijalankan server dengan --test-mode.",
+        "mockBackendHost": "Backend host untuk agent yang dihasilkan",
+        "mockBackendHostHelp": "mis. localhost:31337.",
+        "mockHourlyRate": "Tarif simulasi (sen/jam)",
+        "mockBootDelay": "Penundaan boot simulasi (detik)",
+        "mockFailLaunch": "Kesalahan: gagal setiap peluncuran",
+        "mockDropLaunchResponse": "Kesalahan: hapus respons peluncuran (instance berjalan tetapi dilaporkan gagal)",
+        "mockNeverRegister": "Kesalahan: instance tidak pernah mendaftar",
+        "mockFailDestroy": "Kesalahan: gagal setiap destroy",
+        "vpnTagIgnoredHelp": "Diabaikan untuk kunci reusable NetBird: keanggotaan grup dan flag ephemeral berasal dari konfigurasi kunci setup itu sendiri di NetBird. Digunakan hanya di jalur access-token, sebagai auto_groups pada setiap kunci yang dicetak.",
+        "vpnUrl": {
+          "netbird": "URL manajemen NetBird",
+          "tailscale": "Server login Tailscale (Headscale)"
+        },
+        "vpnUrlHelp": {
+          "netbird": "Server manajemen NetBird yang dihosting sendiri, mis. https://netbird.example.com. Digunakan untuk mencetak kunci setup dan memulai klien. Biarkan kosong untuk layanan NetBird yang dihosting.",
+          "tailscale": "Hanya untuk server kontrol yang dihosting sendiri. Perhatikan bahwa pencetakan access-token selalu menggunakan api.tailscale.com dan tidak mendukung Headscale."
+        },
+        "vastCountries": "Negara (dipisahkan koma)",
+        "vastCountriesHelp": "Kode negara Vast.ai, mis. US, DE, SE. Kosong berarti di mana saja. Dicocokkan tanpa membedakan huruf besar/kecil terhadap geolokasi yang dilaporkan, jadi 'US' cocok dengan 'US, Texas'. Berfungsi ganda sebagai kontrol residensi data Anda.",
+        "vastGpuModels": "Model GPU yang diizinkan (dipisahkan koma)",
+        "vastGpuModelsHelp": "Kosong berarti kartu apa pun. Dicocokkan pada kunci yang dinormalisasi, jadi 'rtx_4090' cocok dengan 'NVIDIA GeForce RTX 4090' dan 'RTX 4090'. Memperluas daftar ini adalah cara termurah untuk meningkatkan ketersediaan.",
+        "vastDeniedGpuModels": "Model GPU yang ditolak (dipisahkan koma)",
+        "vastDeniedGpuModelsHelp": "Selalu lebih diutamakan daripada daftar izin. Ini adalah tombol darurat untuk 'kartu itu terus gagal, berhenti menyewanya'.",
+        "vastMinReliability": "Keandalan host minimum (0-1)",
+        "vastMinReliabilityHelp": "Skor keandalan host Vast.ai sendiri. 0 menonaktifkan batas minimum. Host yang tidak melaporkan skor tetap disertakan. Mengorbankan sedikit ketersediaan demi lebih sedikit rental mati — host yang menjatuhkan instance di tengah chunk tetap sudah dibayar untuk proses pengaktifannya.",
+        "vastAllowUnverified": "Izinkan host yang tidak diverifikasi (meningkatkan ketersediaan; mesin yang belum diaudit)",
+        "vastAllowResidential": "Izinkan host residensial (meningkatkan ketersediaan; mesin rumah, bukan datacenter)",
+        "runpodDataCenters": "Data center (dipisahkan koma)",
+        "runpodDataCentersHelp": "ID data center RunPod, mis. EU-RO-1, US-KS-2. KOSONG ADALAH PENGATURAN PALING LUAS, bukan yang paling sempit — scheduler RunPod sendiri kemudian dapat menempatkan pod di mana saja. Ini kebalikan dari zona AWS, di mana membiarkannya kosong tetap mengunci Anda ke satu zona. Atur untuk residensi data, atau untuk membuat loop retry peluncuran berjalan di pool yang benar-benar independen.",
+        "runpodGpuTypes": "Tipe GPU yang diizinkan (dipisahkan koma)",
+        "runpodGpuTypesHelp": "ID gpuType RunPod tepat seperti yang muncul di grid ketersediaan, mis. 'NVIDIA GeForce RTX 4090'. Kosong berarti setiap kartu di tier ini.",
+        "runpodDiskGb": "Batas minimum disk container (GB)",
+        "runpodDiskGbHelp": "Batas minimum, bukan batas maksimal: job yang set file-nya memerlukan lebih banyak akan mendapat lebih banyak. Disk container dihapus saat pod dimulai ulang, dan volume jaringan tidak pernah dilampirkan — satu akan melampaui pod dan mempertahankan plaintext tercrack setelah penghentian.",
+        "runpodDiskRate": "Container disk (sen/GB-bulan)",
+        "runpodDiskRateHelp": "Masuk ke bagian penyimpanan dari reservasi anggaran. Pembulatan naik, karena reservasi yang mencatat penyimpanan lebih rendah dari semestinya dapat membuat klien melampaui batas yang diberitahukan kepada mereka sebagai batas tegas.",
+        "runpodSelfDestruct": "Biarkan pod menghapus diri jika VPN mati (Secure tier saja)",
+        "runpodSelfDestructHelp": "Menambahkan rel teardown ketiga sehingga pod dapat MENGHAPUS diri saat kehilangan kontak, menyamai Vast.ai. RunPod tidak memiliki kredensial yang dibatasi per-pod, jadi ini menempatkan kunci yang DIBATASI AKUN di setiap pod — satu yang dapat membuat dan menghapus pod lainnya di akun. Sediakan kunci terpisah yang lebih sempit sebagai self_destruct_api_key dalam JSON kredensial, bukan menggunakan kembali kunci penyediaan Anda. Tidak pernah tersedia di tier Community."
+      },
+      "peerWarningTitle": "Perangkat keras pihak ketiga",
+      "peerWarningBody": {
+        "vastai": "Instance Vast.ai berjalan pada mesin yang dimiliki secara individual yang tidak Anda kontrol. Aktifkan hanya untuk klien yang datanya dapat diekspos ke pihak ketiga, dan akui juga per klien.",
+        "runpod_community": "RunPod Community Cloud berjalan pada mesin yang dioperasikan oleh peer yang pemiliknya memiliki root atas container. Attestasi RunPod SOC 2, ISO 27001 dan PCI DSS mencakup Secure Cloud saja, bukan tier ini. Aktifkan hanya untuk klien yang datanya dapat diekspos ke pihak ketiga, dan akui juga per klien."
+      },
+      "awsSection": "Penempatan AWS dan penetapan harga",
+      "awsSectionHelp": "Tempat instance diluncurkan dan berapa biayanya. EC2 tidak mengekspos GPU model atau tarif per jam yang dapat dibaca mesin ke kode ini, jadi keduanya dideklarasikan di sini.",
+      "awsInstanceTypes": "Jenis instance yang ditawarkan",
+      "awsInstanceTypesHelp": "Hanya jenis yang terdaftar di sini yang dapat disewa. Deklarasikan tarif yang Anda bersedia ditagih — pembulatan naik, karena anggaran memesan terhadap angka ini dan tidak ada yang mencocokkannya dengan faktur. Mendeklarasikan model dan jumlah GPU memungkinkan peringkat biaya-per-pekerjaan; tanpanya, peringkat kembali ke harga per jam.",
+      "awsAddInstanceType": "Tambah jenis instance",
+      "awsRemoveInstanceType": "Hapus",
+      "mockSection": "Perilaku mock dan injeksi fault",
+      "mockSectionHelp": "Provider mock meluncurkan proses agent lokal dalam --test-mode. Toggle kesalahan memicu cabang kegagalan tanpa perlu mengompilasi ulang.",
+      "providerNotImplemented": "Provider ini belum memiliki adapter: backend menolaknya dengan \"unsupported cloud provider\" saat peluncuran. Dapat disimpan, tetapi tidak ada yang dapat disediakan darinya.",
+      "zones": {
+        "title": "Penempatan dan perangkat keras",
+        "help": "Centang setiap tempat dan setiap GPU yang Anda bersedia sewa. Kapasitas biasanya milik pasangan (perangkat keras, penempatan) daripada salah satu saja, jadi setiap sel yang dicentang adalah satu kesempatan independen untuk mendapatkan mesin — satu sel yang dicentang berarti penolakan kapasitas tidak memiliki tempat untuk kembali. Membiarkan semua kartu pada satu baris tetap dicentang berarti \"perangkat keras apa pun yang telah saya setujui\", termasuk apa pun yang ditambahkan nanti.",
+        "probe": "Periksa ketersediaan",
+        "probeHelp": "Membaca data langsung dari AWS: zona, subnet, penawaran, harga spot, dan skor penempatan. Read-only: tidak meluncurkan apa pun dan tidak dikenakan biaya apa pun.",
+        "probeIdle": "untuk memuat zona, subnet, dan harga spot secara langsung untuk provider ini.",
+        "probeFailed": "Tidak dapat membaca kapasitas dari AWS.",
+        "saveFirst": "Simpan provider terlebih dahulu. Ketersediaan dibaca menggunakan kredensial dan region yang disimpan, jadi formulir yang belum disimpan tidak memiliki apa pun untuk dikueri.",
+        "selectAll": "Pilih semua zona yang dapat digunakan",
+        "colZone": "Zone",
+        "colSubnet": "Subnet",
+        "notOffered": "EC2 tidak menawarkan jenis instance ini di zone ini. Ini definitif — peluncuran di sini akan gagal dengan Unsupported.",
+        "unusable": "Tidak dapat meluncurkan apa pun ke penempatan ini. Lihat catatan di sebelah namanya.",
+        "freeIps_other": "{{count}} IP tersedia",
+        "scoreHelp": "Peringkat 1-10 AWS sendiri untuk KARTU INI di ZONE INI, dan bukti lemah: setiap zone di region ini mendapat skor 1/10 di akun ini beberapa menit sebelum peluncuran di salah satu zona tersebut berhasil pada percobaan pertama. Ini memutuskan pool mana yang dicoba terlebih dahulu. Ini tidak pernah menghapus pool dari daftar. Bandingkan dengan skor semua jenis di sebelah nama zone.",
+        "spotVsConfigured": "Spot mengutip {{spot}}/jam di sini; tarif terkonfigurasi Anda untuk jenis ini adalah {{configured}}/jam. Reservasi menggunakan angka yang DIKONFIGURASI, jadi menetapkan harga di bawah tarif langsung membuat cadangan anggaran kurang dari batas yang diberitahukan kepada Anda sebagai batas tegas.",
+        "poolCount_other": "{{count}} pool kapasitas dipilih",
+        "poolCountWarning": "Satu pool adalah satu kesempatan. Ketika pool itu habis, loop retry peluncuran tidak memiliki tempat lain untuk pergi dan penyediaan begitu saja berhenti sampai kapasitas kembali. Centang lebih banyak zone, lebih banyak jenis instance, atau keduanya.",
+        "poolCountOk": "Penolakan kapasitas di satu pool akan beralih ke pool berikutnya, dalam urutan dari yang paling mungkin berhasil.",
+        "legacyOverridden": "Zone dikonfigurasi, jadi Subnet ID tunggal di atas ({{subnet}}) diabaikan. Ini tetap sebagai fallback jika setiap zone tidak dicentang.",
+        "combinedScore": "semua jenis: {{score}}/10",
+        "combinedScoreHelp": "Skor penempatan AWS untuk SEMUA jenis instance Anda yang sudah diberi tarif, diambil bersama di zone ini, yang merupakan pertanyaan berbeda dari skor kartu mana pun — dan biasanya jawaban yang jauh lebih baik. Diukur di satu region dalam satu menit: g6.xlarge saja mendapat skor 1/10 di sini sementara g4dn + g5 + g6 bersama mendapat skor 9/10. Keluasan pilihan bukanlah lindung nilai terhadap kelangkaan; itu adalah hal yang sedang diskor.",
+        "availableCount": "{{count}} tersedia",
+        "availableCountHelp": "Hitungan langsung mesin yang tersedia untuk disewa sekarang. Ini adalah inventaris nyata dan sinyal terkuat di layar — jauh lebih baik daripada skor penempatan, yang hanya pendapat.",
+        "livePriceHelp": "Apa yang sedang ditagihkan penyedia untuk ini sekarang.",
+        "trust": {
+          "definitive": "definitif",
+          "measured": "langsung",
+          "advisory": "hanya saran"
+        },
+        "axesModeNote": "Penyedia ini menyimpan negara dan model GPU sebagai dua daftar independen, jadi menandai kartu menerapkannya di setiap negara yang dipilih. Hitungan per-sel dan harga di bawah masih nyata dan spesifik untuk negara tersebut."
+      },
+      "vastSection": "Kebijakan penempatan dan hardware Vast.ai",
+      "vastSectionHelp": "Negara mana dan kartu mana yang boleh disewa penyedia ini. Membiarkan daftar kosong berarti tidak ada pembatasan, yang merupakan kumpulan terluas dan standarnya.",
+      "vastTierWarningTitle": "Anda membuka tier host yang tidak terverifikasi",
+      "vastTierWarningBody": "Ini adalah peningkatan ketersediaan tunggal terbesar yang tersedia di Vast.ai, dan menempatkan hash klien, wordlist, potfile, dan plaintext tercrack di mesin yang belum diverifikasi oleh Vast.ai. Setiap host Vast sudah memiliki root atas container; toggle ini menghapus satu-satunya filter yang menjaganya ke host yang telah diperiksa Vast. Tier yang tidak terverifikasi juga merupakan tempat laporan 'stuck connecting' dan 'bad driver' terkonsentrasi, jadi sebagian ketersediaan ekstra adalah ilusi — rental yang tidak pernah mencapai pekerjaan yang berguna tetap membebankan Anda biaya commissioning-nya.",
+      "runpodSection": "Kebijakan penempatan dan hardware RunPod",
+      "runpodSectionHelp": "Pusat data mana dan tipe GPU mana yang boleh disewa penyedia ini. Harga RunPod langsung, jadi tidak ada tarif untuk dideklarasikan di sini — tidak seperti AWS.",
+      "runpodCommunityTeardownTitle": "Teardown komunitas adalah reaper backend saja",
+      "runpodCommunityTeardownBody": "RunPod tidak mengeluarkan kredensial dengan scope per-pod, jadi tidak ada cara yang aman bagi Community pod untuk menghapus dirinya sendiri: satu-satunya kunci yang akan berfungsi memiliki scope akun, dan operator host Community memiliki root atas container dan akan membacanya dari environment. Deadline di dalam guest masih membunuh hashcat dan mengakhiri paparan data, tetapi TIDAK DAPAT menghentikan penagihan pod. Jika backend ini down atau wedged, Community pod menagih sampai Anda menghancurkannya secara manual dari halaman Armada Cloud. Tetapkan ceiling TTL instance rendah dan cap anggaran kecil pada klien apa pun yang diizinkan menggunakan tier ini.",
+      "experimentalChip": "Eksperimental",
+      "experimentalTooltip": "Eksperimental — belum diuji. Adapter ini tidak pernah dijalankan end-to-end terhadap penyedia nyata sambil mengeluarkan uang nyata. Harapkan bug; pantau pekerjaan Anda dan laporkan apa yang Anda temukan.",
+      "experimentalTitle": "Eksperimental — belum diuji",
+      "experimentalBody": "Penyedia ini belum terbukti end-to-end dengan uang nyata: boot, commissioning, cracking, clean release, dan refund anggaran belum semuanya diamati bekerja bersama. Ini seharusnya berfungsi, dan akan ada bug. Mulai dengan cap anggaran kecil dan batas instance rendah, dan pantau halaman Armada Cloud untuk instance yang tidak dirilis. Silakan laporkan apa pun yang salah.",
+      "testedChip": "Teruji",
+      "testedTooltip": "Teruji — dijalankan end-to-end terhadap penyedia nyata dengan uang nyata, melalui boot, cracking, clean release, dan refund anggaran yang diselesaikan.",
+      "reportIssueLink": "Laporkan bug di GitHub",
+      "reportDiagnosticsLink": "Kirim diagnostik di Discord (bukan di issue)"
+    },
+    "budgets": {
+      "title": "Anggaran klien",
+      "description": "Berapa banyak yang boleh dikeluarkan setiap klien, dan ke penyedia mana datanya boleh dikirim. Klien dengan bidang kosong mengikuti default server di bawah.",
+      "loadFailed": "Gagal memuat anggaran klien",
+      "empty": "Belum ada klien. Buat klien terlebih dahulu, kemudian danai di sini.",
+      "edit": "Edit",
+      "editTitle": "Pengaturan cloud — {{name}}",
+      "saved": "Pengaturan cloud klien disimpan",
+      "saveFailed": "Gagal menyimpan pengaturan cloud klien",
+      "enabled": "Diaktifkan",
+      "disabled": "Dinonaktifkan",
+      "unfunded": "Tanpa anggaran",
+      "noProviders": "Tidak ada penyedia yang diizinkan",
+      "ttlValue": "{{minutes}} mnt",
+      "spendSummary": "{{used}} dari {{cap}} committed ({{pct}}%)",
+      "acknowledged": "Pengakuan tercatat",
+      "acknowledgedChip": "Diakui",
+      "ackFailed": "Gagal mencatat pengakuan",
+      "ackTitle": "Akui paparan pihak ketiga untuk klien ini",
+      "ackWarningTitle": "Data klien ini akan meninggalkan kontrol Anda",
+      "ackWarningBody": "Mengizinkan Vast.ai untuk {{name}} berarti hash, wordlist, dan plaintext tercrack klien ini dapat ditempatkan di mesin yang dimiliki oleh pihak ketiga yang memiliki akses root ke container.",
+      "ackConfirm": "Apakah Anda menerima paparan ini untuk klien ini?",
+      "ackAccept": "Saya memahami dan menerima",
+      "actions": {
+        "none": "Dalam anggaran",
+        "notify": "Ambang tercapai",
+        "stop_provisioning": "Penyediaan dihentikan",
+        "drain": "Draining",
+        "hard_stop": "Hard stop"
+      },
+      "columns": {
+        "client": "Klien",
+        "status": "Status",
+        "providers": "Penyedia yang diizinkan",
+        "spend": "Pengeluaran",
+        "ttl": "Max TTL",
+        "actions": "Tindakan"
+      },
+      "fields": {
+        "budget": "Anggaran",
+        "budgetHelp": "Ceiling pengeluaran untuk periode anggaran saat ini. Biarkan kosong untuk mewarisi default server; klien hanya berakhir tanpa anggaran jika tidak ada default yang disetel juga.",
+        "ttl": "Umur instance maksimal (menit)",
+        "ttlHelp": "Instance dihancurkan pada usia ini terlepas dari progres. Biarkan kosong untuk menggunakan default sistem.",
+        "providers": "Penyedia yang diizinkan",
+        "providersHelp": "Kosong berarti tidak ada yang boleh disewa untuk klien ini. Mengizinkan AWS sambil melarang Vast.ai adalah konfigurasi normal.",
+        "enabled": "Cloud burst",
+        "period": "Periode anggaran",
+        "periodHelp": "Biarkan kosong untuk mewarisi default server."
+      },
+      "errors": {
+        "invalidBudget": "Anggaran harus berupa angka, misalnya 25.00",
+        "negativeBudget": "Anggaran tidak boleh negatif",
+        "invalidTtl": "Umur maksimal harus berupa jumlah menit yang positif",
+        "enabledWithoutBudget": "Tetapkan anggaran sebelum mengaktifkan cloud burst — klien tanpa anggaran tidak pernah dapat menyediakan apa pun.",
+        "enabledWithoutProvider": "Izinkan setidaknya satu penyedia sebelum mengaktifkan cloud burst."
+      },
+      "peerTooltip": "Hardware yang dioperasikan peer: data klien ini akan dapat dibaca oleh pemilik mesin.",
+      "defaults": {
+        "title": "Default server",
+        "description": "Nilai yang digunakan klien ketika belum menetapkan miliknya sendiri. Membiarkan bidang klien kosong berarti mengikuti default di sini, jadi mengubah ini mengubah setiap klien yang masih mewarisi.",
+        "summary": "{{amount}} per {{period}}",
+        "summaryUnset": "Tidak ada default anggaran yang disetel — klien yang mewarisi tetap tanpa anggaran",
+        "budget": "Anggaran default",
+        "budgetHelp": "Biarkan kosong untuk tidak ada default: klien yang mewarisi kemudian tetap tanpa anggaran dan tidak dapat burst.",
+        "period": "Periode anggaran default",
+        "enabled": "Klien dapat burst ke kapasitas berbayar secara default",
+        "providers": "Penyedia default",
+        "providersHelp": "Diterapkan pada klien apa pun yang daftar penyedia miliknya sendiri kosong.",
+        "peerAckNote": "Penyedia yang dioperasikan peer masih memerlukan pengakuan per-klien. Menjadikannya default tidak memberikan persetujuan itu — setiap klien masih harus diakui secara individual sebelum datanya dapat pergi ke sana.",
+        "appliesNow": "Cloud burst diaktifkan secara default dan anggaran default disetel, jadi setiap klien yang masih mewarisi sekarang dapat menyediakan kapasitas berbayar.",
+        "save": "Simpan default",
+        "saved": "Default disimpan",
+        "saveFailed": "Gagal menyimpan default",
+        "fundedButDisabled": "Anggaran default disetel tetapi cloud burst dimatikan secara default, jadi tidak ada klien yang mewarisi dapat menyediakan apa pun. Centang kotak di atas untuk membuat anggaran dapat digunakan.",
+        "enabledWithoutProviders": "Cloud burst aktif secara default tetapi tidak ada penyedia default yang dipilih, jadi klien yang mewarisi masih tidak dapat menyewa apa pun. Pilih setidaknya satu penyedia di atas.",
+        "willEnableTitle_other": "Ini akan membiarkan {{count}} klien menyewa kapasitas berbayar",
+        "willEnableBody": "Klien ini tidak memiliki pengaturan sendiri, jadi mereka mengikuti default di atas. Menyimpan memungkinkan setiap klien menyediakan instance cloud dan membelanjakan anggaran ini. Untuk mengecualikan klien tertentu, tetapkan Cloud burst-nya sendiri ke Dinonaktifkan.",
+        "andMore": "+{{count}} lagi",
+        "confirmTitle_other": "Aktifkan pengeluaran cloud untuk {{count}} klien?",
+        "confirmBody_other": "{{count}} klien saat ini tidak dapat menyewa apa pun. Menyimpan default ini memberi masing-masing ceiling {{amount}} per {{period}} dan izin untuk mengeluarkannya. Anggaran per klien, bukan dibagikan, jadi ini adalah total paparan dikalikan dengan jumlah klien yang terdaftar.",
+        "confirmAlternative": "Lebih suka opt-in satu demi satu? Batalkan, biarkan cloud burst dimatikan secara default, dan tetapkan Cloud burst dan anggaran pada setiap klien secara individual sebagai gantinya.",
+        "confirmAccept_other": "Aktifkan {{count}} klien"
+      },
+      "periods": {
+        "monthly": "bulan",
+        "quarterly": "kuartal",
+        "semiannual": "enam bulan"
+      },
+      "inheritLabel": "Warisi default ({{value}})",
+      "on": "Diaktifkan",
+      "off": "Dinonaktifkan",
+      "inheriting": "mewarisi"
+    },
+    "policy": {
+      "title": "Kebijakan ambang pengeluaran",
+      "description": "Apa yang terjadi saat klien mendekati cap-nya. Ambang ini menentukan seberapa lancar cap dicapai; apa yang benar-benar mencegah overrun adalah bahwa seluruh biaya seumur hidup instance di-commit sebelum boot.",
+      "loadFailed": "Gagal memuat kebijakan ambang",
+      "saved": "Kebijakan ambang disimpan",
+      "saveFailed": "Gagal menyimpan kebijakan ambang",
+      "overageWarning": "Overage diizinkan: reservasi dapat melebihi anggaran yang tersisa. Cap menjadi sekadar saran daripada mutlak.",
+      "hardStopAboveCapNote": "Hard stop ditetapkan ke {{pct}}% tetapi overage dimatikan, jadi reservasi masih tidak dapat melebihi 100% dari anggaran. Aktifkan overage jika Anda bermaksud untuk mengizinkan pengeluaran melampaui cap.",
+      "fields": {
+        "notifyEnabled": "Beritahu saya saat pengeluaran mendekati cap",
+        "notifyPct": "Beritahu pada (% anggaran)",
+        "notifyPctHelp": "Mengirim notifikasi sekali saja. Matikan kotak centang untuk tidak pernah memberitahu.",
+        "stopProvisionPct": "Hentikan penyediaan pada (%)",
+        "stopProvisionPctHelp": "Tidak ada instance baru yang diluncurkan melampaui titik ini. Instance yang sedang berjalan berlanjut.",
+        "drainPct": "Mulai drain pada (%)",
+        "drainPctHelp": "Tidak ada pekerjaan baru yang dikirim; chunk yang sedang berlangsung diizinkan untuk selesai.",
+        "hardStopPct": "Hard stop pada (%)",
+        "hardStopPctHelp": "Instance dihancurkan segera, selesai atau tidak.",
+        "drainTimeout": "Timeout drain (detik)",
+        "drainTimeoutHelp": "Berapa lama instance dapat terus menyelesaikan chunk-nya sebelum akhirnya tetap dihancurkan.",
+        "allowOverage": "Izinkan pengeluaran melampaui cap",
+        "allowOverageHelp": "Biarkan dimatikan untuk membuat cap mutlak. Dengan dimatikan, anggaran $10 berhenti pada $10."
+      },
+      "errors": {
+        "notifyRange": "Ambang pemberitahuan harus antara 1% dan ambang penghentian penyediaan.",
+        "stopBeforeDrain": "Ambang penghentian penyediaan tidak boleh melebihi ambang drain.",
+        "drainBeforeHardStop": "Ambang drain tidak boleh melebihi ambang hard stop.",
+        "negativeTimeout": "Timeout drain tidak boleh negatif."
+      }
+    },
+    "fleet": {
+      "title": "Armada Cloud",
+      "description": "Setiap instance yang disewa dan mungkin masih mengenakan biaya.",
+      "loadFailed": "Gagal memuat armada",
+      "empty": "Tidak ada instance yang berjalan. Tidak ada yang sedang ditagih.",
+      "summary_other": "{{count}} instance langsung, {{hourly}}/jam, {{reserved}} committed.",
+      "destroy": "Hancurkan",
+      "destroyed": "Instance dihancurkan",
+      "destroyFailed": "Penyedia menolak untuk menghancurkan instance ini — masih menagih",
+      "destroyTitle": "Hancurkan instance?",
+      "destroyBody": "Hancurkan \"{{label}}\" sekarang? Penagihan berhenti segera setelah penyedia mengonfirmasi.",
+      "destroyJobWarning": "Instance ini mengerjakan job. Chunk yang sedang berlangsung hilang dan akan di-dispatch ulang di tempat lain.",
+      "teardownFailingTitle": "Teardown sedang gagal",
+      "teardownFailingBody_other": "{{count}} instance tidak dapat dihancurkan dan masih mengumpulkan biaya. Periksa konsol penyedia.",
+      "teardownFailingTooltip": "Teardown gagal; instance ini masih menagih",
+      "estimated": "est.",
+      "estimatedTooltip": "Diestimasi dari waktu berlalu dan laju; angka dari penyedia sendiri akan tiba kemudian.",
+      "perHour": "{{rate}}/jam",
+      "ttlExpired": "Kadaluarsa",
+      "states": {
+        "requested": "Diminta",
+        "launching": "Meluncur",
+        "provisioning": "Menyediakan",
+        "syncing": "Menyinkronkan file",
+        "running": "Berjalan",
+        "draining": "Draining",
+        "terminating": "Menghentikan",
+        "terminated": "Dihentikan",
+        "failed": "Gagal"
+      },
+      "columns": {
+        "label": "Instance",
+        "state": "Status",
+        "client": "Klien",
+        "gpu": "GPU",
+        "rate": "Tarif",
+        "spend": "Pengeluaran",
+        "ttl": "TTL tersisa",
+        "disk": "Disk",
+        "actions": "Tindakan",
+        "agent": "Agent",
+        "job": "Job"
+      },
+      "experimentalRunningTitle_other": "{{count}} instance berjalan di penyedia eksperimental",
+      "experimentalRunningBody": "{{providers}} belum diuji secara menyeluruh dengan uang asli. Pantau apakah instance ini benar-benar mencapai status 'terminated', jangan hanya mengasumsikan begitu: jalur teardown adalah bagian paling sedikit diuji dari adapter apa pun, dan instance yang tidak pernah dirilis akan terus ditagih sampai Anda menghapusnya di sini. Silakan laporkan apa yang Anda lihat.",
+      "experimentalTooltip": "{{provider}} adalah penyedia eksperimental — belum diuji. Harapkan bug; konfirmasi instance ini benar-benar dirilis ketika jobnya selesai."
+    },
+    "rules": {
+      "title": "Kapan sistem dapat membelanjakan",
+      "description": "Anggaran mengatur berapa banyak yang dapat dibelanjakan. Ini mengatur kapan apa pun dapat dibelanjakan sama sekali. Tanpa itu, autoscaler menyewa setelah satu tick kelaparan, untuk job apa pun, pada jam berapa pun, tanpa batasan per-job.",
+      "inheritTitle": "Ini adalah default sistem",
+      "inheritBody": "Klien mewarisi setiap field secara individual, jadi mengetatkan default di sini menjangkau setiap klien yang belum menimpa field spesifik itu. Penimpaan per-klien diedit di layar klien.",
+      "saved": "Aturan penyediaan tersimpan",
+      "saveFailed": "Gagal menyimpan aturan penyediaan",
+      "loadFailed": "Gagal memuat aturan penyediaan",
+      "save": "Simpan aturan",
+      "fields": {
+        "minJobPriority": "Prioritas job minimum",
+        "minStarvation": "Waktu kelaparan minimum (menit)",
+        "skipIfFinishing": "Lewati jika selesai dalam (menit)",
+        "maxSpendPerJob": "Pengeluaran maksimal per job",
+        "windowEnabled": "Batasi penyediaan ke jendela waktu",
+        "windowStart": "Jendela dibuka",
+        "windowEnd": "Jendela ditutup",
+        "windowTz": "Zona waktu"
+      },
+      "helperText": {
+        "minJobPriority": "Prioritas absolut, bukan persentase. Batasan Anda saat ini adalah {{ceiling}}.",
+        "floorOff": "Tanpa batas bawah: job cloud-burst apa pun memenuhi syarat untuk penyediaan otomatis.",
+        "minStarvation": "Berapa lama job harus tidak membuat progres sama sekali sebelum kapasitas berbayar disewa. 0 menyewa pada tick kelaparan pertama. Berlaku hanya untuk autoscaler.",
+        "skipIfFinishing": "Jangan menyewa untuk job yang diproyeksikan selesai dalam waktu ini di kapasitas yang ada — instance yang disewa membutuhkan 5-10 menit untuk boot dan sinkronisasi. 0 tidak pernah melewati.",
+        "maxSpendPerJob": "Batas seumur hidup pengeluaran cloud untuk satu job, bukan berdasarkan bulan. Kosong berarti tanpa batas. Ditegakkan di mana-mana, termasuk penyediaan admin manual.",
+        "windowEnabled": "Hanya mengatur awal. Instance tidak pernah dihancurkan karena jendela ditutup — TTL dan idle drain yang menangani teardown.",
+        "windowTz": "Nama IANA, misalnya America/Chicago. Biarkan kosong untuk UTC.",
+        "windowWrap": "Waktu penutupan lebih awal dari waktu pembukaan membungkus tengah malam, yang merupakan cara normal untuk menulis \"hanya menyewa di malam hari\". Menetapkan keduanya ke nilai yang sama berarti selalu terbuka."
+      },
+      "bands": {
+        "minimal": "Minimal",
+        "low": "Rendah",
+        "normal": "Normal",
+        "high": "Tinggi",
+        "critical": "Kritis"
+      }
+    },
+    "system": {
+      "ceilings": "Batasan pengeluaran dan concurrency",
+      "ceilingsHelp": "Batas sistem absolut, diterapkan sebelum anggaran klien apa pun dikonsultasikan.",
+      "work": "Ukuran pekerjaan dan teardown",
+      "workHelp": "Berapa banyak pekerjaan yang diberikan instance yang disewa sekaligus, dan seberapa cepat instance yang idle dirilis. Overhead per-chunk ditagih dengan tarif sewa, jadi ini menukar throughput terhadap pemborosan.",
+      "reconciliation": "Rekonsiliasi",
+      "reconciliationHelp": "Seberapa sering database diperiksa terhadap apa yang sebenarnya dijalankan penyedia, dan berapa lama instance yang tidak dikenali ditoleransi sebelum dihancurkan.",
+      "capDisabledWarning": "Penyediaan cloud saat ini DINONAKTIFKAN: batasan bulanan global adalah 0. Penyedia, anggaran klien dan job yang diaktifkan cloud semuanya akan dikonfigurasi dengan benar dan tidak ada yang akan pernah disewa. Tetapkan batas bukan nol untuk mengaktifkannya.",
+      "saved": "Pengaturan tersimpan",
+      "saveFailed": "Gagal menyimpan pengaturan",
+      "loadFailed": "Gagal memuat pengaturan cloud",
+      "units": {
+        "seconds": "s",
+        "minutes": "menit"
+      },
+      "fields": {
+        "monthlyCap": "Batasan pengeluaran bulanan global",
+        "monthlyCapHelp": "Di semua klien dan penyedia. 0 menonaktifkan penyediaan cloud sepenuhnya — ini bukan unlimited.",
+        "concurrentCap": "Batasan instance concurrent global",
+        "concurrentCapHelp": "Instance yang disewa maksimal sekaligus, di semua penyedia dan klien. 0 berarti unlimited, masih dibatasi oleh anggaran dan kuota penyedia.",
+        "defaultMaxInstancesPerJob": "Instance maksimum default per job",
+        "defaultMaxInstancesPerJobHelp": "Instance yang disewa maksimal untuk job yang meninggalkan batas miliknya kosong. Kosong dulu berarti unlimited, yang dalam deployment cloud-only meninggalkan anggaran klien sebagai satu-satunya hal yang mencegah job yang kelaparan menyewa sekali per menit. Nilai per-job masih menimpa ini. 0 mengembalikan unlimited.",
+        "chunkDuration": "Durasi chunk cloud minimum",
+        "chunkDurationHelp": "Durasi chunk minimum untuk agent cloud. GPU yang disewa ditagih saat hashcat dimulai, melakukan autotune kernel, dan memuat wordlist, jadi chunk cloud diberi batas bawah pada nilai ini bahkan ketika job meminta durasi yang lebih singkat. Job yang meminta LEBIH banyak tetap mempertahankan nilainya sendiri. Selalu diklem kembali ke sisa umur instance. Tetapkan ke 0 untuk menonaktifkan batas bawah.",
+        "teardownSlack": "Slack teardown",
+        "teardownSlackHelp": "Dicadangkan di akhir umur instance untuk drain dan penghancuran, sehingga chunk tidak pernah direncanakan melewati titik saat instance tersebut mati.",
+        "idleDrain": "Idle drain",
+        "idleDrainHelp": "Hancurkan instance yang disewa setelah ini lama tanpa pekerjaan yang tertunda. Membatasi berapa banyak yang Anda bayar untuk GPU yang telah kehabisan hal untuk dilakukan.",
+        "commissioningGrace": "Masa tenggang commissioning",
+        "commissioningGraceHelp": "Hancurkan instance yang disewa yang tidak pernah diberikan task setelah ini lama, diukur dari saat agent terdaftar. Instance dingin harus mengunduh file dan menjalankan benchmark terlebih dahulu, jadi menetapkan ini di bawah sekitar 20 menit menghancurkan instance yang sehat di tengah-tengah startup — dan karena job masih menunggu, yang lain disewa segera. 0 menonaktifkan.",
+        "reaperInterval": "Interval reaper",
+        "reaperIntervalHelp": "Seberapa sering merekonsiliasi database terhadap inventori penyedia dan menghancurkan apa pun yang seharusnya tidak ada.",
+        "orphanGrace": "Masa tenggang orphan",
+        "orphanGraceHelp": "Hancurkan instance yang ditemukan di akun penyedia tanpa baris database yang cocok setelah ini lama. Ini adalah satu-satunya pemulihan untuk peluncuran yang catatan tidak pernah mendarat.",
+        "agentImage": "Agent image",
+        "agentImageHelp": "misalnya zerkereod/krakenhashes-agent-cloud:cloud-gpu. Biarkan kosong untuk kembali ke KH_CLOUD_AGENT_IMAGE, lalu ke default bawaan. Perhatikan bahwa default bawaan adalah :latest, yang hanya ada setelah rilis telah ditandai — penyebaran pra-rilis harus menetapkan ini.",
+        "defaultBurstEnabled": "Aktifkan cloud burst untuk setiap job",
+        "defaultBurstEnabledHelp": "Menganggap setiap job sebagai diaktifkan cloud-burst, tanpa mencentang kotak di setiap preset, workflow dan job. Dimaksudkan untuk penyebaran tanpa GPU on-prem, di mana penyewaan adalah satu-satunya cara pekerjaan pernah berjalan. Anggaran klien dan batas instance masih berlaku. Berlaku segera, termasuk untuk job yang sudah dalam antrian.",
+        "defaultClient": "Default klien penagihan",
+        "defaultClientHelp": "Pengeluaran cloud untuk hashlist tanpa klien miliknya sendiri ditagih di sini. Biarkan sebagai None dan pekerjaan yang tidak ditugaskan tidak dapat menyewa kapasitas sama sekali. Anggaran, batas instance dan jenjang ambang batas berlaku untuk klien yang Anda pilih persis seperti normal — klien yang bernama sesuatu seperti \"Unassigned Work\" menjaga laporan pengeluaran tetap jujur.",
+        "defaultClientNone": "Tidak Ada — pekerjaan yang tidak ditugaskan tidak dapat menggunakan cloud",
+        "crackDrainGrace": "Masa tenggang crack-drain",
+        "crackDrainGraceHelp": "Sebelum menghancurkan instance yang disewa, tunggu hingga waktu ini agar task yang masih dimilikinya selesai mengunggah kata sandi yang tercrack. Diukur dari waktu terakhir task itu ditulis, bukan dari saat dimulai, jadi agent yang sedang bekerja tidak pernah dihancurkan dan yang macet tidak ditunggu selamanya. Harus lebih lama dari idle drain dan lebih pendek dari 30 menit. 0 menghancurkan segera, yang dapat secara permanen menghilangkan crack yang sudah ditemukan agent — crack tersebut tidak dapat dikirim ulang dari mesin yang sudah tidak ada."
+      },
+      "agent": "Cloud agent image",
+      "agentHelp": "Image kontainer yang ditarik dan dijalankan oleh instance yang disewa. Ini harus berupa tag yang ada di registri: tag yang hilang bukan kesalahan startup — instance boot, proses pull gagal, dan host mematikan dirinya sendiri sekitar satu menit kemudian, tetap ditagih.",
+      "save": "Simpan perubahan",
+      "discard": "Batalkan",
+      "unsaved_other": "{{count}} perubahan yang belum disimpan",
+      "eligibility": "Penyebaran cloud-only",
+      "eligibilityHelp": "Apakah job dipertimbangkan untuk penyewaan sama sekali. Semua yang di atas membatasi berapa banyak yang dapat dibelanjakan; ini menentukan apakah ada yang dibelanjakan sama sekali."
+    }
+  },
+  "serverCertificate": {
+    "title": "Sertifikat Server",
+    "description": "Kelola alamat yang dicakup oleh sertifikat TLS server. Agent hanya dapat terhubung ke alamat yang terdaftar di sini.",
+    "apply": "Terapkan & Terbitkan Ulang",
+    "warning": {
+      "title": "KrakenHashes adalah alat internal",
+      "body": "Ini sama sekali tidak boleh dapat dijangkau dari internet publik. Ini menangani kredensial yang tercrack, jadi hanya alamat pribadi dan VPN yang dapat ditambahkan ke sertifikat — alamat IP publik ditolak. Jika penyebaran ini terbuka untuk publik, jadikan offline sebelum melanjutkan."
+    },
+    "summary": {
+      "title": "Sertifikat saat ini",
+      "unavailable": "Sertifikat server tidak dapat dibaca.",
+      "subject": "Subjek",
+      "issuer": "Penerbit",
+      "validity": "Berlaku",
+      "serial": "Nomor Seri",
+      "covers": "Sertifikat ini valid untuk",
+      "coversNothing": "Sertifikat ini tidak mencantumkan alamat sama sekali. Tidak ada agent yang dapat terhubung.",
+      "daysRemaining_other": "{{count}} hari tersisa",
+      "caSubject": "Otoritas sertifikat",
+      "caExpires": "CA kedaluwarsa",
+      "caFingerprint": "CA fingerprint (SHA-256)",
+      "pending_other": "{{count}} alamat telah disimpan tetapi belum ada di sertifikat. Klik Terapkan & Terbitkan Ulang.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES atau KH_ADDITIONAL_DNS_NAMES masih ditetapkan di lingkungan. Tidak dibaca lagi — pengaturan ini menggantikannya. Hapus variabel untuk menghindari kebingungan."
+    },
+    "sans": {
+      "title": "Alamat yang harus dicakup sertifikat ini",
+      "add": "Tambah",
+      "empty": "Tidak ada alamat tambahan yang dikonfigurasi.",
+      "unsaved": "Anda memiliki perubahan yang belum disimpan. Klik Terapkan & Terbitkan Ulang untuk memasukkannya ke dalam sertifikat.",
+      "lockedTooltip": "Selalu disertakan. Menghapusnya akan merusak proxy internal dan pemeriksaan kesehatan.",
+      "ip": {
+        "title": "Alamat IP",
+        "help": "Hanya alamat pribadi dan VPN: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local, dan IPv6 ULA.",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "Nama DNS",
+        "help": "Nama host yang digunakan agent dan browser untuk menjangkau server ini.",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "\"{{address}}\" bukan alamat yang valid.",
+      "public_ip": "{{address}} adalah alamat IP publik dan tidak dapat ditambahkan. KrakenHashes adalah alat khusus internal. Alat ini menangani kredensial yang tercrack dan sama sekali tidak boleh dapat dijangkau dari internet. Hanya alamat pribadi (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local dan IPv6 ULA) yang dapat ditambahkan. Jika ini adalah alamat VPN Anda, VPN tersebut menggunakan ruang alamat yang dimiliki pihak lain di internet — ubah rentang jaringannya ke rentang pribadi atau CGNAT.",
+      "duplicate": "{{address}} sudah ada dalam daftar.",
+      "bind_address": "{{address}} adalah alamat bind, bukan yang dapat dijangkau. Tidak ada klien yang terhubung ke sana.",
+      "multicast": "{{address}} adalah alamat multicast dan tidak dapat mengidentifikasi server.",
+      "wildcard_dns": "Nama wildcard tidak didukung.",
+      "has_port": "Masukkan hanya nama host, tanpa port.",
+      "is_ip": "Itu adalah alamat IP. Tambahkan ke daftar alamat IP sebagai gantinya.",
+      "too_long": "Nama itu lebih panjang dari batas 253 karakter."
+    },
+    "discovered": {
+      "title": "Alamat yang ditemukan",
+      "help": "Alamat yang terlihat menjangkau server ini namun tidak dicakup sertifikat. Tidak ada yang di sini diterapkan secara otomatis.",
+      "empty": "Belum ada alamat yang ditemukan. Mulai agent, atau buka halaman ini dari alamat yang digunakan agent Anda, dan akan muncul di sini.",
+      "address": "Alamat",
+      "source": "Sumber",
+      "reportedBy": "Dilaporkan oleh",
+      "lastSeen": "Terakhir dilihat",
+      "hits": "Frekuensi",
+      "actions": "Aksi",
+      "add": "Tambah",
+      "added": "{{address}} ditambahkan. Klik Terapkan & Terbitkan Ulang untuk memasukkannya ke dalam sertifikat.",
+      "dismiss": "Abaikan",
+      "pending": "Menunggu penerbitan ulang",
+      "sources": {
+        "agent_tls_failure": "Kegagalan TLS agent",
+        "host_header": "Browser / Header Host",
+        "tls_sni": "SNI TLS",
+        "manual": "Manual"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "Agent yang terautentikasi melaporkan bahwa ia tidak dapat memverifikasi sertifikat server ini untuk alamat ini.",
+        "host_header": "Diamati di header Host permintaan. Siapa pun yang dapat mencapai server ini dapat memengaruhi nilai ini — konfirmasi sebelum menambahkan.",
+        "tls_sni": "Diamati sebagai nama server dalam handshake TLS.",
+        "manual": "Ditambahkan oleh administrator."
+      }
+    },
+    "reissue": {
+      "doneTitle": "Sertifikat diterbitkan ulang",
+      "noChangeTitle": "Tidak ada perubahan yang diperlukan",
+      "noChangeBody": "Sertifikat sudah mencakup setiap alamat yang dikonfigurasi dan tidak akan segera kadaluarsa.",
+      "changes": "Perubahan",
+      "validUntil": "Sertifikat baru berlaku hingga {{date}}.",
+      "backendReloaded": "API pada port 31337 sudah melayani sertifikat baru. Tidak diperlukan restart.",
+      "nginxReloaded": "UI web pada port 443 dimuat ulang dan melayani sertifikat baru.",
+      "nginxFailed": "UI web pada port 443 masih melayani sertifikat sebelumnya",
+      "backup": "Materi sertifikat sebelumnya telah di-backup ke {{path}}.",
+      "agentsReconnect": "Agent yang gagal akan terhubung kembali secara otomatis dalam 30 detik. Tidak diperlukan restart agent.",
+      "agentsRefetch": "Setiap agent harus mengambil ulang CA. Agent melakukan ini secara otomatis saat handshake berikutnya gagal, tetapi browser yang mempercayai CA lama harus menginstal yang baru secara manual.",
+      "close": "Tutup",
+      "nginxFailedBody": "API sudah melayani sertifikat baru, jadi agent tidak terpengaruh. UI web pada port 443 akan terus menyajikan yang sebelumnya hingga KrakenHashes dimulai ulang."
+    },
+    "confirmRemoval": {
+      "title": "Hapus alamat dari sertifikat?",
+      "body": "Alamat berikut ada di sertifikat saat ini dan akan dihapus: {{addresses}}. Agent apa pun yang terhubung pada salah satu alamat tersebut tidak akan dapat terhubung hingga alamat itu ditambahkan kembali.",
+      "cancel": "Batal",
+      "confirm": "Hapus dan terbitkan ulang"
+    },
+    "rotateCa": {
+      "section": "Lanjutan",
+      "title": "Rotasi otoritas sertifikat",
+      "warning": "Merotasi otoritas sertifikat mengeluarkan CA baru dan menandatangani ulang sertifikat server dan agent. Setiap agent harus mengunduh ulang CA sebelum dapat terhubung kembali, dan setiap browser yang mempercayai CA lama akan menampilkan peringatan hingga ca.crt baru diinstal. Hanya lakukan ini jika kunci pribadi CA mungkin telah terekspos.",
+      "instruction": "Ketik {{phrase}} untuk mengonfirmasi.",
+      "action": "Rotasi CA"
+    },
+    "banner": {
+      "title_other": "{{count}} agent tidak dapat memverifikasi sertifikat server ini",
+      "body": "{{agents}} mencoba terhubung ke {{address}}, yang tidak tercantum dalam sertifikat server. Akan terus mencoba kembali dan tidak dapat online hingga sertifikat diterbitkan ulang.",
+      "anAgent": "Sebuah agent",
+      "action": "Perbaiki di pengaturan Sertifikat Server"
+    }
+  },
+  "branding": {
+    "title": "Branding",
+    "description": "Sajikan instans ini dengan nama, warna, dan logo organisasi Anda. Semua yang ada di sini berlaku untuk UI web, tab browser, email notifikasi (melalui variabel template AppName), pendaftaran autentikator baru, dan ekspor PDF analitik.",
+    "attributionNote": "Atribusi \"powered by KrakenHashes\" selalu ditampilkan di sebelah nama khusus dan dalam PDF yang diekspor. Ditambahkan oleh server dan tidak dapat dihapus.",
+    "identity": "Identitas dan warna",
+    "appName": "Nama aplikasi",
+    "appNameHelper": "Ditampilkan di header, halaman login, email dan laporan. Biarkan kosong untuk KrakenHashes.",
+    "pageTitle": "Judul halaman browser",
+    "pageTitleHelper": "Judul efektif: {{title}}",
+    "primaryColor": "Warna aksen utama",
+    "secondaryColor": "Warna aksen sekunder",
+    "colorHint": "Warna heksadesimal (#rrggbb). Latar belakang gelap tetap; pilih aksen yang tetap dapat dibaca di permukaan yang hampir hitam. Warna utama juga digunakan untuk garis dan bar dalam laporan PDF.",
+    "save": "Simpan branding",
+    "logo": "Logo",
+    "logoHint": "PNG atau JPEG, hingga 2 MB dan 2048×2048 px. Digunakan di header, halaman login dan laporan PDF (render terbaik untuk gambar RGB).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG atau ICO, hingga 512 KB dan 512×512 px. Browser mem-cache ikon secara agresif; reload paksa mungkin diperlukan sekali.",
+    "upload": "Unggah",
+    "replace": "Ganti",
+    "remove": "Hapus",
+    "messages": {
+      "saved": "Branding disimpan",
+      "uploaded": "Gambar diunggah",
+      "removed": "Gambar dihapus"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat pengaturan branding",
+      "saveFailed": "Gagal menyimpan pengaturan branding",
+      "uploadFailed": "Gagal mengunggah gambar",
+      "removeFailed": "Gagal menghapus gambar",
+      "invalidHex": "Masukkan warna heksadesimal seperti #1e88e5",
+      "tooLarge": "File terlalu besar (maks {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Bagian pengaturan",
+    "groups": {
+      "general": "Umum",
+      "security": "Keamanan",
+      "jobs": "Job",
+      "agents": "Agent",
+      "integrations": "Integrasi",
+      "cloud": "Cloud"
+    },
+    "sections": {
+      "branding": "Branding",
+      "brandingDesc": "Nama aplikasi, warna, logo dan favicon.",
+      "data": "Data",
+      "dataDesc": "Default retensi dan penyerapan hashlist.",
+      "storage": "Penyimpanan",
+      "storageDesc": "Penyimpanan network share untuk wordlist dan rule.",
+      "certificate": "Sertifikat",
+      "certificateDesc": "Nama dan alamat sertifikat server.",
+      "authentication": "Autentikasi",
+      "authenticationDesc": "Kebijakan kata sandi, lockout dan sesi.",
+      "mfa": "Multi-faktor",
+      "mfaDesc": "Kebijakan MFA dan pihak yang mengandalkan passkey.",
+      "sso": "Masuk satu kali",
+      "ssoDesc": "Penyedia identitas dan penyediaan.",
+      "access": "Model akses",
+      "accessDesc": "Isolasi multi-tim.",
+      "execution": "Eksekusi",
+      "executionDesc": "Chunking, keyspace dan benchmark.",
+      "scheduling": "Penjadwalan",
+      "schedulingDesc": "Alokasi agent dan prioritas job.",
+      "potfile": "Potfile & loopback",
+      "potfileDesc": "Perilaku potfile dan putaran loopback.",
+      "health": "Kesehatan",
+      "healthDesc": "Heartbeat, masa tenggang dan masa tenggang offline.",
+      "downloads": "Unduhan",
+      "downloadsDesc": "Bagaimana agent mengambil file dari server.",
+      "updates": "Pembaruan",
+      "updatesDesc": "Pembaruan binary agent otomatis.",
+      "monitoring": "Pemantauan",
+      "monitoringDesc": "Retensi dan agregasi metrik.",
+      "email": "Email",
+      "emailDesc": "Konfigurasi penyedia dan template.",
+      "webhooks": "Webhook",
+      "webhooksDesc": "Webhook global dan webhook pengguna.",
+      "notifications": "Notifikasi",
+      "notificationsDesc": "Peristiwa job mana yang memberi notifikasi.",
+      "providers": "Penyedia",
+      "providersDesc": "Kredensial penyedia GPU cloud.",
+      "budgets": "Client budgets",
+      "budgetsDesc": "Batas bulanan per klien.",
+      "policy": "Kebijakan ambang batas",
+      "policyDesc": "Tangga ambang batas pengeluaran.",
+      "rules": "Aturan penyediaan",
+      "rulesDesc": "Kapan autoscaler dapat mengeluarkan.",
+      "limits": "Batas",
+      "limitsDesc": "Plafon dan waktu di seluruh sistem."
+    }
+  },
+  "hub": {
+    "pageDescription": "Semua yang mengonfigurasi server ini, dikelompokkan berdasarkan apa yang memengaruhinya. Field menyimpan saat Anda meninggalkannya kecuali bagian mengatakan sebaliknya.",
+    "navLabel": "Ikhtisar",
+    "attentionTitle": "Memerlukan perhatian",
+    "attentionSubtitle": "Masalah yang memengaruhi cara server beroperasi.",
+    "allGood": "Semuanya terlihat baik",
+    "allGoodHint": "Tidak ada masalah konfigurasi yang terdeteksi.",
+    "loadFailed": "Tidak dapat memuat status pengaturan.",
+    "overviewTitle": "Status",
+    "attentionCount": "{{count}} untuk ditinjau",
+    "browseTitle": "Semua pengaturan",
+    "loading": "Memeriksa…",
+    "cards": {
+      "email": "Email",
+      "certificate": "Sertifikat",
+      "sso": "Masuk satu kali",
+      "binaries": "Binary",
+      "cloud": "Cloud",
+      "storage": "Penyimpanan",
+      "webhook": "Webhook global"
+    },
+    "detail": {
+      "emailConfigured": "Dikonfigurasi ({{provider}})",
+      "emailNotConfigured": "Tidak ada penyedia yang dikonfigurasi",
+      "certUnmanaged": "Dikelola di luar KrakenHashes ({{mode}})",
+      "certDays": "{{days}} hari tersisa",
+      "certPending": "Belum diterbitkan",
+      "ssoProviders_other": "{{count}} penyedia diaktifkan",
+      "binaries": "{{verified}} dari {{total}} diverifikasi",
+      "cloudNoProviders": "Tidak ada penyedia yang dikonfigurasi",
+      "cloudCap": "{{providers}} penyedia, batas bulanan {{cap}}",
+      "storageLocal": "Penyimpanan lokal",
+      "storageReachable": "Share di-mount dan dapat diakses.",
+      "storageUnreachable": "Share tidak dapat diakses",
+      "webhookOff": "Dinonaktifkan",
+      "webhookOn": "Diaktifkan",
+      "webhookNoUrl": "Diaktifkan tanpa URL"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "Status tidak dapat diperiksa",
+      "emailNotConfigured": "Email tidak dikonfigurasi; kode MFA dan notifikasi tidak dapat dikirim.",
+      "certExpiring": "Sertifikat server kadaluarsa dalam {{days}} hari.",
+      "ssoEphemeralKey": "SSO menggunakan kunci penandatanganan efemeral; sesi tidak akan bertahan setelah restart.",
+      "noVerifiedBinary": "Tidak ada binary hashcat terverifikasi yang tersedia; job tidak dapat berjalan.",
+      "cloudCapZero": "Penyedia cloud dikonfigurasi tetapi batas bulanan adalah 0, jadi tidak ada yang akan disediakan.",
+      "shareUnreachable": "Network share diaktifkan tetapi tidak dapat diakses.",
+      "migration": "Migrasi penyimpanan adalah {{state}}.",
+      "webhookNoUrl": "Webhook global diaktifkan tetapi tidak memiliki URL."
+    },
+    "severity": {
+      "default": "Info",
+      "success": "OK",
+      "warning": "Peringatan",
+      "error": "Kesalahan"
+    }
+  },
+  "fieldState": {
+    "saving": "Menyimpan…",
+    "saved": "Disimpan",
+    "error": "Tidak disimpan",
+    "minSelected": "Pilih setidaknya {{count}}",
+    "autosaveHint": "Menyimpan secara otomatis",
+    "autosaveHintLong": "Setiap field menyimpan sendiri segera setelah Anda meninggalkannya.",
+    "applyHint": "Memerlukan Terapkan",
+    "applyHintLong": "Perubahan di sini berlaku hanya setelah Anda menerapkannya."
+  },
+  "unsaved": {
+    "title": "Perubahan yang belum disimpan",
+    "body": "Anda memiliki perubahan yang belum diterapkan. Tinggalkan halaman ini dan buang perubahan tersebut?",
+    "stay": "Tetap",
+    "leave": "Tinggalkan"
+  },
+  "agentAutoUpdate": {
+    "title": "Pembaruan otomatis",
+    "description": "Biarkan server push binary agent baru ke agent yang terhubung.",
+    "enable": "Aktifkan pembaruan otomatis agent",
+    "maxConcurrent": "Pembaruan bersamaan",
+    "maxConcurrentHelper": "Berapa banyak agent yang dapat diperbarui pada waktu yang sama.",
+    "maxAttempts": "Upaya per agent",
+    "maxAttemptsHelper": "Berhenti mencoba pada agent setelah mengalami pembaruan gagal sebanyak ini.",
+    "healthTimeout": "Waktu tunggu koneksi ulang",
+    "healthTimeoutHelper": "Berapa lama menunggu agent yang diperbarui untuk terhubung kembali sebelum menandai pembaruan sebagai gagal.",
+    "applyNote": "Agent mengambil nilai-nilai ini pada check-in berikutnya."
+  },
+  "networkShare": {
+    "intro": "Simpan wordlist dan rule pada network share sehingga server tidak memerlukan disk lokal yang besar. Operator me-mount share pada host server (melalui docker-compose, sebagai <code>KH_SHARE_DIR</code>) dan pada host agent network-direct apa pun; KrakenHashes hanya membaca path yang di-mount — ini tidak pernah terhubung ke share itu sendiri atau menyimpan kredensialnya. Agent GPU cloud tidak me-mount share: mereka mengunduh wordlist/rule dari server melalui VPN.",
+    "migrationLocked": "Migrasi sedang berlangsung ({{state}}). Konfigurasi terkunci sampai selesai.",
+    "server": {
+      "title": "Mount penyimpanan server",
+      "description": "Server membaca wordlist dan rule dari path yang di-mount oleh operator ini (diatur dalam docker-compose sebagai <code>KH_SHARE_DIR</code>). KrakenHashes tidak terhubung ke share itu sendiri — mount adalah tanggung jawab operator.",
+      "mountedPath": "Path yang di-mount (baca saja)",
+      "shareDirNotSet": "KH_SHARE_DIR tidak diatur — mount share dalam docker-compose",
+      "servingFromShare": "Melayani dari: network share",
+      "servingFromLocal": "Melayani dari: disk lokal",
+      "shareReachable": "Share dapat dijangkau",
+      "shareNotMounted": "Share tidak di-mount",
+      "migrationChip": "Migrasi: {{state}}",
+      "lastValidated": "Terakhir divalidasi {{date}}",
+      "enable": "Aktifkan network share",
+      "saving": "Menyimpan…",
+      "save": "Simpan konfigurasi",
+      "validating": "Memvalidasi…",
+      "validate": "Validasi mount server",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "Path mount: <code>{{path}}</code>",
+      "unset": "(tidak diatur)",
+      "yes": "ya",
+      "no": "tidak",
+      "summary": "Di-mount: {{mounted}} · Dapat ditulis: {{writable}} · Bebas: {{free}} · Tulis: {{write}} MB/s · Baca: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Migrasi data",
+      "descriptionToShare": "Salin wordlist dan rule yang ada ke network share dan alihkan backend penyimpanan aktif. Ini adalah operasi pemeliharaan: job baru berhenti di-dispatch sambil armada drain, kemudian upload wordlist/rule dibekukan dan file disalin dan diverifikasi checksum sebelum dialihkan. Bergantung pada ukuran data ini dapat memakan waktu lama dan server tidak akan tersedia untuk upload dan job baru sementara itu. Wordlist klien dan asosiasi, binary, charset dan hashlist selalu tetap lokal.",
+      "descriptionToLocal": "Salin wordlist dan rule yang ada kembali ke disk lokal dan alihkan backend penyimpanan aktif. Ini adalah operasi pemeliharaan: job baru berhenti di-dispatch sambil armada drain, kemudian upload wordlist/rule dibekukan dan file disalin dan diverifikasi checksum sebelum dialihkan. Bergantung pada ukuran data ini dapat memakan waktu lama dan server tidak akan tersedia untuk upload dan job baru sementara itu. Wordlist klien dan asosiasi, binary, charset dan hashlist selalu tetap lokal.",
+      "phase": "Fase: {{phase}}",
+      "directionToShare": "lokal → share",
+      "directionToLocal": "share → lokal",
+      "waitingTasks_other": "Menunggu {{count}} task selesai",
+      "earliestLock": " — kunci paling awal {{time}}",
+      "filesProgress": "{{done}}/{{total}} file · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "Membatalkan…",
+      "abort": "Batalkan migrasi",
+      "abortHelp": "Menghentikan migrasi pada checkpoint berikutnya (berguna jika share lambat atau hang). Penyimpanan dibiarkan pada backend saat ini dan dispatch dilanjutkan; file yang sudah disalin tetap ada dan akan digunakan kembali jika Anda mencoba lagi.",
+      "complete": "Migrasi selesai.",
+      "failed": "Migrasi gagal.",
+      "migrateToShare": "Migrasikan wordlist & rule ke share",
+      "migrateToLocal": "Migrasikan kembali ke disk lokal",
+      "enableFirst": "Aktifkan share dan pastikan validasinya berhasil sebelum migrasi."
+    },
+    "agent": {
+      "title": "Perintah mount agent on-prem (opsional)",
+      "description": "Bidang ini digunakan <b>hanya</b> untuk menghasilkan perintah mount untuk agent on-prem yang diatur ke tier <b>network_direct</b>. Server (di atas) dan agent GPU cloud <b>tidak</b> menggunakannya — agent cloud mengunduh melalui VPN. Ini bukan rahasia; kredensial tidak pernah disimpan atau dikirim.",
+      "protocol": "Protokol",
+      "protocolHelp": "SMB paling portabel di seluruh agent Windows/macOS/Linux; NFS berfungsi baik melalui VPN dengan ekspor baca saja.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Host share yang di-mount oleh agent (alamat VPN)",
+      "hostHelp": "Alamat share sesuai yang dijangkau agent melalui VPN — bukan pengaturan server (server menggunakan path mount-nya di atas).",
+      "exportPath": "Path ekspor",
+      "shareName": "Nama share",
+      "mountOptions": "Opsi mount (satu key=value per baris)",
+      "runThis": "Jalankan ini pada host agent, kemudian atur storage tier agent itu ke \"Network direct\" dengan path mount pada halaman Agent-nya:",
+      "replaceSmb": "Ganti <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> dan <code>&lt;PASSWORD&gt;</code> sebelum menjalankan — perintah masih berisi placeholder.",
+      "replaceNfs": "Ganti <code>&lt;MOUNT_PATH&gt;</code> sebelum menjalankan — perintah masih berisi placeholder.",
+      "softSmb": "Perintah menyertakan <code>soft</code> sehingga mount gagal cepat jika share lambat atau putus, daripada hang (kernel default <code>hard</code>). Ini berpasangan dengan pemeriksaan share agent yang fail-closed, yang mengarahkan ulang pekerjaan saat mount tidak dapat dibaca. <b>network_direct</b> untuk share low-latency/LAN-adjacent — letakkan share remote atau high-latency pada tier unduhan <b>on_demand</b>/<b>full_cache</b> sebagai gantinya. Ganti opsi apa pun dengan mengaturnya di atas.",
+      "softNfs": "Perintah menyertakan <code>soft</code>, <code>timeo</code> dan <code>retrans</code> sehingga mount gagal cepat jika share lambat atau putus, daripada hang (kernel default <code>hard</code>). Ini berpasangan dengan pemeriksaan share agent yang fail-closed, yang mengarahkan ulang pekerjaan saat mount tidak dapat dibaca. <b>network_direct</b> untuk share low-latency/LAN-adjacent — letakkan share remote atau high-latency pada tier unduhan <b>on_demand</b>/<b>full_cache</b> sebagai gantinya. Ganti opsi apa pun dengan mengaturnya di atas.",
+      "otherOs": "macOS: gunakan <code>mount_smbfs</code> (SMB) atau <code>mount -t nfs</code> (NFS). Windows: gunakan <code>net use</code> terhadap <code>{{uncPath}}</code>. Agent hanya membaca dari mount. Bidang ini disimpan dengan <b>Simpan konfigurasi</b> di atas."
+    },
+    "confirm": {
+      "title": "Mulai migrasi data?",
+      "intro": "Ini akan:",
+      "step1": "Hentikan dispatch job baru dan tunggu task yang berjalan selesai (hingga ~12 menit untuk agent terhubung kembali, lebih lama jika job panjang sedang berjalan).",
+      "step2": "Bekukan upload wordlist/rule dan layani halaman pemeliharaan sambil file disalin dan diverifikasi checksum.",
+      "step3ToShare": "Alihkan backend penyimpanan aktif ke network share saat selesai.",
+      "step3ToLocal": "Alihkan backend penyimpanan aktif ke disk lokal saat selesai.",
+      "outro": "Job yang dijeda dilanjutkan secara otomatis setelahnya. Jika ada yang gagal, penyimpanan dibiarkan tidak berubah dan server tetap operasional.",
+      "cancel": "Batal",
+      "start": "Mulai migrasi"
+    },
+    "toast": {
+      "loadFailed": "Gagal memuat konfigurasi network share",
+      "migrationStarted": "Migrasi dimulai.",
+      "startFailed": "Gagal memulai migrasi",
+      "migrationCanceled": "Migrasi dibatalkan — penyimpanan dibiarkan tidak berubah.",
+      "cancelFailed": "Gagal membatalkan migrasi",
+      "saved": "Konfigurasi network share disimpan.",
+      "saveFailed": "Gagal menyimpan konfigurasi",
+      "validated": "Share berhasil divalidasi.",
+      "validationProblems": "Validasi share melaporkan masalah.",
+      "validationFailed": "Validasi gagal dijalankan"
+    }
+  },
+  "jobAnalytics": {
+    "title": "Analitik Performa Job",
+    "description": "Analisis performa eksekusi job, hash rate, dan riwayat benchmark di seluruh agent Anda.",
+    "loadFiltersFailed": "Gagal memuat opsi filter",
+    "tabs": {
+      "jobPerformance": "Performa Job",
+      "successRate": "Tingkat Keberhasilan",
+      "benchmarkHistory": "Riwayat Benchmark"
+    },
+    "summary": {
+      "totalJobs": "Total Job",
+      "totalJobsSubtitle": "{{completed}} selesai, {{failed}} gagal",
+      "totalCracks": "Total Crack",
+      "totalCracksSubtitle": "Di semua job yang difilter",
+      "avgSpeed": "Kecepatan Rata-rata",
+      "avgSpeedSubtitle": "Hash rate rata-rata per job",
+      "avgDuration": "Durasi Rata-rata",
+      "avgDurationSubtitle": "{{keys}} kunci diproses"
+    },
+    "hashRateChart": {
+      "title": "Timeline Hash Rate",
+      "daily": "Harian",
+      "weekly": "Mingguan",
+      "empty": "Tidak ada data timeline yang tersedia untuk filter yang dipilih",
+      "hashRate": "Hash Rate",
+      "tooltipHashRate": "Hash Rate: {{speed}}",
+      "tooltipJobs": "Job: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Tren Kecepatan Benchmark",
+      "agent": "Agent",
+      "selectAgent": "Pilih Agent",
+      "hashType": "Tipe Hash",
+      "attackMode": "Mode Serangan",
+      "all": "Semua",
+      "range90d": "90h",
+      "range1y": "1t",
+      "rangeAll": "Semua",
+      "selectAgentPrompt": "Pilih agent untuk melihat tren benchmark",
+      "empty": "Tidak ada riwayat benchmark yang ditemukan untuk agent ini",
+      "speed": "Kecepatan",
+      "tooltipSpeed": "Kecepatan: {{speed}}"
+    },
+    "filters": {
+      "title": "Filter",
+      "active": "Aktif",
+      "dateStart": "Tanggal Mulai",
+      "dateEnd": "Tanggal Akhir",
+      "hashlist": "Hashlist",
+      "status": "Status",
+      "minKeyspace": "Min Keyspace",
+      "maxKeyspace": "Max Keyspace",
+      "reset": "Atur Ulang",
+      "apply": "Terapkan"
+    },
+    "attackModes": {
+      "straight": "Straight",
+      "combination": "Kombinasi",
+      "bruteforce": "Brute-force",
+      "hybridWlMask": "Hybrid WL+Mask",
+      "hybridMaskWl": "Hybrid Mask+WL",
+      "association": "Association",
+      "modeNumber": "Mode {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Riwayat Benchmark",
+      "empty": "Tidak ada riwayat benchmark yang ditemukan",
+      "columns": {
+        "date": "Tanggal",
+        "agentFallback": "Agent #{{id}}",
+        "status": "Status"
+      },
+      "success": "Sukses",
+      "failed": "Gagal"
+    },
+    "successRate": {
+      "title": "Tingkat Keberhasilan menurut Konfigurasi Job",
+      "subtitle": "Dikelompokkan berdasarkan wordlist, rule, mode serangan, dan tipe hash. Preset job mencakup custom job yang sesuai.",
+      "empty": "Tidak ada data tingkat keberhasilan yang tersedia untuk filter yang dipilih",
+      "preset": "Preset",
+      "columns": {
+        "configuration": "Konfigurasi",
+        "runs": "Run",
+        "hashes": "Hash",
+        "cracks": "Crack",
+        "successRate": "Tingkat Keberhasilan",
+        "avgDuration": "Durasi Rata-rata",
+        "totalCompute": "Total Komputasi"
+      }
+    },
+    "jobExecution": {
+      "title": "Detail Eksekusi Job",
+      "empty": "Tidak ada job yang ditemukan untuk filter yang dipilih",
+      "noTaskData": "Tidak ada data task yang tersedia",
+      "taskBreakdown": "Breakdown Task ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_other": "{{count}} task",
+      "metricPointCount_other": "{{count}} metric point",
+      "columns": {
+        "name": "Nama",
+        "attack": "Serangan",
+        "duration": "Durasi",
+        "keyspace": "Keyspace",
+        "agents": "Agent",
+        "progress": "Progres",
+        "benchmark": "Benchmark",
+        "started": "Dimulai",
+        "completed": "Selesai"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Manajemen Wordlist - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Wordlist Klien ({{count}})",
+      "clientPotfile": "Potfile Klien",
+      "associationWordlists": "Wordlist Asosiasi ({{count}})"
+    },
+    "columns": {
+      "fileName": "Nama File",
+      "lineCount": "Jumlah Baris",
+      "fileSize": "Ukuran File",
+      "uploaded": "Diunggah",
+      "hashlist": "Hashlist",
+      "actions": "Tindakan"
+    },
+    "hashlistFallback": "Hashlist #{{id}}",
+    "clientTab": {
+      "info": "Wordlist klien tersedia di semua hashlist untuk klien ini. Ini dapat digunakan dengan mode serangan apa pun.",
+      "uploadWordlist": "Unggah Wordlist",
+      "uploading": "Mengunggah... {{progress}}%",
+      "noWordlists": "Belum ada wordlist klien yang diunggah."
+    },
+    "potfileTab": {
+      "noPotfile": "Belum ada potfile klien. Potfile akan dibuat secara otomatis saat hash di-crack untuk hashlist klien ini.",
+      "autoGenerated": "Potfile Klien (Dibuat Otomatis)",
+      "description": "Potfile ini berisi semua kata sandi tercrack untuk klien ini. Potfile ini diperbarui secara otomatis saat hash di-crack.",
+      "passwordCount_other": "{{countDisplay}} kata sandi",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Diperbarui: {{date}}",
+      "downloadPotfile": "Unduh Potfile"
+    },
+    "associationTab": {
+      "info": "Wordlist asosiasi adalah per-hashlist dan memetakan setiap hash ke kandidat kata sandi 1:1 berdasarkan nomor baris. Diunggah dan dikelola dari halaman detail hashlist. Tampilan ini menampilkan semua wordlist asosiasi di semua hashlist untuk klien ini.",
+      "noWordlists": "Tidak ada wordlist asosiasi yang ditemukan untuk hashlist klien ini."
+    },
+    "messages": {
+      "wordlistDeleted": "Wordlist klien dihapus",
+      "associationDeleted": "Wordlist asosiasi dihapus",
+      "deleteFailed": "Gagal menghapus wordlist",
+      "uploadSuccess": "Wordlist klien berhasil diunggah",
+      "uploadFailed": "Gagal mengunggah wordlist",
+      "downloaded": "Diunduh {{filename}}",
+      "downloadFailed": "Gagal mengunduh file"
+    },
+    "deleteConfirm": {
+      "title": "Hapus wordlist",
+      "message": "Hapus \"{{fileName}}\"? Ini tidak dapat dibatalkan."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Manajemen Tim",
+      "titleMine": "Tim Saya",
+      "description": "Kelola semua tim dalam sistem",
+      "descriptionMine": "Tim tempat Anda menjadi anggota",
+      "createTeam": "Buat Tim",
+      "bulkAssignHint": "Untuk menetapkan beberapa klien ke tim sekaligus, gunakan fitur penugasan massal pada halaman <link>Manajemen Klien</link>.",
+      "columns": {
+        "name": "Nama Tim",
+        "description": "Deskripsi",
+        "members": "Anggota",
+        "clients": "Klien",
+        "hashlists": "Hashlists",
+        "agents": "Agents",
+        "created": "Dibuat"
+      },
+      "rowActions": {
+        "manage": "Kelola tim",
+        "edit": "Edit tim",
+        "delete": "Hapus tim"
+      },
+      "empty": "Tidak ada tim yang ditemukan",
+      "emptyMine": "Anda belum menjadi anggota tim mana pun.",
+      "viewDetails": "Lihat Detail",
+      "memberCount_other": "{{count}} anggota",
+      "clientCount_other": "{{count}} klien",
+      "hashlistCount_other": "{{count}} hashlists",
+      "agentCount_other": "{{count}} agents",
+      "dialogs": {
+        "create": {
+          "title": "Buat Tim Baru",
+          "nameLabel": "Nama Tim",
+          "descriptionLabel": "Deskripsi",
+          "creatingButton": "Membuat..."
+        },
+        "delete": {
+          "title": "Hapus tim",
+          "confirmation": "Apakah Anda yakin ingin menghapus tim \"{{name}}\"? Ini akan menghapus semua keanggotaan tim dan penugasan klien."
+        }
+      },
+      "messages": {
+        "createSuccess": "Tim berhasil dibuat",
+        "deleteSuccess": "Tim berhasil dihapus",
+        "updateSuccess": "Tim berhasil diperbarui"
+      },
+      "errors": {
+        "loadFailed": "Gagal memuat tim",
+        "createFailed": "Gagal membuat tim",
+        "deleteFailed": "Gagal menghapus tim",
+        "updateFailed": "Gagal memperbarui tim"
+      }
+    },
+    "detail": {
+      "notFound": "Tim tidak ditemukan",
+      "noDescription": "Tidak ada deskripsi",
+      "breadcrumb": "Tim",
+      "editTeam": "Edit Tim",
+      "confirmActionTitle": "Konfirmasi Tindakan",
+      "tabs": {
+        "members": "Anggota ({{count}})",
+        "clients": "Klien ({{count}})",
+        "trustedTeams": "Tim Terpercaya ({{count}})",
+        "agents": "Agents ({{count}})"
+      },
+      "addMember": "Tambah Anggota",
+      "assignClient": "Tetapkan Klien",
+      "addTrust": "Tambah Kepercayaan",
+      "trustInfo": "Mempercayai tim lain memungkinkan agent mereka menjalankan job tim Anda. Ini adalah hubungan satu arah — mempercayai Tim B tidak memberikan agent Anda akses ke job Tim B.",
+      "agentsInfo": "Agent <strong>Langsung</strong> dimiliki oleh anggota tim ini. Agent <strong>Terpercaya</strong> berasal dari tim yang telah menjalin hubungan kepercayaan dengan Anda.",
+      "systemOwner": "Sistem",
+      "columns": {
+        "username": "Username",
+        "email": "Email",
+        "role": "Peran",
+        "joined": "Bergabung",
+        "clientName": "Nama Klien",
+        "description": "Deskripsi",
+        "trustedTeam": "Tim Terpercaya",
+        "trustedSince": "Terpercaya Sejak",
+        "agentName": "Nama Agent",
+        "status": "Status",
+        "version": "Versi",
+        "owner": "Pemilik",
+        "source": "Sumber"
+      },
+      "roles": {
+        "member": "Anggota",
+        "admin": "Admin",
+        "adminManager": "Admin (Pengelola Tim)"
+      },
+      "source": {
+        "direct": "Langsung",
+        "trusted": "Terpercaya {{team}}",
+        "trustedBadge": "Terpercaya",
+        "unknown": "Tidak Dikenal"
+      },
+      "rowActions": {
+        "removeMember": "Hapus anggota",
+        "removeClientFromTeam": "Hapus klien dari tim",
+        "removeTrust": "Hapus kepercayaan"
+      },
+      "empty": {
+        "noMembers": "Tidak ada anggota dalam tim ini",
+        "noClients": "Tidak ada klien yang ditetapkan ke tim ini",
+        "noTrustedTeams": "Tidak ada tim terpercaya. Hanya agent sistem dan agent tim ini sendiri yang dapat menjalankan job.",
+        "noAgents": "Tidak ada agent yang dapat diakses oleh tim ini",
+        "noAgentsHint": "Tambahkan anggota tim dengan agent atau buat hubungan kepercayaan."
+      },
+      "confirm": {
+        "removeMember": "Apakah Anda yakin ingin menghapus anggota ini?",
+        "removeClient": "Apakah Anda yakin ingin menghapus \"{{name}}\" dari tim ini? Anggota tim akan kehilangan akses ke data klien ini.",
+        "removeTrust": "Hapus hubungan kepercayaan ini? Agent dari tim ini tidak akan lagi dapat menjalankan job Anda."
+      },
+      "messages": {
+        "memberAdded": "Anggota berhasil ditambahkan",
+        "memberRemoved": "Anggota dihapus",
+        "roleUpdated": "Peran diperbarui",
+        "teamUpdated": "Tim berhasil diperbarui",
+        "clientAssigned": "Klien ditetapkan ke tim",
+        "clientRemoved": "Klien dihapus dari tim",
+        "trustAdded": "Hubungan kepercayaan ditambahkan",
+        "trustRemoved": "Hubungan kepercayaan dihapus"
+      },
+      "errors": {
+        "loadFailed": "Gagal memuat data tim",
+        "addMemberFailed": "Gagal menambahkan anggota",
+        "removeMemberFailed": "Gagal menghapus anggota",
+        "updateRoleFailed": "Gagal memperbarui peran",
+        "loadClientsFailed": "Gagal memuat klien",
+        "assignClientFailed": "Gagal menetapkan klien",
+        "removeClientFailed": "Gagal menghapus klien",
+        "updateTeamFailed": "Gagal memperbarui tim",
+        "loadTeamNamesFailed": "Gagal memuat nama tim",
+        "addTrustFailed": "Gagal menambahkan hubungan kepercayaan",
+        "removeTrustFailed": "Gagal menghapus hubungan kepercayaan"
+      },
+      "dialogs": {
+        "cancel": "Batalkan",
+        "editTeam": {
+          "title": "Edit Tim",
+          "nameLabel": "Nama Tim",
+          "descriptionLabel": "Deskripsi",
+          "saveButton": "Simpan",
+          "savingButton": "Menyimpan..."
+        },
+        "addMember": {
+          "title": "Tambah Anggota Tim",
+          "searchLabel": "Cari pengguna",
+          "searchPlaceholder": "Ketik minimal 2 karakter...",
+          "typeToSearch": "Ketik untuk mencari...",
+          "noUsersFound": "Tidak ada pengguna yang ditemukan",
+          "roleLabel": "Peran",
+          "addButton": "Tambah Anggota"
+        },
+        "addTrust": {
+          "title": "Tambah Tim Terpercaya",
+          "info": "Agent yang dimiliki oleh anggota tim terpercaya akan diizinkan menjalankan job tim ini.",
+          "selectLabel": "Pilih tim untuk dipercaya",
+          "searchPlaceholder": "Cari tim...",
+          "noTeamsAvailable": "Tidak ada tim yang tersedia",
+          "optionLabel_other": "{{name}} ({{count}} agents)"
+        },
+        "assignClient": {
+          "title": "Tetapkan Klien ke Tim",
+          "info": "Menetapkan klien memberikan semua anggota tim akses ke hashlists, job, dan data tercrack klien ini.",
+          "selectLabel": "Pilih klien",
+          "searchPlaceholder": "Cari klien...",
+          "noClientsAvailable": "Tidak ada klien yang belum ditetapkan"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Manajemen Charset Kustom",
+    "description": "Kelola charset kustom global yang tersedia untuk semua preset job dan pengguna. Mendukung definisi inline dan file charset biner .hcchr.",
+    "createCharset": "Buat Charset",
+    "columns": {
+      "name": "Nama",
+      "type": "Tipe",
+      "definition": "Definisi / Info",
+      "description": "Deskripsi",
+      "created": "Dibuat"
+    },
+    "typeLabels": {
+      "file": "File",
+      "inline": "Inline",
+      "hex": "Hex"
+    },
+    "uniqueBytes_other": "{{count}} byte unik",
+    "rowActions": {
+      "edit": "Edit",
+      "delete": "Hapus"
+    },
+    "empty": "Tidak ada charset kustom yang ditemukan. Buat satu untuk memulai.",
+    "dialogs": {
+      "create": {
+        "title": "Buat Charset Kustom"
+      },
+      "edit": {
+        "title": "Edit Charset Kustom"
+      },
+      "delete": {
+        "title": "Hapus charset",
+        "confirmation": "Apakah Anda yakin ingin menghapus charset \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Definisi Inline",
+        "file": "Upload File (.hcchr)"
+      },
+      "fields": {
+        "name": "Nama",
+        "namePlaceholder": "mis., DES Full Charset",
+        "definition": "Definisi",
+        "definitionPlaceholderHex": "mis., 41424344 (pasangan byte hex)",
+        "definitionPlaceholderPlain": "mis., ?u?d atau abcdef0123456789",
+        "definitionHelperHex": "Pasangan byte hex — setiap pasangan = satu byte charset. {{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}} byte",
+        "definitionHelperPlain": "Definisi charset hashcat. Gunakan ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H atau karakter literal.",
+        "hexTooltip": "Saat diaktifkan, definisi ditafsirkan sebagai pasangan byte hex (mis., 41424344 = byte A, B, C, D). Job yang menggunakan charset ini akan otomatis menyuntikkan --hex-charset.",
+        "hexLabel": "Definisi berkode hex",
+        "selectFile": "Pilih File .hcchr",
+        "fileSizeBytes_other": "{{count}} byte",
+        "fileHelperText": "File charset biner yang berisi nilai byte mentah (maks 1023 byte, hingga 256 byte unik). Digunakan untuk cracking DES, NTLMv1, dan penyandian khusus bahasa.",
+        "fileCharsetInfo_other": "File charset: {{count}} byte unik. Hanya nama dan deskripsi yang dapat diedit.",
+        "description": "Deskripsi",
+        "descriptionPlaceholder": "Deskripsi opsional tentang kegunaan charset ini"
+      },
+      "update": "Perbarui",
+      "upload": "Upload"
+    },
+    "messages": {
+      "createSuccess": "Charset berhasil dibuat",
+      "uploadSuccess": "File charset berhasil diunggah",
+      "updateSuccess": "Charset berhasil diperbarui",
+      "deleteSuccess": "Charset berhasil dihapus"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Hanya file .hcchr yang diizinkan",
+      "fileTooLarge": "File terlalu besar (maks 1023 byte — batas buffer baca hashcat)",
+      "nameRequired": "Nama diperlukan",
+      "definitionRequired": "Definisi diperlukan",
+      "selectFile": "Silakan pilih file .hcchr",
+      "loadFailed": "Gagal memuat charset: {{message}}",
+      "deleteFailed": "Gagal menghapus charset: {{message}}"
+    }
+  }
+}

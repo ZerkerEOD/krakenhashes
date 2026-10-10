@@ -1,0 +1,377 @@
+{
+  "title": "Pengaturan Pengguna",
+  "profileSettings": {
+    "title": "Pengaturan Profil"
+  },
+  "profile": {
+    "title": "Profil",
+    "username": "Username",
+    "email": "Email",
+    "changePassword": "Ubah Kata Sandi",
+    "currentPassword": "Kata Sandi Saat Ini",
+    "newPassword": "Kata Sandi Baru",
+    "confirmPassword": "Konfirmasi Kata Sandi Baru",
+    "updateProfile": "Perbarui Profil",
+    "profileUpdated": "Profil berhasil diperbarui"
+  },
+  "account": {
+    "title": "Informasi Akun",
+    "username": "Username",
+    "email": "Email",
+    "usernameCannotChange": "Username tidak dapat diubah",
+    "saving": "Menyimpan...",
+    "saveEmail": "Simpan Email",
+    "confirmEmailUpdate": {
+      "title": "Konfirmasi Pembaruan Email",
+      "message": "Silakan masukkan kata sandi saat ini untuk memperbarui alamat email Anda."
+    },
+    "errors": {
+      "noChanges": "Tidak ada perubahan untuk disimpan",
+      "invalidEmail": "Alamat email tidak valid",
+      "updateFailed": "Gagal memperbarui email",
+      "incorrectPassword": "Kata sandi tidak benar"
+    },
+    "success": {
+      "emailUpdated": "Email berhasil diperbarui"
+    }
+  },
+  "password": {
+    "title": "Ubah Kata Sandi",
+    "currentPassword": "Kata Sandi Saat Ini",
+    "newPassword": "Kata Sandi Baru",
+    "confirmNewPassword": "Konfirmasi Kata Sandi Baru",
+    "enterCurrentFirst": "Masukkan kata sandi saat ini terlebih dahulu",
+    "passwordsMatch": "Kata sandi cocok",
+    "changePassword": "Ubah Kata Sandi",
+    "changing": "Mengubah Kata Sandi...",
+    "errors": {
+      "currentRequired": "Kata sandi saat ini diperlukan",
+      "newRequired": "Kata sandi baru diperlukan",
+      "mismatch": "Kata sandi tidak cocok",
+      "requirements": "Kata sandi baru tidak memenuhi persyaratan",
+      "updateFailed": "Gagal memperbarui kata sandi"
+    },
+    "success": {
+      "changed": "Kata sandi berhasil diubah"
+    }
+  },
+  "apiKey": {
+    "title": "Kunci API",
+    "status": "Status Kunci API",
+    "active": "Aktif",
+    "noKeyGenerated": "Kunci API Belum Dibuat",
+    "created": "Dibuat",
+    "lastUsed": "Terakhir Digunakan",
+    "generate": "Buat Kunci API",
+    "regenerate": "Buat Ulang Kunci API",
+    "revoke": "Cabut Kunci API",
+    "viewDocs": "Lihat Dokumentasi API",
+    "dialog": {
+      "title": "Kunci API Anda",
+      "saveNow": "Simpan kunci ini sekarang!",
+      "cantSeeAgain": "Anda tidak akan dapat melihatnya lagi.",
+      "instructions": "Gunakan kunci API ini dalam permintaan HTTP Anda dengan menyertakannya di header X-API-Key.",
+      "saved": "Sudah Saya Simpan"
+    },
+    "confirmRegenerate": {
+      "title": "Buat Ulang Kunci API?",
+      "warning": "Ini akan membatalkan kunci API yang ada. Aplikasi apa pun yang menggunakan kunci saat ini akan berhenti bekerja.",
+      "confirm": "Apakah Anda yakin ingin melanjutkan?"
+    },
+    "confirmRevoke": {
+      "title": "Cabut Kunci API?",
+      "warning": "Ini akan segera menonaktifkan akses API. Aplikasi apa pun yang menggunakan kunci ini akan berhenti bekerja.",
+      "confirm": "Apakah Anda yakin ingin mencabut kunci API Anda?"
+    },
+    "errors": {
+      "generateFailed": "Gagal membuat kunci API",
+      "revokeFailed": "Gagal mencabut kunci API"
+    },
+    "success": {
+      "revoked": "Kunci API berhasil dicabut",
+      "copied": "Kunci API disalin ke clipboard"
+    }
+  },
+  "security": {
+    "title": "Keamanan",
+    "caCertificate": {
+      "title": "Sertifikat CA",
+      "description": "Jika menggunakan sertifikat yang ditandatangani sendiri, unduh dan pasang sertifikat CA untuk mempercayai server ini.",
+      "download": "Unduh Sertifikat CA",
+      "docsLink": "Lihat Dokumentasi SSL/TLS"
+    }
+  },
+  "common": {
+    "cancel": "Batal",
+    "never": "Tidak Pernah",
+    "invalidDate": "Tanggal tidak valid",
+    "create": "Buat",
+    "delete": "Hapus"
+  },
+  "mfa": {
+    "title": "Autentikasi Dua Faktor",
+    "status": "Status 2FA",
+    "enabled": "Diaktifkan",
+    "disabled": "Dinonaktifkan",
+    "enable": "Aktifkan 2FA",
+    "disable": "Nonaktifkan 2FA",
+    "methods": {
+      "title": "Metode Autentikasi",
+      "totp": "Aplikasi Autentikator",
+      "email": "Email",
+      "backupCodes": "Kode Cadangan",
+      "passkey": "Passkey"
+    },
+    "setup": {
+      "scanQR": "Pindai kode QR ini dengan aplikasi autentikator Anda",
+      "enterCode": "Masukkan kode dari aplikasi Anda untuk verifikasi",
+      "backupCodesGenerated": "Simpan kode cadangan ini di tempat yang aman"
+    },
+    "methodSelection": {
+      "title": "Pilih Metode MFA",
+      "description": "Pilih bagaimana Anda ingin memverifikasi identitas Anda saat masuk.",
+      "authenticatorDescription": "Gunakan kode berbasis waktu dari aplikasi autentikator seperti Google Authenticator, Authy, atau 1Password.",
+      "passkeyDescription": "Gunakan kunci keamanan, sidik jari, pengenalan wajah, atau PIN perangkat untuk autentikasi yang cepat dan aman."
+    },
+    "card": {
+      "title": "Autentikasi Multi-Faktor",
+      "requiredByPolicy": "MFA diperlukan oleh kebijakan keamanan organisasi Anda",
+      "enableLabel": "Aktifkan Autentikasi Multi-Faktor",
+      "preferredMethod": "Metode MFA Pilihan",
+      "preferredMethodNames": {
+        "authenticator": "Autentikator",
+        "email": "Email",
+        "passkey": "Passkey"
+      },
+      "emailAuth": "Autentikasi Email",
+      "emailRequired": "Diperlukan untuk keamanan akun",
+      "optional": "Opsional",
+      "required": "Diperlukan",
+      "configured": "Dikonfigurasi",
+      "notConfigured": "Tidak dikonfigurasi",
+      "disable": "Nonaktifkan",
+      "setup": "Siapkan",
+      "passkeys": "Passkeys",
+      "passkeysRegistered_other": "{{count}} passkey terdaftar",
+      "addPasskey": "Tambah Passkey",
+      "passkeyAdded": "Ditambahkan: {{date}}",
+      "passkeyLastUsed": " | Terakhir digunakan: {{date}}",
+      "rename": "Ubah Nama",
+      "delete": "Hapus",
+      "passkeysUnsupported": "Passkey tidak didukung di browser ini. Silakan gunakan browser modern untuk mengaktifkan autentikasi passkey.",
+      "backupCodesRemaining_other": "{{count}} kode cadangan tersisa",
+      "noBackupCodes": "Tidak ada kode cadangan yang tersedia",
+      "regenerate": "Buat Ulang",
+      "generate": "Buat"
+    },
+    "dialogs": {
+      "cancel": "Batal",
+      "close": "Tutup",
+      "warning": "Peringatan",
+      "setupAuthenticatorTitle": "Siapkan Aplikasi Autentikator",
+      "qrAlt": "Kode QR",
+      "manualEntry": "Jika Anda tidak dapat memindai kode QR, masukkan kode ini secara manual: <strong>{{secret}}</strong>",
+      "scanInstructions": "Pindai kode QR ini dengan aplikasi autentikator Anda (misalnya, Google Authenticator, Authy)",
+      "verificationCode": "Kode Verifikasi",
+      "verificationPlaceholder": "Masukkan kode 6 digit",
+      "verify": "Verifikasi",
+      "backupCodesTitle": "Kode Cadangan",
+      "generateBackupPrompt": "Buat kode cadangan untuk digunakan saat Anda tidak dapat mengakses metode autentikasi utama Anda",
+      "generateBackupCodes": "Buat Kode Cadangan",
+      "saveCodesWarning": "Simpan kode ini di lokasi yang aman. Mereka tidak akan ditampilkan lagi!",
+      "copied": "Disalin!",
+      "copyAll": "SALIN SEMUA KODE",
+      "regenerateWarning": "Ini akan membatalkan semua kode cadangan yang ada. Apakah Anda yakin ingin membuat yang baru?",
+      "generateNewCodes": "Buat Kode Baru",
+      "disableAuthWarning": "Apakah Anda yakin ingin menonaktifkan autentikator? Ini akan menghapusnya dari akun Anda dan Anda harus menyiapkannya lagi jika ingin menggunakannya di masa depan.",
+      "disableAuthenticator": "Nonaktifkan Autentikator",
+      "addPasskeyTitle": "Tambah Passkey",
+      "addPasskeyDescription": "Daftarkan passkey baru (kunci keamanan, sidik jari, atau perangkat) untuk autentikasi dua faktor.",
+      "passkeyName": "Nama Passkey",
+      "passkeyNamePlaceholder": "mis., YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn tidak didukung di browser ini. Silakan gunakan browser modern.",
+      "webauthnUnsupportedBrowsers": "WebAuthn tidak didukung di browser ini. Silakan gunakan browser modern seperti Chrome, Firefox, Safari, atau Edge.",
+      "registering": "Mendaftarkan...",
+      "registerPasskey": "Daftarkan Passkey",
+      "renamePasskeyTitle": "Ubah Nama Passkey",
+      "saving": "Menyimpan...",
+      "save": "Simpan",
+      "deletePasskeyTitle": "Hapus Passkey",
+      "deletePasskeyConfirm": "Apakah Anda yakin ingin menghapus passkey \"{{name}}\"? Tindakan ini tidak dapat dibatalkan.",
+      "deleting": "Menghapus...",
+      "delete": "Hapus",
+      "setupPasskeyTitle": "Siapkan Passkey untuk MFA",
+      "setupPasskeyDescription": "Daftarkan passkey untuk mengaktifkan autentikasi multi-faktor. Gunakan kunci keamanan, sidik jari, pengenalan wajah, atau PIN perangkat.",
+      "registerAndEnable": "Daftarkan & Aktifkan MFA"
+    },
+    "messages": {
+      "loadFailed": "Gagal memuat pengaturan MFA",
+      "disabled": "MFA berhasil dinonaktifkan",
+      "passkeyBrowserRequired": "Autentikasi passkey diperlukan tetapi browser Anda tidak mendukung WebAuthn. Silakan gunakan browser modern seperti Chrome, Firefox, Safari, atau Edge untuk mengaktifkan MFA.",
+      "enabledEmail": "MFA diaktifkan dengan autentikasi email",
+      "noMethods": "Tidak ada metode MFA yang tersedia. Silakan hubungi administrator Anda.",
+      "toggleFailed": "Gagal mengubah MFA",
+      "passkeyNameRequired": "Silakan masukkan nama untuk passkey",
+      "passkeyRegisteredSaveCodes": "Passkey berhasil terdaftar! Silakan simpan kode cadangan Anda.",
+      "passkeyRegisteredNoCodes": "Passkey berhasil terdaftar. Anda dapat membuat kode cadangan dari pengaturan MFA.",
+      "authenticatorSetupFailed": "Gagal menyiapkan autentikator",
+      "authenticatorSetup": "Aplikasi autentikator telah berhasil disiapkan",
+      "verifyFailed": "Gagal memverifikasi kode",
+      "backupCodesGenerated": "Kode cadangan baru telah dibuat",
+      "backupCodesFailed": "Gagal membuat kode cadangan",
+      "preferredUpdated": "Metode MFA pilihan berhasil diperbarui",
+      "preferredFailed": "Gagal memperbarui metode MFA pilihan",
+      "disableAuthFailed": "Gagal menonaktifkan autentikator",
+      "authenticatorDisabled": "Autentikator berhasil dinonaktifkan",
+      "newBackupCodesFailed": "Gagal membuat kode cadangan baru",
+      "newBackupCodesGenerated": "Kode cadangan baru berhasil dibuat",
+      "invalidResponse": "Format respons tidak valid dari server",
+      "passkeyRegistered": "Passkey berhasil terdaftar",
+      "passkeyDeleted": "Passkey berhasil dihapus",
+      "passkeyDeleteFailed": "Gagal menghapus passkey",
+      "passkeyRenamed": "Passkey berhasil diubah namanya",
+      "passkeyRenameFailed": "Gagal mengubah nama passkey"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Akun Tertaut",
+    "noAccounts": "Tidak ada akun tertaut",
+    "link": "Tautkan Akun",
+    "unlink": "Putus Tautan",
+    "description": "Penyedia autentikasi eksternal yang ditautkan ke akun Anda",
+    "noAccountsMessage": "Tidak ada akun eksternal yang ditautkan ke profil Anda. Anda dapat menautkan akun dengan masuk melalui penyedia SSO.",
+    "emailLabel": "Email: {{email}}",
+    "usernameLabel": "Username: {{username}}",
+    "lastLoginLinked": "Login terakhir: {{lastLogin}} | Tertaut: {{linked}}",
+    "unlinkTooltip": "Putus tautan akun",
+    "errors": {
+      "loadFailed": "Gagal memuat akun tertaut",
+      "unlinkFailed": "Gagal memutus tautan akun"
+    },
+    "unlinkDialog": {
+      "title": "Putus Tautan Akun",
+      "warning": "Anda tidak akan dapat lagi masuk menggunakan penyedia ini.",
+      "confirmation": "Apakah Anda yakin ingin memutus tautan akun {{provider}} Anda?"
+    }
+  },
+  "notifications": {
+    "title": "Notifikasi",
+    "emailNotifications": "Notifikasi Email",
+    "jobCompleted": "Job Selesai",
+    "agentOffline": "Agent Offline",
+    "securityAlerts": "Peringatan Keamanan"
+  },
+  "preferences": {
+    "title": "Preferensi",
+    "language": "Bahasa",
+    "timezone": "Zona Waktu",
+    "dateFormat": "Format Tanggal",
+    "theme": "Tema",
+    "themes": {
+      "light": "Terang",
+      "dark": "Gelap",
+      "system": "Sistem"
+    },
+    "languageHelper": "Berlaku hanya untuk browser ini.",
+    "themeHelper": "Sistem mengikuti pengaturan sistem operasi Anda."
+  },
+  "errors": {
+    "updateFailed": "Gagal memperbarui pengaturan",
+    "passwordMismatch": "Kata sandi tidak cocok",
+    "invalidPassword": "Kata sandi saat ini tidak valid"
+  },
+  "nav": {
+    "description": "Akun, keamanan, dan preferensi Anda.",
+    "groupAccount": "Akun",
+    "profile": "Profil",
+    "profileDesc": "Alamat email, bahasa, dan tampilan.",
+    "security": "Keamanan",
+    "securityDesc": "Kata sandi, autentikasi dua faktor, akun tertaut, dan sertifikat CA.",
+    "notifications": "Notifikasi",
+    "notificationsDesc": "Peristiwa apa yang menjangkau Anda dan bagaimana caranya.",
+    "api": "Kunci API",
+    "apiDesc": "Kunci pribadi untuk HTTP API.",
+    "charsets": "Charset Tersimpan",
+    "charsetsDesc": "Charset khusus untuk serangan mask."
+  },
+  "savedCharsets": {
+    "title": "Charset Tersimpan",
+    "description": "Kelola charset khusus pribadi Anda untuk digunakan dalam serangan berbasis mask. Mendukung definisi inline dan file charset binary .hcchr.",
+    "createCharset": "Buat Charset",
+    "sections": {
+      "mine": "Charset Saya",
+      "team": "Charset Tim",
+      "global": "Charset Global",
+      "globalSubtitle": "Charset ini dikelola oleh admin dan tersedia untuk semua orang."
+    },
+    "columns": {
+      "name": "Nama",
+      "team": "Tim",
+      "definition": "Definisi / Info",
+      "description": "Deskripsi",
+      "created": "Dibuat"
+    },
+    "typeLabels": {
+      "file": "File",
+      "hex": "Hex"
+    },
+    "uniqueBytes_other": "{{count}} byte unik",
+    "hexBytes_other": "{{count}} byte",
+    "rowActions": {
+      "edit": "Edit",
+      "delete": "Hapus"
+    },
+    "empty": "Tidak ada charset dalam kategori ini.",
+    "dialogs": {
+      "create": {
+        "title": "Buat Charset Pribadi"
+      },
+      "edit": {
+        "title": "Edit Charset"
+      },
+      "delete": {
+        "title": "Hapus charset",
+        "confirmation": "Apakah Anda yakin ingin menghapus charset \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Definisi Inline",
+        "file": "Unggah File (.hcchr)"
+      },
+      "fields": {
+        "name": "Nama",
+        "namePlaceholder": "misalnya, DES Full Charset",
+        "definition": "Definisi",
+        "definitionPlaceholderHex": "misalnya, 41424344 (pasangan byte hex)",
+        "definitionPlaceholderPlain": "misalnya, ?u?d atau abcdef0123456789",
+        "definitionHelperHex": "Pasangan byte hex — setiap pasangan = satu byte charset. {{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}} byte",
+        "definitionHelperPlain": "Definisi charset Hashcat. Gunakan ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H atau karakter literal.",
+        "hexTooltip": "Saat diaktifkan, definisi ditafsirkan sebagai pasangan byte hex (misalnya, 41424344 = byte A, B, C, D). Job yang menggunakan charset ini akan otomatis menyisipkan --hex-charset.",
+        "hexLabel": "Definisi berkode hex",
+        "selectFile": "Pilih File .hcchr",
+        "fileSizeBytes_other": "{{count}} byte",
+        "fileHelperText": "File charset binary berisi nilai byte mentah (maks 1023 byte, hingga 256 byte unik).",
+        "fileCharsetInfo_other": "File charset: {{count}} byte unik. Hanya nama dan deskripsi yang dapat diedit.",
+        "description": "Deskripsi",
+        "descriptionPlaceholder": "Deskripsi opsional tentang kegunaan charset ini"
+      },
+      "update": "Perbarui",
+      "upload": "Unggah"
+    },
+    "messages": {
+      "createSuccess": "Charset berhasil dibuat",
+      "uploadSuccess": "File charset berhasil diunggah",
+      "updateSuccess": "Charset berhasil diperbarui",
+      "deleteSuccess": "Charset berhasil dihapus"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Hanya file .hcchr yang diizinkan",
+      "fileTooLarge": "File terlalu besar (maks 1023 byte — batas buffer baca hashcat)",
+      "nameRequired": "Nama diperlukan",
+      "definitionRequired": "Definisi diperlukan",
+      "selectFile": "Silakan pilih file .hcchr",
+      "deleteFailed": "Gagal menghapus charset: {{message}}",
+      "globalDeleteForbidden": "Charset global hanya dapat dihapus oleh admin di panel admin"
+    }
+  }
+}

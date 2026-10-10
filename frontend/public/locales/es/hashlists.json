@@ -46,7 +46,65 @@
     "selectFile": "Seleccionar archivo",
     "uploading": "Subiendo...",
     "cancel": "Cancelar",
-    "executableBlocked": "Este archivo parece ser un ejecutable binario y no se puede subir como lista de hashes."
+    "executableBlocked": "Este archivo parece ser un ejecutable binario y no se puede subir como lista de hashes.",
+    "description": "Descripción",
+    "methodLabel": "Método de carga",
+    "methodAriaLabel": "modo de carga",
+    "fileAriaLabel": "carga de archivo",
+    "pasteAriaLabel": "pegar hashes",
+    "uploadFile": "Cargar archivo",
+    "pasteHashes": "Pegar hashes",
+    "dropHere": "Suelta el archivo de lista de hashes aquí...",
+    "dragAndDrop": "Arrastra y suelta un archivo de lista de hashes, o haz clic para seleccionar",
+    "allFileTypesExceptExecutables": "Se aceptan todos los tipos de archivo excepto ejecutables",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "Limpiar",
+    "hashCount_many": "{{count}} hashes",
+    "hashCount_one": "{{count}} hash",
+    "hashCount_other": "{{count}} hashes",
+    "hashCountDetected_many": "{{count}} hashes detectados",
+    "hashCountDetected_one": "{{count}} hash detectado",
+    "hashCountDetected_other": "{{count}} hashes detectados",
+    "pasteHashesLabel": "Pega hashes aquí (uno por línea)",
+    "pasteHashesPlaceholder": "Ingresa hashes, uno por línea...&#10;&#10;Ejemplo:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Pega tus hashes arriba, uno por línea",
+    "excludeFromGlobalPotfile": "Excluir del potfile global",
+    "excludeFromGlobalPotfileHelper": "Las contraseñas descifradas de esta lista de hashes no se guardarán en el potfile global",
+    "globalPotfileDisabledNotice": "Nota: El potfile global está deshabilitado actualmente por la configuración de administración.",
+    "excludeFromClientPotfile": "Excluir del potfile del cliente",
+    "excludeFromClientPotfileHelper": "Las contraseñas descifradas de esta lista de hashes no se guardarán en el potfile del cliente",
+    "clientPotfilesDisabledNotice": "Nota: Los potfiles del cliente están deshabilitados por la configuración de administración.",
+    "uploadButtonLabel": "Cargar lista de hashes",
+    "selectTeamForNewClient": "Selecciona un equipo para el nuevo cliente.",
+    "validationCancelled": "Carga cancelada. Corrige el archivo e intenta de nuevo.",
+    "errors": {
+      "nameRequired": "Se requiere un nombre",
+      "hashTypeRequired": "Se requiere un tipo de hash",
+      "clientRequired": "Se requiere un cliente",
+      "noHashesToUpload": "No hay hashes para cargar",
+      "uploadFailedWithStatus": "Carga fallida (HTTP {{status}})",
+      "uploadFailedWithMessage": "Carga fallida: {{message}}",
+      "uploadFailedUnknown": "Carga fallida (error desconocido)",
+      "uploadErrorPrefix": "Error al cargar la lista de hashes: {{message}}",
+      "unknownError": "Ocurrió un error desconocido"
+    },
+    "linkDialog": {
+      "title": "Hashes LM/NTLM detectados",
+      "detected": "Archivo en formato pwdump detectado con:",
+      "lmCount_many": "{{count}} hashes LM (no en blanco)",
+      "lmCount_one": "{{count}} hash LM (no en blanco)",
+      "lmCount_other": "{{count}} hashes LM (no en blanco)",
+      "ntlmCount_many": "{{count}} hashes NTLM",
+      "ntlmCount_one": "{{count}} hash NTLM",
+      "ntlmCount_other": "{{count}} hashes NTLM",
+      "blankLmCount_many": "{{count}} hashes LM en blanco (contraseña vacía - serán omitidos)",
+      "blankLmCount_one": "{{count}} hash LM en blanco (contraseña vacía - será omitido)",
+      "blankLmCount_other": "{{count}} hashes LM en blanco (contraseña vacía - serán omitidos)",
+      "question": "¿Te gustaría crear dos listas de hashes vinculadas para flujos de trabajo de descifrado separados?",
+      "explanation": "Esto creará listas de hashes \"{{lmName}}\" y \"{{ntlmName}}\" que están vinculadas entre sí.",
+      "uploadSingle": "Cargar como una única lista",
+      "createLinked": "Crear listas vinculadas"
+    }
   },
   "actions": {
     "viewDetails": "Ver detalles",
@@ -54,12 +112,160 @@
     "download": "Descargar",
     "delete": "Eliminar"
   },
+  "createJob": {
+    "additionalArgs": "Argumentos adicionales de Hashcat (Opcional)",
+    "additionalArgsHelper": "Indicadores de hashcat adicionales para este trabajo. Los indicadores a nivel de agente tienen prioridad en caso de conflictos.",
+    "title": "Crear trabajo para \"{{name}}\"",
+    "successRedirect": "¡Trabajo(s) creado(s) exitosamente! Redirigiendo a la página de trabajos...",
+    "successDefault": "¡Trabajo creado exitosamente!",
+    "loadingDefault": "Creando...",
+    "loadingCreating": "Creando trabajo...",
+    "loadingKeyspace": "Calculando espacio de claves...",
+    "cancel": "Cancelar",
+    "submit": "Crear trabajo(s)",
+    "canInterrupt": "Interrumpible",
+    "tabs": {
+      "workflows": "Flujos de trabajo",
+      "presetJobs": "Trabajos predefinidos",
+      "customJob": "Trabajo personalizado"
+    },
+    "attackModes": {
+      "dictionary": "Diccionario",
+      "combination": "Combinación",
+      "bruteforce": "Fuerza bruta",
+      "hybridWordlistMask": "Híbrido Diccionario + Máscara",
+      "hybridMaskWordlist": "Híbrido Máscara + Diccionario",
+      "association": "Asociación",
+      "modeFallback": "Modo {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Selecciona al menos un flujo de trabajo",
+      "selectPresetJob": "Selecciona al menos un trabajo predefinido",
+      "wordlistRequired": "El modo de ataque seleccionado requiere al menos un diccionario",
+      "combinationRequiresTwo": "El ataque de combinación requiere que se seleccionen ambos diccionarios",
+      "maskRequired": "El modo de ataque seleccionado requiere una máscara",
+      "associationMixedWorkFactors": "Los ataques de asociación no se pueden ejecutar en listas de hashes con factores de trabajo mixtos",
+      "associationWordlistRequired": "El ataque de asociación requiere un diccionario de asociación",
+      "chunkDurationMin": "La duración del fragmento debe ser de al menos 5 segundos",
+      "chunkDurationMax": "La duración del fragmento no puede exceder 24 horas (86400 segundos)",
+      "partialFailure": "{{message}}. No creado: {{details}}",
+      "unnamedItem": "elemento",
+      "createFailed": "Falló la creación del trabajo",
+      "loadFailed": "Falló la carga de trabajos disponibles"
+    },
+    "workflows": {
+      "empty": "No hay flujos de trabajo disponibles. Crea flujos de trabajo en el panel de administración primero.",
+      "jobNameHelper": "Tu nombre se agregará con cada nombre de flujo de trabajo",
+      "description": "Selecciona uno o más flujos de trabajo para ejecutar. Puedes seleccionar varios flujos de trabajo - cada uno creará su propia secuencia de ejecuciones de trabajo. La configuración de loopback se define en el flujo de trabajo mismo - un flujo de trabajo etiquetado \"Loopback\" volverá a ejecutar automáticamente sus pasos elegibles contra contraseñas recién descifradas.",
+      "jobsCount_many": "{{count}} trabajos",
+      "jobsCount_one": "{{count}} trabajo",
+      "jobsCount_other": "{{count}} trabajos",
+      "loopbackAllEligible": "Loopback: todos elegibles",
+      "loopbackSteps_many": "Loopback: {{count}} pasos",
+      "loopbackSteps_one": "Loopback: {{count}} paso",
+      "loopbackSteps_other": "Loopback: {{count}} pasos",
+      "jobsList": "Trabajos: {{names}}",
+      "selectedCount_many": "{{count}} flujos de trabajo seleccionados",
+      "selectedCount_one": "{{count}} flujo de trabajo seleccionado",
+      "selectedCount_other": "{{count}} flujos de trabajo seleccionados"
+    },
+    "presetJobs": {
+      "empty": "No hay trabajos predefinidos disponibles. Crea trabajos predefinidos en el panel de administración primero.",
+      "jobNameHelper": "Tu nombre se agregará con cada tipo de trabajo (por ejemplo, 'Mi nombre - Ejecución de Potfile')",
+      "description": "Selecciona uno o más trabajos predefinidos para ejecutar. Puedes seleccionar varios trabajos - se crearán como ejecuciones de trabajo separadas.",
+      "priorityLabel": "Prioridad: {{priority}}",
+      "selectedCount_many": "{{count}} trabajos seleccionados",
+      "selectedCount_one": "{{count}} trabajo seleccionado",
+      "selectedCount_other": "{{count}} trabajos seleccionados"
+    },
+    "loopback": {
+      "label": "Loopback hasta el agotamiento",
+      "helperEligible": "Ejecuta el/los trabajo(s) seleccionado(s), luego vuelve a ejecutar los mutables (rectos + reglas, o un ataque híbrido) solo contra las contraseñas recién descifradas - repitiendo hasta que no se encuentren nuevos descifrados.",
+      "helperSelectEligible": "Selecciona un trabajo predefinido elegible (recto + reglas, o un ataque híbrido) a continuación para habilitar el loopback.",
+      "helperNoneEligible": "Ninguno de los trabajos seleccionados tiene una mutación para hacer loopback (son solo diccionario, fuerza bruta o asociación).",
+      "helperFilterConflict": "El loopback no está disponible mientras el pre-filtrado está habilitado para este trabajo.",
+      "helperCustom": "Ejecuta este ataque, luego vuelve a ejecutar su mutación (reglas o máscara) solo contra las contraseñas recién descifradas - repitiendo hasta que no se encuentren nuevos descifrados."
+    },
+    "filter": {
+      "enableLabel": "Pre-filtrar el/los diccionario(s) seleccionado(s) para este trabajo",
+      "ephemeralNotice": "Esta lista filtrada es efímera y se usa solo para este trabajo. Para crear un diccionario filtrado reutilizable, usa la gestión de diccionarios. La generación se ejecuta en segundo plano; el trabajo se inicia automáticamente una vez que esté listo."
+    },
+    "association": {
+      "explainer": "El ataque de asociación asigna cada hash a una línea de diccionario correspondiente 1:1. El número de líneas del diccionario debe coincidir con el número total de hashes ({{hashCount}}).",
+      "falsePositiveWarning": "<strong>Nota:</strong> Los ataques de asociación pueden producir falsos positivos. Se recomienda verificar los resultados descargando hashes descifrados, eliminando la lista de hashes, recargando y confirmando con un ataque de diccionario.",
+      "wordlistLabel": "Diccionario de asociación",
+      "selectWordlist": "Selecciona un diccionario de asociación",
+      "wordlistOptionLabel": "{{name}} ({{lines}} líneas, {{size}} KB)",
+      "wordlistHelper": "Carga diccionarios de asociación a través de la sección Diccionarios de asociación de la lista de hashes"
+    },
+    "cloud": {
+      "allowBurst": "Permitir ráfaga en la nube",
+      "allowBurstHelper": "Alquila instancias de GPU cuando la flota local no pueda mantenerse al día. Requiere que el cliente esté financiado y se haya suscrito a un proveedor.",
+      "allowPeerHosts": "Permitir hosts operados por pares (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "Estas son máquinas de otras personas. El propietario del host tiene acceso raíz al contenedor, por lo que los hashes, diccionarios y contraseñas descifradas de este cliente son legibles por un tercero y <strong>no están encriptados en reposo en el host</strong>. No se recomienda para producción o datos del compromiso con el cliente. Déjalo deshabilitado y el trabajo seguirá usando capacidad segura (AWS, RunPod Secure Cloud) si el cliente lo permite.",
+      "maxInstances": "Máx. instancias en la nube",
+      "maxInstancesHelper": "Separado de Máx. agentes, que rige el grupo local. En blanco deja que el presupuesto decida."
+    },
+    "form": {
+      "jobName": "Nombre del trabajo (Opcional)",
+      "jobNamePlaceholder": "Dejar vacío para un nombre generado automáticamente",
+      "jobNameHelper": "Dejar vacío para un nombre generado automáticamente basado en la configuración de ataque",
+      "attackModeLabel": "Modo de ataque",
+      "attackModeDictionary": "Ataque de diccionario",
+      "attackModeCombination": "Ataque de combinación",
+      "attackModeBruteforce": "Ataque de fuerza bruta",
+      "attackModeHybridWordlistMask": "Híbrido Diccionario + Máscara",
+      "attackModeHybridMaskWordlist": "Híbrido Máscara + Diccionario",
+      "attackModeAssociation": "Ataque de asociación",
+      "associationBlockedMixed": " (Bloqueado: Factores de trabajo mixtos)",
+      "associationNoWordlists": " (No hay diccionarios cargados)",
+      "binaryVersionHelper": "Selecciona un patrón de versión binaria",
+      "wordlists": "Diccionarios",
+      "selectWordlists": "Selecciona diccionarios",
+      "ruleOptional": "Regla (Opcional)",
+      "ruleOptionLabel_many": "{{name}} ({{count}} reglas)",
+      "ruleOptionLabel_one": "{{name}} ({{count}} regla)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} reglas)",
+      "selectRule": "Selecciona una regla",
+      "firstWordlist": "Primer diccionario",
+      "secondWordlist": "Segundo diccionario",
+      "selectFirstWordlist": "Selecciona el primer diccionario",
+      "selectSecondWordlist": "Selecciona el segundo diccionario",
+      "categoryClientSpecific": "Específico del cliente",
+      "categoryGlobal": "Global",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} líneas)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} MB)",
+      "clientPotfileName_many": "Potfile del cliente ({{count, number}} contraseñas)",
+      "clientPotfileName_one": "Potfile del cliente ({{count, number}} contraseña)",
+      "clientPotfileName_other": "Potfile del cliente ({{count, number}} contraseñas)",
+      "mask": "Máscara",
+      "maskPlaceholder": "p. ej., ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = minúscula, ?u = mayúscula, ?d = dígito, ?s = especial, ?1-?4 = personalizado",
+      "incrementModeLabel": "Modo de incremento",
+      "incrementModeOff": "Desactivado",
+      "incrementModeForward": "Incremento (I→D)",
+      "incrementModeInverse": "Incremento inverso (D→I)",
+      "incrementModeHelper": "El incremento prueba máscaras más cortas primero, creciendo progresivamente",
+      "minLength": "Longitud mínima",
+      "maxLength": "Longitud máxima",
+      "priority": "Prioridad",
+      "priorityHelper": "Los trabajos con mayor prioridad se ejecutan primero (1-1000)",
+      "chunkDuration": "Duración del fragmento (segundos)",
+      "chunkDurationHelper": "Tiempo en segundos para cada fragmento (5-86400 segundos)",
+      "maxAgents": "Máx. agentes",
+      "maxAgentsHelper": "Número máximo de agentes (0 = ilimitado)",
+      "allowHighPriorityOverride": "Permitir anulación de alta prioridad",
+      "additionalArgsPlaceholder": "p. ej., -w 4 -O --force"
+    }
+  },
   "confirmDelete": {
     "title": "Confirmar eliminación",
     "message": "¿Estás seguro de que deseas eliminar la lista de hashes \"{{name}}\"? Esta acción no se puede deshacer.",
     "cancel": "Cancelar",
     "delete": "Eliminar",
-    "deleting": "Eliminando..."
+    "deleting": "Eliminando...",
+    "removeFromGlobalPotfile": "Eliminar contraseñas descifradas del potfile global",
+    "removeFromClientPotfile": "Eliminar contraseñas descifradas del potfile del cliente"
   },
   "deletionProgress": {
     "title": "Eliminando lista de hashes",
@@ -94,8 +300,12 @@
     "downloaded": "Descargado {{filename}}",
     "archiveSuccess": "Lista de hashes archivada exitosamente",
     "unarchiveSuccess": "Lista de hashes desarchivada exitosamente",
-    "bulkArchiveSuccess": "{{count}} lista(s) de hashes archivada(s) exitosamente",
-    "bulkUnarchiveSuccess": "{{count}} lista(s) de hashes desarchivada(s) exitosamente"
+    "bulkArchiveSuccess_many": "{{count}} listas de hashes archivadas correctamente",
+    "bulkArchiveSuccess_one": "{{count}} lista de hashes archivada correctamente",
+    "bulkArchiveSuccess_other": "{{count}} listas de hashes archivadas correctamente",
+    "bulkUnarchiveSuccess_many": "{{count}} listas de hashes desarchivadas correctamente",
+    "bulkUnarchiveSuccess_one": "{{count}} lista de hashes desarchivada correctamente",
+    "bulkUnarchiveSuccess_other": "{{count}} listas de hashes desarchivadas correctamente"
   },
   "errors": {
     "loadFailed": "Error al obtener listas de hashes.",
@@ -113,10 +323,14 @@
     "deleteSelected": "Eliminar seleccionados",
     "confirmBulkDelete": {
       "title": "Confirmar eliminación masiva",
-      "message": "¿Estás seguro de que deseas eliminar {{count}} lista(s) de hashes? Esta acción no se puede deshacer.",
+      "message_many": "¿Estás seguro de que quieres eliminar {{count}} listas de hashes? Esta acción no se puede deshacer.",
+      "message_one": "¿Estás seguro de que quieres eliminar {{count}} lista de hashes? Esta acción no se puede deshacer.",
+      "message_other": "¿Estás seguro de que quieres eliminar {{count}} listas de hashes? Esta acción no se puede deshacer.",
       "warning": "Esto eliminará permanentemente las listas de hashes seleccionadas y todos los datos asociados."
     },
-    "bulkDeleteSuccess": "{{count}} lista(s) de hashes eliminada(s) exitosamente"
+    "bulkDeleteSuccess_many": "{{count}} listas de hashes eliminadas correctamente",
+    "bulkDeleteSuccess_one": "{{count}} lista de hashes eliminada correctamente",
+    "bulkDeleteSuccess_other": "{{count}} listas de hashes eliminadas correctamente"
   },
   "hashDetails": {
     "title": "Detalles del hash",
@@ -124,5 +338,196 @@
     "password": "Contraseña",
     "cracked": "Descifrado",
     "crackedAt": "Descifrado el"
+  },
+  "detail": {
+    "backToHashlists": "Volver a Listas de hashes",
+    "viewCrackedHashes": "Ver Hashes descifrados",
+    "noDescription": "Sin descripción",
+    "statusLabel": "Estado:",
+    "hashType": "Tipo de hash: {{name}}",
+    "clientLabel": "Cliente:",
+    "noClient": "Ninguno",
+    "editClient": "Editar cliente",
+    "created": "Creado: {{date}}",
+    "crackProgress": "Progreso de descifrado ({{cracked}} de {{total}})",
+    "fallbackHashlistName": "Lista de hashes",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} líneas",
+      "rate": "({{rate}}/seg)",
+      "eta": "• ETA: {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Esta lista de hashes se está eliminando — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Cargando…",
+      "resumeReview": "Reanudar revisión",
+      "title": "Esta lista de hashes está en pausa a la espera de una decisión de validación.",
+      "message": "La validación de hash marcó <strong>{{invalidCount}}</strong> de <strong>{{totalLines}}</strong> líneas como mal formadas. Abre el diálogo de revisión para continuar con los hashes válidos, cambiar el tipo de hash o cancelar la carga."
+    },
+    "jobsRun": {
+      "title": "Trabajos ejecutados",
+      "subtitle": "Trabajos que se han ejecutado contra esta lista de hashes, incluyendo los archivados.",
+      "empty": "Aún no se han ejecutado trabajos contra esta lista de hashes"
+    },
+    "editClientDialog": {
+      "title": "Editar asignación de cliente",
+      "description": "Selecciona un cliente para esta lista de hashes o déjalo vacío para eliminar la asignación del cliente.",
+      "save": "Guardar",
+      "saving": "Guardando..."
+    },
+    "notifications": {
+      "clientUpdated": "Cliente actualizado correctamente",
+      "processingResumed": "Procesamiento reanudado.",
+      "uploadCancelled": "Carga cancelada."
+    },
+    "errors": {
+      "deleteFailed": "No se pudo eliminar la lista de hashes",
+      "clientUpdateFailed": "No se pudo actualizar el cliente",
+      "clientNotFound": "Cliente no encontrado",
+      "clientLookupFailed": "No se pudo buscar el cliente",
+      "downloadFailed": "No se pudo descargar el archivo",
+      "downloadHashlistFailed": "No se pudo descargar la lista de hashes",
+      "serverError": "Error del servidor ({{status}})",
+      "loadInvalidHashesFailed": "No se pudieron cargar los hashes inválidos"
+    }
+  },
+  "associationWordlists": {
+    "header": "Diccionarios específicos del cliente",
+    "blocked": "Bloqueado",
+    "blockedTooltip": "Ataques de asociación bloqueados debido a factores de trabajo mixtos en la lista de hashes",
+    "delete": "Eliminar",
+    "uploadAssociation": "Cargar diccionario de asociación",
+    "uploadClient": "Cargar diccionario del cliente",
+    "uploadingPercent": "Cargando... {{percent}}%",
+    "emptyAssociation": "Aún no se han cargado diccionarios de asociación.",
+    "emptyClient": "Aún no se han cargado diccionarios del cliente.",
+    "mixedWorkFactorsWarning": "Esta lista de hashes tiene factores de trabajo mixtos. Los ataques de asociación no se pueden ejecutar en listas de hashes con diferentes costos de bcrypt o factores de trabajo variables similares. Aún puedes cargar diccionarios, pero se bloqueará la creación de trabajos de ataque de asociación.",
+    "explainer": "Los diccionarios de asociación asignan cada hash a un candidato de contraseña 1:1 por número de línea. El diccionario debe tener exactamente <strong>{{lines}}</strong> líneas para coincidir con el número de hashes de esta lista de hashes.",
+    "tabs": {
+      "associationAttack": "Ataque de asociación",
+      "clientWordlists": "Diccionarios del cliente"
+    },
+    "columns": {
+      "fileName": "Nombre de archivo",
+      "lineCount": "Número de líneas",
+      "fileSize": "Tamaño de archivo",
+      "status": "Estado",
+      "uploaded": "Cargado",
+      "actions": "Acciones"
+    },
+    "status": {
+      "ready": "Listo",
+      "lineCountMismatch": "Incompatibilidad de número de líneas",
+      "lineCountMismatchTooltip": "Se esperaban {{expected}} líneas, se obtuvieron {{actual}}"
+    },
+    "deleteConfirm": {
+      "title": "Eliminar diccionario",
+      "message": "¿Eliminar \"{{fileName}}\"? No se puede deshacer."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Los diccionarios del cliente solo están disponibles para listas de hashes asociadas con un cliente.",
+      "description": "Los diccionarios del cliente están disponibles en todas las listas de hashes de este cliente. Se pueden usar con cualquier modo de ataque, no solo ataques de asociación."
+    },
+    "clientPotfile": {
+      "title": "Potfile del cliente (Generado automáticamente)",
+      "description": "Este potfile contiene todas las contraseñas descifradas para este cliente. Se actualiza automáticamente cuando se descifran hashes.",
+      "passwordCount_many": "{{count}} contraseñas",
+      "passwordCount_one": "{{count}} contraseña",
+      "passwordCount_other": "{{count}} contraseñas",
+      "updated": "Actualizado: {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "Diccionario de asociación eliminado",
+      "clientDeleted": "Diccionario del cliente eliminado",
+      "associationUploaded": "Diccionario de asociación cargado correctamente",
+      "clientUploaded": "Diccionario del cliente cargado correctamente"
+    },
+    "errors": {
+      "deleteFailed": "No se pudo eliminar el diccionario",
+      "uploadFailed": "No se pudo cargar el diccionario",
+      "loadAssociationFailed": "No se pudieron cargar los diccionarios de asociación",
+      "loadClientFailed": "No se pudieron cargar los diccionarios del cliente",
+      "lineCountMismatch": "El diccionario tiene {{wordlistLines}} líneas pero la lista de hashes tiene {{hashlistLines}} hashes válidos."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Cliente",
+    "placeholder": "Selecciona un cliente...",
+    "createNewClient": "Crear nuevo cliente",
+    "newClientDetails": "Detalles del nuevo cliente",
+    "team": "Equipo",
+    "teamHelper": "El nuevo cliente será asignado a este equipo.",
+    "clientName": "Nombre del cliente",
+    "description": "Descripción",
+    "contactInfo": "Información de contacto",
+    "dataRetention": "Retención de datos (meses)",
+    "dataRetentionPlaceholderDefault": "Valor por defecto del sistema: {{months}}",
+    "dataRetentionPlaceholderUnset": "Sin establecer (guardar indefinidamente)",
+    "dataRetentionHelperDefault": "Déjalo vacío para usar el valor por defecto del sistema ({{months}} meses). Establece 0 para guardar siempre.",
+    "dataRetentionHelperUnset": "Déjalo vacío para usar el valor por defecto del sistema. Establece 0 para guardar siempre.",
+    "excludeFromGlobalPotfile": "Excluir del potfile global",
+    "excludeFromGlobalPotfileHelper": "Las contraseñas descifradas de este cliente no se agregarán al potfile global.",
+    "excludeFromClientPotfile": "Excluir del potfile del cliente",
+    "excludeFromClientPotfileHelper": "Las contraseñas descifradas de este cliente no se agregarán a su potfile específico.",
+    "errors": {
+      "fetchFailed": "No se pudieron obtener los clientes"
+    }
+  },
+  "hashesTable": {
+    "title": "Hashes",
+    "subtitle": "{{cracked}} de {{total}} descifrados ({{pct}}%)",
+    "searchPlaceholder": "Buscar hashes...",
+    "ariaLabel": "tabla de hashes de la lista de hashes",
+    "copiedToClipboard": "Copiado al portapapeles",
+    "copyPassword": "Copiar contraseña",
+    "copyHash": "Copiar hash",
+    "loadFailed": "No se pudieron cargar los hashes",
+    "columns": {
+      "originalHash": "Hash original",
+      "username": "Nombre de usuario",
+      "domain": "Dominio",
+      "password": "Contraseña",
+      "status": "Estado"
+    },
+    "status": {
+      "cracked": "Descifrado",
+      "partial": "Parcial",
+      "pending": "Pendiente"
+    }
+  },
+  "validationPreview": {
+    "title": "Validación de hash: revisar líneas mal formadas",
+    "modeFallback": "modo {{id}}",
+    "truncatedNotice": "Se registran las primeras 10.000 líneas inválidas para su revisión; existen líneas inválidas adicionales en el archivo pero no se enumeran aquí.",
+    "hashTypeLabel": "Tipo de hash",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Revalidando…",
+    "revalidateButton": "Revalidar",
+    "cancelAndFix": "Cancelar y corregir",
+    "cancelling": "Cancelando…",
+    "starting": "Iniciando…",
+    "proceedButton": "Continuar con {{validCount}} hashes válidos",
+    "noInvalidLines": "No hay líneas inválidas para mostrar.",
+    "allInvalid": {
+      "body1": "<strong>Ninguna</strong> de las {{totalLines}} líneas en <em>{{hashlistName}}</em> coincide con <strong>{{hashTypeName}}</strong>. La selección del tipo de hash probablemente sea incorrecta.",
+      "body2": "Selecciona el tipo correcto a continuación y haz clic en <strong>Revalidar</strong> — el archivo permanece cargado, así que no necesitas empezar de nuevo."
+    },
+    "notAllInvalid": {
+      "body": "<strong>{{invalidCount}}</strong> de <strong>{{totalLines}}</strong> líneas en <em>{{hashlistName}}</em> no pasaron la validación y se omitirán si continúas. <strong>{{validCount}}</strong> hashes válidos serán importados."
+    },
+    "chooseActionText": "Elige <strong>Continuar solo con válidos</strong> para importar los {{validCount}} hashes válidos (las líneas malas listadas serán ignoradas), o <strong>Cancelar y corregir</strong> para eliminar esta carga para que puedas corregir el archivo fuente e intentar de nuevo.",
+    "columns": {
+      "line": "Línea",
+      "hashTruncated": "Hash (truncado)",
+      "reason": "Razón"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "No se pudieron cargar los hashes inválidos",
+      "proceedFailed": "No se pudo continuar",
+      "cancelFailed": "No se pudo cancelar",
+      "revalidationFailed": "Revalidación fallida"
+    }
   }
 }

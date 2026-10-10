@@ -144,6 +144,9 @@ The frontend uses [react-i18next](https://react.i18next.com/); strings live in
 - You don't need to provide other languages (de, es, …) in your PR — those are translated
   afterward. CodeRabbit posts a non-blocking note when translations look out of date.
 
+- Run `node frontend/scripts/i18n/validate.mjs --allow-missing` before pushing locale changes; CI runs the same
+  check and fails on broken placeholders, markup or plural forms.
+
 See [`docs/contributing/translations.md`](docs/contributing/translations.md) for the full
 translation guide.
 

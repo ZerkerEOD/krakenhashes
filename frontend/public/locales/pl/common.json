@@ -1,0 +1,377 @@
+{
+  "buttons": {
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "delete": "Usuń",
+    "edit": "Edytuj",
+    "create": "Utwórz",
+    "submit": "Wyślij",
+    "close": "Zamknij",
+    "confirm": "Potwierdź",
+    "retry": "Spróbuj ponownie",
+    "refresh": "Odśwież",
+    "download": "Pobierz",
+    "upload": "Prześlij",
+    "copy": "Skopiuj",
+    "search": "Szukaj",
+    "filter": "Filtruj",
+    "clearFilters": "Wyczyść filtry",
+    "loadAll": "Załaduj wszystko",
+    "signIn": "Zaloguj się",
+    "logIn": "Zaloguj się",
+    "logout": "Wyloguj się"
+  },
+  "labels": {
+    "loading": "Ładowanie...",
+    "noData": "Brak dostępnych danych",
+    "error": "Wystąpił błąd",
+    "success": "Sukces",
+    "warning": "Ostrzeżenie",
+    "info": "Informacje",
+    "required": "Wymagane",
+    "optional": "Opcjonalnie",
+    "all": "Wszystkie",
+    "none": "Brak",
+    "yes": "Tak",
+    "no": "Nie",
+    "enabled": "Włączone",
+    "disabled": "Wyłączone",
+    "active": "Aktywne",
+    "inactive": "Nieaktywne",
+    "updating": "Aktualizowanie",
+    "pending": "Oczekujące",
+    "completed": "Ukończone",
+    "failed": "Nie powiodło się",
+    "unknown": "Nieznane"
+  },
+  "pagination": {
+    "rowsPerPage": "Wierszy na stronę",
+    "page": "Strona {{current}} z {{total}}",
+    "showing": "Wyświetlanie {{from}}-{{to}} z {{total}}",
+    "first": "Pierwsza strona",
+    "last": "Ostatnia strona",
+    "next": "Następna strona",
+    "previous": "Poprzednia strona"
+  },
+  "language": {
+    "selectLanguage": "Wybierz język",
+    "currentLanguage": "Bieżący język"
+  },
+  "clipboard": {
+    "copied": "Skopiowano do schowka",
+    "copyFailed": "Nie udało się skopiować do schowka"
+  },
+  "errors": {
+    "networkError": "Błąd sieci. Proszę sprawdzić połączenie.",
+    "serverError": "Błąd serwera. Proszę spróbować ponownie później.",
+    "unknownError": "Wystąpił nieznany błąd",
+    "validationError": "Proszę sprawdzić dane i spróbować ponownie",
+    "permissionDenied": "Odmowa dostępu",
+    "notFound": "Nie znaleziono",
+    "sessionExpired": "Sesja wygasła. Proszę się zalogować ponownie."
+  },
+  "confirmations": {
+    "areYouSure": "Czy na pewno?",
+    "cannotBeUndone": "Tej czynności nie można cofnąć.",
+    "confirmDelete": "Potwierdź usunięcie",
+    "confirmAction": "Potwierdź czynność",
+    "typeToConfirm": "Wpisz {{text}}, aby potwierdzić"
+  },
+  "time": {
+    "justNow": "Właśnie teraz",
+    "minutesAgo_few": "{{count}} minuty temu",
+    "minutesAgo_many": "{{count}} minut temu",
+    "minutesAgo_one": "{{count}} minutę temu",
+    "minutesAgo_other": "{{count}} minut temu",
+    "hoursAgo_few": "{{count}} godziny temu",
+    "hoursAgo_many": "{{count}} godzin temu",
+    "hoursAgo_one": "{{count}} godzinę temu",
+    "hoursAgo_other": "{{count}} godzin temu",
+    "daysAgo_few": "{{count}} dni temu",
+    "daysAgo_many": "{{count}} dni temu",
+    "daysAgo_one": "{{count}} dzień temu",
+    "daysAgo_other": "{{count}} dni temu",
+    "never": "Nigdy"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Przeciągnij i upuść plik tutaj lub kliknij, aby wybrać",
+    "selectFile": "Wybierz plik",
+    "uploading": "Przesyłanie...",
+    "uploadSuccess": "Plik przesłany pomyślnie",
+    "uploadFailed": "Przesyłanie pliku nie powiodło się",
+    "chooseFile": "Wybierz plik",
+    "description": "Opis",
+    "loading": "Ładowanie..."
+  },
+  "binaryVersionSelector": {
+    "label": "Wersja binarna",
+    "helperText": "Wybierz wzorzec wersji binarnej dla tego zadania",
+    "default": "Domyślna",
+    "majorVersion": "Wersja główna (najnowsza dodatkowa)",
+    "minorVersion": "Wersja dodatkowa (najnowsza łatka)",
+    "exactVersion": "Wersja dokładna",
+    "loading": "Ładowanie...",
+    "loadingVersions": "Ładowanie wersji binarnych...",
+    "loadError": "Nie udało się załadować wersji binarnych"
+  },
+  "passwordValidation": {
+    "requirements": "Wymagania dotyczące hasła:",
+    "minLength": "Co najmniej {{length}} znaków",
+    "uppercase": "Co najmniej jedna wielka litera",
+    "lowercase": "Co najmniej jedna mała litera",
+    "number": "Co najmniej jedna cyfra",
+    "specialChar": "Co najmniej jeden znak specjalny"
+  },
+  "footer": {
+    "documentation": "Dokumentacja",
+    "issues": "Problemy",
+    "loading": "Ładowanie...",
+    "release": "Wydanie v{{version}}",
+    "versionUnavailable": "Wersja niedostępna"
+  },
+  "layout": {
+    "logoAlt": "Logo KrakenHashes",
+    "logoAltBranded": "Logo {{appName}}"
+  },
+  "table": {
+    "clearSearch": "Wyczyść wyszukiwanie",
+    "clearSelection": "Wyczyść wybór",
+    "selectedCount": "{{count}} wybranych",
+    "expandRow": "Rozwiń wiersz",
+    "collapseRow": "Zwiń wiersz",
+    "showAll": "Pokaż wszystkie",
+    "showFewer": "Pokaż mniej",
+    "showingOf": "Pokazano {{shown}} z {{total}}",
+    "actions": "Akcje",
+    "noResults": "Brak wyników spełniających zastosowane filtry",
+    "rowsPerPage": "Wierszy na stronę"
+  },
+  "about": {
+    "title": "O aplikacji KrakenHashes",
+    "versionInfo": {
+      "title": "Informacje o wersji",
+      "release": "Wydanie",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Wersja agenta",
+      "api": "Wersja API",
+      "database": "Baza danych",
+      "build": "Kompilacja"
+    },
+    "projectInfo": {
+      "title": "Informacje o projekcie",
+      "description": "KrakenHashes to rozproszony system zarządzania łamaniem haseł, zaprojektowany do koordynowania i zarządzania podzadaniami łamania haseł na wielu agentach.",
+      "license": "To projekt open source, licencjonowany na warunkach GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "Repozytorium GitHub"
+    },
+    "errors": {
+      "fetchFailed": "Nie udało się pobrać informacji o wersji"
+    },
+    "titleBranded": "O aplikacji {{appName}}"
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "To nie jest prawidłowy tekst. Dokładne hasło to {{value}}. Pokazane znaki to przybliżenie (Windows-1252), a nie rzeczywiste hasło.",
+    "copyExact": "Kopiuj dokładną wartość (dla hashcat)",
+    "copyGuess": "Kopiuj przybliżenie (nieprecyzyjne)"
+  },
+  "empty": {
+    "noData": "Nic tu jeszcze nie ma",
+    "noResults": "Brak wyników",
+    "noResultsHint": "Spróbuj dostosować wyszukiwanie lub filtry."
+  },
+  "theme": {
+    "appearance": "Wygląd",
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "Systemowy"
+  },
+  "status": {
+    "job": {
+      "preparing": "Przygotowywanie",
+      "pending": "Oczekujące",
+      "running": "Uruchomione",
+      "paused": "Wstrzymane",
+      "processing": "Przetwarzanie",
+      "completed": "Ukończone",
+      "failed": "Nieudane",
+      "cancelled": "Anulowane",
+      "archived": "Zarchiwizowane"
+    },
+    "task": {
+      "pending": "Oczekujące",
+      "assigned": "Przydzielone",
+      "reconnect_pending": "Ponowne łączenie",
+      "running": "Uruchomione",
+      "processing": "Przetwarzanie",
+      "processing_error": "Błąd przetwarzania",
+      "completed": "Ukończone",
+      "failed": "Nieudane",
+      "cancelled": "Anulowane"
+    },
+    "agent": {
+      "pending": "Oczekujące",
+      "active": "Online",
+      "inactive": "Offline",
+      "error": "Błąd",
+      "disabled": "Wyłączone",
+      "updating": "Aktualizacja",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "hashlist": {
+      "uploading": "Przesyłanie",
+      "processing": "Przetwarzanie",
+      "ready": "Gotowe",
+      "error": "Błąd",
+      "deleting": "Usuwanie",
+      "ready_with_errors": "Gotowe z błędami",
+      "awaiting_validation_decision": "Oczekiwanie na przegląd",
+      "cancelled": "Anulowane"
+    },
+    "verification": {
+      "pending": "Oczekujące",
+      "verified": "Zweryfikowane",
+      "failed": "Nieudane",
+      "deleted": "Usunięte"
+    },
+    "cloud": {
+      "requested": "Żądane",
+      "launching": "Uruchamianie",
+      "provisioning": "Inicjowanie",
+      "syncing": "Synchronizacja",
+      "running": "Uruchomione",
+      "draining": "Opróżnianie",
+      "terminating": "Kończenie",
+      "terminated": "Zakończone",
+      "failed": "Nieudane"
+    },
+    "loopback": {
+      "waiting": "Oczekiwanie",
+      "active": "Aktywne",
+      "completed": "Ukończone",
+      "failed": "Nieudane",
+      "cancelled": "Anulowane"
+    },
+    "audit": {
+      "info": "Informacja",
+      "warning": "Ostrzeżenie",
+      "critical": "Krytyczne"
+    },
+    "diagnostic": {
+      "info": "Informacja",
+      "warning": "Ostrzeżenie",
+      "error": "Błąd"
+    },
+    "sync": {
+      "pending": "Oczekujące",
+      "in_progress": "W trakcie",
+      "completed": "Ukończone",
+      "failed": "Nieudane"
+    },
+    "generic": {
+      "success": "Sukces",
+      "ok": "OK",
+      "healthy": "Zdrowe",
+      "enabled": "Włączone",
+      "active": "Aktywne",
+      "verified": "Zweryfikowane",
+      "warning": "Ostrzeżenie",
+      "degraded": "Zdegradowane",
+      "error": "Błąd",
+      "failed": "Nieudane",
+      "critical": "Krytyczne",
+      "info": "Informacja",
+      "running": "Uruchomione",
+      "pending": "Oczekujące",
+      "queued": "W kolejce",
+      "disabled": "Wyłączone",
+      "inactive": "Nieaktywne",
+      "unknown": "Nieznane"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Niestandardowe zestawy znaków (opcjonalnie - zdefiniuj ?1 do ?4 do użycia w masce)",
+    "hexTooltip": "Po włączeniu definicje zestawów znaków w linii są interpretowane jako pary bajtów szesnastkowych (np. 41424344 = ABCD). Zestawy znaków z plików nie są objęte.",
+    "hexEncodedLabel": "Zestawy znaków kodowane szesnastkowo",
+    "charsetSlotLabel": "Zestaw znaków {{slot}} (-{{slot}})",
+    "fileValue_few": "[Plik: {{name}} — {{count}} bajty]",
+    "fileValue_many": "[Plik: {{name}} — {{count}} bajtów]",
+    "fileValue_one": "[Plik: {{name}} — {{count}} bajt]",
+    "fileValue_other": "[Plik: {{name}} — {{count}} bajtów]",
+    "fileHelperUsed_few": "{{count}} unikalne bajty",
+    "fileHelperUsed_many": "{{count}} unikalnych bajtów",
+    "fileHelperUsed_one": "{{count}} unikalny bajt",
+    "fileHelperUsed_other": "{{count}} unikalnych bajtów",
+    "fileHelperUnused_few": "{{count}} unikalne bajty (nieużyte w masce)",
+    "fileHelperUnused_many": "{{count}} unikalnych bajtów (nieużyte w masce)",
+    "fileHelperUnused_one": "{{count}} unikalny bajt (nieużyty w masce)",
+    "fileHelperUnused_other": "{{count}} unikalnych bajtów (nieużyte w masce)",
+    "placeholderHex": "np. 41424344 (pary bajtów szesnastkowych)",
+    "placeholderPlain": "np. ?u?d lub abcdef0123456789",
+    "inlineHelperBytes_few": "{{count}} bajty",
+    "inlineHelperBytes_many": "{{count}} bajtów",
+    "inlineHelperBytes_one": "{{count}} bajt",
+    "inlineHelperBytes_other": "{{count}} bajtów",
+    "inlineHelperBytesUnused_few": "{{count}} bajty (nieużyte w masce)",
+    "inlineHelperBytesUnused_many": "{{count}} bajtów (nieużyte w masce)",
+    "inlineHelperBytesUnused_one": "{{count}} bajt (nieużyty w masce)",
+    "inlineHelperBytesUnused_other": "{{count}} bajtów (nieużyte w masce)",
+    "inlineHelperChars_few": "{{count}} znaki",
+    "inlineHelperChars_many": "{{count}} znaków",
+    "inlineHelperChars_one": "{{count}} znak",
+    "inlineHelperChars_other": "{{count}} znaków",
+    "inlineHelperCharsUnused_few": "{{count}} znaki (nieużyte w masce)",
+    "inlineHelperCharsUnused_many": "{{count}} znaków (nieużyte w masce)",
+    "inlineHelperCharsUnused_one": "{{count}} znak (nieużyty w masce)",
+    "inlineHelperCharsUnused_other": "{{count}} znaków (nieużyte w masce)",
+    "referencedNotDefined": "Użyty w masce, ale niezdefiniowany",
+    "savedLabel": "Zapisane",
+    "typeLabels": {
+      "file": "Plik",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_few": "{{count}} unikalne bajty",
+    "optionUniqueBytes_many": "{{count}} unikalnych bajtów",
+    "optionUniqueBytes_one": "{{count}} unikalny bajt",
+    "optionUniqueBytes_other": "{{count}} unikalnych bajtów",
+    "optionBytesHex_few": "{{count}} bajty (szesnastkowe)",
+    "optionBytesHex_many": "{{count}} bajtów (szesnastkowych)",
+    "optionBytesHex_one": "{{count}} bajt (szesnastkowy)",
+    "optionBytesHex_other": "{{count}} bajtów (szesnastkowych)",
+    "willEnableHex": " — włączy tryb szesnastkowy",
+    "willDisableHex": " — wyłączy tryb szesnastkowy",
+    "estimatedKeyspace": "Szacunkowa przestrzeń kluczy: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} bajtów",
+    "slotSizeChars": "?{{slot}} = {{size}} znaków"
+  },
+  "teamFilter": {
+    "label": "Zespół",
+    "allTeams": "Wszystkie zespoły",
+    "adminBadge": "Administrator"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Hasło jest wymagane",
+    "currentPasswordLabel": "Bieżące hasło"
+  },
+  "hashDetailModal": {
+    "title": "Szczegóły hasza",
+    "hashValue": "Wartość hasza",
+    "copied": "Skopiowano!",
+    "copyHash": "Skopiuj hasz",
+    "copyPlaintext": "Skopiuj tekst jawny",
+    "originalHash": "Oryginalny hasz (z pliku)",
+    "status": "Stan",
+    "cracked": "Złamany",
+    "notCracked": "Niezłamany",
+    "hashType": "Typ hasza",
+    "typeId": "ID typu: {{id}}",
+    "username": "Nazwa użytkownika",
+    "crackedText": "Złamany tekst",
+    "hashlist": "Lista haszy",
+    "lastUpdated": "Ostatnia aktualizacja",
+    "crackedAt": "Data złamania",
+    "hashCopied": "Hasz skopiowany do schowka",
+    "crackedTextCopied": "Złamany tekst skopiowany do schowka"
+  }
+}

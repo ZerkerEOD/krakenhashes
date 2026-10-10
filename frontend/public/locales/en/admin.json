@@ -46,7 +46,9 @@
     "unknownError": "Unknown error",
     "dialogs": {
       "confirmDeleteNamed": "Are you sure you want to delete \"{{name}}\"?"
-    }
+    },
+    "download": "Download",
+    "confirm": "Confirm"
   },
   "users": {
     "title": "User Management",
@@ -143,7 +145,8 @@
       "accountEnabled": "User account enabled",
       "accountUnlocked": "User account unlocked",
       "sessionTerminated": "Session terminated successfully",
-      "allSessionsTerminated": "Terminated {{count}} session(s) successfully",
+      "allSessionsTerminated_one": "Terminated {{count}} session successfully",
+      "allSessionsTerminated_other": "Terminated {{count}} sessions successfully",
       "apiKeyRevoked": "API key revoked successfully"
     },
     "dialogs": {
@@ -219,7 +222,8 @@
       "activityInformation": "Activity Information",
       "passwordChanged": "Password Changed",
       "failedLoginAttempts": "Failed Login Attempts",
-      "attemptsCount": "{{count}} attempts",
+      "attemptsCount_one": "{{count}} attempt",
+      "attemptsCount_other": "{{count}} attempts",
       "disabledAt": "Disabled At",
       "activeSessions": "Active Sessions",
       "noActiveSessions": "No active sessions",
@@ -237,7 +241,16 @@
         "success": "Success",
         "failed": "Failed",
         "failureReason": "Failure Reason"
-      }
+      },
+      "teams": "Teams",
+      "teamName": "Team",
+      "teamDescription": "Description",
+      "noTeams": "Not a member of any team",
+      "ownedAgents": "Owned Agents",
+      "noOwnedAgents": "This user owns no agents",
+      "agentName": "Agent",
+      "agentVersion": "Version",
+      "agentLastSeen": "Last Seen"
     }
   },
   "clients": {
@@ -250,7 +263,8 @@
       "cracked": "Cracked",
       "retention": "Retention (Months)",
       "createdAt": "Created",
-      "actions": "Actions"
+      "actions": "Actions",
+      "wordlists": "Wordlists"
     },
     "form": {
       "clientName": "Client Name",
@@ -264,11 +278,24 @@
       "cloudInheritUnfunded": "Cloud burst: no default budget is set, so this client starts unfunded and cannot rent paid capacity. Set a default in Cloud Provisioning → Client Budgets.",
       "cloudInheritUnknown": "Cloud burst settings are inherited from the server defaults in Cloud Provisioning → Client Budgets.",
       "cloudEnabledWord": "enabled",
-      "cloudDisabledWord": "disabled"
+      "cloudDisabledWord": "disabled",
+      "excludeFromClientPotfile": "Exclude from client potfile",
+      "excludeFromClientPotfileHelperText": "When checked, cracked passwords for this client are NOT added to their client-specific potfile.",
+      "clientPotfileSettings": "Potfile Deletion Settings",
+      "useSystemDefault": "Use system default",
+      "alwaysRemove": "Always remove",
+      "neverRemove": "Never remove",
+      "assignToTeam": "Assign to Team",
+      "assignToTeamHelperText": "The new client will be assigned to this team. Existing client reassignment is managed via Admin Team Management.",
+      "removeFromGlobalPotfileOnDelete": "Remove from global potfile on delete",
+      "removeFromGlobalPotfileHelperText": "Controls whether passwords are removed from the global potfile when a hashlist is deleted.",
+      "removeFromClientPotfileOnDelete": "Remove from client potfile on delete",
+      "removeFromClientPotfileHelperText": "Controls whether passwords are removed from the client potfile when a hashlist is deleted."
     },
     "validation": {
       "nameRequired": "Client Name is required.",
-      "retentionInvalid": "Retention Period must be a non-negative number or empty (for default)."
+      "retentionInvalid": "Retention Period must be a non-negative number or empty (for default).",
+      "teamRequired": "Team selection is required when teams are enabled"
     },
     "errors": {
       "loadFailed": "Failed to load clients. Please try refreshing.",
@@ -292,6 +319,61 @@
       "deleteClient": {
         "title": "Confirm Deletion",
         "confirmation": "Are you sure you want to delete the client \"{{name}}\"? This action cannot be undone. Associated hashlists may be deleted immediately or orphaned based on retention policies."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Name",
+        "status": "Status",
+        "total": "Hashes",
+        "cracked": "Cracked",
+        "created": "Created"
+      },
+      "notFound": "Client not found",
+      "notFoundHint": "It may have been deleted, or it belongs to a team you are not a member of.",
+      "backToClients": "Back to clients",
+      "breadcrumb": "Clients",
+      "manageWordlists": "Wordlists & potfile",
+      "stats": {
+        "hashlists": "Hashlists",
+        "cracked": "Cracked",
+        "jobs": "Jobs",
+        "active": "{{count}} active",
+        "wordlists": "Wordlists",
+        "hasPotfile": "Client potfile present"
+      },
+      "hashlists": "Hashlists",
+      "noHashlists": "No hashlists for this client yet",
+      "jobs": "Jobs",
+      "noJobs": "No jobs have run for this client",
+      "teams": "Teams",
+      "noTeams": "Not assigned to any team",
+      "policy": "Retention & potfile",
+      "retention": "Data retention",
+      "retentionDefault": "System default",
+      "retentionForever": "Keep forever",
+      "retentionMonths_one": "{{count}} month",
+      "retentionMonths_other": "{{count}} months",
+      "globalPotfile": "Global potfile",
+      "excluded": "Excluded",
+      "included": "Included",
+      "clientPotfile": "Client potfile",
+      "contact": "Contact",
+      "lastActivity": "Last activity"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Assign Clients to Team",
+      "dialogDescription_one": "Assign {{count}} selected client to a team. Clients already in the selected team will be skipped.",
+      "dialogDescription_other": "Assign {{count}} selected clients to a team. Clients already in the selected team will be skipped.",
+      "selectTeam": "Select Team",
+      "assignButton": "Assign",
+      "fallbackTeamName": "team",
+      "success_one": "Assigned {{count}} client to {{team}}",
+      "success_other": "Assigned {{count}} clients to {{team}}",
+      "successWithSkipped_one": "Assigned {{count}} client to {{team}} ({{skipped}} already assigned)",
+      "successWithSkipped_other": "Assigned {{count}} clients to {{team}} ({{skipped}} already assigned)",
+      "errors": {
+        "assignFailed": "Failed to assign clients to team"
       }
     }
   },
@@ -377,10 +459,14 @@
         "confirmation": "Are you sure you want to delete wordlist \"{{name}}\"? This action cannot be undone.",
         "cascadeWarning": "Deleting wordlist \"{{name}}\" will also delete the following:",
         "checkingDependencies": "Checking for dependencies...",
-        "jobsCount": "{{count}} Job(s) (pending/running/failed):",
-        "presetJobsCount": "{{count}} Preset Job(s):",
-        "workflowStepsCount": "{{count}} Workflow Step(s):",
-        "emptyWorkflowsCount": "{{count}} Empty Workflow(s) will be deleted:",
+        "jobsCount_one": "{{count}} Job (pending/running/failed):",
+        "jobsCount_other": "{{count}} Jobs (pending/running/failed):",
+        "presetJobsCount_one": "{{count}} Preset Job:",
+        "presetJobsCount_other": "{{count}} Preset Jobs:",
+        "workflowStepsCount_one": "{{count}} Workflow Step:",
+        "workflowStepsCount_other": "{{count}} Workflow Steps:",
+        "emptyWorkflowsCount_one": "{{count}} Empty Workflow will be deleted:",
+        "emptyWorkflowsCount_other": "{{count}} Empty Workflows will be deleted:",
         "noHashlist": "No hashlist",
         "step": "Step {{order}}",
         "andMore": "...and {{count}} more",
@@ -388,6 +474,59 @@
         "confirmationPlaceholder": "Type {{id}} to confirm",
         "idMismatch": "ID does not match",
         "deleteAll": "Delete All"
+      }
+    },
+    "filterForm": {
+      "helpText": "All criteria are combined (AND) — a word must satisfy every one you set. If your regex is stricter than the length fields (e.g. min length 8 but regex requires 12+), the stricter rule wins. The estimate below reflects the combined result.",
+      "minLength": "Min length",
+      "maxLength": "Max length",
+      "requiredClasses": "Required character classes",
+      "uppercase": "Uppercase",
+      "lowercase": "Lowercase",
+      "digit": "Digit",
+      "special": "Special",
+      "minClasses": "Min # of classes (1-4)",
+      "minClassesHelp": "e.g. 3 = at least 3 of the 4 classes",
+      "regexLabel": "Regex (RE2)",
+      "regexHelperDefault": "e.g. ^.{10,16}$",
+      "regexLookaroundError": "Lookarounds ((?=…), (?!…), (?<=…), (?<!…)) are not supported by the backend regex engine (RE2). Use length/class filters instead.",
+      "regexInvalidDefault": "Invalid regular expression",
+      "estimating": "Estimating…",
+      "previewTooltip": "Estimated by sampling the start of the source wordlist. For sorted lists the true total may differ.",
+      "previewLabel": "~{{countDisplay}} candidates ({{rateDisplay}}% of sample)",
+      "previewUnavailable": "Preview unavailable"
+    },
+    "filtered": {
+      "badge": "Filtered",
+      "regeneratingBadge": "Regenerating…",
+      "regeneratingTooltip": "The parent changed; this filtered wordlist is regenerating (only the new entries are re-filtered when possible).",
+      "staleBadge": "Stale",
+      "staleTooltip": "Parent wordlist changed since this was generated. Filtered wordlists regenerate automatically when their parent changes; you can also regenerate now.",
+      "namePlaceholder": "{{name}} (filtered)",
+      "wordCount_one": "{{count}} word",
+      "wordCount_other": "{{count}} words",
+      "plaintextChip": "plaintext",
+      "compressedChip": "compressed",
+      "messages": {
+        "generating": "Filtered wordlist is being generated",
+        "createFailed": "Failed to create filtered wordlist",
+        "regenerating": "Started full regeneration of filtered wordlist",
+        "regenerateFailed": "Failed to regenerate filtered wordlist"
+      },
+      "createDialog": {
+        "title": "Create Filtered Wordlist",
+        "description": "Generate a new wordlist containing only the lines of a source wordlist that match your criteria. The result is reusable across jobs and is tracked against its parent.",
+        "sourceWordlistLabel": "Source wordlist",
+        "nameLabel": "Name",
+        "create": "Create"
+      },
+      "regenerateDialog": {
+        "title": "Regenerate filtered wordlist?",
+        "autoInfo": "Filtered wordlists are normally regenerated <strong>automatically on the backend</strong> whenever their parent wordlist changes — you don't need to do this by hand.",
+        "manualHint": "Only regenerate manually if you know the <strong>order of words in the parent changed</strong> (words were edited, removed, or reordered rather than simply appended to the end).",
+        "warningWithExample": "This runs a <strong>full regeneration</strong> — the entire parent is re-filtered, which can take a while for large wordlists (e.g. “{{name}}”).",
+        "warningNoExample": "This runs a <strong>full regeneration</strong> — the entire parent is re-filtered, which can take a while for large wordlists.",
+        "confirmButton": "Regenerate fully"
       }
     }
   },
@@ -470,10 +609,14 @@
         "confirmation": "Are you sure you want to delete rule \"{{name}}\"? This action cannot be undone.",
         "cascadeWarning": "Deleting rule \"{{name}}\" will also delete the following:",
         "checkingDependencies": "Checking for dependencies...",
-        "jobsCount": "{{count}} Job(s) (pending/running/failed):",
-        "presetJobsCount": "{{count}} Preset Job(s):",
-        "workflowStepsCount": "{{count}} Workflow Step(s):",
-        "emptyWorkflowsCount": "{{count}} Empty Workflow(s) will be deleted:",
+        "jobsCount_one": "{{count}} Job (pending/running/failed):",
+        "jobsCount_other": "{{count}} Jobs (pending/running/failed):",
+        "presetJobsCount_one": "{{count}} Preset Job:",
+        "presetJobsCount_other": "{{count}} Preset Jobs:",
+        "workflowStepsCount_one": "{{count}} Workflow Step:",
+        "workflowStepsCount_other": "{{count}} Workflow Steps:",
+        "emptyWorkflowsCount_one": "{{count}} Empty Workflow will be deleted:",
+        "emptyWorkflowsCount_other": "{{count}} Empty Workflows will be deleted:",
         "noHashlist": "No hashlist",
         "step": "Step {{order}}",
         "andMore": "...and {{count}} more",
@@ -568,7 +711,8 @@
         "maxAgents": "Maximum number of agents (0 = unlimited)",
         "allowHighPriorityOverride": "When enabled, this job can interrupt lower priority running jobs to take their agents",
         "wordlistsNotUsed": "Wordlists not used for this attack mode",
-        "selectWordlists": "Select exactly {{count}} wordlist(s)",
+        "selectWordlists_one": "Select exactly {{count}} wordlist",
+        "selectWordlists_other": "Select exactly {{count}} wordlists",
         "rulesNotUsed": "Rules not used for this attack mode",
         "selectRule": "Optionally select a rule file to apply transformations",
         "firstWordlist": "Words from this list will be used as the first part",
@@ -576,7 +720,8 @@
         "additionalArgs": "Extra hashcat flags for this job. Agent-level flags take priority on conflicts.",
         "cloudBurstEnabled": "Rent GPU instances for jobs created from this preset when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.",
         "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
-        "cloudAllowCommunityHosts": "These are someone else's machines. The host's owner has root over the container, so this client's hashes, wordlists and cracked plaintexts are readable by a third party and are not encrypted at rest on the host. Not recommended for production or client engagement data. Leave this off and jobs will still use secure capacity (AWS, RunPod Secure Cloud) if the client allows it."
+        "cloudAllowCommunityHosts": "These are someone else's machines. The host's owner has root over the container, so this client's hashes, wordlists and cracked plaintexts are readable by a third party and are not encrypted at rest on the host. Not recommended for production or client engagement data. Leave this off and jobs will still use secure capacity (AWS, RunPod Secure Cloud) if the client allows it.",
+        "prefilteredWordlistHint": "To use a pre-filtered wordlist in a preset job, create it first in Wordlist Management — it will then appear in this list. Inline ephemeral filtering is available only on one-off custom jobs."
       },
       "errors": {
         "nameRequired": "Job name is required",
@@ -596,6 +741,50 @@
       "messages": {
         "createSuccess": "Preset job created successfully",
         "updateSuccess": "Preset job updated successfully"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Straight",
+          "description": "Uses words from a wordlist, optionally applying a rule to transform them",
+          "wordlistRequirement": "Exactly 1 wordlist required",
+          "rulesRequirement": "0 or 1 rule file",
+          "maskRequirement": "No mask needed"
+        },
+        "combination": {
+          "name": "Combination",
+          "description": "Combines words from two wordlists (first_word + second_word)",
+          "wordlistRequirement": "Exactly 2 wordlists required",
+          "rulesRequirement": "No rules needed",
+          "maskRequirement": "No mask needed"
+        },
+        "bruteForce": {
+          "name": "Brute Force (Mask)",
+          "description": "Generates passwords based on a pattern/mask",
+          "wordlistRequirement": "No wordlist needed",
+          "rulesRequirement": "No rules needed",
+          "maskRequirement": "Mask required (e.g., ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Hybrid: Wordlist + Mask",
+          "description": "Appends mask-generated characters to words from a wordlist",
+          "wordlistRequirement": "Exactly 1 wordlist required",
+          "rulesRequirement": "No rules needed",
+          "maskRequirement": "Mask required (e.g., ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Hybrid: Mask + Wordlist",
+          "description": "Prepends mask-generated characters to words from a wordlist",
+          "wordlistRequirement": "Exactly 1 wordlist required",
+          "rulesRequirement": "No rules needed",
+          "maskRequirement": "Mask required (e.g., ?d?d?d?d)"
+        },
+        "association": {
+          "name": "Association (Not Implemented)",
+          "description": "This attack mode is not currently implemented",
+          "wordlistRequirement": "N/A",
+          "rulesRequirement": "N/A",
+          "maskRequirement": "N/A"
+        }
       }
     }
   },
@@ -608,7 +797,8 @@
     "canInterrupt": "Can Interrupt",
     "normal": "Normal",
     "loopbackAllEligible": "All eligible",
-    "loopbackStepCount": "{{count}} step(s)",
+    "loopbackStepCount_one": "{{count}} step",
+    "loopbackStepCount_other": "{{count}} steps",
     "columns": {
       "name": "Name",
       "description": "Description",
@@ -633,8 +823,10 @@
       "noJobsAdded": "No jobs added to this workflow yet. Search and add preset jobs above.",
       "priority": "Priority: {{priority}}",
       "binary": "Binary: {{name}}",
-      "wordlistCount": "{{count}} wordlist(s)",
-      "ruleCount": "{{count}} rule(s)",
+      "wordlistCount_one": "{{count}} wordlist",
+      "wordlistCount_other": "{{count}} wordlists",
+      "ruleCount_one": "{{count}} rule",
+      "ruleCount_other": "{{count}} rules",
       "loopback": {
         "masterToggle": "Enable loopback for all eligible steps",
         "masterHelperText": "When on, the whole workflow runs, then every eligible step (straight + rules, or a hybrid wordlist ± mask attack) re-runs against only the newly-cracked passwords — repeating intelligently until no new cracks are found. Non-mutating steps (wordlist-only, brute-force, association) still feed their new cracks into the loop. The per-step toggles below are disabled while this is on.",
@@ -701,11 +893,35 @@
       "cannotDeleteLast": "Cannot delete the last active {{type}} binary",
       "cannotDeleteOnly": "Cannot delete the only binary of this type",
       "setDefaultSuccess": "Default binary updated successfully",
-      "setDefaultFailed": "Failed to set default binary"
+      "setDefaultFailed": "Failed to set default binary",
+      "addSuccess": "Binary added successfully",
+      "addFailed": "Failed to add binary"
     },
     "deleteDialog": {
       "title": "Confirm Delete",
       "message": "Are you sure you want to delete the binary \"{{fileName}}\"? This action cannot be undone."
+    },
+    "form": {
+      "addDialogTitle": "Add New Binary",
+      "sourceLabel": "Source",
+      "downloadFromUrl": "Download from URL",
+      "uploadFile": "Upload File",
+      "binaryTypeLabel": "Binary Type",
+      "johnPending": "John the Ripper (support pending)",
+      "compressionTypeLabel": "Compression Type",
+      "sourceUrlLabel": "Source URL",
+      "sourceUrlHelp": "URL to download the binary (e.g., https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Select Archive File",
+      "uploadHelp": "Upload a .7z, .zip, .tar.gz, or .tar.xz archive containing the binary",
+      "fileNameLabel": "File Name",
+      "fileNameHelp": "Auto-filled from URL/file, but can be modified if needed",
+      "versionLabel": "Version",
+      "versionHelp": "Auto-detected from filename. Override for custom builds.",
+      "descriptionLabel": "Description",
+      "descriptionHelp": "Optional notes about this binary (e.g., custom build details)",
+      "setAsDefault": "Set as default binary",
+      "selectFileRequired": "Please select a file to upload",
+      "uploadBinarySubmit": "Upload Binary"
     }
   },
   "diagnostics": {
@@ -859,7 +1075,8 @@
       "maxCodeAttempts": "Max Code Attempts",
       "maxCodeAttemptsHelper": "Maximum failed code attempts before lockout",
       "backupCodesCount": "Backup Codes Count",
-      "backupCodesCountHelper": "Number of backup codes to generate"
+      "backupCodesCountHelper": "Number of backup codes to generate",
+      "requireMfaHelper": "Every user must complete MFA on sign-in. Requires a configured email provider so codes can be delivered."
     },
     "webauthn": {
       "title": "WebAuthn / Passkey Configuration",
@@ -894,6 +1111,12 @@
     "messages": {
       "updateSuccess": "Authentication settings updated successfully",
       "updateFailed": "Failed to update authentication settings"
+    },
+    "teams": {
+      "title": "Multi-team isolation",
+      "description": "When enabled, clients, hashlists, jobs and agents are scoped to teams and users only see what their teams own.",
+      "enable": "Enable teams",
+      "enableHelper": "Existing data is placed in the Default Team."
     }
   },
   "ssoSettings": {
@@ -1112,13 +1335,25 @@
         "securityEvent": "Security Event",
         "jobCompletion": "Job Completion",
         "adminError": "Admin Error",
-        "mfaCode": "MFA Code"
+        "mfaCode": "MFA Code",
+        "securityPasswordChanged": "Password Changed",
+        "securityMfaDisabled": "MFA Disabled",
+        "securitySuspiciousLogin": "Suspicious Login",
+        "jobStarted": "Job Started",
+        "jobFailed": "Job Failed",
+        "firstCrack": "First Crack",
+        "taskCompleted": "Task Completed",
+        "agentOffline": "Agent Offline",
+        "agentError": "Agent Error",
+        "webhookFailure": "Webhook Failure"
       },
       "buttons": {
         "create": "Create Template",
         "cancel": "Cancel",
         "test": "Test",
-        "save": "Save"
+        "save": "Save",
+        "edit": "Edit",
+        "delete": "Delete"
       },
       "table": {
         "name": "Name",
@@ -1137,7 +1372,8 @@
         "deleteSuccess": "Template deleted successfully",
         "deleteFailed": "Failed to delete template",
         "testSuccess": "Test email sent successfully",
-        "testFailed": "Failed to send test email"
+        "testFailed": "Failed to send test email",
+        "saveFailed": "Failed to save template"
       }
     }
   },
@@ -1399,7 +1635,14 @@
       "agentScheduling": "Enable agent scheduling",
       "agentSchedulingHelper": "Globally enables per-agent working-hours schedules. With this off, agent schedules are ignored.",
       "jobInterruption": "Allow job interruption",
-      "jobInterruptionHelper": "Global gate for preemption. A job must ALSO have its own high-priority override flag and a non-zero priority before anything is interrupted."
+      "jobInterruptionHelper": "Global gate for preemption. A job must ALSO have its own high-priority override flag and a non-zero priority before anything is interrupted.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Round robin",
+        "enforceMaxAgents": "Enforce max agents",
+        "maxAgentsFifo": "Max agents, then FIFO",
+        "maxAgentsRoundRobin": "Max agents, then round robin"
+      }
     },
     "taskHealth": {
       "title": "Task Health",
@@ -1520,7 +1763,8 @@
     "description": "Manage supported hash types for password cracking operations",
     "addHashType": "Add Hash Type",
     "searchPlaceholder": "Search hash types...",
-    "hashTypesFound": "{{count}} hash types found",
+    "hashTypesFound_one": "{{count}} hash type found",
+    "hashTypesFound_other": "{{count}} hash types found",
     "table": {
       "id": "ID",
       "name": "Name",
@@ -1786,10 +2030,12 @@
         "colSubnet": "Subnet",
         "notOffered": "EC2 does not offer this instance type in this zone. This is definitive — a launch here would fail with Unsupported.",
         "unusable": "This placement cannot be launched into. See the note beside its name.",
-        "freeIps": "{{count}} free IPs",
+        "freeIps_one": "{{count}} free IP",
+        "freeIps_other": "{{count}} free IPs",
         "scoreHelp": "AWS's own 1-10 ranking for THIS card in THIS zone, and weak evidence: every zone in this region scored 1/10 on this account minutes before a launch in one of them succeeded first try. It decides which pool is tried first. It never removes a pool from the list. Compare it with the all-types score beside the zone name.",
         "spotVsConfigured": "Spot is quoting {{spot}}/hr here; your configured rate for this type is {{configured}}/hr. Reservations use the CONFIGURED figure, so pricing below the live rate under-reserves against a budget cap you were told was hard.",
-        "poolCount": "{{count}} capacity pools selected",
+        "poolCount_one": "{{count}} capacity pool selected",
+        "poolCount_other": "{{count}} capacity pools selected",
         "poolCountWarning": "One pool is one chance. When it is exhausted the launch retry loop has nowhere else to go and provisioning simply stops until capacity returns. Tick more zones, more instance types, or both.",
         "poolCountOk": "A capacity refusal in one pool falls through to the next, in likeliest-first order.",
         "legacyOverridden": "Zones are configured, so the single Subnet ID above ({{subnet}}) is ignored. It stays as the fallback if every zone is unticked.",
@@ -1897,13 +2143,17 @@
         "saveFailed": "Failed to save defaults",
         "fundedButDisabled": "A default budget is set but cloud burst is off by default, so no inheriting client can provision anything. Tick the box above to make the budget usable.",
         "enabledWithoutProviders": "Cloud burst is on by default but no default providers are selected, so inheriting clients still cannot rent anything. Choose at least one provider above.",
-        "willEnableTitle": "This will let {{count}} client(s) rent paid capacity",
+        "willEnableTitle_one": "This will let {{count}} client rent paid capacity",
+        "willEnableTitle_other": "This will let {{count}} clients rent paid capacity",
         "willEnableBody": "These clients have no settings of their own, so they follow the defaults above. Saving lets each of them provision cloud instances and spend against this budget. To keep a client out, set its own Cloud burst to Disabled.",
         "andMore": "+{{count}} more",
-        "confirmTitle": "Enable cloud spending for {{count}} client(s)?",
-        "confirmBody": "{{count}} client(s) currently cannot rent anything. Saving these defaults gives each of them a {{amount}} ceiling per {{period}} and permission to spend it. The budget is per client, not shared, so this is the total exposure multiplied by the number of clients listed.",
+        "confirmTitle_one": "Enable cloud spending for {{count}} client?",
+        "confirmTitle_other": "Enable cloud spending for {{count}} clients?",
+        "confirmBody_one": "{{count}} client currently cannot rent anything. Saving these defaults gives it a {{amount}} ceiling per {{period}} and permission to spend it. The budget is per client, not shared, so this is the total exposure multiplied by the number of clients listed.",
+        "confirmBody_other": "{{count}} clients currently cannot rent anything. Saving these defaults gives each of them a {{amount}} ceiling per {{period}} and permission to spend it. The budget is per client, not shared, so this is the total exposure multiplied by the number of clients listed.",
         "confirmAlternative": "Prefer to opt in one at a time? Cancel, leave cloud burst off by default, and set Cloud burst and a budget on each client individually instead.",
-        "confirmAccept": "Enable {{count}} client(s)"
+        "confirmAccept_one": "Enable {{count}} client",
+        "confirmAccept_other": "Enable {{count}} clients"
       },
       "periods": {
         "monthly": "month",
@@ -1950,7 +2200,8 @@
       "description": "Every rented instance that may still be costing money.",
       "loadFailed": "Failed to load the fleet",
       "empty": "No instances are running. Nothing is being billed.",
-      "summary": "{{count}} live instance(s), {{hourly}}/hr, {{reserved}} committed.",
+      "summary_one": "{{count}} live instance, {{hourly}}/hr, {{reserved}} committed.",
+      "summary_other": "{{count}} live instances, {{hourly}}/hr, {{reserved}} committed.",
       "destroy": "Destroy",
       "destroyed": "Instance destroyed",
       "destroyFailed": "The provider refused to destroy this instance — it is still billing",
@@ -1958,7 +2209,8 @@
       "destroyBody": "Destroy \"{{label}}\" now? Billing stops as soon as the provider confirms.",
       "destroyJobWarning": "This instance is working a job. Its in-flight chunk is lost and will be re-dispatched elsewhere.",
       "teardownFailingTitle": "Teardown is failing",
-      "teardownFailingBody": "{{count}} instance(s) could not be destroyed and are still accruing cost. Check the provider console.",
+      "teardownFailingBody_one": "{{count}} instance could not be destroyed and is still accruing cost. Check the provider console.",
+      "teardownFailingBody_other": "{{count}} instances could not be destroyed and are still accruing cost. Check the provider console.",
       "teardownFailingTooltip": "Teardown failed; this instance is still billing",
       "estimated": "est.",
       "estimatedTooltip": "Estimated from elapsed time and rate; the provider's own figure lands later.",
@@ -1984,9 +2236,12 @@
         "spend": "Spend",
         "ttl": "TTL left",
         "disk": "Disk",
-        "actions": "Actions"
+        "actions": "Actions",
+        "agent": "Agent",
+        "job": "Job"
       },
-      "experimentalRunningTitle": "{{count}} instance(s) running on an experimental provider",
+      "experimentalRunningTitle_one": "{{count}} instance running on an experimental provider",
+      "experimentalRunningTitle_other": "{{count}} instances running on an experimental provider",
       "experimentalRunningBody": "{{providers}} has not been proven end to end with real money. Watch these instances reach 'terminated' rather than assuming they will: the teardown path is the least tested part of any new adapter, and an instance that never releases bills until you destroy it here. Please report what you see.",
       "experimentalTooltip": "{{provider}} is an experimental provider — not yet tested. Expect bugs; confirm this instance actually releases when its job finishes."
     },
@@ -2075,7 +2330,8 @@
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
       "save": "Save changes",
       "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)",
+      "unsaved_one": "{{count}} unsaved change",
+      "unsaved_other": "{{count}} unsaved changes",
       "eligibility": "Cloud-only deployments",
       "eligibilityHelp": "Whether jobs are considered for renting at all. Everything above bounds what may be spent; this decides whether anything is."
     }
@@ -2097,11 +2353,13 @@
       "serial": "Serial",
       "covers": "This certificate is valid for",
       "coversNothing": "This certificate lists no addresses at all. No agent can connect.",
-      "daysRemaining": "{{count}} days left",
+      "daysRemaining_one": "{{count}} day left",
+      "daysRemaining_other": "{{count}} days left",
       "caSubject": "Certificate authority",
       "caExpires": "CA expires",
       "caFingerprint": "CA fingerprint (SHA-256)",
-      "pending": "{{count}} address(es) have been saved but are not in the certificate yet. Click Apply & Reissue.",
+      "pending_one": "{{count}} address has been saved but is not in the certificate yet. Click Apply & Reissue.",
+      "pending_other": "{{count}} addresses have been saved but are not in the certificate yet. Click Apply & Reissue.",
       "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES or KH_ADDITIONAL_DNS_NAMES is still set in the environment. It is no longer read — these settings replace it. Remove the variable to avoid confusion."
     },
     "sans": {
@@ -2188,7 +2446,8 @@
       "action": "Rotate CA"
     },
     "banner": {
-      "title": "{{count}} agent(s) cannot verify this server's certificate",
+      "title_one": "{{count}} agent cannot verify this server's certificate",
+      "title_other": "{{count}} agents cannot verify this server's certificate",
       "body": "{{agents}} is connecting to {{address}}, which is not listed in the server certificate. It will keep retrying and cannot come online until the certificate is reissued.",
       "anAgent": "An agent",
       "action": "Fix in Server Certificate settings"
@@ -2226,6 +2485,660 @@
       "removeFailed": "Failed to remove image",
       "invalidHex": "Enter a hex colour like #1e88e5",
       "tooLarge": "File is too large (max {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Settings sections",
+    "groups": {
+      "general": "General",
+      "security": "Security",
+      "jobs": "Jobs",
+      "agents": "Agents",
+      "integrations": "Integrations",
+      "cloud": "Cloud"
+    },
+    "sections": {
+      "branding": "Branding",
+      "brandingDesc": "Application name, colours, logo and favicon.",
+      "data": "Data",
+      "dataDesc": "Retention defaults and hashlist ingestion.",
+      "storage": "Storage",
+      "storageDesc": "Network share storage for wordlists and rules.",
+      "certificate": "Certificate",
+      "certificateDesc": "Server certificate names and addresses.",
+      "authentication": "Authentication",
+      "authenticationDesc": "Password policy, lockout and sessions.",
+      "mfa": "Multi-factor",
+      "mfaDesc": "MFA policy and passkey relying party.",
+      "sso": "Single sign-on",
+      "ssoDesc": "Identity providers and provisioning.",
+      "access": "Access model",
+      "accessDesc": "Multi-team isolation.",
+      "execution": "Execution",
+      "executionDesc": "Chunking, keyspace and benchmarks.",
+      "scheduling": "Scheduling",
+      "schedulingDesc": "Agent allocation and job priority.",
+      "potfile": "Potfile & loopback",
+      "potfileDesc": "Potfile behaviour and loopback rounds.",
+      "health": "Health",
+      "healthDesc": "Heartbeats, grace periods and the offline buffer.",
+      "downloads": "Downloads",
+      "downloadsDesc": "How agents fetch files from the server.",
+      "updates": "Updates",
+      "updatesDesc": "Automatic agent binary updates.",
+      "monitoring": "Monitoring",
+      "monitoringDesc": "Metrics retention and aggregation.",
+      "email": "Email",
+      "emailDesc": "Provider configuration and templates.",
+      "webhooks": "Webhooks",
+      "webhooksDesc": "Global webhook and user webhooks.",
+      "notifications": "Notifications",
+      "notificationsDesc": "Which job events notify.",
+      "providers": "Providers",
+      "providersDesc": "Cloud GPU provider credentials.",
+      "budgets": "Client budgets",
+      "budgetsDesc": "Per-client monthly caps.",
+      "policy": "Threshold policy",
+      "policyDesc": "Spend threshold ladder.",
+      "rules": "Provisioning rules",
+      "rulesDesc": "When the autoscaler may spend.",
+      "limits": "Limits",
+      "limitsDesc": "System-wide ceilings and timings."
+    }
+  },
+  "hub": {
+    "pageDescription": "Everything that configures this server, grouped by what it affects. Fields save as you leave them unless the section says otherwise.",
+    "navLabel": "Overview",
+    "attentionTitle": "Needs attention",
+    "attentionSubtitle": "Problems that affect how the server operates.",
+    "allGood": "Everything looks good",
+    "allGoodHint": "No configuration problems were detected.",
+    "loadFailed": "Could not load the settings status.",
+    "overviewTitle": "Status",
+    "attentionCount": "{{count}} to review",
+    "browseTitle": "All settings",
+    "loading": "Checking…",
+    "cards": {
+      "email": "Email",
+      "certificate": "Certificate",
+      "sso": "Single sign-on",
+      "binaries": "Binaries",
+      "cloud": "Cloud",
+      "storage": "Storage",
+      "webhook": "Global webhook"
+    },
+    "detail": {
+      "emailConfigured": "Configured ({{provider}})",
+      "emailNotConfigured": "No provider configured",
+      "certUnmanaged": "Managed outside KrakenHashes ({{mode}})",
+      "certDays": "{{days}} days remaining",
+      "certPending": "Not issued yet",
+      "ssoProviders_one": "{{count}} provider enabled",
+      "ssoProviders_other": "{{count}} providers enabled",
+      "binaries": "{{verified}} of {{total}} verified",
+      "cloudNoProviders": "No providers configured",
+      "cloudCap": "{{providers}} provider(s), monthly cap {{cap}}",
+      "storageLocal": "Local storage",
+      "storageReachable": "Share mounted and reachable",
+      "storageUnreachable": "Share not reachable",
+      "webhookOff": "Disabled",
+      "webhookOn": "Enabled",
+      "webhookNoUrl": "Enabled without a URL"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "Status could not be checked",
+      "emailNotConfigured": "Email is not configured; MFA codes and notifications cannot be sent.",
+      "certExpiring": "The server certificate expires in {{days}} days.",
+      "ssoEphemeralKey": "SSO is using an ephemeral signing key; sessions will not survive a restart.",
+      "noVerifiedBinary": "No verified hashcat binary is available; jobs cannot run.",
+      "cloudCapZero": "Cloud providers are configured but the monthly cap is 0, so nothing will be provisioned.",
+      "shareUnreachable": "The network share is enabled but not reachable.",
+      "migration": "A storage migration is {{state}}.",
+      "webhookNoUrl": "The global webhook is enabled but has no URL."
+    },
+    "severity": {
+      "default": "Info",
+      "success": "OK",
+      "warning": "Warning",
+      "error": "Error"
+    }
+  },
+  "fieldState": {
+    "saving": "Saving…",
+    "saved": "Saved",
+    "error": "Not saved",
+    "minSelected": "Select at least {{count}}",
+    "autosaveHint": "Saves automatically",
+    "autosaveHintLong": "Each field saves on its own as soon as you leave it.",
+    "applyHint": "Requires Apply",
+    "applyHintLong": "Changes here take effect only after you apply them."
+  },
+  "unsaved": {
+    "title": "Unsaved changes",
+    "body": "You have changes that have not been applied. Leave this page and discard them?",
+    "stay": "Stay",
+    "leave": "Leave"
+  },
+  "agentAutoUpdate": {
+    "title": "Automatic updates",
+    "description": "Let the server push new agent binaries to connected agents.",
+    "enable": "Enable automatic agent updates",
+    "maxConcurrent": "Concurrent updates",
+    "maxConcurrentHelper": "How many agents may update at the same time.",
+    "maxAttempts": "Attempts per agent",
+    "maxAttemptsHelper": "Give up on an agent after this many failed updates.",
+    "healthTimeout": "Health timeout",
+    "healthTimeoutHelper": "How long to wait for an updated agent to reconnect before marking the update failed.",
+    "applyNote": "Agents pick these values up on their next check-in."
+  },
+  "networkShare": {
+    "intro": "Store wordlists and rules on a network share so the server doesn't need a large local disk. The operator mounts the share on the server host (via docker-compose, as <code>KH_SHARE_DIR</code>) and on any network-direct agent host; KrakenHashes only reads the mounted path — it never connects to the share itself or stores its credentials. Cloud GPU agents don't mount the share: they download wordlists/rules from the server over the VPN.",
+    "migrationLocked": "A migration is in progress ({{state}}). Configuration is locked until it completes.",
+    "server": {
+      "title": "Server storage mount",
+      "description": "The server reads wordlists and rules from this operator-mounted path (set in docker-compose as <code>KH_SHARE_DIR</code>). KrakenHashes does not connect to the share itself — mounting is the operator's responsibility.",
+      "mountedPath": "Mounted path (read-only)",
+      "shareDirNotSet": "KH_SHARE_DIR not set — mount the share in docker-compose",
+      "servingFromShare": "Serving from: network share",
+      "servingFromLocal": "Serving from: local disk",
+      "shareReachable": "Share reachable",
+      "shareNotMounted": "Share not mounted",
+      "migrationChip": "Migration: {{state}}",
+      "lastValidated": "Last validated {{date}}",
+      "enable": "Enable network share",
+      "saving": "Saving…",
+      "save": "Save configuration",
+      "validating": "Validating…",
+      "validate": "Validate server mount",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "Mount path: <code>{{path}}</code>",
+      "unset": "(unset)",
+      "yes": "yes",
+      "no": "no",
+      "summary": "Mounted: {{mounted}} · Writable: {{writable}} · Free: {{free}} · Write: {{write}} MB/s · Read: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Data migration",
+      "descriptionToShare": "Copy existing wordlists and rules onto the network share and switch the active storage backend. This is a maintenance operation: new jobs stop dispatching while the fleet drains, then wordlist/rule uploads are frozen and files are copied and checksum-verified before the switch. Depending on data size this can take a long time and the server will be unavailable for uploads and new jobs meanwhile. Client and association wordlists, binaries, charsets and hashlists always stay local.",
+      "descriptionToLocal": "Copy existing wordlists and rules back to local disk and switch the active storage backend. This is a maintenance operation: new jobs stop dispatching while the fleet drains, then wordlist/rule uploads are frozen and files are copied and checksum-verified before the switch. Depending on data size this can take a long time and the server will be unavailable for uploads and new jobs meanwhile. Client and association wordlists, binaries, charsets and hashlists always stay local.",
+      "phase": "Phase: {{phase}}",
+      "directionToShare": "local → share",
+      "directionToLocal": "share → local",
+      "waitingTasks_one": "Waiting for {{count}} task to finish",
+      "waitingTasks_other": "Waiting for {{count}} tasks to finish",
+      "earliestLock": " — earliest lock {{time}}",
+      "filesProgress": "{{done}}/{{total}} files · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "Canceling…",
+      "abort": "Abort migration",
+      "abortHelp": "Stops the migration at its next checkpoint (useful if the share is slow or hung). Storage is left on its current backend and dispatch resumes; already-copied files remain and are reused if you retry.",
+      "complete": "Migration complete.",
+      "failed": "Migration failed.",
+      "migrateToShare": "Migrate wordlists & rules to the share",
+      "migrateToLocal": "Migrate back to local disk",
+      "enableFirst": "Enable the share and confirm it validates before migrating."
+    },
+    "agent": {
+      "title": "On-prem agent mount command (optional)",
+      "description": "These fields are used <b>only</b> to generate the mount command for on-prem agents set to the <b>network_direct</b> tier. The server (above) and cloud GPU agents do <b>not</b> use them — cloud agents download over the VPN. They are non-secret; credentials are never stored or sent.",
+      "protocol": "Protocol",
+      "protocolHelp": "SMB is the most portable across Windows/macOS/Linux agents; NFS works well over the VPN with a read-only export.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Share host agents mount from (VPN address)",
+      "hostHelp": "The share's address as agents reach it over the VPN — not a server setting (the server uses its mounted path above).",
+      "exportPath": "Export path",
+      "shareName": "Share name",
+      "mountOptions": "Mount options (one key=value per line)",
+      "runThis": "Run this on the agent host, then set that agent's Storage tier to “Network direct” with the mount path on its Agent page:",
+      "replaceSmb": "Replace <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> and <code>&lt;PASSWORD&gt;</code> before running — the command still contains placeholders.",
+      "replaceNfs": "Replace <code>&lt;MOUNT_PATH&gt;</code> before running — the command still contains placeholders.",
+      "softSmb": "The command includes <code>soft</code> so the mount fails fast if the share is slow or drops, instead of hanging (the kernel's <code>hard</code> default). This pairs with the agent's fail-closed share check, which reroutes work when the mount isn't readable. <b>network_direct</b> is for low-latency/LAN-adjacent shares — put remote or high-latency shares on the <b>on_demand</b>/<b>full_cache</b> download tiers instead. Override any option by setting it above.",
+      "softNfs": "The command includes <code>soft</code>, <code>timeo</code> and <code>retrans</code> so the mount fails fast if the share is slow or drops, instead of hanging (the kernel's <code>hard</code> default). This pairs with the agent's fail-closed share check, which reroutes work when the mount isn't readable. <b>network_direct</b> is for low-latency/LAN-adjacent shares — put remote or high-latency shares on the <b>on_demand</b>/<b>full_cache</b> download tiers instead. Override any option by setting it above.",
+      "otherOs": "macOS: use <code>mount_smbfs</code> (SMB) or <code>mount -t nfs</code> (NFS). Windows: use <code>net use</code> against <code>{{uncPath}}</code>. The agent only ever reads from the mount. These fields are saved with <b>Save configuration</b> above."
+    },
+    "confirm": {
+      "title": "Start data migration?",
+      "intro": "This will:",
+      "step1": "Stop dispatching new jobs and wait for running tasks to finish (up to ~12 minutes for agents to reconnect, longer if long jobs are running).",
+      "step2": "Freeze wordlist/rule uploads and serve a maintenance page while files are copied and checksum-verified.",
+      "step3ToShare": "Switch the active storage backend to the network share when finished.",
+      "step3ToLocal": "Switch the active storage backend to local disk when finished.",
+      "outro": "Paused jobs resume automatically afterward. If anything fails, storage is left unchanged and the server stays operational.",
+      "cancel": "Cancel",
+      "start": "Start migration"
+    },
+    "toast": {
+      "loadFailed": "Failed to load network share config",
+      "migrationStarted": "Migration started.",
+      "startFailed": "Failed to start migration",
+      "migrationCanceled": "Migration canceled — storage left unchanged.",
+      "cancelFailed": "Failed to cancel migration",
+      "saved": "Network share configuration saved.",
+      "saveFailed": "Failed to save configuration",
+      "validated": "Share validated successfully.",
+      "validationProblems": "Share validation reported problems.",
+      "validationFailed": "Validation failed to run"
+    }
+  },
+  "jobAnalytics": {
+    "title": "Job Performance Analytics",
+    "description": "Analyze job execution performance, hash rates, and benchmark history across your agents.",
+    "loadFiltersFailed": "Failed to load filter options",
+    "tabs": {
+      "jobPerformance": "Job Performance",
+      "successRate": "Success Rate",
+      "benchmarkHistory": "Benchmark History"
+    },
+    "summary": {
+      "totalJobs": "Total Jobs",
+      "totalJobsSubtitle": "{{completed}} completed, {{failed}} failed",
+      "totalCracks": "Total Cracks",
+      "totalCracksSubtitle": "Across all filtered jobs",
+      "avgSpeed": "Avg Speed",
+      "avgSpeedSubtitle": "Average hash rate per job",
+      "avgDuration": "Avg Duration",
+      "avgDurationSubtitle": "{{keys}} keys processed"
+    },
+    "hashRateChart": {
+      "title": "Hash Rate Timeline",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "empty": "No timeline data available for the selected filters",
+      "hashRate": "Hash Rate",
+      "tooltipHashRate": "Hash Rate: {{speed}}",
+      "tooltipJobs": "Jobs: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Benchmark Speed Trends",
+      "agent": "Agent",
+      "selectAgent": "Select Agent",
+      "hashType": "Hash Type",
+      "attackMode": "Attack Mode",
+      "all": "All",
+      "range90d": "90d",
+      "range1y": "1y",
+      "rangeAll": "All",
+      "selectAgentPrompt": "Select an agent to view benchmark trends",
+      "empty": "No benchmark history found for this agent",
+      "speed": "Speed",
+      "tooltipSpeed": "Speed: {{speed}}"
+    },
+    "filters": {
+      "title": "Filters",
+      "active": "Active",
+      "dateStart": "Date Start",
+      "dateEnd": "Date End",
+      "hashlist": "Hashlist",
+      "status": "Status",
+      "minKeyspace": "Min Keyspace",
+      "maxKeyspace": "Max Keyspace",
+      "reset": "Reset",
+      "apply": "Apply"
+    },
+    "attackModes": {
+      "straight": "Straight",
+      "combination": "Combination",
+      "bruteforce": "Brute-force",
+      "hybridWlMask": "Hybrid WL+Mask",
+      "hybridMaskWl": "Hybrid Mask+WL",
+      "association": "Association",
+      "modeNumber": "Mode {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Benchmark History",
+      "empty": "No benchmark history found",
+      "columns": {
+        "date": "Date",
+        "agentFallback": "Agent #{{id}}",
+        "status": "Status"
+      },
+      "success": "Success",
+      "failed": "Failed"
+    },
+    "successRate": {
+      "title": "Success Rate by Job Configuration",
+      "subtitle": "Grouped by wordlist, rules, attack mode, and hash type. Preset jobs include matching custom jobs.",
+      "empty": "No success rate data available for the selected filters",
+      "preset": "Preset",
+      "columns": {
+        "configuration": "Configuration",
+        "runs": "Runs",
+        "hashes": "Hashes",
+        "cracks": "Cracks",
+        "successRate": "Success Rate",
+        "avgDuration": "Avg Duration",
+        "totalCompute": "Total Compute"
+      }
+    },
+    "jobExecution": {
+      "title": "Job Execution Details",
+      "empty": "No jobs found for the selected filters",
+      "noTaskData": "No task data available",
+      "taskBreakdown": "Task Breakdown ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_one": "{{count}} task",
+      "taskCount_other": "{{count}} tasks",
+      "metricPointCount_one": "{{count}} metric point",
+      "metricPointCount_other": "{{count}} metric points",
+      "columns": {
+        "name": "Name",
+        "attack": "Attack",
+        "duration": "Duration",
+        "keyspace": "Keyspace",
+        "agents": "Agents",
+        "progress": "Progress",
+        "benchmark": "Benchmark",
+        "started": "Started",
+        "completed": "Completed"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Wordlist Management - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Client Wordlists ({{count}})",
+      "clientPotfile": "Client Potfile",
+      "associationWordlists": "Association Wordlists ({{count}})"
+    },
+    "columns": {
+      "fileName": "File Name",
+      "lineCount": "Line Count",
+      "fileSize": "File Size",
+      "uploaded": "Uploaded",
+      "hashlist": "Hashlist",
+      "actions": "Actions"
+    },
+    "hashlistFallback": "Hashlist #{{id}}",
+    "clientTab": {
+      "info": "Client wordlists are available across all hashlists for this client. These can be used with any attack mode.",
+      "uploadWordlist": "Upload Wordlist",
+      "uploading": "Uploading... {{progress}}%",
+      "noWordlists": "No client wordlists uploaded yet."
+    },
+    "potfileTab": {
+      "noPotfile": "No client potfile exists yet. It will be automatically created when hashes are cracked for this client's hashlists.",
+      "autoGenerated": "Client Potfile (Auto-generated)",
+      "description": "This potfile contains all cracked passwords for this client. It is automatically updated when hashes are cracked.",
+      "passwordCount_one": "{{countDisplay}} password",
+      "passwordCount_other": "{{countDisplay}} passwords",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Updated: {{date}}",
+      "downloadPotfile": "Download Potfile"
+    },
+    "associationTab": {
+      "info": "Association wordlists are per-hashlist and map each hash to a password candidate 1:1 by line number. They are uploaded and managed from the hashlist detail page. This view shows all association wordlists across all hashlists for this client.",
+      "noWordlists": "No association wordlists found for this client's hashlists."
+    },
+    "messages": {
+      "wordlistDeleted": "Client wordlist deleted",
+      "associationDeleted": "Association wordlist deleted",
+      "deleteFailed": "Failed to delete wordlist",
+      "uploadSuccess": "Client wordlist uploaded successfully",
+      "uploadFailed": "Failed to upload wordlist",
+      "downloaded": "Downloaded {{filename}}",
+      "downloadFailed": "Failed to download file"
+    },
+    "deleteConfirm": {
+      "title": "Delete wordlist",
+      "message": "Delete \"{{fileName}}\"? This cannot be undone."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Team Management",
+      "titleMine": "My Teams",
+      "description": "Manage all teams in the system",
+      "descriptionMine": "Teams you are a member of",
+      "createTeam": "Create Team",
+      "bulkAssignHint": "To assign multiple clients to a team at once, use the bulk assignment feature on the <link>Client Management</link> page.",
+      "columns": {
+        "name": "Team Name",
+        "description": "Description",
+        "members": "Members",
+        "clients": "Clients",
+        "hashlists": "Hashlists",
+        "agents": "Agents",
+        "created": "Created"
+      },
+      "rowActions": {
+        "manage": "Manage team",
+        "edit": "Edit team",
+        "delete": "Delete team"
+      },
+      "empty": "No teams found",
+      "emptyMine": "You are not a member of any teams yet.",
+      "viewDetails": "View Details",
+      "memberCount_one": "{{count}} member",
+      "memberCount_other": "{{count}} members",
+      "clientCount_one": "{{count}} client",
+      "clientCount_other": "{{count}} clients",
+      "hashlistCount_one": "{{count}} hashlist",
+      "hashlistCount_other": "{{count}} hashlists",
+      "agentCount_one": "{{count}} agent",
+      "agentCount_other": "{{count}} agents",
+      "dialogs": {
+        "create": {
+          "title": "Create New Team",
+          "nameLabel": "Team Name",
+          "descriptionLabel": "Description",
+          "creatingButton": "Creating..."
+        },
+        "delete": {
+          "title": "Delete team",
+          "confirmation": "Are you sure you want to delete team \"{{name}}\"? This will remove all team memberships and client assignments."
+        }
+      },
+      "messages": {
+        "createSuccess": "Team created successfully",
+        "deleteSuccess": "Team deleted successfully",
+        "updateSuccess": "Team updated successfully"
+      },
+      "errors": {
+        "loadFailed": "Failed to load teams",
+        "createFailed": "Failed to create team",
+        "deleteFailed": "Failed to delete team",
+        "updateFailed": "Failed to update team"
+      }
+    },
+    "detail": {
+      "notFound": "Team not found",
+      "noDescription": "No description",
+      "breadcrumb": "Teams",
+      "editTeam": "Edit Team",
+      "confirmActionTitle": "Confirm Action",
+      "tabs": {
+        "members": "Members ({{count}})",
+        "clients": "Clients ({{count}})",
+        "trustedTeams": "Trusted Teams ({{count}})",
+        "agents": "Agents ({{count}})"
+      },
+      "addMember": "Add Member",
+      "assignClient": "Assign Client",
+      "addTrust": "Add Trust",
+      "trustInfo": "Trusting another team allows their agents to run your team's jobs. This is a one-way relationship — trusting Team B does not give your agents access to Team B's jobs.",
+      "agentsInfo": "<strong>Direct</strong> agents are owned by members of this team. <strong>Trusted</strong> agents come from teams you have established trust relationships with.",
+      "systemOwner": "System",
+      "columns": {
+        "username": "Username",
+        "email": "Email",
+        "role": "Role",
+        "joined": "Joined",
+        "clientName": "Client Name",
+        "description": "Description",
+        "trustedTeam": "Trusted Team",
+        "trustedSince": "Trusted Since",
+        "agentName": "Agent Name",
+        "status": "Status",
+        "version": "Version",
+        "owner": "Owner",
+        "source": "Source"
+      },
+      "roles": {
+        "member": "Member",
+        "admin": "Admin",
+        "adminManager": "Admin (Team Manager)"
+      },
+      "source": {
+        "direct": "Direct",
+        "trusted": "Trusted {{team}}",
+        "trustedBadge": "Trusted",
+        "unknown": "Unknown"
+      },
+      "rowActions": {
+        "removeMember": "Remove member",
+        "removeClientFromTeam": "Remove client from team",
+        "removeTrust": "Remove trust"
+      },
+      "empty": {
+        "noMembers": "No members in this team",
+        "noClients": "No clients assigned to this team",
+        "noTrustedTeams": "No trusted teams. Only system agents and this team's own agents can run jobs.",
+        "noAgents": "No agents accessible to this team",
+        "noAgentsHint": "Add team members with agents or establish trust relationships."
+      },
+      "confirm": {
+        "removeMember": "Are you sure you want to remove this member?",
+        "removeClient": "Are you sure you want to remove \"{{name}}\" from this team? Team members will lose access to this client's data.",
+        "removeTrust": "Remove this trust relationship? Agents from this team will no longer be able to run your jobs."
+      },
+      "messages": {
+        "memberAdded": "Member added successfully",
+        "memberRemoved": "Member removed",
+        "roleUpdated": "Role updated",
+        "teamUpdated": "Team updated successfully",
+        "clientAssigned": "Client assigned to team",
+        "clientRemoved": "Client removed from team",
+        "trustAdded": "Trust relationship added",
+        "trustRemoved": "Trust relationship removed"
+      },
+      "errors": {
+        "loadFailed": "Failed to load team data",
+        "addMemberFailed": "Failed to add member",
+        "removeMemberFailed": "Failed to remove member",
+        "updateRoleFailed": "Failed to update role",
+        "loadClientsFailed": "Failed to load clients",
+        "assignClientFailed": "Failed to assign client",
+        "removeClientFailed": "Failed to remove client",
+        "updateTeamFailed": "Failed to update team",
+        "loadTeamNamesFailed": "Failed to load team names",
+        "addTrustFailed": "Failed to add trust relationship",
+        "removeTrustFailed": "Failed to remove trust relationship"
+      },
+      "dialogs": {
+        "cancel": "Cancel",
+        "editTeam": {
+          "title": "Edit Team",
+          "nameLabel": "Team Name",
+          "descriptionLabel": "Description",
+          "saveButton": "Save",
+          "savingButton": "Saving..."
+        },
+        "addMember": {
+          "title": "Add Team Member",
+          "searchLabel": "Search users",
+          "searchPlaceholder": "Type at least 2 characters...",
+          "typeToSearch": "Type to search...",
+          "noUsersFound": "No users found",
+          "roleLabel": "Role",
+          "addButton": "Add Member"
+        },
+        "addTrust": {
+          "title": "Add Trusted Team",
+          "info": "Agents owned by members of the trusted team will be allowed to run this team's jobs.",
+          "selectLabel": "Select team to trust",
+          "searchPlaceholder": "Search teams...",
+          "noTeamsAvailable": "No teams available",
+          "optionLabel_one": "{{name}} ({{count}} agent)",
+          "optionLabel_other": "{{name}} ({{count}} agents)"
+        },
+        "assignClient": {
+          "title": "Assign Client to Team",
+          "info": "Assigning a client grants all team members access to this client's hashlists, jobs, and cracked data.",
+          "selectLabel": "Select client",
+          "searchPlaceholder": "Search clients...",
+          "noClientsAvailable": "No unassigned clients available"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Custom Charset Management",
+    "description": "Manage global custom charsets available to all preset jobs and users. Supports both inline definitions and binary .hcchr charset files.",
+    "createCharset": "Create Charset",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "definition": "Definition / Info",
+      "description": "Description",
+      "created": "Created"
+    },
+    "typeLabels": {
+      "file": "File",
+      "inline": "Inline",
+      "hex": "Hex"
+    },
+    "uniqueBytes_one": "{{count}} unique byte",
+    "uniqueBytes_other": "{{count}} unique bytes",
+    "rowActions": {
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No custom charsets found. Create one to get started.",
+    "dialogs": {
+      "create": {
+        "title": "Create Custom Charset"
+      },
+      "edit": {
+        "title": "Edit Custom Charset"
+      },
+      "delete": {
+        "title": "Delete charset",
+        "confirmation": "Are you sure you want to delete the charset \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Inline Definition",
+        "file": "File Upload (.hcchr)"
+      },
+      "fields": {
+        "name": "Name",
+        "namePlaceholder": "e.g., DES Full Charset",
+        "definition": "Definition",
+        "definitionPlaceholderHex": "e.g., 41424344 (hex byte pairs)",
+        "definitionPlaceholderPlain": "e.g., ?u?d or abcdef0123456789",
+        "definitionHelperHex": "Hex byte pairs — each pair = one charset byte. {{bytes}}",
+        "definitionHelperHexBytes_one": "{{count}} byte",
+        "definitionHelperHexBytes_other": "{{count}} bytes",
+        "definitionHelperPlain": "Hashcat charset definition. Use ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H or literal characters.",
+        "hexTooltip": "When enabled, the definition is interpreted as hex byte pairs (e.g., 41424344 = bytes A, B, C, D). Jobs using this charset will auto-inject --hex-charset.",
+        "hexLabel": "Hex-encoded definition",
+        "selectFile": "Select .hcchr File",
+        "fileSizeBytes_one": "{{count}} byte",
+        "fileSizeBytes_other": "{{count}} bytes",
+        "fileHelperText": "Binary charset file containing raw byte values (max 1023 bytes, up to 256 unique bytes). Used for DES cracking, NTLMv1, and language-specific encodings.",
+        "fileCharsetInfo_one": "File charset: {{count}} unique byte. Only name and description can be edited.",
+        "fileCharsetInfo_other": "File charset: {{count}} unique bytes. Only name and description can be edited.",
+        "description": "Description",
+        "descriptionPlaceholder": "Optional description of what this charset is used for"
+      },
+      "update": "Update",
+      "upload": "Upload"
+    },
+    "messages": {
+      "createSuccess": "Charset created successfully",
+      "uploadSuccess": "File charset uploaded successfully",
+      "updateSuccess": "Charset updated successfully",
+      "deleteSuccess": "Charset deleted successfully"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Only .hcchr files are allowed",
+      "fileTooLarge": "File too large (max 1023 bytes — hashcat read buffer limit)",
+      "nameRequired": "Name is required",
+      "definitionRequired": "Definition is required",
+      "selectFile": "Please select a .hcchr file",
+      "loadFailed": "Failed to load charsets: {{message}}",
+      "deleteFailed": "Failed to delete charset: {{message}}"
     }
   }
 }

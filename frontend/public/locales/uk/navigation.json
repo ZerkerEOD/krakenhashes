@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Інформаційна панель",
+    "jobs": "Завдання",
+    "agents": "Агенти",
+    "hashlists": "Списки хешів",
+    "crackedHashes": "Зламані хеші",
+    "wordlists": "Словники",
+    "rules": "Правила",
+    "clientManagement": "Управління клієнтами",
+    "teams": "Команди",
+    "analytics": "Аналітика",
+    "about": "Про програму",
+    "logout": "Вийти"
+  },
+  "admin": {
+    "title": "Адміністрування",
+    "settings": "Параметри",
+    "userManagement": "Управління користувачами",
+    "customCharsets": "Користувацькі набори символів",
+    "presetJobs": "Шаблони завдань",
+    "jobWorkflows": "Робочі процеси завдань",
+    "diagnostics": "Діагностика",
+    "auditLog": "Журнал аудиту",
+    "jobAnalytics": "Аналітика завдань",
+    "teamManagement": "Управління командами",
+    "cloudFleet": "Парк хмарних інстансів",
+    "binaries": "Виконувані файли",
+    "hashTypes": "Типи хешів",
+    "vouchers": "Ваучери",
+    "clients": "Клієнти",
+    "teams": "Команди"
+  },
+  "userMenu": {
+    "userSettings": "Параметри користувача",
+    "savedCharsets": "Збережені набори символів",
+    "logout": "Вийти",
+    "user": "Користувач"
+  },
+  "aria": {
+    "toggleDrawer": "Перемкнути бічну панель",
+    "mainNavigation": "Головна навігація",
+    "adminNavigation": "Адміністративна навігація",
+    "downloadCaCert": "Завантажити сертифікат ЦА"
+  },
+  "groups": {
+    "resources": "Ресурси",
+    "peopleAccess": "Люди та доступ",
+    "operations": "Операції"
+  }
+}

@@ -1,0 +1,452 @@
+{
+  "title": "Job",
+  "createJob": "Buat Job",
+  "page": {
+    "title": "Job"
+  },
+  "columns": {
+    "name": "Nama Job",
+    "hashlist": "Hashlist",
+    "createdBy": "Dibuat Oleh",
+    "progress": "Progres",
+    "keyspace": "Keyspace",
+    "cracked": "Tercrack",
+    "agents": "Agent",
+    "priority": "Prioritas",
+    "maxAgents": "Max Agents",
+    "actions": "Tindakan",
+    "status": "Status",
+    "createdAt": "Dibuat Pada",
+    "client": "Klien"
+  },
+  "status": {
+    "preparing": "Mempersiapkan",
+    "pending": "Tertunda",
+    "running": "Berjalan",
+    "completed": "Selesai",
+    "failed": "Gagal",
+    "stopped": "Dihentikan",
+    "paused": "Dijeda",
+    "active": "Aktif",
+    "cancelled": "Dibatalkan"
+  },
+  "actions": {
+    "delete": "Hapus Job",
+    "retry": "Coba Ulang Job",
+    "stop": "Hentikan Job",
+    "pause": "Jeda Job",
+    "resume": "Lanjutkan Job",
+    "viewDetails": "Lihat Detail"
+  },
+  "sections": {
+    "activeJobs": "Job Aktif",
+    "completedJobs": "Job Selesai"
+  },
+  "confirmDelete": {
+    "title": "Hapus Job",
+    "message": "Apakah Anda yakin ingin menghapus job ini? Tindakan ini tidak dapat dibatalkan.",
+    "messageNamed": "Apakah Anda yakin ingin menghapus job \"{{name}}\"? Tindakan ini tidak dapat dibatalkan."
+  },
+  "row": {
+    "completed": "Selesai:",
+    "unknown": "Tidak Diketahui",
+    "error": "Kesalahan:",
+    "rulesLabel": "(rule)",
+    "custom": "Serangan kustom"
+  },
+  "tooltips": {
+    "combinedHashRate": "Hash rate gabungan",
+    "retry": "Coba ulang job",
+    "delete": "Hapus job",
+    "save": "Simpan",
+    "cancel": "Batal"
+  },
+  "validation": {
+    "priorityRange": "Prioritas harus antara 0 dan {{max}}",
+    "maxAgentsRange": "Max agents harus antara 1 dan 100",
+    "maxAgentsPositive": "Max agents harus 0 (tidak terbatas) atau positif",
+    "chunkSizeMin": "Ukuran chunk harus minimal 5 detik",
+    "chunkSizeMax": "Ukuran chunk tidak dapat melebihi 24 jam (86400 detik)",
+    "invalidNumber": "Harap masukkan angka yang valid",
+    "minValue": "Nilai harus minimal {{min}}",
+    "maxValue": "Nilai harus maksimal {{max}}"
+  },
+  "errors": {
+    "loadFailed": "Gagal memuat job",
+    "loadDetailsFailed": "Gagal memuat detail job",
+    "deleteFailed": "Gagal menghapus job",
+    "updateFailed": "Gagal memperbarui job",
+    "fetchFailed": "Gagal mengambil job: {{message}}",
+    "willRetry": "Akan coba ulang secara otomatis.",
+    "notFound": "Job tidak ditemukan",
+    "saveFailed": "Gagal menyimpan perubahan",
+    "updatePriorityFailed": "Gagal memperbarui prioritas",
+    "updateMaxAgentsFailed": "Gagal memperbarui max agents",
+    "updateChunkSizeFailed": "Gagal memperbarui ukuran chunk",
+    "retryTaskFailed": "Gagal mencoba ulang task",
+    "forceCompleteFailed": "Gagal memaksa menyelesaikan job"
+  },
+  "details": {
+    "title": "Detail Job",
+    "pageTitle": "Detail Job",
+    "overview": "Ringkasan",
+    "tasks": "Task",
+    "results": "Hasil",
+    "logs": "Log",
+    "jobInformation": "Informasi Job",
+    "timeRemaining": "Waktu Tersisa",
+    "estimatedCompletion": "Perkiraan Penyelesaian",
+    "crackingCompletedAt": "Crack Selesai Pada",
+    "totalRunningTime": "Total Waktu Berjalan",
+    "chunkSizeDefault": "Tidak diatur (menggunakan default)",
+    "noActiveTasksEstimate": "Tidak dapat memperkirakan - tidak ada task yang sedang berjalan",
+    "lessThanOneMinute": "Kurang dari 1 menit",
+    "jobCompleted": "Job selesai",
+    "finishingUp": "Menyelesaikan...",
+    "completingShortly": "Akan selesai segera",
+    "processingDuration": "Sedang memproses: {{duration}}",
+    "wordlists": "Wordlist",
+    "rules": "Rule",
+    "splittingMode": "Mode Pemisahan",
+    "ruleSplitting": "Pemisahan Rule",
+    "firstWordlist": "Wordlist Pertama",
+    "secondWordlist": "Wordlist Kedua",
+    "wordlist": "Wordlist",
+    "mask": "Mask",
+    "incrementMode": "Mode Increment",
+    "incrementRange": "Jangkauan Increment",
+    "maskSuffix": "Mask (suffix)",
+    "maskPrefix": "Mask (prefix)",
+    "associationHints": "Petunjuk Asosiasi",
+    "autoRefreshOn": "Penyegaran otomatis: AKTIF",
+    "autoRefreshPaused": "Penyegaran otomatis: DIJEDA",
+    "forceComplete": "Paksa Selesai",
+    "refreshNow": "Segarkan sekarang",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=tidak terbatas",
+    "chunkSizeHint": "Detik (5-86400)",
+    "incrementLayers": "Layer Increment ({{count}} total)",
+    "estimatedKeyspace": "Perkiraan",
+    "taskProgressVisualization": "Visualisasi Progres Task",
+    "activeTasks": "Task Aktif ({{count}} berjalan)",
+    "noActiveTasks": "Tidak ada task aktif",
+    "failedTasks": "Task Gagal ({{count}} total)",
+    "completedTasks": "Task Selesai ({{count}} total)",
+    "noCompletedTasks": "Tidak ada task selesai",
+    "increment": "Increment",
+    "incrementInverse": "Increment Invers",
+    "jobNotFound": "Job tidak ditemukan",
+    "priority": "Prioritas",
+    "timeUnits": {
+      "year": "tahun",
+      "years": "tahun",
+      "month": "bulan",
+      "months": "bulan",
+      "day": "hari",
+      "days": "hari",
+      "hour": "jam",
+      "hours": "jam",
+      "minute": "menit",
+      "minutes": "menit",
+      "second": "detik",
+      "seconds": "detik"
+    },
+    "layerTable": {
+      "layer": "Layer",
+      "mask": "Mask",
+      "minLength": "Panjang Min",
+      "maxLength": "Panjang Maks",
+      "keyspace": "Keyspace",
+      "effectiveKeyspace": "Keyspace Efektif",
+      "progress": "Progres",
+      "tasks": "Task",
+      "cracks": "Crack",
+      "status": "Status",
+      "running": "berjalan",
+      "total": "total",
+      "failed": "{{count}} gagal"
+    },
+    "activeTasksTable": {
+      "agentId": "ID Agent",
+      "taskId": "ID Task",
+      "agent": "Agent",
+      "skip": "Skip",
+      "limit": "Limit",
+      "keyspaceRange": "Jangkauan Keyspace",
+      "progress": "Progres",
+      "speed": "Kecepatan",
+      "currentSpeed": "Kecepatan Saat Ini",
+      "cracks": "Crack",
+      "startedAt": "Dimulai Pada"
+    },
+    "failedTasksTable": {
+      "agentId": "ID Agent",
+      "taskId": "ID Task",
+      "agent": "Agent",
+      "status": "Status",
+      "retryCount": "Jumlah Coba Ulang",
+      "error": "Kesalahan",
+      "errorMessage": "Pesan Kesalahan",
+      "lastUpdated": "Terakhir Diperbarui",
+      "failedAt": "Gagal Pada",
+      "actions": "Tindakan"
+    },
+    "completedTasksTable": {
+      "agentId": "ID Agent",
+      "taskId": "ID Task",
+      "agent": "Agent",
+      "completedAt": "Selesai Pada",
+      "keyspaceRange": "Jangkauan Keyspace",
+      "finalProgress": "Progres Akhir",
+      "averageSpeed": "Kecepatan Rata-rata",
+      "cracks": "Crack",
+      "cracksFound": "Crack Ditemukan"
+    },
+    "additionalArgs": "Argumen Tambahan",
+    "attackModes": {
+      "dictionary": "Kamus",
+      "combination": "Kombinasi",
+      "bruteforce": "Brute-force",
+      "hybridWordlistMask": "Hibrida Wordlist + Mask",
+      "hybridMaskWordlist": "Hibrida Mask + Wordlist",
+      "association": "Asosiasi",
+      "modeNumber": "Mode {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Anggaran cloud tercapai",
+      "cloud_cap_reached": "Batas instance cloud tercapai",
+      "cloud_settling": "Menunggu instance yang disewa dimulai",
+      "cloud_no_capacity": "Tidak ada kapasitas cloud tersedia",
+      "cloud_dead_on_arrival": "Instance yang disewa tidak dapat terhubung kembali",
+      "cloud_launch_failed": "Tidak dapat menyewa instance cloud",
+      "seenTimes_other": "Terlihat {{count}} kali",
+      "cloud_rental_too_short": "Penyewaan akan terlalu singkat untuk berguna",
+      "cloud_cracks_lost": "Kata sandi tercrack mungkin telah hilang",
+      "cloud_draining": "Instance cloud sedang di-drain (tidak ada pekerjaan baru)"
+    },
+    "client": "Klien",
+    "presetJob": "Preset Job",
+    "workflow": "Workflow",
+    "createdBy": "Dibuat Oleh",
+    "system": "Sistem"
+  },
+  "common": {
+    "id": "ID",
+    "name": "Nama",
+    "status": "Status",
+    "hashlist": "Hashlist",
+    "hashType": "Tipe Hash",
+    "attackMode": "Mode Serangan",
+    "keyspace": "Keyspace",
+    "effectiveKeyspace": "Keyspace Efektif",
+    "processedKeyspace": "Keyspace yang Diproses",
+    "dispatchedKeyspace": "Keyspace yang Dikirim",
+    "progress": "Progres",
+    "cracksFound": "Crack Ditemukan",
+    "createdAt": "Dibuat Pada",
+    "startedAt": "Dimulai Pada",
+    "completedAt": "Selesai Pada",
+    "error": "Kesalahan",
+    "warning": "Peringatan",
+    "maxAgents": "Max Agents",
+    "chunkSize": "Ukuran Chunk",
+    "unassigned": "Belum Ditugaskan",
+    "noErrorMessage": "Tidak ada pesan kesalahan",
+    "notAvailable": "N/A",
+    "back": "Kembali",
+    "rulesMultiplier": "(rules)"
+  },
+  "editableCell": {
+    "clickToEdit": "Klik untuk mengedit"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Hapus Job yang Selesai",
+      "message": "Apakah Anda yakin ingin menghapus semua job yang selesai? Tindakan ini tidak dapat dibatalkan."
+    },
+    "forceComplete": {
+      "title": "Paksa Selesaikan Job",
+      "warning": "Ini akan menandai semua task yang tidak lengkap sebagai selesai dan mengatur status job menjadi selesai.",
+      "onlyUseIf": "Gunakan ini hanya jika:",
+      "reason1": "Job benar-benar telah selesai memproses semua pekerjaan",
+      "reason2": "Job terjebak dalam status berjalan/tertunda",
+      "reason3": "Anda telah memverifikasi bahwa keyspace telah sepenuhnya dicari",
+      "note": "Catatan: Kami sedang mengerjakan cara yang lebih baik untuk menangani perhitungan keyspace dan deteksi penyelesaian job dalam berbagai keadaan.",
+      "confirmation": "Apakah Anda yakin ingin memaksa menyelesaikan job ini?",
+      "completing": "Menyelesaikan...",
+      "button": "Paksa Selesaikan"
+    },
+    "deleteConfirm": {
+      "deleting": "Menghapus..."
+    }
+  },
+  "buttons": {
+    "refresh": "Segarkan",
+    "deleteFinished": "Hapus yang Selesai",
+    "cancel": "Batalkan",
+    "delete": "Hapus",
+    "save": "Simpan",
+    "retry": "Coba Lagi"
+  },
+  "success": {
+    "chunkSizeUpdated": "Ukuran chunk berhasil diperbarui. Perubahan akan berlaku pada pembuatan task berikutnya.",
+    "forceCompleted": "Job berhasil diselesaikan secara paksa"
+  },
+  "form": {
+    "name": "Nama Job",
+    "hashlist": "Pilih Hashlist",
+    "attackMode": "Mode Serangan",
+    "wordlist": "Wordlist",
+    "rules": "Rules",
+    "priority": "Prioritas",
+    "maxAgents": "Agent Maksimum"
+  },
+  "autoRefresh": {
+    "on": "Auto-refresh Aktif",
+    "off": "Auto-refresh Nonaktif"
+  },
+  "pagination": {
+    "jobsPerPage": "Job per halaman"
+  },
+  "filters": {
+    "searchPlaceholder": "Cari job...",
+    "priority": "Prioritas",
+    "status": "Status",
+    "all": "Semua"
+  },
+  "priority": {
+    "low": "Rendah",
+    "medium": "Sedang",
+    "high": "Tinggi",
+    "critical": "Kritis",
+    "maximum": "Maksimum"
+  },
+  "lastUpdated": "Terakhir diperbarui: {{time}}",
+  "filtered": "(tersaring)",
+  "loading": "Memuat job...",
+  "archive": {
+    "showArchived": "Tampilkan yang Diarsipkan",
+    "archive": "Arsipkan",
+    "unarchive": "Batalkan Pengarsipan",
+    "archived": "Diarsipkan",
+    "archiveSelected": "Arsipkan yang Dipilih",
+    "unarchiveSelected": "Batalkan Pengarsipan yang Dipilih",
+    "deleteSelected": "Hapus yang Dipilih",
+    "selectedCount": "{{count}} dipilih",
+    "confirmBulkDelete": {
+      "title": "Konfirmasi Penghapusan Massal",
+      "message_other": "Apakah Anda yakin ingin menghapus {{count}} job? Tindakan ini tidak dapat dibatalkan.",
+      "warning": "Ini akan menghapus secara permanen job yang dipilih dan semua data terkait.",
+      "cancel": "Batalkan",
+      "delete": "Hapus",
+      "deleting": "Menghapus..."
+    },
+    "bulkArchiveSuccess_other": "{{count}} job berhasil diarsipkan",
+    "bulkUnarchiveSuccess_other": "Pengarsipan {{count}} job berhasil dibatalkan",
+    "bulkDeleteSuccess_other": "{{count}} job berhasil dihapus"
+  },
+  "cloud": {
+    "projection": {
+      "title": "Apakah ini akan selesai dalam anggaran?",
+      "loadFailed": "Gagal memproyeksikan job ini",
+      "coverageLabel": "Cakupan anggaran",
+      "coverageValue": "{{pct}}% dari pekerjaan yang tersisa didanai",
+      "timeToFinish": "Waktu yang diproyeksikan untuk selesai",
+      "projectedCost": "Biaya cloud yang diproyeksikan",
+      "availableBudget": "Anggaran yang tersedia",
+      "onpremSpeed": "Kecepatan on-prem",
+      "cloudSpeed": "Kecepatan cloud",
+      "unknown": "Tidak Diketahui",
+      "confirm": "Luncurkan",
+      "pessimistic": "Ini adalah tipe hash yang digaram, jadi throughput nyata akan melebihi perkiraan ini karena garam tercrack. Perlakukan proyeksi sebagai kasus terburuk.",
+      "shortfallTitle": "Anggaran habis sebelum pekerjaan selesai",
+      "shortfallBody": "Dengan laju yang diproyeksikan, anggaran mencakup {{pct}}% dari keyspace yang tersisa. Job akan berhenti di tengah-tengah. Progres parsial mungkin masih bernilai untuk dibeli — tetapi itu harus menjadi pilihan yang disengaja.",
+      "shortfallAcknowledge": "Saya memahami bahwa job ini tidak akan selesai dalam anggaran",
+      "metric": "Metrik",
+      "value": "Nilai"
+    },
+    "cloudBurst": {
+      "label": "Izinkan cloud burst untuk job ini",
+      "help": "Sewa instans GPU ketika armada on-prem tidak dapat mengikuti. Memerlukan klien yang didanai dan telah memilih penyedia. Tidak ada yang disewa tanpa ini.",
+      "maxInstances": "Instans Sewaan Maksimum",
+      "maxInstancesHelp": "Terpisah dari Max Agents, yang mengatur kumpulan on-prem bersama. Biarkan kosong untuk membiarkan anggaran yang tersisa menentukan.",
+      "badge": "Cloud burst",
+      "thirdPartyBadge": "Host pihak ketiga",
+      "provisionNow": "Sediakan sekarang",
+      "provisionConfirm": "Sewa satu instans cloud untuk job ini sekarang?\n\nIni melewati aturan kelaparan dan finishing-soon autoscaler, dan akan menghabiskan uang dari anggaran klien ini. Anggaran, jendela pengeluaran, batas per-job dan persetujuan penyedia masih berlaku.",
+      "provisionRequested": "Instans cloud diminta",
+      "provisionFailed": "Tidak dapat menyediakan instans cloud"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Progres Keseluruhan: {{percent}}%",
+    "noTasks": "Belum ada task yang ditugaskan",
+    "notAvailable": "N/A",
+    "tooltip": {
+      "taskId": "ID Task: {{id}}",
+      "status": "Status: {{status}}",
+      "keyspace": "Keyspace: {{start}} - {{end}}",
+      "progress": "Progres: {{percent}}%",
+      "speed": "Kecepatan: {{speed}}",
+      "cracksFound": "Crack Ditemukan: {{count}}",
+      "agentId": "ID Agent: {{id}}"
+    },
+    "legend": {
+      "pending": "Tertunda",
+      "running": "Berjalan",
+      "processing": "Memproses",
+      "completed": "Selesai",
+      "processingError": "Kesalahan Pemrosesan",
+      "failed": "Gagal",
+      "crackFound": "Crack Ditemukan"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Pendinginan Benchmark",
+    "subtitle": "Agent yang saat ini diblokir dari benchmarking job ini setelah kegagalan berulang. Hapus entri untuk mencoba lagi pada siklus penjadwalan berikutnya.",
+    "loadFailed": "Gagal memuat daftar pemblokiran",
+    "clearSuccess": "Entri daftar pemblokiran dihapus — penjadwal akan mencoba lagi pada siklus berikutnya",
+    "clearFailedPrefix": "Gagal menghapus: {{error}}",
+    "clearFailedDefault": "Gagal menghapus entri",
+    "expired": "kedaluwarsa",
+    "retryNow": "Coba Lagi Sekarang",
+    "scope": {
+      "thisJob": "job ini",
+      "global": "global"
+    },
+    "columns": {
+      "agent": "Agent",
+      "scope": "Cakupan",
+      "hashMode": "Hash / Mode",
+      "failures": "Kegagalan",
+      "reason": "Alasan",
+      "expires": "Berakhir",
+      "action": "Tindakan"
+    }
+  },
+  "loopback": {
+    "title": "Loopback",
+    "subtitle": "Setiap loopback menjalankan kembali mutasi serangan hanya terhadap kata sandi yang baru tercrack, mengulangi hingga tidak ada crack baru yang ditemukan.",
+    "runningCount": "{{count}} berjalan",
+    "statusLabel": {
+      "waiting": "Menunggu putaran untuk selesai",
+      "active": "Looping",
+      "completed": "Selesai",
+      "failed": "Gagal",
+      "cancelled": "Dibatalkan"
+    },
+    "roundLabel": "Putaran {{current}} / {{max}}",
+    "hashlistFallback": "Hashlist #{{id}}",
+    "jobCount_other": "{{count}} job",
+    "noJobsYet": "Belum ada job yang direkam.",
+    "loopsBackYes": "Ya",
+    "loopsBackFeedsDelta": "Umpan delta",
+    "columns": {
+      "round": "Putaran",
+      "original": "Asli",
+      "job": "Job",
+      "role": "Peran",
+      "loopsBack": "Loop Kembali"
+    }
+  }
+}

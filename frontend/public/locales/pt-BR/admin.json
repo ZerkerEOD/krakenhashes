@@ -1,0 +1,3191 @@
+{
+  "title": "Configurações de Administração",
+  "sections": {
+    "general": "Configurações Gerais",
+    "authentication": "Autenticação",
+    "email": "Configurações de Email",
+    "security": "Segurança",
+    "sso": "Logon Único",
+    "monitoring": "Monitoramento"
+  },
+  "tabs": {
+    "emailSettings": "Configurações de Email",
+    "authenticationSettings": "Configurações de Autenticação",
+    "ssoSettings": "Configurações de SSO",
+    "binaryManagement": "Gerenciamento de Binários",
+    "systemSettings": "Configurações do Sistema",
+    "clientSettings": "Configurações de Cliente",
+    "hashTypes": "Tipos de Hash",
+    "jobExecution": "Execução de Job",
+    "monitoring": "Monitoramento",
+    "agentDownloads": "Downloads do Agente",
+    "notifications": "Notificações",
+    "cloudProvisioning": "Provisionamento em Nuvem",
+    "serverCertificate": "Certificado do Servidor"
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "create": "Criar",
+    "edit": "Editar",
+    "delete": "Excluir",
+    "save": "Salvar",
+    "saveChanges": "Salvar Alterações",
+    "copyToClipboard": "Copiar para Área de Transferência",
+    "never": "Nunca",
+    "invalidDate": "Data inválida",
+    "all": "Todos",
+    "yes": "Sim",
+    "no": "Não",
+    "note": "Observação",
+    "default": "Padrão",
+    "on": "Ativado",
+    "off": "Desativado",
+    "none": "Nenhum",
+    "unlimited": "Ilimitado",
+    "close": "Fechar",
+    "unknownError": "Erro desconhecido",
+    "dialogs": {
+      "confirmDeleteNamed": "Tem certeza de que deseja excluir \"{{name}}\"?"
+    },
+    "download": "Baixar",
+    "confirm": "Confirmar"
+  },
+  "users": {
+    "title": "Gerenciamento de Usuários",
+    "description": "Gerencie contas de usuários e permissões",
+    "addUser": "Adicionar Usuário",
+    "createUser": "Criar Usuário",
+    "columns": {
+      "username": "Nome de Usuário",
+      "email": "Email",
+      "role": "Função",
+      "status": "Status",
+      "createdAt": "Criado",
+      "lastLogin": "Último Login",
+      "actions": "Ações",
+      "provider": "Provedor",
+      "providerLocal": "Local",
+      "mfa": "MFA",
+      "apiKey": "Chave de API",
+      "lastApiUse": "Último Uso de API"
+    },
+    "roles": {
+      "admin": "Administrador",
+      "user": "Usuário",
+      "system": "Sistema"
+    },
+    "status": {
+      "active": "Ativo",
+      "pending": "Aprovação Pendente",
+      "disabled": "Desativado",
+      "locked": "Bloqueado"
+    },
+    "actions": {
+      "edit": "Editar Usuário",
+      "delete": "Excluir Usuário",
+      "approve": "Aprovar",
+      "disable": "Desativar",
+      "enable": "Ativar",
+      "unlock": "Desbloquear",
+      "resetPassword": "Redefinir Senha",
+      "disableMfa": "Desativar MFA",
+      "revokeApiKey": "Revogar Chave de API",
+      "cannotDeleteSystem": "Não é possível excluir usuários do sistema",
+      "terminateSession": "Encerrar sessão",
+      "terminateAllSessions": "Encerrar Todas as Sessões"
+    },
+    "apiKey": {
+      "none": "Nenhuma"
+    },
+    "validation": {
+      "usernameRequired": "Nome de usuário é obrigatório",
+      "emailRequired": "Email é obrigatório",
+      "emailInvalid": "Formato de email inválido",
+      "passwordRequired": "Senha é obrigatória",
+      "passwordMinLength": "no mínimo {{value}} caracteres",
+      "passwordUppercase": "uma letra maiúscula",
+      "passwordLowercase": "uma letra minúscula",
+      "passwordNumber": "um número",
+      "passwordSpecial": "um caractere especial",
+      "passwordMustContain": "Senha deve conter {{requirements}}",
+      "confirmPasswordRequired": "Confirme a senha",
+      "passwordsMismatch": "As senhas não correspondem"
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar usuários. Tente atualizar a página.",
+      "loadDetailsFailed": "Falha ao carregar detalhes do usuário",
+      "loadSessionsFailed": "Falha ao carregar sessões",
+      "loadLoginAttemptsFailed": "Falha ao carregar tentativas de login",
+      "loadApiKeyFailed": "Falha ao carregar informações da chave de API",
+      "createFailed": "Falha ao criar usuário",
+      "updateFailed": "Falha ao atualizar usuário",
+      "deleteFailed": "Falha ao excluir usuário",
+      "enableFailed": "Falha ao ativar usuário",
+      "disableFailed": "Falha ao desativar usuário",
+      "unlockFailed": "Falha ao desbloquear conta",
+      "reasonRequired": "Forneça um motivo para desativar este usuário",
+      "passwordResetFailed": "Falha ao redefinir senha",
+      "mfaDisableFailed": "Falha ao desativar MFA",
+      "accountStatusFailed": "Falha ao atualizar status da conta",
+      "terminateSessionFailed": "Falha ao encerrar sessão",
+      "terminateAllSessionsFailed": "Falha ao encerrar todas as sessões",
+      "revokeApiKeyFailed": "Falha ao revogar chave de API",
+      "userNotFound": "Usuário não encontrado"
+    },
+    "messages": {
+      "createSuccess": "Usuário criado com sucesso",
+      "updateSuccess": "Detalhes do usuário atualizados com sucesso",
+      "deleteSuccess": "Usuário excluído com sucesso",
+      "enableSuccess": "Usuário ativado com sucesso",
+      "disableSuccess": "Usuário desativado com sucesso",
+      "passwordResetSuccess": "Senha redefinida com sucesso!",
+      "passwordCopied": "Senha copiada para a área de transferência",
+      "mfaDisableSuccess": "MFA desativado com sucesso",
+      "accountDisabled": "Conta do usuário desativada",
+      "accountEnabled": "Conta do usuário ativada",
+      "accountUnlocked": "Conta do usuário desbloqueada",
+      "sessionTerminated": "Sessão encerrada com sucesso",
+      "allSessionsTerminated_many": "{{count}} sessões encerradas com sucesso",
+      "allSessionsTerminated_one": "{{count}} sessão encerrada com sucesso",
+      "allSessionsTerminated_other": "{{count}} sessões encerradas com sucesso",
+      "apiKeyRevoked": "Chave de API revogada com sucesso"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Criar Novo Usuário",
+        "password": "Senha",
+        "confirmPassword": "Confirmar Senha",
+        "roleHelperText": "Selecione a função do usuário no sistema"
+      },
+      "disableUser": {
+        "title": "Desativar Conta de Usuário",
+        "description": "Forneça um motivo para desativar esta conta de usuário. Isso será registrado para fins de auditoria.",
+        "reasonLabel": "Motivo para Desativar",
+        "reasonPlaceholder": "Ex: Compromisso de conta, Violação de termos, Solicitação do usuário, etc.",
+        "disableAccount": "Desativar Conta"
+      },
+      "deleteUser": {
+        "title": "Excluir Conta de Usuário",
+        "warning": "Esta ação não pode ser desfeita. O usuário será removido permanentemente do sistema.",
+        "confirmation": "Tem certeza de que deseja excluir o usuário <strong>{{username}}</strong>?",
+        "dataNote": "Todos os dados associados serão preservados, mas o usuário não poderá mais fazer login."
+      },
+      "resetPassword": {
+        "title": "Redefinir Senha do Usuário",
+        "generateTemporary": "Gerar senha temporária",
+        "newPassword": "Nova Senha",
+        "passwordHelperText": "Deve ter no mínimo 8 caracteres"
+      },
+      "disableMfa": {
+        "title": "Desativar MFA",
+        "confirmation": "Será necessário configurá-la novamente, se necessário."
+      },
+      "terminateSession": {
+        "title": "Encerrar Sessão?",
+        "description": "Isso fará logout do usuário neste dispositivo. O usuário precisará fazer login novamente para continuar usando o aplicativo.",
+        "terminate": "Encerrar"
+      },
+      "terminateAllSessions": {
+        "title": "Encerrar Todas as Sessões?",
+        "description": "Isso fará logout do usuário em TODOS os dispositivos, incluindo sua sessão atual. O usuário precisará fazer login novamente. Esta ação não pode ser desfeita.",
+        "warning": "Isso inclui qualquer sessão de trabalho ativa!",
+        "terminateAll": "Encerrar Tudo"
+      },
+      "revokeApiKey": {
+        "title": "Revogar Chave de API do Usuário?",
+        "warning": "Isso desativará imediatamente o acesso via API para este usuário. Qualquer aplicação usando esta chave deixará de funcionar.",
+        "confirmation": "Tem certeza de que deseja revogar a chave de API deste usuário?"
+      }
+    },
+    "detail": {
+      "title": "Detalhes do Usuário",
+      "backToUsers": "Voltar para Usuários",
+      "userInformation": "Informações do Usuário",
+      "userId": "ID do Usuário",
+      "systemUserReadOnly": "Usuários do sistema não podem ser modificados",
+      "accountStatus": "Status da Conta",
+      "accountStatusLabel": "Status da Conta",
+      "enabled": "Ativado",
+      "disabled": "Desativado",
+      "noReasonProvided": "Nenhum motivo fornecido",
+      "lockStatus": "Status de Bloqueio",
+      "lockedUntil": "Bloqueado até {{date}}",
+      "notLocked": "Não bloqueado",
+      "mfaStatus": "Status de MFA",
+      "mfaEnabled": "Ativado ({{types}})",
+      "mfaDisabled": "Desativado",
+      "apiKeyManagement": "Gerenciamento de Chave de API",
+      "apiKeyStatus": "Status da Chave de API",
+      "noApiKeyGenerated": "Nenhuma Chave de API Gerada",
+      "created": "Criada",
+      "lastUsed": "Último Uso",
+      "apiKeySecurityNote": "Administradores podem revogar chaves de API, mas não podem visualizar a chave em texto plano por motivos de segurança.",
+      "activityInformation": "Informações de Atividade",
+      "passwordChanged": "Senha Alterada",
+      "failedLoginAttempts": "Tentativas de Login Falhadas",
+      "attemptsCount_many": "{{count}} tentativas",
+      "attemptsCount_one": "{{count}} tentativa",
+      "attemptsCount_other": "{{count}} tentativas",
+      "disabledAt": "Desativado Em",
+      "activeSessions": "Sessões Ativas",
+      "noActiveSessions": "Nenhuma sessão ativa",
+      "loginHistory": "Histórico de Login",
+      "noLoginAttempts": "Nenhuma tentativa de login encontrada",
+      "temporaryPassword": "Senha temporária",
+      "sharePasswordSecurely": "Compartilhe esta senha de forma segura com o usuário.",
+      "sessions": {
+        "ipAddress": "Endereço IP",
+        "deviceBrowser": "Dispositivo / Navegador",
+        "lastActive": "Última Atividade"
+      },
+      "loginAttempts": {
+        "timestamp": "Timestamp",
+        "success": "Sucesso",
+        "failed": "Falha",
+        "failureReason": "Motivo da Falha"
+      },
+      "teams": "Equipes",
+      "teamName": "Equipe",
+      "teamDescription": "Descrição",
+      "noTeams": "Não é membro de nenhuma equipe",
+      "ownedAgents": "Agentes Possuídos",
+      "noOwnedAgents": "Este usuário não possui agentes",
+      "agentName": "Agente",
+      "agentVersion": "Versão",
+      "agentLastSeen": "Visto pela Última Vez"
+    }
+  },
+  "clients": {
+    "title": "Gerenciamento de Clientes",
+    "addClient": "Adicionar Cliente",
+    "columns": {
+      "name": "Nome",
+      "description": "Descrição",
+      "contact": "Contato",
+      "cracked": "Quebrados",
+      "retention": "Retenção (Meses)",
+      "createdAt": "Criado",
+      "actions": "Ações",
+      "wordlists": "Wordlists"
+    },
+    "form": {
+      "clientName": "Nome do Cliente",
+      "description": "Descrição",
+      "contactInfo": "Informações de Contato",
+      "dataRetention": "Retenção de Dados (Meses)",
+      "dataRetentionHelperText": "Deixe em branco para usar o padrão do sistema. Digite 0 para manter para sempre.",
+      "excludeFromPotfile": "Excluir do potfile (não salvar senhas quebradas)",
+      "excludeFromPotfileHelperText": "Ative isto para clientes com requisitos rigorosos de retenção de dados",
+      "cloudInherit": "Rajada em nuvem: este cliente herdará o padrão do servidor — {{state}}, ${{amount}} por {{period}}. Altere em Provisionamento em Nuvem → Orçamentos do Cliente.",
+      "cloudInheritUnfunded": "Rajada em nuvem: nenhum orçamento padrão foi definido, então este cliente começa sem financiamento e não pode alugar capacidade paga. Defina um padrão em Provisionamento em Nuvem → Orçamentos do Cliente.",
+      "cloudInheritUnknown": "As configurações de rajada em nuvem são herdadas dos padrões do servidor em Provisionamento em Nuvem → Orçamentos do Cliente.",
+      "cloudEnabledWord": "ativado",
+      "cloudDisabledWord": "desativado",
+      "excludeFromClientPotfile": "Excluir do potfile do cliente",
+      "excludeFromClientPotfileHelperText": "Quando marcado, as senhas quebradas deste cliente NÃO são adicionadas ao potfile específico do cliente.",
+      "clientPotfileSettings": "Configurações de Exclusão do Potfile",
+      "useSystemDefault": "Usar padrão do sistema",
+      "alwaysRemove": "Sempre remover",
+      "neverRemove": "Nunca remover",
+      "assignToTeam": "Atribuir à Equipe",
+      "assignToTeamHelperText": "O novo cliente será atribuído a esta equipe. A reatribuição de clientes existentes é gerenciada via Gerenciamento de Equipes do Administrador.",
+      "removeFromGlobalPotfileOnDelete": "Remover do potfile global ao excluir",
+      "removeFromGlobalPotfileHelperText": "Controla se as senhas são removidas do potfile global quando um hashlist é excluído.",
+      "removeFromClientPotfileOnDelete": "Remover do potfile do cliente ao excluir",
+      "removeFromClientPotfileHelperText": "Controla se as senhas são removidas do potfile do cliente quando um hashlist é excluído."
+    },
+    "validation": {
+      "nameRequired": "Nome do Cliente é obrigatório.",
+      "retentionInvalid": "Período de Retenção deve ser um número não negativo ou vazio (para padrão).",
+      "teamRequired": "Seleção de equipe é obrigatória quando as equipes estão ativadas"
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar clientes. Por favor, tente atualizar.",
+      "loadDefaultSettingsFailed": "Falha ao carregar as configurações padrão do cliente.",
+      "saveFailed": "Falha ao salvar cliente.",
+      "deleteFailed": "Falha ao excluir cliente."
+    },
+    "messages": {
+      "createSuccess": "Cliente criado com sucesso",
+      "updateSuccess": "Cliente atualizado com sucesso",
+      "deleteSuccess": "Cliente excluído com sucesso"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Adicionar Novo Cliente",
+        "createButton": "Criar Cliente"
+      },
+      "editClient": {
+        "title": "Editar Cliente"
+      },
+      "deleteClient": {
+        "title": "Confirmar Exclusão",
+        "confirmation": "Você tem certeza de que deseja excluir o cliente \"{{name}}\"? Esta ação não pode ser desfeita. Hashlists associados podem ser excluídos imediatamente ou órfãos com base em políticas de retenção."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Nome",
+        "status": "Status",
+        "total": "Hashes",
+        "cracked": "Quebrados",
+        "created": "Criado"
+      },
+      "notFound": "Cliente não encontrado",
+      "notFoundHint": "Pode ter sido excluído ou pertence a uma equipe da qual você não é membro.",
+      "backToClients": "Voltar para clientes",
+      "breadcrumb": "Clientes",
+      "manageWordlists": "Wordlists & potfile",
+      "stats": {
+        "hashlists": "Hashlists",
+        "cracked": "Quebrados",
+        "jobs": "Jobs",
+        "active": "{{count}} ativo(s)",
+        "wordlists": "Wordlists",
+        "hasPotfile": "Potfile do cliente presente"
+      },
+      "hashlists": "Hashlists",
+      "noHashlists": "Nenhum hashlist para este cliente ainda",
+      "jobs": "Jobs",
+      "noJobs": "Nenhum job foi executado para este cliente",
+      "teams": "Equipes",
+      "noTeams": "Não atribuído a nenhuma equipe",
+      "policy": "Retenção & potfile",
+      "retention": "Retenção de dados",
+      "retentionDefault": "Padrão do sistema",
+      "retentionForever": "Manter para sempre",
+      "retentionMonths_many": "{{count}} meses",
+      "retentionMonths_one": "{{count}} mês",
+      "retentionMonths_other": "{{count}} meses",
+      "globalPotfile": "Potfile global",
+      "excluded": "Excluído",
+      "included": "Incluído",
+      "clientPotfile": "Potfile do cliente",
+      "contact": "Contato",
+      "lastActivity": "Última atividade"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Atribuir Clientes à Equipe",
+      "dialogDescription_many": "Atribuir {{count}} clientes selecionados a uma equipe. Clientes já na equipe selecionada serão ignorados.",
+      "dialogDescription_one": "Atribuir {{count}} cliente selecionado a uma equipe. Clientes já na equipe selecionada serão ignorados.",
+      "dialogDescription_other": "Atribuir {{count}} clientes selecionados a uma equipe. Clientes já na equipe selecionada serão ignorados.",
+      "selectTeam": "Selecionar Equipe",
+      "assignButton": "Atribuir",
+      "fallbackTeamName": "equipe",
+      "success_many": "Atribuídos {{count}} clientes a {{team}}",
+      "success_one": "Atribuído {{count}} cliente a {{team}}",
+      "success_other": "Atribuídos {{count}} clientes a {{team}}",
+      "successWithSkipped_many": "Atribuídos {{count}} clientes a {{team}} ({{skipped}} já atribuídos)",
+      "successWithSkipped_one": "Atribuído {{count}} cliente a {{team}} ({{skipped}} já atribuído)",
+      "successWithSkipped_other": "Atribuídos {{count}} clientes a {{team}} ({{skipped}} já atribuídos)",
+      "errors": {
+        "assignFailed": "Falha ao atribuir clientes à equipe"
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Gerenciamento de Wordlists",
+    "description": "Gerencie wordlists para quebra de senhas",
+    "uploadWordlist": "Enviar Wordlist",
+    "refresh": "Atualizar",
+    "loading": "Carregando wordlists...",
+    "noWordlistsFound": "Nenhuma wordlist encontrada",
+    "tryDifferentSearch": "Tente um termo de pesquisa diferente",
+    "uploadToGetStarted": "Envie uma wordlist para começar",
+    "noDescription": "Nenhuma descrição fornecida",
+    "searchPlaceholder": "Pesquisar wordlists...",
+    "tabs": {
+      "all": "Todas as Wordlists",
+      "general": "Geral",
+      "specialized": "Especializado",
+      "targeted": "Direcionado",
+      "custom": "Personalizado"
+    },
+    "columns": {
+      "name": "Nome",
+      "status": "Status",
+      "type": "Tipo",
+      "size": "Tamanho",
+      "wordCount": "Contagem de Palavras",
+      "updated": "Atualizado",
+      "actions": "Ações"
+    },
+    "status": {
+      "verified": "Verificado",
+      "pending": "Pendente",
+      "failed": "Falha",
+      "missing": "Arquivo ausente no disco",
+      "missingSince": "Arquivo ausente do disco desde {{date}}. Reenvie-o ou remova a entrada."
+    },
+    "types": {
+      "general": "Geral",
+      "specialized": "Especializado",
+      "targeted": "Direcionado",
+      "custom": "Personalizado"
+    },
+    "fields": {
+      "name": "Nome",
+      "description": "Descrição",
+      "wordlistType": "Tipo de Wordlist"
+    },
+    "tooltips": {
+      "refreshMetadata": "Atualizar Metadados",
+      "download": "Baixar",
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar wordlists",
+      "uploadFailed": "Falha ao enviar wordlist",
+      "deleteFailed": "Falha ao excluir wordlist",
+      "downloadFailed": "Falha ao baixar wordlist",
+      "refreshFailed": "Falha ao atualizar metadados da wordlist",
+      "updateFailed": "Falha ao atualizar wordlist: {{error}}",
+      "sessionExpired": "Sua sessão expirou. Por favor, faça login novamente."
+    },
+    "messages": {
+      "uploadSuccess": "Wordlist enviada com sucesso",
+      "duplicateWordlist": "Wordlist \"{{name}}\" já existe",
+      "deleteSuccess": "Wordlist \"{{name}}\" excluída com sucesso",
+      "updateSuccess": "Wordlist atualizada com sucesso",
+      "refreshSuccess": "Metadados da wordlist atualizados com sucesso"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Enviar Wordlist",
+        "fileUploadTitle": "Envie um arquivo de wordlist",
+        "fileUploadDescription": "Selecione um arquivo de wordlist para enviar. Formatos suportados: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Editar Wordlist"
+      },
+      "delete": {
+        "title": "Confirmar Exclusão",
+        "cascadeTitle": "Confirmar Exclusão em Cascata",
+        "confirmation": "Você tem certeza de que deseja excluir a wordlist \"{{name}}\"? Esta ação não pode ser desfeita.",
+        "cascadeWarning": "Excluir a wordlist \"{{name}}\" também excluirá o seguinte:",
+        "checkingDependencies": "Verificando dependências...",
+        "jobsCount_many": "{{count}} Jobs (pendente/em execução/falha):",
+        "jobsCount_one": "{{count}} Job (pendente/em execução/falha):",
+        "jobsCount_other": "{{count}} Jobs (pendente/em execução/falha):",
+        "presetJobsCount_many": "{{count}} Jobs Predefinidos:",
+        "presetJobsCount_one": "{{count}} Job Predefinido:",
+        "presetJobsCount_other": "{{count}} Jobs Predefinidos:",
+        "workflowStepsCount_many": "{{count}} Etapas do Fluxo de Trabalho:",
+        "workflowStepsCount_one": "{{count}} Etapa do Fluxo de Trabalho:",
+        "workflowStepsCount_other": "{{count}} Etapas do Fluxo de Trabalho:",
+        "emptyWorkflowsCount_many": "{{count}} Fluxos de Trabalho Vazios serão excluídos:",
+        "emptyWorkflowsCount_one": "{{count}} Fluxo de Trabalho Vazio será excluído:",
+        "emptyWorkflowsCount_other": "{{count}} Fluxos de Trabalho Vazios serão excluídos:",
+        "noHashlist": "Sem hashlist",
+        "step": "Etapa {{order}}",
+        "andMore": "...e {{count}} mais",
+        "confirmationPrompt": "Para confirmar esta exclusão em cascata, digite o ID da wordlist: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Digite {{id}} para confirmar",
+        "idMismatch": "O ID não corresponde",
+        "deleteAll": "Excluir Tudo"
+      }
+    },
+    "filterForm": {
+      "helpText": "Todos os critérios são combinados (E) — uma palavra deve satisfazer todos os que você definir. Se sua regex for mais rigorosa que os campos de comprimento (por exemplo, comprimento mínimo 8 mas regex requer 12+), a regra mais rigorosa vence. A estimativa abaixo reflete o resultado combinado.",
+      "minLength": "Comprimento mínimo",
+      "maxLength": "Comprimento máximo",
+      "requiredClasses": "Classes de caracteres obrigatórias",
+      "uppercase": "Maiúsculas",
+      "lowercase": "Minúsculas",
+      "digit": "Dígito",
+      "special": "Especial",
+      "minClasses": "Min. # de classes (1-4)",
+      "minClassesHelp": "por ex. 3 = pelo menos 3 das 4 classes",
+      "regexLabel": "Regex (RE2)",
+      "regexHelperDefault": "por ex. ^.{10,16}$",
+      "regexLookaroundError": "Lookarounds ((?=…), (?!…), (?<=…), (?<!…)) não são suportados pelo mecanismo de regex do backend (RE2). Use filtros de comprimento/classe em vez disso.",
+      "regexInvalidDefault": "Expressão regular inválida",
+      "estimating": "Estimando…",
+      "previewTooltip": "Estimado pela amostragem do início da wordlist de origem. Para listas ordenadas, o total real pode ser diferente.",
+      "previewLabel": "~{{countDisplay}} candidatos ({{rateDisplay}}% da amostra)",
+      "previewUnavailable": "Visualização indisponível"
+    },
+    "filtered": {
+      "badge": "Filtrado",
+      "regeneratingBadge": "Regenerando…",
+      "regeneratingTooltip": "O pai mudou; esta wordlist filtrada está sendo regenerada (apenas as novas entradas são re-filtradas quando possível).",
+      "staleBadge": "Obsoleto",
+      "staleTooltip": "A wordlist pai mudou desde que foi gerada. Wordlists filtradas regeneram automaticamente quando seus pais mudam; você também pode regenerar agora.",
+      "namePlaceholder": "{{name}} (filtrado)",
+      "wordCount_many": "{{count}} palavras",
+      "wordCount_one": "{{count}} palavra",
+      "wordCount_other": "{{count}} palavras",
+      "plaintextChip": "texto plano",
+      "compressedChip": "comprimido",
+      "messages": {
+        "generating": "A wordlist filtrada está sendo gerada",
+        "createFailed": "Falha ao criar wordlist filtrada",
+        "regenerating": "Iniciou regeneração completa da wordlist filtrada",
+        "regenerateFailed": "Falha ao regenerar wordlist filtrada"
+      },
+      "createDialog": {
+        "title": "Criar Wordlist Filtrada",
+        "description": "Gere uma nova wordlist contendo apenas as linhas de uma wordlist de origem que correspondam aos seus critérios. O resultado é reutilizável entre jobs e é rastreado em relação ao seu pai.",
+        "sourceWordlistLabel": "Wordlist de origem",
+        "nameLabel": "Nome",
+        "create": "Criar"
+      },
+      "regenerateDialog": {
+        "title": "Regenerar wordlist filtrada?",
+        "autoInfo": "Wordlists filtradas são normalmente regeneradas <strong>automaticamente no backend</strong> sempre que sua wordlist pai muda — você não precisa fazer isso manualmente.",
+        "manualHint": "Regenere manualmente apenas se você souber que a <strong>ordem das palavras no pai mudou</strong> (palavras foram editadas, removidas ou reordenadas em vez de simplesmente anexadas ao final).",
+        "warningWithExample": "Isso executa uma <strong>regeneração completa</strong> — todo o pai é re-filtrado, o que pode levar um tempo para wordlists grandes (por ex. \"{{name}}\").",
+        "warningNoExample": "Isso executa uma <strong>regeneração completa</strong> — todo o pai é re-filtrado, o que pode levar um tempo para wordlists grandes.",
+        "confirmButton": "Regenerar completamente"
+      }
+    }
+  },
+  "rules": {
+    "title": "Gerenciamento de Regras",
+    "description": "Gerenciar regras do Hashcat para quebra de senhas",
+    "uploadRule": "Enviar Regra",
+    "refresh": "Atualizar",
+    "loading": "Carregando regras...",
+    "noRulesFound": "Nenhuma regra encontrada",
+    "tryDifferentSearch": "Tente um termo de busca diferente",
+    "uploadToGetStarted": "Envie uma regra para começar",
+    "noDescription": "Sem descrição fornecida",
+    "searchPlaceholder": "Pesquisar regras...",
+    "tabs": {
+      "all": "Todas as Regras",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Nome",
+      "status": "Status",
+      "type": "Tipo",
+      "size": "Tamanho",
+      "ruleCount": "Quantidade de Regras",
+      "updated": "Atualizado",
+      "actions": "Ações"
+    },
+    "status": {
+      "verified": "Verificado",
+      "pending": "Pendente",
+      "failed": "Falhou",
+      "ready": "Pronto",
+      "processing": "Processando",
+      "missing": "Arquivo ausente no disco",
+      "missingSince": "Arquivo ausente do disco desde {{date}}. Envie-o novamente ou remova a entrada."
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Nome",
+      "description": "Descrição",
+      "ruleType": "Tipo de Regra"
+    },
+    "tooltips": {
+      "download": "Baixar",
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar regras",
+      "uploadFailed": "Falha ao enviar regra",
+      "deleteFailed": "Falha ao excluir regra",
+      "downloadFailed": "Falha ao baixar regra",
+      "updateFailed": "Falha ao atualizar regra: {{error}}",
+      "verifyFailed": "Falha ao verificar regra",
+      "sessionExpired": "Sua sessão expirou. Faça login novamente."
+    },
+    "messages": {
+      "uploadSuccess": "Regra enviada com sucesso",
+      "duplicateRule": "Regra \"{{name}}\" já existe",
+      "deleteSuccess": "Regra \"{{name}}\" excluída com sucesso",
+      "updateSuccess": "Regra atualizada com sucesso",
+      "verifySuccess": "Regra \"{{name}}\" verificada com sucesso"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Enviar Regra",
+        "fileUploadTitle": "Enviar um arquivo de regras",
+        "fileUploadDescription": "Selecione um arquivo de regras para enviar. Formatos suportados: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Editar Regra"
+      },
+      "delete": {
+        "title": "Confirmar Exclusão",
+        "cascadeTitle": "Confirmar Exclusão em Cascata",
+        "confirmation": "Você tem certeza que deseja excluir a regra \"{{name}}\"? Esta ação não pode ser desfeita.",
+        "cascadeWarning": "Excluir a regra \"{{name}}\" também excluirá o seguinte:",
+        "checkingDependencies": "Verificando dependências...",
+        "jobsCount_many": "{{count}} Jobs (pendentes/em execução/falhados):",
+        "jobsCount_one": "{{count}} Job (pendente/em execução/falhado):",
+        "jobsCount_other": "{{count}} Jobs (pendentes/em execução/falhados):",
+        "presetJobsCount_many": "{{count}} Jobs Predefinidos:",
+        "presetJobsCount_one": "{{count}} Job Predefinido:",
+        "presetJobsCount_other": "{{count}} Jobs Predefinidos:",
+        "workflowStepsCount_many": "{{count}} Etapas do Fluxo de Trabalho:",
+        "workflowStepsCount_one": "{{count}} Etapa do Fluxo de Trabalho:",
+        "workflowStepsCount_other": "{{count}} Etapas do Fluxo de Trabalho:",
+        "emptyWorkflowsCount_many": "{{count}} Fluxos de Trabalho Vazios serão excluídos:",
+        "emptyWorkflowsCount_one": "{{count}} Fluxo de Trabalho Vazio será excluído:",
+        "emptyWorkflowsCount_other": "{{count}} Fluxos de Trabalho Vazios serão excluídos:",
+        "noHashlist": "Sem hashlist",
+        "step": "Etapa {{order}}",
+        "andMore": "...e {{count}} mais",
+        "confirmationPrompt": "Para confirmar esta exclusão em cascata, digite o ID da regra: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Digite {{id}} para confirmar",
+        "idMismatch": "ID não corresponde",
+        "deleteAll": "Excluir Tudo"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Gerenciamento de Jobs Predefinidos",
+    "createNew": "Criar Job Predefinido",
+    "confirmDelete": "Você tem certeza que deseja excluir este job predefinido?",
+    "noJobsFound": "Nenhum job predefinido encontrado. Crie um para começar.",
+    "keyspaceNotCalculated": "Não calculado",
+    "calculating": "Calculando...",
+    "calculateKeyspace": "Calcular Keyspace",
+    "calculateAllMissingKeyspaces": "Calcular Todos os Keyspaces Ausentes",
+    "calculatingKeyspaces": "Calculando...",
+    "calculatingAllKeyspacesMessage": "Calculando keyspaces para todos os jobs predefinidos. Isso pode levar um momento...",
+    "canInterruptRunningJobs": "Pode interromper jobs em execução",
+    "columns": {
+      "name": "Nome",
+      "description": "Descrição",
+      "attackMode": "Modo de Ataque",
+      "priority": "Prioridade",
+      "highPriorityOverride": "Substituição de Alta Prioridade",
+      "maxAgents": "Máximo de Agentes",
+      "keyspace": "Keyspace",
+      "binaryVersion": "Versão do Binário",
+      "wordlists": "Wordlists",
+      "rules": "Regras",
+      "createdAt": "Criado em",
+      "actions": "Ações"
+    },
+    "messages": {
+      "deleteSuccess": "Job predefinido excluído com sucesso",
+      "deleteFailed": "Falha ao excluir job predefinido: {{error}}",
+      "fetchError": "Erro ao carregar jobs predefinidos: {{error}}",
+      "deleteError": "Erro ao excluir job predefinido: {{error}}",
+      "keyspaceRecalculateSuccess": "Keyspace recalculado com sucesso",
+      "keyspaceRecalculateFailed": "Falha ao recalcular keyspace: {{error}}",
+      "keyspaceAllComplete": "Atualizado {{updated}}, ignorado {{skipped}}, falhado {{failed}}",
+      "keyspaceAllFailed": "Falha ao recalcular keyspaces: {{error}}"
+    },
+    "form": {
+      "createTitle": "Criar Job Predefinido",
+      "editTitle": "Editar Job Predefinido",
+      "createJob": "Criar Job Predefinido",
+      "updateJob": "Atualizar Job Predefinido",
+      "attackModeRequirements": "Requisitos do Modo de Ataque",
+      "wordlistSelectionCombination": "Seleção de Wordlist (Modo Combinação)",
+      "selectFirstWordlist": "Selecione a primeira wordlist",
+      "selectSecondWordlist": "Selecione a segunda wordlist",
+      "fields": {
+        "jobName": "Nome do Job",
+        "attackMode": "Modo de Ataque",
+        "priority": "Prioridade",
+        "chunkSize": "Duração do Bloco (segundos)",
+        "maxAgents": "Máximo de Agentes",
+        "maskPattern": "Padrão de Máscara",
+        "incrementMode": "Modo de Incremento",
+        "incrementMin": "Comprimento Mínimo de Incremento",
+        "incrementMax": "Comprimento Máximo de Incremento",
+        "wordlists": "Wordlists",
+        "rules": "Regras",
+        "mask": "Máscara",
+        "ruleOptional": "Regra (Opcional)",
+        "firstWordlist": "Primeira Wordlist",
+        "secondWordlist": "Segunda Wordlist",
+        "allowHighPriorityOverride": "Permitir Substituição de Alta Prioridade (pode interromper jobs em execução)",
+        "additionalArgs": "Argumentos Adicionais do Hashcat",
+        "cloudBurstEnabled": "Permitir expansão para a nuvem",
+        "cloudMaxInstances": "Máximo de instâncias em nuvem",
+        "cloudAllowCommunityHosts": "Permitir hosts operados por pares (Vast.ai, RunPod Community)"
+      },
+      "incrementModes": {
+        "off": "Desativado (usar máscara completa)",
+        "increment": "Incremento (1 até máximo)",
+        "incrementInverse": "Incremento Inverso (máximo até 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Selecione a versão do binário hashcat a usar",
+        "priority": "Jobs com prioridade mais alta executam primeiro (0-{{maxPriority}})",
+        "maskPattern": "Padrão de máscara do Hashcat (ex: ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=minúscula, ?u=maiúscula, ?d=dígito, ?s=especial, ?a=tudo",
+        "incrementMode": "Use modo de incremento para tentar máscaras de comprimentos variados",
+        "incrementMin": "Comprimento mínimo de máscara para tentar",
+        "incrementMax": "Comprimento máximo de máscara para tentar",
+        "chunkSize": "Duração de cada bloco de trabalho em segundos",
+        "maxAgents": "Número máximo de agentes (0 = ilimitado)",
+        "allowHighPriorityOverride": "Quando ativado, este job pode interromper jobs em execução de prioridade mais baixa para tomar seus agentes",
+        "wordlistsNotUsed": "Wordlists não usadas para este modo de ataque",
+        "selectWordlists_many": "Selecione exatamente {{count}} wordlists",
+        "selectWordlists_one": "Selecione exatamente {{count}} wordlist",
+        "selectWordlists_other": "Selecione exatamente {{count}} wordlists",
+        "rulesNotUsed": "Regras não usadas para este modo de ataque",
+        "selectRule": "Opcionalmente selecione um arquivo de regras para aplicar transformações",
+        "firstWordlist": "Palavras dessa lista serão usadas como a primeira parte",
+        "secondWordlist": "Palavras dessa lista serão anexadas à primeira",
+        "additionalArgs": "Flags extras do hashcat para este job. Flags de nível de agente têm prioridade em conflitos.",
+        "cloudBurstEnabled": "Alugue instâncias de GPU para jobs criados a partir desta predefinição quando a frota local não conseguir acompanhar. Requer que o cliente seja financiado e tenha optado por um provedor.",
+        "cloudMaxInstances": "Separado de Máximo de Agentes, que governa o pool compartilhado local. Deixe em branco para deixar o orçamento restante decidir.",
+        "cloudAllowCommunityHosts": "Essas são máquinas de outra pessoa. O proprietário do host tem root sobre o contêiner, portanto os hashes, wordlists e textos planos quebrados do cliente são legíveis por terceiros e não são criptografados em repouso no host. Não recomendado para dados de produção ou engajamento do cliente. Deixe isso desativado e os jobs ainda usarão capacidade segura (AWS, RunPod Secure Cloud) se o cliente permitir.",
+        "prefilteredWordlistHint": "Para usar uma wordlist pré-filtrada em um job predefinido, crie-a primeiro em Gerenciamento de Wordlists — aparecerá nesta lista. Filtragem efêmera inline está disponível apenas em jobs personalizados únicos."
+      },
+      "errors": {
+        "nameRequired": "Nome do job é obrigatório",
+        "binaryVersionRequired": "Versão do binário é obrigatória",
+        "straightModeWordlist": "Modo de ataque Straight requer exatamente 1 wordlist",
+        "combinationModeWordlists": "Modo de ataque Combinação requer exatamente 2 wordlists",
+        "selectBothWordlists": "Por favor selecione ambas as wordlists para modo de combinação",
+        "bruteForceModeMask": "Modo de ataque Força Bruta requer uma máscara",
+        "hybridModeWordlist": "Modo de ataque Híbrido requer exatamente 1 wordlist",
+        "hybridModeMask": "Modo de ataque Híbrido requer uma máscara",
+        "associationModeNotImplemented": "Modo de ataque Associação não está implementado",
+        "noWordlistsAvailable": "Nenhuma wordlist disponível. Por favor envie wordlists primeiro.",
+        "loadFailed": "Falha ao carregar job predefinido",
+        "loadFormDataFailed": "Falha ao carregar dados do formulário",
+        "saveFailed": "Falha ao salvar job predefinido"
+      },
+      "messages": {
+        "createSuccess": "Job predefinido criado com sucesso",
+        "updateSuccess": "Job predefinido atualizado com sucesso"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Straight",
+          "description": "Usa palavras de uma wordlist, opcionalmente aplicando uma regra para transformá-las",
+          "wordlistRequirement": "Exatamente 1 wordlist obrigatória",
+          "rulesRequirement": "0 ou 1 arquivo de regras",
+          "maskRequirement": "Nenhuma máscara necessária"
+        },
+        "combination": {
+          "name": "Combinação",
+          "description": "Combina palavras de duas wordlists (primeira_palavra + segunda_palavra)",
+          "wordlistRequirement": "Exatamente 2 wordlists obrigatórias",
+          "rulesRequirement": "Nenhuma regra necessária",
+          "maskRequirement": "Nenhuma máscara necessária"
+        },
+        "bruteForce": {
+          "name": "Força Bruta (Máscara)",
+          "description": "Gera senhas baseadas em um padrão/máscara",
+          "wordlistRequirement": "Nenhuma wordlist necessária",
+          "rulesRequirement": "Nenhuma regra necessária",
+          "maskRequirement": "Máscara obrigatória (ex: ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Híbrido: Wordlist + Máscara",
+          "description": "Anexa caracteres gerados por máscara às palavras de uma wordlist",
+          "wordlistRequirement": "Exatamente 1 wordlist obrigatória",
+          "rulesRequirement": "Nenhuma regra necessária",
+          "maskRequirement": "Máscara obrigatória (ex: ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Híbrido: Máscara + Wordlist",
+          "description": "Antepõe caracteres gerados por máscara às palavras de uma wordlist",
+          "wordlistRequirement": "Exatamente 1 wordlist obrigatória",
+          "rulesRequirement": "Nenhuma regra necessária",
+          "maskRequirement": "Máscara obrigatória (ex: ?d?d?d?d)"
+        },
+        "association": {
+          "name": "Associação (Não Implementada)",
+          "description": "Este modo de ataque não está implementado no momento",
+          "wordlistRequirement": "N/A",
+          "rulesRequirement": "N/A",
+          "maskRequirement": "N/A"
+        }
+      }
+    }
+  },
+  "workflows": {
+    "title": "Gerenciamento de Fluxos de Trabalho de Job",
+    "create": "Criar Fluxo de Trabalho",
+    "deleteTitle": "Excluir Fluxo de Trabalho",
+    "confirmDelete": "Tem certeza que quer excluir o fluxo de trabalho \"{{name}}\"?",
+    "noWorkflowsFound": "Nenhum fluxo de trabalho encontrado. Crie um para começar.",
+    "canInterrupt": "Pode Interromper",
+    "normal": "Normal",
+    "loopbackAllEligible": "Todos elegíveis",
+    "loopbackStepCount_many": "{{count}} etapas",
+    "loopbackStepCount_one": "{{count}} etapa",
+    "loopbackStepCount_other": "{{count}} etapas",
+    "columns": {
+      "name": "Nome",
+      "description": "Descrição",
+      "steps": "Etapas",
+      "jobCount": "Jobs",
+      "highPriority": "Modo de Prioridade",
+      "loopback": "Loopback",
+      "created": "Criado",
+      "lastUpdated": "Última Atualização",
+      "actions": "Ações"
+    },
+    "messages": {
+      "loadFailed": "Falha ao carregar fluxos de trabalho",
+      "deleteFailed": "Falha ao excluir fluxo de trabalho"
+    },
+    "form": {
+      "createTitle": "Criar Fluxo de Trabalho",
+      "editTitle": "Editar Fluxo de Trabalho",
+      "createWorkflow": "Criar Fluxo de Trabalho",
+      "saveChanges": "Salvar Alterações",
+      "workflowSteps": "Etapas do Fluxo de Trabalho",
+      "noJobsAdded": "Nenhum job adicionado a este fluxo de trabalho ainda. Procure e adicione jobs predefinidos acima.",
+      "priority": "Prioridade: {{priority}}",
+      "binary": "Binário: {{name}}",
+      "wordlistCount_many": "{{count}} wordlists",
+      "wordlistCount_one": "{{count}} wordlist",
+      "wordlistCount_other": "{{count}} wordlists",
+      "ruleCount_many": "{{count}} regras",
+      "ruleCount_one": "{{count}} regra",
+      "ruleCount_other": "{{count}} regras",
+      "loopback": {
+        "masterToggle": "Ativar loopback para todas as etapas elegíveis",
+        "masterHelperText": "Quando ativado, todo o fluxo de trabalho executa, então cada etapa elegível (wordlist + regras, ou um ataque híbrido wordlist ± máscara) executa novamente contra apenas as senhas recém-quebradas — repetindo inteligentemente até que nenhuma nova quebra seja encontrada. Etapas não mutantes (apenas wordlist, força bruta, associação) ainda alimentam suas novas quebras no loop. Os alternadores por etapa abaixo são desativados enquanto isso está ativado.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Nada para mutar (apenas wordlist, força bruta, associação ou combinador). Esta etapa ainda alimenta suas novas quebras no loop, mas não é executada novamente.",
+        "tooltipMasterOn": "O loopback em nível de fluxo de trabalho está ativado, então cada etapa elegível volta ao loop.",
+        "tooltipStep": "Executar novamente esta etapa contra apenas as senhas recém-quebradas até que nenhuma nova quebra seja encontrada."
+      },
+      "fields": {
+        "workflowName": "Nome do Fluxo de Trabalho",
+        "searchPresetJobs": "Procurar Jobs Predefinidos"
+      },
+      "helperText": {
+        "searchPresetJobs": "Procure jobs predefinidos para adicionar a este fluxo de trabalho"
+      },
+      "errors": {
+        "nameRequired": "Nome do fluxo de trabalho é obrigatório",
+        "presetJobRequired": "Pelo menos um job predefinido é obrigatório",
+        "noPresetJobsAvailable": "Nenhum job predefinido disponível. Crie jobs predefinidos primeiro.",
+        "loadFailed": "Falha ao carregar fluxo de trabalho",
+        "loadFormDataFailed": "Falha ao carregar dados do formulário",
+        "saveFailed": "Falha ao salvar fluxo de trabalho"
+      },
+      "messages": {
+        "createSuccess": "Fluxo de trabalho criado com sucesso",
+        "updateSuccess": "Fluxo de trabalho atualizado com sucesso"
+      },
+      "cloudBurst": {
+        "toggle": "Permitir rajada em nuvem para cada etapa",
+        "helperText": "Aplica a todas as etapas, substituindo a configuração de cada job predefinido. Defina no nível do fluxo de trabalho para que uma instância alugada possa executar todo o fluxo de trabalho em vez de ser encerrada e realugada entre etapas."
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Gerenciamento de Binários",
+    "title": "Binários do Hashcat",
+    "addBinary": "Adicionar Binário",
+    "showingActiveOnly": "Mostrando apenas binários ativos",
+    "showingAll": "Mostrando todos os binários",
+    "noBinaries": "Nenhum binário encontrado",
+    "noActiveBinaries": "Nenhum binário ativo encontrado",
+    "default": "Padrão",
+    "verifyBinary": "Verificar Binário",
+    "deleteBinary": "Excluir Binário",
+    "sourceUpload": "Upload",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Versão",
+      "type": "Tipo",
+      "source": "Origem",
+      "size": "Tamanho",
+      "status": "Status",
+      "default": "Padrão",
+      "lastVerified": "Última Verificação",
+      "actions": "Ações"
+    },
+    "messages": {
+      "fetchFailed": "Falha ao buscar binários",
+      "verifySuccess": "Binário verificado com sucesso",
+      "verifyFailed": "Falha ao verificar binário",
+      "deleteSuccess": "Binário excluído com sucesso",
+      "deleteFailed": "Falha ao excluir binário",
+      "cannotDeleteLast": "Não é possível excluir o último binário {{type}} ativo",
+      "cannotDeleteOnly": "Não é possível excluir o único binário deste tipo",
+      "setDefaultSuccess": "Binário padrão atualizado com sucesso",
+      "setDefaultFailed": "Falha ao definir binário padrão",
+      "addSuccess": "Binário adicionado com sucesso",
+      "addFailed": "Falha ao adicionar binário"
+    },
+    "deleteDialog": {
+      "title": "Confirmar Exclusão",
+      "message": "Tem certeza que quer excluir o binário \"{{fileName}}\"? Esta ação não pode ser desfeita."
+    },
+    "form": {
+      "addDialogTitle": "Adicionar Novo Binário",
+      "sourceLabel": "Origem",
+      "downloadFromUrl": "Baixar do URL",
+      "uploadFile": "Fazer Upload do Arquivo",
+      "binaryTypeLabel": "Tipo de Binário",
+      "johnPending": "John the Ripper (suporte pendente)",
+      "compressionTypeLabel": "Tipo de Compressão",
+      "sourceUrlLabel": "URL de Origem",
+      "sourceUrlHelp": "URL para baixar o binário (ex., https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Selecionar Arquivo",
+      "uploadHelp": "Faça upload de um arquivo .7z, .zip, .tar.gz ou .tar.xz contendo o binário",
+      "fileNameLabel": "Nome do Arquivo",
+      "fileNameHelp": "Preenchido automaticamente a partir do URL/arquivo, mas pode ser modificado se necessário",
+      "versionLabel": "Versão",
+      "versionHelp": "Detectado automaticamente do nome do arquivo. Substitua para compilações personalizadas.",
+      "descriptionLabel": "Descrição",
+      "descriptionHelp": "Notas opcionais sobre este binário (ex., detalhes de compilação personalizada)",
+      "setAsDefault": "Definir como binário padrão",
+      "selectFileRequired": "Por favor, selecione um arquivo para fazer upload",
+      "uploadBinarySubmit": "Fazer Upload do Binário"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Diagnósticos do Sistema",
+    "diagnosticPackage": "Pacote de Diagnóstico",
+    "diagnosticPackageDescription": "Baixe um pacote de diagnóstico contendo informações do sistema, logs e detalhes de configuração para solução de problemas.",
+    "refreshData": "Atualizar Dados",
+    "hours": "Horas",
+    "hoursTooltip": "Número de horas de logs a incluir",
+    "includeAgentLogs": "Incluir Logs do Agente",
+    "includeNginxLogs": "Incluir Logs do Nginx",
+    "includePostgresLogs": "Incluir Logs do PostgreSQL",
+    "preparing": "Preparando...",
+    "downloadDiagnostics": "Baixar Diagnósticos",
+    "systemInfo": "Informações do Sistema",
+    "runtime": "Runtime",
+    "cpus": "CPUs",
+    "goroutines": "Goroutines",
+    "memory": "Memória",
+    "heap": "Heap",
+    "system": "Sistema",
+    "gcRuns": "Execuções de GC",
+    "database": "Banco de Dados",
+    "size": "Tamanho",
+    "connections": "Conexões",
+    "agents": "Agentes",
+    "connected": "Conectados",
+    "withDebugStatus": "Com Status de Debug",
+    "serverDebugStatus": "Status de Debug do Servidor",
+    "serverDebugDescription": "Ativar logging detalhado para o servidor. Isso aumentará o tamanho dos arquivos de log e pode impactar o desempenho.",
+    "debugEnabled": "Debug Ativado",
+    "debugDisabled": "Debug Desativado",
+    "level": "Nível",
+    "enableDebug": "Ativar Debug",
+    "disableDebug": "Desativar Debug",
+    "loadingServerDebugStatus": "Carregando status de debug do servidor...",
+    "serverLogs": "Logs do Servidor",
+    "serverLogsDescription": "Gerenciar arquivos de log do servidor. Limpar logs é permanente e não pode ser desfeito.",
+    "refreshLogStats": "Atualizar Estatísticas de Log",
+    "directory": "Diretório",
+    "files": "Arquivos",
+    "actions": "Ações",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Total",
+    "purge": "Limpar",
+    "purgeAll": "Limpar Tudo",
+    "loadingLogStatistics": "Carregando estatísticas de log...",
+    "agentDebugStatus": "Status de Debug do Agente",
+    "enableAll": "Ativar Tudo",
+    "disableAll": "Desativar Tudo",
+    "noAgentsWithDebugStatus": "Nenhum agente com status de debug disponível",
+    "agentId": "ID do Agente",
+    "logLevel": "Nível de Log",
+    "fileLogging": "Logging em Arquivo",
+    "logFileSize": "Tamanho do Arquivo de Log",
+    "buffer": "Buffer",
+    "lastUpdated": "Última Atualização",
+    "viewLogs": "Visualizar Logs",
+    "purgeLogs": "Limpar Logs",
+    "agentLogs": "Logs do Agente",
+    "agent": "Agente",
+    "allLevels": "Todos os Níveis",
+    "refresh": "Atualizar",
+    "showingEntries": "Mostrando {{shown}} de {{total}} entradas",
+    "filtered": "filtrado",
+    "truncated": "truncado",
+    "time": "Hora",
+    "message": "Mensagem",
+    "location": "Localização",
+    "noEntriesForLevel": "Nenhuma entrada encontrada para o nível {{level}}",
+    "noLogEntriesAvailable": "Nenhuma entrada de log disponível",
+    "logFileContent": "Conteúdo do Arquivo de Log",
+    "noLogsAvailable": "Nenhum log disponível",
+    "securityWarning": "Aviso de Segurança",
+    "postgresLogsWarning": "Os logs do PostgreSQL podem conter dados sensíveis. Considere limpá-los após a solução de problemas.",
+    "nginxLogsWarning": "Os logs de acesso do Nginx podem conter dados de solicitação sensíveis. Considere limpá-los após a solução de problemas.",
+    "sensitiveNginxLogsWarning": "Os logs de acesso do Nginx podem conter informações sensíveis, incluindo tokens de autenticação em headers de solicitação e parâmetros de consulta.",
+    "sensitivePostgresLogsWarning": "Os logs do PostgreSQL podem conter informações sensíveis, incluindo consultas com dados de usuário, senhas e detalhes de conexão.",
+    "sensitiveLogsTestEnvironmentWarning": "Inclua estes logs apenas para ambientes de teste/desenvolvimento ou quando absolutamente necessário para debug.",
+    "sensitiveLogsProductionWarning": "Não inclua logs sensíveis em pacotes de diagnóstico de produção compartilhados externamente.",
+    "iUnderstandIncludeLogs": "Entendo, Incluir Logs",
+    "allServerLogs": "todos os logs do servidor",
+    "directoryLogs": "logs do {{directory}}",
+    "purgeServerLogs": "Limpar Logs do Servidor",
+    "confirmPurgeLogs": "Tem certeza que quer limpar {{dirLabel}}?",
+    "cannotBeUndone": "Esta ação não pode ser desfeita.",
+    "purgeAgentLogs": "Limpar Logs do Agente",
+    "confirmPurgeAgentLogs": "Tem certeza que quer limpar logs do agente {{agentId}}?",
+    "enable": "Ativar",
+    "disable": "Desativar",
+    "serverDebugModeTitle": "{{action}} Modo de Debug do Servidor",
+    "serverDebugModeMessage": "Isso alterará o nível de logging do servidor. O servidor nginx será recarregado para aplicar as alterações.",
+    "serverDebugModeWarning": "A página será brevemente reconectada após aplicar as alterações.",
+    "reconnectingToServer": "Reconectando ao Servidor",
+    "pleaseWaitReconnecting": "Por favor, aguarde enquanto o servidor é reiniciado...",
+    "nginxLogsTooltip": "Aviso: Pode conter dados de solicitação sensíveis",
+    "postgresLogsTooltip": "Aviso: Pode conter consultas de banco de dados sensíveis",
+    "messages": {
+      "loadFailed": "Falha ao carregar dados de diagnósticos:",
+      "logStatsFailed": "Falha ao carregar estatísticas de log:",
+      "purgeFailed": "Falha ao limpar logs:",
+      "reconnectionTimedOut": "Reconexão expirou. Por favor, atualize a página.",
+      "toggleDebugFailed": "Falha ao alternar modo de debug:",
+      "downloadFailed": "Falha ao baixar diagnósticos:",
+      "toggleAgentDebugFailed": "Falha ao alternar debug do agente:",
+      "toggleAllAgentsDebugFailed": "Falha ao alternar debug para todos os agentes:",
+      "fetchAgentLogsFailed": "Falha ao buscar logs do agente:",
+      "purgeAgentLogsFailed": "Falha ao limpar logs do agente:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Configurações de Autenticação",
+    "unsavedChanges": "Você tem alterações não salvas. Clique em 'Salvar Configurações' para aplicá-las.",
+    "saving": "Salvando...",
+    "saveSettings": "Salvar Configurações",
+    "resetToSaved": "Restaurar Configurações Salvas",
+    "passwordPolicy": {
+      "title": "Política de Senha",
+      "minLength": "Comprimento Mínimo de Senha",
+      "requireUppercase": "Exigir Maiúsculas",
+      "requireLowercase": "Exigir Minúsculas",
+      "requireNumbers": "Exigir Números",
+      "requireSpecialChars": "Exigir Caracteres Especiais"
+    },
+    "accountSecurity": {
+      "title": "Segurança da Conta",
+      "maxFailedAttempts": "Máximo de Tentativas de Login Falhas",
+      "lockoutDuration": "Duração do Bloqueio (minutos)",
+      "jwtExpiry": "Expiração de JWT (minutos)",
+      "notificationAggregation": "Agregação de Notificações (minutos)",
+      "notificationAggregationHelper": "Quanto tempo agregar notificações semelhantes antes de enviar"
+    },
+    "mfa": {
+      "title": "Autenticação de Múltiplos Fatores",
+      "requireMfa": "Exigir MFA para Todos os Usuários",
+      "requireMfaEmailRequired": "Exigir MFA (requer gateway de e-mail)",
+      "allowedMethods": "Métodos MFA Permitidos",
+      "methodEmail": "Código de E-mail",
+      "methodAuthenticator": "Aplicativo Autenticador (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (não suportado neste navegador)",
+      "codeSettings": "Configurações de Código",
+      "emailCodeValidity": "Validade do Código de E-mail (minutos)",
+      "emailCodeValidityHelper": "Por quanto tempo os códigos de verificação de e-mail são válidos",
+      "codeCooldown": "Tempo de Espera para Solicitação de Código (minutos)",
+      "codeCooldownHelper": "Tempo mínimo entre solicitações de código",
+      "codeExpiry": "Expiração de Código (minutos)",
+      "codeExpiryHelper": "Por quanto tempo os códigos MFA são válidos",
+      "maxCodeAttempts": "Máximo de Tentativas de Código",
+      "maxCodeAttemptsHelper": "Máximo de tentativas de código falhas antes do bloqueio",
+      "backupCodesCount": "Contagem de Códigos de Backup",
+      "backupCodesCountHelper": "Número de códigos de backup a gerar",
+      "requireMfaHelper": "Todo usuário deve completar MFA ao fazer login. Requer um provedor de e-mail configurado para que os códigos possam ser entregues."
+    },
+    "webauthn": {
+      "title": "Configuração de WebAuthn / Passkey",
+      "notSupported": "WebAuthn não é suportado neste navegador.",
+      "requiresDomain": "Passkeys requerem um domínio adequado e HTTPS. Configure suas configurações de domínio abaixo.",
+      "rpId": "ID do Relying Party",
+      "rpIdHelper": "Seu nome de domínio (por exemplo, krakenhashes.example.com)",
+      "rpDisplayName": "Nome de Exibição",
+      "rpDisplayNameHelper": "Nome mostrado aos usuários durante o registro de passkey",
+      "allowedOrigins": "Origens Permitidas",
+      "allowedOriginsHelper": "Uma origem por linha (por exemplo, https://krakenhashes.example.com)",
+      "configured": "WebAuthn está configurado e pronto para uso.",
+      "save": "Salvar Configurações de WebAuthn"
+    },
+    "session": {
+      "title": "Gerenciamento de Sessão",
+      "tokenCleanupInterval": "Intervalo de Limpeza de Token (segundos)",
+      "tokenCleanupIntervalHelper": "Com que frequência limpar tokens expirados",
+      "maxConcurrentSessions": "Máximo de Sessões Simultâneas",
+      "maxConcurrentSessionsHelper": "Máximo de sessões por usuário (0 = ilimitado)",
+      "absoluteTimeout": "Tempo Limite Absoluto da Sessão (horas)",
+      "absoluteTimeoutHelper": "Forçar re-autenticação após este tempo (0 = desabilitado)"
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar configurações de autenticação",
+      "noSettingsToSave": "Nenhuma configuração para salvar",
+      "saveFailed": "Falha ao salvar configurações",
+      "emailProviderRequired": "Provedor de e-mail é necessário para MFA baseado em e-mail",
+      "webauthnSaveFailed": "Falha ao salvar configurações de WebAuthn",
+      "resetFailed": "Falha ao restaurar configurações"
+    },
+    "messages": {
+      "updateSuccess": "Configurações de autenticação atualizadas com sucesso",
+      "updateFailed": "Falha ao atualizar configurações de autenticação"
+    },
+    "teams": {
+      "title": "Isolamento entre Equipes",
+      "description": "Quando habilitado, clientes, hashlists, jobs e agentes são limitados a equipes e usuários veem apenas o que suas equipes possuem.",
+      "enable": "Habilitar Equipes",
+      "enableHelper": "Os dados existentes são colocados na Equipe Padrão."
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "Configurações de SSO",
+    "pageDescription": "Configure provedores de Single Sign-On e opções de autenticação",
+    "warnings": {
+      "ephemeralKeyTitle": "Chave de Criptografia de SSO Não Configurada",
+      "ephemeralKeyDescription": "Segredos do provedor SSO (segredos do cliente, senhas de bind, chaves privadas) são atualmente criptografados com uma chave temporária que será perdida quando o servidor reiniciar. Quaisquer provedores SSO configurados deixarão de funcionar após uma reinicialização.",
+      "ephemeralKeyInstructions": "Para corrigir isso, gere uma chave de criptografia persistente executando:",
+      "ephemeralKeyAddToEnv": "Em seguida, adicione o seguinte ao seu arquivo .env e reinicie o servidor:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Comando copiado para a área de transferência"
+    },
+    "authMethods": {
+      "title": "Métodos de Autenticação",
+      "description": "Habilitar ou desabilitar métodos de autenticação globalmente",
+      "localAuth": "Autenticação Local",
+      "localAuthDescription": "Login com nome de usuário/senha",
+      "ldapAuth": "Autenticação LDAP",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "Autenticação SAML",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "Autenticação OAuth/OIDC",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Provisionamento de Usuário",
+      "description": "Configure a criação automática de usuários a partir de logins SSO",
+      "autoCreateUsers": "Criar Usuários Automaticamente",
+      "autoCreateUsersDescription": "Criar automaticamente contas de usuário para novos logins SSO",
+      "autoEnableUsers": "Habilitar Usuários Automaticamente",
+      "autoEnableUsersDescription": "Habilitar automaticamente usuários SSO recém-criados (caso contrário, aprovação do administrador necessária)"
+    },
+    "providers": {
+      "title": "Provedores de SSO",
+      "addProvider": "Adicionar Provedor",
+      "noProviders": "Nenhum provedor SSO configurado. Clique em \"Adicionar Provedor\" para criar um.",
+      "enabled": "Habilitado",
+      "disabled": "Desabilitado",
+      "callbackUrl": "URL de Callback",
+      "acsUrl": "URL do ACS",
+      "metadata": "Metadados",
+      "viewXml": "Visualizar XML",
+      "testConnection": "Testar Conexão",
+      "downloadCertificate": "Baixar Certificado do SP"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Excluir Provedor",
+        "confirmation": "Você tem certeza de que deseja excluir o provedor \"{{name}}\"? Esta ação não pode ser desfeita e desvinculará todas as identidades de usuário associadas."
+      },
+      "providerForm": {
+        "addTitle": "Adicionar Provedor",
+        "editTitle": "Editar Provedor",
+        "providerName": "Nome do Provedor",
+        "providerType": "Tipo de Provedor",
+        "enabled": "Habilitado"
+      }
+    },
+    "ldapConfig": {
+      "title": "Configuração de LDAP",
+      "serverUrl": "URL do Servidor",
+      "serverUrlHelper": "Use ldaps:// para conexões seguras",
+      "baseDn": "Base DN",
+      "userSearchFilter": "Filtro de Pesquisa de Usuário",
+      "userSearchFilterHelper": "Use {{username}} como espaço reservado",
+      "bindDn": "Bind DN (opcional)",
+      "bindPassword": "Senha de Bind",
+      "emailAttribute": "Atributo de E-mail",
+      "usernameAttribute": "Atributo de Nome de Usuário",
+      "usernameAttributeHelper": "Atributo LDAP contendo nome de usuário (por exemplo, sAMAccountName, uid)",
+      "connectionTimeout": "Tempo Limite de Conexão (segundos)",
+      "useStartTls": "Usar StartTLS",
+      "skipCertVerify": "Ignorar Verificação de Certificado (apenas para teste)"
+    },
+    "samlConfig": {
+      "title": "Configuração de SAML",
+      "spEntityId": "ID da Entidade do SP",
+      "spEntityIdHelper": "Identificador SAML da sua aplicação",
+      "idpEntityId": "ID da Entidade do IdP",
+      "idpSsoUrl": "URL SSO do IdP",
+      "idpCertificate": "Certificado do IdP",
+      "emailAttribute": "Atributo de E-mail",
+      "usernameAttribute": "Atributo de Nome de Usuário",
+      "usernameAttributeHelper": "Atributo SAML contendo nome de usuário (por exemplo, uid, username)",
+      "requireSignedAssertions": "Exigir Asserções Assinadas"
+    },
+    "oauthConfig": {
+      "title": "Configuração de OAuth/OIDC",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "ID do Cliente",
+      "clientSecret": "Segredo do Cliente",
+      "discoveryUrl": "URL de Descoberta",
+      "discoveryUrlHelper": "Ponto de extremidade de descoberta OIDC (configura automaticamente outras URLs)",
+      "authorizationUrl": "URL de Autorização",
+      "tokenUrl": "URL de Token",
+      "userInfoUrl": "URL de Informações do Usuário",
+      "scopes": "Escopos",
+      "scopesHelper": "Lista separada por espaços",
+      "emailAttribute": "Atributo de E-mail",
+      "usernameAttribute": "Atributo de Nome de Usuário",
+      "usernameAttributeHelper": "Claim contendo nome de usuário (por exemplo, preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Falha ao carregar configurações de SSO",
+      "settingsUpdated": "Configurações de SSO atualizadas com sucesso",
+      "updateFailed": "Falha ao atualizar configurações de SSO",
+      "loadProviderFailed": "Falha ao carregar detalhes do provedor",
+      "providerDeleted": "Provedor excluído com sucesso",
+      "deleteFailed": "Falha ao excluir provedor",
+      "testSuccess": "Teste de conexão bem-sucedido",
+      "testFailed": "Teste de conexão falhou",
+      "certificateDownloaded": "Certificado baixado com sucesso",
+      "certificateNotFound": "Certificado não encontrado nos metadados",
+      "certificateDownloadFailed": "Falha ao baixar certificado",
+      "providerUpdated": "Provedor atualizado com sucesso",
+      "providerCreated": "Provedor criado com sucesso",
+      "saveProviderFailed": "Falha ao salvar provedor"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Configuração do Provedor",
+      "emailTemplates": "Modelos de E-mail"
+    },
+    "provider": {
+      "titles": {
+        "current": "Configuração de E-mail Atual",
+        "create": "Criar Configuração de E-mail",
+        "edit": "Editar Configuração de E-mail"
+      },
+      "labels": {
+        "provider": "Provedor",
+        "apiKey": "Chave de API",
+        "password": "Senha",
+        "smtpHost": "Host SMTP",
+        "port": "Porta",
+        "username": "Nome de Usuário",
+        "encryption": "Criptografia",
+        "fromEmail": "E-mail do Remetente",
+        "fromName": "Nome do Remetente",
+        "domain": "Domínio",
+        "region": "Região",
+        "monthlyLimit": "Limite Mensal",
+        "skipTlsVerify": "Ignorar Verificação de Certificado TLS (inseguro, não recomendado)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "Endereço de E-mail de Teste"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Deixe em branco para manter o atual",
+        "monthlyLimit": "Deixe em branco para ilimitado",
+        "mailgunFromEmail": "Geralmente noreply@yourdomain",
+        "fromName": "Nome de exibição para e-mails"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Nenhum (Porta 25)",
+        "encryptionStarttls": "STARTTLS (Porta 587)",
+        "encryptionTls": "TLS/SSL (Porta 465)",
+        "regionUS": "EUA (api.mailgun.net)",
+        "regionEU": "UE (api.eu.mailgun.net)"
+      },
+      "buttons": {
+        "edit": "Editar Configuração",
+        "cancel": "Cancelar",
+        "testConnection": "Testar Conexão",
+        "save": "Salvar Configuração",
+        "saveOnly": "Salvar Apenas",
+        "saveAndTest": "Salvar e Testar",
+        "sendTestEmail": "Enviar E-mail de Teste"
+      },
+      "dialogs": {
+        "test": {
+          "title": "Testar Configuração de E-mail",
+          "content": "Digite um endereço de e-mail para enviar um e-mail de teste:"
+        },
+        "save": {
+          "title": "Salvar Configuração",
+          "content": "Você gostaria de testar a configuração após salvar?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "A verificação do certificado TLS está desabilitada",
+        "tlsVerifyWarning": "Desabilitar a verificação de TLS torna sua conexão vulnerável a ataques man-in-the-middle. Use isto apenas para teste com certificados auto-assinados."
+      },
+      "messages": {
+        "testSuccess": "E-mail de teste enviado com sucesso",
+        "testFailed": "Falha ao enviar e-mail de teste",
+        "saveSuccess": "Configuração salva com sucesso",
+        "saveFailed": "Falha ao salvar configuração",
+        "loadFailed": "Falha ao carregar configuração"
+      }
+    },
+    "templates": {
+      "title": "Modelos de E-mail",
+      "createTemplate": "Criar Modelo de E-mail",
+      "editTemplate": "Editar Modelo de E-mail",
+      "labels": {
+        "templateType": "Tipo de Modelo",
+        "name": "Nome",
+        "subject": "Assunto",
+        "htmlContent": "Conteúdo HTML",
+        "textContent": "Conteúdo de Texto"
+      },
+      "menuItems": {
+        "securityEvent": "Evento de Segurança",
+        "jobCompletion": "Conclusão do Job",
+        "adminError": "Erro de Administrador",
+        "mfaCode": "Código MFA",
+        "securityPasswordChanged": "Senha Alterada",
+        "securityMfaDisabled": "MFA Desabilitado",
+        "securitySuspiciousLogin": "Login Suspeito",
+        "jobStarted": "Job Iniciado",
+        "jobFailed": "Job Falhou",
+        "firstCrack": "Primeira Quebra",
+        "taskCompleted": "Tarefa Concluída",
+        "agentOffline": "Agente Offline",
+        "agentError": "Erro de Agente",
+        "webhookFailure": "Falha de Webhook"
+      },
+      "buttons": {
+        "create": "Criar Modelo",
+        "cancel": "Cancelar",
+        "test": "Testar",
+        "save": "Salvar",
+        "edit": "Editar",
+        "delete": "Excluir"
+      },
+      "table": {
+        "name": "Nome",
+        "type": "Tipo",
+        "subject": "Assunto",
+        "actions": "Ações"
+      },
+      "preview": "Visualização ao Vivo (com dados de amostra):",
+      "messages": {
+        "loadSuccess": "Modelos carregados com sucesso",
+        "loadFailed": "Falha ao carregar modelos",
+        "createSuccess": "Modelo criado com sucesso",
+        "createFailed": "Falha ao criar modelo",
+        "updateSuccess": "Modelo atualizado com sucesso",
+        "updateFailed": "Falha ao atualizar modelo",
+        "deleteSuccess": "Modelo excluído com sucesso",
+        "deleteFailed": "Falha ao excluir modelo",
+        "testSuccess": "Email de teste enviado com sucesso",
+        "testFailed": "Falha ao enviar email de teste",
+        "saveFailed": "Falha ao salvar modelo"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Configurações salvas com sucesso",
+    "saveFailed": "Falha ao salvar configurações"
+  },
+  "clientSettings": {
+    "title": "Configurações de Cliente",
+    "retentionPeriod": "Retenção de Dados Padrão (Meses)",
+    "retentionHelperText": "Período de retenção padrão para novos clientes (0 = manter para sempre)",
+    "saveButton": "Salvar Configurações",
+    "errors": {
+      "invalidRetention": "Período de retenção deve ser um número não-negativo",
+      "saveFailed": "Falha ao salvar configurações de cliente"
+    },
+    "messages": {
+      "updateSuccess": "Configurações de cliente atualizadas com sucesso"
+    }
+  },
+  "systemSettings": {
+    "title": "Configurações do Sistema",
+    "priority": {
+      "title": "Configurações de Prioridade",
+      "tooltip": "Configure o valor máximo de prioridade que pode ser atribuído a jobs e jobs predefinidos. Isso ajuda a manter intervalos de prioridade consistentes em sua organização.",
+      "maxPriority": "Prioridade Máxima do Job",
+      "helperText": "Defina o valor máximo de prioridade (1-1.000.000). Jobs e jobs predefinidos não podem exceder essa prioridade.",
+      "saveButton": "Salvar Configurações",
+      "saving": "Salvando...",
+      "reset": "Redefinir"
+    },
+    "priorityInfo": {
+      "title": "Informações do Sistema de Prioridade",
+      "description": "O sistema de prioridade usa um intervalo de 0 até sua prioridade máxima configurada. Números maiores indicam maior prioridade.",
+      "currentMax": "Máximo Atual",
+      "note": "Você não pode definir uma prioridade máxima menor que qualquer prioridade de job predefinido existente. Atualize ou remova jobs predefinidos com alta prioridade primeiro, se necessário.",
+      "recommended": "Intervalos recomendados por tamanho de organização:",
+      "small": "Organização pequena: 0-100",
+      "medium": "Organização média/grande: 0-1.000",
+      "large": "Organização com carga de trabalho ridícula: 0-10.000"
+    },
+    "agentScheduling": {
+      "title": "Agendamento de Agentes",
+      "tooltip": "Ativar ou desativar globalmente o sistema de agendamento de agentes. Quando ativado, agentes podem ter agendas diárias configuradas.",
+      "enable": "Ativar Sistema de Agendamento de Agentes",
+      "description": "Quando ativado, agentes podem ser configurados com agendas diárias. Apenas agentes que estão agendados para a hora atual serão atribuídos a jobs.",
+      "note": "Agentes individuais também devem ter o agendamento ativado e agendas configuradas para que isso entre em vigor."
+    },
+    "agentOverflow": {
+      "title": "Alocação de Excedente de Agentes",
+      "tooltip": "Configure como agentes livres são distribuídos quando todos os jobs em cada nível de prioridade preencheram seu limite de max_agents.",
+      "modeLabel": "Modo de alocação de excedente",
+      "priorityFifoMode": "Prioridade - FIFO",
+      "priorityRoundRobinMode": "Prioridade - Round Robin",
+      "enforceMaxAgentsMode": "Aplicar Máximo de Agentes",
+      "maxAgentsFifoMode": "Máximo de Agentes - FIFO",
+      "maxAgentsRoundRobinMode": "Máximo de Agentes - Round Robin",
+      "priorityFifoDescription": "Níveis preenchidos com maior prioridade primeiro. Quando um nível atinge max_agents, agentes restantes se acumulam no job MAIS ANTIGO daquele nível — excedendo seu limite. Jobs com prioridade menor podem ficar sem agentes até que níveis superiores sejam esgotados.",
+      "priorityRoundRobinDescription": "Níveis preenchidos com maior prioridade primeiro. Quando um nível atinge max_agents, agentes restantes giram uniformemente entre os jobs daquele nível — excedendo limites. Jobs com prioridade menor podem ficar sem agentes.",
+      "enforceMaxAgentsDescription": "Limita estritamente cada job ao seu limite de max_agents — sem excedente. Agentes excedentes permanecem ociosos. Mais previsível; pode desperdiçar capacidade.",
+      "maxAgentsFifoDescription": "Todos os jobs em todas as prioridades preenchem seu max_agents primeiro (limites estritos). Qualquer agente restante então se acumula no job MAIS ANTIGO em geral — ignorando prioridade. Maximiza taxa de transferência e ainda garante que todos os jobs recebam seu nível básico.",
+      "maxAgentsRoundRobinDescription": "Todos os jobs em todas as prioridades preenchem seu max_agents primeiro (limites estritos). Qualquer agente restante então gira uniformemente entre TODOS os jobs — ignorando prioridade. Maximiza taxa de transferência com distribuição justa além do nível básico."
+    },
+    "hashlist": {
+      "title": "Configurações de Hashlist",
+      "tooltip": "Defina as configurações relacionadas a uploads e gerenciamento de hashlist",
+      "requireClient": "Exigir Cliente para Hashlists",
+      "requireClientDescription": "Quando ativado, usuários devem atribuir um cliente ao fazer upload de novas hashlists. Isso ajuda a manter melhor organização e rastreamento de hashlists por cliente.",
+      "batchSize": "Tamanho de Lote para Importação em Massa",
+      "batchSizeHelper": "Número de hashes processados por lote durante uploads. Padrão: 100.000. Recomendado: 500.000-1.000.000 para hashlists grandes (47M+)",
+      "performanceGuide": "Guia de Desempenho:",
+      "performance100k": "100K (padrão): Bom para a maioria dos casos de uso",
+      "performance500k": "500K: Melhor para hashlists grandes, pode melhorar a taxa de transferência",
+      "performance1m": "1M: Melhor para hashlists muito grandes (50M+), requer mais RAM"
+    },
+    "potfile": {
+      "title": "Configurações de Potfile",
+      "tooltip": "Configure como o potfile processa senhas quebradas para reutilização entre jobs",
+      "maxBatchSize": "Tamanho Máximo de Lote",
+      "maxBatchSizeHelper": "Número de senhas em estágio para processar em cada ciclo de lote (1.000 - 500.000)",
+      "batchInterval": "Intervalo de Lote (segundos)",
+      "batchIntervalHelper": "Segundos entre ciclos de processamento em lote de potfile (10 - 600)",
+      "description": "O potfile coleta senhas quebradas de todos os jobs e as reutiliza em ataques subsequentes. Tamanhos de lote maiores processam mais senhas de uma vez, mas levam mais tempo por ciclo.",
+      "processingRate": "Taxa de Processamento",
+      "passwordsPerSecond": "senhas/segundo",
+      "currentSettings": "Configurações Atuais",
+      "passwordsEvery": "senhas a cada",
+      "seconds": "segundos"
+    },
+    "speedTest": {
+      "title": "Speed Test (Benchmark)",
+      "tooltip": "Ajuste quanto tempo os agentes esperam até que o hashcat produza um benchmark utilizável antes de falhar no speed test. Wordlists comprimidas precisam de muito mais tempo para o pré-processamento de dictstat.",
+      "timeoutUncompressed": "Tempo limite: wordlists em texto plano (segundos)",
+      "timeoutUncompressedHelper": "Máximo de segundos que o agente aguardará por uma leitura de velocidade válida em wordlists em texto plano. Padrão: 120.",
+      "timeoutCompressed": "Tempo limite: wordlists comprimidas (segundos)",
+      "timeoutCompressedHelper": "Tempo máximo para wordlists .gz / .zip / .xz — os três formatos que hashcat lê nativamente. Estas precisam de mais tempo para descompactar e pré-processar dictstat. Padrão: 300.",
+      "minStatusUpdates": "Atualizações de status mínimas",
+      "minStatusUpdatesHelper": "Número mínimo de ticks do --status-json do hashcat que o agente deve coletar antes de retornar um resultado. Padrão: 3.",
+      "minUpdatesLowWarning": "Valores abaixo de 3 podem produzir leituras imprecisas: GPUs podem não ter terminado de esquentar.",
+      "description": "Se o agente atingir o tempo limite sem produzir velocidade diferente de zero, o benchmark é relatado como falhado e o job mostra um erro acionável pelo administrador. O pipeline de divisão em blocos também recusa despachar uma tarefa de 1 candidato, então um benchmark obsoleto de 0 H/s não pode ficar em loop infinito."
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar configurações do sistema",
+      "maxPriorityRequired": "Prioridade máxima é obrigatória",
+      "maxPriorityPositive": "Prioridade máxima deve ser um número positivo",
+      "maxPriorityMax": "Prioridade máxima não pode exceder 1.000.000",
+      "saveFailed": "Falha ao salvar configurações do sistema",
+      "batchSizeRange": "Tamanho de lote deve estar entre {{min}} e {{max}}",
+      "intervalRange": "Intervalo deve estar entre {{min}} e {{max}} segundos",
+      "speedTestTimeoutRange": "Tempo limite do speed test deve estar entre {{min}} e {{max}} segundos",
+      "minStatusUpdatesRange": "Atualizações de status mínimas deve estar entre {{min}} e {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Configurações do sistema atualizadas com sucesso",
+      "schedulingUpdated": "Configuração de agendamento de agentes atualizada",
+      "schedulingFailed": "Falha ao atualizar configuração de agendamento",
+      "overflowUpdated": "Modo de alocação de excedente de agentes atualizado",
+      "overflowFailed": "Falha ao atualizar modo de alocação de excedente",
+      "hashlistClientUpdated": "Requisito de cliente para hashlist atualizado",
+      "hashlistBatchUpdated": "Tamanho de lote de hashlist atualizado",
+      "potfileBatchUpdated": "Tamanho de lote do potfile atualizado",
+      "potfileIntervalUpdated": "Intervalo de lote do potfile atualizado",
+      "speedTestTimeoutUpdated": "Tempo limite do speed test atualizado",
+      "speedTestMinUpdatesUpdated": "Atualizações de status mínimas do speed test atualizadas",
+      "updateFailed": "Falha ao atualizar configuração"
+    }
+  },
+  "jobExecution": {
+    "title": "Configurações de Execução de Job",
+    "description": "Configure como jobs são executados e distribuídos entre agentes",
+    "chunking": {
+      "title": "Divisão em Blocos de Job",
+      "defaultChunkDuration": "Duração de Bloco Padrão",
+      "defaultChunkDurationHelper": "Tempo de parede alvo por bloco (scheduler-v2 dimensiona o bloco de cada agente para atingir isso)",
+      "minChunkSeconds": "Duração de Bloco Mínima",
+      "minChunkSecondsHelper": "Piso para o tempo de parede de um único bloco; previne pequenos blocos órfãos",
+      "minutes": "minutos",
+      "overrunTolerance": "Tolerância de excesso de bloco",
+      "overrunToleranceHelper": "O quanto além de sua duração planejada um bloco pode executar antes de o guarda detê-lo e redespachar o restante.",
+      "overrunGuard": "Ativar guarda de excesso de bloco",
+      "overrunGuardHelper": "Para uma tarefa que executa bem além de sua duração de bloco planejada e redespacha a parte inacabada."
+    },
+    "agentConfig": {
+      "title": "Configuração de Agente",
+      "hashlistRetention": "Retenção de Hashlist",
+      "hashlistRetentionHelper": "Quanto tempo agentes retêm hashlists",
+      "maxConcurrentJobs": "Máximo de Jobs Simultâneos por Agente",
+      "maxConcurrentJobsHelper": "Máximo de jobs que um agente pode executar simultaneamente",
+      "progressReporting": "Intervalo de Relatório de Progresso",
+      "progressReportingHelper": "Com que frequência agentes relatam progresso",
+      "benchmarkCache": "Duração do Cache de Benchmark",
+      "benchmarkCacheHelper": "Quanto tempo manter os benchmarks de agentes em cache.",
+      "benchmarkHistoryRetention": "Retenção do Histórico de Benchmark",
+      "benchmarkHistoryRetentionHelper": "Dias para reter registros de histórico de benchmark (0 = ilimitado)",
+      "reconnectGrace": "Período de Graça de Reconexão",
+      "reconnectGraceHelper": "Tempo a esperar para agentes se reconectarem após reinicialização do servidor",
+      "days": "dias",
+      "seconds": "segundos",
+      "minutes": "minutos"
+    },
+    "jobControl": {
+      "title": "Controle de Job",
+      "allowInterruption": "Permitir Interrupção de Job",
+      "allowInterruptionHelper": "Jobs com prioridade mais alta podem interromper jobs em execução",
+      "realtimeNotifications": "Notificações de Quebra em Tempo Real",
+      "realtimeNotificationsHelper": "Enviar notificações quando hashes são quebrados",
+      "refreshInterval": "Intervalo de Atualização de Job",
+      "refreshIntervalHelper": "Com que frequência atualizar status de job na interface",
+      "maxRetryAttempts": "Máximo de Tentativas de Repetição de Bloco",
+      "maxRetryAttemptsHelper": "Número de vezes para tentar novamente blocos com falha",
+      "jobsPerPage": "Jobs por Página",
+      "jobsPerPageHelper": "Tamanho de paginação padrão para listas de jobs",
+      "keyspaceTimeout": "Tempo limite de Cálculo de Keyspace",
+      "keyspaceTimeoutHelper": "Tempo máximo para comandos --keyspace e --total-candidates do hashcat. Aumente para wordlists/regras grandes."
+    },
+    "potfile": {
+      "title": "Configurações de Potfile",
+      "enablePotfile": "Ativar Potfile",
+      "enablePotfileHelper": "Armazenar automaticamente senhas quebradas para uso em jobs futuros. Hashlists individuais ainda podem ser excluídas.",
+      "maxBatchSize": "Tamanho Máximo de Lote",
+      "maxBatchSizeHelper": "Número de senhas em estágio para processar em cada ciclo de lote (1.000 - 500.000)",
+      "batchInterval": "Intervalo de Lote",
+      "batchIntervalHelper": "Segundos entre ciclos de processamento em lote de potfile (10 - 600)",
+      "enableClientPotfiles": "Ativar potfiles de cliente",
+      "enableClientPotfilesHelper": "Manter um potfile separado por cliente, além do global.",
+      "removeGlobalDefault": "Remover do potfile global quando uma hashlist é excluída (padrão)",
+      "removeClientDefault": "Remover do potfile de cliente quando uma hashlist é excluída (padrão)"
+    },
+    "scheduler": {
+      "title": "Scheduler (v2)",
+      "description": "Ajuste avançado para a vivacidade das tarefas e o tratamento de excesso do scheduler v2. Os padrões são seguros para a maioria das implantações.",
+      "taskHeartbeatTimeout": "Tempo limite de Heartbeat de Tarefa",
+      "taskHeartbeatTimeoutHelper": "Segundos sem sinal de vivacidade antes de uma tarefa em execução ser marcada como perdida e recuperada",
+      "taskStartupGrace": "Graça de Inicialização de Tarefa",
+      "taskStartupGraceHelper": "Graça extra antes de primeiro progresso (download de arquivo, descompressão, autotune)",
+      "networkGrace": "Graça de Rede",
+      "networkGraceHelper": "Tolerância de reconexão de WebSocket antes que a recuperação dispare em uma desconexão.",
+      "overrunGuardEnabled": "Guarda de Excesso de Bloco",
+      "overrunGuardEnabledHelper": "Interrompe tarefas que ultrapassam o alvo de bloco além da tolerância definida abaixo.",
+      "overrunTolerance": "Tolerância de Excesso",
+      "overrunToleranceHelper": "Janela de graça: parar quando o tempo de parede exceder o alvo de bloco por essa porcentagem."
+    },
+    "buttons": {
+      "save": "Salvar Configurações"
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar configurações",
+      "outOfRange": "{{label}} deve estar entre {{min}} e {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Configurações de execução de job atualizadas com sucesso",
+      "loadFailed": "Falha ao carregar configurações de execução de job",
+      "saveFailed": "Falha ao salvar configurações"
+    },
+    "keyspaceBenchmark": {
+      "title": "Keyspace & Benchmark",
+      "caption": "Quanto tempo KrakenHashes pode gastar medindo um ataque. A primeira configuração limita o SERVIDOR medindo a wordlist na criação do job; as configurações do speed test limitam um AGENTE medindo sua própria taxa de hash. São estágios diferentes — aumentar um não afeta o outro.",
+      "keyspaceTimeout": "Tempo limite de cálculo de keyspace",
+      "keyspaceTimeoutHelper": "Lado do servidor. Tempo permitido para hashcat --keyspace / --total-candidates quando um job é criado. Executa em segundo plano, então aumentar isso não torna a criação do job mais lenta. Se excedido, um ataque direto retorna à contagem de palavras da wordlist e notifica o usuário.",
+      "speedTestUncompressed": "Tempo limite do speed test do agente",
+      "speedTestUncompressedHelper": "Lado do agente. Limite de tempo de parede para um benchmark de agente em uma wordlist descomprimida.",
+      "speedTestCompressed": "Tempo limite do speed test do agente (comprimida)",
+      "speedTestCompressedHelper": "Lado do agente. Limite mais longo para wordlists comprimidas, que hashcat deve descomprimir antes de poder relatar uma taxa.",
+      "minStatusUpdates": "Atualizações de status mínimas",
+      "minStatusUpdatesHelper": "Quantos relatórios de status do hashcat um speed test deve produzir antes que seu resultado seja confiável. Valores baixos arriscam registrar uma taxa obtida antes que a GPU termine de esquentar.",
+      "cacheDuration": "Duração do cache de benchmark",
+      "cacheDurationHelper": "Quanto tempo um benchmark registrado permanece válido antes que um agente seja solicitado a medir novamente.",
+      "historyRetention": "Retenção do histórico de benchmark",
+      "historyRetentionHelper": "Quanto tempo registros de benchmark individuais são mantidos para análise de tendência.",
+      "hours": "horas",
+      "days": "dias"
+    },
+    "benchmarkReliability": {
+      "title": "Confiabilidade do Benchmark",
+      "caption": "O que acontece quando benchmarks falham repetidamente. Estas protegem contra um agente ruim, ou uma configuração de job ruim, que consome a frota reexecutando um benchmark que não pode ser bem-sucedido.",
+      "failureThreshold": "Limite de falha",
+      "failureThresholdHelper": "Falhas consecutivas de benchmark para uma combinação agente/job/ataque antes de ser bloqueada.",
+      "hardFailureCap": "Limite máximo de falhas",
+      "hardFailureCapHelper": "Limite absoluto de tentativas de benchmark para uma combinação, independentemente do limite acima.",
+      "blocklistCooldown": "Tempo de espera da lista de bloqueio",
+      "blocklistCooldownHelper": "Quanto tempo uma combinação de agente/job/ataque bloqueada permanece bloqueada antes de poder ser tentada novamente.",
+      "stormThreshold": "Limite de tempestade de benchmark",
+      "stormThresholdHelper": "Número de falhas de benchmark dentro da janela de tempestade que dispara uma notificação ao administrador.",
+      "stormWindow": "Janela de tempestade de benchmark",
+      "stormWindowHelper": "O período durante o qual as falhas do limite de tempestade são contadas.",
+      "streakReset": "Redefinição de sequência de falhas",
+      "streakResetHelper": "Quanto tempo um agente deve permanecer sem uma falha de benchmark antes que sua sequência de falhas seja redefinida para zero.",
+      "quarantineStreak": "Sequência de falhas de quarentena",
+      "quarantineStreakHelper": "Falhas consecutivas em qualquer combinação antes que o próprio agente seja colocado em quarentena do benchmark.",
+      "quarantineDistinct": "Quarentena de combinações distintas",
+      "quarantineDistinctHelper": "Quantas combinações DIFERENTES de ataque/tipo de hash devem falhar antes que o agente seja tratado como defeituoso em vez do job."
+    },
+    "scheduling": {
+      "title": "Agendamento e Alocação",
+      "overflowMode": "Modo de alocação de excedente de agentes",
+      "overflowModeHelper": "Como os agentes remanescentes são distribuídos quando jobs atingem seu limite máximo de agentes.",
+      "maxConcurrentJobs": "Máximo de jobs simultâneos por agente",
+      "maxConcurrentJobsHelper": "Quantos jobs um único agente pode executar simultaneamente.",
+      "agentScheduling": "Habilitar agendamento de agentes",
+      "agentSchedulingHelper": "Habilita globalmente agendas de horário de trabalho por agente. Com isso desativado, os agendamentos dos agentes são ignorados.",
+      "jobInterruption": "Permitir interrupção de job",
+      "jobInterruptionHelper": "Controle global para preempção. Um job TAMBÉM deve ter seu próprio sinalizador de substituição de alta prioridade e uma prioridade diferente de zero antes que qualquer coisa seja interrompida.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Round robin",
+        "enforceMaxAgents": "Aplicar máximo de agentes",
+        "maxAgentsFifo": "Máximo de agentes, depois FIFO",
+        "maxAgentsRoundRobin": "Máximo de agentes, depois round robin"
+      }
+    },
+    "taskHealth": {
+      "title": "Saúde da Tarefa",
+      "caption": "Quando uma tarefa em execução é considerada perdida e com que agressividade o trabalho é recuperado. Ajuste esses valores com muito rigor e tarefas saudáveis serão removidas; com pouco rigor, uma tarefa morta mantém seu keyspace por horas.",
+      "heartbeatTimeout": "Tempo limite de heartbeat da tarefa",
+      "heartbeatTimeoutHelper": "Quanto tempo uma tarefa em execução pode ficar sem um heartbeat antes de ser tratada como perdida e seu keyspace ser reaberto.",
+      "startupGrace": "Período de graça de inicialização de tarefa",
+      "startupGraceHelper": "Tempo extra permitido após a atribuição antes que as regras de heartbeat se apliquem, cobrindo a inicialização do hashcat e o carregamento de arquivos.",
+      "networkGrace": "Período de graça de rede",
+      "networkGraceHelper": "Margem curta para interrupções transientes de rede antes que um heartbeat perdido seja contado.",
+      "reconnectGrace": "Período de graça de reconexão",
+      "reconnectGraceHelper": "Quanto tempo um agente desconectado pode se reconectar e recuperar sua tarefa em execução.",
+      "offlineBuffer": "Período de graça offline do agente",
+      "offlineBufferHelper": "Quanto tempo as mensagens para um agente brevemente offline são armazenadas em buffer antes de serem descartadas.",
+      "maxRetryAttempts": "Máximo de retentativas de bloco",
+      "maxRetryAttemptsHelper": "Quantas vezes um bloco com falha é retentado antes que a tarefa falhe. Defina como 0 para desabilitar retentativas.",
+      "progressInterval": "Intervalo de relatório de progresso",
+      "progressIntervalHelper": "Com que frequência os agentes relatam progresso. Valores menores fornecem progresso mais granular, mas mais carga.",
+      "hashlistRetention": "Retenção de hashlist do agente",
+      "hashlistRetentionHelper": "Quanto tempo os agentes mantêm uma hashlist baixada após terminar com ela."
+    },
+    "loopback": {
+      "title": "Loopback",
+      "maxRounds": "Máximo de rodadas de loopback",
+      "maxRoundsHelper": "Limite de segurança para quantas vezes uma sessão de loopback re-executa um ataque contra textos planos recém-quebrados antes de parar, mesmo que ainda esteja encontrando novas quebras."
+    },
+    "jobNotifications": {
+      "title": "Notificações de Job",
+      "realtimeCracks": "Notificações de quebras em tempo real",
+      "realtimeCracksHelper": "Notificar conforme hashes são quebrados. Pode adicionar carga notável em jobs muito grandes."
+    }
+  },
+  "monitoring": {
+    "title": "Configurações de Monitoramento",
+    "metricsRetention": {
+      "title": "📊 Períodos de Retenção de Métricas",
+      "description": "Configure por quanto tempo reter métricas em diferentes níveis de detalhe. Os dados passam em cascata de granulares para agregados ao longo do tempo.",
+      "realtimeData": "Retenção de Dados em Tempo Real",
+      "realtimeDataHelper": "Dias para manter métricas granulares para atividade recente (por exemplo, 7 dias)",
+      "dailyAggregates": "Retenção de Agregados Diários",
+      "dailyAggregatesHelper": "Dias para armazenar resumos diários após o período em tempo real (por exemplo, 30 dias)",
+      "weeklyAggregates": "Retenção de Agregados Semanais",
+      "weeklyAggregatesHelper": "Dias para preservar tendências de longo prazo como resumos semanais (por exemplo, 365 dias)"
+    },
+    "aggregation": {
+      "title": "⚙️ Configurações de Agregação",
+      "enableAggregation": "Habilitar Agregação Automática",
+      "enableAggregationDescription": "Consolidar automaticamente métricas mais antigas para economizar espaço de armazenamento enquanto preserva tendências",
+      "interval": "Intervalo de Agregação",
+      "intervalHelper": "Com que frequência executar o processo de agregação",
+      "hourly": "A cada hora",
+      "daily": "Diariamente",
+      "weekly": "Semanalmente"
+    },
+    "cascading": {
+      "title": "Como funciona a agregação em cascata:",
+      "realtime": "Os dados em tempo real fornecem métricas detalhadas para atividade recente",
+      "daily": "Após o período em tempo real, os dados são agregados em resumos diários",
+      "weekly": "Após o período diário, os dados são agregados ainda mais em resumos semanais",
+      "benefit": "Esta abordagem mantém os gráficos legíveis enquanto preserva tendências históricas"
+    },
+    "buttons": {
+      "save": "Salvar Configurações",
+      "saving": "Salvando..."
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar configurações. Por favor, tente novamente.",
+      "saveFailed": "Falha ao salvar configurações. Por favor, tente novamente."
+    },
+    "messages": {
+      "updateSuccess": "Configurações de monitoramento salvas com sucesso"
+    }
+  },
+  "agentDownloads": {
+    "title": "Configurações de Transferência de Arquivos do Agente",
+    "description": "Configure como agentes baixam arquivos do backend. Essas configurações se aplicam a todos os agentes conectados.",
+    "concurrentDownloads": {
+      "title": "Downloads Simultâneos",
+      "description": "Número máximo de arquivos que podem ser baixados simultaneamente"
+    },
+    "downloadTimeout": {
+      "title": "Tempo limite de Download",
+      "description": "Tempo máximo permitido para um único download de arquivo",
+      "helper": "Entre 1 minuto e 24 horas (1440 minutos)",
+      "unit": "minutos"
+    },
+    "retryAttempts": {
+      "title": "Novas Tentativas",
+      "description": "Número de vezes para tentar novamente downloads com falha"
+    },
+    "progressInterval": {
+      "title": "Intervalo de Relatório de Progresso",
+      "description": "Com que frequência agentes relatam progresso de download",
+      "helper": "Entre 1 segundo e 5 minutos (300 segundos)",
+      "unit": "segundos"
+    },
+    "chunkSize": {
+      "title": "Tamanho do Bloco",
+      "description": "Tamanho do bloco de download para capacidade de retomada futura",
+      "helper": "Entre 1 MB e 100 MB",
+      "unit": "MB"
+    },
+    "applyNote": "As alterações serão aplicadas aos agentes em sua próxima conexão. Agentes conectados no momento receberão atualizações automaticamente.",
+    "buttons": {
+      "save": "Salvar Configurações",
+      "saving": "Salvando..."
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar configurações de download do agente",
+      "saveFailed": "Falha ao atualizar configurações de download do agente"
+    },
+    "messages": {
+      "updateSuccess": "Configurações de download do agente atualizadas com sucesso"
+    }
+  },
+  "hashTypes": {
+    "title": "Gerenciamento de Tipo de Hash",
+    "description": "Gerenciar tipos de hash suportados para operações de quebra de senha",
+    "addHashType": "Adicionar Tipo de Hash",
+    "searchPlaceholder": "Pesquisar tipos de hash...",
+    "hashTypesFound_many": "{{count}} tipos de hash encontrados",
+    "hashTypesFound_one": "{{count}} tipo de hash encontrado",
+    "hashTypesFound_other": "{{count}} tipos de hash encontrados",
+    "table": {
+      "id": "ID",
+      "name": "Nome",
+      "description": "Descrição",
+      "example": "Exemplo",
+      "slow": "Lento",
+      "salted": "Salgado",
+      "actions": "Ações",
+      "loading": "Carregando tipos de hash...",
+      "noResults": "Nenhum tipo de hash encontrado"
+    },
+    "dialog": {
+      "addTitle": "Adicionar Novo Tipo de Hash",
+      "editTitle": "Editar Tipo de Hash",
+      "hashIdLabel": "ID de Hash (Número de Modo do Hashcat)",
+      "hashIdHelper": "por exemplo, 1000 para NTLM",
+      "nameLabel": "Nome",
+      "descriptionLabel": "Descrição",
+      "exampleLabel": "Hash de Exemplo",
+      "exampleHelper": "Exemplo deste formato de hash",
+      "slowLabel": "Algoritmo de Hash Lento",
+      "saltedLabel": "Tipo de Hash Salgado (por exemplo, NTLMv2, bcrypt)",
+      "processingInfo": "Este tipo de hash requer processamento especial. A lógica de processamento é gerenciada programaticamente.",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "saving": "Salvando..."
+    },
+    "validation": {
+      "hashIdRequired": "ID de Hash é obrigatório e deve ser positivo",
+      "hashIdExists": "Este ID de Hash já existe",
+      "nameRequired": "Nome é obrigatório"
+    },
+    "tooltips": {
+      "requiresProcessing": "Requer processamento especial",
+      "processing": "Processamento",
+      "slowAlgorithm": "Algoritmo de hash lento (computacionalmente caro)",
+      "salted": "Usa sais por hash (afeta o cálculo de keyspace)"
+    },
+    "confirmDelete": {
+      "title": "Confirmar Exclusão",
+      "warning": "Este tipo de hash está habilitado no momento. Excluí-lo pode afetar a funcionalidade existente.",
+      "cancel": "Cancelar",
+      "delete": "Excluir",
+      "deleting": "Excluindo..."
+    },
+    "messages": {
+      "createSuccess": "Tipo de hash criado com sucesso",
+      "createFailed": "Falha ao criar tipo de hash",
+      "updateSuccess": "Tipo de hash atualizado com sucesso",
+      "updateFailed": "Falha ao atualizar tipo de hash",
+      "deleteSuccess": "Tipo de hash excluído com sucesso",
+      "deleteFailed": "Falha ao excluir tipo de hash",
+      "deleteInUse": "Não pode ser excluído: Este tipo de hash está em uso por hashlists existentes",
+      "loadFailed": "Falha ao carregar tipos de hash. Por favor, tente atualizar a página."
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "Provisionamento de GPU em nuvem",
+      "body": "Alugar instâncias de GPU sob demanda quando a frota local não consegue acompanhar. As instâncias se juntam à sua VPN existente, recebem apenas os arquivos de que seu job precisa e são encerradas automaticamente. O gasto é comprometido contra um orçamento por cliente antes que uma instância inicialize, portanto um teto é um limite real, não uma medição após o fato.",
+      "fleetLink": "Ver a frota ativa"
+    },
+    "sections": {
+      "providers": "Provedores",
+      "clients": "Orçamentos de Cliente",
+      "policy": "Limite de Política",
+      "rules": "Regras de Provisionamento",
+      "system": "Limites e Operações"
+    },
+    "providers": {
+      "title": "Provedores de nuvem",
+      "description": "De onde as instâncias alugadas vêm e como elas chegam a este servidor.",
+      "add": "Adicionar provedor",
+      "addTitle": "Adicionar provedor de nuvem",
+      "editTitle": "Editar provedor de nuvem",
+      "edit": "Editar",
+      "delete": "Excluir",
+      "save": "Salvar",
+      "saved": "Provedor salvo",
+      "saveFailed": "Falha ao salvar provedor",
+      "deleted": "Provedor excluído",
+      "deleteFailed": "Falha ao excluir provedor",
+      "deleteTitle": "Excluir provedor?",
+      "deleteBody": "Excluir \"{{name}}\"? Isso falha enquanto qualquer instância alugada ainda o referencia.",
+      "loadFailed": "Falha ao carregar provedores",
+      "empty": "Nenhum provedor de nuvem configurado. Nada será alugado.",
+      "enabled": "Habilitado",
+      "disabled": "Desabilitado",
+      "noCredentials": "Sem credenciais",
+      "noVpn": "Sem VPN",
+      "credentialExpired": "Credencial expirada",
+      "credentialExpiresIn": "Expira em {{days}}d",
+      "limitsValue": "{{instances}} máx, limite de {{rate}}/hr",
+      "thirdPartyBadge": "Executado em máquinas de terceiros",
+      "preflight": "Preflight",
+      "preflightTitle": "Relatório de Preflight",
+      "preflightOk": "Este provedor pode iniciar instâncias.",
+      "preflightFailed": "Solicitação de Preflight falhou",
+      "preflightFailedBody": "Este provedor não pode iniciar instâncias ainda.",
+      "preflightIdentity": "Autenticado como {{identity}}",
+      "preflightQuota": "Quota: {{used}} de {{limit}} em uso ({{source}})",
+      "preflightSections": {
+        "missing_permissions": "Permissões ausentes",
+        "inconclusive": "Não pôde ser verificado (tratado como falha)",
+        "errors": "Erros",
+        "warnings": "Avisos"
+      },
+      "acknowledge": "Reconhecer",
+      "acknowledged": "Reconhecimento registrado",
+      "ackFailed": "Falha ao registrar reconhecimento",
+      "ackTitle": "Reconhecer exposição de dados de terceiros",
+      "ackBody": {
+        "vastai": "Vast.ai aluga GPUs em máquinas de propriedade individual cujos operadores têm acesso root ao container. Hashes, wordlists e textos planos quebrados colocados lá são visíveis a um terceiro. Isto é categoricamente diferente do AWS ou RunPod Secure Cloud, onde as instâncias são executadas dentro de sua própria conta ou em datacenters SOC 2.",
+        "runpod_community": "RunPod Community Cloud aluga GPUs em máquinas operadas por pares cujos proprietários têm acesso root ao container. Hashes, wordlists e textos planos quebrados colocados lá são visíveis a um terceiro. As atestações de conformidade da RunPod cobrem apenas Secure Cloud e não se estendem a esse nível."
+      },
+      "ackConfirm": "Você aceita essa exposição para cargas de trabalho enviadas para este provedor?",
+      "ackAccept": "Entendo e aceito",
+      "ephemeralKeyTitle": "A chave de criptografia é efêmera",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY não está definido, portanto uma chave aleatória foi gerada na inicialização. Todas as credenciais armazenadas se tornam ilegíveis após a próxima reinicialização. Defina KH_ENCRYPTION_KEY antes de salvar as credenciais do provedor.",
+      "vpnSection": "Conectividade VPN",
+      "vpnSectionHelp": "Este servidor nunca é exposto à internet, portanto as instâncias alugadas se juntam à VPN que você já executa. OpenVPN não é suportado: ele precisa de /dev/net/tun e CAP_NET_ADMIN, que os containers sem privilégios do Vast.ai não fornecem.",
+      "reusableKeyWarning": {
+        "tailscale": "Uma chave reutilizável é compartilhada por cada instância e expira — Tailscale limita chaves de autenticação a 90 dias. Assim que ela expira, o provisionamento é recusado em vez de iniciar instâncias que não conseguem se conectar. Um cliente OAuth permite que KrakenHashes crie uma chave marcada efêmera de uso único para cada instância.",
+        "netbird": "Uma chave de configuração reutilizável é compartilhada por cada instância, portanto o mesmo segredo alcança todos os hosts alugados. Defina \"Credencial expira em\" abaixo se a chave tiver uma expiração — o provisionamento será recusado assim que expirar em vez de iniciar instâncias que não conseguem se conectar; deixe em branco para uma chave que nunca expira. Tag ou grupo é ignorado para este tipo de credencial: o grupo e o sinalizador efêmero vêm da configuração da própria chave no NetBird. Um token de acesso permite que KrakenHashes crie uma chave de configuração efêmera de uso único por instância e defina o próprio grupo."
+      },
+      "staticConfigWarning": "WireGuard usa uma configuração estática de peer: não há credencial por instância e nenhum cancelamento de registro automático quando uma instância é encerrada. Tailscale ou NetBird é mais seguro.",
+      "kinds": {
+        "aws": "AWS EC2 (sua própria conta)",
+        "vastai": "Vast.ai (máquinas de terceiros)",
+        "mock": "Mock (agentes de teste locais, sem custo)",
+        "runpod": "RunPod Secure Cloud (datacenters SOC 2)",
+        "runpod_community": "RunPod Community Cloud (máquinas operadas por pares)"
+      },
+      "credentialKinds": {
+        "oauth": "Cliente OAuth — gerar uma chave efêmera por instância (recomendado)",
+        "pat": "Token de acesso — gerar uma chave efêmera por instância (recomendado)",
+        "reusable_key": "Chave reutilizável — compartilhada por cada instância",
+        "static_config": "Configuração estática — sem credencial por instância"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "Cliente OAuth do Tailscale como client_id:client_secret. Precisa do escopo auth_keys e da tag selecionada.",
+        "pat": "Token de acesso pessoal do NetBird ou token de usuário de serviço.",
+        "reusable_key": "A chave pré-autorizada que toda instância usará.",
+        "static_config": "A configuração completa de peer do WireGuard."
+      },
+      "columns": {
+        "name": "Nome",
+        "provider": "Provedor",
+        "status": "Status",
+        "vpn": "VPN",
+        "limits": "Limites",
+        "actions": "Ações"
+      },
+      "fields": {
+        "name": "Nome",
+        "provider": "Provedor",
+        "credentials": "Credenciais do provedor",
+        "credentialsHelp": "Credenciais de API para {{provider}}. Armazenadas criptografadas e nunca retornadas.",
+        "credentialsKeepHelp": "Deixe em branco para manter a credencial armazenada inalterada.",
+        "maxConcurrent": "Máximo de instâncias simultâneas",
+        "maxHourlyCents": "Taxa horária máxima (centavos)",
+        "maxHourlyHelp": "Ofertas acima dessa taxa nunca são alugadas, independentemente do que o orçamento permita.",
+        "vpnProvider": "Provedor VPN",
+        "credentialKind": "Tipo de credencial",
+        "vpnCredential": "Credencial VPN",
+        "credentialExpiry": "Credencial expira em",
+        "credentialExpiryHelp": "Opcional — deixe em branco para uma chave que nunca expira. O provisionamento é recusado após esse horário, e você será avisado conforme se aproxima.",
+        "vpnTag": "Tag ou grupo",
+        "vpnTagHelp": "p. ex. tag:kraken-worker. Obrigatório para OAuth do Tailscale; define o escopo do que esses nós podem alcançar.",
+        "backendVpnHost": "Endereço deste servidor na VPN",
+        "backendVpnHostHelp": "O valor de KH_HOST que os agentes na nuvem usam. O certificado do servidor deve cobri-lo — adicione-o na aba Certificado do Servidor e clique em Aplicar e Reemitir, ou os agentes falharão na verificação de nome de host TLS.",
+        "enabled": "Ativado",
+        "awsAccessKeyId": "ID da chave de acesso do AWS",
+        "awsAccessKeyIdHelp": "Uma chave de usuário ou função IAM com escopo para provisionamento de EC2. Armazenada criptografada e nunca retornada.",
+        "awsSecretAccessKey": "Chave de acesso secreto do AWS",
+        "awsRegion": "Região",
+        "awsRegionHelp": "p. ex. us-east-2. Todos os outros campos do AWS abaixo devem estar nesta região.",
+        "awsSubnet": "ID da sub-rede",
+        "awsSubnetHelp": "p. ex. subnet-0abc123. Deve atribuir automaticamente um IP público, ou a instância não conseguirá alcançar o plano de controle da sua VPN.",
+        "awsSecurityGroups": "IDs do grupo de segurança",
+        "awsSecurityGroupsHelp": "Separados por vírgula, p. ex. sg-0abc123. Precisa apenas de acesso de saída; nenhuma regra de entrada é necessária.",
+        "awsAmiSsm": "Parâmetro SSM da AMI",
+        "awsAmiSsmHelp": "Resolvido no lançamento, para que a imagem nunca fique desatualizada. p. ex. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "ID da AMI (substitui o parâmetro SSM)",
+        "awsAmiIdHelp": "Fixe uma imagem específica em vez disso. Deixe em branco para resolver através de SSM. Um dos dois é obrigatório.",
+        "awsInstanceProfile": "ARN do perfil de instância IAM",
+        "awsInstanceProfileHelp": "Opcional. Necessário apenas se o próprio agente precisar chamar APIs do AWS.",
+        "awsRootVolume": "Volume raiz (GB)",
+        "awsRootVolumeHelp": "Um piso; o conjunto de arquivos de um job pode precisar de mais. Deve ser pelo menos o tamanho do snapshot da AMI ou o lançamento falha.",
+        "awsEbsRate": "Taxa de EBS (centavos/GB-mês)",
+        "awsEbsRateHelp": "Preço de armazenamento gp3. Deixado em 0, o orçamento não reserva nada para disco.",
+        "awsUseSpot": "Usar capacidade spot",
+        "awsUseSpotHelp": "Solicitações spot são únicas e terminam em caso de interrupção. Descontos em GPUs de geração atual são frequentemente modestos, portanto, isso não é automaticamente mais barato. Spot e on-demand usam cotas de vCPU separadas.",
+        "awsInstanceType": "Tipo de instância",
+        "awsHourlyCents": "Centavos/hora",
+        "awsGpuModel": "Modelo de GPU",
+        "awsGpuCount": "GPUs",
+        "awsVram": "VRAM/GPU",
+        "mockAgentBinary": "Caminho do binário do agente",
+        "mockAgentBinaryHelp": "Caminho para um binário de agente que o servidor pode executar com --test-mode.",
+        "mockBackendHost": "Host de backend para agentes gerados",
+        "mockBackendHostHelp": "p. ex. localhost:31337.",
+        "mockHourlyRate": "Taxa simulada (centavos/hora)",
+        "mockBootDelay": "Atraso de inicialização simulado (segundos)",
+        "mockFailLaunch": "Falha: falhar a cada lançamento",
+        "mockDropLaunchResponse": "Falha: descartar a resposta de lançamento (instância é executada, mas é relatada como falha)",
+        "mockNeverRegister": "Falha: instância nunca se registra",
+        "mockFailDestroy": "Falha: falhar a cada destruição",
+        "vpnTagIgnoredHelp": "Ignorado para uma chave reutilizável do NetBird: a associação de grupo e o sinalizador efêmero vêm das próprias configurações da chave de configuração no NetBird. Usado apenas no caminho de token de acesso, como auto_groups em cada chave gerada.",
+        "vpnUrl": {
+          "netbird": "URL de gerenciamento do NetBird",
+          "tailscale": "Servidor de login do Tailscale (Headscale)"
+        },
+        "vpnUrlHelp": {
+          "netbird": "Seu servidor de gerenciamento NetBird auto-hospedado, p. ex. https://netbird.example.com. Usado tanto para gerar chaves de configuração quanto para iniciar o cliente. Deixe em branco para o serviço hospedado do NetBird.",
+          "tailscale": "Apenas para um servidor de controle auto-hospedado. Observe que a geração de token de acesso sempre usa api.tailscale.com e não suporta Headscale."
+        },
+        "vastCountries": "Países (separados por vírgula)",
+        "vastCountriesHelp": "Códigos de país do Vast.ai, p. ex. US, DE, SE. Vazio significa em qualquer lugar. Corresponde sem sensibilidade a maiúsculas/minúsculas à geolocalização relatada, portanto 'US' corresponde a 'US, Texas'. Funciona também como seu controle de residência de dados.",
+        "vastGpuModels": "Modelos de GPU permitidos (separados por vírgula)",
+        "vastGpuModelsHelp": "Vazio significa qualquer placa. Correspondido em uma chave normalizada, portanto 'rtx_4090' corresponde tanto a 'NVIDIA GeForce RTX 4090' quanto a 'RTX 4090'. Ampliar essa lista é a forma mais barata de aumentar a disponibilidade.",
+        "vastDeniedGpuModels": "Modelos de GPU negados (separados por vírgula)",
+        "vastDeniedGpuModelsHelp": "Sempre vence sobre a lista de permissão. Esta é a alavanca de emergência para 'essa placa continua falhando, pare de alugá-la'.",
+        "vastMinReliability": "Confiabilidade mínima do host (0-1)",
+        "vastMinReliabilityHelp": "A própria pontuação de confiabilidade de host do Vast.ai. 0 desativa o piso. Hosts que não reportam uma pontuação são mantidos. Troca um pouco de disponibilidade por menos aluguéis mortos — um host que descarta a instância no meio do bloco ainda foi pago por seu comissionamento.",
+        "vastAllowUnverified": "Permitir hosts não verificados (aumenta disponibilidade; máquinas não avaliadas)",
+        "vastAllowResidential": "Permitir hosts residenciais (aumenta disponibilidade; máquinas caseiras, não datacenters)",
+        "runpodDataCenters": "Centros de dados (separados por vírgula)",
+        "runpodDataCentersHelp": "IDs dos centros de dados do RunPod, p. ex. EU-RO-1, US-KS-2. VAZIO É A CONFIGURAÇÃO MAIS AMPLA, não a mais estreita — o próprio agendador do RunPod pode colocar um pod em qualquer lugar. Isso é o oposto das zonas do AWS, onde deixar em branco ainda o fixa em uma. Defina para residência de dados ou para fazer o loop de retry de lançamento percorrer pools genuinamente independentes.",
+        "runpodGpuTypes": "Tipos de GPU permitidos (separados por vírgula)",
+        "runpodGpuTypesHelp": "IDs de gpuType do RunPod exatamente como aparecem na grade de disponibilidade, p. ex. 'NVIDIA GeForce RTX 4090'. Vazio significa toda placa que esse nível possui.",
+        "runpodDiskGb": "Piso de disco de container (GB)",
+        "runpodDiskGbHelp": "Um piso, não um teto: um job cujo conjunto de arquivos precisa de mais receberá mais. O disco do container é limpo quando o pod reinicia, e nenhum volume de rede é anexado — um sobreviveria ao pod e reteria textos planos quebrados após encerramento.",
+        "runpodDiskRate": "Disco do container (centavos/GB-mês)",
+        "runpodDiskRateHelp": "Alimenta a parte de armazenamento da reserva de orçamento. Arredondado para cima, porque uma reserva que subestima o armazenamento permite que um cliente exceda um limite que lhe foi dito ser rígido.",
+        "runpodSelfDestruct": "Deixar pods se auto-deletarem se a VPN cair (apenas nível Secure)",
+        "runpodSelfDestructHelp": "Adiciona um terceiro trilho de encerramento para que um pod possa se AUTO-DELETAR quando perder contato, correspondendo ao Vast.ai. O RunPod não tem uma credencial com escopo por pod, portanto, isso coloca uma chave COM ESCOPO DE CONTA dentro de cada pod — uma que pode criar e deletar todos os outros pods na conta. Forneça uma chave separada e mais estreita como self_destruct_api_key no JSON de credenciais em vez de reutilizar sua chave de provisionamento. Nunca disponível no nível Community."
+      },
+      "peerWarningTitle": "Hardware de terceiros",
+      "peerWarningBody": {
+        "vastai": "Instâncias do Vast.ai são executadas em máquinas de propriedade individual que você não controla. Ative-o apenas para clientes cujos dados podem ser expostos a terceiros, e reconheça-o por cliente também.",
+        "runpod_community": "RunPod Community Cloud é executado em máquinas operadas por pares cujos proprietários têm root sobre o container. As atestações SOC 2, ISO 27001 e PCI DSS do RunPod cobrem apenas Secure Cloud, não esse nível. Ative-o apenas para clientes cujos dados podem ser expostos a terceiros, e reconheça-o por cliente também."
+      },
+      "awsSection": "Posicionamento e preços do AWS",
+      "awsSectionHelp": "Onde as instâncias são lançadas e quanto custam. EC2 não expõe modelo de GPU ou taxa horária legível por máquina para este código, portanto, ambos são declarados aqui.",
+      "awsInstanceTypes": "Tipos de instância oferecidos",
+      "awsInstanceTypesHelp": "Apenas os tipos listados aqui podem ser alugados. Declare a taxa que você está disposto a ser cobrado — arredonde para cima, pois o orçamento se reserva contra esse número e nada o verifica contra uma fatura. Declarar o modelo e a contagem de GPU é o que permite a classificação de custo por trabalho; sem ele, a classificação volta ao preço por hora.",
+      "awsAddInstanceType": "Adicionar tipo de instância",
+      "awsRemoveInstanceType": "Remover",
+      "mockSection": "Comportamento simulado e injeção de falhas",
+      "mockSectionHelp": "O provedor simulado gera processos locais de agent --test-mode. As chaves de falha exercem ramificações de falha sem recompilar.",
+      "providerNotImplemented": "Este provedor ainda não tem adaptador: o backend o rejeita com \"provedor de nuvem não suportado\" no momento do lançamento. Pode ser salvo, mas nada pode ser provisionado a partir dele.",
+      "zones": {
+        "title": "Posicionamentos e hardware",
+        "help": "Marque cada lugar e cada GPU que você está disposto a alugar. A capacidade geralmente pertence ao par (hardware, posicionamento) em vez de apenas um, portanto, cada célula marcada é uma chance independente de conseguir uma máquina — uma única célula marcada significa que uma recusa de capacidade não tem para onde recorrer. Deixar todas as placas de uma linha marcadas significa \"qualquer hardware que aprovei\", incluindo qualquer adicionado posteriormente.",
+        "probe": "Verificar disponibilidade",
+        "probeHelp": "Lê dados de zona, sub-rede, oferta, preço spot e pontuação de posicionamento ao vivo do AWS. Somente leitura: não lança nada e não custa nada.",
+        "probeIdle": "para carregar zonas ao vivo, sub-redes e preços spot para este provedor.",
+        "probeFailed": "Não foi possível ler capacidade do AWS.",
+        "saveFirst": "Salve o provedor primeiro. A disponibilidade é lida usando as credenciais e região salvas, portanto, um formulário não salvo não tem nada para consultar.",
+        "selectAll": "Selecionar todas as zonas utilizáveis",
+        "colZone": "Zona",
+        "colSubnet": "Sub-rede",
+        "notOffered": "EC2 não oferece este tipo de instância nesta zona. Isso é definitivo — um lançamento aqui falharia com Não suportado.",
+        "unusable": "Não é possível lançar instâncias neste posicionamento. Veja a nota ao lado do nome dele.",
+        "freeIps_many": "{{count}} IPs livres",
+        "freeIps_one": "{{count}} IP livre",
+        "freeIps_other": "{{count}} IPs livres",
+        "scoreHelp": "Classificação de 1-10 própria da AWS para ESTA placa NESTA zona, e evidência fraca: cada zona desta região marcou 1/10 nesta conta minutos antes de um lançamento em uma delas ter sucesso na primeira tentativa. Decide qual pool é tentado primeiro. Nunca remove um pool da lista. Compare-o com a pontuação de todos os tipos ao lado do nome da zona.",
+        "spotVsConfigured": "Spot está cotando {{spot}}/hr aqui; sua taxa configurada para este tipo é {{configured}}/hr. As reservas usam o valor CONFIGURADO, portanto, preços abaixo da taxa ao vivo sub-reservam contra um limite de orçamento que lhe foi dito ser rígido.",
+        "poolCount_many": "{{count}} pools de capacidade selecionados",
+        "poolCount_one": "{{count}} pool de capacidade selecionado",
+        "poolCount_other": "{{count}} pools de capacidade selecionados",
+        "poolCountWarning": "Um pool é uma chance. Quando esgotado, o loop de retry de lançamento não tem para onde ir e o provisionamento simplesmente para até que a capacidade retorne. Marque mais zonas, mais tipos de instância ou ambos.",
+        "poolCountOk": "Uma recusa de capacidade em um pool cai para o próximo, em ordem de mais provável primeiro.",
+        "legacyOverridden": "Zonas estão configuradas, portanto, o ID de Sub-rede único acima ({{subnet}}) é ignorado. Permanece como fallback se todas as zonas estiverem desmarcadas.",
+        "combinedScore": "todos os tipos: {{score}}/10",
+        "combinedScoreHelp": "Pontuação de posicionamento da AWS para TODOS os tipos de instância precificados juntos nesta zona, que é uma pergunta diferente da pontuação de qualquer card único — e geralmente uma resposta muito melhor. Medida em uma região em um minuto: g6.xlarge sozinho marcou 1/10 aqui enquanto g4dn + g5 + g6 juntos marcaram 9/10. Variedade não é uma proteção contra escassez; é a coisa que está sendo pontuada.",
+        "availableCount": "{{count}} disponíveis",
+        "availableCountHelp": "Uma contagem ao vivo de máquinas disponíveis para aluguel agora. Este é inventário real e o sinal mais forte da tela — muito melhor que uma pontuação de posicionamento, que é apenas uma opinião.",
+        "livePriceHelp": "O que o provedor está cobrando por isto agora.",
+        "trust": {
+          "definitive": "definitivo",
+          "measured": "tempo real",
+          "advisory": "apenas informativo"
+        },
+        "axesModeNote": "Este provedor armazena países e modelos de GPU como duas listas independentes, portanto marcar um card o aplica em cada país selecionado. As contagens por célula e preços abaixo ainda são reais e específicos para esse país."
+      },
+      "vastSection": "Política de posicionamento e hardware Vast.ai",
+      "vastSectionHelp": "Quais países e quais cards este provedor pode alugar. Deixar uma lista vazia significa sem restrição, que é o pool mais amplo e o padrão.",
+      "vastTierWarningTitle": "Você está abrindo um nível de host não verificado",
+      "vastTierWarningBody": "Este é o maior aumento de disponibilidade disponível no Vast.ai, e coloca hashes do cliente, wordlists, potfiles e textos planos quebrados em máquinas que o Vast.ai não verificou. Todo host Vast já tem acesso raiz ao container; essas alternâncias removem o único filtro que limita isso aos hosts que a Vast já verificou. O nível não verificado também é onde relatos de 'conectando travado' e de 'driver ruim' se concentram, então parte da disponibilidade extra é ilusória — um aluguel que nunca atinge trabalho útil ainda custa a você o comissionamento.",
+      "runpodSection": "Política de posicionamento e hardware RunPod",
+      "runpodSectionHelp": "Quais centros de dados e tipos de GPU este provedor pode alugar. RunPod precifica em tempo real, portanto não há taxas para declarar aqui — diferentemente da AWS.",
+      "runpodCommunityTeardownTitle": "O encerramento do Community é apenas o reaper do backend",
+      "runpodCommunityTeardownBody": "RunPod não emite uma credencial com escopo de pod para Community, portanto não há uma maneira segura de um pod Community se deletar: a única chave que funcionaria é com escopo de conta, e um operador de host Community tem acesso raiz ao container e a leria do ambiente. O deadline no convidado ainda mata o hashcat e encerra a exposição de dados, mas NÃO PODE parar a cobrança do pod. Se este backend estiver fora ou preso, um pod Community cobra até você destruí-lo manualmente a partir da página Cloud Fleet. Defina um teto baixo de TTL de instância e um limite de orçamento pequeno para qualquer cliente autorizado a usar este nível.",
+      "experimentalChip": "Experimental",
+      "experimentalTooltip": "Experimental — ainda não testado. Este adaptador nunca foi acionado de ponta a ponta contra o provedor real gastando dinheiro real. Espere bugs; monitore seus jobs e relate o que encontrar.",
+      "experimentalTitle": "Experimental — ainda não testado",
+      "experimentalBody": "Este provedor não foi comprovado de ponta a ponta com dinheiro real: boot, comissionamento, quebra, liberação limpa e reembolso de orçamento não foram todos observados funcionando juntos. Deve funcionar e terá bugs. Comece com um teto de orçamento pequeno e um limite de instância baixo, e acompanhe a página Cloud Fleet para instâncias que não são liberadas. Por favor, relate qualquer coisa que sair errado.",
+      "testedChip": "Testado",
+      "testedTooltip": "Testado — acionado de ponta a ponta contra o provedor real com dinheiro real, através de boot, quebra, liberação limpa e reembolso de orçamento liquidado.",
+      "reportIssueLink": "Relate um bug no GitHub",
+      "reportDiagnosticsLink": "Envie diagnósticos no Discord (não na issue)"
+    },
+    "budgets": {
+      "title": "Orçamentos de clientes",
+      "description": "O que cada cliente pode gastar e para quais provedores seus dados podem ir. Clientes com campos em branco seguem os padrões do servidor abaixo.",
+      "loadFailed": "Falha ao carregar orçamentos de clientes",
+      "empty": "Nenhum cliente existe ainda. Crie um cliente primeiro, depois o financie aqui.",
+      "edit": "Editar",
+      "editTitle": "Configurações de nuvem — {{name}}",
+      "saved": "Configurações de nuvem do cliente salvas",
+      "saveFailed": "Falha ao salvar configurações de nuvem do cliente",
+      "enabled": "Ativado",
+      "disabled": "Desativado",
+      "unfunded": "Sem orçamento",
+      "noProviders": "Nenhum provedor permitido",
+      "ttlValue": "{{minutes}} min",
+      "spendSummary": "{{used}} de {{cap}} comprometido ({{pct}}%)",
+      "acknowledged": "Reconhecimento registrado",
+      "acknowledgedChip": "Reconhecido",
+      "ackFailed": "Falha ao registrar reconhecimento",
+      "ackTitle": "Reconheça a exposição de terceiros para este cliente",
+      "ackWarningTitle": "Os dados deste cliente sairiam de seu controle",
+      "ackWarningBody": "Permitir Vast.ai para {{name}} significa que os hashes do cliente, wordlists e textos planos quebrados podem ser colocados em máquinas possuídas por terceiros que têm acesso raiz ao container.",
+      "ackConfirm": "Você aceita esta exposição para este cliente?",
+      "ackAccept": "Entendo e aceito",
+      "actions": {
+        "none": "Dentro do orçamento",
+        "notify": "Limite alcançado",
+        "stop_provisioning": "Provisionamento parado",
+        "drain": "Drenando",
+        "hard_stop": "Parada dura"
+      },
+      "columns": {
+        "client": "Cliente",
+        "status": "Status",
+        "providers": "Provedores permitidos",
+        "spend": "Gastos",
+        "ttl": "TTL máximo",
+        "actions": "Ações"
+      },
+      "fields": {
+        "budget": "Orçamento",
+        "budgetHelp": "Limite de gastos para o período de orçamento atual. Deixe em branco para herdar o padrão do servidor; um cliente fica sem financiamento apenas se nenhum padrão for definido também.",
+        "ttl": "Tempo de vida máximo da instância (minutos)",
+        "ttlHelp": "Uma instância é destruída nesta idade independentemente do progresso. Deixe em branco para usar o padrão do sistema.",
+        "providers": "Provedores permitidos",
+        "providersHelp": "Vazio significa que nada pode ser alugado para este cliente. Permitir AWS enquanto proíbe Vast.ai é uma configuração normal.",
+        "enabled": "Rajada em nuvem",
+        "period": "Período do orçamento",
+        "periodHelp": "Deixe em branco para herdar o padrão do servidor."
+      },
+      "errors": {
+        "invalidBudget": "Orçamento deve ser um número, por exemplo 25.00",
+        "negativeBudget": "Orçamento não deve ser negativo",
+        "invalidTtl": "O tempo de vida máximo deve ser um número positivo de minutos",
+        "enabledWithoutBudget": "Defina um orçamento antes de ativar rajada em nuvem — um cliente sem financiamento nunca pode provisionar nada.",
+        "enabledWithoutProvider": "Permita pelo menos um provedor antes de ativar rajada em nuvem."
+      },
+      "peerTooltip": "Hardware operado por pares: os dados deste cliente serão legíveis pelo proprietário da máquina.",
+      "defaults": {
+        "title": "Padrões do servidor",
+        "description": "Valores que um cliente usa quando não configurou os seus. Deixar um campo de cliente em branco significa que segue o padrão aqui, então mudar isto muda cada cliente ainda herdando.",
+        "summary": "{{amount}} por {{period}}",
+        "summaryUnset": "Nenhum orçamento padrão definido — clientes que herdam permanecem sem financiamento",
+        "budget": "Orçamento padrão",
+        "budgetHelp": "Deixe em branco para nenhum padrão: clientes herdando então permanecem sem financiamento e não podem fazer rajada.",
+        "period": "Período de orçamento padrão",
+        "enabled": "Clientes podem fazer rajada para capacidade paga por padrão",
+        "providers": "Provedores padrão",
+        "providersHelp": "Aplicado a qualquer cliente cuja lista de provedores próprios está vazia.",
+        "peerAckNote": "Provedores operados por pares ainda exigem reconhecimento por cliente. Defini-los por padrão não concede esse consentimento — cada cliente ainda deve ser reconhecido individualmente antes de seus dados poderem ir lá.",
+        "appliesNow": "Rajada em nuvem está ativada por padrão e um orçamento padrão está definido, portanto cada cliente ainda herdando pode agora provisionar capacidade paga.",
+        "save": "Salvar padrões",
+        "saved": "Padrões salvos",
+        "saveFailed": "Falha ao salvar padrões",
+        "fundedButDisabled": "Um orçamento padrão está definido mas rajada em nuvem está desativada por padrão, portanto nenhum cliente herdando pode provisionar nada. Marque a caixa acima para tornar o orçamento utilizável.",
+        "enabledWithoutProviders": "Rajada em nuvem está ativada por padrão mas nenhum provedor padrão está selecionado, portanto clientes herdando ainda não podem alugar nada. Escolha pelo menos um provedor acima.",
+        "willEnableTitle_many": "Isto permitirá que {{count}} clientes aluguem capacidade paga",
+        "willEnableTitle_one": "Isto permitirá que {{count}} cliente alugue capacidade paga",
+        "willEnableTitle_other": "Isto permitirá que {{count}} clientes aluguem capacidade paga",
+        "willEnableBody": "Estes clientes não têm configurações próprias, portanto seguem os padrões acima. Salvar permite que cada um deles provisione instâncias em nuvem e gaste contra este orçamento. Para manter um cliente fora, defina sua própria Rajada em nuvem para Desativado.",
+        "andMore": "+{{count}} mais",
+        "confirmTitle_many": "Ativar gastos em nuvem para {{count}} clientes?",
+        "confirmTitle_one": "Ativar gastos em nuvem para {{count}} cliente?",
+        "confirmTitle_other": "Ativar gastos em nuvem para {{count}} clientes?",
+        "confirmBody_many": "{{count}} clientes atualmente não podem alugar nada. Salvar estes padrões dá a cada um deles um teto de {{amount}} por {{period}} e permissão para gastá-lo. O orçamento é por cliente, não compartilhado, portanto isto é a exposição total multiplicada pelo número de clientes listados.",
+        "confirmBody_one": "{{count}} cliente atualmente não pode alugar nada. Salvar estes padrões dá a ele um teto de {{amount}} por {{period}} e permissão para gastá-lo. O orçamento é por cliente, não compartilhado, portanto isto é a exposição total multiplicada pelo número de clientes listados.",
+        "confirmBody_other": "{{count}} clientes atualmente não podem alugar nada. Salvar estes padrões dá a cada um deles um teto de {{amount}} por {{period}} e permissão para gastá-lo. O orçamento é por cliente, não compartilhado, portanto isto é a exposição total multiplicada pelo número de clientes listados.",
+        "confirmAlternative": "Prefere optar um de cada vez? Cancele, deixe rajada em nuvem desativada por padrão, e defina Rajada em nuvem e um orçamento em cada cliente individualmente.",
+        "confirmAccept_many": "Ativar {{count}} clientes",
+        "confirmAccept_one": "Ativar {{count}} cliente",
+        "confirmAccept_other": "Ativar {{count}} clientes"
+      },
+      "periods": {
+        "monthly": "mês",
+        "quarterly": "trimestre",
+        "semiannual": "seis meses"
+      },
+      "inheritLabel": "Herdar padrão ({{value}})",
+      "on": "Ativado",
+      "off": "Desativado",
+      "inheriting": "herdando"
+    },
+    "policy": {
+      "title": "Política de limite de gastos",
+      "description": "O que acontece quando um cliente se aproxima do seu teto. Esses limites decidem como o teto é alcançado de forma gradual; o que realmente evita que o orçamento seja ultrapassado é que o custo de toda a vida útil de uma instância é comprometido antes do boot.",
+      "loadFailed": "Falha ao carregar a política de limite",
+      "saved": "Política de limite salva",
+      "saveFailed": "Falha ao salvar a política de limite",
+      "overageWarning": "Excesso é permitido: reservas podem exceder o orçamento restante. O teto se torna apenas informativo em vez de absoluto.",
+      "hardStopAboveCapNote": "Parada dura está definida para {{pct}}% mas excesso está desativado, portanto reservas ainda não podem exceder 100% do orçamento. Ative excesso se você pretender permitir gastos após o teto.",
+      "fields": {
+        "notifyEnabled": "Notifique-me quando gastos se aproximarem do teto",
+        "notifyPct": "Notificar em (% do orçamento)",
+        "notifyPctHelp": "Envia uma notificação uma vez. Desmarque a caixa de seleção para nunca notificar.",
+        "stopProvisionPct": "Parar de provisionar em (%)",
+        "stopProvisionPctHelp": "Nenhuma nova instância é lançada após este ponto. Instâncias em execução continuam.",
+        "drainPct": "Comece a drenar em (%)",
+        "drainPctHelp": "Nenhum novo trabalho é enviado; blocos em voo podem terminar.",
+        "hardStopPct": "Parada dura em (%)",
+        "hardStopPctHelp": "Instâncias são destruídas imediatamente, terminando ou não.",
+        "drainTimeout": "Tempo limite de drenagem (segundos)",
+        "drainTimeoutHelp": "Quanto tempo uma instância pode continuar terminando seu bloco antes de ser destruída mesmo assim.",
+        "allowOverage": "Permitir gastos após o teto",
+        "allowOverageHelp": "Deixe desativado para tornar o teto absoluto. Com isto desativado, um orçamento de $10 para em $10."
+      },
+      "errors": {
+        "notifyRange": "O limite de notificação deve estar entre 1% e o limite de parada de provisionamento.",
+        "stopBeforeDrain": "O limite de parada de provisionamento não deve exceder o limite de drenagem.",
+        "drainBeforeHardStop": "O limite de drenagem não deve exceder o limite de parada forçada.",
+        "negativeTimeout": "O tempo limite de drenagem não deve ser negativo."
+      }
+    },
+    "fleet": {
+      "title": "Frota em nuvem",
+      "description": "Cada instância alugada que ainda pode estar gerando custos.",
+      "loadFailed": "Falha ao carregar a frota",
+      "empty": "Nenhuma instância está em execução. Nada está sendo cobrado.",
+      "summary_many": "{{count}} instâncias ativas, {{hourly}}/h, {{reserved}} reservado.",
+      "summary_one": "{{count}} instância ativa, {{hourly}}/h, {{reserved}} reservado.",
+      "summary_other": "{{count}} instâncias ativas, {{hourly}}/h, {{reserved}} reservado.",
+      "destroy": "Destruir",
+      "destroyed": "Instância destruída",
+      "destroyFailed": "O provedor se recusou a destruir esta instância — ela ainda está gerando custos",
+      "destroyTitle": "Destruir instância?",
+      "destroyBody": "Destruir \"{{label}}\" agora? A cobrança é interrompida assim que o provedor confirmar.",
+      "destroyJobWarning": "Esta instância está trabalhando em um job. Seu bloco em andamento é perdido e será redespachado em outro lugar.",
+      "teardownFailingTitle": "Falha no encerramento",
+      "teardownFailingBody_many": "{{count}} instâncias não puderam ser destruídas e ainda estão acumulando custos. Verifique o console do provedor.",
+      "teardownFailingBody_one": "{{count}} instância não pôde ser destruída e ainda está acumulando custos. Verifique o console do provedor.",
+      "teardownFailingBody_other": "{{count}} instâncias não puderam ser destruídas e ainda estão acumulando custos. Verifique o console do provedor.",
+      "teardownFailingTooltip": "Encerramento falhou; esta instância ainda está gerando custos",
+      "estimated": "est.",
+      "estimatedTooltip": "Estimado a partir do tempo decorrido e da taxa; o valor do próprio provedor chega mais tarde.",
+      "perHour": "{{rate}}/h",
+      "ttlExpired": "Expirado",
+      "states": {
+        "requested": "Solicitado",
+        "launching": "Iniciando",
+        "provisioning": "Provisionando",
+        "syncing": "Sincronizando arquivos",
+        "running": "Em execução",
+        "draining": "Drenando",
+        "terminating": "Terminando",
+        "terminated": "Terminado",
+        "failed": "Falhou"
+      },
+      "columns": {
+        "label": "Instância",
+        "state": "Estado",
+        "client": "Cliente",
+        "gpu": "GPU",
+        "rate": "Taxa",
+        "spend": "Gasto",
+        "ttl": "TTL restante",
+        "disk": "Disco",
+        "actions": "Ações",
+        "agent": "Agente",
+        "job": "Job"
+      },
+      "experimentalRunningTitle_many": "{{count}} instâncias em execução em um provedor experimental",
+      "experimentalRunningTitle_one": "{{count}} instância em execução em um provedor experimental",
+      "experimentalRunningTitle_other": "{{count}} instâncias em execução em um provedor experimental",
+      "experimentalRunningBody": "{{providers}} não foi comprovado de ponta a ponta com dinheiro real. Acompanhe estas instâncias até atingirem 'terminado' em vez de assumir que atingirão: o caminho de encerramento é a parte menos testada de qualquer novo adaptador, e uma instância que nunca é liberada gera custos até você destruí-la aqui. Por favor, relate o que você observar.",
+      "experimentalTooltip": "{{provider}} é um provedor experimental — não testado ainda. Espere por bugs; confirme se esta instância realmente é liberada quando seu job termina."
+    },
+    "rules": {
+      "title": "Quando o sistema pode gastar",
+      "description": "Orçamentos governam quanto pode ser gasto. Estes governam quando algo pode ser gasto. Sem eles, o autoscaler aluga após um único tick de falta de capacidade, para qualquer job, em qualquer hora, sem teto por job.",
+      "inheritTitle": "Estes são os padrões do sistema",
+      "inheritBody": "Clientes herdam cada campo individualmente, assim apertar um padrão aqui alcança cada cliente que não sobrescreveu esse campo específico. Sobrescritas por cliente são editadas na tela do cliente.",
+      "saved": "Regras de provisionamento salvas",
+      "saveFailed": "Falha ao salvar regras de provisionamento",
+      "loadFailed": "Falha ao carregar regras de provisionamento",
+      "save": "Salvar regras",
+      "fields": {
+        "minJobPriority": "Prioridade mínima de job",
+        "minStarvation": "Tempo mínimo de falta de capacidade (minutos)",
+        "skipIfFinishing": "Pular se terminar em (minutos)",
+        "maxSpendPerJob": "Gasto máximo por job",
+        "windowEnabled": "Restringir provisionamento a uma janela de tempo",
+        "windowStart": "Janela abre",
+        "windowEnd": "Janela fecha",
+        "windowTz": "Fuso horário"
+      },
+      "helperText": {
+        "minJobPriority": "Prioridade absoluta, não uma porcentagem. Seu teto atual é {{ceiling}}.",
+        "floorOff": "Sem piso: qualquer job com disparo em nuvem se qualifica para provisionamento automático.",
+        "minStarvation": "Quanto tempo um job deve ficar sem fazer progresso antes que capacidade paga seja alugada. 0 aluga no primeiro tick de falta de capacidade. Aplica-se apenas ao autoscaler.",
+        "skipIfFinishing": "Não alugue para um job projetado para terminar em breve na capacidade existente — uma instância alugada precisa de 5-10 minutos para iniciar e sincronizar. 0 nunca pula.",
+        "maxSpendPerJob": "Limite vitalício no gasto em nuvem para um job, não por janela mensal. Em branco significa sem limite. Aplicado em todos os lugares, incluindo provisionamento manual de admin.",
+        "windowEnabled": "Governa apenas inícios. Instâncias nunca são encerradas porque a janela fechou — TTL e drenagem inativa possuem seu próprio encerramento.",
+        "windowTz": "Nome IANA, ex: America/Chicago. Deixe em branco para UTC.",
+        "windowWrap": "Um tempo de fechamento mais cedo que o tempo de abertura cruza a meia-noite, que é a forma normal de escrever \"apenas alugue à noite\". Definir ambos para o mesmo valor significa sempre aberto."
+      },
+      "bands": {
+        "minimal": "Mínimo",
+        "low": "Baixo",
+        "normal": "Normal",
+        "high": "Alto",
+        "critical": "Crítico"
+      }
+    },
+    "system": {
+      "ceilings": "Tetos de gasto e concorrência",
+      "ceilingsHelp": "Limites absolutos do sistema, aplicados antes de qualquer orçamento de cliente ser consultado.",
+      "work": "Dimensionamento de trabalho e encerramento",
+      "workHelp": "Quanto trabalho uma instância alugada recebe por vez, e com que rapidez uma inativa é liberada. A sobrecarga por bloco é cobrada nas taxas de aluguel, então essas trocam vazão por desperdício.",
+      "reconciliation": "Reconciliação",
+      "reconciliationHelp": "Com que frequência o banco de dados é verificado contra o que o provedor está realmente executando, e por quanto tempo uma instância não reconhecida é tolerada antes de ser destruída.",
+      "capDisabledWarning": "O provisionamento em nuvem está atualmente DESATIVADO: o limite mensal global é 0. Provedores, orçamentos de clientes e jobs habilitados para nuvem serão todos configurados corretamente e nada será alugado. Defina um limite diferente de zero para habilitá-lo.",
+      "saved": "Configuração salva",
+      "saveFailed": "Falha ao salvar configuração",
+      "loadFailed": "Falha ao carregar configurações de nuvem",
+      "units": {
+        "seconds": "s",
+        "minutes": "min"
+      },
+      "fields": {
+        "monthlyCap": "Limite de gasto mensal global",
+        "monthlyCapHelp": "Entre todos os clientes e provedores. 0 desativa completamente o provisionamento em nuvem — não é ilimitado.",
+        "concurrentCap": "Limite de instância concorrente global",
+        "concurrentCapHelp": "Instâncias alugadas máximas por vez, entre todos os provedores e clientes. 0 significa ilimitado, ainda limitado por orçamentos e cotas do provedor.",
+        "defaultMaxInstancesPerJob": "Número máximo padrão de instâncias por job",
+        "defaultMaxInstancesPerJobHelp": "Instâncias alugadas máximas para um job que deixa seu próprio limite em branco. Em branco costumava significar ilimitado, que em uma implantação apenas na nuvem deixa o orçamento do cliente como a única coisa que impede um job faminto alugar uma vez por minuto. Um valor por job ainda substitui isso. 0 restaura ilimitado.",
+        "chunkDuration": "Duração mínima do bloco em nuvem",
+        "chunkDurationHelp": "Duração mínima do bloco para agentes em nuvem. Uma GPU alugada é cobrada enquanto hashcat inicia, afina kernels e carrega a wordlist, então blocos em nuvem têm piso neste valor mesmo quando o job pede menos. Um job pedindo MAIS mantém seu próprio valor. Sempre limitado até o tempo de vida restante da instância. Defina como 0 para desabilitar o piso.",
+        "teardownSlack": "Margem de encerramento",
+        "teardownSlackHelp": "Reservado no final da vida útil de uma instância para drenagem e destruição, assim um bloco nunca é planejado além do ponto em que a instância morre.",
+        "idleDrain": "Drenagem inativa",
+        "idleDrainHelp": "Destrua uma instância alugada depois deste tempo sem trabalho pendente. Limita quanto você paga por uma GPU que não tem mais nada a fazer.",
+        "commissioningGrace": "Período de graça de comissionamento",
+        "commissioningGraceHelp": "Destrua uma instância alugada que nunca recebeu uma tarefa depois deste tempo, medido a partir de quando seu agente foi registrado. Uma instância fria deve baixar seus arquivos e executar um benchmark primeiro, então definir isso abaixo de cerca de 20 minutos destrói instâncias saudáveis no meio da inicialização — e porque o job ainda está esperando, outro é alugado imediatamente. 0 desabilita.",
+        "reaperInterval": "Intervalo do ceifador",
+        "reaperIntervalHelp": "Com que frequência reconciliar o banco de dados contra o inventário do provedor e destruir qualquer coisa que não deveria existir.",
+        "orphanGrace": "Período de graça para órfãos",
+        "orphanGraceHelp": "Destrua instâncias encontradas na conta do provedor sem linha de banco de dados correspondente após este tempo. Esta é a única recuperação para um lançamento cujo registro nunca foi salvo.",
+        "agentImage": "Imagem do agente",
+        "agentImageHelp": "ex: zerkereod/krakenhashes-agent-cloud:cloud-gpu. Deixe em branco para voltar a KH_CLOUD_AGENT_IMAGE, depois para o padrão integrado. Observe que o padrão integrado é :latest, que só existe depois que uma versão foi marcada — implantações de pré-lançamento devem definir isso.",
+        "defaultBurstEnabled": "Ativar disparo em nuvem para cada job",
+        "defaultBurstEnabledHelp": "Trata cada job como habilitado para disparo em nuvem, sem marcar a caixa em cada predefinição, fluxo de trabalho e job. Destinado para implantações sem GPUs locais, onde aluguel é a única forma de trabalho ser executado. Orçamentos de clientes e limites de instância ainda se aplicam. Entra em efeito imediatamente, inclusive para jobs já enfileirados.",
+        "defaultClient": "Cliente de cobrança padrão",
+        "defaultClientHelp": "Gasto em nuvem para uma hashlist sem seu próprio cliente é cobrado aqui. Deixe como Nenhum e trabalho não atribuído não pode alugar capacidade alguma. Orçamentos, limites de instância e a escada de limites se aplicam ao cliente que você escolher exatamente como normalmente — um cliente nomeado algo como \"Trabalho Não Atribuído\" mantém o relatório de gasto honesto.",
+        "defaultClientNone": "Nenhum — trabalho não atribuído não pode usar nuvem",
+        "crackDrainGrace": "Período de graça de drenagem de senhas",
+        "crackDrainGraceHelp": "Antes de destruir uma instância alugada, aguarde até este tempo para que uma tarefa ainda sob sua responsabilidade termine de enviar senhas quebradas. Medido a partir da última vez que essa tarefa foi escrita, não de quando começou, então um agente trabalhando nunca é destruído e um travado não é esperado para sempre. Deve ser mais longo que a drenagem inativa e mais curto que 30 minutos. 0 destrói imediatamente, que pode perder permanentemente senhas que o agente já encontrou — elas não podem ser reenviadas de uma máquina que não existe mais."
+      },
+      "agent": "Imagem do agente em nuvem",
+      "agentHelp": "A imagem do contêiner que instâncias alugadas puxam e executam. Deve ser uma tag que existe no registro: uma tag ausente não é um erro de inicialização — a instância inicializa, o pull falha, e o host auto-termina cerca de um minuto depois, cobrado.",
+      "save": "Salvar alterações",
+      "discard": "Descartar",
+      "unsaved_many": "{{count}} alterações não salvas",
+      "unsaved_one": "{{count}} alteração não salva",
+      "unsaved_other": "{{count}} alterações não salvas",
+      "eligibility": "Implantações apenas em nuvem",
+      "eligibilityHelp": "Se jobs são considerados para aluguel. Tudo acima limita o que pode ser gasto; isso decide se algo chega a ser gasto."
+    }
+  },
+  "serverCertificate": {
+    "title": "Certificado do servidor",
+    "description": "Gerencie os endereços que o certificado TLS do servidor cobre. Agentes podem apenas se conectar a um endereço listado aqui.",
+    "apply": "Aplicar e reemitir",
+    "warning": {
+      "title": "KrakenHashes é uma ferramenta interna",
+      "body": "Ele nunca deve ser acessível pela internet pública. Ele lida com credenciais quebradas, então apenas endereços privados e VPN podem ser adicionados ao certificado — endereços IP públicos são rejeitados. Se esta implantação estiver exposta publicamente, tire-a do ar antes de continuar."
+    },
+    "summary": {
+      "title": "Certificado atual",
+      "unavailable": "O certificado do servidor não pôde ser lido.",
+      "subject": "Titular",
+      "issuer": "Emissor",
+      "validity": "Válido",
+      "serial": "Número de série",
+      "covers": "Este certificado é válido para",
+      "coversNothing": "Este certificado não lista nenhum endereço. Nenhum agente pode se conectar.",
+      "daysRemaining_many": "{{count}} dias restantes",
+      "daysRemaining_one": "{{count}} dia restante",
+      "daysRemaining_other": "{{count}} dias restantes",
+      "caSubject": "Autoridade certificadora",
+      "caExpires": "AC expira",
+      "caFingerprint": "Impressão digital da AC (SHA-256)",
+      "pending_many": "{{count}} endereços foram salvos mas ainda não estão no certificado. Clique em Aplicar e reemitir.",
+      "pending_one": "{{count}} endereço foi salvo mas ainda não está no certificado. Clique em Aplicar e reemitir.",
+      "pending_other": "{{count}} endereços foram salvos mas ainda não estão no certificado. Clique em Aplicar e reemitir.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES ou KH_ADDITIONAL_DNS_NAMES ainda está definida no ambiente. Ela não é mais lida — estas configurações a substituem. Remova a variável para evitar confusão."
+    },
+    "sans": {
+      "title": "Endereços que este certificado deve cobrir",
+      "add": "Adicionar",
+      "empty": "Nenhum endereço adicional configurado.",
+      "unsaved": "Você tem alterações não salvas. Clique em Aplicar e Reemitir para colocá-las no certificado.",
+      "lockedTooltip": "Sempre incluído. Removê-lo quebraria o proxy interno e as verificações de saúde.",
+      "ip": {
+        "title": "Endereços IP",
+        "help": "Apenas endereços privados e VPN: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local e IPv6 ULA.",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "Nomes DNS",
+        "help": "Nomes de host que agentes e navegadores usam para alcançar este servidor.",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "\"{{address}}\" não é um endereço válido.",
+      "public_ip": "{{address}} é um endereço IP público e não pode ser adicionado. KrakenHashes é uma ferramenta apenas interna. Ela lida com credenciais quebradas e nunca deve ser acessível pela internet. Apenas endereços privados (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local e IPv6 ULA) podem ser adicionados. Se este for o endereço de sua VPN, a VPN está usando espaço de endereço que pertence a alguém na internet — mude sua faixa de rede para um intervalo privado ou CGNAT.",
+      "duplicate": "{{address}} já está na lista.",
+      "bind_address": "{{address}} é um endereço de ligação, não um alcançável. Nenhum cliente se conecta a ele.",
+      "multicast": "{{address}} é um endereço multicast e não pode identificar um servidor.",
+      "wildcard_dns": "Nomes com wildcard não são suportados.",
+      "has_port": "Digite apenas o nome do host, sem porta.",
+      "is_ip": "Esse é um endereço IP. Adicione-o à lista de endereços IP em vez disso.",
+      "too_long": "Esse nome é maior que o limite de 253 caracteres."
+    },
+    "discovered": {
+      "title": "Endereços descobertos",
+      "help": "Endereços vistos alcançando este servidor que o certificado não cobre. Nada aqui é aplicado automaticamente.",
+      "empty": "Nenhum endereço descoberto ainda. Inicie um agente ou abra esta página do endereço que seus agentes usam, e ele aparecerá aqui.",
+      "address": "Endereço",
+      "source": "Origem",
+      "reportedBy": "Relatado por",
+      "lastSeen": "Visto por último",
+      "hits": "Ocorrências",
+      "actions": "Ações",
+      "add": "Adicionar",
+      "added": "{{address}} adicionado. Clique em Aplicar e Reemitir para colocá-lo no certificado.",
+      "dismiss": "Descartar",
+      "pending": "Aguardando reemissão",
+      "sources": {
+        "agent_tls_failure": "Falha de TLS do agente",
+        "host_header": "Navegador / Cabeçalho Host",
+        "tls_sni": "TLS SNI",
+        "manual": "Manual"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "Um agente autenticado relatou que não conseguiu verificar o certificado deste servidor para este endereço.",
+        "host_header": "Observado no cabeçalho Host de uma solicitação. Qualquer pessoa que consiga alcançar este servidor pode influenciar esse valor — confirme-o antes de adicionar.",
+        "tls_sni": "Observado como o nome do servidor em um handshake TLS.",
+        "manual": "Adicionado por um administrador."
+      }
+    },
+    "reissue": {
+      "doneTitle": "Certificado reemitido",
+      "noChangeTitle": "Nenhuma alteração necessária",
+      "noChangeBody": "O certificado já cobre todos os endereços configurados e não está perto de expirar.",
+      "changes": "Alterações",
+      "validUntil": "O novo certificado é válido até {{date}}.",
+      "backendReloaded": "A API na porta 31337 já está servindo o novo certificado. Nenhuma reinicialização foi necessária.",
+      "nginxReloaded": "A interface web na porta 443 foi recarregada e está servindo o novo certificado.",
+      "nginxFailed": "A interface web na porta 443 ainda está servindo o certificado anterior",
+      "backup": "Um backup do material do certificado anterior foi salvo em {{path}}.",
+      "agentsReconnect": "Os agentes que falharam se reconectarão automaticamente em 30 segundos. Nenhuma reinicialização de agente é necessária.",
+      "agentsRefetch": "Cada agente deve buscar novamente a CA. Os agentes fazem isso automaticamente da próxima vez que um handshake falhar, mas os navegadores que confiaram na CA antiga devem instalar a nova manualmente.",
+      "close": "Fechar",
+      "nginxFailedBody": "A API já está servindo o novo certificado, então os agentes não são afetados. A interface web na porta 443 continuará apresentando o anterior até que o KrakenHashes seja reiniciado."
+    },
+    "confirmRemoval": {
+      "title": "Remover endereços do certificado?",
+      "body": "Os seguintes endereços estão no certificado atual e serão removidos: {{addresses}}. Qualquer agente conectando em um deles deixará de conseguir se conectar até que seja adicionado novamente.",
+      "cancel": "Cancelar",
+      "confirm": "Remover e reemitir"
+    },
+    "rotateCa": {
+      "section": "Avançado",
+      "title": "Rotacionar a autoridade de certificação",
+      "warning": "Rotacionar a autoridade de certificação emite uma CA totalmente nova e reassina os certificados do servidor e dos agentes. Cada agente deve fazer o download novamente da CA antes de poder se reconectar, e cada navegador que confiou na CA antiga mostrará avisos até que o novo ca.crt seja instalado. Faça isso apenas se a chave privada da CA puder ter sido exposta.",
+      "instruction": "Digite {{phrase}} para confirmar.",
+      "action": "Rotacionar CA"
+    },
+    "banner": {
+      "title_many": "{{count}} agentes não conseguem verificar o certificado deste servidor",
+      "title_one": "{{count}} agente não consegue verificar o certificado deste servidor",
+      "title_other": "{{count}} agentes não conseguem verificar o certificado deste servidor",
+      "body": "{{agents}} está se conectando a {{address}}, que não está listado no certificado do servidor. Continuará tentando novamente e não consegue ficar online até que o certificado seja reemitido.",
+      "anAgent": "Um agente",
+      "action": "Corrigir nas configurações de Certificado do Servidor"
+    }
+  },
+  "branding": {
+    "title": "Identidade Visual",
+    "description": "Apresente esta instância com o nome, cores e logotipo da sua organização. Tudo aqui se aplica à interface web, à aba do navegador, emails de notificação (através da variável de modelo AppName), novos registros de autenticador e exportações de PDF analíticos.",
+    "attributionNote": "A atribuição \"powered by KrakenHashes\" é sempre mostrada junto a um nome personalizado e em PDFs exportados. É adicionada pelo servidor e não pode ser removida.",
+    "identity": "Identidade e cores",
+    "appName": "Nome da aplicação",
+    "appNameHelper": "Mostrado no cabeçalho, página de login, emails e relatórios. Deixe vazio para KrakenHashes.",
+    "pageTitle": "Título da página do navegador",
+    "pageTitleHelper": "Título efetivo: {{title}}",
+    "primaryColor": "Cor de acento primária",
+    "secondaryColor": "Cor de acento secundária",
+    "colorHint": "Cores hexadecimais (#rrggbb). O fundo escuro permanece fixo; escolha acentos que permaneçam legíveis em superfícies próximas ao preto. A cor primária também é usada para linhas e barras em relatórios PDF.",
+    "save": "Salvar identidade visual",
+    "logo": "Logotipo",
+    "logoHint": "PNG ou JPEG, até 2 MB e 2048×2048 px. Usado no cabeçalho, página de login e relatórios PDF (imagens RGB são renderizadas melhor).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG ou ICO, até 512 KB e 512×512 px. Navegadores armazenam ícones em cache agressivamente; um recarregamento forçado pode ser necessário uma vez.",
+    "upload": "Enviar",
+    "replace": "Substituir",
+    "remove": "Remover",
+    "messages": {
+      "saved": "Identidade visual salva",
+      "uploaded": "Imagem enviada",
+      "removed": "Imagem removida"
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar configurações de identidade visual",
+      "saveFailed": "Falha ao salvar configurações de identidade visual",
+      "uploadFailed": "Falha ao enviar imagem",
+      "removeFailed": "Falha ao remover imagem",
+      "invalidHex": "Digite uma cor hexadecimal como #1e88e5",
+      "tooLarge": "Arquivo é muito grande (máx {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Seções de configurações",
+    "groups": {
+      "general": "Geral",
+      "security": "Segurança",
+      "jobs": "Jobs",
+      "agents": "Agentes",
+      "integrations": "Integrações",
+      "cloud": "Nuvem"
+    },
+    "sections": {
+      "branding": "Identidade Visual",
+      "brandingDesc": "Nome da aplicação, cores, logotipo e favicon.",
+      "data": "Dados",
+      "dataDesc": "Padrões de retenção e ingestão de hashlist.",
+      "storage": "Armazenamento",
+      "storageDesc": "Armazenamento de compartilhamento de rede para wordlists e regras.",
+      "certificate": "Certificado",
+      "certificateDesc": "Nomes e endereços do certificado do servidor.",
+      "authentication": "Autenticação",
+      "authenticationDesc": "Política de senha, bloqueio e sessões.",
+      "mfa": "Multifator",
+      "mfaDesc": "Política de MFA e parte confiável de chave de acesso.",
+      "sso": "Logon único",
+      "ssoDesc": "Provedores de identidade e provisionamento.",
+      "access": "Modelo de acesso",
+      "accessDesc": "Isolamento multiequipe.",
+      "execution": "Execução",
+      "executionDesc": "Divisão em blocos, keyspace e benchmarks.",
+      "scheduling": "Agendamento",
+      "schedulingDesc": "Alocação de agente e prioridade de job.",
+      "potfile": "Potfile e loopback",
+      "potfileDesc": "Comportamento de potfile e rodadas de loopback.",
+      "health": "Saúde",
+      "healthDesc": "Heartbeats, períodos de graça e o período de graça offline.",
+      "downloads": "Downloads",
+      "downloadsDesc": "Como os agentes buscam arquivos do servidor.",
+      "updates": "Atualizações",
+      "updatesDesc": "Atualizações automáticas de binário do agente.",
+      "monitoring": "Monitoramento",
+      "monitoringDesc": "Retenção e agregação de métricas.",
+      "email": "Email",
+      "emailDesc": "Configuração do provedor e modelos.",
+      "webhooks": "Webhooks",
+      "webhooksDesc": "Webhook global e webhooks de usuário.",
+      "notifications": "Notificações",
+      "notificationsDesc": "Quais eventos de job notificam.",
+      "providers": "Provedores",
+      "providersDesc": "Credenciais do provedor de GPU em nuvem.",
+      "budgets": "Orçamentos por cliente",
+      "budgetsDesc": "Limites mensais por cliente.",
+      "policy": "Política de limites",
+      "policyDesc": "Escada de limites de despesa.",
+      "rules": "Regras de provisionamento",
+      "rulesDesc": "Quando o dimensionador automático pode gastar.",
+      "limits": "Limites",
+      "limitsDesc": "Tetos e temporizações em todo o sistema."
+    }
+  },
+  "hub": {
+    "pageDescription": "Tudo que configura este servidor, agrupado pelo que afeta. Os campos são salvos conforme você os deixa, a menos que a seção indique o contrário.",
+    "navLabel": "Visão Geral",
+    "attentionTitle": "Precisa de atenção",
+    "attentionSubtitle": "Problemas que afetam como o servidor opera.",
+    "allGood": "Tudo parece estar bem",
+    "allGoodHint": "Nenhum problema de configuração foi detectado.",
+    "loadFailed": "Não foi possível carregar o status das configurações.",
+    "overviewTitle": "Status",
+    "attentionCount": "{{count}} para revisar",
+    "browseTitle": "Todas as configurações",
+    "loading": "Verificando…",
+    "cards": {
+      "email": "Email",
+      "certificate": "Certificado",
+      "sso": "Logon único",
+      "binaries": "Binários",
+      "cloud": "Nuvem",
+      "storage": "Armazenamento",
+      "webhook": "Webhook global"
+    },
+    "detail": {
+      "emailConfigured": "Configurado ({{provider}})",
+      "emailNotConfigured": "Nenhum provedor configurado",
+      "certUnmanaged": "Gerenciado fora do KrakenHashes ({{mode}})",
+      "certDays": "{{days}} dias restantes",
+      "certPending": "Ainda não emitido",
+      "ssoProviders_many": "{{count}} provedores habilitados",
+      "ssoProviders_one": "{{count}} provedor habilitado",
+      "ssoProviders_other": "{{count}} provedores habilitados",
+      "binaries": "{{verified}} de {{total}} verificados",
+      "cloudNoProviders": "Nenhum provedor configurado",
+      "cloudCap": "{{providers}} provedor(es), limite mensal {{cap}}",
+      "storageLocal": "Armazenamento local",
+      "storageReachable": "Compartilhamento montado e acessível",
+      "storageUnreachable": "Compartilhamento não acessível",
+      "webhookOff": "Desabilitado",
+      "webhookOn": "Habilitado",
+      "webhookNoUrl": "Habilitado sem uma URL"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "O status não pôde ser verificado",
+      "emailNotConfigured": "O email não está configurado; códigos de MFA e notificações não podem ser enviados.",
+      "certExpiring": "O certificado do servidor expira em {{days}} dias.",
+      "ssoEphemeralKey": "O SSO está usando uma chave de assinatura efêmera; as sessões não sobreviverão a um reinício.",
+      "noVerifiedBinary": "Nenhum binário hashcat verificado está disponível; os jobs não podem ser executados.",
+      "cloudCapZero": "Os provedores de nuvem estão configurados, mas o limite mensal é 0, portanto nada será provisionado.",
+      "shareUnreachable": "O compartilhamento de rede está habilitado, mas não é acessível.",
+      "migration": "Uma migração de armazenamento está {{state}}.",
+      "webhookNoUrl": "O webhook global está habilitado, mas não tem URL."
+    },
+    "severity": {
+      "default": "Info",
+      "success": "OK",
+      "warning": "Aviso",
+      "error": "Erro"
+    }
+  },
+  "fieldState": {
+    "saving": "Salvando…",
+    "saved": "Salvo",
+    "error": "Não salvo",
+    "minSelected": "Selecione pelo menos {{count}}",
+    "autosaveHint": "Salva automaticamente",
+    "autosaveHintLong": "Cada campo é salvo automaticamente assim que você sai dele.",
+    "applyHint": "Requer aplicar",
+    "applyHintLong": "As alterações aqui entram em vigor apenas após você aplicá-las."
+  },
+  "unsaved": {
+    "title": "Alterações não salvas",
+    "body": "Você tem alterações que não foram aplicadas. Sair desta página e descartá-las?",
+    "stay": "Ficar",
+    "leave": "Sair"
+  },
+  "agentAutoUpdate": {
+    "title": "Atualizações automáticas",
+    "description": "Permita que o servidor envie novos binários de agente para agentes conectados.",
+    "enable": "Ativar atualizações automáticas de agente",
+    "maxConcurrent": "Atualizações simultâneas",
+    "maxConcurrentHelper": "Quantos agentes podem ser atualizados ao mesmo tempo.",
+    "maxAttempts": "Tentativas por agente",
+    "maxAttemptsHelper": "Desista de um agente após esta quantidade de atualizações falhadas.",
+    "healthTimeout": "Tempo limite de saúde",
+    "healthTimeoutHelper": "Por quanto tempo aguardar a reconexão de um agente atualizado antes de marcar a atualização como falhada.",
+    "applyNote": "Agentes coletam estes valores em seu próximo check-in."
+  },
+  "networkShare": {
+    "intro": "Armazene wordlists e regras em um compartilhamento de rede para que o servidor não precise de um disco local grande. O operador monta o compartilhamento no host do servidor (via docker-compose, como <code>KH_SHARE_DIR</code>) e em qualquer host de agente network-direct; KrakenHashes apenas lê o caminho montado — nunca se conecta ao compartilhamento ou armazena suas credenciais. Agentes GPU em nuvem não montam o compartilhamento: eles baixam wordlists/regras do servidor pela VPN.",
+    "migrationLocked": "Uma migração está em progresso ({{state}}). A configuração está bloqueada até que seja concluída.",
+    "server": {
+      "title": "Montagem de armazenamento do servidor",
+      "description": "O servidor lê wordlists e regras deste caminho montado pelo operador (definido no docker-compose como <code>KH_SHARE_DIR</code>). KrakenHashes não se conecta ao compartilhamento — a montagem é responsabilidade do operador.",
+      "mountedPath": "Caminho montado (somente leitura)",
+      "shareDirNotSet": "KH_SHARE_DIR não definido — monte o compartilhamento no docker-compose",
+      "servingFromShare": "Servindo de: compartilhamento de rede",
+      "servingFromLocal": "Servindo de: disco local",
+      "shareReachable": "Compartilhamento acessível",
+      "shareNotMounted": "Compartilhamento não montado",
+      "migrationChip": "Migração: {{state}}",
+      "lastValidated": "Última validação {{date}}",
+      "enable": "Ativar compartilhamento de rede",
+      "saving": "Salvando…",
+      "save": "Salvar configuração",
+      "validating": "Validando…",
+      "validate": "Validar montagem do servidor",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "Caminho montado: <code>{{path}}</code>",
+      "unset": "(não definido)",
+      "yes": "sim",
+      "no": "não",
+      "summary": "Montado: {{mounted}} · Gravável: {{writable}} · Livre: {{free}} · Escrita: {{write}} MB/s · Leitura: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Migração de dados",
+      "descriptionToShare": "Copie wordlists e regras existentes para o compartilhamento de rede e mude o backend de armazenamento ativo. Esta é uma operação de manutenção: novos jobs deixam de ser despachados enquanto a frota drena, em seguida uploads de wordlist/regra são congelados e arquivos são copiados e verificados por checksum antes da mudança. Dependendo do tamanho dos dados, isso pode levar muito tempo e o servidor ficará indisponível para uploads e novos jobs enquanto isso. Wordlists de cliente e associação, binários, charsets e hashlists sempre permanecem locais.",
+      "descriptionToLocal": "Copie wordlists e regras existentes de volta para disco local e mude o backend de armazenamento ativo. Esta é uma operação de manutenção: novos jobs deixam de ser despachados enquanto a frota drena, em seguida uploads de wordlist/regra são congelados e arquivos são copiados e verificados por checksum antes da mudança. Dependendo do tamanho dos dados, isso pode levar muito tempo e o servidor ficará indisponível para uploads e novos jobs enquanto isso. Wordlists de cliente e associação, binários, charsets e hashlists sempre permanecem locais.",
+      "phase": "Fase: {{phase}}",
+      "directionToShare": "local → compartilhamento",
+      "directionToLocal": "compartilhamento → local",
+      "waitingTasks_many": "Aguardando {{count}} tarefas concluírem",
+      "waitingTasks_one": "Aguardando {{count}} tarefa concluir",
+      "waitingTasks_other": "Aguardando {{count}} tarefas concluírem",
+      "earliestLock": " — bloqueio mais antigo {{time}}",
+      "filesProgress": "{{done}}/{{total}} arquivos · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "Cancelando…",
+      "abort": "Abortar migração",
+      "abortHelp": "Interrompe a migração em seu próximo ponto de verificação (útil se o compartilhamento estiver lento ou travado). O armazenamento é deixado no backend atual e o despacho é retomado; arquivos já copiados permanecem e são reutilizados se você tentar novamente.",
+      "complete": "Migração concluída.",
+      "failed": "A migração falhou.",
+      "migrateToShare": "Migrar wordlists e regras para o compartilhamento",
+      "migrateToLocal": "Migrar de volta para disco local",
+      "enableFirst": "Ative o compartilhamento e confirme que valida antes de migrar."
+    },
+    "agent": {
+      "title": "Comando de montagem de agente on-prem (opcional)",
+      "description": "Estes campos são usados <b>apenas</b> para gerar o comando de montagem para agentes on-prem definidos para a camada <b>network_direct</b>. O servidor (acima) e agentes GPU em nuvem <b>não</b> os usam — agentes em nuvem baixam pela VPN. Não são secretos; credenciais nunca são armazenadas ou enviadas.",
+      "protocol": "Protocolo",
+      "protocolHelp": "SMB é o mais portátil entre agentes Windows/macOS/Linux; NFS funciona bem pela VPN com uma exportação somente leitura.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Host de compartilhamento que agentes montam (endereço VPN)",
+      "hostHelp": "O endereço do compartilhamento conforme agentes o alcançam pela VPN — não é uma configuração do servidor (o servidor usa seu caminho montado acima).",
+      "exportPath": "Caminho de exportação",
+      "shareName": "Nome do compartilhamento",
+      "mountOptions": "Opções de montagem (uma chave=valor por linha)",
+      "runThis": "Execute isso no host do agente, em seguida defina a camada de armazenamento daquele agente para \"Network direct\" com o caminho de montagem em sua página de Agente:",
+      "replaceSmb": "Substitua <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> e <code>&lt;PASSWORD&gt;</code> antes de executar — o comando ainda contém espaços reservados.",
+      "replaceNfs": "Substitua <code>&lt;MOUNT_PATH&gt;</code> antes de executar — o comando ainda contém espaços reservados.",
+      "softSmb": "O comando inclui <code>soft</code> para que a montagem falhe rápido se o compartilhamento estiver lento ou cair, em vez de travar (o padrão <code>hard</code> do kernel). Isso se emparelha com a verificação de compartilhamento fail-closed do agente, que redireciona trabalho quando a montagem não é legível. <b>network_direct</b> é para compartilhamentos de baixa latência/adjacentes a LAN — coloque compartilhamentos remotos ou de alta latência nas camadas de download <b>on_demand</b>/<b>full_cache</b>. Substitua qualquer opção definindo-a acima.",
+      "softNfs": "O comando inclui <code>soft</code>, <code>timeo</code> e <code>retrans</code> para que a montagem falhe rápido se o compartilhamento estiver lento ou cair, em vez de travar (o padrão <code>hard</code> do kernel). Isso se emparelha com a verificação de compartilhamento fail-closed do agente, que redireciona trabalho quando a montagem não é legível. <b>network_direct</b> é para compartilhamentos de baixa latência/adjacentes a LAN — coloque compartilhamentos remotos ou de alta latência nas camadas de download <b>on_demand</b>/<b>full_cache</b>. Substitua qualquer opção definindo-a acima.",
+      "otherOs": "macOS: use <code>mount_smbfs</code> (SMB) ou <code>mount -t nfs</code> (NFS). Windows: use <code>net use</code> contra <code>{{uncPath}}</code>. O agente apenas lê da montagem. Estes campos são salvos com <b>Salvar configuração</b> acima."
+    },
+    "confirm": {
+      "title": "Iniciar migração de dados?",
+      "intro": "Isto irá:",
+      "step1": "Parar o despacho de novos jobs e aguardar que tarefas em execução terminem (até ~12 minutos para agentes se reconectarem, mais se jobs longos estiverem em execução).",
+      "step2": "Congelar uploads de wordlist/regra e servir uma página de manutenção enquanto arquivos são copiados e verificados por checksum.",
+      "step3ToShare": "Mudar o backend de armazenamento ativo para o compartilhamento de rede quando terminar.",
+      "step3ToLocal": "Mudar o backend de armazenamento ativo para disco local quando terminar.",
+      "outro": "Jobs pausados são retomados automaticamente depois. Se algo falhar, o armazenamento é deixado inalterado e o servidor permanece operacional.",
+      "cancel": "Cancelar",
+      "start": "Iniciar migração"
+    },
+    "toast": {
+      "loadFailed": "Falha ao carregar configuração de compartilhamento de rede",
+      "migrationStarted": "Migração iniciada.",
+      "startFailed": "Falha ao iniciar migração",
+      "migrationCanceled": "Migração cancelada — armazenamento deixado inalterado.",
+      "cancelFailed": "Falha ao cancelar migração",
+      "saved": "Configuração de compartilhamento de rede salva.",
+      "saveFailed": "Falha ao salvar configuração",
+      "validated": "Compartilhamento validado com sucesso.",
+      "validationProblems": "Validação de compartilhamento relatou problemas.",
+      "validationFailed": "Falha ao executar validação"
+    }
+  },
+  "jobAnalytics": {
+    "title": "Análise de Desempenho de Job",
+    "description": "Analise desempenho de execução de job, taxas de hash e histórico de benchmark em seus agentes.",
+    "loadFiltersFailed": "Falha ao carregar opções de filtro",
+    "tabs": {
+      "jobPerformance": "Desempenho de Job",
+      "successRate": "Taxa de Sucesso",
+      "benchmarkHistory": "Histórico de Benchmark"
+    },
+    "summary": {
+      "totalJobs": "Total de Jobs",
+      "totalJobsSubtitle": "{{completed}} concluídos, {{failed}} com falha",
+      "totalCracks": "Total de Quebras",
+      "totalCracksSubtitle": "Em todos os jobs filtrados",
+      "avgSpeed": "Velocidade Média",
+      "avgSpeedSubtitle": "Taxa de hash média por job",
+      "avgDuration": "Duração Média",
+      "avgDurationSubtitle": "{{keys}} chaves processadas"
+    },
+    "hashRateChart": {
+      "title": "Linha do Tempo de Taxa de Hash",
+      "daily": "Diário",
+      "weekly": "Semanal",
+      "empty": "Nenhum dado de linha do tempo disponível para os filtros selecionados",
+      "hashRate": "Taxa de Hash",
+      "tooltipHashRate": "Taxa de Hash: {{speed}}",
+      "tooltipJobs": "Jobs: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Tendências de Velocidade de Benchmark",
+      "agent": "Agente",
+      "selectAgent": "Selecionar Agente",
+      "hashType": "Tipo de Hash",
+      "attackMode": "Modo de Ataque",
+      "all": "Todos",
+      "range90d": "90d",
+      "range1y": "1a",
+      "rangeAll": "Todos",
+      "selectAgentPrompt": "Selecione um agente para visualizar tendências de benchmark",
+      "empty": "Nenhum histórico de benchmark encontrado para este agente",
+      "speed": "Velocidade",
+      "tooltipSpeed": "Velocidade: {{speed}}"
+    },
+    "filters": {
+      "title": "Filtros",
+      "active": "Ativo",
+      "dateStart": "Data Inicial",
+      "dateEnd": "Data Final",
+      "hashlist": "Hashlist",
+      "status": "Status",
+      "minKeyspace": "Keyspace Mínimo",
+      "maxKeyspace": "Keyspace Máximo",
+      "reset": "Redefinir",
+      "apply": "Aplicar"
+    },
+    "attackModes": {
+      "straight": "Straight",
+      "combination": "Combinação",
+      "bruteforce": "Força Bruta",
+      "hybridWlMask": "Híbrido WL+Máscara",
+      "hybridMaskWl": "Híbrido Máscara+WL",
+      "association": "Associação",
+      "modeNumber": "Modo {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Histórico de Benchmark",
+      "empty": "Nenhum histórico de benchmark encontrado",
+      "columns": {
+        "date": "Data",
+        "agentFallback": "Agente #{{id}}",
+        "status": "Status"
+      },
+      "success": "Sucesso",
+      "failed": "Falha"
+    },
+    "successRate": {
+      "title": "Taxa de Sucesso por Configuração de Job",
+      "subtitle": "Agrupado por wordlist, regras, modo de ataque e tipo de hash. Jobs predefinidos incluem jobs customizados correspondentes.",
+      "empty": "Nenhum dado de taxa de sucesso disponível para os filtros selecionados",
+      "preset": "Predefinido",
+      "columns": {
+        "configuration": "Configuração",
+        "runs": "Execuções",
+        "hashes": "Hashes",
+        "cracks": "Quebras",
+        "successRate": "Taxa de Sucesso",
+        "avgDuration": "Duração Média",
+        "totalCompute": "Computação Total"
+      }
+    },
+    "jobExecution": {
+      "title": "Detalhes de Execução de Job",
+      "empty": "Nenhum job encontrado para os filtros selecionados",
+      "noTaskData": "Nenhum dado de tarefa disponível",
+      "taskBreakdown": "Detalhamento de Tarefas ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_many": "{{count}} tarefas",
+      "taskCount_one": "{{count}} tarefa",
+      "taskCount_other": "{{count}} tarefas",
+      "metricPointCount_many": "{{count}} pontos de métrica",
+      "metricPointCount_one": "{{count}} ponto de métrica",
+      "metricPointCount_other": "{{count}} pontos de métrica",
+      "columns": {
+        "name": "Nome",
+        "attack": "Ataque",
+        "duration": "Duração",
+        "keyspace": "Keyspace",
+        "agents": "Agentes",
+        "progress": "Progresso",
+        "benchmark": "Benchmark",
+        "started": "Iniciado",
+        "completed": "Concluído"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Gerenciamento de Wordlist - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Wordlists do Cliente ({{count}})",
+      "clientPotfile": "Potfile do Cliente",
+      "associationWordlists": "Wordlists de Associação ({{count}})"
+    },
+    "columns": {
+      "fileName": "Nome do Arquivo",
+      "lineCount": "Contagem de Linhas",
+      "fileSize": "Tamanho do Arquivo",
+      "uploaded": "Enviado",
+      "hashlist": "Hashlist",
+      "actions": "Ações"
+    },
+    "hashlistFallback": "Hashlist #{{id}}",
+    "clientTab": {
+      "info": "As wordlists do cliente estão disponíveis em todas as hashlists para este cliente. Estas podem ser usadas com qualquer modo de ataque.",
+      "uploadWordlist": "Enviar Wordlist",
+      "uploading": "Enviando... {{progress}}%",
+      "noWordlists": "Nenhuma wordlist do cliente foi enviada ainda."
+    },
+    "potfileTab": {
+      "noPotfile": "Nenhum potfile do cliente existe ainda. Será criado automaticamente quando hashes forem quebrados para as hashlists deste cliente.",
+      "autoGenerated": "Potfile do Cliente (Gerado Automaticamente)",
+      "description": "Este potfile contém todas as senhas quebradas para este cliente. É atualizado automaticamente quando hashes são quebrados.",
+      "passwordCount_many": "{{countDisplay}} senhas",
+      "passwordCount_one": "{{countDisplay}} senha",
+      "passwordCount_other": "{{countDisplay}} senhas",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Atualizado: {{date}}",
+      "downloadPotfile": "Baixar Potfile"
+    },
+    "associationTab": {
+      "info": "As wordlists de associação são por hashlist e mapeiam cada hash para um candidato de senha 1:1 por número de linha. Elas são enviadas e gerenciadas a partir da página de detalhes da hashlist. Esta visualização mostra todas as wordlists de associação em todas as hashlists para este cliente.",
+      "noWordlists": "Nenhuma wordlist de associação encontrada para as hashlists deste cliente."
+    },
+    "messages": {
+      "wordlistDeleted": "Wordlist do cliente excluída",
+      "associationDeleted": "Wordlist de associação excluída",
+      "deleteFailed": "Falha ao excluir wordlist",
+      "uploadSuccess": "Wordlist do cliente enviada com sucesso",
+      "uploadFailed": "Falha ao enviar wordlist",
+      "downloaded": "{{filename}} baixado",
+      "downloadFailed": "Falha ao baixar arquivo"
+    },
+    "deleteConfirm": {
+      "title": "Excluir wordlist",
+      "message": "Excluir \"{{fileName}}\"? Isto não pode ser desfeito."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Gerenciamento de Equipes",
+      "titleMine": "Minhas Equipes",
+      "description": "Gerenciar todas as equipes no sistema",
+      "descriptionMine": "Equipes das quais você é membro",
+      "createTeam": "Criar Equipe",
+      "bulkAssignHint": "Para atribuir múltiplos clientes a uma equipe de uma vez, use o recurso de atribuição em lote na página <link>Gerenciamento de Clientes</link>.",
+      "columns": {
+        "name": "Nome da Equipe",
+        "description": "Descrição",
+        "members": "Membros",
+        "clients": "Clientes",
+        "hashlists": "Hashlists",
+        "agents": "Agentes",
+        "created": "Criado"
+      },
+      "rowActions": {
+        "manage": "Gerenciar equipe",
+        "edit": "Editar equipe",
+        "delete": "Excluir equipe"
+      },
+      "empty": "Nenhuma equipe encontrada",
+      "emptyMine": "Você ainda não é membro de nenhuma equipe.",
+      "viewDetails": "Ver Detalhes",
+      "memberCount_many": "{{count}} membros",
+      "memberCount_one": "{{count}} membro",
+      "memberCount_other": "{{count}} membros",
+      "clientCount_many": "{{count}} clientes",
+      "clientCount_one": "{{count}} cliente",
+      "clientCount_other": "{{count}} clientes",
+      "hashlistCount_many": "{{count}} hashlists",
+      "hashlistCount_one": "{{count}} hashlist",
+      "hashlistCount_other": "{{count}} hashlists",
+      "agentCount_many": "{{count}} agentes",
+      "agentCount_one": "{{count}} agente",
+      "agentCount_other": "{{count}} agentes",
+      "dialogs": {
+        "create": {
+          "title": "Criar Nova Equipe",
+          "nameLabel": "Nome da Equipe",
+          "descriptionLabel": "Descrição",
+          "creatingButton": "Criando..."
+        },
+        "delete": {
+          "title": "Excluir equipe",
+          "confirmation": "Tem certeza de que deseja excluir a equipe \"{{name}}\"? Isto removerá todas as associações de membros e atribuições de clientes."
+        }
+      },
+      "messages": {
+        "createSuccess": "Equipe criada com sucesso",
+        "deleteSuccess": "Equipe excluída com sucesso",
+        "updateSuccess": "Equipe atualizada com sucesso"
+      },
+      "errors": {
+        "loadFailed": "Falha ao carregar equipes",
+        "createFailed": "Falha ao criar equipe",
+        "deleteFailed": "Falha ao excluir equipe",
+        "updateFailed": "Falha ao atualizar equipe"
+      }
+    },
+    "detail": {
+      "notFound": "Equipe não encontrada",
+      "noDescription": "Sem descrição",
+      "breadcrumb": "Equipes",
+      "editTeam": "Editar Equipe",
+      "confirmActionTitle": "Confirmar Ação",
+      "tabs": {
+        "members": "Membros ({{count}})",
+        "clients": "Clientes ({{count}})",
+        "trustedTeams": "Equipes Confiáveis ({{count}})",
+        "agents": "Agentes ({{count}})"
+      },
+      "addMember": "Adicionar Membro",
+      "assignClient": "Atribuir Cliente",
+      "addTrust": "Adicionar Confiança",
+      "trustInfo": "Confiar em outra equipe permite que seus agentes executem os jobs da sua equipe. Esta é uma relação unidirecional — confiar na Equipe B não dá aos seus agentes acesso aos jobs da Equipe B.",
+      "agentsInfo": "<strong>Agentes Diretos</strong> são propriedade de membros desta equipe. <strong>Agentes Confiáveis</strong> vêm de equipes com as quais você estabeleceu relações de confiança.",
+      "systemOwner": "Sistema",
+      "columns": {
+        "username": "Nome de Usuário",
+        "email": "E-mail",
+        "role": "Função",
+        "joined": "Entrou",
+        "clientName": "Nome do Cliente",
+        "description": "Descrição",
+        "trustedTeam": "Equipe Confiável",
+        "trustedSince": "Confiável Desde",
+        "agentName": "Nome do Agente",
+        "status": "Status",
+        "version": "Versão",
+        "owner": "Proprietário",
+        "source": "Origem"
+      },
+      "roles": {
+        "member": "Membro",
+        "admin": "Admin",
+        "adminManager": "Admin (Gerenciador de Equipe)"
+      },
+      "source": {
+        "direct": "Direto",
+        "trusted": "Confiável de {{team}}",
+        "trustedBadge": "Confiável",
+        "unknown": "Desconhecido"
+      },
+      "rowActions": {
+        "removeMember": "Remover membro",
+        "removeClientFromTeam": "Remover cliente da equipe",
+        "removeTrust": "Remover confiança"
+      },
+      "empty": {
+        "noMembers": "Nenhum membro nesta equipe",
+        "noClients": "Nenhum cliente atribuído a esta equipe",
+        "noTrustedTeams": "Nenhuma equipe confiável. Apenas agentes do sistema e agentes próprios desta equipe podem executar jobs.",
+        "noAgents": "Nenhum agente acessível a esta equipe",
+        "noAgentsHint": "Adicione membros da equipe com agentes ou estabeleça relações de confiança."
+      },
+      "confirm": {
+        "removeMember": "Tem certeza de que deseja remover este membro?",
+        "removeClient": "Tem certeza de que deseja remover \"{{name}}\" desta equipe? Os membros da equipe perderão acesso aos dados deste cliente.",
+        "removeTrust": "Remover esta relação de confiança? Agentes desta equipe não poderão mais executar seus jobs."
+      },
+      "messages": {
+        "memberAdded": "Membro adicionado com sucesso",
+        "memberRemoved": "Membro removido",
+        "roleUpdated": "Função atualizada",
+        "teamUpdated": "Equipe atualizada com sucesso",
+        "clientAssigned": "Cliente atribuído à equipe",
+        "clientRemoved": "Cliente removido da equipe",
+        "trustAdded": "Relação de confiança adicionada",
+        "trustRemoved": "Relação de confiança removida"
+      },
+      "errors": {
+        "loadFailed": "Falha ao carregar dados da equipe",
+        "addMemberFailed": "Falha ao adicionar membro",
+        "removeMemberFailed": "Falha ao remover membro",
+        "updateRoleFailed": "Falha ao atualizar função",
+        "loadClientsFailed": "Falha ao carregar clientes",
+        "assignClientFailed": "Falha ao atribuir cliente",
+        "removeClientFailed": "Falha ao remover cliente",
+        "updateTeamFailed": "Falha ao atualizar equipe",
+        "loadTeamNamesFailed": "Falha ao carregar nomes das equipes",
+        "addTrustFailed": "Falha ao adicionar relação de confiança",
+        "removeTrustFailed": "Falha ao remover relação de confiança"
+      },
+      "dialogs": {
+        "cancel": "Cancelar",
+        "editTeam": {
+          "title": "Editar Equipe",
+          "nameLabel": "Nome da Equipe",
+          "descriptionLabel": "Descrição",
+          "saveButton": "Salvar",
+          "savingButton": "Salvando..."
+        },
+        "addMember": {
+          "title": "Adicionar Membro da Equipe",
+          "searchLabel": "Pesquisar usuários",
+          "searchPlaceholder": "Digite pelo menos 2 caracteres...",
+          "typeToSearch": "Digite para pesquisar...",
+          "noUsersFound": "Nenhum usuário encontrado",
+          "roleLabel": "Função",
+          "addButton": "Adicionar Membro"
+        },
+        "addTrust": {
+          "title": "Adicionar Equipe Confiável",
+          "info": "Agentes de propriedade dos membros da equipe confiável poderão executar os jobs desta equipe.",
+          "selectLabel": "Selecionar equipe para confiar",
+          "searchPlaceholder": "Pesquisar equipes...",
+          "noTeamsAvailable": "Nenhuma equipe disponível",
+          "optionLabel_many": "{{name}} ({{count}} agentes)",
+          "optionLabel_one": "{{name}} ({{count}} agente)",
+          "optionLabel_other": "{{name}} ({{count}} agentes)"
+        },
+        "assignClient": {
+          "title": "Atribuir Cliente à Equipe",
+          "info": "Atribuir um cliente concede a todos os membros da equipe acesso às hashlists, jobs e dados quebrados deste cliente.",
+          "selectLabel": "Selecionar cliente",
+          "searchPlaceholder": "Pesquisar clientes...",
+          "noClientsAvailable": "Nenhum cliente não atribuído disponível"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Gerenciamento de Charsets Personalizados",
+    "description": "Gerenciar charsets personalizados globais disponíveis para todos os jobs predefinidos e usuários. Suporta definições inline e arquivos de charset binário .hcchr.",
+    "createCharset": "Criar Charset",
+    "columns": {
+      "name": "Nome",
+      "type": "Tipo",
+      "definition": "Definição / Informação",
+      "description": "Descrição",
+      "created": "Criado"
+    },
+    "typeLabels": {
+      "file": "Arquivo",
+      "inline": "Inline",
+      "hex": "Hex"
+    },
+    "uniqueBytes_many": "{{count}} bytes únicos",
+    "uniqueBytes_one": "{{count}} byte único",
+    "uniqueBytes_other": "{{count}} bytes únicos",
+    "rowActions": {
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "empty": "Nenhum charset personalizado encontrado. Crie um para começar.",
+    "dialogs": {
+      "create": {
+        "title": "Criar Charset Personalizado"
+      },
+      "edit": {
+        "title": "Editar Charset Personalizado"
+      },
+      "delete": {
+        "title": "Excluir charset",
+        "confirmation": "Tem certeza de que deseja excluir o charset \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Definição Inline",
+        "file": "Upload de Arquivo (.hcchr)"
+      },
+      "fields": {
+        "name": "Nome",
+        "namePlaceholder": "ex: DES Full Charset",
+        "definition": "Definição",
+        "definitionPlaceholderHex": "ex: 41424344 (pares de bytes hex)",
+        "definitionPlaceholderPlain": "ex: ?u?d ou abcdef0123456789",
+        "definitionHelperHex": "Pares de bytes hex — cada par = um byte do charset. {{bytes}}",
+        "definitionHelperHexBytes_many": "{{count}} bytes",
+        "definitionHelperHexBytes_one": "{{count}} byte",
+        "definitionHelperHexBytes_other": "{{count}} bytes",
+        "definitionHelperPlain": "Definição de charset do hashcat. Use ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H ou caracteres literais.",
+        "hexTooltip": "Quando ativado, a definição é interpretada como pares de bytes hex (ex: 41424344 = bytes A, B, C, D). Os jobs que usam este charset injetarão automaticamente --hex-charset.",
+        "hexLabel": "Definição codificada em hex",
+        "selectFile": "Selecionar Arquivo .hcchr",
+        "fileSizeBytes_many": "{{count}} bytes",
+        "fileSizeBytes_one": "{{count}} byte",
+        "fileSizeBytes_other": "{{count}} bytes",
+        "fileHelperText": "Arquivo de charset binário contendo valores de byte bruto (máx. 1023 bytes, até 256 bytes únicos). Usado para quebra de DES, NTLMv1 e codificações específicas de idioma.",
+        "fileCharsetInfo_many": "Charset do arquivo: {{count}} bytes únicos. Apenas nome e descrição podem ser editados.",
+        "fileCharsetInfo_one": "Charset do arquivo: {{count}} byte único. Apenas nome e descrição podem ser editados.",
+        "fileCharsetInfo_other": "Charset do arquivo: {{count}} bytes únicos. Apenas nome e descrição podem ser editados.",
+        "description": "Descrição",
+        "descriptionPlaceholder": "Descrição opcional do uso deste charset"
+      },
+      "update": "Atualizar",
+      "upload": "Enviar"
+    },
+    "messages": {
+      "createSuccess": "Charset criado com sucesso",
+      "uploadSuccess": "Charset do arquivo enviado com sucesso",
+      "updateSuccess": "Charset atualizado com sucesso",
+      "deleteSuccess": "Charset excluído com sucesso"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Apenas arquivos .hcchr são permitidos",
+      "fileTooLarge": "Arquivo muito grande (máx. 1023 bytes — limite do buffer de leitura do hashcat)",
+      "nameRequired": "Nome é obrigatório",
+      "definitionRequired": "Definição é obrigatória",
+      "selectFile": "Selecione um arquivo .hcchr",
+      "loadFailed": "Falha ao carregar charsets: {{message}}",
+      "deleteFailed": "Falha ao excluir charset: {{message}}"
+    }
+  }
+}

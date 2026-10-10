@@ -1,0 +1,365 @@
+{
+  "buttons": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "create": "Criar",
+    "submit": "Enviar",
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "retry": "Tentar novamente",
+    "refresh": "Atualizar",
+    "download": "Baixar",
+    "upload": "Enviar",
+    "copy": "Copiar",
+    "search": "Pesquisar",
+    "filter": "Filtrar",
+    "clearFilters": "Limpar filtros",
+    "loadAll": "Carregar tudo",
+    "signIn": "Entrar",
+    "logIn": "Fazer login",
+    "logout": "Fazer logout"
+  },
+  "labels": {
+    "loading": "Carregando...",
+    "noData": "Nenhum dado disponível",
+    "error": "Ocorreu um erro",
+    "success": "Sucesso",
+    "warning": "Aviso",
+    "info": "Informação",
+    "required": "Obrigatório",
+    "optional": "Opcional",
+    "all": "Tudo",
+    "none": "Nenhum",
+    "yes": "Sim",
+    "no": "Não",
+    "enabled": "Ativado",
+    "disabled": "Desativado",
+    "active": "Ativo",
+    "inactive": "Inativo",
+    "updating": "Atualizando",
+    "pending": "Pendente",
+    "completed": "Concluído",
+    "failed": "Falhou",
+    "unknown": "Desconhecido"
+  },
+  "pagination": {
+    "rowsPerPage": "Linhas por página",
+    "page": "Página {{current}} de {{total}}",
+    "showing": "Mostrando {{from}}-{{to}} de {{total}}",
+    "first": "Primeira página",
+    "last": "Última página",
+    "next": "Próxima página",
+    "previous": "Página anterior"
+  },
+  "language": {
+    "selectLanguage": "Selecionar idioma",
+    "currentLanguage": "Idioma atual"
+  },
+  "clipboard": {
+    "copied": "Copiado para a área de transferência",
+    "copyFailed": "Falha ao copiar para a área de transferência"
+  },
+  "errors": {
+    "networkError": "Erro de rede. Verifique sua conexão.",
+    "serverError": "Erro do servidor. Tente novamente mais tarde.",
+    "unknownError": "Ocorreu um erro desconhecido",
+    "validationError": "Verifique sua entrada e tente novamente",
+    "permissionDenied": "Permissão negada",
+    "notFound": "Não encontrado",
+    "sessionExpired": "Sua sessão expirou. Faça login novamente."
+  },
+  "confirmations": {
+    "areYouSure": "Você tem certeza?",
+    "cannotBeUndone": "Essa ação não pode ser desfeita.",
+    "confirmDelete": "Confirmar exclusão",
+    "confirmAction": "Confirmar ação",
+    "typeToConfirm": "Digite {{text}} para confirmar"
+  },
+  "time": {
+    "justNow": "Agora mesmo",
+    "minutesAgo_many": "{{count}} minutos atrás",
+    "minutesAgo_one": "{{count}} minuto atrás",
+    "minutesAgo_other": "{{count}} minutos atrás",
+    "hoursAgo_many": "{{count}} horas atrás",
+    "hoursAgo_one": "{{count}} hora atrás",
+    "hoursAgo_other": "{{count}} horas atrás",
+    "daysAgo_many": "{{count}} dias atrás",
+    "daysAgo_one": "{{count}} dia atrás",
+    "daysAgo_other": "{{count}} dias atrás",
+    "never": "Nunca"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Arraste e solte um arquivo aqui, ou clique para selecionar",
+    "selectFile": "Selecionar arquivo",
+    "uploading": "Enviando...",
+    "uploadSuccess": "Arquivo enviado com sucesso",
+    "uploadFailed": "Falha ao enviar arquivo",
+    "chooseFile": "Escolher arquivo",
+    "description": "Descrição",
+    "loading": "Carregando..."
+  },
+  "binaryVersionSelector": {
+    "label": "Versão do binário",
+    "helperText": "Selecione o padrão de versão do binário para este job",
+    "default": "Padrão",
+    "majorVersion": "Versão principal (Última versão menor)",
+    "minorVersion": "Versão menor (Último patch)",
+    "exactVersion": "Versão exata",
+    "loading": "Carregando...",
+    "loadingVersions": "Carregando versões do binário...",
+    "loadError": "Falha ao carregar versões do binário"
+  },
+  "passwordValidation": {
+    "requirements": "Requisitos de senha:",
+    "minLength": "Pelo menos {{length}} caracteres",
+    "uppercase": "Pelo menos uma letra maiúscula",
+    "lowercase": "Pelo menos uma letra minúscula",
+    "number": "Pelo menos um número",
+    "specialChar": "Pelo menos um caractere especial"
+  },
+  "footer": {
+    "documentation": "Documentação",
+    "issues": "Problemas",
+    "loading": "Carregando...",
+    "release": "Versão v{{version}}",
+    "versionUnavailable": "Versão indisponível"
+  },
+  "layout": {
+    "logoAlt": "Logo do KrakenHashes",
+    "logoAltBranded": "Logo do {{appName}}"
+  },
+  "table": {
+    "clearSearch": "Limpar pesquisa",
+    "clearSelection": "Limpar seleção",
+    "selectedCount": "{{count}} selecionado(s)",
+    "expandRow": "Expandir linha",
+    "collapseRow": "Recolher linha",
+    "showAll": "Mostrar tudo",
+    "showFewer": "Mostrar menos",
+    "showingOf": "Mostrando {{shown}} de {{total}}",
+    "actions": "Ações",
+    "noResults": "Nenhum resultado corresponde aos seus filtros",
+    "rowsPerPage": "Linhas por página"
+  },
+  "about": {
+    "title": "Sobre KrakenHashes",
+    "versionInfo": {
+      "title": "Informações de versão",
+      "release": "Versão",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Versão do agente",
+      "api": "Versão da API",
+      "database": "Banco de dados",
+      "build": "Build"
+    },
+    "projectInfo": {
+      "title": "Informações do projeto",
+      "description": "KrakenHashes é um sistema distribuído de gerenciamento de quebra de senha projetado para coordenar e gerenciar tarefas de quebra de senha em vários agentes.",
+      "license": "Este é um projeto de código aberto licenciado sob a Licença Pública Geral Affero GNU v3.0 (AGPL-3.0).",
+      "githubLink": "Repositório GitHub"
+    },
+    "errors": {
+      "fetchFailed": "Falha ao buscar informações de versão"
+    },
+    "titleBranded": "Sobre {{appName}}"
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Não é texto válido. A senha exata é {{value}}. Os caracteres mostrados são a melhor estimativa (Windows-1252), não a senha real.",
+    "copyExact": "Copiar valor exato (para hashcat)",
+    "copyGuess": "Copiar melhor estimativa (não exato)"
+  },
+  "empty": {
+    "noData": "Nada por aqui ainda",
+    "noResults": "Sem resultados",
+    "noResultsHint": "Tente ajustar sua pesquisa ou filtros."
+  },
+  "theme": {
+    "appearance": "Aparência",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema"
+  },
+  "status": {
+    "job": {
+      "preparing": "Preparando",
+      "pending": "Pendente",
+      "running": "Executando",
+      "paused": "Pausado",
+      "processing": "Processando",
+      "completed": "Concluído",
+      "failed": "Falhou",
+      "cancelled": "Cancelado",
+      "archived": "Arquivado"
+    },
+    "task": {
+      "pending": "Pendente",
+      "assigned": "Atribuído",
+      "reconnect_pending": "Reconectando",
+      "running": "Executando",
+      "processing": "Processando",
+      "processing_error": "Erro de processamento",
+      "completed": "Concluído",
+      "failed": "Falhou",
+      "cancelled": "Cancelado"
+    },
+    "agent": {
+      "pending": "Pendente",
+      "active": "Online",
+      "inactive": "Offline",
+      "error": "Erro",
+      "disabled": "Desativado",
+      "updating": "Atualizando",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "hashlist": {
+      "uploading": "Enviando",
+      "processing": "Processando",
+      "ready": "Pronto",
+      "error": "Erro",
+      "deleting": "Excluindo",
+      "ready_with_errors": "Pronto com erros",
+      "awaiting_validation_decision": "Aguardando revisão",
+      "cancelled": "Cancelado"
+    },
+    "verification": {
+      "pending": "Pendente",
+      "verified": "Verificado",
+      "failed": "Falhou",
+      "deleted": "Excluído"
+    },
+    "cloud": {
+      "requested": "Solicitado",
+      "launching": "Iniciando",
+      "provisioning": "Provisionando",
+      "syncing": "Sincronizando",
+      "running": "Executando",
+      "draining": "Drenando",
+      "terminating": "Encerrando",
+      "terminated": "Encerrado",
+      "failed": "Falhou"
+    },
+    "loopback": {
+      "waiting": "Aguardando",
+      "active": "Ativo",
+      "completed": "Concluído",
+      "failed": "Falhou",
+      "cancelled": "Cancelado"
+    },
+    "audit": {
+      "info": "Informação",
+      "warning": "Aviso",
+      "critical": "Crítico"
+    },
+    "diagnostic": {
+      "info": "Informação",
+      "warning": "Aviso",
+      "error": "Erro"
+    },
+    "sync": {
+      "pending": "Pendente",
+      "in_progress": "Em progresso",
+      "completed": "Concluído",
+      "failed": "Falhou"
+    },
+    "generic": {
+      "success": "Sucesso",
+      "ok": "OK",
+      "healthy": "Saudável",
+      "enabled": "Ativado",
+      "active": "Ativo",
+      "verified": "Verificado",
+      "warning": "Aviso",
+      "degraded": "Degradado",
+      "error": "Erro",
+      "failed": "Falhou",
+      "critical": "Crítico",
+      "info": "Informação",
+      "running": "Executando",
+      "pending": "Pendente",
+      "queued": "Na fila",
+      "disabled": "Desativado",
+      "inactive": "Inativo",
+      "unknown": "Desconhecido"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Charsets personalizados (opcional - defina ?1 até ?4 para uso em máscara)",
+    "hexTooltip": "Quando ativado, definições de charset inline são interpretadas como pares de bytes hex (ex., 41424344 = ABCD). Charsets de arquivo não são afetados.",
+    "hexEncodedLabel": "Charsets codificados em hex",
+    "charsetSlotLabel": "Charset {{slot}} (-{{slot}})",
+    "fileValue_many": "[Arquivo: {{name}} — {{count}} bytes]",
+    "fileValue_one": "[Arquivo: {{name}} — {{count}} byte]",
+    "fileValue_other": "[Arquivo: {{name}} — {{count}} bytes]",
+    "fileHelperUsed_many": "{{count}} bytes únicos",
+    "fileHelperUsed_one": "{{count}} byte único",
+    "fileHelperUsed_other": "{{count}} bytes únicos",
+    "fileHelperUnused_many": "{{count}} bytes únicos (não referenciados em máscara)",
+    "fileHelperUnused_one": "{{count}} byte único (não referenciado em máscara)",
+    "fileHelperUnused_other": "{{count}} bytes únicos (não referenciados em máscara)",
+    "placeholderHex": "ex., 41424344 (pares de bytes hex)",
+    "placeholderPlain": "ex., ?u?d ou abcdef0123456789",
+    "inlineHelperBytes_many": "{{count}} bytes",
+    "inlineHelperBytes_one": "{{count}} byte",
+    "inlineHelperBytes_other": "{{count}} bytes",
+    "inlineHelperBytesUnused_many": "{{count}} bytes (não referenciados em máscara)",
+    "inlineHelperBytesUnused_one": "{{count}} byte (não referenciado em máscara)",
+    "inlineHelperBytesUnused_other": "{{count}} bytes (não referenciados em máscara)",
+    "inlineHelperChars_many": "{{count}} caracteres",
+    "inlineHelperChars_one": "{{count}} caractere",
+    "inlineHelperChars_other": "{{count}} caracteres",
+    "inlineHelperCharsUnused_many": "{{count}} caracteres (não referenciados em máscara)",
+    "inlineHelperCharsUnused_one": "{{count}} caractere (não referenciado em máscara)",
+    "inlineHelperCharsUnused_other": "{{count}} caracteres (não referenciados em máscara)",
+    "referencedNotDefined": "Referenciado em máscara mas não definido",
+    "savedLabel": "Salvo",
+    "typeLabels": {
+      "file": "Arquivo",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_many": "{{count}} bytes únicos",
+    "optionUniqueBytes_one": "{{count}} byte único",
+    "optionUniqueBytes_other": "{{count}} bytes únicos",
+    "optionBytesHex_many": "{{count}} bytes (hex)",
+    "optionBytesHex_one": "{{count}} byte (hex)",
+    "optionBytesHex_other": "{{count}} bytes (hex)",
+    "willEnableHex": " — irá ativar modo hex",
+    "willDisableHex": " — irá desativar modo hex",
+    "estimatedKeyspace": "Keyspace estimado: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} bytes",
+    "slotSizeChars": "?{{slot}} = {{size}} caracteres"
+  },
+  "teamFilter": {
+    "label": "Equipe",
+    "allTeams": "Todas as Equipes",
+    "adminBadge": "Admin"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Senha é obrigatória",
+    "currentPasswordLabel": "Senha Atual"
+  },
+  "hashDetailModal": {
+    "title": "Detalhes do Hash",
+    "hashValue": "Valor do Hash",
+    "copied": "Copiado!",
+    "copyHash": "Copiar hash",
+    "copyPlaintext": "Copiar texto plano",
+    "originalHash": "Hash Original (do arquivo)",
+    "status": "Status",
+    "cracked": "Quebrado",
+    "notCracked": "Não Quebrado",
+    "hashType": "Tipo de Hash",
+    "typeId": "ID do Tipo: {{id}}",
+    "username": "Nome de Usuário",
+    "crackedText": "Texto Quebrado",
+    "hashlist": "Hashlist",
+    "lastUpdated": "Última Atualização",
+    "crackedAt": "Quebrado em",
+    "hashCopied": "Hash copiado para a área de transferência",
+    "crackedTextCopied": "Texto quebrado copiado para a área de transferência"
+  }
+}

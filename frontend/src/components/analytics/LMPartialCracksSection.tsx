@@ -4,46 +4,13 @@
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Box,
-  Paper,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  Alert,
-  Grid,
-  Card,
-  CardContent,
-} from '@mui/material';
-import {
-  LockOpen as LockOpenIcon,
-  Lock as LockIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material';
-
-interface LMPartialCracksData {
-  total_partial: number;
-  first_half_only: number;
-  second_half_only: number;
-  percentage_partial: number;
-  partial_crack_details: Array<{
-    username?: string;
-    domain?: string;
-    first_half_cracked: boolean;
-    first_half_pwd?: string;
-    second_half_cracked: boolean;
-    second_half_pwd?: string;
-    hashlist_name: string;
-  }>;
-}
+import { Box, Paper, Typography, Alert, Grid, Card, CardContent } from '@mui/material';
+import { LockOpen as LockOpenIcon, Lock as LockIcon, Warning as WarningIcon } from '@mui/icons-material';
+import { LMPartialCrackStats, LMPartialCrackDetail } from '../../types/analytics';
+import { EntityLink, SimpleTable, SimpleColumn } from '../ui';
 
 interface LMPartialCracksSectionProps {
-  data: LMPartialCracksData | null;
+  data: LMPartialCrackStats | null;
 }
 
 export default function LMPartialCracksSection({ data }: LMPartialCracksSectionProps) {
@@ -54,6 +21,49 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
   }
 
   const formatPercentage = (value: number) => value.toFixed(2) + '%';
+
+  const renderHalf = (cracked: boolean, pwd?: string) =>
+    cracked ? (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <LockOpenIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+        <Typography variant="body2" sx={{ fontFamily: (th) => th.typography.monoFamily }}>
+          {pwd || '???'}
+        </Typography>
+      </Box>
+    ) : (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <LockIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+        <Typography variant="body2" color="text.disabled">
+          {t('labels.unknown')}
+        </Typography>
+      </Box>
+    );
+
+  const columns: SimpleColumn<LMPartialCrackDetail>[] = [
+    { field: 'username', headerName: t('columns.username'), render: (item) => item.username || '—' },
+    { field: 'domain', headerName: t('columns.domain'), render: (item) => item.domain || '—' },
+    {
+      field: 'first_half',
+      headerName: t('columns.firstHalf'),
+      render: (item) => renderHalf(item.first_half_cracked, item.first_half_pwd),
+    },
+    {
+      field: 'second_half',
+      headerName: t('columns.secondHalf'),
+      render: (item) => renderHalf(item.second_half_cracked, item.second_half_pwd),
+    },
+    {
+      field: 'hashlist',
+      headerName: t('columns.hashlist'),
+      // Older stored reports carry only the name; link when the id is present.
+      render: (item) =>
+        item.hashlist_id ? (
+          <EntityLink type="hashlist" id={item.hashlist_id} label={item.hashlist_name} />
+        ) : (
+          item.hashlist_name
+        ),
+    },
+  ];
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
@@ -112,68 +122,7 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
       </Grid>
 
       {/* Partial Cracks Table */}
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t('columns.username')}</TableCell>
-              <TableCell>{t('columns.domain')}</TableCell>
-              <TableCell>{t('columns.firstHalf')}</TableCell>
-              <TableCell>{t('columns.secondHalf')}</TableCell>
-              <TableCell>{t('columns.hashlist')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {data.partial_crack_details.map((item, idx) => (
-              <TableRow key={idx}>
-                <TableCell>
-                  <Typography variant="body2">{item.username || '—'}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{item.domain || '—'}</Typography>
-                </TableCell>
-                <TableCell>
-                  {item.first_half_cracked ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LockOpenIcon sx={{ fontSize: 18, color: 'warning.main' }} />
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {item.first_half_pwd || '???'}
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LockIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-                      <Typography variant="body2" color="text.disabled">
-                        {t('labels.unknown')}
-                      </Typography>
-                    </Box>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {item.second_half_cracked ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LockOpenIcon sx={{ fontSize: 18, color: 'warning.main' }} />
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {item.second_half_pwd || '???'}
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LockIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-                      <Typography variant="body2" color="text.disabled">
-                        {t('labels.unknown')}
-                      </Typography>
-                    </Box>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Chip label={item.hashlist_name} size="small" variant="outlined" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <SimpleTable rows={data.partial_crack_details} columns={columns} dense={false} maxRows={50} />
 
       {data.partial_crack_details.length >= 50 && (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>

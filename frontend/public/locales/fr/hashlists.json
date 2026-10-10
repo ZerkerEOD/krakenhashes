@@ -46,7 +46,65 @@
     "selectFile": "Sélectionner un fichier",
     "uploading": "Import en cours...",
     "cancel": "Annuler",
-    "executableBlocked": "Ce fichier semble être un binaire exécutable et ne peut pas être importé comme Hashlist."
+    "executableBlocked": "Ce fichier semble être un binaire exécutable et ne peut pas être importé comme Hashlist.",
+    "description": "Description",
+    "methodLabel": "Méthode de chargement",
+    "methodAriaLabel": "mode de chargement",
+    "fileAriaLabel": "chargement de fichier",
+    "pasteAriaLabel": "coller des hashes",
+    "uploadFile": "Charger le fichier",
+    "pasteHashes": "Coller les hashes",
+    "dropHere": "Déposer le fichier Hashlist ici...",
+    "dragAndDrop": "Faites glisser et déposez un fichier Hashlist, ou cliquez pour sélectionner",
+    "allFileTypesExceptExecutables": "Tous les types de fichier acceptés sauf les exécutables",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "Effacer",
+    "hashCount_many": "{{count}} hashes",
+    "hashCount_one": "{{count}} hash",
+    "hashCount_other": "{{count}} hashes",
+    "hashCountDetected_many": "{{count}} hashes détectés",
+    "hashCountDetected_one": "{{count}} hash détecté",
+    "hashCountDetected_other": "{{count}} hashes détectés",
+    "pasteHashesLabel": "Collez les hashes ici (un par ligne)",
+    "pasteHashesPlaceholder": "Entrez les hashes, un par ligne...&#10;&#10;Exemple :&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Collez vos hashes ci-dessus, un par ligne",
+    "excludeFromGlobalPotfile": "Exclure du potfile global",
+    "excludeFromGlobalPotfileHelper": "Les mots de passe cassés de cette Hashlist ne seront pas sauvegardés dans le potfile global",
+    "globalPotfileDisabledNotice": "Remarque : Le potfile global est actuellement désactivé par les paramètres d'administration.",
+    "excludeFromClientPotfile": "Exclure du potfile client",
+    "excludeFromClientPotfileHelper": "Les mots de passe cassés de cette Hashlist ne seront pas sauvegardés dans le potfile client",
+    "clientPotfilesDisabledNotice": "Remarque : Les potfiles client sont désactivés par les paramètres d'administration.",
+    "uploadButtonLabel": "Charger la Hashlist",
+    "selectTeamForNewClient": "Sélectionnez une équipe pour le nouveau client.",
+    "validationCancelled": "Chargement annulé. Corrigez le fichier et réessayez.",
+    "errors": {
+      "nameRequired": "Le nom est obligatoire",
+      "hashTypeRequired": "Le type de hash est obligatoire",
+      "clientRequired": "Le client est obligatoire",
+      "noHashesToUpload": "Aucun hash à charger",
+      "uploadFailedWithStatus": "Le chargement a échoué (HTTP {{status}})",
+      "uploadFailedWithMessage": "Le chargement a échoué : {{message}}",
+      "uploadFailedUnknown": "Le chargement a échoué (erreur inconnue)",
+      "uploadErrorPrefix": "Erreur lors du chargement de la Hashlist : {{message}}",
+      "unknownError": "Une erreur inconnue s'est produite"
+    },
+    "linkDialog": {
+      "title": "Hashes LM/NTLM détectés",
+      "detected": "Fichier au format pwdump détecté avec :",
+      "lmCount_many": "{{count}} hashes LM (non-vides)",
+      "lmCount_one": "{{count}} hash LM (non-vide)",
+      "lmCount_other": "{{count}} hashes LM (non-vides)",
+      "ntlmCount_many": "{{count}} hashes NTLM",
+      "ntlmCount_one": "{{count}} hash NTLM",
+      "ntlmCount_other": "{{count}} hashes NTLM",
+      "blankLmCount_many": "{{count}} hashes LM vides (mot de passe vide - seront ignorés)",
+      "blankLmCount_one": "{{count}} hash LM vide (mot de passe vide - sera ignoré)",
+      "blankLmCount_other": "{{count}} hashes LM vides (mot de passe vide - seront ignorés)",
+      "question": "Souhaitez-vous créer deux Hashlists liées pour des workflows de cassage séparés ?",
+      "explanation": "Cela créera les Hashlists \"{{lmName}}\" et \"{{ntlmName}}\" qui sont liées ensemble.",
+      "uploadSingle": "Charger comme Hashlist unique",
+      "createLinked": "Créer des Hashlists liées"
+    }
   },
   "actions": {
     "viewDetails": "Voir les détails",
@@ -56,14 +114,158 @@
   },
   "createJob": {
     "additionalArgs": "Arguments Hashcat supplémentaires (optionnel)",
-    "additionalArgsHelper": "Options hashcat supplémentaires pour ce job. En cas de conflit, les options définies au niveau de l'Agent sont prioritaires."
+    "additionalArgsHelper": "Options hashcat supplémentaires pour ce job. En cas de conflit, les options définies au niveau de l'Agent sont prioritaires.",
+    "title": "Créer un Job pour \"{{name}}\"",
+    "successRedirect": "Job(s) créé(s) avec succès ! Redirection vers la page des Jobs...",
+    "successDefault": "Job créé avec succès !",
+    "loadingDefault": "Création...",
+    "loadingCreating": "Création du Job...",
+    "loadingKeyspace": "Calcul de la Keyspace...",
+    "cancel": "Annuler",
+    "submit": "Créer le(s) Job(s)",
+    "canInterrupt": "Peut être interrompu",
+    "tabs": {
+      "workflows": "Workflows",
+      "presetJobs": "Jobs prédéfinis",
+      "customJob": "Job personnalisé"
+    },
+    "attackModes": {
+      "dictionary": "Dictionnaire",
+      "combination": "Combinaison",
+      "bruteforce": "Brute-force",
+      "hybridWordlistMask": "Hybride Wordlist + Masque",
+      "hybridMaskWordlist": "Hybride Masque + Wordlist",
+      "association": "Association",
+      "modeFallback": "Mode {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Sélectionnez au moins un workflow",
+      "selectPresetJob": "Sélectionnez au moins un Job prédéfini",
+      "wordlistRequired": "Le mode d'attaque sélectionné nécessite au moins une Wordlist",
+      "combinationRequiresTwo": "L'attaque par combinaison nécessite la sélection des deux Wordlists",
+      "maskRequired": "Le mode d'attaque sélectionné nécessite un masque",
+      "associationMixedWorkFactors": "Les attaques par association ne peuvent pas être exécutées sur des Hashlists avec des facteurs de travail mixtes",
+      "associationWordlistRequired": "L'attaque par association nécessite une Wordlist d'association",
+      "chunkDurationMin": "La durée du chunk doit être au minimum 5 secondes",
+      "chunkDurationMax": "La durée du chunk ne peut pas dépasser 24 heures (86400 secondes)",
+      "partialFailure": "{{message}}. Non créé(s) : {{details}}",
+      "unnamedItem": "élément",
+      "createFailed": "Impossible de créer le Job",
+      "loadFailed": "Impossible de charger les Jobs disponibles"
+    },
+    "workflows": {
+      "empty": "Aucun workflow disponible. Veuillez d'abord créer des workflows dans le panneau d'administration.",
+      "jobNameHelper": "Votre nom sera ajouté à chaque nom de workflow",
+      "description": "Sélectionnez un ou plusieurs workflows à exécuter. Vous pouvez sélectionner plusieurs workflows - chacun créera sa propre séquence d'exécutions de Job. Les paramètres de loopback sont configurés dans le workflow lui-même — un workflow marqué \"Loopback\" réexécutera automatiquement ses étapes admissibles contre les mots de passe nouvellement cassés.",
+      "jobsCount_many": "{{count}} Jobs",
+      "jobsCount_one": "{{count}} Job",
+      "jobsCount_other": "{{count}} Jobs",
+      "loopbackAllEligible": "Loopback : tous admissibles",
+      "loopbackSteps_many": "Loopback : {{count}} étapes",
+      "loopbackSteps_one": "Loopback : {{count}} étape",
+      "loopbackSteps_other": "Loopback : {{count}} étapes",
+      "jobsList": "Jobs : {{names}}",
+      "selectedCount_many": "{{count}} workflows sélectionnés",
+      "selectedCount_one": "{{count}} workflow sélectionné",
+      "selectedCount_other": "{{count}} workflows sélectionnés"
+    },
+    "presetJobs": {
+      "empty": "Aucun Job prédéfini disponible. Veuillez d'abord créer des Jobs prédéfinis dans le panneau d'administration.",
+      "jobNameHelper": "Votre nom sera ajouté à chaque type de Job (p. ex., « Mon nom - Exécution Potfile »)",
+      "description": "Sélectionnez un ou plusieurs Jobs prédéfinis à exécuter. Vous pouvez sélectionner plusieurs Jobs - ils seront créés en tant qu'exécutions de Job séparées.",
+      "priorityLabel": "Priorité : {{priority}}",
+      "selectedCount_many": "{{count}} Jobs sélectionnés",
+      "selectedCount_one": "{{count}} Job sélectionné",
+      "selectedCount_other": "{{count}} Jobs sélectionnés"
+    },
+    "loopback": {
+      "label": "Loopback jusqu'à sec",
+      "helperEligible": "Exécute le(s) Job(s) sélectionné(s), puis réexécute les mutables (simple + règles, ou une attaque hybride) contre seulement les mots de passe nouvellement cassés — en répétant jusqu'à ce qu'aucun nouveau mot de passe ne soit cassé.",
+      "helperSelectEligible": "Sélectionnez un Job prédéfini admissible (simple + règles, ou une attaque hybride) ci-dessous pour activer le loopback.",
+      "helperNoneEligible": "Aucun des Jobs sélectionnés n'a de mutation pour le loopback (Wordlist seule, brute-force ou association).",
+      "helperFilterConflict": "Le loopback n'est pas disponible lorsque le pré-filtrage est activé pour ce Job.",
+      "helperCustom": "Exécute cette attaque, puis réexécute sa mutation (règles ou masque) contre seulement les mots de passe nouvellement cassés — en répétant jusqu'à ce qu'aucun nouveau mot de passe ne soit cassé."
+    },
+    "filter": {
+      "enableLabel": "Pré-filtrer la/les Wordlist(s) sélectionnée(s) pour ce Job",
+      "ephemeralNotice": "Cette liste filtrée est éphémère et utilisée uniquement pour ce Job. Pour créer une Wordlist filtrée réutilisable, utilisez la Gestion des Wordlists. La génération s'exécute en arrière-plan ; le Job démarre automatiquement une fois qu'elle est prête."
+    },
+    "association": {
+      "explainer": "L'attaque par association associe chaque hash à une ligne de Wordlist correspondante 1:1. Le nombre de lignes de la Wordlist doit correspondre au nombre total de hashes ({{hashCount}}).",
+      "falsePositiveWarning": "<strong>Remarque :</strong> Les attaques par association peuvent produire des faux positifs. Il est recommandé de vérifier les résultats en téléchargeant les hashes cassés, en supprimant la Hashlist, en rechargeant et en confirmant avec une attaque par dictionnaire.",
+      "wordlistLabel": "Wordlist d'association",
+      "selectWordlist": "Sélectionnez la Wordlist d'association",
+      "wordlistOptionLabel": "{{name}} ({{lines}} lignes, {{size}} KB)",
+      "wordlistHelper": "Chargez les Wordlists d'association via la section Wordlists d'association de la Hashlist"
+    },
+    "cloud": {
+      "allowBurst": "Autoriser Cloud Burst",
+      "allowBurstHelper": "Louez des instances GPU lorsque la flotte sur site ne peut pas suivre. Nécessite que le client soit financé et inscrit à un fournisseur.",
+      "allowPeerHosts": "Autoriser les hôtes gérés par les pairs (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "Ce sont les machines de quelqu'un d'autre. Le propriétaire de l'hôte a root sur le conteneur, donc les hashes de ce client, les Wordlists et les mots de passe cassés peuvent être lus par un tiers et ne sont <strong>pas chiffrés au repos sur l'hôte</strong>. Non recommandé pour la production ou les données d'engagement client. Laissez cela désactivé et le Job utilisera toujours une capacité sécurisée (AWS, RunPod Secure Cloud) si le client l'autorise.",
+      "maxInstances": "Instances Cloud max.",
+      "maxInstancesHelper": "Séparé des Agents max., qui régit le pool sur site. Laisser vide permet au budget de décider."
+    },
+    "form": {
+      "jobName": "Nom du Job (Optionnel)",
+      "jobNamePlaceholder": "Laisser vide pour un nom généré automatiquement",
+      "jobNameHelper": "Laisser vide pour un nom généré automatiquement basé sur la configuration d'attaque",
+      "attackModeLabel": "Mode d'attaque",
+      "attackModeDictionary": "Attaque par dictionnaire",
+      "attackModeCombination": "Attaque par combinaison",
+      "attackModeBruteforce": "Attaque brute-force",
+      "attackModeHybridWordlistMask": "Hybride Wordlist + Masque",
+      "attackModeHybridMaskWordlist": "Hybride Masque + Wordlist",
+      "attackModeAssociation": "Attaque par association",
+      "associationBlockedMixed": " (Bloquée : facteurs de travail mixtes)",
+      "associationNoWordlists": " (Aucune Wordlist chargée)",
+      "binaryVersionHelper": "Sélectionner le modèle de version du binaire",
+      "wordlists": "Wordlists",
+      "selectWordlists": "Sélectionner les Wordlists",
+      "ruleOptional": "Règle (Optionnel)",
+      "ruleOptionLabel_many": "{{name}} ({{count}} règles)",
+      "ruleOptionLabel_one": "{{name}} ({{count}} règle)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} règles)",
+      "selectRule": "Sélectionner une règle",
+      "firstWordlist": "Première Wordlist",
+      "secondWordlist": "Deuxième Wordlist",
+      "selectFirstWordlist": "Sélectionner la première Wordlist",
+      "selectSecondWordlist": "Sélectionner la deuxième Wordlist",
+      "categoryClientSpecific": "Spécifique au client",
+      "categoryGlobal": "Global",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} lignes)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} Mo)",
+      "clientPotfileName_many": "potfile client ({{count, number}} mots de passe)",
+      "clientPotfileName_one": "potfile client ({{count, number}} mot de passe)",
+      "clientPotfileName_other": "potfile client ({{count, number}} mots de passe)",
+      "mask": "Masque",
+      "maskPlaceholder": "ex. : ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = minuscule, ?u = majuscule, ?d = chiffre, ?s = spécial, ?1-?4 = personnalisé",
+      "incrementModeLabel": "Mode d'incrémentation",
+      "incrementModeOff": "Désactivé",
+      "incrementModeForward": "Incrémentation (G→D)",
+      "incrementModeInverse": "Incrémentation inverse (D→G)",
+      "incrementModeHelper": "L'incrémentation essaie d'abord les masques plus courts, en augmentant progressivement",
+      "minLength": "Longueur minimale",
+      "maxLength": "Longueur maximale",
+      "priority": "Priorité",
+      "priorityHelper": "Les Jobs de priorité plus élevée sont exécutés en premier (1-1000)",
+      "chunkDuration": "Durée des chunks (secondes)",
+      "chunkDurationHelper": "Durée en secondes pour chaque chunk (5-86400 secondes)",
+      "maxAgents": "Nombre maximal d'agents",
+      "maxAgentsHelper": "Nombre maximal d'agents (0 = illimité)",
+      "allowHighPriorityOverride": "Autoriser le surclassement de priorité",
+      "additionalArgsPlaceholder": "ex. : -w 4 -O --force"
+    }
   },
   "confirmDelete": {
     "title": "Confirmer la suppression",
     "message": "Voulez-vous vraiment supprimer la Hashlist \"{{name}}\" ? Cette action est irréversible.",
     "cancel": "Annuler",
     "delete": "Supprimer",
-    "deleting": "Suppression..."
+    "deleting": "Suppression...",
+    "removeFromGlobalPotfile": "Supprimer les mots de passe cassés du potfile global",
+    "removeFromClientPotfile": "Supprimer les mots de passe cassés du potfile client"
   },
   "deletionProgress": {
     "title": "Suppression de la Hashlist",
@@ -98,10 +300,12 @@
     "downloaded": "Téléchargé : {{filename}}",
     "archiveSuccess": "Hashlist archivée avec succès",
     "unarchiveSuccess": "Hashlist désarchivée avec succès",
-    "bulkArchiveSuccess": "{{count}} hashlist archivée avec succès",
-    "bulkArchiveSuccess_plural": "{{count}} hashlists archivées avec succès",
-    "bulkUnarchiveSuccess": "{{count}} hashlist désarchivée avec succès",
-    "bulkUnarchiveSuccess_plural": "{{count}} hashlists désarchivées avec succès"
+    "bulkArchiveSuccess_many": "{{count}} Hashlists archivées avec succès",
+    "bulkArchiveSuccess_one": "{{count}} Hashlist archivée avec succès",
+    "bulkArchiveSuccess_other": "{{count}} Hashlists archivées avec succès",
+    "bulkUnarchiveSuccess_many": "{{count}} Hashlists désarchivées avec succès",
+    "bulkUnarchiveSuccess_one": "{{count}} Hashlist désarchivée avec succès",
+    "bulkUnarchiveSuccess_other": "{{count}} Hashlists désarchivées avec succès"
   },
   "errors": {
     "loadFailed": "Impossible de récupérer les Hashlists.",
@@ -114,18 +318,19 @@
     "unarchive": "Désarchiver",
     "archived": "Archivée",
     "selectedCount": "{{count}} sélectionnée",
-    "selectedCount_plural": "{{count}} sélectionnées",
     "archiveSelected": "Archiver la sélection",
     "unarchiveSelected": "Désarchiver la sélection",
     "deleteSelected": "Supprimer la sélection",
     "confirmBulkDelete": {
       "title": "Confirmer la suppression multiple",
-      "message": "Voulez-vous vraiment supprimer {{count}} hashlist ? Cette action est irréversible.",
-      "message_plural": "Voulez-vous vraiment supprimer {{count}} hashlists ? Cette action est irréversible.",
+      "message_many": "Êtes-vous sûr de vouloir supprimer {{count}} Hashlists ? Cette action ne peut pas être annulée.",
+      "message_one": "Êtes-vous sûr de vouloir supprimer {{count}} Hashlist ? Cette action ne peut pas être annulée.",
+      "message_other": "Êtes-vous sûr de vouloir supprimer {{count}} Hashlists ? Cette action ne peut pas être annulée.",
       "warning": "Les Hashlists sélectionnées et toutes leurs données associées seront supprimées définitivement."
     },
-    "bulkDeleteSuccess": "{{count}} hashlist supprimée avec succès",
-    "bulkDeleteSuccess_plural": "{{count}} hashlists supprimées avec succès"
+    "bulkDeleteSuccess_many": "{{count}} Hashlists supprimées avec succès",
+    "bulkDeleteSuccess_one": "{{count}} Hashlist supprimée avec succès",
+    "bulkDeleteSuccess_other": "{{count}} Hashlists supprimées avec succès"
   },
   "hashDetails": {
     "title": "Détails du hash",
@@ -133,5 +338,196 @@
     "password": "Mot de passe",
     "cracked": "Cassé",
     "crackedAt": "Cassé le"
+  },
+  "detail": {
+    "backToHashlists": "Retour aux Hashlists",
+    "viewCrackedHashes": "Afficher les hashes cassés",
+    "noDescription": "Aucune description",
+    "statusLabel": "Statut :",
+    "hashType": "Type de hash : {{name}}",
+    "clientLabel": "Client :",
+    "noClient": "Aucun",
+    "editClient": "Modifier le client",
+    "created": "Créé : {{date}}",
+    "crackProgress": "Progression de cassage ({{cracked}} sur {{total}})",
+    "fallbackHashlistName": "Hashlist",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} lignes",
+      "rate": "({{rate}}/sec)",
+      "eta": "• ETA : {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Cette Hashlist est en cours de suppression — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Chargement…",
+      "resumeReview": "Reprendre l'examen",
+      "title": "Cette Hashlist est en pause en attente d'une décision de validation.",
+      "message": "La validation du hash a marqué <strong>{{invalidCount}}</strong> sur <strong>{{totalLines}}</strong> lignes comme malformées. Ouvrez la boîte de dialogue d'examen pour continuer avec les hashes valides, modifier le type de hash ou annuler le chargement."
+    },
+    "jobsRun": {
+      "title": "Jobs exécutés",
+      "subtitle": "Jobs qui se sont exécutés sur cette Hashlist, y compris les Jobs archivés.",
+      "empty": "Aucun Job ne s'est exécuté sur cette Hashlist pour le moment"
+    },
+    "editClientDialog": {
+      "title": "Modifier l'affectation du client",
+      "description": "Sélectionnez un client pour cette Hashlist ou laissez vide pour supprimer l'affectation du client.",
+      "save": "Enregistrer",
+      "saving": "Enregistrement..."
+    },
+    "notifications": {
+      "clientUpdated": "Client mis à jour avec succès",
+      "processingResumed": "Traitement repris.",
+      "uploadCancelled": "Chargement annulé."
+    },
+    "errors": {
+      "deleteFailed": "Impossible de supprimer la Hashlist",
+      "clientUpdateFailed": "Impossible de mettre à jour le client",
+      "clientNotFound": "Client introuvable",
+      "clientLookupFailed": "Impossible de rechercher le client",
+      "downloadFailed": "Impossible de télécharger le fichier",
+      "downloadHashlistFailed": "Impossible de télécharger la Hashlist",
+      "serverError": "Erreur du serveur ({{status}})",
+      "loadInvalidHashesFailed": "Impossible de charger les hashes invalides"
+    }
+  },
+  "associationWordlists": {
+    "header": "Wordlists spécifiques au client",
+    "blocked": "Bloqué",
+    "blockedTooltip": "Les attaques par association sont bloquées en raison de facteurs de travail mixtes dans la Hashlist",
+    "delete": "Supprimer",
+    "uploadAssociation": "Charger une Wordlist d'association",
+    "uploadClient": "Charger une Wordlist client",
+    "uploadingPercent": "Chargement... {{percent}}%",
+    "emptyAssociation": "Aucune Wordlist d'association n'a été chargée pour le moment.",
+    "emptyClient": "Aucune Wordlist client n'a été chargée pour le moment.",
+    "mixedWorkFactorsWarning": "Cette Hashlist a des facteurs de travail mixtes. Les attaques par association ne peuvent pas s'exécuter sur les Hashlists avec différents coûts bcrypt ou des facteurs de travail variables similaires. Vous pouvez toujours charger des Wordlists, mais la création de Jobs d'attaque par association sera bloquée.",
+    "explainer": "Les Wordlists d'association mappent chaque hash à un candidat de mot de passe 1:1 par numéro de ligne. La Wordlist doit avoir exactement <strong>{{lines}}</strong> lignes pour correspondre au nombre de hashes de cette Hashlist.",
+    "tabs": {
+      "associationAttack": "Attaque par association",
+      "clientWordlists": "Wordlists client"
+    },
+    "columns": {
+      "fileName": "Nom du fichier",
+      "lineCount": "Nombre de lignes",
+      "fileSize": "Taille du fichier",
+      "status": "Statut",
+      "uploaded": "Chargé le",
+      "actions": "Actions"
+    },
+    "status": {
+      "ready": "Prêt",
+      "lineCountMismatch": "Nombre de lignes incompatible",
+      "lineCountMismatchTooltip": "Attendu {{expected}} lignes, obtenu {{actual}}"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer la Wordlist",
+      "message": "Supprimer \"{{fileName}}\" ? Ceci ne peut pas être annulé."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Les Wordlists client ne sont disponibles que pour les Hashlists associées à un client.",
+      "description": "Les Wordlists client sont disponibles pour toutes les Hashlists de ce client. Celles-ci peuvent être utilisées avec n'importe quel mode d'attaque, pas seulement les attaques par association."
+    },
+    "clientPotfile": {
+      "title": "potfile client (Généré automatiquement)",
+      "description": "Ce potfile contient tous les mots de passe cassés pour ce client. Il est automatiquement mis à jour lorsque les hashes sont cassés.",
+      "passwordCount_many": "{{count}} mots de passe",
+      "passwordCount_one": "{{count}} mot de passe",
+      "passwordCount_other": "{{count}} mots de passe",
+      "updated": "Mis à jour : {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "Wordlist d'association supprimée",
+      "clientDeleted": "Wordlist client supprimée",
+      "associationUploaded": "Wordlist d'association chargée avec succès",
+      "clientUploaded": "Wordlist client chargée avec succès"
+    },
+    "errors": {
+      "deleteFailed": "Impossible de supprimer la Wordlist",
+      "uploadFailed": "Impossible de charger la Wordlist",
+      "loadAssociationFailed": "Impossible de charger les Wordlists d'association",
+      "loadClientFailed": "Impossible de charger les Wordlists client",
+      "lineCountMismatch": "La Wordlist a {{wordlistLines}} lignes mais la Hashlist a {{hashlistLines}} hashes valides."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Client",
+    "placeholder": "Sélectionner un client...",
+    "createNewClient": "Créer un nouveau client",
+    "newClientDetails": "Détails du nouveau client",
+    "team": "Équipe",
+    "teamHelper": "Le nouveau client sera affecté à cette équipe.",
+    "clientName": "Nom du client",
+    "description": "Description",
+    "contactInfo": "Coordonnées de contact",
+    "dataRetention": "Rétention des données (mois)",
+    "dataRetentionPlaceholderDefault": "Défaut du système : {{months}}",
+    "dataRetentionPlaceholderUnset": "Non défini (conserver indéfiniment)",
+    "dataRetentionHelperDefault": "Laissez vide pour utiliser la valeur par défaut du système ({{months}} mois). Définissez sur 0 pour conserver à jamais.",
+    "dataRetentionHelperUnset": "Laissez vide pour utiliser la valeur par défaut du système. Définissez sur 0 pour conserver à jamais.",
+    "excludeFromGlobalPotfile": "Exclure du potfile global",
+    "excludeFromGlobalPotfileHelper": "Les mots de passe cassés de ce client ne seront pas ajoutés au potfile global.",
+    "excludeFromClientPotfile": "Exclure du potfile client",
+    "excludeFromClientPotfileHelper": "Les mots de passe cassés de ce client ne seront pas ajoutés à leur potfile client spécifique.",
+    "errors": {
+      "fetchFailed": "Impossible de récupérer les clients"
+    }
+  },
+  "hashesTable": {
+    "title": "Hashes",
+    "subtitle": "{{cracked}} sur {{total}} cassés ({{pct}}%)",
+    "searchPlaceholder": "Rechercher des hashes...",
+    "ariaLabel": "Tableau des hashes de la Hashlist",
+    "copiedToClipboard": "Copié dans le presse-papiers",
+    "copyPassword": "Copier le mot de passe",
+    "copyHash": "Copier le hash",
+    "loadFailed": "Impossible de charger les hashes",
+    "columns": {
+      "originalHash": "Hash d'origine",
+      "username": "Nom d'utilisateur",
+      "domain": "Domaine",
+      "password": "Mot de passe",
+      "status": "Statut"
+    },
+    "status": {
+      "cracked": "Cassé",
+      "partial": "Partiel",
+      "pending": "En attente"
+    }
+  },
+  "validationPreview": {
+    "title": "Validation du hash : examen des lignes malformées",
+    "modeFallback": "mode {{id}}",
+    "truncatedNotice": "Les 10 000 premières lignes invalides sont enregistrées pour examen ; les lignes invalides supplémentaires existent dans le fichier mais ne sont pas répertoriées ici.",
+    "hashTypeLabel": "Type de hash",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Revalidation…",
+    "revalidateButton": "Revalider",
+    "cancelAndFix": "Annuler et corriger",
+    "cancelling": "Annulation…",
+    "starting": "Démarrage…",
+    "proceedButton": "Continuer avec {{validCount}} hashes valides",
+    "noInvalidLines": "Aucune ligne invalide à afficher.",
+    "allInvalid": {
+      "body1": "<strong>Aucune</strong> des {{totalLines}} lignes dans <em>{{hashlistName}}</em> ne correspond à <strong>{{hashTypeName}}</strong>. La sélection du type de hash est probablement incorrecte.",
+      "body2": "Sélectionnez le type correct ci-dessous et cliquez sur <strong>Revalider</strong> — le fichier reste chargé, vous n'avez donc pas besoin de recommencer."
+    },
+    "notAllInvalid": {
+      "body": "<strong>{{invalidCount}}</strong> sur <strong>{{totalLines}}</strong> lignes dans <em>{{hashlistName}}</em> n'ont pas réussi la validation et seront ignorées si vous continuez. <strong>{{validCount}}</strong> hashes valides seront importés."
+    },
+    "chooseActionText": "Choisissez <strong>Continuer avec les valides uniquement</strong> pour importer les {{validCount}} hashes valides (les mauvaises lignes répertoriées seront ignorées), ou <strong>Annuler et corriger</strong> pour supprimer ce chargement afin que vous puissiez corriger le fichier source et réessayer.",
+    "columns": {
+      "line": "Ligne",
+      "hashTruncated": "Hash (tronqué)",
+      "reason": "Raison"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "Impossible de charger les hashes invalides",
+      "proceedFailed": "Impossible de continuer",
+      "cancelFailed": "Impossible d'annuler",
+      "revalidationFailed": "La revalidation a échoué"
+    }
   }
 }

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Box, Button, Alert, CircularProgress } from '@mui/material';
+import { Box, Button, Alert, CircularProgress } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
+import { EntityLink, PageHeader } from '../components/ui';
+import { ROUTES } from '../constants/routes';
 import PotTable from '../components/pot/PotTable';
 import { potService } from '../services/pot';
 import { api } from '../services/api';
@@ -45,7 +47,7 @@ export default function PotClient() {
   };
 
   const handleBack = () => {
-    navigate('/pot');
+    navigate(id ? ROUTES.client(id!) : ROUTES.pot);
   };
 
   if (loading) {
@@ -64,7 +66,7 @@ export default function PotClient() {
         <Alert severity="error">{error}</Alert>
         <Box sx={{ mt: 2 }}>
           <Button startIcon={<ArrowBackIcon />} onClick={handleBack}>
-            {t('navigation.backToAll') as string}
+            {t('navigation.backToSource') as string}
           </Button>
         </Box>
       </Box>
@@ -73,22 +75,20 @@ export default function PotClient() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={handleBack}
-          sx={{ mb: 2 }}
-        >
-          {t('navigation.backToAll') as string}
-        </Button>
-
-        <Typography variant="h4" component="h1" gutterBottom>
-          {t('client.title') as string}
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          {t('client.description', { clientName }) as string}
-        </Typography>
-      </Box>
+      <PageHeader
+        title={t('client.title') as string}
+        description={
+          <>
+            {t('sourceLabel.client', 'Client') as string}:{' '}
+            <EntityLink type="client" id={id} label={clientName || id} />
+          </>
+        }
+        backTo={ROUTES.client(id!)}
+        breadcrumbs={[
+          { label: t('breadcrumb', 'Cracked hashes') as string, to: ROUTES.pot },
+          { label: clientName || id, to: ROUTES.client(id!) },
+        ]}
+      />
 
       <PotTable
         title={t('client.tableTitle', { clientName }) as string}

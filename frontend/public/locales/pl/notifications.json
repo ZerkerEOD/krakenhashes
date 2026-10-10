@@ -1,0 +1,204 @@
+{
+  "title": "Powiadomienia",
+  "connected": "Powiadomienia",
+  "disconnected": "Ponowne łączenie...",
+  "empty": "Brak powiadomień",
+  "markAllRead": "Oznacz wszystkie jako przeczytane",
+  "markRead": "Oznacz jako przeczytane",
+  "viewAll": "Wyświetl wszystkie powiadomienia",
+  "deleteSelected": "Usuń {{count}} wybranych",
+  "selectAll": "Zaznacz wszystkie",
+  "aria": {
+    "bellButton": "Pokaż powiadomienia"
+  },
+  "center": {
+    "title": "Centrum powiadomień",
+    "description": "Wyświetlaj i zarządzaj swoimi powiadomieniami"
+  },
+  "filters": {
+    "category": "Kategoria",
+    "status": "Status",
+    "allCategories": "Wszystkie kategorie",
+    "all": "Wszystkie",
+    "unread": "Nieprzeczytane",
+    "read": "Przeczytane"
+  },
+  "categories": {
+    "job": "Zadanie",
+    "agent": "Agent",
+    "security": "Bezpieczeństwo",
+    "system": "System"
+  },
+  "types": {
+    "header": "Typ powiadomienia",
+    "job_started": "Zadanie rozpoczęte",
+    "job_completed": "Zadanie ukończone",
+    "job_failed": "Zadanie nieudane",
+    "first_crack": "Pierwsze złamanie",
+    "task_completed_with_cracks": "Raport ukończenia podzadania",
+    "agent_offline": "Agent offline",
+    "agent_error": "Błąd agenta",
+    "security_suspicious_login": "Podejrzane logowanie",
+    "security_mfa_disabled": "MFA wyłączone",
+    "security_password_changed": "Hasło zmienione",
+    "webhook_failure": "Błąd webhook'a"
+  },
+  "typeDescriptions": {
+    "job_started": "Gdy zadanie zaczyna się wykonywać",
+    "job_completed": "Gdy zadanie pomyślnie się kończy",
+    "job_failed": "Gdy zadanie się nie powiedzie",
+    "first_crack": "Gdy pierwszy hasz zostanie złamany (natychmiastowe powiadomienie)",
+    "task_completed_with_cracks": "Gdy podzadanie się kończy",
+    "agent_offline": "Gdy agent przejdzie do trybu offline (po okresie bufora offline)",
+    "agent_error": "Gdy agent zgłosi błąd krytyczny",
+    "security_suspicious_login": "Logowanie z nowej lokalizacji lub urządzenia",
+    "security_mfa_disabled": "Gdy uwierzytelnianie dwuskładnikowe zostanie wyłączone (obowiązkowe)",
+    "security_password_changed": "Gdy hasło zostanie zmienione (obowiązkowe)",
+    "webhook_failure": "Gdy dostarczenie webhook'a się nie powiedzie"
+  },
+  "channels": {
+    "inApp": "W aplikacji",
+    "email": "E-mail",
+    "webhook": "Webhook"
+  },
+  "settings": {
+    "title": "Ustawienia powiadomień",
+    "description": "Skonfiguruj jak i kiedy otrzymujesz powiadomienia",
+    "enabledChannels": "Włączone kanały",
+    "taskReportMode": "Kiedy powiadomić",
+    "taskReportModeOnlyIfCracks": "Tylko jeśli znaleziono złamania",
+    "taskReportModeAlways": "Zawsze powiadamiaj",
+    "modeUpdated": "Tryb raportowania podzadań zaktualizowany",
+    "onlyIfCracks": "Tylko jeśli znaleziono złamania",
+    "always": "Zawsze powiadamiaj",
+    "mandatory": "Obowiązkowe",
+    "mandatoryDescription": "To powiadomienie nie może być wyłączone",
+    "emailNotConfigured": "Brama e-mail nie jest skonfigurowana",
+    "emailNotConfiguredWarning": "Brama e-mail nie jest skonfigurowana. Powiadomienia e-mail są obecnie niedostępne.",
+    "noWebhooksConfigured": "Nie skonfigurowano aktywnych webhook'ów",
+    "toggleAll": "Przełącz wszystkie"
+  },
+  "webhooks": {
+    "title": "Konfiguracja webhook'a",
+    "description": "Zarządzaj integracjami webhook'ów",
+    "name": "Nazwa",
+    "url": "URL",
+    "secret": "Klucz tajny",
+    "secretPlaceholder": "Opcjonalny klucz tajny webhook'a",
+    "isActive": "Aktywny",
+    "notificationTypes": "Typy powiadomień",
+    "allTypes": "Wszystkie typy",
+    "retryCount": "Liczba ponownych prób",
+    "timeout": "Limit czasu (sekundy)",
+    "lastTriggered": "Ostatnie wyzwolenie",
+    "lastSuccess": "Ostatni sukces",
+    "lastError": "Ostatni błąd",
+    "totalSent": "Łącznie wysłane",
+    "totalFailed": "Łącznie nieudane",
+    "create": "Utwórz webhook",
+    "edit": "Edytuj webhook",
+    "delete": "Usuń webhook",
+    "deleteConfirm": "Czy na pewno chcesz usunąć ten webhook?",
+    "test": "Testuj webhook",
+    "testUrl": "Testowy URL",
+    "testSuccess": "Test webhook'a powiódł się",
+    "testFailed": "Test webhook'a nie powiódł się",
+    "secretExists": "Klucz tajny jest ustawiony. Zostaw puste, aby zachować bieżący, lub wpisz nową wartość, aby zastąpić.",
+    "invalidJson": "Nieprawidłowy format JSON",
+    "noWebhooks": "Nie skonfigurowano webhook'ów. Utwórz jeden, aby otrzymywać powiadomienia za pośrednictwem webhook'a.",
+    "updated": "Webhook zaktualizowany",
+    "created": "Webhook utworzony",
+    "deleted": "Webhook usunięty",
+    "secretEditHelp": "Zostaw puste, aby zachować istniejący klucz tajny",
+    "validation": {
+      "nameAndUrl": "Nazwa i URL są wymagane"
+    }
+  },
+  "admin": {
+    "title": "Ustawienia powiadomień",
+    "globalWebhook": {
+      "title": "Globalny webhook",
+      "description": "Skonfiguruj webhook systemowy dla wszystkich powiadomień",
+      "enabled": "Włącz globalny webhook",
+      "url": "URL webhook'a",
+      "secret": "Klucz tajny webhook'a",
+      "customHeaders": "Niestandardowe nagłówki (JSON)",
+      "test": "Testuj globalny webhook",
+      "saved": "Ustawienia globalnego webhook'a zapisane"
+    },
+    "agentOffline": {
+      "title": "Bufor offline agenta",
+      "description": "Skonfiguruj, jak długo czekać przed wysłaniem powiadomień o agentach offline",
+      "bufferMinutes": "Minuty bufora",
+      "bufferHelp": "Czekaj tyle minut przed powiadomieniem o agentach offline",
+      "saved": "Ustawienia offline agenta zapisane"
+    },
+    "userWebhooks": {
+      "title": "Webhook'i użytkownika",
+      "description": "Wyświetl wszystkie webhook'i skonfigurowane przez użytkowników",
+      "username": "Nazwa użytkownika",
+      "email": "E-mail",
+      "empty": "Nie skonfigurowano webhook'ów użytkowników"
+    }
+  },
+  "auditLog": {
+    "title": "Dziennik audytu",
+    "description": "Zdarzenia bezpieczeństwa i krytyczne dla wszystkich użytkowników",
+    "noData": "Nie znaleziono wpisów dziennika audytu",
+    "columns": {
+      "time": "Czas",
+      "severity": "Ważność",
+      "eventType": "Typ zdarzenia",
+      "user": "Użytkownik",
+      "title": "Tytuł",
+      "ip": "Adres IP"
+    },
+    "filters": {
+      "eventType": "Typ zdarzenia",
+      "severity": "Ważność",
+      "startDate": "Data początkowa",
+      "endDate": "Data końcowa",
+      "all": "Wszystkie",
+      "clear": "Wyczyść filtry"
+    },
+    "severity": {
+      "critical": "Krytyczne",
+      "warning": "Ostrzeżenie",
+      "info": "Informacja"
+    },
+    "details": {
+      "message": "Wiadomość",
+      "ipAddress": "Adres IP",
+      "userAgent": "User-Agent",
+      "source": "Źródło",
+      "data": "Dodatkowe dane"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować dzienników audytu"
+    },
+    "system": "System"
+  },
+  "systemAlert": {
+    "title": "Alert systemowy",
+    "dismiss": "Zamknij",
+    "dismissAll": "Zamknij wszystkie"
+  },
+  "errors": {
+    "fetchFailed": "Nie udało się załadować powiadomień",
+    "markReadFailed": "Nie udało się oznaczyć powiadomienia jako przeczytane",
+    "deleteFailed": "Nie udało się usunąć powiadomień",
+    "saveFailed": "Nie udało się zapisać ustawień",
+    "webhookCreateFailed": "Nie udało się utworzyć webhooka",
+    "webhookUpdateFailed": "Nie udało się zaktualizować webhooka",
+    "webhookDeleteFailed": "Nie udało się usunąć webhooka",
+    "webhookSaveFailed": "Nie udało się zapisać webhooka"
+  },
+  "common": {
+    "actions": "Czynności",
+    "active": "Aktywny",
+    "inactive": "Nieaktywny",
+    "cancel": "Anuluj",
+    "save": "Zapisz",
+    "delete": "Usuń"
+  }
+}

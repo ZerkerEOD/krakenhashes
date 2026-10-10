@@ -1,0 +1,56 @@
+{
+  "form": {
+    "datePresets": {
+      "lastMonth": "A rolling 30-day window ending today — not the previous calendar month (see 'Prior Month').",
+      "priorMonth": "The previous full calendar month (e.g. all of September if today is in October), unlike the rolling 'Last Month'.",
+      "priorQuarter": "The previous full calendar quarter, as opposed to a rolling 3-month window.",
+      "prior6Months": "The 6 full calendar months before the current one, not including the current month.",
+      "priorYear": "Jan 1 to Dec 31 of the previous calendar year, as opposed to a rolling 12-month window."
+    }
+  },
+  "actions": {
+    "exportHcmask": "Exports the generated mask list as a .hcmask file (one hashcat mask per line) for use with hashcat's mask-attack mode.",
+    "exportInternalPdf": "Full report PDF including recovered plaintext passwords — for internal use only, not for sharing with the client.",
+    "exportExternalPdf": "Client-safe PDF with cracked passwords and other sensitive data redacted, suitable to share externally."
+  },
+  "sections": {
+    "maskAnalysis": "Breaks cracked passwords down by their hashcat mask pattern (e.g. ?u?l?l?l?d?d); this is descriptive analysis, not an attack input.",
+    "domainBreakdown": "Breakdown by the Windows/AD domain extracted from the hashes, not a web domain.",
+    "positionalAnalysis": "Analyzes which character types (upper/lower/digit/special) appear at each position within cracked passwords.",
+    "baseWords": "The underlying dictionary word in a password after stripping leet-speak, digits, and case variation (e.g. 'P@ssw0rd123' -> 'password')."
+  },
+  "columns": {
+    "domain": "The Windows/AD domain extracted from the hash, not a web domain.",
+    "hashlistCount": "Number of different hashlists this password/hash was found in.",
+    "matchPercentage": "Percentage of LM-cracked users whose recovered case pattern matches this mask.",
+    "speedLevel": "A cracking-speed scenario expressed as a percentage of this hashlist's benchmarked hash rate, used for time-to-crack estimates.",
+    "usersHashlistCount": "Number of distinct users, together with the number of distinct hashlists, this password was found in.",
+    "estimatedKeyspace": "Estimated hashcat keyspace (number of candidate passwords) these generated masks will cover.",
+    "firstHalf": "LM hashes split a password into two independent 7-character halves cracked separately; this is the first half's (characters 1-7) status.",
+    "secondHalf": "LM hashes split a password into two independent 7-character halves cracked separately; this is the second half's (characters 8-14) status."
+  },
+  "labels": {
+    "bothCracked": "Both this user's LM and NTLM hashes were cracked.",
+    "ntlmOnly": "Only this user's NTLM hash was cracked; the linked LM hash was not.",
+    "lmOnly": "Only this user's LM hash was cracked; the linked NTLM hash was not.",
+    "neitherCracked": "Neither this user's LM nor NTLM hash was cracked.",
+    "firstHalfOnly": "Only the first 7-character half of this LM password was cracked.",
+    "secondHalfOnly": "Only the second 7-character half (characters 8-14) of this LM password was cracked.",
+    "totalPartial": "Total count of LM passwords where only one of the two 7-character halves was cracked."
+  },
+  "descriptions": {
+    "lmDerivable": "Indicates this NTLM case-variation can be derived/confirmed from the already-cracked LM pattern.",
+    "ntlmUnknown": "Indicates the corresponding NTLM hash hasn't been cracked yet, even though the LM half was."
+  },
+  "bloodhound": {
+    "kerberoastable": "'Kerberoastable' accounts have Kerberos service-ticket hashes that can be cracked offline (a known AD attack technique).",
+    "asrepRoastable": "'AS-REP Roastable' accounts don't require Kerberos pre-authentication, so their hashes can be cracked offline (AS-REP roasting).",
+    "adminCount": "'AdminCount (AdminSDHolder)' flags accounts AD still marks as protected/privileged, even if no longer in a privileged group.",
+    "dcsyncCapable": "'DCSync-capable' accounts can impersonate a domain controller to dump every password hash in the domain.",
+    "localAdminBlast": "'Blast radius' = how many machines this cracked account has local-admin rights on (its lateral-movement reach).",
+    "crackedTierZero": "'Tier-0' is BloodHound's label for the domain's most privileged assets (e.g. domain controllers, domain admins).",
+    "hops": "Number of steps in the BloodHound attack-path graph needed to reach Domain Admin from this account.",
+    "daChip": "'DA' = Domain Admin; {{n}} is the count of cracked accounts holding that role.",
+    "inDomain": "'(dump)' means this figure comes from the uploaded BloodHound collection file, not from cracking results."
+  }
+}

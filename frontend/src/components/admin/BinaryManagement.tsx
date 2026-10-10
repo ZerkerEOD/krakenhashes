@@ -1,53 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Button,
-  IconButton,
   Typography,
   Box,
   Chip,
   Dialog,
-  useTheme,
-  CircularProgress,
-  Stack,
-  Tooltip,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
   FormControlLabel,
   Switch,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
-  Refresh as RefreshIcon,
   Add as AddIcon,
   Verified as VerifiedIcon,
   CloudDownload as CloudDownloadIcon,
   CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
+import type { GridColDef } from '@mui/x-data-grid';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import AddBinaryForm from './AddBinaryForm';
-import { useSnackbar } from 'notistack';
+import { DataTable, PageHeader, StatusChip, useConfirm, useToast } from '../ui';
 import { BinaryVersion, listBinaries, verifyBinary, deleteBinary, setDefaultBinary } from '../../services/binary';
 
+/** Error bodies from the binary endpoints are plain text; fall back when they are not. */
+const errorText = (error: any, fallback: string): string =>
+  typeof error?.response?.data === 'string' && error.response.data ? error.response.data : fallback;
+
+/**
+ * Admin → Resources → Binaries: the page header (title + Add) lives here so the
+ * add dialog's open state stays local to this component.
+ */
 const BinaryManagement: React.FC = () => {
   const { t } = useTranslation('admin');
   const [binaries, setBinaries] = useState<BinaryVersion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedBinary, setSelectedBinary] = useState<BinaryVersion | null>(null);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
-  const { enqueueSnackbar } = useSnackbar();
-  const theme = useTheme();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const fetchBinaries = async () => {
     try {
@@ -56,7 +46,7 @@ const BinaryManagement: React.FC = () => {
       setBinaries(response.data || []);
     } catch (error) {
       console.error('Error fetching binaries:', error);
-      enqueueSnackbar(t('binaryManagement.messages.fetchFailed') as string, { variant: 'error' });
+      toast.error(t('binaryManagement.messages.fetchFailed') as string);
       setBinaries([]); // Ensure we set an empty array on error
     } finally {
       setIsLoading(false);
@@ -71,17 +61,17 @@ const BinaryManagement: React.FC = () => {
     try {
       setIsLoading(true);
       await verifyBinary(id);
-      enqueueSnackbar(t('binaryManagement.messages.verifySuccess') as string, { variant: 'success' });
+      toast.success(t('binaryManagement.messages.verifySuccess') as string);
       fetchBinaries();
     } catch (error: any) {
       console.error('Error verifying binary:', error);
-      enqueueSnackbar(error.response?.data || t('binaryManagement.messages.verifyFailed') as string, { variant: 'error' });
+      toast.error(errorText(error, t('binaryManagement.messages.verifyFailed') as string));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeleteClick = (binary: BinaryVersion) => {
+  const handleDeleteClick = async (binary: BinaryVersion) => {
     // Count active binaries of the same type
     const activeBinariesOfType = binaries.filter(
       b => b.binary_type === binary.binary_type &&
@@ -91,37 +81,33 @@ const BinaryManagement: React.FC = () => {
 
     // Check if this is the last binary
     if (activeBinariesOfType <= 1) {
-      enqueueSnackbar(
-        t('binaryManagement.messages.cannotDeleteLast', { type: binary.binary_type }) as string,
-        { variant: 'warning' }
-      );
+      toast.warning(t('binaryManagement.messages.cannotDeleteLast', { type: binary.binary_type }) as string);
       return;
     }
 
-    setSelectedBinary(binary);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!selectedBinary) return;
+    const ok = await confirm({
+      title: t('binaryManagement.deleteDialog.title') as string,
+      message: t('binaryManagement.deleteDialog.message', { fileName: binary.file_name }) as string,
+      severity: 'danger',
+      confirmLabel: t('common.delete') as string,
+    });
+    if (!ok) return;
 
     try {
       setIsLoading(true);
-      await deleteBinary(selectedBinary.id);
-      enqueueSnackbar(t('binaryManagement.messages.deleteSuccess') as string, { variant: 'success' });
+      await deleteBinary(binary.id);
+      toast.success(t('binaryManagement.messages.deleteSuccess') as string);
       fetchBinaries();
     } catch (error: any) {
       console.error('Error deleting binary:', error);
       // Check for protection error (409 Conflict)
       if (error.response?.status === 409) {
-        enqueueSnackbar(error.response?.data || t('binaryManagement.messages.cannotDeleteOnly') as string, { variant: 'warning' });
+        toast.warning(errorText(error, t('binaryManagement.messages.cannotDeleteOnly') as string));
       } else {
-        enqueueSnackbar(error.response?.data || t('binaryManagement.messages.deleteFailed') as string, { variant: 'error' });
+        toast.error(errorText(error, t('binaryManagement.messages.deleteFailed') as string));
       }
     } finally {
       setIsLoading(false);
-      setDeleteDialogOpen(false);
-      setSelectedBinary(null);
     }
   };
 
@@ -129,33 +115,13 @@ const BinaryManagement: React.FC = () => {
     try {
       setIsLoading(true);
       await setDefaultBinary(id);
-      enqueueSnackbar(t('binaryManagement.messages.setDefaultSuccess') as string, { variant: 'success' });
+      toast.success(t('binaryManagement.messages.setDefaultSuccess') as string);
       fetchBinaries();
     } catch (error: any) {
       console.error('Error setting default binary:', error);
-      enqueueSnackbar(error.response?.data || t('binaryManagement.messages.setDefaultFailed') as string, { variant: 'error' });
+      toast.error(errorText(error, t('binaryManagement.messages.setDefaultFailed') as string));
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteDialogOpen(false);
-    setSelectedBinary(null);
-  };
-
-  const getVerificationStatusColor = (status: string) => {
-    switch (status) {
-      case 'verified':
-        return 'success';
-      case 'pending':
-        return 'warning';
-      case 'failed':
-        return 'error';
-      case 'deleted':
-        return 'default';
-      default:
-        return 'default';
     }
   };
 
@@ -186,180 +152,143 @@ const BinaryManagement: React.FC = () => {
       )
     : binaries;
 
+  const columns: GridColDef<BinaryVersion>[] = [
+    {
+      field: 'id',
+      headerName: t('binaryManagement.columns.binaryId') as string,
+      type: 'number',
+      width: 80,
+      align: 'left',
+      headerAlign: 'left',
+    },
+    {
+      field: 'version',
+      headerName: t('binaryManagement.columns.version') as string,
+      flex: 1,
+      minWidth: 140,
+      // Use the API version field if available, otherwise extract from filename
+      valueGetter: (_v, row) => row.version || extractNameAndVersion(row.file_name).version,
+    },
+    {
+      field: 'binary_type',
+      headerName: t('binaryManagement.columns.type') as string,
+      width: 120,
+    },
+    {
+      field: 'source_type',
+      headerName: t('binaryManagement.columns.source') as string,
+      width: 120,
+      renderCell: (p) => (
+        <Chip
+          icon={p.row.source_type === 'upload' ? <CloudUploadIcon /> : <CloudDownloadIcon />}
+          label={p.row.source_type === 'upload' ? t('binaryManagement.sourceUpload') as string : t('binaryManagement.sourceUrl') as string}
+          size="small"
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      field: 'file_size',
+      headerName: t('binaryManagement.columns.size') as string,
+      type: 'number',
+      width: 110,
+      valueFormatter: (v) => formatFileSize(Number(v) || 0),
+    },
+    {
+      field: 'verification_status',
+      headerName: t('binaryManagement.columns.status') as string,
+      width: 120,
+      renderCell: (p) => <StatusChip entity="verification" status={p.row.verification_status} />,
+    },
+    {
+      field: 'is_default',
+      headerName: t('binaryManagement.columns.default') as string,
+      width: 150,
+      renderCell: (p) => (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Switch
+            checked={p.row.is_default}
+            onChange={() => handleSetDefault(p.row.id)}
+            disabled={isLoading || p.row.verification_status !== 'verified' || p.row.is_default}
+            size="small"
+          />
+          {p.row.is_default && (
+            <Chip label={t('binaryManagement.default') as string} color="primary" size="small" sx={{ ml: 1 }} />
+          )}
+        </Box>
+      ),
+    },
+    {
+      field: 'last_verified_at',
+      headerName: t('binaryManagement.columns.lastVerified') as string,
+      width: 180,
+      valueGetter: (_v, row) => (row.last_verified_at ? new Date(row.last_verified_at).getTime() : 0),
+      valueFormatter: (v) => (v ? format(new Date(Number(v)), 'yyyy-MM-dd HH:mm:ss') : (t('common.never') as string)),
+    },
+  ];
+
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" component="h2">
-          {t('binaryManagement.title') as string}
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpenAddDialog(true)}
-        >
-          {t('binaryManagement.addBinary') as string}
-        </Button>
-      </Box>
+      <PageHeader
+        title={t('binaryManagement.title') as string}
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenAddDialog(true)}>
+            {t('binaryManagement.addBinary') as string}
+          </Button>
+        }
+      />
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showActiveOnly}
-              onChange={(e) => setShowActiveOnly(e.target.checked)}
-              color="primary"
+      <DataTable<BinaryVersion>
+        rows={filteredBinaries}
+        columns={columns}
+        getRowId={(r) => r.id}
+        loading={isLoading && binaries.length === 0}
+        fetching={isLoading && binaries.length > 0}
+        pagination={{ mode: 'client', initialPageSize: 25 }}
+        sorting={{ mode: 'client', initial: [{ field: 'id', sort: 'desc' }] }}
+        toolbar={{
+          filters: (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showActiveOnly}
+                  onChange={(e) => setShowActiveOnly(e.target.checked)}
+                  color="primary"
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  {showActiveOnly ? t('binaryManagement.showingActiveOnly') as string : t('binaryManagement.showingAll') as string}
+                </Typography>
+              }
             />
-          }
-          label={
-            <Typography variant="body2" color="textSecondary">
-              {showActiveOnly ? t('binaryManagement.showingActiveOnly') as string : t('binaryManagement.showingAll') as string}
-            </Typography>
-          }
-        />
-      </Box>
-
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t('binaryManagement.columns.binaryId') as string}</TableCell>
-              <TableCell>{t('binaryManagement.columns.version') as string}</TableCell>
-              <TableCell>{t('binaryManagement.columns.type') as string}</TableCell>
-              <TableCell>{t('binaryManagement.columns.source') as string}</TableCell>
-              <TableCell>{t('binaryManagement.columns.size') as string}</TableCell>
-              <TableCell>{t('binaryManagement.columns.status') as string}</TableCell>
-              <TableCell>{t('binaryManagement.columns.default') as string}</TableCell>
-              <TableCell>{t('binaryManagement.columns.lastVerified') as string}</TableCell>
-              <TableCell>{t('binaryManagement.columns.actions') as string}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
-                  <CircularProgress />
-                </TableCell>
-              </TableRow>
-            ) : filteredBinaries.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body1" color="textSecondary">
-                    {showActiveOnly
-                      ? t('binaryManagement.noActiveBinaries') as string
-                      : t('binaryManagement.noBinaries') as string}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredBinaries.map((binary) => {
-                // Use the API version field if available, otherwise extract from filename
-                const displayVersion = binary.version || extractNameAndVersion(binary.file_name).version;
-                return (
-                  <TableRow key={binary.id}>
-                    <TableCell>{binary.id}</TableCell>
-                    <TableCell>{displayVersion}</TableCell>
-                    <TableCell>{binary.binary_type}</TableCell>
-                    <TableCell>
-                      <Chip
-                        icon={binary.source_type === 'upload' ? <CloudUploadIcon /> : <CloudDownloadIcon />}
-                        label={binary.source_type === 'upload' ? t('binaryManagement.sourceUpload') as string : t('binaryManagement.sourceUrl') as string}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>{formatFileSize(binary.file_size)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={binary.verification_status}
-                        color={getVerificationStatusColor(binary.verification_status)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={binary.is_default}
-                        onChange={() => handleSetDefault(binary.id)}
-                        disabled={isLoading || binary.verification_status !== 'verified' || binary.is_default}
-                        size="small"
-                      />
-                      {binary.is_default && (
-                        <Chip
-                          label={t('binaryManagement.default') as string}
-                          color="primary"
-                          size="small"
-                          sx={{ ml: 1 }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {binary.last_verified_at ? format(new Date(binary.last_verified_at), 'yyyy-MM-dd HH:mm:ss') : t('common.never') as string}
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1}>
-                        <Tooltip title={t('binaryManagement.verifyBinary') as string}>
-                          <span>
-                            <IconButton
-                              onClick={() => handleVerify(binary.id)}
-                              disabled={isLoading || binary.verification_status === 'deleted'}
-                              color="primary"
-                              size="small"
-                            >
-                              <VerifiedIcon />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title={t('binaryManagement.deleteBinary') as string}>
-                          <span>
-                            <IconButton
-                              onClick={() => handleDeleteClick(binary)}
-                              disabled={isLoading || binary.verification_status === 'deleted'}
-                              color="error"
-                              size="small"
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={handleDeleteCancel}
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description"
-      >
-        <DialogTitle id="delete-dialog-title">
-          {t('binaryManagement.deleteDialog.title') as string}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-dialog-description">
-            {t('binaryManagement.deleteDialog.message', { fileName: selectedBinary?.file_name }) as string}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDeleteCancel} disabled={isLoading}>
-            {t('common.cancel') as string}
-          </Button>
-          <Button
-            onClick={handleDeleteConfirm}
-            color="error"
-            variant="contained"
-            disabled={isLoading}
-            startIcon={isLoading ? <CircularProgress size={20} /> : null}
-          >
-            {t('common.delete') as string}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          ),
+        }}
+        rowActions={(binary) => [
+          {
+            key: 'verify',
+            label: t('binaryManagement.verifyBinary') as string,
+            icon: <VerifiedIcon fontSize="small" />,
+            disabled: isLoading || binary.verification_status === 'deleted',
+            onClick: (b) => handleVerify(b.id),
+          },
+          {
+            key: 'delete',
+            label: t('binaryManagement.deleteBinary') as string,
+            icon: <DeleteIcon fontSize="small" />,
+            danger: true,
+            disabled: isLoading || binary.verification_status === 'deleted',
+            onClick: (b) => handleDeleteClick(b),
+          },
+        ]}
+        emptyState={{
+          title: showActiveOnly
+            ? t('binaryManagement.noActiveBinaries') as string
+            : t('binaryManagement.noBinaries') as string,
+        }}
+        tableKey="admin-binaries"
+      />
 
       {/* Add Binary Dialog */}
       <Dialog

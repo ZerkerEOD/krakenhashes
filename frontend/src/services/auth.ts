@@ -93,6 +93,58 @@ export const updateAuthSettings = async (settings: AuthSettingsUpdate): Promise<
   }
 };
 
+
+// Partial auth-settings update: send only the fields that changed. The backend
+// treats missing fields as "keep current" (read-modify-write).
+export interface AuthSettingsPatch {
+  minPasswordLength?: number;
+  requireUppercase?: boolean;
+  requireLowercase?: boolean;
+  requireNumbers?: boolean;
+  requireSpecialChars?: boolean;
+  maxFailedAttempts?: number;
+  lockoutDuration?: number;
+  jwtExpiryMinutes?: number;
+  notificationAggregationMinutes?: number;
+  tokenCleanupIntervalSeconds?: number;
+  maxConcurrentSessions?: number;
+  sessionAbsoluteTimeoutHours?: number;
+  displayTimezone?: string;
+}
+
+const AUTH_PATCH_KEYS: Record<keyof AuthSettingsPatch, string> = {
+  minPasswordLength: 'min_password_length',
+  requireUppercase: 'require_uppercase',
+  requireLowercase: 'require_lowercase',
+  requireNumbers: 'require_numbers',
+  requireSpecialChars: 'require_special_chars',
+  maxFailedAttempts: 'max_failed_attempts',
+  lockoutDuration: 'lockout_duration_minutes',
+  jwtExpiryMinutes: 'jwt_expiry_minutes',
+  notificationAggregationMinutes: 'notification_aggregation_minutes',
+  tokenCleanupIntervalSeconds: 'token_cleanup_interval_seconds',
+  maxConcurrentSessions: 'max_concurrent_sessions',
+  sessionAbsoluteTimeoutHours: 'session_absolute_timeout_hours',
+  displayTimezone: 'display_timezone',
+};
+
+export const updateAuthSettingsPartial = async (patch: AuthSettingsPatch): Promise<void> => {
+  const body: Record<string, unknown> = {};
+  (Object.keys(patch) as (keyof AuthSettingsPatch)[]).forEach((k) => {
+    if (patch[k] !== undefined && AUTH_PATCH_KEYS[k]) body[AUTH_PATCH_KEYS[k]] = patch[k];
+  });
+  await api.put('/api/admin/auth/settings', body);
+};
+
+/** Partial MFA-settings update: only the fields present are changed. */
+export const updateMFASettingsPartial = async (patch: Partial<MFASettings>): Promise<void> => {
+  const body: Record<string, unknown> = {};
+  (['requireMfa', 'allowedMfaMethods', 'emailCodeValidity', 'backupCodesCount', 'mfaCodeCooldownMinutes', 'mfaCodeExpiryMinutes', 'mfaMaxAttempts'] as const).forEach((k) => {
+    if (patch[k] !== undefined && patch[k] !== '') body[k] = patch[k];
+  });
+  await api.put('/api/admin/auth/settings/mfa', body);
+};
+
 // Get MFA settings for admin configuration
 export const getAdminMFASettings = async (): Promise<MFASettings> => {
   try {

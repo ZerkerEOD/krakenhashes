@@ -1,0 +1,377 @@
+{
+  "title": "Cài đặt người dùng",
+  "profileSettings": {
+    "title": "Cài đặt hồ sơ"
+  },
+  "profile": {
+    "title": "Hồ sơ",
+    "username": "Tên người dùng",
+    "email": "Email",
+    "changePassword": "Đổi mật khẩu",
+    "currentPassword": "Mật khẩu hiện tại",
+    "newPassword": "Mật khẩu mới",
+    "confirmPassword": "Xác nhận mật khẩu mới",
+    "updateProfile": "Cập nhật hồ sơ",
+    "profileUpdated": "Hồ sơ được cập nhật thành công"
+  },
+  "account": {
+    "title": "Thông tin tài khoản",
+    "username": "Tên người dùng",
+    "email": "Email",
+    "usernameCannotChange": "Tên người dùng không thể thay đổi",
+    "saving": "Đang lưu...",
+    "saveEmail": "Lưu email",
+    "confirmEmailUpdate": {
+      "title": "Xác nhận cập nhật email",
+      "message": "Vui lòng nhập mật khẩu hiện tại của bạn để cập nhật địa chỉ email."
+    },
+    "errors": {
+      "noChanges": "Không có thay đổi để lưu",
+      "invalidEmail": "Địa chỉ email không hợp lệ",
+      "updateFailed": "Không cập nhật được email",
+      "incorrectPassword": "Mật khẩu không chính xác"
+    },
+    "success": {
+      "emailUpdated": "Email được cập nhật thành công"
+    }
+  },
+  "password": {
+    "title": "Đổi mật khẩu",
+    "currentPassword": "Mật khẩu hiện tại",
+    "newPassword": "Mật khẩu mới",
+    "confirmNewPassword": "Xác nhận mật khẩu mới",
+    "enterCurrentFirst": "Trước tiên, hãy nhập mật khẩu hiện tại",
+    "passwordsMatch": "Mật khẩu khớp",
+    "changePassword": "Đổi mật khẩu",
+    "changing": "Đang đổi mật khẩu...",
+    "errors": {
+      "currentRequired": "Mật khẩu hiện tại là bắt buộc",
+      "newRequired": "Mật khẩu mới là bắt buộc",
+      "mismatch": "Mật khẩu không khớp",
+      "requirements": "Mật khẩu mới không đáp ứng yêu cầu",
+      "updateFailed": "Không cập nhật được mật khẩu"
+    },
+    "success": {
+      "changed": "Mật khẩu được thay đổi thành công"
+    }
+  },
+  "apiKey": {
+    "title": "Khóa API",
+    "status": "Trạng thái khóa API",
+    "active": "Hoạt động",
+    "noKeyGenerated": "Chưa tạo khóa API",
+    "created": "Được tạo",
+    "lastUsed": "Sử dụng lần cuối",
+    "generate": "Tạo khóa API",
+    "regenerate": "Tạo lại khóa API",
+    "revoke": "Thu hồi khóa API",
+    "viewDocs": "Xem tài liệu API",
+    "dialog": {
+      "title": "Khóa API của bạn",
+      "saveNow": "Lưu khóa này ngay bây giờ!",
+      "cantSeeAgain": "Bạn sẽ không thể thấy nó lại.",
+      "instructions": "Sử dụng khóa API này trong các yêu cầu HTTP của bạn bằng cách đưa nó vào tiêu đề X-API-Key.",
+      "saved": "Tôi đã lưu nó"
+    },
+    "confirmRegenerate": {
+      "title": "Tạo lại khóa API?",
+      "warning": "Điều này sẽ làm vô hiệu hóa khóa API hiện tại của bạn. Bất kỳ ứng dụng nào sử dụng khóa hiện tại sẽ dừng hoạt động.",
+      "confirm": "Bạn có chắc chắn muốn tiếp tục không?"
+    },
+    "confirmRevoke": {
+      "title": "Thu hồi khóa API?",
+      "warning": "Điều này sẽ ngay lập tức vô hiệu hóa quyền truy cập API. Bất kỳ ứng dụng nào sử dụng khóa này sẽ dừng hoạt động.",
+      "confirm": "Bạn có chắc chắn muốn thu hồi khóa API của bạn không?"
+    },
+    "errors": {
+      "generateFailed": "Không tạo được khóa API",
+      "revokeFailed": "Không thu hồi được khóa API"
+    },
+    "success": {
+      "revoked": "Khóa API được thu hồi thành công",
+      "copied": "Khóa API được sao chép vào bộ nhớ tạm"
+    }
+  },
+  "security": {
+    "title": "Bảo mật",
+    "caCertificate": {
+      "title": "Chứng chỉ số CA",
+      "description": "Nếu sử dụng chứng chỉ số tự ký, hãy tải xuống và cài đặt chứng chỉ số CA để tin tưởng máy chủ này.",
+      "download": "Tải xuống chứng chỉ số CA",
+      "docsLink": "Xem tài liệu SSL/TLS"
+    }
+  },
+  "common": {
+    "cancel": "Hủy",
+    "never": "Không bao giờ",
+    "invalidDate": "Ngày không hợp lệ",
+    "create": "Tạo",
+    "delete": "Xóa"
+  },
+  "mfa": {
+    "title": "Xác thực hai yếu tố",
+    "status": "Trạng thái 2FA",
+    "enabled": "Đã bật",
+    "disabled": "Đã tắt",
+    "enable": "Bật 2FA",
+    "disable": "Tắt 2FA",
+    "methods": {
+      "title": "Phương pháp xác thực",
+      "totp": "Ứng dụng xác thực",
+      "email": "Email",
+      "backupCodes": "Mã dự phòng",
+      "passkey": "Passkey"
+    },
+    "setup": {
+      "scanQR": "Quét mã QR này bằng ứng dụng xác thực của bạn",
+      "enterCode": "Nhập mã từ ứng dụng của bạn để xác minh",
+      "backupCodesGenerated": "Lưu các mã dự phòng này ở một nơi an toàn"
+    },
+    "methodSelection": {
+      "title": "Chọn phương pháp 2FA",
+      "description": "Chọn cách bạn muốn xác minh danh tính của mình khi đăng nhập.",
+      "authenticatorDescription": "Sử dụng mã dựa trên thời gian từ ứng dụng xác thực như Google Authenticator, Authy hoặc 1Password.",
+      "passkeyDescription": "Sử dụng khóa bảo mật, dấu vân tay, nhận dạng khuôn mặt hoặc PIN thiết bị để xác thực nhanh chóng và an toàn."
+    },
+    "card": {
+      "title": "Xác thực đa yếu tố",
+      "requiredByPolicy": "2FA được yêu cầu bởi chính sách bảo mật của tổ chức của bạn",
+      "enableLabel": "Bật xác thực đa yếu tố",
+      "preferredMethod": "Phương pháp 2FA được ưa thích",
+      "preferredMethodNames": {
+        "authenticator": "Ứng dụng xác thực",
+        "email": "Email",
+        "passkey": "Passkey"
+      },
+      "emailAuth": "Xác thực email",
+      "emailRequired": "Bắt buộc để bảo mật tài khoản",
+      "optional": "Tùy chọn",
+      "required": "Bắt buộc",
+      "configured": "Đã cấu hình",
+      "notConfigured": "Chưa cấu hình",
+      "disable": "Tắt",
+      "setup": "Thiết lập",
+      "passkeys": "Passkeys",
+      "passkeysRegistered_other": "{{count}} passkeys đã đăng ký",
+      "addPasskey": "Thêm passkey",
+      "passkeyAdded": "Được thêm: {{date}}",
+      "passkeyLastUsed": " | Sử dụng lần cuối: {{date}}",
+      "rename": "Đổi tên",
+      "delete": "Xóa",
+      "passkeysUnsupported": "Passkeys không được hỗ trợ trong trình duyệt này. Vui lòng sử dụng trình duyệt hiện đại để bật xác thực passkey.",
+      "backupCodesRemaining_other": "{{count}} mã dự phòng còn lại",
+      "noBackupCodes": "Không có mã dự phòng nào",
+      "regenerate": "Tạo lại",
+      "generate": "Tạo"
+    },
+    "dialogs": {
+      "cancel": "Hủy",
+      "close": "Đóng",
+      "warning": "Cảnh báo",
+      "setupAuthenticatorTitle": "Thiết lập ứng dụng xác thực",
+      "qrAlt": "Mã QR",
+      "manualEntry": "Nếu bạn không thể quét mã QR, hãy nhập mã này theo cách thủ công: <strong>{{secret}}</strong>",
+      "scanInstructions": "Quét mã QR này bằng ứng dụng xác thực của bạn (ví dụ: Google Authenticator, Authy)",
+      "verificationCode": "Mã xác minh",
+      "verificationPlaceholder": "Nhập mã 6 chữ số",
+      "verify": "Xác minh",
+      "backupCodesTitle": "Mã dự phòng",
+      "generateBackupPrompt": "Tạo mã dự phòng để sử dụng khi bạn không thể truy cập phương pháp xác thực chính của mình",
+      "generateBackupCodes": "Tạo mã dự phòng",
+      "saveCodesWarning": "Lưu các mã này ở một vị trí an toàn. Chúng sẽ không được hiển thị lại!",
+      "copied": "Đã sao chép!",
+      "copyAll": "SAO CHÉP TẤT CẢ MÃ",
+      "regenerateWarning": "Điều này sẽ làm vô hiệu hóa tất cả mã dự phòng hiện tại của bạn. Bạn có chắc chắn muốn tạo những mã mới không?",
+      "generateNewCodes": "Tạo mã mới",
+      "disableAuthWarning": "Bạn có chắc chắn muốn tắt ứng dụng xác thực không? Điều này sẽ loại bỏ nó khỏi tài khoản của bạn và bạn sẽ cần phải thiết lập nó lại nếu bạn muốn sử dụng nó trong tương lai.",
+      "disableAuthenticator": "Tắt ứng dụng xác thực",
+      "addPasskeyTitle": "Thêm passkey",
+      "addPasskeyDescription": "Đăng ký một passkey mới (khóa bảo mật, dấu vân tay hoặc thiết bị) để xác thực hai yếu tố.",
+      "passkeyName": "Tên passkey",
+      "passkeyNamePlaceholder": "ví dụ: YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn không được hỗ trợ trong trình duyệt này. Vui lòng sử dụng trình duyệt hiện đại.",
+      "webauthnUnsupportedBrowsers": "WebAuthn không được hỗ trợ trong trình duyệt này. Vui lòng sử dụng trình duyệt hiện đại như Chrome, Firefox, Safari hoặc Edge.",
+      "registering": "Đang đăng ký...",
+      "registerPasskey": "Đăng ký passkey",
+      "renamePasskeyTitle": "Đổi tên passkey",
+      "saving": "Đang lưu...",
+      "save": "Lưu",
+      "deletePasskeyTitle": "Xóa passkey",
+      "deletePasskeyConfirm": "Bạn có chắc chắn muốn xóa passkey \"{{name}}\" không? Hành động này không thể được hoàn tác.",
+      "deleting": "Đang xóa...",
+      "delete": "Xóa",
+      "setupPasskeyTitle": "Thiết lập passkey cho 2FA",
+      "setupPasskeyDescription": "Đăng ký một passkey để bật xác thực đa yếu tố. Sử dụng khóa bảo mật, dấu vân tay, nhận dạng khuôn mặt hoặc PIN thiết bị.",
+      "registerAndEnable": "Đăng ký & Bật 2FA"
+    },
+    "messages": {
+      "loadFailed": "Không tải được cài đặt 2FA",
+      "disabled": "2FA được tắt thành công",
+      "passkeyBrowserRequired": "Xác thực passkey là bắt buộc nhưng trình duyệt của bạn không hỗ trợ WebAuthn. Vui lòng sử dụng trình duyệt hiện đại như Chrome, Firefox, Safari hoặc Edge để bật 2FA.",
+      "enabledEmail": "2FA được bật với xác thực email",
+      "noMethods": "Không có phương pháp 2FA nào có sẵn. Vui lòng liên hệ với quản trị viên của bạn.",
+      "toggleFailed": "Không bật/tắt được 2FA",
+      "passkeyNameRequired": "Vui lòng nhập một tên cho passkey",
+      "passkeyRegisteredSaveCodes": "Passkey được đăng ký thành công! Vui lòng lưu mã dự phòng của bạn.",
+      "passkeyRegisteredNoCodes": "Passkey được đăng ký thành công. Bạn có thể tạo mã dự phòng từ cài đặt 2FA.",
+      "authenticatorSetupFailed": "Không thiết lập được ứng dụng xác thực",
+      "authenticatorSetup": "Ứng dụng xác thực đã được thiết lập thành công",
+      "verifyFailed": "Không xác minh được mã",
+      "backupCodesGenerated": "Các mã dự phòng mới đã được tạo",
+      "backupCodesFailed": "Không tạo được mã dự phòng",
+      "preferredUpdated": "Phương pháp 2FA được ưa thích được cập nhật thành công",
+      "preferredFailed": "Không cập nhật được phương pháp 2FA được ưa thích",
+      "disableAuthFailed": "Không tắt được ứng dụng xác thực",
+      "authenticatorDisabled": "Ứng dụng xác thực đã được tắt thành công",
+      "newBackupCodesFailed": "Không tạo được mã dự phòng mới",
+      "newBackupCodesGenerated": "Các mã dự phòng mới đã được tạo thành công",
+      "invalidResponse": "Định dạng phản hồi không hợp lệ từ máy chủ",
+      "passkeyRegistered": "Passkey được đăng ký thành công",
+      "passkeyDeleted": "Passkey được xóa thành công",
+      "passkeyDeleteFailed": "Không xóa được passkey",
+      "passkeyRenamed": "Passkey được đổi tên thành công",
+      "passkeyRenameFailed": "Không đổi tên được passkey"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Tài khoản được liên kết",
+    "noAccounts": "Không có tài khoản được liên kết",
+    "link": "Liên kết tài khoản",
+    "unlink": "Hủy liên kết",
+    "description": "Các nhà cung cấp xác thực bên ngoài được liên kết với tài khoản của bạn",
+    "noAccountsMessage": "Không có tài khoản bên ngoài nào được liên kết với hồ sơ của bạn. Bạn có thể liên kết tài khoản bằng cách đăng nhập thông qua nhà cung cấp SSO.",
+    "emailLabel": "Email: {{email}}",
+    "usernameLabel": "Tên người dùng: {{username}}",
+    "lastLoginLinked": "Đăng nhập lần cuối: {{lastLogin}} | Liên kết: {{linked}}",
+    "unlinkTooltip": "Hủy liên kết tài khoản",
+    "errors": {
+      "loadFailed": "Không thể tải tài khoản được liên kết",
+      "unlinkFailed": "Không thể hủy liên kết tài khoản"
+    },
+    "unlinkDialog": {
+      "title": "Hủy liên kết tài khoản",
+      "warning": "Bạn sẽ không thể đăng nhập bằng nhà cung cấp này nữa.",
+      "confirmation": "Bạn có chắc chắn muốn hủy liên kết tài khoản {{provider}} của bạn không?"
+    }
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "emailNotifications": "Thông báo qua Email",
+    "jobCompleted": "Công việc hoàn thành",
+    "agentOffline": "Agent ngoại tuyến",
+    "securityAlerts": "Cảnh báo bảo mật"
+  },
+  "preferences": {
+    "title": "Tùy chọn",
+    "language": "Ngôn ngữ",
+    "timezone": "Múi giờ",
+    "dateFormat": "Định dạng ngày tháng",
+    "theme": "Giao diện",
+    "themes": {
+      "light": "Sáng",
+      "dark": "Tối",
+      "system": "Hệ thống"
+    },
+    "languageHelper": "Chỉ áp dụng cho trình duyệt này.",
+    "themeHelper": "Hệ thống sẽ áp dụng theo cài đặt hệ điều hành của bạn."
+  },
+  "errors": {
+    "updateFailed": "Không thể cập nhật cài đặt",
+    "passwordMismatch": "Mật khẩu không khớp",
+    "invalidPassword": "Mật khẩu hiện tại không hợp lệ"
+  },
+  "nav": {
+    "description": "Tài khoản, bảo mật và tùy chọn của bạn.",
+    "groupAccount": "Tài khoản",
+    "profile": "Hồ sơ",
+    "profileDesc": "Địa chỉ email, ngôn ngữ và giao diện.",
+    "security": "Bảo mật",
+    "securityDesc": "Mật khẩu, xác thực hai yếu tố, tài khoản được liên kết và chứng chỉ số CA.",
+    "notifications": "Thông báo",
+    "notificationsDesc": "Những sự kiện nào đến với bạn và bằng cách nào.",
+    "api": "Khóa API",
+    "apiDesc": "Khóa cá nhân cho HTTP API.",
+    "charsets": "Charset đã lưu",
+    "charsetsDesc": "Charset tùy chỉnh cho tấn công mask."
+  },
+  "savedCharsets": {
+    "title": "Charset đã lưu",
+    "description": "Quản lý charset tùy chỉnh cá nhân của bạn để sử dụng trong tấn công dựa trên mask. Hỗ trợ định nghĩa nội tuyến và tệp charset .hcchr nhị phân.",
+    "createCharset": "Tạo Charset",
+    "sections": {
+      "mine": "Charset của tôi",
+      "team": "Charset nhóm",
+      "global": "Charset toàn cầu",
+      "globalSubtitle": "Các charset này được quản lý bởi quản trị viên và có sẵn cho mọi người."
+    },
+    "columns": {
+      "name": "Tên",
+      "team": "Nhóm",
+      "definition": "Định nghĩa / Thông tin",
+      "description": "Mô tả",
+      "created": "Tạo lúc"
+    },
+    "typeLabels": {
+      "file": "Tệp",
+      "hex": "Hex"
+    },
+    "uniqueBytes_other": "{{count}} byte duy nhất",
+    "hexBytes_other": "{{count}} byte",
+    "rowActions": {
+      "edit": "Chỉnh sửa",
+      "delete": "Xóa"
+    },
+    "empty": "Không có charset nào trong danh mục này.",
+    "dialogs": {
+      "create": {
+        "title": "Tạo Charset cá nhân"
+      },
+      "edit": {
+        "title": "Chỉnh sửa Charset"
+      },
+      "delete": {
+        "title": "Xóa charset",
+        "confirmation": "Bạn có chắc chắn muốn xóa charset \"{{name}}\" không?"
+      },
+      "modeToggle": {
+        "inline": "Định nghĩa nội tuyến",
+        "file": "Tải lên tệp (.hcchr)"
+      },
+      "fields": {
+        "name": "Tên",
+        "namePlaceholder": "Ví dụ: DES Full Charset",
+        "definition": "Định nghĩa",
+        "definitionPlaceholderHex": "Ví dụ: 41424344 (cặp byte hex)",
+        "definitionPlaceholderPlain": "Ví dụ: ?u?d hoặc abcdef0123456789",
+        "definitionHelperHex": "Cặp byte hex — mỗi cặp = một byte charset. {{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}} byte",
+        "definitionHelperPlain": "Định nghĩa charset Hashcat. Sử dụng ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H hoặc ký tự thực.",
+        "hexTooltip": "Khi bật, định nghĩa được diễn giải dưới dạng cặp byte hex (ví dụ: 41424344 = byte A, B, C, D). Các công việc sử dụng charset này sẽ tự động chèn --hex-charset.",
+        "hexLabel": "Định nghĩa được mã hóa Hex",
+        "selectFile": "Chọn tệp .hcchr",
+        "fileSizeBytes_other": "{{count}} byte",
+        "fileHelperText": "Tệp charset nhị phân chứa các giá trị byte thô (tối đa 1023 byte, tối đa 256 byte duy nhất).",
+        "fileCharsetInfo_other": "Charset tệp: {{count}} byte duy nhất. Chỉ có thể chỉnh sửa tên và mô tả.",
+        "description": "Mô tả",
+        "descriptionPlaceholder": "Mô tả tùy chọn về mục đích sử dụng charset này"
+      },
+      "update": "Cập nhật",
+      "upload": "Tải lên"
+    },
+    "messages": {
+      "createSuccess": "Charset được tạo thành công",
+      "uploadSuccess": "Charset tệp được tải lên thành công",
+      "updateSuccess": "Charset được cập nhật thành công",
+      "deleteSuccess": "Charset được xóa thành công"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Chỉ cho phép tệp .hcchr",
+      "fileTooLarge": "Tệp quá lớn (tối đa 1023 byte — giới hạn bộ đệm đọc hashcat)",
+      "nameRequired": "Tên là bắt buộc",
+      "definitionRequired": "Định nghĩa là bắt buộc",
+      "selectFile": "Vui lòng chọn tệp .hcchr",
+      "deleteFailed": "Không thể xóa charset: {{message}}",
+      "globalDeleteForbidden": "Các charset toàn cầu chỉ có thể được xóa bởi quản trị viên trong bảng điều khiển quản trị"
+    }
+  }
+}

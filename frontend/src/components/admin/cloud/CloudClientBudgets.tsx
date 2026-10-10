@@ -14,13 +14,6 @@ import {
   DialogTitle,
   FormControlLabel,
   LinearProgress,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -38,7 +31,8 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSnackbar } from 'notistack';
+import type { GridColDef } from '@mui/x-data-grid';
+import { DataTable, EntityLink, useToast, StatusChip } from '../../ui';
 import { useTranslation } from 'react-i18next';
 import MoneyField from './MoneyField';
 import {
@@ -126,7 +120,7 @@ const BudgetBar: React.FC<{ clientId: string }> = ({ clientId }) => {
 const CloudClientBudgets: React.FC = () => {
   const { t } = useTranslation('admin');
   const queryClient = useQueryClient();
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
 
   const [editing, setEditing] = useState<ClientCloudSettings | null>(null);
   const [budgetDollars, setBudgetDollars] = useState('');
@@ -198,7 +192,7 @@ const CloudClientBudgets: React.FC = () => {
   const defaultsMutation = useMutation({
     mutationFn: updateClientCloudDefaults,
     onSuccess: (saved) => {
-      enqueueSnackbar(t('cloud.budgets.defaults.saved') as string, { variant: 'success' });
+      toast.success(t('cloud.budgets.defaults.saved') as string);
       setDefaultsForm(saved);
       // Every inheriting client's effective values just changed.
       queryClient.invalidateQueries({ queryKey: ['cloudClientSettings'] });
@@ -206,9 +200,7 @@ const CloudClientBudgets: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['cloudClientDefaults'] });
     },
     onError: (err: any) =>
-      enqueueSnackbar(apiError(err, t('cloud.budgets.defaults.saveFailed') as string), {
-        variant: 'error',
-      }),
+      toast.error(apiError(err, t('cloud.budgets.defaults.saveFailed') as string)),
   });
 
   useEffect(() => {
@@ -225,7 +217,7 @@ const CloudClientBudgets: React.FC = () => {
     mutationFn: ({ clientId, input }: { clientId: string; input: ClientCloudSettingsInput }) =>
       updateClientCloudSettings(clientId, input),
     onSuccess: () => {
-      enqueueSnackbar(t('cloud.budgets.saved') as string, { variant: 'success' });
+      toast.success(t('cloud.budgets.saved') as string);
       queryClient.invalidateQueries({ queryKey: ['cloudClientSettings'] });
       queryClient.invalidateQueries({ queryKey: ['cloudClientBudget'] });
       setEditing(null);
@@ -237,7 +229,7 @@ const CloudClientBudgets: React.FC = () => {
     mutationFn: ({ clientId, provider }: { clientId: string; provider: CloudProviderKind }) =>
       acknowledgeClientProvider(clientId, provider),
     onSuccess: (_data, variables) => {
-      enqueueSnackbar(t('cloud.budgets.acknowledged') as string, { variant: 'success' });
+      toast.success(t('cloud.budgets.acknowledged') as string);
       queryClient.invalidateQueries({ queryKey: ['cloudClientSettings'] });
       // Reflect the acknowledgement in the open dialog without a refetch race.
       setEditing((prev) =>
@@ -334,6 +326,76 @@ const CloudClientBudgets: React.FC = () => {
       },
     });
   };
+
+  const columns: GridColDef<ClientCloudSettings>[] = [
+    {
+      field: 'client_name',
+      headerName: t('cloud.budgets.columns.client') as string,
+      flex: 1,
+      minWidth: 160,
+      renderCell: (p) => <EntityLink type="client" id={p.row.client_id} label={p.row.client_name} />,
+    },
+    {
+      field: 'cloud_enabled',
+      headerName: t('cloud.budgets.columns.status') as string,
+      width: 120,
+      renderCell: (p) => (
+        <StatusChip
+          entity="generic"
+          status={p.row.cloud_enabled ? 'enabled' : 'disabled'}
+          label={p.row.cloud_enabled ? (t('cloud.budgets.enabled') as string) : (t('cloud.budgets.disabled') as string)}
+        />
+      ),
+    },
+    {
+      field: 'cloud_provider_allowlist',
+      headerName: t('cloud.budgets.columns.providers') as string,
+      flex: 1.2,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (p) =>
+        p.row.cloud_provider_allowlist.length === 0 ? (
+          <Typography variant="caption" color="text.secondary">
+            {t('cloud.budgets.noProviders') as string}
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, py: 0.5 }}>
+            {p.row.cloud_provider_allowlist.map((provider) => (
+              <Chip
+                key={provider}
+                size="small"
+                color={requiresThirdPartyAck(provider as CloudProviderKind) ? 'warning' : 'default'}
+                icon={requiresThirdPartyAck(provider as CloudProviderKind) ? <WarningIcon /> : undefined}
+                label={cloudProviderLabel(provider as CloudProviderKind)}
+              />
+            ))}
+          </Box>
+        ),
+    },
+    {
+      field: 'spend',
+      headerName: t('cloud.budgets.columns.spend') as string,
+      flex: 1.2,
+      minWidth: 220,
+      sortable: false,
+      renderCell: (p) => (
+        <Box sx={{ py: 1 }}>
+          <BudgetBar clientId={p.row.client_id} />
+        </Box>
+      ),
+    },
+    {
+      field: 'max_instance_ttl_minutes',
+      headerName: t('cloud.budgets.columns.ttl') as string,
+      width: 110,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (p) =>
+        p.row.max_instance_ttl_minutes
+          ? (t('cloud.budgets.ttlValue', { minutes: p.row.max_instance_ttl_minutes }) as string)
+          : '—',
+    },
+  ];
 
   return (
     <Box>
@@ -538,83 +600,24 @@ const CloudClientBudgets: React.FC = () => {
         </AccordionDetails>
       </Accordion>
 
-      {isLoading ? (
-        <CircularProgress />
-      ) : (clients ?? []).length === 0 ? (
-        <Alert severity="info">{t('cloud.budgets.empty') as string}</Alert>
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('cloud.budgets.columns.client') as string}</TableCell>
-                <TableCell>{t('cloud.budgets.columns.status') as string}</TableCell>
-                <TableCell>{t('cloud.budgets.columns.providers') as string}</TableCell>
-                <TableCell>{t('cloud.budgets.columns.spend') as string}</TableCell>
-                <TableCell align="right">{t('cloud.budgets.columns.ttl') as string}</TableCell>
-                <TableCell align="right">{t('cloud.budgets.columns.actions') as string}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(clients ?? []).map((client) => (
-                <TableRow key={client.client_id}>
-                  <TableCell>{client.client_name}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      color={client.cloud_enabled ? 'success' : 'default'}
-                      label={
-                        client.cloud_enabled
-                          ? (t('cloud.budgets.enabled') as string)
-                          : (t('cloud.budgets.disabled') as string)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {client.cloud_provider_allowlist.length === 0 ? (
-                      <Typography variant="caption" color="text.secondary">
-                        {t('cloud.budgets.noProviders') as string}
-                      </Typography>
-                    ) : (
-                      client.cloud_provider_allowlist.map((provider) => (
-                        <Chip
-                          key={provider}
-                          size="small"
-                          sx={{ mr: 0.5 }}
-                          color={
-                            requiresThirdPartyAck(provider as CloudProviderKind)
-                              ? 'warning'
-                              : 'default'
-                          }
-                          icon={
-                            requiresThirdPartyAck(provider as CloudProviderKind) ? (
-                              <WarningIcon />
-                            ) : undefined
-                          }
-                          label={cloudProviderLabel(provider as CloudProviderKind)}
-                        />
-                      ))
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <BudgetBar clientId={client.client_id} />
-                  </TableCell>
-                  <TableCell align="right">
-                    {client.max_instance_ttl_minutes
-                      ? (t('cloud.budgets.ttlValue', { minutes: client.max_instance_ttl_minutes }) as string)
-                      : '—'}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button size="small" startIcon={<EditIcon />} onClick={() => setEditing(client)}>
-                      {t('cloud.budgets.edit') as string}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <DataTable<ClientCloudSettings>
+        rows={clients ?? []}
+        columns={columns}
+        getRowId={(r) => r.client_id}
+        loading={isLoading}
+        pagination={{ mode: 'client', initialPageSize: 25 }}
+        sorting={{ mode: 'client', initial: [{ field: 'client_name', sort: 'asc' }] }}
+        rowActions={() => [
+          {
+            key: 'edit',
+            label: t('cloud.budgets.edit') as string,
+            icon: <EditIcon fontSize="small" />,
+            onClick: (r) => setEditing(r),
+          },
+        ]}
+        emptyState={{ title: t('cloud.budgets.empty') as string }}
+        tableKey="cloud-client-budgets"
+      />
 
       <Dialog open={Boolean(editing)} onClose={() => setEditing(null)} maxWidth="sm" fullWidth>
         <DialogTitle>

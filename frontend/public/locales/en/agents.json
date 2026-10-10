@@ -43,7 +43,8 @@
     "type": "Type",
     "name": "Name",
     "runtime": "Runtime",
-    "specs": "Specs"
+    "specs": "Specs",
+    "defaultDeviceType": "GPU"
   },
   "actions": {
     "viewDetails": "View Details",
@@ -51,7 +52,8 @@
     "restart": "Restart",
     "deactivateVoucher": "Deactivate Voucher",
     "removeAgent": "Remove Agent",
-    "clearBusyStatus": "Clear Busy Status"
+    "clearBusyStatus": "Clear Busy Status",
+    "retry": "Retry"
   },
   "vouchers": {
     "title": "Vouchers",
@@ -63,7 +65,15 @@
     "available": "Available",
     "claimed": "Claimed",
     "continuous": "Continuous",
-    "singleUse": "Single Use"
+    "singleUse": "Single Use",
+    "pageTitle": "Voucher Management",
+    "pageDescription": "Claim codes agents use to register with this server.",
+    "generate": "Generate Voucher",
+    "includeInactive": "Include inactive",
+    "active": "Active",
+    "inactive": "Inactive",
+    "systemLabel": "System",
+    "manage": "Manage vouchers"
   },
   "downloads": {
     "expectedVersion": "Expected: v{{version}}"
@@ -170,7 +180,8 @@
       "continuousLabel": "Continuous (code can be reused)",
       "claimCodeLabel": "Your Claim Code:",
       "continuousDescription": "This code can be used multiple times to register agents.",
-      "singleUseDescription": "This code can only be used once."
+      "singleUseDescription": "This code can only be used once.",
+      "systemLabel": "System agent (serves all teams)"
     },
     "clearStatus": {
       "title": "Clear Busy Status",
@@ -213,7 +224,9 @@
     "owner": "Owner",
     "machineName": "Machine Name",
     "operatingSystem": "Operating System",
-    "agentVersion": "Agent Version"
+    "agentVersion": "Agent Version",
+    "systemOwner": "System",
+    "registeredBy": "Registered by {{name}}"
   },
   "common": {
     "unknown": "Unknown",
@@ -245,7 +258,10 @@
     "temperature": "Temperature",
     "utilization": "Utilization",
     "fanSpeed": "Fan Speed",
-    "hashRate": "Hash Rate"
+    "hashRate": "Hash Rate",
+    "noDataAvailable": "No data available",
+    "deviceFallback": "Device {{id}}",
+    "allDevices": "All Devices"
   },
   "placeholders": {
     "enterHashcatParameters": "Enter hashcat parameters..."
@@ -291,6 +307,58 @@
       "24Hours": "24 Hours",
       "24HoursDesc1": "All Days: 00:00 - 23:59",
       "24HoursDesc2": "Agent runs continuously"
+    }
+  },
+  "diagReasons": {
+    "noCompatibleJob": "No compatible job",
+    "blocklisted": "Benchmark blocklisted",
+    "benchmarking": "Running a benchmark",
+    "outsideSchedule": "Outside scheduled hours",
+    "agentDisabled": "Agent disabled",
+    "shuttingDown": "Shutting down",
+    "rejectionCooldown": "Task-rejection cooldown",
+    "noSchedulableWork": "No jobs have work to dispatch",
+    "atCapacity": "Compatible jobs at capacity"
+  },
+  "activity": {
+    "currentWork": "Current Work",
+    "job": "Job",
+    "taskStatus": "Task status",
+    "jobProgress": "Job progress",
+    "taskProgress": "Task progress",
+    "keyspaceRange": "Keyspace range",
+    "started": "Started",
+    "lastCheckpoint": "Last checkpoint",
+    "whyNotWorking": "Why this agent isn't working",
+    "recentFailuresAlert_one": "Recent task is failing ({{count}} in the last few minutes)",
+    "recentFailuresAlert_other": "Recent tasks are failing ({{count}} in the last few minutes)",
+    "lastFailedJob": "Last failed job:",
+    "lastFailureTime": "last failure {{time}}",
+    "lastSeenTime": "last seen {{time}}",
+    "occurrencesSuffix_one": " · {{countDisplay}} occurrence",
+    "occurrencesSuffix_other": " · {{countDisplay}} occurrences",
+    "idleNoDiagnostics": "This agent is idle. No scheduling diagnostics in the last few minutes — it may be offline, disabled, or simply waiting for work."
+  },
+  "storage": {
+    "title": "Storage tier",
+    "tiers": {
+      "fullCache": "Full cache — keep all lists",
+      "onDemand": "On demand — download + LRU evict",
+      "networkDirect": "Network direct — read from mounted share"
+    },
+    "helperText": {
+      "fullCache": "Downloads and keeps all wordlists/rules locally (fastest to start).",
+      "onDemand": "Downloads per task over HTTP and evicts least-recently-used lists under disk pressure.",
+      "networkDirect": "Reads wordlists/rules directly from a network share mounted on this agent host (no local copy)."
+    },
+    "mountPathLabel": "Network share mount path (read-only, on the agent host)",
+    "mountPathHelper": "The operator mounts the share here on this agent's host; the agent only reads from it. Credentials are entered by the operator, never sent by the server.",
+    "messages": {
+      "enterMountPathHint": "Enter the read-only mount path on this agent host, then it saves automatically.",
+      "tierUpdated": "Storage tier updated",
+      "tierUpdateFailed": "Failed to update storage tier",
+      "mountPathUpdated": "Mount path updated",
+      "mountPathUpdateFailed": "Failed to update mount path"
     }
   }
 }

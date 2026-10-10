@@ -3,18 +3,10 @@
  */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Paper,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-} from '@mui/material';
+import { Paper, Typography } from '@mui/material';
 import { MaskStats } from '../../types/analytics';
-import { threeColumnTableStyles } from './tableStyles';
+import { SimpleTable } from '../ui';
+import { CountPctRow, countPctColumns } from './tableStyles';
 
 interface MaskAnalysisSectionProps {
   data: MaskStats;
@@ -23,15 +15,18 @@ interface MaskAnalysisSectionProps {
 export default function MaskAnalysisSection({ data }: MaskAnalysisSectionProps) {
   const { t } = useTranslation('analytics');
 
-  // Filter and sort masks by count
-  const topMasks = useMemo(() => {
-    return data.top_masks
-      .filter(mask => mask.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 20); // Show top 20 masks
-  }, [data.top_masks]);
+  // Filter and sort masks by count; show the top 20
+  const rows = useMemo<CountPctRow[]>(
+    () =>
+      data.top_masks
+        .filter((mask) => mask.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20)
+        .map((mask, i) => ({ key: `${mask.mask}-${i}`, label: mask.mask, count: mask.count, percentage: mask.percentage })),
+    [data.top_masks],
+  );
 
-  if (topMasks.length === 0) {
+  if (rows.length === 0) {
     return null;
   }
 
@@ -44,26 +39,11 @@ export default function MaskAnalysisSection({ data }: MaskAnalysisSectionProps) 
         {t('descriptions.maskFormat')}
       </Typography>
 
-      <TableContainer>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.maskPattern')}</TableCell>
-              <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
-              <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {topMasks.map((mask, index) => (
-              <TableRow key={index}>
-                <TableCell sx={{ ...threeColumnTableStyles.labelCell, fontFamily: 'monospace' }}>{mask.mask}</TableCell>
-                <TableCell sx={threeColumnTableStyles.countCell}>{mask.count.toLocaleString()}</TableCell>
-                <TableCell sx={threeColumnTableStyles.percentageCell}>{mask.percentage.toFixed(2)}%</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <SimpleTable
+        rows={rows}
+        getRowKey={(r) => r.key}
+        columns={countPctColumns(t('columns.maskPattern'), t('columns.count'), t('columns.percentage'), { mono: true })}
+      />
     </Paper>
   );
 }

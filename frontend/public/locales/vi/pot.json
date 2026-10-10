@@ -1,0 +1,95 @@
+{
+  "title": "Hash đã bẻ khóa",
+  "page": {
+    "title": "Hash đã bẻ khóa (Pot)",
+    "description": "Xem tất cả các hash mật khẩu đã bẻ khóa thành công trên tất cả danh sách hash và khách hàng.",
+    "filterByHashlist": "Nhảy đến danh sách hash",
+    "hashlistPlaceholder": "Chọn một danh sách hash..."
+  },
+  "table": {
+    "allCrackedHashes": "Tất cả hash đã bẻ khóa"
+  },
+  "navigation": {
+    "backToAll": "Quay lại tất cả hash đã bẻ khóa",
+    "backToSource": "Quay lại"
+  },
+  "client": {
+    "title": "Hash đã bẻ khóa - chế độ xem khách hàng",
+    "description": "Xem hash đã bẻ khóa cho khách hàng: {{clientName}}",
+    "tableTitle": "Hash đã bẻ khóa cho \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Hash đã bẻ khóa - chế độ xem danh sách hash",
+    "description": "Xem hash đã bẻ khóa cho danh sách hash: {{hashlistName}}",
+    "tableTitle": "Hash đã bẻ khóa cho \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Hash đã bẻ khóa cho công việc: {{jobName}}",
+    "description": "Xem tất cả các hash mật khẩu đã bẻ khóa thành công từ quá trình thực hiện công việc này.",
+    "tableTitle": "Hash đã bẻ khóa - {{jobName}}",
+    "defaultName": "Công việc {{id}}"
+  },
+  "columns": {
+    "originalHash": "Hash gốc",
+    "domain": "Domain",
+    "username": "Tên người dùng",
+    "password": "Mật khẩu",
+    "hashType": "Loại hash",
+    "actions": "Thao tác"
+  },
+  "search": {
+    "placeholder": "Tìm kiếm cơ sở dữ liệu...",
+    "filterPlaceholder": "Lọc trang này...",
+    "button": "Tìm kiếm",
+    "resultsFound_other": "Tìm thấy {{count}} kết quả",
+    "noResults": "Không tìm thấy kết quả nào",
+    "searching": "Đang tìm kiếm..."
+  },
+  "export": {
+    "hashPass": "Hash:Pass",
+    "userPass": "User:Pass",
+    "username": "Tên người dùng",
+    "password": "Mật khẩu",
+    "domainUser": "Domain\\User",
+    "domainUserPass": "Domain\\User:Pass",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "Xuất kết quả hiển thị",
+    "downloaded": "Đã tải xuống {{filename}}",
+    "downloadFailed": "Không tải xuống được tệp"
+  },
+  "tooltips": {
+    "copyHash": "Sao chép hash:mật khẩu",
+    "copyDomain": "Nhấp để sao chép domain",
+    "copyUsername": "Nhấp để sao chép tên người dùng",
+    "copyPassword": "Nhấp để sao chép mật khẩu"
+  },
+  "dialogs": {
+    "loadAllTitle": "Tải tất cả kết quả?",
+    "loadAllMessage": "Tải tất cả {{value}} kết quả có thể mất một khoảng thời gian đáng kể và có thể ảnh hưởng đến hiệu suất. Bạn có chắc chắn muốn tiếp tục không?",
+    "loadingAll": "Đang tải tất cả kết quả. Điều này có thể mất một chút thời gian...",
+    "cancel": "Hủy",
+    "loadAll": "Tải tất cả"
+  },
+  "pagination": {
+    "all": "Tất cả"
+  },
+  "notifications": {
+    "copiedToClipboard": "Đã sao chép vào bộ nhớ tạm",
+    "exported": "Đã xuất hash đã bẻ khóa"
+  },
+  "errors": {
+    "loadFailed": "Không tải được hash đã bẻ khóa",
+    "loadClientFailed": "Không tải được thông tin khách hàng",
+    "loadHashlistFailed": "Không tải được thông tin danh sách hash",
+    "loadJobFailed": "Không tải được thông tin công việc"
+  },
+  "filter": {
+    "filteredBy": "Được lọc theo {{param}}: {{value}}"
+  },
+  "breadcrumb": "Hash đã bẻ khóa",
+  "sourceLabel": {
+    "job": "Công việc",
+    "client": "Khách hàng",
+    "hashlist": "Danh sách hash"
+  }
+}

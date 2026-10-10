@@ -1,0 +1,3097 @@
+{
+  "title": "管理設定",
+  "sections": {
+    "general": "一般設定",
+    "authentication": "認証",
+    "email": "メール設定",
+    "security": "セキュリティ",
+    "sso": "シングルサインオン",
+    "monitoring": "監視"
+  },
+  "tabs": {
+    "emailSettings": "メール設定",
+    "authenticationSettings": "認証設定",
+    "ssoSettings": "SSO設定",
+    "binaryManagement": "バイナリ管理",
+    "systemSettings": "システム設定",
+    "clientSettings": "クライアント設定",
+    "hashTypes": "ハッシュタイプ",
+    "jobExecution": "ジョブ実行",
+    "monitoring": "監視",
+    "agentDownloads": "エージェントダウンロード",
+    "notifications": "通知",
+    "cloudProvisioning": "クラウドプロビジョニング",
+    "serverCertificate": "サーバー証明書"
+  },
+  "common": {
+    "cancel": "キャンセル",
+    "create": "作成",
+    "edit": "編集",
+    "delete": "削除",
+    "save": "保存",
+    "saveChanges": "変更を保存",
+    "copyToClipboard": "クリップボードにコピー",
+    "never": "なし",
+    "invalidDate": "無効な日付です",
+    "all": "すべて",
+    "yes": "はい",
+    "no": "いいえ",
+    "note": "注記",
+    "default": "デフォルト",
+    "on": "オン",
+    "off": "オフ",
+    "none": "なし",
+    "unlimited": "無制限",
+    "close": "閉じる",
+    "unknownError": "不明なエラーが発生しました",
+    "dialogs": {
+      "confirmDeleteNamed": "「{{name}}」を削除してもよろしいですか？"
+    },
+    "download": "ダウンロード",
+    "confirm": "確認"
+  },
+  "users": {
+    "title": "ユーザー管理",
+    "description": "ユーザーアカウントと権限を管理します",
+    "addUser": "ユーザーを追加",
+    "createUser": "ユーザーを作成",
+    "columns": {
+      "username": "ユーザー名",
+      "email": "メール",
+      "role": "ロール",
+      "status": "ステータス",
+      "createdAt": "作成日時",
+      "lastLogin": "最後のログイン",
+      "actions": "操作",
+      "provider": "プロバイダー",
+      "providerLocal": "ローカル",
+      "mfa": "多要素認証",
+      "apiKey": "APIキー",
+      "lastApiUse": "最後のAPI使用"
+    },
+    "roles": {
+      "admin": "管理者",
+      "user": "ユーザー",
+      "system": "システム"
+    },
+    "status": {
+      "active": "アクティブ",
+      "pending": "承認待ち",
+      "disabled": "無効",
+      "locked": "ロック済み"
+    },
+    "actions": {
+      "edit": "ユーザーを編集",
+      "delete": "ユーザーを削除",
+      "approve": "承認",
+      "disable": "無効化",
+      "enable": "有効化",
+      "unlock": "ロック解除",
+      "resetPassword": "パスワードをリセット",
+      "disableMfa": "多要素認証を無効化",
+      "revokeApiKey": "APIキーを無効化",
+      "cannotDeleteSystem": "システムユーザーは削除できません",
+      "terminateSession": "セッションを終了",
+      "terminateAllSessions": "すべてのセッションを終了"
+    },
+    "apiKey": {
+      "none": "なし"
+    },
+    "validation": {
+      "usernameRequired": "ユーザー名は必須です",
+      "emailRequired": "メールは必須です",
+      "emailInvalid": "無効なメール形式です",
+      "passwordRequired": "パスワードは必須です",
+      "passwordMinLength": "少なくとも{{value}}文字",
+      "passwordUppercase": "1つの大文字",
+      "passwordLowercase": "1つの小文字",
+      "passwordNumber": "1つの数字",
+      "passwordSpecial": "1つの特殊文字",
+      "passwordMustContain": "パスワードは{{requirements}}を含む必要があります",
+      "confirmPasswordRequired": "パスワードを確認してください",
+      "passwordsMismatch": "パスワードが一致しません"
+    },
+    "errors": {
+      "loadFailed": "ユーザーの読み込みに失敗しました。ページを更新してみてください。",
+      "loadDetailsFailed": "ユーザー詳細の読み込みに失敗しました",
+      "loadSessionsFailed": "セッションの読み込みに失敗しました",
+      "loadLoginAttemptsFailed": "ログイン試行の読み込みに失敗しました",
+      "loadApiKeyFailed": "APIキー情報の読み込みに失敗しました",
+      "createFailed": "ユーザーの作成に失敗しました",
+      "updateFailed": "ユーザーの更新に失敗しました",
+      "deleteFailed": "ユーザーの削除に失敗しました",
+      "enableFailed": "ユーザーの有効化に失敗しました",
+      "disableFailed": "ユーザーの無効化に失敗しました",
+      "unlockFailed": "アカウントのロック解除に失敗しました",
+      "reasonRequired": "このユーザーを無効化する理由を入力してください",
+      "passwordResetFailed": "パスワードのリセットに失敗しました",
+      "mfaDisableFailed": "多要素認証の無効化に失敗しました",
+      "accountStatusFailed": "アカウントステータスの更新に失敗しました",
+      "terminateSessionFailed": "セッションの終了に失敗しました",
+      "terminateAllSessionsFailed": "すべてのセッションの終了に失敗しました",
+      "revokeApiKeyFailed": "APIキーの無効化に失敗しました",
+      "userNotFound": "ユーザーが見つかりません"
+    },
+    "messages": {
+      "createSuccess": "ユーザーが正常に作成されました",
+      "updateSuccess": "ユーザー詳細が正常に更新されました",
+      "deleteSuccess": "ユーザーが正常に削除されました",
+      "enableSuccess": "ユーザーが正常に有効化されました",
+      "disableSuccess": "ユーザーが正常に無効化されました",
+      "passwordResetSuccess": "パスワードが正常にリセットされました！",
+      "passwordCopied": "パスワードがクリップボードにコピーされました",
+      "mfaDisableSuccess": "多要素認証が正常に無効化されました",
+      "accountDisabled": "ユーザーアカウントが無効化されました",
+      "accountEnabled": "ユーザーアカウントが有効化されました",
+      "accountUnlocked": "ユーザーアカウントのロックが解除されました",
+      "sessionTerminated": "セッションが正常に終了されました",
+      "allSessionsTerminated_other": "{{count}}個のセッションが正常に終了されました",
+      "apiKeyRevoked": "APIキーが正常に無効化されました"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "新しいユーザーを作成",
+        "password": "パスワード",
+        "confirmPassword": "パスワード確認",
+        "roleHelperText": "システムでのユーザーのロールを選択してください"
+      },
+      "disableUser": {
+        "title": "ユーザーアカウントを無効化",
+        "description": "このユーザーアカウントを無効化する理由を入力してください。この操作は監査目的でログに記録されます。",
+        "reasonLabel": "無効化の理由",
+        "reasonPlaceholder": "例: アカウント侵害、利用規約違反、ユーザーリクエストなど",
+        "disableAccount": "アカウントを無効化"
+      },
+      "deleteUser": {
+        "title": "ユーザーアカウントを削除",
+        "warning": "この操作は取り消せません。ユーザーはシステムから永久に削除されます。",
+        "confirmation": "ユーザー<strong>{{username}}</strong>を削除してもよろしいですか？",
+        "dataNote": "関連するすべてのデータは保持されますが、ユーザーはログインできなくなります。"
+      },
+      "resetPassword": {
+        "title": "ユーザーパスワードをリセット",
+        "generateTemporary": "一時パスワードを生成",
+        "newPassword": "新しいパスワード",
+        "passwordHelperText": "8文字以上である必要があります"
+      },
+      "disableMfa": {
+        "title": "多要素認証を無効化",
+        "confirmation": "このユーザーの多要素認証を無効化してもよろしいですか？必要に応じて再度設定する必要があります。"
+      },
+      "terminateSession": {
+        "title": "セッションを終了しますか？",
+        "description": "ユーザーはこのデバイスからログアウトされます。アプリケーションを使い続けるには再度ログインする必要があります。",
+        "terminate": "終了"
+      },
+      "terminateAllSessions": {
+        "title": "すべてのセッションを終了しますか？",
+        "description": "ユーザーはすべてのデバイス（現在のセッションを含む）からログアウトされます。ユーザーは再度ログインする必要があります。この操作は取り消せません。",
+        "warning": "これはアクティブな作業セッションも含みます！",
+        "terminateAll": "すべて終了"
+      },
+      "revokeApiKey": {
+        "title": "ユーザーのAPIキーを無効化しますか？",
+        "warning": "このユーザーのAPIアクセスが直ちに無効化されます。このキーを使用しているアプリケーションは機能しなくなります。",
+        "confirmation": "このユーザーのAPIキーを無効化してもよろしいですか？"
+      }
+    },
+    "detail": {
+      "title": "ユーザー詳細",
+      "backToUsers": "ユーザー一覧に戻る",
+      "userInformation": "ユーザー情報",
+      "userId": "ユーザーID",
+      "systemUserReadOnly": "システムユーザーは変更できません",
+      "accountStatus": "アカウントステータス",
+      "accountStatusLabel": "アカウントステータス",
+      "enabled": "有効",
+      "disabled": "無効",
+      "noReasonProvided": "理由が指定されていません",
+      "lockStatus": "ロックステータス",
+      "lockedUntil": "{{date}}までロックされています",
+      "notLocked": "ロックされていません",
+      "mfaStatus": "多要素認証ステータス",
+      "mfaEnabled": "有効({{types}})",
+      "mfaDisabled": "無効",
+      "apiKeyManagement": "APIキー管理",
+      "apiKeyStatus": "APIキーステータス",
+      "noApiKeyGenerated": "APIキーが生成されていません",
+      "created": "作成日時",
+      "lastUsed": "最後に使用した日時",
+      "apiKeySecurityNote": "セキュリティ上の理由から、管理者はAPIキーを無効化できますが、プレーンテキストのキーは表示できません。",
+      "activityInformation": "アクティビティ情報",
+      "passwordChanged": "パスワード変更日時",
+      "failedLoginAttempts": "ログイン失敗試行",
+      "attemptsCount_other": "{{count}}回の試行",
+      "disabledAt": "無効化日時",
+      "activeSessions": "アクティブセッション",
+      "noActiveSessions": "アクティブなセッションはありません",
+      "loginHistory": "ログイン履歴",
+      "noLoginAttempts": "ログイン試行が見つかりません",
+      "temporaryPassword": "一時パスワード",
+      "sharePasswordSecurely": "このパスワードをユーザーと安全に共有してください。",
+      "sessions": {
+        "ipAddress": "IPアドレス",
+        "deviceBrowser": "デバイス/ブラウザ",
+        "lastActive": "最後のアクティビティ"
+      },
+      "loginAttempts": {
+        "timestamp": "タイムスタンプ",
+        "success": "成功",
+        "failed": "失敗",
+        "failureReason": "失敗原因"
+      },
+      "teams": "チーム",
+      "teamName": "チーム",
+      "teamDescription": "説明",
+      "noTeams": "どのチームのメンバーでもありません",
+      "ownedAgents": "所有エージェント",
+      "noOwnedAgents": "このユーザーは所有するエージェントがありません",
+      "agentName": "エージェント",
+      "agentVersion": "バージョン",
+      "agentLastSeen": "最後に確認された日時"
+    }
+  },
+  "clients": {
+    "title": "クライアント管理",
+    "addClient": "クライアント追加",
+    "columns": {
+      "name": "名前",
+      "description": "説明",
+      "contact": "連絡先",
+      "cracked": "クラック済み",
+      "retention": "保持期間（月）",
+      "createdAt": "作成日",
+      "actions": "アクション",
+      "wordlists": "ワードリスト"
+    },
+    "form": {
+      "clientName": "クライアント名",
+      "description": "説明",
+      "contactInfo": "連絡先情報",
+      "dataRetention": "データ保持期間（月）",
+      "dataRetentionHelperText": "空白にするとシステムデフォルトが使用されます。0を入力すると永遠に保持されます。",
+      "excludeFromPotfile": "potファイルから除外（クラック済みパスワードを保存しない）",
+      "excludeFromPotfileHelperText": "厳格なデータ保持要件を持つクライアント向けに有効化してください。",
+      "cloudInherit": "クラウドバースト: このクライアントはサーバーデフォルト — {{state}}、${{amount}} / {{period}} を継承します。クラウドプロビジョニング → クライアント予算で変更してください。",
+      "cloudInheritUnfunded": "クラウドバースト: デフォルト予算が設定されていないため、このクライアントは資金がなく、有料容量をレンタルできません。クラウドプロビジョニング → クライアント予算でデフォルトを設定してください。",
+      "cloudInheritUnknown": "クラウドバースト設定はクラウドプロビジョニング → クライアント予算のサーバーデフォルトから継承されます。",
+      "cloudEnabledWord": "有効",
+      "cloudDisabledWord": "無効",
+      "excludeFromClientPotfile": "クライアントpotファイルから除外",
+      "excludeFromClientPotfileHelperText": "チェックされている場合、このクライアントのクラック済みパスワードはクライアントpotファイルに追加されません。",
+      "clientPotfileSettings": "potファイル削除設定",
+      "useSystemDefault": "システムデフォルトを使用",
+      "alwaysRemove": "常に削除",
+      "neverRemove": "削除しない",
+      "assignToTeam": "チームに割り当て",
+      "assignToTeamHelperText": "新しいクライアントはこのチームに割り当てられます。既存クライアントの再割り当ては、管理者のチーム管理で管理されます。",
+      "removeFromGlobalPotfileOnDelete": "削除時にグローバルpotファイルから削除",
+      "removeFromGlobalPotfileHelperText": "ハッシュリストが削除されるときに、パスワードがグローバルpotファイルから削除されるかどうかを制御します。",
+      "removeFromClientPotfileOnDelete": "削除時にクライアントpotファイルから削除",
+      "removeFromClientPotfileHelperText": "ハッシュリストが削除されるときに、パスワードがクライアントpotファイルから削除されるかどうかを制御します。"
+    },
+    "validation": {
+      "nameRequired": "クライアント名は必須です。",
+      "retentionInvalid": "保持期間は非負の数値または空白（デフォルト用）である必要があります。",
+      "teamRequired": "チームが有効な場合、チーム選択は必須です。"
+    },
+    "errors": {
+      "loadFailed": "クライアントの読み込みに失敗しました。更新を試してください。",
+      "loadDefaultSettingsFailed": "デフォルトクライアント設定の読み込みに失敗しました。",
+      "saveFailed": "クライアントの保存に失敗しました。",
+      "deleteFailed": "クライアントの削除に失敗しました。"
+    },
+    "messages": {
+      "createSuccess": "クライアントが正常に作成されました。",
+      "updateSuccess": "クライアントが正常に更新されました。",
+      "deleteSuccess": "クライアントが正常に削除されました。"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "新しいクライアントを追加",
+        "createButton": "作成"
+      },
+      "editClient": {
+        "title": "クライアントを編集"
+      },
+      "deleteClient": {
+        "title": "削除を確認",
+        "confirmation": "クライアント「{{name}}」を削除してもよろしいですか？この操作は取り消せません。関連するハッシュリストは保持ポリシーに基づいてすぐに削除されるか、孤立させられます。"
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "名前",
+        "status": "ステータス",
+        "total": "ハッシュ",
+        "cracked": "クラック済み",
+        "created": "作成日"
+      },
+      "notFound": "クライアントが見つかりません。",
+      "notFoundHint": "削除されている可能性があります。または、メンバーではないチームに属している可能性があります。",
+      "backToClients": "クライアントに戻る",
+      "breadcrumb": "クライアント",
+      "manageWordlists": "ワードリスト・potファイル",
+      "stats": {
+        "hashlists": "ハッシュリスト",
+        "cracked": "クラック済み",
+        "jobs": "ジョブ",
+        "active": "{{count}} 実行中",
+        "wordlists": "ワードリスト",
+        "hasPotfile": "クライアントpotファイルが存在"
+      },
+      "hashlists": "ハッシュリスト",
+      "noHashlists": "このクライアントのハッシュリストはまだありません。",
+      "jobs": "ジョブ",
+      "noJobs": "このクライアント用に実行されたジョブはありません。",
+      "teams": "チーム",
+      "noTeams": "どのチームにも割り当てられていません。",
+      "policy": "保持期間・potファイル",
+      "retention": "データ保持期間",
+      "retentionDefault": "システムデフォルト",
+      "retentionForever": "永遠に保持",
+      "retentionMonths_other": "{{count}}ヶ月",
+      "globalPotfile": "グローバルpotファイル",
+      "excluded": "除外",
+      "included": "含む",
+      "clientPotfile": "クライアントpotファイル",
+      "contact": "連絡先",
+      "lastActivity": "最終アクティビティ"
+    },
+    "bulkAssign": {
+      "dialogTitle": "クライアントをチームに割り当て",
+      "dialogDescription_other": "{{count}} 個の選択したクライアントをチームに割り当てます。選択したチームに既に存在するクライアントはスキップされます。",
+      "selectTeam": "チームを選択",
+      "assignButton": "割り当て",
+      "fallbackTeamName": "チーム",
+      "success_other": "{{count}} 個のクライアントを {{team}} に割り当てました。",
+      "successWithSkipped_other": "{{count}} 個のクライアントを {{team}} に割り当てました（{{skipped}} 個は既に割り当て済み）。",
+      "errors": {
+        "assignFailed": "クライアントをチームに割り当てられませんでした。"
+      }
+    }
+  },
+  "wordlists": {
+    "title": "ワードリスト管理",
+    "description": "パスワードクラッキング用のワードリストを管理します。",
+    "uploadWordlist": "ワードリストをアップロード",
+    "refresh": "更新",
+    "loading": "ワードリストを読み込み中...",
+    "noWordlistsFound": "ワードリストが見つかりません。",
+    "tryDifferentSearch": "別の検索用語を試してください。",
+    "uploadToGetStarted": "開始するにはワードリストをアップロードしてください。",
+    "noDescription": "説明は提供されていません。",
+    "searchPlaceholder": "ワードリストを検索...",
+    "tabs": {
+      "all": "すべてのワードリスト",
+      "general": "一般",
+      "specialized": "専門",
+      "targeted": "ターゲット指定",
+      "custom": "カスタム"
+    },
+    "columns": {
+      "name": "名前",
+      "status": "ステータス",
+      "type": "タイプ",
+      "size": "サイズ",
+      "wordCount": "単語数",
+      "updated": "更新",
+      "actions": "アクション"
+    },
+    "status": {
+      "verified": "確認済み",
+      "pending": "保留中",
+      "failed": "失敗",
+      "missing": "ファイルがディスクにありません。",
+      "missingSince": "{{date}} 以降、ファイルがディスクにありません。再度アップロードするか、エントリを削除してください。"
+    },
+    "types": {
+      "general": "一般",
+      "specialized": "専門",
+      "targeted": "ターゲット指定",
+      "custom": "カスタム"
+    },
+    "fields": {
+      "name": "名前",
+      "description": "説明",
+      "wordlistType": "ワードリストタイプ"
+    },
+    "tooltips": {
+      "refreshMetadata": "メタデータを更新",
+      "download": "ダウンロード",
+      "edit": "編集",
+      "delete": "削除"
+    },
+    "errors": {
+      "loadFailed": "ワードリストの読み込みに失敗しました。",
+      "uploadFailed": "ワードリストのアップロードに失敗しました。",
+      "deleteFailed": "ワードリストの削除に失敗しました。",
+      "downloadFailed": "ワードリストのダウンロードに失敗しました。",
+      "refreshFailed": "ワードリストメタデータの更新に失敗しました。",
+      "updateFailed": "ワードリストの更新に失敗しました: {{error}}",
+      "sessionExpired": "セッションが期限切れです。もう一度ログインしてください。"
+    },
+    "messages": {
+      "uploadSuccess": "ワードリストが正常にアップロードされました。",
+      "duplicateWordlist": "ワードリスト「{{name}}」は既に存在します。",
+      "deleteSuccess": "ワードリスト「{{name}}」が正常に削除されました。",
+      "updateSuccess": "ワードリストが正常に更新されました。",
+      "refreshSuccess": "ワードリストメタデータが正常に更新されました。"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "ワードリストをアップロード",
+        "fileUploadTitle": "ワードリストファイルをアップロード",
+        "fileUploadDescription": "アップロードするワードリストファイルを選択します。サポートされている形式: .txt、.dict、.dic、.lst、.wordlist、.wl、.gz、.zip"
+      },
+      "edit": {
+        "title": "ワードリストを編集"
+      },
+      "delete": {
+        "title": "削除を確認",
+        "cascadeTitle": "カスケード削除を確認",
+        "confirmation": "ワードリスト「{{name}}」を削除してもよろしいですか？この操作は取り消せません。",
+        "cascadeWarning": "ワードリスト「{{name}}」を削除すると、次も削除されます:",
+        "checkingDependencies": "依存関係を確認中...",
+        "jobsCount_other": "{{count}} ジョブ（保留中/実行中/失敗）:",
+        "presetJobsCount_other": "{{count}} プリセットジョブ:",
+        "workflowStepsCount_other": "{{count}} ワークフローステップ:",
+        "emptyWorkflowsCount_other": "{{count}} 個の空のワークフローが削除されます:",
+        "noHashlist": "ハッシュリストなし",
+        "step": "ステップ {{order}}",
+        "andMore": "...他 {{count}} 個",
+        "confirmationPrompt": "このカスケード削除を確認するには、ワードリストIDを入力してください: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "確認するには {{id}} を入力してください。",
+        "idMismatch": "IDが一致しません。",
+        "deleteAll": "すべて削除"
+      }
+    },
+    "filterForm": {
+      "helpText": "すべての条件が組み合わされます（AND）— 単語はすべての条件を満たす必要があります。正規表現が長さフィールドより厳格な場合（例：最小長 8 ですが正規表現では 12+ が必要）、より厳格なルールが優先されます。以下の推定値は組み合わせた結果を反映しています。",
+      "minLength": "最小長",
+      "maxLength": "最大長",
+      "requiredClasses": "必須文字クラス",
+      "uppercase": "大文字",
+      "lowercase": "小文字",
+      "digit": "数字",
+      "special": "特殊文字",
+      "minClasses": "最小クラス数 (1-4)",
+      "minClassesHelp": "例: 3 = 4 つのクラスのうち少なくとも 3 つ",
+      "regexLabel": "正規表現 (RE2)",
+      "regexHelperDefault": "例: ^.{10,16}$",
+      "regexLookaroundError": "先読み/後読み ((?=…), (?!…), (?<=…), (?<!…)) はバックエンドの正規表現エンジン (RE2) ではサポートされていません。長さ/クラスフィルタを使用してください。",
+      "regexInvalidDefault": "無効な正規表現です。",
+      "estimating": "推定中...",
+      "previewTooltip": "ソースワードリストの開始部分をサンプリングして推定されています。ソート済みリストの場合、実際の合計は異なる可能性があります。",
+      "previewLabel": "~{{countDisplay}} 候補（サンプルの {{rateDisplay}}%）",
+      "previewUnavailable": "プレビューは利用できません。"
+    },
+    "filtered": {
+      "badge": "フィルタ済み",
+      "regeneratingBadge": "再生成中...",
+      "regeneratingTooltip": "親が変更されました。このフィルタ済みワードリストは再生成されています（可能な場合は新しいエントリのみが再フィルタリングされます）。",
+      "staleBadge": "古い",
+      "staleTooltip": "これが生成されて以来、親ワードリストが変更されました。フィルタ済みワードリストは親が変更されるときに自動的に再生成されます。今すぐ再生成することもできます。",
+      "namePlaceholder": "{{name}} (フィルタ済み)",
+      "wordCount_other": "{{count}} 単語",
+      "plaintextChip": "プレーンテキスト",
+      "compressedChip": "圧縮",
+      "messages": {
+        "generating": "フィルタ済みワードリストが生成されています。",
+        "createFailed": "フィルタ済みワードリストの作成に失敗しました。",
+        "regenerating": "フィルタ済みワードリストの完全再生成が開始されました。",
+        "regenerateFailed": "フィルタ済みワードリストの再生成に失敗しました。"
+      },
+      "createDialog": {
+        "title": "フィルタ済みワードリストを作成",
+        "description": "ソースワードリストの条件に一致する行のみを含む新しいワードリストを生成します。結果はジョブ全体で再利用可能で、親に対して追跡されます。",
+        "sourceWordlistLabel": "ソースワードリスト",
+        "nameLabel": "名前",
+        "create": "作成"
+      },
+      "regenerateDialog": {
+        "title": "フィルタ済みワードリストを再生成しますか?",
+        "autoInfo": "フィルタ済みワードリストは通常、親ワードリストが変更されるときに <strong>バックエンドで自動的に再生成されます</strong> — 手動で行う必要はありません。",
+        "manualHint": "<strong>親の単語の順序が変更された</strong>（単語が編集、削除、または並べ替えられた場合であり、単に末尾に追加されただけではない場合）ことがわかっている場合のみ、手動で再生成してください。",
+        "warningWithExample": "<strong>完全再生成</strong>が実行されます — 親全体が再フィルタリングされます。大規模なワードリストの場合、時間がかかることがあります（例: 「{{name}}」）。",
+        "warningNoExample": "<strong>完全再生成</strong>が実行されます — 親全体が再フィルタリングされます。大規模なワードリストの場合、時間がかかることがあります。",
+        "confirmButton": "完全に再生成"
+      }
+    }
+  },
+  "rules": {
+    "title": "ルール管理",
+    "description": "パスワードクラッキング用のHashcatルールを管理します",
+    "uploadRule": "ルールをアップロード",
+    "refresh": "更新",
+    "loading": "ルール読み込み中...",
+    "noRulesFound": "ルールが見つかりません",
+    "tryDifferentSearch": "別の検索語を試してください",
+    "uploadToGetStarted": "ルールをアップロードして開始してください",
+    "noDescription": "説明が提供されていません",
+    "searchPlaceholder": "ルールを検索...",
+    "tabs": {
+      "all": "すべてのルール",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "名前",
+      "status": "ステータス",
+      "type": "タイプ",
+      "size": "サイズ",
+      "ruleCount": "ルール数",
+      "updated": "更新日時",
+      "actions": "アクション"
+    },
+    "status": {
+      "verified": "検証済み",
+      "pending": "保留中",
+      "failed": "失敗",
+      "ready": "準備完了",
+      "processing": "処理中",
+      "missing": "ディスク上にファイルがありません",
+      "missingSince": "{{date}}からファイルがディスク上にありません。再度アップロードするか、エントリを削除してください。"
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "名前",
+      "description": "説明",
+      "ruleType": "ルールタイプ"
+    },
+    "tooltips": {
+      "download": "ダウンロード",
+      "edit": "編集",
+      "delete": "削除"
+    },
+    "errors": {
+      "loadFailed": "ルールの読み込みに失敗しました",
+      "uploadFailed": "ルールのアップロードに失敗しました",
+      "deleteFailed": "ルールの削除に失敗しました",
+      "downloadFailed": "ルールのダウンロードに失敗しました",
+      "updateFailed": "ルールの更新に失敗しました：{{error}}",
+      "verifyFailed": "ルールの検証に失敗しました",
+      "sessionExpired": "セッションが期限切れになりました。再度ログインしてください。"
+    },
+    "messages": {
+      "uploadSuccess": "ルールが正常にアップロードされました",
+      "duplicateRule": "ルール「{{name}}」が既に存在します",
+      "deleteSuccess": "ルール「{{name}}」が正常に削除されました",
+      "updateSuccess": "ルールが正常に更新されました",
+      "verifySuccess": "ルール「{{name}}」が正常に検証されました"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "ルールをアップロード",
+        "fileUploadTitle": "ルールファイルをアップロード",
+        "fileUploadDescription": "ルールファイルを選択してアップロードしてください。サポート形式：.rule、.rules、.txt"
+      },
+      "edit": {
+        "title": "ルールを編集"
+      },
+      "delete": {
+        "title": "削除を確認",
+        "cascadeTitle": "カスケード削除を確認",
+        "confirmation": "ルール「{{name}}」を削除してもよろしいですか？このアクションは元に戻せません。",
+        "cascadeWarning": "ルール「{{name}}」を削除すると、以下も削除されます：",
+        "checkingDependencies": "依存関係を確認中...",
+        "jobsCount_other": "{{count}}個のジョブ（保留中/実行中/失敗）：",
+        "presetJobsCount_other": "{{count}}個のプリセットジョブ：",
+        "workflowStepsCount_other": "{{count}}個のワークフローステップ：",
+        "emptyWorkflowsCount_other": "{{count}}個の空のワークフローが削除されます：",
+        "noHashlist": "ハッシュリストなし",
+        "step": "ステップ {{order}}",
+        "andMore": "…他{{count}}個",
+        "confirmationPrompt": "このカスケード削除を確認するには、ルールIDを入力してください：<strong>{{id}}</strong>",
+        "confirmationPlaceholder": "{{id}}を入力して確認",
+        "idMismatch": "IDが一致しません",
+        "deleteAll": "すべて削除"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "プリセットジョブ管理",
+    "createNew": "プリセットジョブを作成",
+    "confirmDelete": "このプリセットジョブを削除してもよろしいですか？",
+    "noJobsFound": "プリセットジョブが見つかりません。作成して開始してください。",
+    "keyspaceNotCalculated": "計算されていません",
+    "calculating": "計算中...",
+    "calculateKeyspace": "キースペースを計算",
+    "calculateAllMissingKeyspaces": "すべての未計算キースペースを計算",
+    "calculatingKeyspaces": "計算中...",
+    "calculatingAllKeyspacesMessage": "すべてのプリセットジョブのキースペースを計算しています。少しお時間をいただく場合があります...",
+    "canInterruptRunningJobs": "実行中のジョブを中断できます",
+    "columns": {
+      "name": "名前",
+      "description": "説明",
+      "attackMode": "攻撃モード",
+      "priority": "優先度",
+      "highPriorityOverride": "高優先度オーバーライド",
+      "maxAgents": "最大エージェント数",
+      "keyspace": "キースペース",
+      "binaryVersion": "バイナリバージョン",
+      "wordlists": "ワードリスト",
+      "rules": "ルール",
+      "createdAt": "作成日時",
+      "actions": "アクション"
+    },
+    "messages": {
+      "deleteSuccess": "プリセットジョブが正常に削除されました",
+      "deleteFailed": "プリセットジョブの削除に失敗しました：{{error}}",
+      "fetchError": "プリセットジョブの読み込みエラー：{{error}}",
+      "deleteError": "プリセットジョブの削除エラー：{{error}}",
+      "keyspaceRecalculateSuccess": "キースペースが正常に再計算されました",
+      "keyspaceRecalculateFailed": "キースペースの再計算に失敗しました：{{error}}",
+      "keyspaceAllComplete": "更新：{{updated}}、スキップ：{{skipped}}、失敗：{{failed}}",
+      "keyspaceAllFailed": "キースペースの再計算に失敗しました：{{error}}"
+    },
+    "form": {
+      "createTitle": "プリセットジョブを作成",
+      "editTitle": "プリセットジョブを編集",
+      "createJob": "プリセットジョブを作成",
+      "updateJob": "プリセットジョブを更新",
+      "attackModeRequirements": "攻撃モード要件",
+      "wordlistSelectionCombination": "ワードリスト選択（結合モード）",
+      "selectFirstWordlist": "最初のワードリストを選択",
+      "selectSecondWordlist": "2番目のワードリストを選択",
+      "fields": {
+        "jobName": "ジョブ名",
+        "attackMode": "攻撃モード",
+        "priority": "優先度",
+        "chunkSize": "チャンク期間（秒）",
+        "maxAgents": "最大エージェント数",
+        "maskPattern": "マスクパターン",
+        "incrementMode": "インクリメントモード",
+        "incrementMin": "インクリメント最小長",
+        "incrementMax": "インクリメント最大長",
+        "wordlists": "ワードリスト",
+        "rules": "ルール",
+        "mask": "マスク",
+        "ruleOptional": "ルール（オプション）",
+        "firstWordlist": "最初のワードリスト",
+        "secondWordlist": "2番目のワードリスト",
+        "allowHighPriorityOverride": "高優先度オーバーライドを許可（実行中のジョブを中断可能）",
+        "additionalArgs": "追加のHashcat引数",
+        "cloudBurstEnabled": "クラウドバーストを許可",
+        "cloudMaxInstances": "クラウドインスタンスの最大数",
+        "cloudAllowCommunityHosts": "ピア運用ホストを許可（Vast.ai、RunPod Community）"
+      },
+      "incrementModes": {
+        "off": "オフ（フルマスクを使用）",
+        "increment": "インクリメント（1から最大）",
+        "incrementInverse": "インクリメント逆向き（最大から1）"
+      },
+      "helperText": {
+        "binaryVersion": "使用するHashcatバイナリバージョンを選択してください",
+        "priority": "優先度が高いジョブが最初に実行されます（0～{{maxPriority}}）",
+        "maskPattern": "Hashcatマスクパターン（例：?u?l?l?l?d?d?d?d）",
+        "maskPatternExamples": "?l=小文字、?u=大文字、?d=数字、?s=特殊文字、?a=全て",
+        "incrementMode": "インクリメントモードを使用して、さまざまな長さのマスクを試してください",
+        "incrementMin": "試すマスクの最小長です",
+        "incrementMax": "試すマスクの最大長です",
+        "chunkSize": "各チャンクの秒単位での期間です",
+        "maxAgents": "エージェントの最大数です（0 = 無制限）",
+        "allowHighPriorityOverride": "有効にすると、このジョブは優先度が低い実行中のジョブを中断してそのエージェントを取得できます",
+        "wordlistsNotUsed": "このモードではワードリストは使用されません",
+        "selectWordlists_other": "正確に{{count}}個のワードリストを選択してください",
+        "rulesNotUsed": "このモードではルールは使用されません",
+        "selectRule": "オプションでルールファイルを選択して変換を適用できます",
+        "firstWordlist": "このリストの単語が最初の部分として使用されます",
+        "secondWordlist": "このリストの単語が最初の部分に追加されます",
+        "additionalArgs": "このジョブの追加のHashcatフラグです。エージェントレベルのフラグが競合で優先されます。",
+        "cloudBurstEnabled": "このプリセットから作成されたジョブのGPUインスタンスをレンタルします（オンプレミスのフリートが対応できない場合）。クライアントに予算が設定され、プロバイダーに登録されている必要があります。",
+        "cloudMaxInstances": "最大エージェント数（共有オンプレミスプールを管理）とは別です。空白のままにすると、残りの予算で決定されます。",
+        "cloudAllowCommunityHosts": "これらは他の人のマシンです。ホストの所有者はコンテナに対してルート権限を持っているため、このクライアントのハッシュ値、ワードリスト、およびクラック済みプレーンテキストは第三者が読み取ることができ、ホストに保存された状態では暗号化されません。本番環境またはクライアントエンゲージメントデータには推奨されません。これをオフのままにして、クライアントがそれを許可する場合、ジョブは引き続きセキュアキャパシティ（AWS、RunPod Secure Cloud）を使用します。",
+        "prefilteredWordlistHint": "プリセットジョブで事前フィルタリング済みワードリストを使用するには、まずワードリスト管理で作成してください。その後、このリストに表示されます。インラインの一時的なフィルタリングはワンオフのカスタムジョブでのみ利用できます。"
+      },
+      "errors": {
+        "nameRequired": "ジョブ名が必要です",
+        "binaryVersionRequired": "バイナリバージョンが必要です",
+        "straightModeWordlist": "ストレート攻撃モードは正確に1つのワードリストが必要です",
+        "combinationModeWordlists": "結合攻撃モードは正確に2つのワードリストが必要です",
+        "selectBothWordlists": "結合モード用に両方のワードリストを選択してください",
+        "bruteForceModeMask": "ブルートフォース攻撃モードはマスクが必要です",
+        "hybridModeWordlist": "ハイブリッド攻撃モードは正確に1つのワードリストが必要です",
+        "hybridModeMask": "ハイブリッド攻撃モードはマスクが必要です",
+        "associationModeNotImplemented": "アソシエーション攻撃モードは実装されていません",
+        "noWordlistsAvailable": "利用可能なワードリストがありません。最初にワードリストをアップロードしてください。",
+        "loadFailed": "プリセットジョブの読み込みに失敗しました",
+        "loadFormDataFailed": "フォームデータの読み込みに失敗しました",
+        "saveFailed": "プリセットジョブの保存に失敗しました"
+      },
+      "messages": {
+        "createSuccess": "プリセットジョブが正常に作成されました",
+        "updateSuccess": "プリセットジョブが正常に更新されました"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "ストレート",
+          "description": "ワードリストの単語を使用し、オプションでルールを適用して変換します",
+          "wordlistRequirement": "正確に1つのワードリストが必要です",
+          "rulesRequirement": "0または1つのルールファイル",
+          "maskRequirement": "マスクは不要です"
+        },
+        "combination": {
+          "name": "結合",
+          "description": "2つのワードリストの単語を結合します（最初の単語 + 2番目の単語）",
+          "wordlistRequirement": "正確に2つのワードリストが必要です",
+          "rulesRequirement": "ルールは不要です",
+          "maskRequirement": "マスクは不要です"
+        },
+        "bruteForce": {
+          "name": "ブルートフォース（マスク）",
+          "description": "パターン/マスクに基づいてパスワードを生成します",
+          "wordlistRequirement": "ワードリストは不要です",
+          "rulesRequirement": "ルールは不要です",
+          "maskRequirement": "マスクが必要です（例：?u?l?l?l?d?d）"
+        },
+        "hybridWordlistMask": {
+          "name": "ハイブリッド：ワードリスト + マスク",
+          "description": "ワードリストの単語にマスク生成文字を追加します",
+          "wordlistRequirement": "正確に1つのワードリストが必要です",
+          "rulesRequirement": "ルールは不要です",
+          "maskRequirement": "マスクが必要です（例：?d?d?d?d）"
+        },
+        "hybridMaskWordlist": {
+          "name": "ハイブリッド：マスク + ワードリスト",
+          "description": "ワードリストの単語の前にマスク生成文字を付け加えます",
+          "wordlistRequirement": "正確に1つのワードリストが必要です",
+          "rulesRequirement": "ルールは不要です",
+          "maskRequirement": "マスクが必要です（例：?d?d?d?d）"
+        },
+        "association": {
+          "name": "アソシエーション（未実装）",
+          "description": "この攻撃モードは現在実装されていません",
+          "wordlistRequirement": "N/A",
+          "rulesRequirement": "N/A",
+          "maskRequirement": "N/A"
+        }
+      }
+    }
+  },
+  "workflows": {
+    "title": "ジョブワークフロー管理",
+    "create": "ワークフロー作成",
+    "deleteTitle": "ワークフロー削除",
+    "confirmDelete": "ワークフロー「{{name}}」を削除してもよろしいですか?",
+    "noWorkflowsFound": "ワークフローが見つかりません。まず1つ作成してください。",
+    "canInterrupt": "割り込み可能",
+    "normal": "通常",
+    "loopbackAllEligible": "すべて対象",
+    "loopbackStepCount_other": "{{count}}個のステップ",
+    "columns": {
+      "name": "名前",
+      "description": "説明",
+      "steps": "ステップ",
+      "jobCount": "ジョブ",
+      "highPriority": "優先度モード",
+      "loopback": "ループバック",
+      "created": "作成日",
+      "lastUpdated": "最終更新",
+      "actions": "操作"
+    },
+    "messages": {
+      "loadFailed": "ワークフロー読み込みに失敗しました",
+      "deleteFailed": "ワークフロー削除に失敗しました"
+    },
+    "form": {
+      "createTitle": "ワークフロー作成",
+      "editTitle": "ワークフロー編集",
+      "createWorkflow": "ワークフロー作成",
+      "saveChanges": "変更を保存",
+      "workflowSteps": "ワークフローステップ",
+      "noJobsAdded": "このワークフローにはまだジョブが追加されていません。上のプリセットジョブを検索して追加してください。",
+      "priority": "優先度: {{priority}}",
+      "binary": "バイナリ: {{name}}",
+      "wordlistCount_other": "{{count}}個のワードリスト",
+      "ruleCount_other": "{{count}}個のルール",
+      "loopback": {
+        "masterToggle": "すべての対象ステップのループバックを有効にする",
+        "masterHelperText": "オンにすると、ワークフロー全体が実行され、その後、すべての対象ステップ(ワードリスト + ルール、またはハイブリッドワードリスト±マスク攻撃)が新しくクラック済みのパスワードに対してのみ再実行され、新しいクラックが見つからなくなるまで賢く繰り返します。非変異ステップ(ワードリストのみ、ブルートフォース、アソシエーション)は引き続き新しいクラックをループに供給します。以下のステップごとのトグルは、これがオンの間は無効になります。",
+        "stepLabel": "ループバック",
+        "tooltipIneligible": "変異するものがありません(ワードリストのみ、ブルートフォース、アソシエーション、またはコンビネーター)。このステップは引き続き新しいクラックをループに供給しますが、再実行されません。",
+        "tooltipMasterOn": "ワークフローレベルのループバックがオンなので、すべての対象ステップがループバックします。",
+        "tooltipStep": "このステップを新しくクラック済みのパスワードに対してのみ再実行し、新しいクラックが見つからなくなるまで繰り返します。"
+      },
+      "fields": {
+        "workflowName": "ワークフロー名",
+        "searchPresetJobs": "プリセットジョブを検索"
+      },
+      "helperText": {
+        "searchPresetJobs": "このワークフローに追加するプリセットジョブを検索します"
+      },
+      "errors": {
+        "nameRequired": "ワークフロー名は必須です",
+        "presetJobRequired": "少なくとも1つのプリセットジョブが必要です",
+        "noPresetJobsAvailable": "利用可能なプリセットジョブがありません。まずプリセットジョブを作成してください。",
+        "loadFailed": "ワークフロー読み込みに失敗しました",
+        "loadFormDataFailed": "フォームデータ読み込みに失敗しました",
+        "saveFailed": "ワークフロー保存に失敗しました"
+      },
+      "messages": {
+        "createSuccess": "ワークフローが正常に作成されました",
+        "updateSuccess": "ワークフローが正常に更新されました"
+      },
+      "cloudBurst": {
+        "toggle": "すべてのステップでクラウドバーストを許可",
+        "helperText": "すべてのステップに適用され、各プリセットの設定をオーバーライドします。ワークフローレベルで設定すると、1つのレンタルされたインスタンスがステップ間での破棄と再レンタルの代わりにワークフロー全体を実行できます。"
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "バイナリ管理",
+    "title": "Hashcatバイナリ",
+    "addBinary": "バイナリを追加",
+    "showingActiveOnly": "アクティブなバイナリのみを表示",
+    "showingAll": "すべてのバイナリを表示",
+    "noBinaries": "バイナリが見つかりません",
+    "noActiveBinaries": "アクティブなバイナリが見つかりません",
+    "default": "デフォルト",
+    "verifyBinary": "バイナリを検証",
+    "deleteBinary": "バイナリを削除",
+    "sourceUpload": "アップロード",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "バージョン",
+      "type": "タイプ",
+      "source": "ソース",
+      "size": "サイズ",
+      "status": "ステータス",
+      "default": "デフォルト",
+      "lastVerified": "最終検証",
+      "actions": "操作"
+    },
+    "messages": {
+      "fetchFailed": "バイナリ取得に失敗しました",
+      "verifySuccess": "バイナリが正常に検証されました",
+      "verifyFailed": "バイナリ検証に失敗しました",
+      "deleteSuccess": "バイナリが正常に削除されました",
+      "deleteFailed": "バイナリ削除に失敗しました",
+      "cannotDeleteLast": "最後のアクティブな{{type}}バイナリを削除することはできません",
+      "cannotDeleteOnly": "このタイプの唯一のバイナリを削除することはできません",
+      "setDefaultSuccess": "デフォルトバイナリが正常に更新されました",
+      "setDefaultFailed": "デフォルトバイナリ設定に失敗しました",
+      "addSuccess": "バイナリが正常に追加されました",
+      "addFailed": "バイナリ追加に失敗しました"
+    },
+    "deleteDialog": {
+      "title": "削除確認",
+      "message": "バイナリ「{{fileName}}」を削除してもよろしいですか?この操作は取り消すことができません。"
+    },
+    "form": {
+      "addDialogTitle": "新規バイナリ追加",
+      "sourceLabel": "ソース",
+      "downloadFromUrl": "URLからダウンロード",
+      "uploadFile": "ファイルをアップロード",
+      "binaryTypeLabel": "バイナリタイプ",
+      "johnPending": "John the Ripper(サポート予定中)",
+      "compressionTypeLabel": "圧縮タイプ",
+      "sourceUrlLabel": "ソースURL",
+      "sourceUrlHelp": "バイナリをダウンロードするURL(例: https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "アーカイブファイルを選択",
+      "uploadHelp": ".7z、.zip、.tar.gz、または.tar.xz アーカイブをアップロードしてください(バイナリを含む)",
+      "fileNameLabel": "ファイル名",
+      "fileNameHelp": "URL/ファイルから自動入力されますが、必要に応じて修正できます",
+      "versionLabel": "バージョン",
+      "versionHelp": "ファイル名から自動検出されます。カスタムビルドの場合はオーバーライドしてください。",
+      "descriptionLabel": "説明",
+      "descriptionHelp": "このバイナリに関するオプションのメモ(例: カスタムビルドの詳細)",
+      "setAsDefault": "デフォルトバイナリとして設定",
+      "selectFileRequired": "アップロードするファイルを選択してください",
+      "uploadBinarySubmit": "バイナリをアップロード"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "システム診断",
+    "diagnosticPackage": "診断パッケージ",
+    "diagnosticPackageDescription": "システム情報、ログ、設定詳細を含む診断パッケージをダウンロードしてトラブルシューティングに使用します。",
+    "refreshData": "データを更新",
+    "hours": "時間",
+    "hoursTooltip": "含めるログの時間数",
+    "includeAgentLogs": "エージェントログを含める",
+    "includeNginxLogs": "Nginxログを含める",
+    "includePostgresLogs": "PostgreSQLログを含める",
+    "preparing": "準備中...",
+    "downloadDiagnostics": "診断をダウンロード",
+    "systemInfo": "システム情報",
+    "runtime": "ランタイム",
+    "cpus": "CPU",
+    "goroutines": "ゴルーチン",
+    "memory": "メモリ",
+    "heap": "ヒープ",
+    "system": "システム",
+    "gcRuns": "GC実行",
+    "database": "データベース",
+    "size": "サイズ",
+    "connections": "接続",
+    "agents": "エージェント",
+    "connected": "接続済み",
+    "withDebugStatus": "デバッグステータス有効",
+    "serverDebugStatus": "サーバーデバッグステータス",
+    "serverDebugDescription": "サーバーの詳細ログを有効にします。ログファイルサイズが増加し、パフォーマンスに影響する可能性があります。",
+    "debugEnabled": "デバッグ有効",
+    "debugDisabled": "デバッグ無効",
+    "level": "レベル",
+    "enableDebug": "デバッグを有効化",
+    "disableDebug": "デバッグを無効化",
+    "loadingServerDebugStatus": "サーバーデバッグステータスを読み込み中...",
+    "serverLogs": "サーバーログ",
+    "serverLogsDescription": "サーバーログファイルを管理します。ログの削除は永続的であり、取り消すことはできません。",
+    "refreshLogStats": "ログ統計を更新",
+    "directory": "ディレクトリ",
+    "files": "ファイル",
+    "actions": "操作",
+    "backend": "バックエンド",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "合計",
+    "purge": "削除",
+    "purgeAll": "すべて削除",
+    "loadingLogStatistics": "ログ統計を読み込み中...",
+    "agentDebugStatus": "エージェントデバッグステータス",
+    "enableAll": "すべて有効化",
+    "disableAll": "すべて無効化",
+    "noAgentsWithDebugStatus": "デバッグステータス付きのエージェントがありません",
+    "agentId": "エージェントID",
+    "logLevel": "ログレベル",
+    "fileLogging": "ファイルログ",
+    "logFileSize": "ログファイルサイズ",
+    "buffer": "バッファ",
+    "lastUpdated": "最終更新",
+    "viewLogs": "ログを表示",
+    "purgeLogs": "ログを削除",
+    "agentLogs": "エージェントログ",
+    "agent": "エージェント",
+    "allLevels": "すべてのレベル",
+    "refresh": "更新",
+    "showingEntries": "{{shown}}/{{total}}個のエントリを表示",
+    "filtered": "フィルター済み",
+    "truncated": "切り詰め済み",
+    "time": "時刻",
+    "message": "メッセージ",
+    "location": "場所",
+    "noEntriesForLevel": "レベル{{level}}のエントリが見つかりません",
+    "noLogEntriesAvailable": "利用可能なログエントリがありません",
+    "logFileContent": "ログファイルコンテンツ",
+    "noLogsAvailable": "利用可能なログがありません",
+    "securityWarning": "セキュリティ警告",
+    "postgresLogsWarning": "PostgreSQLログは機密データを含む可能性があります。トラブルシューティング後の削除を検討してください。",
+    "nginxLogsWarning": "Nginxアクセスログは機密リクエストデータを含む可能性があります。トラブルシューティング後の削除を検討してください。",
+    "sensitiveNginxLogsWarning": "Nginxアクセスログは、リクエストヘッダーおよびクエリパラメーター内の認証トークンを含む機密情報を含む可能性があります。",
+    "sensitivePostgresLogsWarning": "PostgreSQLログは、ユーザーデータ、パスワード、接続詳細を含むクエリを含む機密情報を含む可能性があります。",
+    "sensitiveLogsTestEnvironmentWarning": "テスト/開発環境の場合、またはデバッグに絶対に必要な場合にのみこれらのログを含めてください。",
+    "sensitiveLogsProductionWarning": "本番環境の診断パッケージを外部と共有する場合は、機密ログを含めないでください。",
+    "iUnderstandIncludeLogs": "理解した上でログを含める",
+    "allServerLogs": "すべてのサーバーログ",
+    "directoryLogs": "{{directory}}ログ",
+    "purgeServerLogs": "サーバーログを削除",
+    "confirmPurgeLogs": "{{dirLabel}}を削除してもよろしいですか?",
+    "cannotBeUndone": "この操作は取り消すことができません。",
+    "purgeAgentLogs": "エージェントログを削除",
+    "confirmPurgeAgentLogs": "エージェント{{agentId}}のログを削除してもよろしいですか?",
+    "enable": "有効化",
+    "disable": "無効化",
+    "serverDebugModeTitle": "サーバーデバッグモードの{{action}}",
+    "serverDebugModeMessage": "サーバーのログレベルが変更されます。変更を適用するためにnginxサーバーが再読み込みされます。",
+    "serverDebugModeWarning": "変更の適用後、ページは一時的に再接続します。",
+    "reconnectingToServer": "サーバーに再接続中",
+    "pleaseWaitReconnecting": "サーバーが再起動するのをお待ちください...",
+    "nginxLogsTooltip": "警告: 機密リクエストデータを含む可能性があります",
+    "postgresLogsTooltip": "警告: 機密データベースクエリを含む可能性があります",
+    "messages": {
+      "loadFailed": "診断データ読み込みに失敗しました:",
+      "logStatsFailed": "ログ統計読み込みに失敗しました:",
+      "purgeFailed": "ログ削除に失敗しました:",
+      "reconnectionTimedOut": "再接続がタイムアウトしました。ページを更新してください。",
+      "toggleDebugFailed": "デバッグモード切り替えに失敗しました:",
+      "downloadFailed": "診断ダウンロードに失敗しました:",
+      "toggleAgentDebugFailed": "エージェントデバッグ切り替えに失敗しました:",
+      "toggleAllAgentsDebugFailed": "すべてのエージェントデバッグ切り替えに失敗しました:",
+      "fetchAgentLogsFailed": "エージェントログ取得に失敗しました:",
+      "purgeAgentLogsFailed": "エージェントログ削除に失敗しました:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "認証設定",
+    "unsavedChanges": "保存されていない変更があります。「設定を保存」をクリックして適用してください。",
+    "saving": "保存中...",
+    "saveSettings": "設定を保存",
+    "resetToSaved": "保存済みにリセット",
+    "passwordPolicy": {
+      "title": "パスワードポリシー",
+      "minLength": "最小パスワード長",
+      "requireUppercase": "大文字が必須",
+      "requireLowercase": "小文字が必須",
+      "requireNumbers": "数字が必須",
+      "requireSpecialChars": "特殊文字が必須"
+    },
+    "accountSecurity": {
+      "title": "アカウントセキュリティ",
+      "maxFailedAttempts": "最大ログイン失敗回数",
+      "lockoutDuration": "ロックアウト期間（分）",
+      "jwtExpiry": "JWT有効期限（分）",
+      "notificationAggregation": "通知集約（分）",
+      "notificationAggregationHelper": "送信前に類似通知を集約する時間です"
+    },
+    "mfa": {
+      "title": "多要素認証",
+      "requireMfa": "すべてのユーザーにMFAが必須",
+      "requireMfaEmailRequired": "MFAが必須（メールプロバイダーが必要）",
+      "allowedMethods": "許可されたMFA方法",
+      "methodEmail": "メールコード",
+      "methodAuthenticator": "認証アプリ（TOTP）",
+      "methodPasskey": "パスキー（WebAuthn）",
+      "methodPasskeyNotSupported": "パスキー（このブラウザではサポートされていません）",
+      "codeSettings": "コード設定",
+      "emailCodeValidity": "メールコード有効期間（分）",
+      "emailCodeValidityHelper": "メールコードが有効な期間です",
+      "codeCooldown": "コードリクエストのクールダウン（分）",
+      "codeCooldownHelper": "コードリクエスト間の最小時間です",
+      "codeExpiry": "コード有効期限（分）",
+      "codeExpiryHelper": "MFAコードが有効な期間です",
+      "maxCodeAttempts": "最大コード試行回数",
+      "maxCodeAttemptsHelper": "ロックアウトされるまでの最大失敗試行回数です",
+      "backupCodesCount": "バックアップコード数",
+      "backupCodesCountHelper": "生成するバックアップコードの数です",
+      "requireMfaHelper": "すべてのユーザーはサインイン時にMFAを完了する必要があります。コードを配信できるように、設定されたメールプロバイダーが必要です。"
+    },
+    "webauthn": {
+      "title": "WebAuthn/パスキー設定",
+      "notSupported": "このブラウザではWebAuthnはサポートされていません。",
+      "requiresDomain": "パスキーには適切なドメインとHTTPSが必要です。以下でドメイン設定を構成してください。",
+      "rpId": "Relying Party ID",
+      "rpIdHelper": "ドメイン名（例：krakenhashes.example.com）",
+      "rpDisplayName": "表示名",
+      "rpDisplayNameHelper": "パスキー登録中にユーザーに表示される名前です",
+      "allowedOrigins": "許可されたオリジン",
+      "allowedOriginsHelper": "1行に1つのオリジン（例：https://krakenhashes.example.com）",
+      "configured": "WebAuthnが設定され、使用可能です。",
+      "save": "WebAuthn設定を保存"
+    },
+    "session": {
+      "title": "セッション管理",
+      "tokenCleanupInterval": "トークンクリーンアップ間隔（秒）",
+      "tokenCleanupIntervalHelper": "期限切れトークンをクリーンアップする頻度です",
+      "maxConcurrentSessions": "最大同時セッション数",
+      "maxConcurrentSessionsHelper": "ユーザーあたりの最大セッション数（0 = 無制限）",
+      "absoluteTimeout": "絶対セッションタイムアウト（時間）",
+      "absoluteTimeoutHelper": "この時間を超えると再認証を強制します（0 = 無効）"
+    },
+    "errors": {
+      "loadFailed": "認証設定の読み込みに失敗しました",
+      "noSettingsToSave": "保存する設定がありません",
+      "saveFailed": "設定の保存に失敗しました",
+      "emailProviderRequired": "メールベースのMFAにはメールプロバイダーが必要です",
+      "webauthnSaveFailed": "WebAuthn設定の保存に失敗しました",
+      "resetFailed": "設定のリセットに失敗しました"
+    },
+    "messages": {
+      "updateSuccess": "認証設定が正常に更新されました",
+      "updateFailed": "認証設定の更新に失敗しました"
+    },
+    "teams": {
+      "title": "マルチチームの分離",
+      "description": "有効にすると、クライアント、ハッシュリスト、ジョブ、エージェントがチームスコープされ、ユーザーは自分のチームが所有するもののみを表示できます。",
+      "enable": "チームを有効にする",
+      "enableHelper": "既存データはデフォルトチームに配置されます。"
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "SSO設定",
+    "pageDescription": "SSOプロバイダーと認証オプションを設定します",
+    "warnings": {
+      "ephemeralKeyTitle": "SSO暗号化キーが設定されていません",
+      "ephemeralKeyDescription": "SSOプロバイダーのシークレット（クライアントシークレット、バインドパスワード、秘密鍵）は現在、サーバーの再起動時に失われる一時的なキーで暗号化されています。設定されたSSOプロバイダーは再起動後に機能しなくなります。",
+      "ephemeralKeyInstructions": "これを修正するには、以下を実行して永続的な暗号化キーを生成してください:",
+      "ephemeralKeyAddToEnv": "次に、以下を.envファイルに追加してサーバーを再起動してください:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "コマンドをクリップボードにコピーしました"
+    },
+    "authMethods": {
+      "title": "認証方法",
+      "description": "認証方法をグローバルに有効または無効にします",
+      "localAuth": "ローカル認証",
+      "localAuthDescription": "ユーザー名/パスワードログイン",
+      "ldapAuth": "LDAP認証",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "SAML認証",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "OAuth/OIDC認証",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "ユーザープロビジョニング",
+      "description": "SSOログインからの自動ユーザー作成を設定します",
+      "autoCreateUsers": "ユーザーを自動作成",
+      "autoCreateUsersDescription": "新しいSSOログイン用にユーザーアカウントを自動作成します",
+      "autoEnableUsers": "ユーザーを自動有効化",
+      "autoEnableUsersDescription": "新しく作成されたSSOユーザーを自動的に有効にします（それ以外の場合は管理者の承認が必要）"
+    },
+    "providers": {
+      "title": "SSOプロバイダー",
+      "addProvider": "プロバイダーを追加",
+      "noProviders": "SSOプロバイダーが設定されていません。「プロバイダーを追加」をクリックして作成してください。",
+      "enabled": "有効",
+      "disabled": "無効",
+      "callbackUrl": "コールバックURL",
+      "acsUrl": "ACS URL",
+      "metadata": "メタデータ",
+      "viewXml": "XMLを表示",
+      "testConnection": "接続テスト",
+      "downloadCertificate": "SP証明書をダウンロード"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "プロバイダーを削除",
+        "confirmation": "プロバイダー「{{name}}」を削除してもよろしいですか？このアクションは取り消せず、すべての関連するユーザーIDがリンク解除されます。"
+      },
+      "providerForm": {
+        "addTitle": "プロバイダーを追加",
+        "editTitle": "プロバイダーを編集",
+        "providerName": "プロバイダー名",
+        "providerType": "プロバイダータイプ",
+        "enabled": "有効"
+      }
+    },
+    "ldapConfig": {
+      "title": "LDAP設定",
+      "serverUrl": "サーバーURL",
+      "serverUrlHelper": "安全な接続にはldaps://を使用してください",
+      "baseDn": "Base DN",
+      "userSearchFilter": "ユーザー検索フィルター",
+      "userSearchFilterHelper": "{{username}}をプレースホルダーとして使用してください",
+      "bindDn": "Bind DN（オプション）",
+      "bindPassword": "バインドパスワード",
+      "emailAttribute": "メール属性",
+      "usernameAttribute": "ユーザー名属性",
+      "usernameAttributeHelper": "ユーザー名を含むLDAP属性（例：sAMAccountName、uid）",
+      "connectionTimeout": "接続タイムアウト（秒）",
+      "useStartTls": "StartTLSを使用",
+      "skipCertVerify": "証明書検証をスキップ（テストのみ）"
+    },
+    "samlConfig": {
+      "title": "SAML設定",
+      "spEntityId": "SP Entity ID",
+      "spEntityIdHelper": "アプリケーションのSAML識別子です",
+      "idpEntityId": "IdP Entity ID",
+      "idpSsoUrl": "IdP SSO URL",
+      "idpCertificate": "IdP証明書",
+      "emailAttribute": "メール属性",
+      "usernameAttribute": "ユーザー名属性",
+      "usernameAttributeHelper": "ユーザー名を含むSAML属性（例：uid、username）",
+      "requireSignedAssertions": "署名済みアサーションが必須"
+    },
+    "oauthConfig": {
+      "title": "OAuth/OIDC設定",
+      "isOidc": "OpenID Connect（OIDC）",
+      "clientId": "クライアントID",
+      "clientSecret": "クライアントシークレット",
+      "discoveryUrl": "ディスカバリーURL",
+      "discoveryUrlHelper": "OIDCディスカバリーエンドポイント（他のURLを自動設定します）",
+      "authorizationUrl": "認可URL",
+      "tokenUrl": "トークンURL",
+      "userInfoUrl": "ユーザー情報URL",
+      "scopes": "スコープ",
+      "scopesHelper": "スペース区切りリスト",
+      "emailAttribute": "メール属性",
+      "usernameAttribute": "ユーザー名属性",
+      "usernameAttributeHelper": "ユーザー名を含むクレーム（例：preferred_username、login、nickname）"
+    },
+    "messages": {
+      "loadFailed": "SSO設定の読み込みに失敗しました",
+      "settingsUpdated": "SSO設定が正常に更新されました",
+      "updateFailed": "SSO設定の更新に失敗しました",
+      "loadProviderFailed": "プロバイダーの詳細の読み込みに失敗しました",
+      "providerDeleted": "プロバイダーが正常に削除されました",
+      "deleteFailed": "プロバイダーの削除に失敗しました",
+      "testSuccess": "接続テストが成功しました",
+      "testFailed": "接続テストに失敗しました",
+      "certificateDownloaded": "証明書が正常にダウンロードされました",
+      "certificateNotFound": "メタデータに証明書が見つかりません",
+      "certificateDownloadFailed": "証明書のダウンロードに失敗しました",
+      "providerUpdated": "プロバイダーが正常に更新されました",
+      "providerCreated": "プロバイダーが正常に作成されました",
+      "saveProviderFailed": "プロバイダーの保存に失敗しました"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "プロバイダー設定",
+      "emailTemplates": "メールテンプレート"
+    },
+    "provider": {
+      "titles": {
+        "current": "現在のメール設定",
+        "create": "メール設定を作成",
+        "edit": "メール設定を編集"
+      },
+      "labels": {
+        "provider": "プロバイダー",
+        "apiKey": "APIキー",
+        "password": "パスワード",
+        "smtpHost": "SMTPホスト",
+        "port": "ポート",
+        "username": "ユーザー名",
+        "encryption": "暗号化",
+        "fromEmail": "送信元メールアドレス",
+        "fromName": "送信者名",
+        "domain": "ドメイン",
+        "region": "リージョン",
+        "monthlyLimit": "月間制限",
+        "skipTlsVerify": "TLS証明書検証をスキップ（安全ではなく、推奨されません）"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "テストメールアドレス"
+      },
+      "helpers": {
+        "keepCurrentPassword": "現在のものを保持する場合は空のままにしてください",
+        "monthlyLimit": "無制限にするには空のままにしてください",
+        "mailgunFromEmail": "通常はnoreply@yourdomain",
+        "fromName": "メールの表示名です"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "なし（ポート25）",
+        "encryptionStarttls": "STARTTLS（ポート587）",
+        "encryptionTls": "TLS/SSL（ポート465）",
+        "regionUS": "US（api.mailgun.net）",
+        "regionEU": "EU（api.eu.mailgun.net）"
+      },
+      "buttons": {
+        "edit": "設定を編集",
+        "cancel": "キャンセル",
+        "testConnection": "接続テスト",
+        "save": "設定を保存",
+        "saveOnly": "保存のみ",
+        "saveAndTest": "保存してテスト",
+        "sendTestEmail": "テストメールを送信"
+      },
+      "dialogs": {
+        "test": {
+          "title": "メール設定をテスト",
+          "content": "テストメールを送信するメールアドレスを入力してください:"
+        },
+        "save": {
+          "title": "設定を保存",
+          "content": "保存後に設定をテストしますか？"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "TLS証明書検証が無効です",
+        "tlsVerifyWarning": "TLS検証を無効にすると、接続が中間者攻撃に対して脆弱になります。自己署名証明書でのテストにのみ使用してください。"
+      },
+      "messages": {
+        "testSuccess": "テストメールが正常に送信されました",
+        "testFailed": "テストメールの送信に失敗しました",
+        "saveSuccess": "設定が正常に保存されました",
+        "saveFailed": "設定の保存に失敗しました",
+        "loadFailed": "設定の読み込みに失敗しました"
+      }
+    },
+    "templates": {
+      "title": "メールテンプレート",
+      "createTemplate": "メールテンプレートを作成",
+      "editTemplate": "メールテンプレートを編集",
+      "labels": {
+        "templateType": "テンプレートタイプ",
+        "name": "名前",
+        "subject": "件名",
+        "htmlContent": "HTMLコンテンツ",
+        "textContent": "テキストコンテンツ"
+      },
+      "menuItems": {
+        "securityEvent": "セキュリティイベント",
+        "jobCompletion": "ジョブ完了",
+        "adminError": "管理者エラー",
+        "mfaCode": "MFAコード",
+        "securityPasswordChanged": "パスワード変更",
+        "securityMfaDisabled": "MFA無効",
+        "securitySuspiciousLogin": "疑わしいログイン",
+        "jobStarted": "ジョブ開始",
+        "jobFailed": "ジョブ失敗",
+        "firstCrack": "最初のクラック",
+        "taskCompleted": "タスク完了",
+        "agentOffline": "エージェントがオフライン",
+        "agentError": "エージェントエラー",
+        "webhookFailure": "Webhook失敗"
+      },
+      "buttons": {
+        "create": "テンプレートを作成",
+        "cancel": "キャンセル",
+        "test": "テスト",
+        "save": "保存",
+        "edit": "編集",
+        "delete": "削除"
+      },
+      "table": {
+        "name": "名前",
+        "type": "タイプ",
+        "subject": "件名",
+        "actions": "アクション"
+      },
+      "preview": "ライブプレビュー（サンプルデータ付き）:",
+      "messages": {
+        "loadSuccess": "テンプレートが正常に読み込まれました",
+        "loadFailed": "テンプレートの読み込みに失敗しました",
+        "createSuccess": "テンプレートが正常に作成されました",
+        "createFailed": "テンプレートの作成に失敗しました",
+        "updateSuccess": "テンプレートが正常に更新されました",
+        "updateFailed": "テンプレートの更新に失敗しました",
+        "deleteSuccess": "テンプレートが正常に削除されました",
+        "deleteFailed": "テンプレートの削除に失敗しました",
+        "testSuccess": "テストメールが正常に送信されました",
+        "testFailed": "テストメール送信に失敗しました",
+        "saveFailed": "テンプレートの保存に失敗しました"
+      }
+    }
+  },
+  "settings": {
+    "saved": "設定が正常に保存されました",
+    "saveFailed": "設定の保存に失敗しました"
+  },
+  "clientSettings": {
+    "title": "クライアント設定",
+    "retentionPeriod": "デフォルトデータ保持期間 (月)",
+    "retentionHelperText": "新しいクライアントのデフォルト保持期間です (0 = 永遠に保持)。",
+    "saveButton": "設定を保存",
+    "errors": {
+      "invalidRetention": "保持期間は0以上の数値である必要があります",
+      "saveFailed": "クライアント設定の保存に失敗しました"
+    },
+    "messages": {
+      "updateSuccess": "クライアント設定が正常に更新されました"
+    }
+  },
+  "systemSettings": {
+    "title": "システム設定",
+    "priority": {
+      "title": "優先度設定",
+      "tooltip": "ジョブとプリセットジョブに割り当てることができる最大優先度値を設定します。組織全体で一貫した優先度の範囲を維持するのに役立ちます。",
+      "maxPriority": "最大ジョブ優先度",
+      "helperText": "最大優先度値を設定します (1-1,000,000)。ジョブとプリセットジョブはこの優先度を超えることはできません。",
+      "saveButton": "設定を保存",
+      "saving": "保存中...",
+      "reset": "リセット"
+    },
+    "priorityInfo": {
+      "title": "優先度システム情報",
+      "description": "優先度システムは0から設定した最大優先度までの範囲を使用します。数値が大きいほど優先度が高くなります。",
+      "currentMax": "現在の最大値",
+      "note": "既存のプリセットジョブの優先度よりも低い最大優先度を設定することはできません。必要に応じて、高優先度のプリセットジョブを更新または削除してください。",
+      "recommended": "組織規模別推奨範囲:",
+      "small": "小規模組織: 0-100",
+      "medium": "中規模/大規模組織: 0-1,000",
+      "large": "とんでもない作業量の組織: 0-10,000"
+    },
+    "agentScheduling": {
+      "title": "エージェント スケジューリング",
+      "tooltip": "エージェントスケジューリングシステムをグローバルに有効または無効にします。有効にすると、エージェントに日次スケジュールを設定できます。",
+      "enable": "エージェント スケジューリング システムを有効にする",
+      "description": "有効にすると、エージェントに日次スケジュールを設定できます。現在の時間にスケジュールされているエージェントのみにジョブが割り当てられます。",
+      "note": "これが有効になるには、個別のエージェントもスケジューリングを有効にし、スケジュールを設定する必要があります。"
+    },
+    "agentOverflow": {
+      "title": "エージェント オーバーフロー割り当て",
+      "tooltip": "すべての優先度階層のすべてのジョブがその max_agents キャップに達した後、空きエージェントをどのように配分するかを設定します。",
+      "modeLabel": "オーバーフロー割り当てモード",
+      "priorityFifoMode": "優先度 - FIFO",
+      "priorityRoundRobinMode": "優先度 - ラウンドロビン",
+      "enforceMaxAgentsMode": "最大エージェント数を強制",
+      "maxAgentsFifoMode": "最大エージェント数 - FIFO",
+      "maxAgentsRoundRobinMode": "最大エージェント数 - ラウンドロビン",
+      "priorityFifoDescription": "階層は優先度の高い順に満たされます。階層が max_agents に達すると、残りのエージェントはその階層内で最も古いジョブに集中し、キャップを超えることがあります。優先度の低いジョブは、より優先度の高い階層が枯れるまで飢える可能性があります。",
+      "priorityRoundRobinDescription": "階層は優先度の高い順に満たされます。階層が max_agents に達すると、残りのエージェントはその階層内のジョブ全体に均等にローテーションされ、キャップを超えることがあります。優先度の低いジョブは飢える可能性があります。",
+      "enforceMaxAgentsDescription": "各ジョブを max_agents の上限で厳密に制限します。オーバーフローはありません。余剰エージェントはアイドル状態のままです。最も予測可能です。容量が無駄になる可能性があります。",
+      "maxAgentsFifoDescription": "すべての優先度のすべてのジョブは最初に max_agents に満たされます (厳密な制限)。残りのエージェントは、優先度をバイパスして全体で最も古いジョブに集中します。スループットを最大化しながら、すべてのジョブに基本的な割り当てを提供します。",
+      "maxAgentsRoundRobinDescription": "すべての優先度のすべてのジョブは最初に max_agents に満たされます (厳密な制限)。残りのエージェントは、優先度をバイパスしてすべてのジョブ全体に均等にローテーションされます。基本的な割り当てを超えて公正な配分でスループットを最大化します。"
+    },
+    "hashlist": {
+      "title": "ハッシュリスト設定",
+      "tooltip": "ハッシュリストのアップロードと管理に関連する設定を構成します",
+      "requireClient": "ハッシュリストにはクライアントが必要",
+      "requireClientDescription": "有効にすると、ユーザーは新しいハッシュリストをアップロードするときにクライアントを割り当てる必要があります。これはクライアント別のハッシュリストの整理と追跡を改善するのに役立ちます。",
+      "batchSize": "一括インポート バッチ サイズ",
+      "batchSizeHelper": "アップロード中にバッチごとに処理されるハッシュの数です。デフォルト: 100,000。推奨: 大規模ハッシュリスト (47M+) では 500,000-1,000,000",
+      "performanceGuide": "パフォーマンス ガイド:",
+      "performance100k": "100K (デフォルト): ほとんどの使用例に適しています",
+      "performance500k": "500K: 大規模ハッシュリストに適しており、スループットが向上する可能性があります",
+      "performance1m": "1M: 非常に大規模なハッシュリスト (50M+) に最適です。より多くの RAM が必要です"
+    },
+    "potfile": {
+      "title": "potファイル設定",
+      "tooltip": "potファイルがクラック済みパスワードをジョブ間での再利用のために処理する方法を設定します",
+      "maxBatchSize": "最大バッチ サイズ",
+      "maxBatchSizeHelper": "各バッチサイクルで処理されるステージングされたパスワードの数です (1,000 - 500,000)",
+      "batchInterval": "バッチ インターバル (秒)",
+      "batchIntervalHelper": "potファイル バッチ処理サイクル間の秒数です (10 - 600)",
+      "description": "potファイルはすべてのジョブからクラック済みパスワードを収集し、後続の攻撃で再利用します。バッチサイズが大きいほど、一度に処理するパスワードが多くなりますが、サイクルごとに時間がかかります。",
+      "processingRate": "処理レート",
+      "passwordsPerSecond": "パスワード/秒",
+      "currentSettings": "現在の設定",
+      "passwordsEvery": "パスワード / 毎",
+      "seconds": "秒"
+    },
+    "speedTest": {
+      "title": "スピード テスト (ベンチマーク)",
+      "tooltip": "スピード テストに失敗する前に、エージェントが hashcat から使用可能なベンチマークを生成するのを待つ時間を調整します。圧縮されたワードリストは dictstat 前処理にかなり多くの時間が必要です。",
+      "timeoutUncompressed": "タイムアウト: プレーンテキスト ワードリスト (秒)",
+      "timeoutUncompressedHelper": "エージェントがプレーンテキスト ワードリストの有効な速度読み取りを待つ最大秒数です。デフォルト: 120。",
+      "timeoutCompressed": "タイムアウト: 圧縮ワードリスト (秒)",
+      "timeoutCompressedHelper": "最大秒数 (.gz / .zip / .xz ワードリスト — hashcat がネイティブに読み込む 3 つの形式)。これらは解凍と dictstat 前処理にさらに時間が必要です。デフォルト: 300。",
+      "minStatusUpdates": "最小ステータス更新",
+      "minStatusUpdatesHelper": "結果を返す前にエージェントが収集する必要がある hashcat --status-json ティックの最小数です。デフォルト: 3。",
+      "minUpdatesLowWarning": "3 未満の値は不正確な読み取り値を生成する可能性があります: GPU がスピンアップを完了していない可能性があります。",
+      "description": "エージェントが非ゼロの速度を生成せずにタイムアウトした場合、ベンチマークは失敗として報告され、ジョブは管理者が対応できるエラーを表示します。チャンキング パイプラインは 1 候補タスクのディスパッチを拒否するため、古い 0 H/s ベンチマークは永遠にループすることはできません。"
+    },
+    "errors": {
+      "loadFailed": "システム設定の読み込みに失敗しました",
+      "maxPriorityRequired": "最大優先度は必須です",
+      "maxPriorityPositive": "最大優先度は正の数である必要があります",
+      "maxPriorityMax": "最大優先度は 1,000,000 を超えることはできません",
+      "saveFailed": "システム設定の保存に失敗しました",
+      "batchSizeRange": "バッチサイズは {{min}} から {{max}} の間である必要があります",
+      "intervalRange": "インターバルは {{min}} から {{max}} 秒の間である必要があります",
+      "speedTestTimeoutRange": "スピード テスト タイムアウトは {{min}} から {{max}} 秒の間である必要があります",
+      "minStatusUpdatesRange": "最小ステータス更新は {{min}} から {{max}} の間である必要があります"
+    },
+    "messages": {
+      "updateSuccess": "システム設定が正常に更新されました",
+      "schedulingUpdated": "エージェント スケジューリング設定が更新されました",
+      "schedulingFailed": "スケジューリング設定の更新に失敗しました",
+      "overflowUpdated": "エージェント オーバーフロー割り当てモードが更新されました",
+      "overflowFailed": "オーバーフロー割り当てモードの更新に失敗しました",
+      "hashlistClientUpdated": "ハッシュリスト クライアント要件が更新されました",
+      "hashlistBatchUpdated": "ハッシュリスト バッチ サイズが更新されました",
+      "potfileBatchUpdated": "potファイル バッチ サイズが更新されました",
+      "potfileIntervalUpdated": "potファイル バッチ インターバルが更新されました",
+      "speedTestTimeoutUpdated": "スピード テスト タイムアウトが更新されました",
+      "speedTestMinUpdatesUpdated": "スピード テスト最小ステータス更新が更新されました",
+      "updateFailed": "設定の更新に失敗しました"
+    }
+  },
+  "jobExecution": {
+    "title": "ジョブ実行設定",
+    "description": "ジョブの実行方法とエージェント間での配分を構成します",
+    "chunking": {
+      "title": "ジョブ チャンキング",
+      "defaultChunkDuration": "デフォルト チャンク期間",
+      "defaultChunkDurationHelper": "チャンクあたりの目標経過時間です (scheduler-v2 は各エージェントのチャンクをこれに合わせてサイズ設定します)",
+      "minChunkSeconds": "最小チャンク期間",
+      "minChunkSecondsHelper": "単一チャンクの経過時間の最小値です。小さな孤立チャンクを防ぎます",
+      "minutes": "分",
+      "overrunTolerance": "チャンク オーバーラン許容値",
+      "overrunToleranceHelper": "ガードがチャンクを停止し、残りを再ディスパッチする前に、チャンクが計画された期間をどのくらい超過できるかです。",
+      "overrunGuard": "チャンク オーバーラン ガードを有効にする",
+      "overrunGuardHelper": "計画されたチャンク期間をはるかに超えて実行されるタスクを停止し、未完了の部分を再ディスパッチします。"
+    },
+    "agentConfig": {
+      "title": "エージェント構成",
+      "hashlistRetention": "ハッシュリスト保持期間",
+      "hashlistRetentionHelper": "エージェントがハッシュリストを保持する期間です",
+      "maxConcurrentJobs": "エージェントあたりの最大同時ジョブ数",
+      "maxConcurrentJobsHelper": "エージェントが同時に実行できる最大ジョブ数です",
+      "progressReporting": "進捗報告インターバル",
+      "progressReportingHelper": "エージェントが進捗を報告する頻度です",
+      "benchmarkCache": "ベンチマーク キャッシュ期間",
+      "benchmarkCacheHelper": "エージェント ベンチマークをキャッシュする期間です",
+      "benchmarkHistoryRetention": "ベンチマーク履歴保持期間",
+      "benchmarkHistoryRetentionHelper": "ベンチマーク履歴レコードを保持する日数です (0 = 無制限)",
+      "reconnectGrace": "再接続猶予期間",
+      "reconnectGraceHelper": "サーバー再起動後、エージェントの再接続を待つ時間です",
+      "days": "日",
+      "seconds": "秒",
+      "minutes": "分"
+    },
+    "jobControl": {
+      "title": "ジョブ制御",
+      "allowInterruption": "ジョブ割り込みを許可",
+      "allowInterruptionHelper": "高優先度のジョブは実行中のジョブを割り込むことができます",
+      "realtimeNotifications": "リアルタイム クラック通知",
+      "realtimeNotificationsHelper": "ハッシュ値がクラックされたときに通知を送信します",
+      "refreshInterval": "ジョブ更新インターバル",
+      "refreshIntervalHelper": "UI でジョブステータスを更新する頻度です",
+      "maxRetryAttempts": "最大チャンク再試行回数",
+      "maxRetryAttemptsHelper": "失敗したチャンクを再試行する回数です",
+      "jobsPerPage": "ページあたりのジョブ数",
+      "jobsPerPageHelper": "ジョブリストのデフォルト ページネーション サイズです",
+      "keyspaceTimeout": "キースペース計算タイムアウト",
+      "keyspaceTimeoutHelper": "hashcat --keyspace および --total-candidates コマンドの最大時間です。大規模なワードリスト/ルールの場合は増加させてください。"
+    },
+    "potfile": {
+      "title": "potファイル設定",
+      "enablePotfile": "potファイルを有効にする",
+      "enablePotfileHelper": "クラック済みパスワードを自動的に保存して、今後のジョブで使用します。個別のハッシュリストは除外できます。",
+      "maxBatchSize": "最大バッチ サイズ",
+      "maxBatchSizeHelper": "各バッチサイクルで処理されるステージングされたパスワードの数です (1,000 - 500,000)",
+      "batchInterval": "バッチ インターバル",
+      "batchIntervalHelper": "potファイル バッチ処理サイクル間の秒数です (10 - 600)",
+      "enableClientPotfiles": "クライアントpotファイルを有効にする",
+      "enableClientPotfilesHelper": "グローバルpotファイルに加えて、クライアントごとに別のpotファイルを保持します。",
+      "removeGlobalDefault": "ハッシュリストが削除されたときにグローバルpotファイルから削除 (デフォルト)",
+      "removeClientDefault": "ハッシュリストが削除されたときにクライアントpotファイルから削除 (デフォルト)"
+    },
+    "scheduler": {
+      "title": "スケジューラ (v2)",
+      "description": "v2 スケジューラのタスク生存性とオーバーラン処理の高度なチューニングです。デフォルトはほとんどのデプロイメントで安全です。",
+      "taskHeartbeatTimeout": "タスク ハートビート タイムアウト",
+      "taskHeartbeatTimeoutHelper": "実行中のタスクが失われていると見なされて復旧されるまでの生存信号なしの秒数です",
+      "taskStartupGrace": "タスク スタートアップ猶予",
+      "taskStartupGraceHelper": "最初の進捗の前の追加猶予です (ファイルダウンロード、解凍、autotune)",
+      "networkGrace": "ネットワーク猶予",
+      "networkGraceHelper": "ディスコネクト時に復旧が開始される前の WebSocket 再接続許容値です",
+      "overrunGuardEnabled": "チャンク オーバーラン ガード",
+      "overrunGuardEnabledHelper": "チャンク ターゲットを以下の許容値を超えて実行し続けるタスクを停止します",
+      "overrunTolerance": "オーバーラン許容値",
+      "overrunToleranceHelper": "猶予ウィンドウ: 経過時間がこのパーセンテージでチャンク ターゲットを超えるときに停止します"
+    },
+    "buttons": {
+      "save": "設定を保存"
+    },
+    "errors": {
+      "loadFailed": "設定の読み込みに失敗しました",
+      "outOfRange": "{{label}} は {{min}} から {{max}} の間である必要があります"
+    },
+    "messages": {
+      "updateSuccess": "ジョブ実行設定が正常に更新されました",
+      "loadFailed": "ジョブ実行設定の読み込みに失敗しました",
+      "saveFailed": "設定の保存に失敗しました"
+    },
+    "keyspaceBenchmark": {
+      "title": "キースペース & ベンチマーク",
+      "caption": "KrakenHashes が攻撃の測定に費やすことができる時間です。最初の設定はサーバーがジョブ作成時にワードリストを測定する境界です。スピード テスト設定はエージェントが自身のハッシュレートを測定する境界です。これらは異なるステージです。一方を増加させても他方には影響しません。",
+      "keyspaceTimeout": "キースペース計算タイムアウト",
+      "keyspaceTimeoutHelper": "サーバー側です。ジョブが作成されるときの hashcat --keyspace / --total-candidates に許可される時間です。バックグラウンドで実行されるため、これを増加させてもジョブ作成は遅くなりません。超過する場合、辞書攻撃はワードリスト単語数にフォールバックし、ユーザーに通知します。",
+      "speedTestUncompressed": "エージェント スピード テスト タイムアウト",
+      "speedTestUncompressedHelper": "エージェント側です。非圧縮ワードリスト上のエージェント ベンチマークの経過時間制限です。",
+      "speedTestCompressed": "エージェント スピード テスト タイムアウト (圧縮)",
+      "speedTestCompressedHelper": "エージェント側です。圧縮されたワードリストの長い制限です。hashcat が速度を報告する前に解凍する必要があります。",
+      "minStatusUpdates": "最小ステータス更新",
+      "minStatusUpdatesHelper": "スピード テストがその結果が信頼される前に生成する必要がある hashcat ステータス レポートの数です。低い値は GPU が安定する前に取られたレートを記録するリスクがあります。",
+      "cacheDuration": "ベンチマーク キャッシュ期間",
+      "cacheDurationHelper": "エージェントに再測定を要求される前に、記録されたベンチマークが有効である期間です。",
+      "historyRetention": "ベンチマーク履歴保持期間",
+      "historyRetentionHelper": "トレンド分析のために個別のベンチマーク レコードが保持される期間です。",
+      "hours": "時間",
+      "days": "日"
+    },
+    "benchmarkReliability": {
+      "title": "ベンチマーク信頼性",
+      "caption": "ベンチマークが繰り返し失敗したときに何が起こるかです。これらは、1つの不良エージェントまたは1つの不良ジョブ構成が、成功できないベンチマークを再実行し続けることでフリート全体を消費してしまうのを防ぎます。",
+      "failureThreshold": "失敗閾値",
+      "failureThresholdHelper": "エージェント/ジョブ/攻撃組み合わせのブロックリスト化される前の連続ベンチマーク失敗です。",
+      "hardFailureCap": "絶対失敗上限",
+      "hardFailureCapHelper": "閾値に関わらず、特定の組み合わせに対するベンチマーク試行回数の絶対上限です。",
+      "blocklistCooldown": "ブロックリストクールダウン",
+      "blocklistCooldownHelper": "ブロックリストに登録されたエージェント/ジョブ/攻撃の組み合わせが、再試行される前にブロック状態を保つ期間です。",
+      "stormThreshold": "ベンチマークストーム閾値",
+      "stormThresholdHelper": "ストームウィンドウ内でのベンチマーク失敗数がこの値に達すると、管理者に通知が送信されます。",
+      "stormWindow": "ベンチマークストームウィンドウ",
+      "stormWindowHelper": "ストーム閾値に該当する失敗がカウントされる期間です。",
+      "streakReset": "失敗ストリークのリセット",
+      "streakResetHelper": "エージェントが失敗ストリークをゼロにリセットするまでに、ベンチマーク失敗なしで継続する必要がある期間です。",
+      "quarantineStreak": "隔離失敗ストリーク",
+      "quarantineStreakHelper": "エージェント自体がベンチマークから隔離される前に、いかなる組み合わせでも発生する連続失敗の数です。",
+      "quarantineDistinct": "隔離対象の異なる組み合わせ数",
+      "quarantineDistinctHelper": "エージェントがジョブではなく不具合として扱われるまでに、異なる攻撃/ハッシュタイプの組み合わせの失敗数です。"
+    },
+    "scheduling": {
+      "title": "スケジューリング & 割り当て",
+      "overflowMode": "エージェントオーバーフロー割り当てモード",
+      "overflowModeHelper": "ジョブが最大エージェント数に達した後、残されたエージェントがどのように配分されるかを定義します。",
+      "maxConcurrentJobs": "エージェントあたりの最大同時ジョブ数",
+      "maxConcurrentJobsHelper": "1つのエージェントが同時に処理できるジョブの数です。",
+      "agentScheduling": "エージェントスケジューリングの有効化",
+      "agentSchedulingHelper": "エージェントごとの勤務時間スケジュールをグローバルに有効にします。無効にするとエージェントスケジュールは無視されます。",
+      "jobInterruption": "ジョブの中断を許可",
+      "jobInterruptionHelper": "プリエンプション（優先度の低い実行中のジョブを強制的に中断してエージェントを解放すること）のグローバルゲートです。何かが中断される前に、ジョブ自体に高優先度オーバーライドフラグと非ゼロの優先度が設定されている必要があります。",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "ラウンドロビン",
+        "enforceMaxAgents": "最大エージェント数の強制",
+        "maxAgentsFifo": "最大エージェント数、次にFIFO",
+        "maxAgentsRoundRobin": "最大エージェント数、次にラウンドロビン"
+      }
+    },
+    "taskHealth": {
+      "title": "タスク健全性",
+      "caption": "実行中のタスクがいつ失われたと見なされるか、および失われたタスクの作業をどの程度積極的に回復するかを定義します。設定が厳しすぎると健全なタスクが削除され、緩すぎると停止したタスクがキースペースを何時間も保持します。",
+      "heartbeatTimeout": "タスクハートビートタイムアウト",
+      "heartbeatTimeoutHelper": "実行中のタスクがハートビートなしで継続できる期間で、この期間を超えると失われたと見なされ、キースペースが再度開かれます。",
+      "startupGrace": "タスク起動グレースピリオド",
+      "startupGraceHelper": "割り当て後、ハートビートルールが適用される前に許可される追加時間で、hashcat起動とファイル読み込みをカバーします。",
+      "networkGrace": "ネットワークグレースピリオド",
+      "networkGraceHelper": "ハートビート欠落がカウントされる前の、一時的なネットワーク中断に対する短いグレースピリオドです。",
+      "reconnectGrace": "再接続グレースピリオド",
+      "reconnectGraceHelper": "切断されたエージェントが再接続し、実行中のタスクを再取得できる期間です。",
+      "offlineBuffer": "エージェントオフラインバッファ",
+      "offlineBufferHelper": "一時的にオフラインになったエージェントのメッセージがバッファされ、破棄される前の期間です。",
+      "maxRetryAttempts": "最大チャンク再試行回数",
+      "maxRetryAttemptsHelper": "タスクが失敗と見なされるまでに、失敗したチャンクが再試行される回数です。0に設定して再試行を無効にできます。",
+      "progressInterval": "進捗報告間隔",
+      "progressIntervalHelper": "エージェントが進捗を報告する頻度です。低い値ほど詳細な進捗が得られますが、より多くの負荷が生じます。",
+      "hashlistRetention": "エージェントハッシュリスト保持期間",
+      "hashlistRetentionHelper": "エージェントが使用を終えた後、ダウンロード済みのハッシュリストを保持する期間です。"
+    },
+    "loopback": {
+      "title": "ループバック",
+      "maxRounds": "最大ループバックラウンド数",
+      "maxRoundsHelper": "ループバックセッションが新しくクラックされたプレーンテキストに対して攻撃を再実行する回数の安全上限で、新しいクラックを見つけている場合でも停止します。"
+    },
+    "jobNotifications": {
+      "title": "ジョブ通知",
+      "realtimeCracks": "リアルタイムクラック通知",
+      "realtimeCracksHelper": "ハッシュがクラックされるにつれて通知を行います。非常に大きなジョブでは顕著な負荷が生じる可能性があります。"
+    }
+  },
+  "monitoring": {
+    "title": "モニタリング設定",
+    "metricsRetention": {
+      "title": "📊 メトリクス保持期間",
+      "description": "異なる詳細レベルでメトリクスを保持する期間を設定します。データは時間とともに細粒度から集約へとカスケードします。",
+      "realtimeData": "リアルタイムデータ保持期間",
+      "realtimeDataHelper": "最近のアクティビティに対して細粒度のメトリクスを保持する日数です（例：7日）",
+      "dailyAggregates": "日次集約保持期間",
+      "dailyAggregatesHelper": "リアルタイム期間後の日次サマリーを保存する日数です（例：30日）",
+      "weeklyAggregates": "週次集約保持期間",
+      "weeklyAggregatesHelper": "長期トレンドを週次サマリーとして保持する日数です（例：365日）"
+    },
+    "aggregation": {
+      "title": "⚙️ 集約設定",
+      "enableAggregation": "自動集約の有効化",
+      "enableAggregationDescription": "古いメトリクスを自動的に統合して、トレンドを保持しながらストレージスペースを節約します",
+      "interval": "集約間隔",
+      "intervalHelper": "集約処理を実行する頻度です",
+      "hourly": "毎時",
+      "daily": "毎日",
+      "weekly": "毎週"
+    },
+    "cascading": {
+      "title": "カスケード集約の仕組み：",
+      "realtime": "リアルタイムデータは最近のアクティビティの詳細なメトリクスを提供します",
+      "daily": "リアルタイム期間後、データは日次サマリーに集約されます",
+      "weekly": "日次期間後、データはさらに週次サマリーに集約されます",
+      "benefit": "このアプローチにより、チャートの可読性を保ちながら過去のトレンドを保持します"
+    },
+    "buttons": {
+      "save": "設定を保存",
+      "saving": "保存中..."
+    },
+    "errors": {
+      "loadFailed": "設定の読み込みに失敗しました。もう一度お試しください。",
+      "saveFailed": "設定の保存に失敗しました。もう一度お試しください。"
+    },
+    "messages": {
+      "updateSuccess": "モニタリング設定が正常に保存されました"
+    }
+  },
+  "agentDownloads": {
+    "title": "エージェントファイル転送設定",
+    "description": "エージェントがバックエンドからファイルをダウンロードする方法を設定します。これらの設定は接続されているすべてのエージェントに適用されます。",
+    "concurrentDownloads": {
+      "title": "同時ダウンロード数",
+      "description": "同時にダウンロードできる最大ファイル数"
+    },
+    "downloadTimeout": {
+      "title": "ダウンロードタイムアウト",
+      "description": "1つのファイルダウンロードに許可される最大時間",
+      "helper": "1分～24時間（1440分）の間",
+      "unit": "分"
+    },
+    "retryAttempts": {
+      "title": "再試行回数",
+      "description": "失敗したダウンロードを再試行する回数"
+    },
+    "progressInterval": {
+      "title": "進捗報告間隔",
+      "description": "エージェントがダウンロード進捗を報告する頻度",
+      "helper": "1秒～5分（300秒）の間",
+      "unit": "秒"
+    },
+    "chunkSize": {
+      "title": "チャンクサイズ",
+      "description": "将来の再開機能のためのダウンロードチャンクサイズ",
+      "helper": "1MB～100MBの間",
+      "unit": "MB"
+    },
+    "applyNote": "変更は次回接続時にエージェントに適用されます。現在接続しているエージェントは自動的に更新を受け取ります。",
+    "buttons": {
+      "save": "設定を保存",
+      "saving": "保存中..."
+    },
+    "errors": {
+      "loadFailed": "エージェントダウンロード設定の読み込みに失敗しました",
+      "saveFailed": "エージェントダウンロード設定の更新に失敗しました"
+    },
+    "messages": {
+      "updateSuccess": "エージェントダウンロード設定が正常に更新されました"
+    }
+  },
+  "hashTypes": {
+    "title": "ハッシュタイプ管理",
+    "description": "パスワードクラッキング操作でサポートされるハッシュタイプを管理します。",
+    "addHashType": "ハッシュタイプを追加",
+    "searchPlaceholder": "ハッシュタイプを検索...",
+    "hashTypesFound_other": "{{count}}個のハッシュタイプが見つかりました",
+    "table": {
+      "id": "ID",
+      "name": "名前",
+      "description": "説明",
+      "example": "例",
+      "slow": "低速",
+      "salted": "ソルト付き",
+      "actions": "アクション",
+      "loading": "ハッシュタイプを読み込み中...",
+      "noResults": "ハッシュタイプが見つかりません"
+    },
+    "dialog": {
+      "addTitle": "新しいハッシュタイプを追加",
+      "editTitle": "ハッシュタイプを編集",
+      "hashIdLabel": "ハッシュID（Hashcatモード番号）",
+      "hashIdHelper": "例：NTLMの場合1000",
+      "nameLabel": "名前",
+      "descriptionLabel": "説明",
+      "exampleLabel": "ハッシュ値の例",
+      "exampleHelper": "このハッシュ形式の例",
+      "slowLabel": "低速ハッシュアルゴリズム",
+      "saltedLabel": "ソルト付きハッシュタイプ（例：NTLMv2、bcrypt）",
+      "processingInfo": "このハッシュタイプは特別な処理が必要です。処理ロジックはプログラムで管理されています。",
+      "cancel": "キャンセル",
+      "save": "保存",
+      "saving": "保存中..."
+    },
+    "validation": {
+      "hashIdRequired": "ハッシュIDが必要で、正数である必要があります",
+      "hashIdExists": "このハッシュIDは既に存在します",
+      "nameRequired": "名前が必要です"
+    },
+    "tooltips": {
+      "requiresProcessing": "特別な処理が必要です",
+      "processing": "特殊処理",
+      "slowAlgorithm": "低速ハッシュアルゴリズム（計算量が多い）",
+      "salted": "ハッシュごとのソルトを使用（キースペース計算に影響）"
+    },
+    "confirmDelete": {
+      "title": "削除を確認",
+      "warning": "このハッシュタイプは現在有効です。削除すると既存の機能に影響する可能性があります。",
+      "cancel": "キャンセル",
+      "delete": "削除",
+      "deleting": "削除中..."
+    },
+    "messages": {
+      "createSuccess": "ハッシュタイプが正常に作成されました",
+      "createFailed": "ハッシュタイプの作成に失敗しました",
+      "updateSuccess": "ハッシュタイプが正常に更新されました",
+      "updateFailed": "ハッシュタイプの更新に失敗しました",
+      "deleteSuccess": "ハッシュタイプが正常に削除されました",
+      "deleteFailed": "ハッシュタイプの削除に失敗しました",
+      "deleteInUse": "削除できません：このハッシュタイプは既存のハッシュリストで使用されています",
+      "loadFailed": "ハッシュタイプの読み込みに失敗しました。ページの更新をお試しください。"
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "クラウドGPUプロビジョニング",
+      "body": "オンプレミスフリートが対応できない場合にオンデマンドでGPUインスタンスをレンタルします。インスタンスは既存のVPNに参加し、ジョブに必要なファイルのみを受け取り、自動的に破棄されます。支出はインスタンスが起動する前にクライアントごとの予算に対してコミットされるため、キャップは事後的な測定ではなく実際の制限です。",
+      "fleetLink": "ライブフリートを表示"
+    },
+    "sections": {
+      "providers": "プロバイダー",
+      "clients": "クライアント予算",
+      "policy": "閾値ポリシー",
+      "rules": "プロビジョニングルール",
+      "system": "制限 & 操作"
+    },
+    "providers": {
+      "title": "クラウドプロバイダー",
+      "description": "レンタルインスタンスの出所と、このサーバーへの接続方法",
+      "add": "プロバイダーを追加",
+      "addTitle": "クラウドプロバイダーを追加",
+      "editTitle": "クラウドプロバイダーを編集",
+      "edit": "編集",
+      "delete": "削除",
+      "save": "保存",
+      "saved": "プロバイダーが保存されました",
+      "saveFailed": "プロバイダーの保存に失敗しました",
+      "deleted": "プロバイダーが削除されました",
+      "deleteFailed": "プロバイダーの削除に失敗しました",
+      "deleteTitle": "プロバイダーを削除しますか？",
+      "deleteBody": "「{{name}}」を削除しますか？レンタルインスタンスがまだこれを参照している場合、削除は失敗します。",
+      "loadFailed": "プロバイダーの読み込みに失敗しました",
+      "empty": "設定されたクラウドプロバイダーがありません。何もレンタルされません。",
+      "enabled": "有効",
+      "disabled": "無効",
+      "noCredentials": "認証情報なし",
+      "noVpn": "VPNなし",
+      "credentialExpired": "認証情報の有効期限切れ",
+      "credentialExpiresIn": "{{days}}日で有効期限切れ",
+      "limitsValue": "{{instances}}最大、{{rate}}/時間キャップ",
+      "thirdPartyBadge": "サードパーティ製マシン上で実行",
+      "preflight": "プリフライト",
+      "preflightTitle": "プリフライトレポート",
+      "preflightOk": "このプロバイダーはインスタンスを起動できます。",
+      "preflightFailed": "プリフライトリクエストが失敗しました",
+      "preflightFailedBody": "このプロバイダーはまだインスタンスを起動できません。",
+      "preflightIdentity": "{{identity}}として認証",
+      "preflightQuota": "クォータ：{{limit}}中{{used}}が使用中（{{source}}）",
+      "preflightSections": {
+        "missing_permissions": "不足しているパーミッション",
+        "inconclusive": "検証できません（失敗として扱われます）",
+        "errors": "エラー",
+        "warnings": "警告"
+      },
+      "acknowledge": "承認",
+      "acknowledged": "承認が記録されました",
+      "ackFailed": "承認の記録に失敗しました",
+      "ackTitle": "サードパーティのデータ露出を承認",
+      "ackBody": {
+        "vastai": "Vast.aiは、オペレーターがコンテナへのルートアクセス権を持つ個人所有のマシンでGPUをレンタルします。そこに配置されたハッシュ値、ワードリスト、クラック済みプレーンテキストはサードパーティに表示されます。これはAWSまたはRunPod Secure Cloudとは本質的に異なり、その場所ではインスタンスは独自のアカウント内またはSOC 2データセンター内で実行されます。",
+        "runpod_community": "RunPod Community Cloudはピア運営されたマシン上のGPUをレンタルし、所有者がコンテナへのルートアクセス権を持ちます。そこに配置されたハッシュ値、ワードリスト、クラック済みプレーンテキストはサードパーティに表示されます。RunPodのコンプライアンス認証はSecure Cloudのみをカバーし、このティアには拡張されません。"
+      },
+      "ackConfirm": "このプロバイダーに送信されるワークロードについて、この露出を受け入れますか？",
+      "ackAccept": "理解して承認します",
+      "ephemeralKeyTitle": "暗号化キーは一時的です",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEYが設定されていないため、起動時にランダムキーが生成されました。保存されたすべての認証情報は次回の再起動後に読み取り不可になります。プロバイダー認証情報を保存する前にKH_ENCRYPTION_KEYを設定してください。",
+      "vpnSection": "VPN接続",
+      "vpnSectionHelp": "このサーバーはインターネットに露出されないため、レンタルインスタンスは既に実行しているVPNに参加します。OpenVPNはサポートされていません：/dev/net/tunとCAP_NET_ADMINが必要で、Vast.aiの非特権コンテナではサポートされていません。",
+      "reusableKeyWarning": {
+        "tailscale": "再利用可能なキーはすべてのインスタンスで共有され、有効期限があります。Tailscaleは認証キーを90日に制限します。有効期限が切れると、接続できないインスタンスを起動するのではなく、プロビジョニングが拒否されます。OAuthクライアントを使用すると、KrakenHashesはインスタンスごとに単一使用の一時的なタグ付きキーを作成できます。",
+        "netbird": "再利用可能なセットアップキーはすべてのインスタンスで共有されるため、同じシークレットはすべてのレンタルホストに到達します。キーに有効期限がある場合は下の「認証情報の有効期限」を設定します。その場合、有効期限が切れるとプロビジョニングが拒否されます。有効期限がないキーの場合は空白のままにしてください。この認証情報タイプではタグまたはグループは無視されます。グループと一時的なフラグはNetBirdのキー自身の設定から取得されます。アクセストークンを使用すると、KrakenHashesはインスタンスごとに単一使用の一時的なセットアップキーを作成し、グループ自体を設定できます。"
+      },
+      "staticConfigWarning": "WireGuardは静的なピア設定を使用します：インスタンスごとの認証情報はなく、インスタンスが終了するときの自動登録解除もありません。TailscaleまたはNetBirdの方が安全です。",
+      "kinds": {
+        "aws": "AWS EC2（独自のアカウント）",
+        "vastai": "Vast.ai（サードパーティ製マシン）",
+        "mock": "モック（ローカルテストエージェント、無料）",
+        "runpod": "RunPod Secure Cloud（SOC 2データセンター）",
+        "runpod_community": "RunPod Community Cloud（ピア運営マシン）"
+      },
+      "credentialKinds": {
+        "oauth": "OAuthクライアント — インスタンスごとに1つの一時的なキーを作成（推奨）",
+        "pat": "アクセストークン — インスタンスごとに1つの一時的なキーを作成（推奨）",
+        "reusable_key": "再利用可能なキー — すべてのインスタンスで共有",
+        "static_config": "静的設定 — インスタンスごとの認証情報なし"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "Tailscale OAuthクライアントをclient_id:client_secretの形式で指定します。auth_keysスコープとタグの選択が必要です。",
+        "pat": "NetBirdパーソナルアクセストークンまたはサービスユーザートークン。",
+        "reusable_key": "すべてのインスタンスが使用する事前認可されたキーです。",
+        "static_config": "WireGuardピア設定全体です。"
+      },
+      "columns": {
+        "name": "名前",
+        "provider": "プロバイダー",
+        "status": "ステータス",
+        "vpn": "VPN",
+        "limits": "制限",
+        "actions": "操作"
+      },
+      "fields": {
+        "name": "名前",
+        "provider": "プロバイダー",
+        "credentials": "プロバイダー認証情報",
+        "credentialsHelp": "{{provider}}のAPI認証情報です。暗号化して保存され、返されることはありません。",
+        "credentialsKeepHelp": "保存済み認証情報を変更しない場合は空のままにしてください。",
+        "maxConcurrent": "最大同時インスタンス数",
+        "maxHourlyCents": "最大時間料金（セント）",
+        "maxHourlyHelp": "この料金を超えるオファーは、予算の許可があってもレンタルされません。",
+        "vpnProvider": "VPNプロバイダー",
+        "credentialKind": "認証情報の種類",
+        "vpnCredential": "VPN認証情報",
+        "credentialExpiry": "認証情報の有効期限",
+        "credentialExpiryHelp": "オプション — 有効期限のないキーの場合は空のままにしてください。この時間を過ぎるとプロビジョニングは拒否され、時間が近づくと警告が表示されます。",
+        "vpnTag": "タグまたはグループ",
+        "vpnTagHelp": "例：tag:kraken-worker。Tailscale OAuthに必須です。これらのノードが到達可能な範囲を定義します。",
+        "backendVpnHost": "VPN上のこのサーバーのアドレス",
+        "backendVpnHostHelp": "クラウドエージェントが使用するKH_HOST値です。サーバー証明書がこれをカバーしている必要があります。「サーバー証明書」タブの下に追加し、「適用して再発行」をクリックしてください。そうしないと、エージェントはTLSホスト名検証に失敗します。",
+        "enabled": "有効",
+        "awsAccessKeyId": "AWSアクセスキーID",
+        "awsAccessKeyIdHelp": "EC2プロビジョニングにスコープされたIAMユーザーまたはロールキーです。暗号化して保存され、返されることはありません。",
+        "awsSecretAccessKey": "AWSシークレットアクセスキー",
+        "awsRegion": "リージョン",
+        "awsRegionHelp": "例：us-east-2。以下の他のすべてのAWSフィールドはこのリージョンに存在する必要があります。",
+        "awsSubnet": "サブネットID",
+        "awsSubnetHelp": "例：subnet-0abc123。パブリックIPを自動割り当てしている必要があります。そうしないと、インスタンスはVPNのコントロールプレーンに到達できません。",
+        "awsSecurityGroups": "セキュリティグループID",
+        "awsSecurityGroupsHelp": "カンマ区切り、例：sg-0abc123。アウトバウンドアクセスのみが必要です。インバウンドルールは不要です。",
+        "awsAmiSsm": "AMI SSMパラメータ",
+        "awsAmiSsmHelp": "起動時に解決されるため、イメージは古くなりません。例：/aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "AMI ID（SSMパラメータをオーバーライド）",
+        "awsAmiIdHelp": "代わりに特定のイメージをピン留めしてください。SSMを通じて解決するには空のままにしてください。どちらか一つが必須です。",
+        "awsInstanceProfile": "IAMインスタンスプロファイルARN",
+        "awsInstanceProfileHelp": "オプション。エージェント自体がAWS APIを呼び出す必要がある場合のみ必要です。",
+        "awsRootVolume": "ルートボリューム（GB）",
+        "awsRootVolumeHelp": "最小値です。ジョブのファイルセットがこれ以上必要になる可能性があります。AMIのスナップショットサイズ以上である必要があり、そうでないと起動が失敗します。",
+        "awsEbsRate": "EBS料金（セント/GB-月）",
+        "awsEbsRateHelp": "gp3ストレージの価格です。0のままにするとディスク用に予算が予約されません。",
+        "awsUseSpot": "スポット容量を使用",
+        "awsUseSpotHelp": "スポットリクエストは1回限りで、中断時に終了します。現世代GPUの割引はしばしば控えめであるため、これが自動的に安くなるわけではありません。スポットとオンデマンドは別々のvCPUクォータを使用します。",
+        "awsInstanceType": "インスタンスタイプ",
+        "awsHourlyCents": "セント/時間",
+        "awsGpuModel": "GPUモデル",
+        "awsGpuCount": "GPU数",
+        "awsVram": "GPU当たりのVRAM",
+        "mockAgentBinary": "エージェントバイナリパス",
+        "mockAgentBinaryHelp": "サーバーが--test-modeで実行できるエージェントバイナリへのパスです。",
+        "mockBackendHost": "生成されたエージェントのバックエンドホスト",
+        "mockBackendHostHelp": "例：localhost:31337。",
+        "mockHourlyRate": "シミュレートされたレート（セント/時間）",
+        "mockBootDelay": "シミュレートされたブートディレイ（秒）",
+        "mockFailLaunch": "障害：すべての起動に失敗",
+        "mockDropLaunchResponse": "障害：起動応答をドロップ（インスタンスは実行されますが失敗と報告される）",
+        "mockNeverRegister": "障害：インスタンスが登録されない",
+        "mockFailDestroy": "障害：すべての破棄に失敗",
+        "vpnTagIgnoredHelp": "NetBird再利用可能キーでは無視されます。グループメンバーシップとエフェメラルフラグはNetBirdの設定キー自体から取得されます。アクセストークンパスでのみ使用され、各生成されたキーのauto_groupsとして使用されます。",
+        "vpnUrl": {
+          "netbird": "NetBird管理URL",
+          "tailscale": "Tailscaleログインサーバー（Headscale）"
+        },
+        "vpnUrlHelp": {
+          "netbird": "セルフホスト型のNetBird管理サーバー、例：https://netbird.example.com。セットアップキーを生成するのにも、クライアントを開始するのにも使用されます。NetBirdのホスト型サービスを使う場合は空のままにしてください。",
+          "tailscale": "セルフホスト型のコントロールサーバーのみです。アクセストークンの生成は常にapi.tailscale.comを使用し、Headscaleはサポートされていないことに注意してください。"
+        },
+        "vastCountries": "国（カンマ区切り）",
+        "vastCountriesHelp": "Vast.ai国コード、例：US、DE、SE。空は任意の場所を意味します。報告されたジオロケーションに対して大文字小文字を区別せずにマッチングされるため、「US」は「US, Texas」とマッチングされます。データレジデンシーコントロールとしても機能します。",
+        "vastGpuModels": "許可されたGPUモデル（カンマ区切り）",
+        "vastGpuModelsHelp": "空は任意のカードを意味します。正規化されたキーでマッチングされるため、「rtx_4090」は「NVIDIA GeForce RTX 4090」と「RTX 4090」の両方にマッチングされます。このリストを拡大することが、可用性を上げるための最も安い方法です。",
+        "vastDeniedGpuModels": "拒否されたGPUモデル（カンマ区切り）",
+        "vastDeniedGpuModelsHelp": "常に許可リストより優先されます。これは「そのカードが継続して失敗している、レンタルを停止する」ための緊急レバーです。",
+        "vastMinReliability": "最小ホスト信頼度（0-1）",
+        "vastMinReliabilityHelp": "Vast.aiのホスト信頼度スコア。0は最小値を無効化します。スコアを報告しないホストは保持されます。可用性をわずかに犠牲にして、失敗に終わるレンタルを減らします — インスタンスをチャンク途中でドロップするホストでも、その導入コストは既に支払われています。",
+        "vastAllowUnverified": "未検証のホストを許可（可用性を上げます; 未審査のマシン）",
+        "vastAllowResidential": "住宅用ホストを許可（可用性を上げます; 家庭用マシン、データセンターではない）",
+        "runpodDataCenters": "データセンター（カンマ区切り）",
+        "runpodDataCentersHelp": "RunPodデータセンターID、例：EU-RO-1、US-KS-2。空は最も狭い設定ではなく、最も広い設定です — RunPodのスケジューラーはポッドを任意の場所に配置できます。これはAWSゾーンとは逆で、空のままにしてもまだ1つのゾーンに固定されます。データレジデンシーのために設定するか、起動リトライループを本当に独立したプールで動かすために設定します。",
+        "runpodGpuTypes": "許可されたGPUタイプ（カンマ区切り）",
+        "runpodGpuTypesHelp": "RunPod gpuTypeID、可用性グリッドに表示される通りです。例：「NVIDIA GeForce RTX 4090」。空はこのティアが搭載しているすべてのカードを意味します。",
+        "runpodDiskGb": "コンテナディスク最小値（GB）",
+        "runpodDiskGbHelp": "最大値ではなく最小値です。ファイルセットがより多くを必要とするジョブはより多くを取得します。コンテナディスクはポッドが再起動されるときにクリアされ、ネットワークボリュームは決してアタッチされません — ボリュームはポッドより長く生存し、終了後にクラック済みのプレーンテキストを保持します。",
+        "runpodDiskRate": "コンテナディスク（セント/GB-月）",
+        "runpodDiskRateHelp": "予算予約のストレージ部分に供給されます。ストレージを過小評価する予約により、クライアントが厳しいと言われたキャップを超えることができるため、切り上げられます。",
+        "runpodSelfDestruct": "VPNが切れた場合にポッドが自分自身を削除できるようにする（セキュアティアのみ）",
+        "runpodSelfDestructHelp": "ポッドが通信を失った場合に自分自身をDELETEできるようにする3番目の破棄レールを追加し、Vast.aiと一致させます。RunPodはポッドスコープの認証情報がないため、アカウントスコープのキーを各ポッドに配置します — アカウント上の他のすべてのポッドを作成および削除できるキーです。プロビジョニングキーを再利用するのではなく、認証情報JSONでself_destruct_api_keyとして別個の絞られたキーを指定します。コミュニティティアでは利用できません。"
+      },
+      "peerWarningTitle": "サードパーティハードウェア",
+      "peerWarningBody": {
+        "vastai": "Vast.aiインスタンスは、管理の及ばない個別所有のマシンで実行されます。データがサードパーティに曝露される可能性のあるクライアントのみでこれを有効にし、クライアントごとにも確認してください。",
+        "runpod_community": "RunPod Community Cloudはピア運営のマシンで実行され、所有者はコンテナに対するルート権限を持っています。RunPodのSOC 2、ISO 27001、PCI DSSの認証はセキュアクラウドのみをカバーし、このティアはカバーしていません。データがサードパーティに曝露される可能性のあるクライアントのみでこれを有効にし、クライアントごとにも確認してください。"
+      },
+      "awsSection": "AWS配置と価格",
+      "awsSectionHelp": "インスタンスが起動される場所とそのコスト。EC2はGPUモデルや時間料金をプログラムで読み取れる形式でこのコードに公開していないため、両方をここで宣言します。",
+      "awsInstanceTypes": "提供されるインスタンスタイプ",
+      "awsInstanceTypesHelp": "ここにリストされているタイプのみレンタルできます。請求されても構わない料金を宣言してください — 予算がこの数字に対して予約し、何もこれを請求書と照合しないため、切り上げてください。GPUモデルと数を宣言することが、作業当たりのコスト順位を有効にしています。これがないと、順位は時間当たりの価格にフォールバックします。",
+      "awsAddInstanceType": "インスタンスタイプを追加",
+      "awsRemoveInstanceType": "削除",
+      "mockSection": "モック動作と障害注入",
+      "mockSectionHelp": "モックプロバイダーはローカルエージェント--test-modeプロセスを生成します。障害トグルは再コンパイルなしで失敗ブランチを実行します。",
+      "providerNotImplemented": "このプロバイダーはまだアダプタがありません。バックエンドは起動時に「unsupported cloud provider」で拒否されます。保存できますが、何もプロビジョニングできません。",
+      "zones": {
+        "title": "配置とハードウェア",
+        "help": "レンタルしても構わないすべての場所とすべてのGPUをチェックしてください。容量は通常、どちらか1つではなく（ハードウェア、配置）ペアに属するため、チェックされたセルはマシンを取得する1つの独立した機会です — 単一のチェックされたセルは、容量拒否がフォールバックする場所がないことを意味します。行のカードすべてをチェックしたままにすることは「承認したすべてのハードウェア」を意味します。後で追加されたものを含みます。",
+        "probe": "可用性を確認",
+        "probeHelp": "AWSからライブゾーン、サブネット、オファリング、スポット価格、配置スコアデータを読み取ります。読み取り専用：起動なし、費用なし。",
+        "probeIdle": "このプロバイダーのライブゾーン、サブネット、スポット価格を読み込むには。",
+        "probeFailed": "AWSから容量を読み取ることができませんでした。",
+        "saveFirst": "プロバイダーを最初に保存してください。可用性は保存された認証情報とリージョンを使用して読み取られるため、保存されていないフォームはクエリするものがありません。",
+        "selectAll": "すべての使用可能なゾーンを選択",
+        "colZone": "ゾーン",
+        "colSubnet": "サブネット",
+        "notOffered": "EC2はこのゾーンでこのインスタンスタイプを提供していません。これは決定的です：ここでの起動は「Unsupported」で失敗します。",
+        "unusable": "この配置では起動できません。その名前の横にあるメモを参照してください。",
+        "freeIps_other": "{{count}}個の空きIP",
+        "scoreHelp": "このゾーンのこのカードに対するAWSの独自の1-10ランキング、および弱い証拠：このアカウントのこのリージョンのすべてのゾーンは、そのうちの1つでの起動が初回で成功する数分前に1/10をスコアしました。どのプールが最初に試行されるかを決定します。リストからプールを削除することはありません。ゾーン名の横にあるすべてのタイプのスコアと比較してください。",
+        "spotVsConfigured": "スポットはここで{{spot}}/hrを提示しています。このタイプの設定済みレートは{{configured}}/hrです。予約は設定された数値を使用するため、ライブレート以下の価格は、厳しいと言われた予算キャップに対して過小予約されます。",
+        "poolCount_other": "{{count}}個の容量プールが選択されました",
+        "poolCountWarning": "1つのプールは1つの機会です。枯渇すると、起動リトライループは行く場所がなく、容量が戻るまでプロビジョニングは停止します。より多くのゾーン、より多くのインスタンスタイプ、またはその両方をチェックしてください。",
+        "poolCountOk": "1つのプールでの容量拒否は、可能性が高い順に次のプールへ移ります。",
+        "legacyOverridden": "ゾーンが設定されているため、上記の単一のサブネットID（{{subnet}}）は無視されます。すべてのゾーンがチェック解除されている場合は、フォールバックのままです。",
+        "combinedScore": "すべてのタイプ：{{score}}/10",
+        "combinedScoreHelp": "このゾーンで一緒に取られたすべての価格設定されたインスタンスタイプのAWSの配置スコア。これは単一のカードのスコアとは異なる質問 — 通常、はるかに良い答えです。1つのリージョンで1分で測定：g6.xlargeだけがここで1/10をスコアしましたが、g4dn + g5 + g6を合わせると9/10をスコアしました。幅は不足に対するヘッジではなく、スコアリングされているものです。",
+        "availableCount": "{{count}}個利用可能",
+        "availableCountHelp": "今すぐレンタル可能なマシンの台数をリアルタイムで示す値です。これは実在する在庫情報であり、画面上で最も信頼できる指標です。配置スコアのような単なる意見よりも、はるかに優れています。",
+        "livePriceHelp": "このプロバイダーが現在請求している料金です。",
+        "trust": {
+          "definitive": "確定",
+          "measured": "ライブ",
+          "advisory": "参考情報のみ"
+        },
+        "axesModeNote": "このプロバイダーは国とGPUモデルを2つの独立したリストとして保存するため、カードをチェックすると選択されたすべての国に適用されます。下の各セルの台数と価格は依然として実在する情報で、その国に固有です。"
+      },
+      "vastSection": "Vast.ai配置とハードウェアポリシー",
+      "vastSectionHelp": "このプロバイダーがレンタルできる国と、レンタルできるカードを指定します。リストを空のままにすると制限がなく、最大のプールになります。これがデフォルトです。",
+      "vastTierWarningTitle": "未検証のホストティアを開いています",
+      "vastTierWarningBody": "これはVast.ai上で入手可能な最大の可用性増加であり、クライアントハッシュ値、ワードリスト、potファイル、およびクラック済みプレーンテキストをVast.aiが検証していないマシンに配置します。すべてのVastホストは既にコンテナに対してルート権を持っています。これらのトグルは、Vastがチェックしたホストに限定する唯一のフィルタを削除します。未検証ティアは「接続中に停止」と「不正なドライバー」レポートが集中しているため、提供される可用性の一部は名目上のものです。有用な作業に到達しないレンタルであっても、そのセットアップのコストは発生します。",
+      "runpodSection": "RunPod配置とハードウェアポリシー",
+      "runpodSectionHelp": "このプロバイダーがレンタルできるデータセンターとGPUタイプを指定します。RunPodはリアルタイム価格設定を使用するため、AWSとは異なり、ここで宣言するレートはありません。",
+      "runpodCommunityTeardownTitle": "コミュニティの破棄はバックエンドの回収のみです",
+      "runpodCommunityTeardownBody": "RunPodはポッドスコープの認証情報を発行しないため、コミュニティポッドが自身を削除する安全な方法はありません。機能する唯一のキーはアカウント範囲のものであり、コミュニティホストオペレータはコンテナに対してルート権を持ち、環境からそれを読み出します。ゲスト内の期限は依然としてhashcatを強制終了し、データ露出を終わらせますが、ポッドの課金を停止することはできません。このバックエンドがダウンしているか、ハングしている場合、コミュニティポッドはクラウドフリートページからそれを手動で破棄するまで課金され続けます。このティアの使用を許可されたクライアントには、低いインスタンスTTL上限と小さい予算キャップを設定してください。",
+      "experimentalChip": "実験的",
+      "experimentalTooltip": "実験的—まだテストされていません。このアダプタは、実際のプロバイダーに対して実際のお金を使用してエンドツーエンドで駆動されたことがありません。バグの発生を想定してください。ジョブを監視し、見つけたものを報告してください。",
+      "experimentalTitle": "実験的—まだテストされていません",
+      "experimentalBody": "このプロバイダーは実際のお金でエンドツーエンドで実証されていません。起動、セットアップ、クラッキング、クリーンリリース、および予算払い戻しのすべてが一緒に機能することが観察されていません。機能するはずで、バグがあります。小さい予算キャップと低いインスタンス制限で始めて、クラウドフリートページでリリースされないインスタンスを監視してください。何か問題が発生したら報告してください。",
+      "testedChip": "テスト済み",
+      "testedTooltip": "テスト済み—実際のプロバイダーに対して実際のお金を使い、起動からクラッキング、クリーンリリース、確定済みの予算払い戻しまでをエンドツーエンドで検証済みです。",
+      "reportIssueLink": "GitHubでバグを報告",
+      "reportDiagnosticsLink": "Discord上で診断を送信（イシューには含めない）"
+    },
+    "budgets": {
+      "title": "クライアント予算",
+      "description": "各クライアントが使用できる金額、およびどのプロバイダーにそのデータを送信できるか。空のフィールドを持つクライアントは、下のサーバーデフォルトに従います。",
+      "loadFailed": "クライアント予算の読み込みに失敗しました",
+      "empty": "クライアントはまだ存在しません。まずクライアントを作成してから、ここで資金を提供してください。",
+      "edit": "編集",
+      "editTitle": "クラウド設定—{{name}}",
+      "saved": "クライアントクラウド設定が保存されました",
+      "saveFailed": "クライアントクラウド設定の保存に失敗しました",
+      "enabled": "有効",
+      "disabled": "無効",
+      "unfunded": "予算なし",
+      "noProviders": "許可されているプロバイダーなし",
+      "ttlValue": "{{minutes}}分",
+      "spendSummary": "{{used}} / {{cap}}（{{pct}}%予約済み）",
+      "acknowledged": "確認が記録されました",
+      "acknowledgedChip": "確認済み",
+      "ackFailed": "確認の記録に失敗しました",
+      "ackTitle": "このクライアントの第三者への露出を確認",
+      "ackWarningTitle": "このクライアントのデータは管理下から外れます",
+      "ackWarningBody": "{{name}}にVast.aiを許可することは、このクライアントのハッシュ値、ワードリスト、およびクラック済みプレーンテキストが、コンテナに対してルート権を持つ第三者が所有するマシンに配置される可能性があることを意味します。",
+      "ackConfirm": "このクライアントについて、この露出を受け入れますか？",
+      "ackAccept": "理解して受け入れます",
+      "actions": {
+        "none": "予算内",
+        "notify": "閾値に達しました",
+        "stop_provisioning": "プロビジョニング停止中",
+        "drain": "ドレイン中",
+        "hard_stop": "強制停止"
+      },
+      "columns": {
+        "client": "クライアント",
+        "status": "ステータス",
+        "providers": "許可されているプロバイダー",
+        "spend": "支出",
+        "ttl": "最大TTL",
+        "actions": "操作"
+      },
+      "fields": {
+        "budget": "予算",
+        "budgetHelp": "現在の予算期間の支出上限。空のままにするとサーバーデフォルトを継承します。クライアントが未資金化されるのは、デフォルトも設定されていない場合のみです。",
+        "ttl": "最大インスタンス有効期間（分）",
+        "ttlHelp": "インスタンスはこの稼働時間に達すると、進捗にかかわらず破棄されます。",
+        "providers": "許可されているプロバイダー",
+        "providersHelp": "空の場合、このクライアントに対してレンタルできるものはありません。AWSを許可しながらVast.aiを禁止することは、通常の構成です。",
+        "enabled": "クラウドバースト",
+        "period": "予算期間",
+        "periodHelp": "空のままにするとサーバーデフォルトを継承します。"
+      },
+      "errors": {
+        "invalidBudget": "予算は数字である必要があります（例：25.00）",
+        "negativeBudget": "予算は負数であってはいけません",
+        "invalidTtl": "最大有効期間は分単位の正の数である必要があります",
+        "enabledWithoutBudget": "クラウドバーストを有効化する前に予算を設定してください—資金がないクライアントは何もプロビジョニングできません。",
+        "enabledWithoutProvider": "クラウドバーストを有効化する前に、少なくとも1つのプロバイダーを許可してください。"
+      },
+      "peerTooltip": "ピア運営ハードウェア：このクライアントのデータは、マシンの所有者が読み取ることができます。",
+      "defaults": {
+        "title": "サーバーデフォルト",
+        "description": "クライアントが独自の値を設定していない場合に使用する値。クライアントのフィールドを空のままにすると、ここのデフォルトに従うため、これを変更するとまだ継承しているすべてのクライアントが変わります。",
+        "summary": "{{period}}ごとに{{amount}}",
+        "summaryUnset": "デフォルト予算が設定されていません—継承しているクライアントは未資金化のままです",
+        "budget": "デフォルト予算",
+        "budgetHelp": "空のままにするとデフォルトなし：継承するクライアントは未資金化のままで、バーストできません。",
+        "period": "デフォルト予算期間",
+        "enabled": "クライアントはデフォルトで有料容量にバーストできます",
+        "providers": "デフォルトプロバイダー",
+        "providersHelp": "独自のプロバイダーリストが空のすべてのクライアントに適用されます。",
+        "peerAckNote": "ピア運営プロバイダーは依然としてクライアントごとの確認が必要です。デフォルトでそれらを含めることはその同意を与えません—データがそこに行く前に、各クライアントは依然として個別に確認される必要があります。",
+        "appliesNow": "クラウドバーストはデフォルトで有効化され、デフォルト予算が設定されているため、依然として継承しているすべてのクライアントが有料容量をプロビジョニングできます。",
+        "save": "デフォルトを保存",
+        "saved": "デフォルトが保存されました",
+        "saveFailed": "デフォルトの保存に失敗しました",
+        "fundedButDisabled": "デフォルト予算は設定されていますが、クラウドバーストはデフォルトでオフになっているため、継承しているクライアントは何もプロビジョニングできません。上のボックスをチェックして、予算を使用可能にしてください。",
+        "enabledWithoutProviders": "クラウドバーストはデフォルトでオンですが、デフォルトプロバイダーは選択されていないため、継承しているクライアントは依然として何もレンタルできません。上から少なくとも1つのプロバイダーを選択してください。",
+        "willEnableTitle_other": "これにより{{count}}件のクライアントが有料容量をレンタルできるようになります",
+        "willEnableBody": "これらのクライアントは独自の設定を持たないため、上のデフォルトに従います。保存することで、それぞれがクラウドインスタンスをプロビジョニングし、この予算に対して支出できるようになります。クライアントを除外するには、そのクラウドバーストを「無効」に設定してください。",
+        "andMore": "+{{count}}件",
+        "confirmTitle_other": "{{count}}件のクライアントのクラウド支出を有効にしますか？",
+        "confirmBody_other": "{{count}}件のクライアントは現在何もレンタルできません。これらのデフォルトを保存すると、それぞれに{{period}}ごとに{{amount}}の上限と、それを支出する権限が与えられます。予算はクライアントごとに個別で、共有されないため、これは記載されているクライアントの数を掛けた合計の露出になります。",
+        "confirmAlternative": "1つずつオプトインする方がいいですか？キャンセルして、クラウドバーストをデフォルトでオフのままにして、各クライアントで個別にクラウドバーストと予算を設定してください。",
+        "confirmAccept_other": "{{count}}件のクライアントを有効にする"
+      },
+      "periods": {
+        "monthly": "月",
+        "quarterly": "四半期",
+        "semiannual": "6か月"
+      },
+      "inheritLabel": "デフォルトを継承（{{value}}）",
+      "on": "有効",
+      "off": "無効",
+      "inheriting": "継承中"
+    },
+    "policy": {
+      "title": "支出閾値ポリシー",
+      "description": "クライアントがそのキャップに近づくときに何が起こるか。これらの閾値は、キャップにどれだけ緩やかに到達するかを決定します。実際にオーバーランを防ぐのは、インスタンスの全体的な有効期間コストが起動前にコミットされることです。",
+      "loadFailed": "閾値ポリシーの読み込みに失敗しました",
+      "saved": "閾値ポリシーが保存されました",
+      "saveFailed": "閾値ポリシーの保存に失敗しました",
+      "overageWarning": "超過が許可されています。予約は残りの予算を超える可能性があり、キャップは絶対的なものではなく参考情報になります。",
+      "hardStopAboveCapNote": "強制停止は{{pct}}%に設定されていますが、超過がオフであるため、予約は依然として予算の100%を超えることはできません。キャップを超えて支出を許可することを意図している場合は、超過を有効にしてください。",
+      "fields": {
+        "notifyEnabled": "支出がキャップに近づいたら通知してください",
+        "notifyPct": "通知（予算の%）",
+        "notifyPctHelp": "1回通知を送信します。チェックボックスをオフにして通知しないようにしてください。",
+        "stopProvisionPct": "プロビジョニング停止（%）",
+        "stopProvisionPctHelp": "新しいインスタンスはこのポイント以降起動されません。実行中のインスタンスは続行します。",
+        "drainPct": "ドレイン開始（%）",
+        "drainPctHelp": "新しいタスクはディスパッチされません。進行中のチャンクの完了は許可されます。",
+        "hardStopPct": "強制停止（%）",
+        "hardStopPctHelp": "インスタンスはすぐに破棄されます（完了しているかどうかに関わらず）。",
+        "drainTimeout": "ドレインタイムアウト（秒）",
+        "drainTimeoutHelp": "インスタンスがそれでも破棄される前に、チャンクを完了し続けることができる期間。",
+        "allowOverage": "キャップを超えた支出を許可",
+        "allowOverageHelp": "オフのままにするとキャップは絶対的になります。オフの場合、10ドルの予算は10ドルで停止します。"
+      },
+      "errors": {
+        "notifyRange": "通知閾値は1%とプロビジョニング停止閾値の間である必要があります。",
+        "stopBeforeDrain": "プロビジョニング停止閾値はドレイン閾値を超えることはできません。",
+        "drainBeforeHardStop": "ドレイン閾値は強制停止閾値を超えることはできません。",
+        "negativeTimeout": "ドレインタイムアウトは負数であってはいけません。"
+      }
+    },
+    "fleet": {
+      "title": "クラウドフリート",
+      "description": "まだ費用がかかる可能性のあるすべてのレンタルされたインスタンス。",
+      "loadFailed": "フリートの読み込みに失敗しました",
+      "empty": "実行中のインスタンスはありません。何も課金されていません。",
+      "summary_other": "{{count}}台のライブインスタンス、{{hourly}}/時間、{{reserved}}がコミットされています。",
+      "destroy": "破棄",
+      "destroyed": "インスタンスが破棄されました",
+      "destroyFailed": "プロバイダーがこのインスタンスの破棄を拒否しました—依然として課金されています",
+      "destroyTitle": "インスタンスを破棄しますか？",
+      "destroyBody": "「{{label}}」を今破棄しますか？課金はプロバイダーが確認するとすぐに停止します。",
+      "destroyJobWarning": "このインスタンスはジョブで作業しています。進行中のチャンクは失われ、別の場所で再ディスパッチされます。",
+      "teardownFailingTitle": "破棄に失敗しています",
+      "teardownFailingBody_other": "{{count}}台のインスタンスが破棄できず、依然として費用が発生しています。プロバイダーコンソールをチェックしてください。",
+      "teardownFailingTooltip": "破棄に失敗しました。このインスタンスは依然として課金されています",
+      "estimated": "概算",
+      "estimatedTooltip": "経過時間とレートから概算した値です。プロバイダー自身の数値は後ほど届きます。",
+      "perHour": "{{rate}}/時間",
+      "ttlExpired": "期限切れ",
+      "states": {
+        "requested": "リクエスト済み",
+        "launching": "起動中",
+        "provisioning": "プロビジョニング中",
+        "syncing": "ファイルを同期中",
+        "running": "実行中",
+        "draining": "ドレイン中",
+        "terminating": "終了中",
+        "terminated": "終了済み",
+        "failed": "失敗"
+      },
+      "columns": {
+        "label": "インスタンス",
+        "state": "状態",
+        "client": "クライアント",
+        "gpu": "GPU",
+        "rate": "料金",
+        "spend": "支出",
+        "ttl": "残りTTL",
+        "disk": "ディスク",
+        "actions": "操作",
+        "agent": "エージェント",
+        "job": "ジョブ"
+      },
+      "experimentalRunningTitle_other": "{{count}}台のインスタンスが実験的プロバイダーで実行中",
+      "experimentalRunningBody": "{{providers}}は実際の金銭を使った本番環境でまだ検証されていません。思い込まずに、これらのインスタンスが実際に「terminated」状態に到達することを確認してください。破棄パスはどの新しいアダプターでも最もテストが不十分な部分であり、正常にリリースされないインスタンスはここで手動で破棄するまで料金が発生し続けます。気づいた点をご報告ください。",
+      "experimentalTooltip": "{{provider}}は実験的なプロバイダーで、まだテストされていません。バグが発生する可能性があります。このインスタンスがジョブ完了後に実際にリリースされることを確認してください。"
+    },
+    "rules": {
+      "title": "システムが支出できる条件",
+      "description": "予算は支出額を制限します。これらの設定は、支出がいつ認可されるかを制御します。これがなければ、オートスケーラーは単一のスターベーション状態のサイクルの後、どのジョブでも、いつでもレンタルを開始し、ジョブあたりの上限もなくなります。",
+      "inheritTitle": "これはシステムのデフォルト設定です",
+      "inheritBody": "クライアントは各フィールドを個別に継承するため、ここでデフォルトを厳しくすれば、その特定のフィールドをオーバーライドしていないすべてのクライアントに影響します。クライアント別のオーバーライドはクライアント画面で編集できます。",
+      "saved": "プロビジョニング規則が保存されました",
+      "saveFailed": "プロビジョニング規則の保存に失敗しました",
+      "loadFailed": "プロビジョニング規則の読み込みに失敗しました",
+      "save": "規則を保存",
+      "fields": {
+        "minJobPriority": "最小ジョブ優先度",
+        "minStarvation": "最小スターベーション時間(分)",
+        "skipIfFinishing": "完了予定時間内ならスキップ(分)",
+        "maxSpendPerJob": "ジョブあたりの最大支出",
+        "windowEnabled": "プロビジョニングを特定の時間帯に制限",
+        "windowStart": "ウィンドウ開始時刻",
+        "windowEnd": "ウィンドウ終了時刻",
+        "windowTz": "タイムゾーン"
+      },
+      "helperText": {
+        "minJobPriority": "絶対優先度であり、パーセンテージではありません。現在の上限は{{ceiling}}です。",
+        "floorOff": "下限なし: クラウドバーストジョブはすべて自動プロビジョニングの対象となります。",
+        "minStarvation": "ジョブが全く進捗しない状態が続く期間のうち、有料キャパシティがレンタルされるまでの時間です。0はスターベーション状態の最初のサイクルでレンタルを開始します。オートスケーラーのみに適用されます。",
+        "skipIfFinishing": "既存キャパシティで近い将来に完了予定のジョブについてはレンタルしないでください。レンタルインスタンスの起動と同期には5～10分が必要です。0はスキップしません。",
+        "maxSpendPerJob": "1ジョブのクラウド支出の通期上限で、月単位ではありません。空白は無制限を意味します。管理者による手動プロビジョニングを含め、すべての場所で適用されます。",
+        "windowEnabled": "開始のみを制御します。ウィンドウが閉じてもインスタンスは破棄されません。TTLとアイドルドレインが破棄を管理します。",
+        "windowTz": "IANA名（例：America/Chicago）。UTCの場合は空白のままにしてください。",
+        "windowWrap": "終了時刻が開始時刻より前の場合、日をまたぎます。これは「夜間のみレンタル」を表現する通常の方法です。両方を同じ値に設定すると常に開きます。"
+      },
+      "bands": {
+        "minimal": "最小",
+        "low": "低",
+        "normal": "通常",
+        "high": "高",
+        "critical": "重大"
+      }
+    },
+    "system": {
+      "ceilings": "支出と並行実行の上限",
+      "ceilingsHelp": "絶対的なシステム全体の上限で、クライアント予算の確認前に適用されます。",
+      "work": "ワーク規模と破棄",
+      "workHelp": "レンタルインスタンスに一度に割り当てられるワークの量と、アイドルインスタンスがリリースされる速度です。チャンクあたりのオーバーヘッドはレンタル料金で請求されるため、これらはスループットと無駄のトレードオフです。",
+      "reconciliation": "リコンシリエーション",
+      "reconciliationHelp": "データベースをプロバイダーの実際の実行状況と照合する頻度、および認識されていないインスタンスが破棄されるまで保持される期間を制御します。",
+      "capDisabledWarning": "クラウドプロビジョニングは現在無効です：グローバル月次上限が0です。プロバイダー、クライアント予算、クラウド対応ジョブはすべて正しく構成されていますが、何もレンタルされません。0以外の上限を設定して有効にしてください。",
+      "saved": "設定が保存されました",
+      "saveFailed": "設定の保存に失敗しました",
+      "loadFailed": "クラウド設定の読み込みに失敗しました",
+      "units": {
+        "seconds": "秒",
+        "minutes": "分"
+      },
+      "fields": {
+        "monthlyCap": "グローバル月次支出上限",
+        "monthlyCapHelp": "すべてのクライアントとプロバイダー全体。0はクラウドプロビジョニングを完全に無効にします。これは無制限ではありません。",
+        "concurrentCap": "グローバル並行インスタンス上限",
+        "concurrentCapHelp": "すべてのプロバイダーとクライアント全体で一度にレンタルされるインスタンスの最大数。0は無制限を意味しますが、予算とプロバイダーのクォータによってまだ制限されます。",
+        "defaultMaxInstancesPerJob": "ジョブあたりのデフォルト最大インスタンス数",
+        "defaultMaxInstancesPerJobHelp": "独自の制限を空白のままにしたジョブについてレンタルされるインスタンスの最大数。以前は空白は無制限を意味していましたが、クラウドのみのデプロイメントではクライアント予算だけがスターベーション状態のジョブが1分ごとにレンタルするのを防ぎます。ジョブあたりの値はこれをまだオーバーライドします。0は無制限を復元します。",
+        "chunkDuration": "最小クラウドチャンク期間",
+        "chunkDurationHelp": "クラウドエージェント用の最小チャンク期間です。レンタルGPUはhashcatの起動、カーネルオートチューン、ワードリスト読み込み中は請求されるため、ジョブがこれより短い期間を要求してもクラウドチャンクはこの値で実行されます。より長い期間を要求するジョブはその値を保持します。常にインスタンスの残り有効期間の範囲内に設定されます。0に設定するとフロアが無効になります。",
+        "teardownSlack": "破棄バッファ",
+        "teardownSlackHelp": "インスタンスの有効期間の終了時に、ドレインと破棄のために予約されるバッファです。これにより、インスタンスが終了する時点を過ぎてチャンクがスケジュールされることはありません。",
+        "idleDrain": "アイドルドレイン",
+        "idleDrainHelp": "この時間の間、保留中のワークがないレンタルインスタンスを破棄します。実行されることがないGPUに支払う額を制限します。",
+        "commissioningGrace": "立ち上げグレースピリオド",
+        "commissioningGraceHelp": "エージェントが登録されてからこの時間の間、タスクが割り当てられていないレンタルインスタンスを破棄します。コールドインスタンスはファイルをダウンロードしてベンチマークを実行する必要があるため、この値を約20分未満に設定すると立ち上げ中の正常なインスタンスが破棄され、ジョブがまだ待機しているため別のインスタンスが直ちにレンタルされます。0は無効にします。",
+        "reaperInterval": "リーパー間隔",
+        "reaperIntervalHelp": "データベースをプロバイダーのインベントリと照合し、存在すべきでないものを破棄する頻度です。",
+        "orphanGrace": "孤立インスタンスのグレースピリオド",
+        "orphanGraceHelp": "クラウドプロバイダーアカウントで見つかったが、データベースレコードに一致しないインスタンスをこの期間後に破棄します。これはレコードが到達しなかった起動の唯一の復旧方法です。",
+        "agentImage": "エージェントイメージ",
+        "agentImageHelp": "例：zerkereod/krakenhashes-agent-cloud:cloud-gpu。空白のままにするとKH_CLOUD_AGENT_IMAGE、次に組み込みのデフォルトにフォールバックします。組み込みのデフォルトは:latestであり、リリースがタグ付けされた後にのみ存在します。プレリリースデプロイメントはこれを設定する必要があります。",
+        "defaultBurstEnabled": "すべてのジョブでクラウドバーストを有効にする",
+        "defaultBurstEnabledHelp": "すべてのジョブをクラウドバースト対応として扱い、各プリセットジョブ、ワークフロー、ジョブのボックスをオンにする必要がなくなります。オンプレミスGPUがないデプロイメントを対象としています。この場合、ワークが実行される唯一の方法はレンタルです。クライアント予算とインスタンス上限は引き続き適用されます。すでにキューに入っているジョブを含めて、すぐに有効になります。",
+        "defaultClient": "デフォルト課金クライアント",
+        "defaultClientHelp": "独自のクライアントを持たないハッシュリストのクラウド支出はここで課金されます。「なし」のままにすると、割り当てられていないワークはキャパシティを一切レンタルできません。予算、インスタンス上限、閾値ラダーは、選択したクライアントに通常どおり適用されます。「割り当てられていないワーク」のような名前のクライアントを使用すると、支出レポートが正確になります。",
+        "defaultClientNone": "なし — 割り当てられていないワークはクラウドを使用できません",
+        "crackDrainGrace": "クラックドレインのグレースピリオド",
+        "crackDrainGraceHelp": "レンタルインスタンスを破棄する前に、それが所有するタスクがクラックしたパスワードのアップロードを完了するのを最大この時間待機します。最後にそのタスクが書き込まれた時刻から測定されるため、動作しているエージェントは破棄されず、スタックしているエージェントは無期限に待機されません。アイドルドレインより長く、30分未満である必要があります。0は即座に破棄します。これはエージェントが既に見つけたクラックを永続的に失う可能性があります。もはや存在しないマシンから再送信することはできません。"
+      },
+      "agent": "クラウドエージェントイメージ",
+      "agentHelp": "レンタルインスタンスがプルして実行するコンテナイメージ。存在するレジストリ内のタグである必要があります。タグが見つからない場合は起動エラーではなく、インスタンスは起動し、プルは失敗し、ホストは約1分後に自己終了し、請求されます。",
+      "save": "変更を保存",
+      "discard": "破棄",
+      "unsaved_other": "{{count}}件の未保存の変更",
+      "eligibility": "クラウドのみのデプロイメント",
+      "eligibilityHelp": "ジョブがそもそもレンタルの検討対象になるかどうかを示します。上記の設定はすべて支出額の上限を定めるものですが、これは何かが実行されるかどうか自体を決定します。"
+    }
+  },
+  "serverCertificate": {
+    "title": "サーバー証明書",
+    "description": "サーバーのTLS証明書が対応するアドレスを管理します。エージェントはここにリストされたアドレスにのみ接続できます。",
+    "apply": "適用と再発行",
+    "warning": {
+      "title": "KrakenHashesは内部ツールです",
+      "body": "公開インターネットから到達可能になってはいけません。クラック済みの認証情報を処理するため、プライベートアドレスとVPNアドレスのみを証明書に追加でき、公開IPアドレスは拒否されます。このデプロイメントが公開されている場合は、続行する前にオフラインにしてください。"
+    },
+    "summary": {
+      "title": "現在の証明書",
+      "unavailable": "サーバー証明書を読み込めませんでした。",
+      "subject": "サブジェクト",
+      "issuer": "発行者",
+      "validity": "有効期間",
+      "serial": "シリアル番号",
+      "covers": "この証明書は以下に対して有効です",
+      "coversNothing": "この証明書はアドレスをリストしていません。エージェントは接続できません。",
+      "daysRemaining_other": "残り{{count}}日",
+      "caSubject": "認証機関",
+      "caExpires": "CA有効期限",
+      "caFingerprint": "CAフィンガープリント(SHA-256)",
+      "pending_other": "{{count}}個のアドレスが保存されていますが、証明書にはまだ含まれていません。「適用と再発行」をクリックしてください。",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSESまたはKH_ADDITIONAL_DNS_NAMESは環境変数に設定されたままです。これは読み込まれなくなりました。これらの設定が代わりに使用されます。混乱を避けるため変数を削除してください。"
+    },
+    "sans": {
+      "title": "この証明書が対応するアドレス",
+      "add": "追加",
+      "empty": "追加のアドレスは構成されていません。",
+      "unsaved": "未保存の変更があります。「適用と再発行」をクリックして証明書に反映させてください。",
+      "lockedTooltip": "常に含まれています。削除すると内部プロキシとヘルスチェックが破損します。",
+      "ip": {
+        "title": "IPアドレス",
+        "help": "プライベートおよびVPNアドレスのみ：10.x、172.16～31.x、192.168.x、100.64～127.x(Tailscale、NetBird)、リンクローカル、およびIPv6 ULA。",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "DNS名",
+        "help": "エージェントとブラウザーがこのサーバーに到達するために使用するホスト名。",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "「{{address}}」は有効なアドレスではありません。",
+      "public_ip": "{{address}}は公開IPアドレスであり、追加できません。KrakenHashesは内部ツールのみです。クラック済みの認証情報を処理し、インターネットから到達可能になってはいけません。プライベートアドレス(10.x、172.16～31.x、192.168.x、100.64～127.x、リンクローカル、IPv6 ULA)のみ追加できます。これがVPNのアドレスの場合、VPNはインターネット上の誰かに属するアドレス空間を使用しています。プライベートまたはCGNAT範囲に変更してください。",
+      "duplicate": "{{address}}は既にリストに含まれています。",
+      "bind_address": "{{address}}はバインドアドレスであり、到達可能なアドレスではありません。クライアントは接続しません。",
+      "multicast": "{{address}}はマルチキャストアドレスであり、サーバーを識別できません。",
+      "wildcard_dns": "ワイルドカード名はサポートされていません。",
+      "has_port": "ポートなしでホスト名のみを入力してください。",
+      "is_ip": "これはIPアドレスです。代わりにIPアドレスリストに追加してください。",
+      "too_long": "この名前は253文字の制限を超えています。"
+    },
+    "discovered": {
+      "title": "検出されたアドレス",
+      "help": "このサーバーへの到達が確認されているものの、証明書に含まれていないアドレスです。ここに表示されるものが自動的に適用されることはありません。",
+      "empty": "まだアドレスは検出されていません。エージェントを起動するか、エージェントが使用するアドレスからこのページを開くと、ここに表示されます。",
+      "address": "アドレス",
+      "source": "ソース",
+      "reportedBy": "報告元",
+      "lastSeen": "最終確認",
+      "hits": "ヒット数",
+      "actions": "アクション",
+      "add": "追加",
+      "added": "{{address}}を追加しました。「適用して再発行」をクリックして証明書に反映させてください。",
+      "dismiss": "無視",
+      "pending": "再発行待ち",
+      "sources": {
+        "agent_tls_failure": "エージェント TLS 失敗",
+        "host_header": "ブラウザ / Host ヘッダー",
+        "tls_sni": "TLS SNI",
+        "manual": "手動"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "認証済みエージェントが、このアドレスについてサーバーの証明書を検証できないと報告しました。",
+        "host_header": "リクエストの Host ヘッダーで確認されました。このサーバーに到達できる誰もがこの値に影響を与えることができます。追加前に確認してください。",
+        "tls_sni": "TLS ハンドシェイクでサーバー名として確認されました。",
+        "manual": "管理者により追加されました。"
+      }
+    },
+    "reissue": {
+      "doneTitle": "証明書を再発行しました",
+      "noChangeTitle": "変更不要",
+      "noChangeBody": "証明書は設定済みのすべてのアドレスをカバーしており、有効期限切れも近づいていません。",
+      "changes": "変更",
+      "validUntil": "新しい証明書は{{date}}まで有効です。",
+      "backendReloaded": "ポート 31337 の API は既に新しい証明書を提供しています。再起動は不要でした。",
+      "nginxReloaded": "ポート 443 の Web UI がリロードされ、新しい証明書を提供しています。",
+      "nginxFailed": "ポート 443 の Web UI はまだ前の証明書を提供しています",
+      "backup": "前の証明書はバックアップとして{{path}}に保存されました。",
+      "agentsReconnect": "失敗していたエージェントは 30 秒以内に自動的に再接続されます。エージェントの再起動は不要です。",
+      "agentsRefetch": "すべてのエージェントは CA を再取得する必要があります。エージェントは次にハンドシェイクが失敗したときに自動的にこれを行いますが、古い CA を信頼していたブラウザは新しい CA を手動でインストールする必要があります。",
+      "close": "閉じる",
+      "nginxFailedBody": "API は既に新しい証明書を提供しているため、エージェントは影響を受けません。ポート 443 の Web UI は KrakenHashes を再起動するまで前の証明書を提示し続けます。"
+    },
+    "confirmRemoval": {
+      "title": "証明書からアドレスを削除しますか？",
+      "body": "次のアドレスは現在の証明書に含まれており、削除されます：{{addresses}}。これらのいずれかで接続しているエージェントは、追加し直されるまで接続できなくなります。",
+      "cancel": "キャンセル",
+      "confirm": "削除して再発行"
+    },
+    "rotateCa": {
+      "section": "詳細設定",
+      "title": "証明機関のローテーション",
+      "warning": "証明機関をローテーションすると、新しい CA が発行され、サーバーとエージェントの証明書が再署名されます。すべてのエージェントは再接続する前に新しい CA をダウンロードする必要があり、古い CA を信頼していたすべてのブラウザは、新しい ca.crt がインストールされるまで警告を表示します。CA 秘密鍵が漏洩した可能性がある場合にのみ実行してください。",
+      "instruction": "{{phrase}}を入力して確認してください。",
+      "action": "CA をローテーション"
+    },
+    "banner": {
+      "title_other": "{{count}}台のエージェントはこのサーバーの証明書を検証できません",
+      "body": "{{agents}}が、サーバー証明書に記載されていない{{address}}に接続しています。証明書が再発行されるまで、再試行し続けており、オンラインになることができません。",
+      "anAgent": "1台のエージェント",
+      "action": "サーバー証明書の設定で修正"
+    }
+  },
+  "branding": {
+    "title": "ブランディング",
+    "description": "このインスタンスを組織の名前、色、ロゴで表示します。ここでのすべての設定は、Web UI、ブラウザタブ、通知メール（AppName テンプレート変数を使用）、新しい認証アプリ登録、分析 PDF エクスポートに適用されます。",
+    "attributionNote": "「Powered by KrakenHashes」の表示は、常にカスタム名の横およびエクスポート PDF に表示されます。サーバーによって追加されており、削除できません。",
+    "identity": "アイデンティティと配色",
+    "appName": "アプリケーション名",
+    "appNameHelper": "ヘッダー、ログインページ、メール、レポートに表示されます。空のままにすると KrakenHashes になります。",
+    "pageTitle": "ブラウザページタイトル",
+    "pageTitleHelper": "有効なタイトル：{{title}}",
+    "primaryColor": "プライマリカラー",
+    "secondaryColor": "セカンダリカラー",
+    "colorHint": "16 進数カラー（#rrggbb）。暗い背景は固定されています。ほぼ黒い背景で読み取り可能な強調色を選択してください。プライマリカラーは PDF レポートのルールとバーにも使用されます。",
+    "save": "ブランディングを保存",
+    "logo": "ロゴ",
+    "logoHint": "PNG または JPEG、最大 2 MB、2048×2048 ピクセル。ヘッダー、ログインページ、PDF レポートで使用されます（RGB 画像がより適切にレンダリングされます）。",
+    "favicon": "ファビコン",
+    "faviconHint": "PNG または ICO、最大 512 KB、512×512 ピクセル。ブラウザはアイコンを積極的にキャッシュします。ハードリロードが 1 回必要な場合があります。",
+    "upload": "アップロード",
+    "replace": "差し替え",
+    "remove": "削除",
+    "messages": {
+      "saved": "ブランディングを保存しました",
+      "uploaded": "画像をアップロードしました",
+      "removed": "画像を削除しました"
+    },
+    "errors": {
+      "loadFailed": "ブランディング設定を読み込めませんでした",
+      "saveFailed": "ブランディング設定を保存できませんでした",
+      "uploadFailed": "画像をアップロードできませんでした",
+      "removeFailed": "画像を削除できませんでした",
+      "invalidHex": "#1e88e5 のような 16 進数カラーを入力してください",
+      "tooLarge": "ファイルサイズが大きすぎます（最大{{max}} KB）"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "設定セクション",
+    "groups": {
+      "general": "一般",
+      "security": "セキュリティ",
+      "jobs": "ジョブ",
+      "agents": "エージェント",
+      "integrations": "統合",
+      "cloud": "クラウド"
+    },
+    "sections": {
+      "branding": "ブランディング",
+      "brandingDesc": "アプリケーション名、色、ロゴ、ファビコン。",
+      "data": "データ",
+      "dataDesc": "保持期間のデフォルト設定とハッシュリストの取り込み。",
+      "storage": "ストレージ",
+      "storageDesc": "ワードリストとルールのネットワーク共有ストレージ。",
+      "certificate": "証明書",
+      "certificateDesc": "サーバー証明書の名前とアドレス。",
+      "authentication": "認証",
+      "authenticationDesc": "パスワードポリシー、ロックアウト、セッション。",
+      "mfa": "多要素認証",
+      "mfaDesc": "MFA ポリシーとパスキーのリライングパーティ。",
+      "sso": "シングルサインオン",
+      "ssoDesc": "アイデンティティプロバイダーとプロビジョニング。",
+      "access": "アクセスモデル",
+      "accessDesc": "マルチチーム分離。",
+      "execution": "実行",
+      "executionDesc": "チャンク分割、キースペース、ベンチマーク。",
+      "scheduling": "スケジューリング",
+      "schedulingDesc": "エージェント割り当てとジョブ優先度。",
+      "potfile": "potファイル & ループバック",
+      "potfileDesc": "potファイルの動作とループバックラウンド。",
+      "health": "正常性",
+      "healthDesc": "ハートビート、猶予期間、オフラインバッファ。",
+      "downloads": "ダウンロード",
+      "downloadsDesc": "エージェントがサーバーからファイルをフェッチする方法。",
+      "updates": "更新",
+      "updatesDesc": "自動エージェントバイナリ更新。",
+      "monitoring": "監視",
+      "monitoringDesc": "メトリクス保持期間と集計。",
+      "email": "メール",
+      "emailDesc": "プロバイダー設定とテンプレート。",
+      "webhooks": "Webhook",
+      "webhooksDesc": "グローバル Webhook とユーザー Webhook。",
+      "notifications": "通知",
+      "notificationsDesc": "どのジョブイベントが通知するか。",
+      "providers": "プロバイダー",
+      "providersDesc": "クラウド GPU プロバイダーの認証情報。",
+      "budgets": "クライアント予算",
+      "budgetsDesc": "クライアントごとの月間上限。",
+      "policy": "閾値ポリシー",
+      "policyDesc": "支出閾値段階。",
+      "rules": "プロビジョニングルール",
+      "rulesDesc": "オートスケーラーが支出できるとき。",
+      "limits": "制限",
+      "limitsDesc": "システム全体の上限とタイミング。"
+    }
+  },
+  "hub": {
+    "pageDescription": "このサーバーを設定するすべての項目を、影響する範囲でグループ化しています。セクションに別の指定がない限り、フィールドは離れると保存されます。",
+    "navLabel": "概要",
+    "attentionTitle": "注意が必要です",
+    "attentionSubtitle": "サーバーの動作に影響する問題。",
+    "allGood": "すべて問題ありません",
+    "allGoodHint": "設定の問題は検出されませんでした。",
+    "loadFailed": "設定ステータスを読み込めませんでした。",
+    "overviewTitle": "ステータス",
+    "attentionCount": "{{count}}件を確認",
+    "browseTitle": "すべての設定",
+    "loading": "確認中…",
+    "cards": {
+      "email": "メール",
+      "certificate": "証明書",
+      "sso": "シングルサインオン",
+      "binaries": "バイナリ",
+      "cloud": "クラウド",
+      "storage": "ストレージ",
+      "webhook": "グローバル Webhook"
+    },
+    "detail": {
+      "emailConfigured": "設定済み（{{provider}}）",
+      "emailNotConfigured": "プロバイダーが設定されていません",
+      "certUnmanaged": "KrakenHashes 外で管理（{{mode}}）",
+      "certDays": "残り{{days}}日",
+      "certPending": "まだ発行されていません",
+      "ssoProviders_other": "{{count}}個のプロバイダーが有効",
+      "binaries": "{{verified}} / {{total}} が検証済み",
+      "cloudNoProviders": "プロバイダーが設定されていません",
+      "cloudCap": "{{providers}}個のプロバイダー、月間上限{{cap}}",
+      "storageLocal": "ローカルストレージ",
+      "storageReachable": "共有がマウントされており、アクセス可能",
+      "storageUnreachable": "共有にアクセスできません",
+      "webhookOff": "無効",
+      "webhookOn": "有効",
+      "webhookNoUrl": "URL なしで有効"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "ステータスを確認できませんでした",
+      "emailNotConfigured": "メールが設定されていません。MFA コードと通知を送信できません。",
+      "certExpiring": "サーバー証明書は{{days}}日後に有効期限切れになります。",
+      "ssoEphemeralKey": "SSO が一時的な署名キーを使用しています。セッションは再起動後も保持されません。",
+      "noVerifiedBinary": "検証済みの hashcat バイナリが利用できません。ジョブを実行できません。",
+      "cloudCapZero": "クラウドプロバイダーが設定されていますが、月間上限が 0 であるため、プロビジョニングされません。",
+      "shareUnreachable": "ネットワーク共有が有効になっていますが、アクセスできません。",
+      "migration": "ストレージマイグレーションが{{state}}です。",
+      "webhookNoUrl": "グローバル Webhook が有効になっていますが、URL がありません。"
+    },
+    "severity": {
+      "default": "情報",
+      "success": "OK",
+      "warning": "警告",
+      "error": "エラー"
+    }
+  },
+  "fieldState": {
+    "saving": "保存中…",
+    "saved": "保存済み",
+    "error": "保存されていません",
+    "minSelected": "少なくとも{{count}}個を選択してください",
+    "autosaveHint": "自動保存されます",
+    "autosaveHintLong": "各フィールドは、離れるとすぐに自動的に保存されます。",
+    "applyHint": "適用が必要です",
+    "applyHintLong": "ここでの変更は、適用した後に有効になります。"
+  },
+  "unsaved": {
+    "title": "保存されていない変更",
+    "body": "適用されていない変更があります。このページを離れて変更を破棄しますか？",
+    "stay": "留まる",
+    "leave": "離れる"
+  },
+  "agentAutoUpdate": {
+    "title": "自動更新",
+    "description": "サーバーが接続されたエージェントに新しいエージェントバイナリをプッシュできるようにします。",
+    "enable": "エージェントの自動更新を有効にする",
+    "maxConcurrent": "同時更新",
+    "maxConcurrentHelper": "何台のエージェントが同時に更新できるかを指定します。",
+    "maxAttempts": "エージェント当たりの試行回数",
+    "maxAttemptsHelper": "エージェントの更新に失敗した回数がこの値に達したら、そのエージェントへの再試行を中止します。",
+    "healthTimeout": "再接続タイムアウト",
+    "healthTimeoutHelper": "更新されたエージェントが再接続するまでの待機時間です。この時間内に再接続しなかった場合、更新は失敗とマークされます。",
+    "applyNote": "エージェントは次回のチェックイン時にこれらの値を取得します。"
+  },
+  "networkShare": {
+    "intro": "ワードリストとルールをネットワーク共有に保存して、サーバーが大容量のローカルディスクを必要としないようにします。オペレーターはサーバーホスト上 (docker-compose経由、<code>KH_SHARE_DIR</code>として) とネットワーク直接接続のエージェントホスト上に共有をマウントします。KrakenHashes はマウント済みパスのみを読み込み、共有自体には接続せず、認証情報を保存しません。クラウドGPUエージェントは共有をマウントしません。VPN経由でサーバーからワードリストとルールをダウンロードします。",
+    "migrationLocked": "マイグレーションが進行中 ({{state}}) です。構成はマイグレーションが完了するまでロックされます。",
+    "server": {
+      "title": "サーバーストレージマウント",
+      "description": "サーバーはオペレーターがマウント済みのパスからワードリストとルールを読み込みます (docker-composeで<code>KH_SHARE_DIR</code>として設定)。KrakenHashes は共有自体には接続しません。マウント処理はオペレーターの責任です。",
+      "mountedPath": "マウント済みパス (読み取り専用)",
+      "shareDirNotSet": "KH_SHARE_DIR が設定されていません。docker-compose 内で共有をマウントしてください。",
+      "servingFromShare": "配信元: ネットワーク共有",
+      "servingFromLocal": "配信元: ローカルディスク",
+      "shareReachable": "共有にアクセス可能",
+      "shareNotMounted": "共有がマウントされていません",
+      "migrationChip": "マイグレーション: {{state}}",
+      "lastValidated": "最後の検証: {{date}}",
+      "enable": "ネットワーク共有を有効にする",
+      "saving": "保存中…",
+      "save": "構成を保存",
+      "validating": "検証中…",
+      "validate": "サーバーマウントを検証",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "マウントパス: <code>{{path}}</code>",
+      "unset": "(未設定)",
+      "yes": "はい",
+      "no": "いいえ",
+      "summary": "マウント済み: {{mounted}} · 書き込み可能: {{writable}} · 空き容量: {{free}} · 書き込み速度: {{write}} MB/s · 読み取り速度: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "データマイグレーション",
+      "descriptionToShare": "既存のワードリストとルールをネットワーク共有にコピーし、アクティブなストレージバックエンドを切り替えます。これはメンテナンス操作です。フリートがドレインする間、新しいジョブのディスパッチを停止し、その後ワードリスト/ルールのアップロードを凍結してファイルをコピーし、チェックサムを検証してから切り替えを行います。データサイズによっては長時間かかることがあり、その間サーバーはアップロードと新しいジョブのディスパッチに利用できなくなります。クライアントとアソシエーションのワードリスト、バイナリ、文字セット、ハッシュリストは常にローカルに保存されます。",
+      "descriptionToLocal": "既存のワードリストとルールをローカルディスクにコピーし直し、アクティブなストレージバックエンドを切り替えます。これはメンテナンス操作です。フリートがドレインする間、新しいジョブのディスパッチを停止し、その後ワードリスト/ルールのアップロードを凍結してファイルをコピーし、チェックサムを検証してから切り替えを行います。データサイズによっては長時間かかることがあり、その間サーバーはアップロードと新しいジョブのディスパッチに利用できなくなります。クライアントとアソシエーションのワードリスト、バイナリ、文字セット、ハッシュリストは常にローカルに保存されます。",
+      "phase": "フェーズ: {{phase}}",
+      "directionToShare": "ローカル → 共有",
+      "directionToLocal": "共有 → ローカル",
+      "waitingTasks_other": "{{count}} のタスクの完了を待機中",
+      "earliestLock": " — 最短ロック {{time}}",
+      "filesProgress": "{{done}}/{{total}} ファイル · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "キャンセル中…",
+      "abort": "マイグレーションを中止",
+      "abortHelp": "マイグレーションを次のチェックポイントで停止します (共有が遅い場合やハング状態の場合に便利です)。ストレージは現在のバックエンドのままになり、ディスパッチが再開されます。すでにコピーされたファイルはそのまま残され、再試行時に再利用されます。",
+      "complete": "マイグレーション完了。",
+      "failed": "マイグレーション失敗。",
+      "migrateToShare": "ワードリストとルールを共有に移行",
+      "migrateToLocal": "ローカルディスクに移行",
+      "enableFirst": "共有を有効にして検証が成功してから移行してください。"
+    },
+    "agent": {
+      "title": "オンプレミスエージェントマウントコマンド (オプション)",
+      "description": "これらのフィールドは、<b>network_direct</b> ティアに設定されたオンプレミスエージェントのマウントコマンドを生成する場合に<b>のみ</b>使用されます。サーバー (上記) とクラウドGPUエージェントはこれらを<b>使用しません</b> — クラウドエージェントはVPN経由でサーバーからダウンロードします。これらは非シークレットであり、認証情報は保存または送信されません。",
+      "protocol": "プロトコル",
+      "protocolHelp": "SMBはWindows/macOS/Linuxエージェント間で最も互換性があります。NFSはVPN経由の読み取り専用エクスポートで問題なく機能します。",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "エージェントがマウント元とする共有ホスト (VPN アドレス)",
+      "hostHelp": "共有のアドレスはエージェントがVPN経由でアクセスします — サーバー設定ではありません (サーバーは上記のマウント済みパスを使用します)。",
+      "exportPath": "エクスポートパス",
+      "shareName": "共有名",
+      "mountOptions": "マウントオプション (1行に1つのキー=値)",
+      "runThis": "エージェントホストで以下を実行し、そのエージェントのストレージティアを「ネットワーク直接」に設定し、そのエージェントページでマウントパスを指定してください:",
+      "replaceSmb": "<code>&lt;MOUNT_PATH&gt;</code>、<code>&lt;USERNAME&gt;</code>、<code>&lt;PASSWORD&gt;</code> を実行前に置き換えてください — コマンドはまだプレースホルダーを含んでいます。",
+      "replaceNfs": "<code>&lt;MOUNT_PATH&gt;</code> を実行前に置き換えてください — コマンドはまだプレースホルダーを含んでいます。",
+      "softSmb": "このコマンドには<code>soft</code>が含まれています。共有が遅い場合やドロップした場合に、ハングするのではなく、マウントが高速に失敗するようにします (カーネルの<code>hard</code>デフォルト)。これはエージェントのフェイルクローズ型共有チェックと組み合わせて、マウントが読み取り不可の場合に作業を再ルーティングします。<b>network_direct</b> は低レイテンシ/LAN隣接の共有向けです — リモートまたは高レイテンシの共有は<b>on_demand</b>/<b>full_cache</b>ダウンロードティアに配置してください。上記で設定を上書きします。",
+      "softNfs": "このコマンドには<code>soft</code>、<code>timeo</code>、<code>retrans</code>が含まれています。共有が遅い場合やドロップした場合に、ハングするのではなく、マウントが高速に失敗するようにします (カーネルの<code>hard</code>デフォルト)。これはエージェントのフェイルクローズ型共有チェックと組み合わせて、マウントが読み取り不可の場合に作業を再ルーティングします。<b>network_direct</b> は低レイテンシ/LAN隣接の共有向けです — リモートまたは高レイテンシの共有は<b>on_demand</b>/<b>full_cache</b>ダウンロードティアに配置してください。上記で設定を上書きします。",
+      "otherOs": "macOS: <code>mount_smbfs</code> (SMB) または<code>mount -t nfs</code> (NFS) を使用してください。Windows: <code>{{uncPath}}</code> に対して<code>net use</code>を使用してください。エージェントはマウントからのみ読み取ります。これらのフィールドは上記の<b>構成を保存</b>で保存されます。"
+    },
+    "confirm": {
+      "title": "データマイグレーションを開始しますか？",
+      "intro": "これにより:",
+      "step1": "新しいジョブのディスパッチを停止し、実行中のタスクが完了するまで待機します (エージェントが再接続するまで約12分、長いジョブが実行中の場合はさらに長くなる可能性があります)。",
+      "step2": "ワードリスト/ルールのアップロードを凍結し、ファイルがコピーされてチェックサムが検証されている間、メンテナンスページを表示します。",
+      "step3ToShare": "マイグレーション完了後、アクティブなストレージバックエンドをネットワーク共有に切り替えます。",
+      "step3ToLocal": "マイグレーション完了後、アクティブなストレージバックエンドをローカルディスクに切り替えます。",
+      "outro": "一時停止されたジョブは自動的に再開されます。何か問題が発生した場合、ストレージは変更されず、サーバーは動作し続けます。",
+      "cancel": "キャンセル",
+      "start": "マイグレーション開始"
+    },
+    "toast": {
+      "loadFailed": "ネットワーク共有構成の読み込みに失敗しました",
+      "migrationStarted": "マイグレーション開始。",
+      "startFailed": "マイグレーション開始に失敗しました",
+      "migrationCanceled": "マイグレーションキャンセル — ストレージは変更されていません。",
+      "cancelFailed": "マイグレーションのキャンセルに失敗しました",
+      "saved": "ネットワーク共有構成を保存しました。",
+      "saveFailed": "構成の保存に失敗しました",
+      "validated": "共有の検証に成功しました。",
+      "validationProblems": "共有の検証で問題が報告されました。",
+      "validationFailed": "検証の実行に失敗しました"
+    }
+  },
+  "jobAnalytics": {
+    "title": "ジョブパフォーマンス分析",
+    "description": "ジョブ実行パフォーマンス、ハッシュレート、エージェント全体のベンチマーク履歴を分析します。",
+    "loadFiltersFailed": "フィルターオプションの読み込みに失敗しました",
+    "tabs": {
+      "jobPerformance": "ジョブパフォーマンス",
+      "successRate": "成功率",
+      "benchmarkHistory": "ベンチマーク履歴"
+    },
+    "summary": {
+      "totalJobs": "総ジョブ数",
+      "totalJobsSubtitle": "{{completed}} 完了、{{failed}} 失敗",
+      "totalCracks": "総クラック数",
+      "totalCracksSubtitle": "フィルター済みの全ジョブ合計",
+      "avgSpeed": "平均速度",
+      "avgSpeedSubtitle": "ジョブあたりの平均ハッシュレート",
+      "avgDuration": "平均期間",
+      "avgDurationSubtitle": "{{keys}} キー処理"
+    },
+    "hashRateChart": {
+      "title": "ハッシュレートタイムライン",
+      "daily": "日次",
+      "weekly": "週次",
+      "empty": "選択されたフィルターのタイムラインデータはありません",
+      "hashRate": "ハッシュレート",
+      "tooltipHashRate": "ハッシュレート: {{speed}}",
+      "tooltipJobs": "ジョブ: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "ベンチマーク速度トレンド",
+      "agent": "エージェント",
+      "selectAgent": "エージェント選択",
+      "hashType": "ハッシュタイプ",
+      "attackMode": "攻撃モード",
+      "all": "すべて",
+      "range90d": "90日",
+      "range1y": "1年",
+      "rangeAll": "すべて",
+      "selectAgentPrompt": "エージェントを選択してベンチマークトレンドを表示",
+      "empty": "このエージェントのベンチマーク履歴が見つかりません",
+      "speed": "速度",
+      "tooltipSpeed": "速度: {{speed}}"
+    },
+    "filters": {
+      "title": "フィルター",
+      "active": "アクティブ",
+      "dateStart": "開始日",
+      "dateEnd": "終了日",
+      "hashlist": "ハッシュリスト",
+      "status": "ステータス",
+      "minKeyspace": "最小キースペース",
+      "maxKeyspace": "最大キースペース",
+      "reset": "リセット",
+      "apply": "適用"
+    },
+    "attackModes": {
+      "straight": "ストレート",
+      "combination": "結合",
+      "bruteforce": "ブルートフォース",
+      "hybridWlMask": "ハイブリッド WL+マスク",
+      "hybridMaskWl": "ハイブリッド マスク+WL",
+      "association": "アソシエーション",
+      "modeNumber": "モード {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "ベンチマーク履歴",
+      "empty": "ベンチマーク履歴が見つかりません",
+      "columns": {
+        "date": "日付",
+        "agentFallback": "エージェント #{{id}}",
+        "status": "ステータス"
+      },
+      "success": "成功",
+      "failed": "失敗"
+    },
+    "successRate": {
+      "title": "ジョブ構成別の成功率",
+      "subtitle": "ワードリスト、ルール、攻撃モード、ハッシュタイプでグループ化。プリセットジョブは一致するカスタムジョブを含みます。",
+      "empty": "選択されたフィルターの成功率データはありません",
+      "preset": "プリセット",
+      "columns": {
+        "configuration": "構成",
+        "runs": "実行",
+        "hashes": "ハッシュ値",
+        "cracks": "クラック",
+        "successRate": "成功率",
+        "avgDuration": "平均期間",
+        "totalCompute": "総計算時間"
+      }
+    },
+    "jobExecution": {
+      "title": "ジョブ実行詳細",
+      "empty": "選択されたフィルターのジョブが見つかりません",
+      "noTaskData": "タスクデータはありません",
+      "taskBreakdown": "タスク内訳 ({{tasksPhrase}}、{{metricsPhrase}})",
+      "taskCount_other": "{{count}} タスク",
+      "metricPointCount_other": "{{count}} メトリックポイント",
+      "columns": {
+        "name": "名前",
+        "attack": "攻撃",
+        "duration": "期間",
+        "keyspace": "キースペース",
+        "agents": "エージェント",
+        "progress": "進捗",
+        "benchmark": "ベンチマーク",
+        "started": "開始",
+        "completed": "完了"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "ワードリスト管理 - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "クライアントワードリスト ({{count}})",
+      "clientPotfile": "クライアントpotファイル",
+      "associationWordlists": "アソシエーションワードリスト ({{count}})"
+    },
+    "columns": {
+      "fileName": "ファイル名",
+      "lineCount": "行数",
+      "fileSize": "ファイルサイズ",
+      "uploaded": "アップロード日時",
+      "hashlist": "ハッシュリスト",
+      "actions": "操作"
+    },
+    "hashlistFallback": "ハッシュリスト #{{id}}",
+    "clientTab": {
+      "info": "クライアントワードリストはこのクライアントのすべてのハッシュリストで利用可能です。任意の攻撃モードで使用できます。",
+      "uploadWordlist": "ワードリストアップロード",
+      "uploading": "アップロード中... {{progress}}%",
+      "noWordlists": "クライアントワードリストはまだアップロードされていません。"
+    },
+    "potfileTab": {
+      "noPotfile": "クライアントpotファイルはまだ存在しません。このクライアントのハッシュリストでハッシュがクラックされたときに自動的に作成されます。",
+      "autoGenerated": "クライアントpotファイル (自動生成)",
+      "description": "このpotファイルには、このクライアントがクラック済みのすべてのパスワードが含まれています。ハッシュがクラックされるたびに自動的に更新されます。",
+      "passwordCount_other": "{{countDisplay}} パスワード",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "更新: {{date}}",
+      "downloadPotfile": "potファイルダウンロード"
+    },
+    "associationTab": {
+      "info": "アソシエーションワードリストはハッシュリスト単位で、各ハッシュをパスワード候補に1:1でマッピングします (行番号)。ハッシュリスト詳細ページからアップロード・管理されます。このビューはこのクライアントのすべてのハッシュリストに対するすべてのアソシエーションワードリストを表示します。",
+      "noWordlists": "このクライアントのハッシュリストのアソシエーションワードリストが見つかりません。"
+    },
+    "messages": {
+      "wordlistDeleted": "クライアントワードリスト削除",
+      "associationDeleted": "アソシエーションワードリスト削除",
+      "deleteFailed": "ワードリスト削除に失敗しました",
+      "uploadSuccess": "クライアントワードリストアップロード成功",
+      "uploadFailed": "ワードリストアップロードに失敗しました",
+      "downloaded": "{{filename}} をダウンロード",
+      "downloadFailed": "ファイルダウンロードに失敗しました"
+    },
+    "deleteConfirm": {
+      "title": "ワードリスト削除",
+      "message": "「{{fileName}}」を削除しますか？この操作は元に戻せません。"
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "チーム管理",
+      "titleMine": "マイチーム",
+      "description": "システム内のすべてのチームを管理します",
+      "descriptionMine": "参加しているチーム",
+      "createTeam": "チームを作成",
+      "bulkAssignHint": "複数のクライアントを一度にチームに割り当てるには、<link>クライアント管理</link>ページの一括割り当て機能を使用してください。",
+      "columns": {
+        "name": "チーム名",
+        "description": "説明",
+        "members": "メンバー",
+        "clients": "クライアント",
+        "hashlists": "ハッシュリスト",
+        "agents": "エージェント",
+        "created": "作成日"
+      },
+      "rowActions": {
+        "manage": "チームを管理",
+        "edit": "チームを編集",
+        "delete": "チームを削除"
+      },
+      "empty": "チームが見つかりません",
+      "emptyMine": "まだチームのメンバーではありません。",
+      "viewDetails": "詳細を表示",
+      "memberCount_other": "{{count}}人のメンバー",
+      "clientCount_other": "{{count}}件のクライアント",
+      "hashlistCount_other": "{{count}}件のハッシュリスト",
+      "agentCount_other": "{{count}}台のエージェント",
+      "dialogs": {
+        "create": {
+          "title": "新しいチームを作成",
+          "nameLabel": "チーム名",
+          "descriptionLabel": "説明",
+          "creatingButton": "作成中..."
+        },
+        "delete": {
+          "title": "チームを削除",
+          "confirmation": "チーム「{{name}}」を削除してもよろしいですか？これにより、すべてのチームメンバーシップとクライアント割り当てが削除されます。"
+        }
+      },
+      "messages": {
+        "createSuccess": "チームが正常に作成されました",
+        "deleteSuccess": "チームが正常に削除されました",
+        "updateSuccess": "チームが正常に更新されました"
+      },
+      "errors": {
+        "loadFailed": "チームの読み込みに失敗しました",
+        "createFailed": "チームの作成に失敗しました",
+        "deleteFailed": "チームの削除に失敗しました",
+        "updateFailed": "チームの更新に失敗しました"
+      }
+    },
+    "detail": {
+      "notFound": "チームが見つかりません",
+      "noDescription": "説明なし",
+      "breadcrumb": "チーム",
+      "editTeam": "チームを編集",
+      "confirmActionTitle": "アクションを確認",
+      "tabs": {
+        "members": "メンバー（{{count}}）",
+        "clients": "クライアント（{{count}}）",
+        "trustedTeams": "信頼されたチーム（{{count}}）",
+        "agents": "エージェント（{{count}}）"
+      },
+      "addMember": "メンバーを追加",
+      "assignClient": "クライアントを割り当て",
+      "addTrust": "信頼を追加",
+      "trustInfo": "他のチームを信頼すると、そのチームのエージェントが自チームのジョブを実行できるようになります。これは一方向の関係です。チームBを信頼しても、自チームのエージェントがチームBのジョブにアクセスできるようにはなりません。",
+      "agentsInfo": "<strong>直接</strong>エージェントはこのチームのメンバーに所有されています。<strong>信頼済み</strong>エージェントは信頼関係を確立したチームから来ています。",
+      "systemOwner": "システム",
+      "columns": {
+        "username": "ユーザー名",
+        "email": "メールアドレス",
+        "role": "ロール",
+        "joined": "参加日",
+        "clientName": "クライアント名",
+        "description": "説明",
+        "trustedTeam": "信頼されたチーム",
+        "trustedSince": "信頼開始日",
+        "agentName": "エージェント名",
+        "status": "ステータス",
+        "version": "バージョン",
+        "owner": "オーナー",
+        "source": "ソース"
+      },
+      "roles": {
+        "member": "メンバー",
+        "admin": "管理者",
+        "adminManager": "管理者（チームマネージャー）"
+      },
+      "source": {
+        "direct": "直接",
+        "trusted": "信頼済み{{team}}",
+        "trustedBadge": "信頼済み",
+        "unknown": "不明"
+      },
+      "rowActions": {
+        "removeMember": "メンバーを削除",
+        "removeClientFromTeam": "チームからクライアントを削除",
+        "removeTrust": "信頼を削除"
+      },
+      "empty": {
+        "noMembers": "このチームにはメンバーがいません",
+        "noClients": "このチームに割り当てられたクライアントがありません",
+        "noTrustedTeams": "信頼されたチームはありません。システムエージェントとこのチーム自身のエージェントのみがジョブを実行できます。",
+        "noAgents": "このチームがアクセス可能なエージェントがありません",
+        "noAgentsHint": "エージェント付きのチームメンバーを追加するか、信頼関係を確立してください。"
+      },
+      "confirm": {
+        "removeMember": "このメンバーを削除してもよろしいですか？",
+        "removeClient": "チームから「{{name}}」を削除してもよろしいですか？チームメンバーはこのクライアントのデータへのアクセスを失います。",
+        "removeTrust": "この信頼関係を削除しますか？このチームのエージェントは、自チームのジョブを実行できなくなります。"
+      },
+      "messages": {
+        "memberAdded": "メンバーが正常に追加されました",
+        "memberRemoved": "メンバーが削除されました",
+        "roleUpdated": "ロールが更新されました",
+        "teamUpdated": "チームが正常に更新されました",
+        "clientAssigned": "クライアントがチームに割り当てられました",
+        "clientRemoved": "クライアントがチームから削除されました",
+        "trustAdded": "信頼関係が追加されました",
+        "trustRemoved": "信頼関係が削除されました"
+      },
+      "errors": {
+        "loadFailed": "チームデータの読み込みに失敗しました",
+        "addMemberFailed": "メンバーの追加に失敗しました",
+        "removeMemberFailed": "メンバーの削除に失敗しました",
+        "updateRoleFailed": "ロールの更新に失敗しました",
+        "loadClientsFailed": "クライアントの読み込みに失敗しました",
+        "assignClientFailed": "クライアントの割り当てに失敗しました",
+        "removeClientFailed": "クライアントの削除に失敗しました",
+        "updateTeamFailed": "チームの更新に失敗しました",
+        "loadTeamNamesFailed": "チーム名の読み込みに失敗しました",
+        "addTrustFailed": "信頼関係の追加に失敗しました",
+        "removeTrustFailed": "信頼関係の削除に失敗しました"
+      },
+      "dialogs": {
+        "cancel": "キャンセル",
+        "editTeam": {
+          "title": "チームを編集",
+          "nameLabel": "チーム名",
+          "descriptionLabel": "説明",
+          "saveButton": "保存",
+          "savingButton": "保存中..."
+        },
+        "addMember": {
+          "title": "チームメンバーを追加",
+          "searchLabel": "ユーザーを検索",
+          "searchPlaceholder": "2文字以上入力してください...",
+          "typeToSearch": "検索するには入力してください...",
+          "noUsersFound": "ユーザーが見つかりません",
+          "roleLabel": "ロール",
+          "addButton": "メンバーを追加"
+        },
+        "addTrust": {
+          "title": "信頼されたチームを追加",
+          "info": "信頼されたチームのメンバーが所有するエージェントがこのチームのジョブを実行することができます。",
+          "selectLabel": "信頼するチームを選択",
+          "searchPlaceholder": "チームを検索...",
+          "noTeamsAvailable": "利用可能なチームがありません",
+          "optionLabel_other": "{{name}}（{{count}}台のエージェント）"
+        },
+        "assignClient": {
+          "title": "クライアントをチームに割り当て",
+          "info": "クライアントを割り当てると、すべてのチームメンバーがこのクライアントのハッシュリスト、ジョブ、クラック済みデータへのアクセスが与えられます。",
+          "selectLabel": "クライアントを選択",
+          "searchPlaceholder": "クライアントを検索...",
+          "noClientsAvailable": "割り当てられていないクライアントはありません"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "カスタム文字セット管理",
+    "description": "すべてのプリセットジョブとユーザーが利用できるグローバルカスタム文字セットを管理します。インライン定義とバイナリ.hcchr文字セットファイルの両方をサポートしています。",
+    "createCharset": "文字セットを作成",
+    "columns": {
+      "name": "名前",
+      "type": "タイプ",
+      "definition": "定義 / 情報",
+      "description": "説明",
+      "created": "作成日"
+    },
+    "typeLabels": {
+      "file": "ファイル",
+      "inline": "インライン",
+      "hex": "16進"
+    },
+    "uniqueBytes_other": "{{count}}個のユニークバイト",
+    "rowActions": {
+      "edit": "編集",
+      "delete": "削除"
+    },
+    "empty": "カスタム文字セットが見つかりません。開始するには作成してください。",
+    "dialogs": {
+      "create": {
+        "title": "カスタム文字セットを作成"
+      },
+      "edit": {
+        "title": "カスタム文字セットを編集"
+      },
+      "delete": {
+        "title": "文字セットを削除",
+        "confirmation": "文字セット「{{name}}」を削除してもよろしいですか？"
+      },
+      "modeToggle": {
+        "inline": "インライン定義",
+        "file": "ファイルアップロード（.hcchr）"
+      },
+      "fields": {
+        "name": "名前",
+        "namePlaceholder": "例：DES Full Charset",
+        "definition": "定義",
+        "definitionPlaceholderHex": "例：41424344（16進バイトペア）",
+        "definitionPlaceholderPlain": "例：?u?d または abcdef0123456789",
+        "definitionHelperHex": "16進バイトペア — 各ペア = 1つの文字セットバイト。{{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}}バイト",
+        "definitionHelperPlain": "Hashcat文字セット定義。?l、?u、?d、?s、?a、?b、?h、?H、または文字リテラルを使用してください。",
+        "hexTooltip": "有効にすると、定義は16進バイトペアとして解釈されます（例：41424344 = バイト A、B、C、D）。この文字セットを使用するジョブは自動的に--hex-charsetを注入します。",
+        "hexLabel": "16進エンコード定義",
+        "selectFile": ".hcchrファイルを選択",
+        "fileSizeBytes_other": "{{count}}バイト",
+        "fileHelperText": "生バイト値を含むバイナリ文字セットファイル（最大1023バイト、最大256個のユニークバイト）。DESクラック、NTLMv1、および言語固有のエンコーディングに使用されます。",
+        "fileCharsetInfo_other": "ファイル文字セット：{{count}}個のユニークバイト。名前と説明のみを編集できます。",
+        "description": "説明",
+        "descriptionPlaceholder": "この文字セットの用途の説明（任意）"
+      },
+      "update": "更新",
+      "upload": "アップロード"
+    },
+    "messages": {
+      "createSuccess": "文字セットが正常に作成されました",
+      "uploadSuccess": "ファイル文字セットが正常にアップロードされました",
+      "updateSuccess": "文字セットが正常に更新されました",
+      "deleteSuccess": "文字セットが正常に削除されました"
+    },
+    "errors": {
+      "onlyHcchrAllowed": ".hcchrファイルのみが許可されます",
+      "fileTooLarge": "ファイルが大きすぎます（最大1023バイト — hashcatの読み取りバッファ制限）",
+      "nameRequired": "名前が必要です",
+      "definitionRequired": "定義が必要です",
+      "selectFile": ".hcchrファイルを選択してください",
+      "loadFailed": "文字セットの読み込みに失敗しました：{{message}}",
+      "deleteFailed": "文字セットの削除に失敗しました：{{message}}"
+    }
+  }
+}

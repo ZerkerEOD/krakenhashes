@@ -1,0 +1,364 @@
+{
+  "language": "id",
+  "formality": "Formal 'Anda' address throughout the UI (never 'kamu', never regional slang) — the standard register for Indonesian professional/enterprise software, while still reading like a tool built by and for practitioners rather than a government form.",
+  "styleNotes": "Keep hashcat/pentest jargon that the Indonesian infosec/CTF community already uses as English loanwords (hash, wordlist, rule, mask, keyspace, chunk, job, agent, crack) rather than forcing a formal dictionary translation — this community code-switches heavily for CS/security terms, more so than for generic business vocabulary. Translate everyday UI/business words naturally into Indonesian (pengaturan, prioritas, anggaran, notifikasi) instead of defaulting to English. For mixed noun phrases, use Indonesian noun-adjective word order (e.g. 'file rule', 'keyspace efektif', 'potfile klien') instead of literal English order. Where a loanword needs an Indonesian affix, use the productive 'ter-'/'di-' tech-slang pattern (tercrack, di-crack) already used for terupdate/terinstall/terupload, rather than inventing a formal verb (avoid 'memecahkan', 'menguras', 'pembongkaran' for crack/drain/teardown).",
+  "terms": {
+    "hash": {
+      "translation": "hash",
+      "keepEnglish": true,
+      "note": "Universal in Indonesian security tooling and hashcat documentation; translating it (e.g. to 'nilai hash') would be unrecognizable to practitioners."
+    },
+    "hashlist": {
+      "translation": "hashlist",
+      "keepEnglish": true,
+      "note": "KrakenHashes-specific product concept (an uploaded set of hashes); kept as the product's own noun, consistent with hash/wordlist/potfile staying English."
+    },
+    "hash type": {
+      "translation": "tipe hash",
+      "keepEnglish": false
+    },
+    "crack": {
+      "translation": "crack",
+      "keepEnglish": true,
+      "note": "Fixed from draft's 'memecahkan': loanword verb standard in Indonesian pentest/CTF writing, used even in formal academic security papers ('teknik cracking password', 'proses crack hash'); 'memecahkan' reads like breaking a physical object and 'membobol' implies unauthorized break-in, the wrong connotation for a cryptographic recovery step. Keep consistent with sibling hashcat terms (wordlist, rule, mask, keyspace) that stay English."
+    },
+    "cracked": {
+      "translation": "tercrack",
+      "keepEnglish": false,
+      "note": "Fixed from draft's 'terpecahkan': uses the productive Indonesian tech-slang pattern of 'ter-' + English loanword root (parallel to 'terupdate', 'terinstall', 'terupload'), matching 'crack' staying English. Natural for the short status labels/badges ('Status: Tercrack', 'Belum Tercrack') this term is used for throughout the analytics UI."
+    },
+    "cracked hashes": {
+      "translation": "hash tercrack",
+      "keepEnglish": false,
+      "note": "Fixed from draft's 'hash yang terpecahkan': combines 'hash' (kept English) with 'tercrack' (see cracked), mirroring how 'hash reuse' keeps 'hash' untranslated while Indonesian-izing the modifier."
+    },
+    "plaintext": {
+      "translation": "plaintext",
+      "keepEnglish": true,
+      "note": "Industry-standard term; 'teks biasa'/'teks polos' would be technically correct but unrecognizable next to 'hash'/'potfile' on the same screen."
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "hashcat's own filename/concept; not translated in any language's security tooling."
+    },
+    "client potfile": {
+      "translation": "potfile klien",
+      "keepEnglish": false
+    },
+    "wordlist": {
+      "translation": "wordlist",
+      "keepEnglish": true,
+      "note": "Industry standard; 'daftar kata' is too generic and reads like a vocabulary list, not an attack resource."
+    },
+    "rule": {
+      "translation": "rule",
+      "keepEnglish": true,
+      "note": "hashcat-specific mangling rule; 'aturan' is correct Indonesian for 'rule' in general but loses the specific hashcat-rule-syntax meaning."
+    },
+    "rule file": {
+      "translation": "file rule",
+      "keepEnglish": false
+    },
+    "mask": {
+      "translation": "mask",
+      "keepEnglish": true,
+      "note": "hashcat-specific attack-pattern term (e.g. ?u?l?l?d); no natural Indonesian equivalent in this context."
+    },
+    "charset": {
+      "translation": "charset",
+      "keepEnglish": true,
+      "note": "Standard technical computing term; kept in English as in other Indonesian technical documentation."
+    },
+    "attack mode": {
+      "translation": "mode serangan",
+      "keepEnglish": false
+    },
+    "brute force": {
+      "translation": "serangan brute force",
+      "keepEnglish": false,
+      "note": "Fixed from draft's bare 'brute force': matches the parallel structure of the sibling attack-type values ('serangan kamus', 'serangan hibrida', 'serangan asosiasi') so all four attack-mode options read consistently in a dropdown; 'brute force' itself stays untranslated since there is no single-word Indonesian equivalent."
+    },
+    "dictionary attack": {
+      "translation": "serangan kamus",
+      "keepEnglish": false
+    },
+    "hybrid attack": {
+      "translation": "serangan hibrida",
+      "keepEnglish": false
+    },
+    "association attack": {
+      "translation": "serangan asosiasi",
+      "keepEnglish": false
+    },
+    "keyspace": {
+      "translation": "keyspace",
+      "keepEnglish": true,
+      "note": "Standard cryptographic/hashcat term; 'ruang kunci' is a literal gloss nobody uses in practice."
+    },
+    "effective keyspace": {
+      "translation": "keyspace efektif",
+      "keepEnglish": false,
+      "note": "'keyspace' kept as in the base term; 'efektif' is the translation."
+    },
+    "chunk": {
+      "translation": "chunk",
+      "keepEnglish": true,
+      "note": "KrakenHashes-specific work-distribution unit; kept English as in Indonesian devops usage ('dibagi jadi beberapa chunk')."
+    },
+    "task": {
+      "translation": "task",
+      "keepEnglish": true,
+      "note": "Standard term in distributed-systems/devops Indonesian usage."
+    },
+    "job": {
+      "translation": "job",
+      "keepEnglish": true,
+      "note": "Industry standard (as in Kubernetes Jobs, Jenkins, cron); 'pekerjaan' reads as generic employment/work and loses the scheduling-system meaning."
+    },
+    "preset job": {
+      "translation": "preset job",
+      "keepEnglish": true,
+      "note": "KrakenHashes-specific concept kept fully English, matching the project's own English UI convention (CLAUDE.md: 'Preset Job Management', not a translated title)."
+    },
+    "workflow": {
+      "translation": "workflow",
+      "keepEnglish": true,
+      "note": "Standard term in Indonesian technical/business software; matches the 'Workflow' domain entity name used internally."
+    },
+    "loopback": {
+      "translation": "loopback",
+      "keepEnglish": true,
+      "note": "KrakenHashes-specific feature name as well as a standard networking term; kept English like other named features (workflow, preset job)."
+    },
+    "priority": {
+      "translation": "prioritas",
+      "keepEnglish": false
+    },
+    "max agents": {
+      "translation": "Max Agents",
+      "keepEnglish": true,
+      "note": "Fixed from draft's 'agen maksimal': 'agent' is kept English everywhere else in this glossary and in the project's own UI convention (CLAUDE.md: 'Agent Management', not 'Agen Management'); translating only the plural noun in this one setting label while keeping 'agent' English elsewhere was inconsistent."
+    },
+    "overflow": {
+      "translation": "overflow",
+      "keepEnglish": true,
+      "note": "Technical scheduling term (extra agents beyond a job's limit); kept English like 'chunk'/'task', standard in Indonesian computing usage (cf. 'buffer overflow')."
+    },
+    "benchmark": {
+      "translation": "benchmark",
+      "keepEnglish": true,
+      "note": "Standard in Indonesian technical documentation; also a hashcat CLI term."
+    },
+    "hash rate": {
+      "translation": "hash rate",
+      "keepEnglish": true,
+      "note": "Standard measurement term in the hashcat/mining community."
+    },
+    "progress": {
+      "translation": "progres",
+      "keepEnglish": false,
+      "note": "Fixed from draft's 'kemajuan': 'progres' is the standard absorbed Indonesian software term for a completion percentage/progress bar; 'kemajuan' reads as general real-world advancement (e.g. 'kemajuan ekonomi'), not a UI progress indicator."
+    },
+    "agent": {
+      "translation": "agent",
+      "keepEnglish": true,
+      "note": "Standard term in distributed computing; also the project's own English UI entity name."
+    },
+    "device": {
+      "translation": "device",
+      "keepEnglish": true,
+      "note": "Standard in technical UI for a GPU/CPU; 'perangkat' is correct but less standard in this specific hardware-device sense."
+    },
+    "claim code": {
+      "translation": "kode klaim",
+      "keepEnglish": false
+    },
+    "voucher": {
+      "translation": "voucher",
+      "keepEnglish": true,
+      "note": "Standard loanword in Indonesian e-commerce and technical systems (voucher diskon, voucher pulsa) and matches the product's own 'voucher' noun."
+    },
+    "heartbeat": {
+      "translation": "heartbeat",
+      "keepEnglish": true,
+      "note": "Standard term for periodic check-in signals in Indonesian network/systems monitoring; a literal translation would read like a human heartbeat."
+    },
+    "offline buffer": {
+      "translation": "masa tenggang offline",
+      "keepEnglish": false,
+      "note": "Fixed from draft's literal 'buffer offline': this is a grace period before an agent is marked offline, not a data buffer. 'Masa tenggang' is the standard Indonesian term for a grace period ('masa tenggang pembayaran', 'masa tenggang SIM card') and matches the actual concept."
+    },
+    "auto-update": {
+      "translation": "pembaruan otomatis",
+      "keepEnglish": false
+    },
+    "binary": {
+      "translation": "binary",
+      "keepEnglish": true,
+      "note": "Common as-is in Indonesian developer/release jargon ('unduh binary hashcat'); no natural Indonesian noun is used for this in practice."
+    },
+    "client": {
+      "translation": "klien",
+      "keepEnglish": false,
+      "note": "Professional term for a customer/engagement in Indonesian IT/consulting."
+    },
+    "team": {
+      "translation": "tim",
+      "keepEnglish": false
+    },
+    "member": {
+      "translation": "anggota",
+      "keepEnglish": false
+    },
+    "owner": {
+      "translation": "pemilik",
+      "keepEnglish": false
+    },
+    "retention": {
+      "translation": "retensi",
+      "keepEnglish": false
+    },
+    "archive": {
+      "translation": "arsip",
+      "keepEnglish": false
+    },
+    "analytics report": {
+      "translation": "laporan analitik",
+      "keepEnglish": false
+    },
+    "password reuse": {
+      "translation": "penggunaan ulang kata sandi",
+      "keepEnglish": false,
+      "note": "Fixed from draft's 'penggunaan ulang sandi': use the full 'kata sandi' rather than bare 'sandi', which alone can also mean 'code/cipher' (e.g. 'sandi morse') and is ambiguous out of context."
+    },
+    "hash reuse": {
+      "translation": "penggunaan ulang hash",
+      "keepEnglish": false,
+      "note": "'hash' kept English as elsewhere; matches the fixed phrasing of 'password reuse'."
+    },
+    "complexity": {
+      "translation": "kompleksitas",
+      "keepEnglish": false
+    },
+    "entropy": {
+      "translation": "entropi",
+      "keepEnglish": false
+    },
+    "domain": {
+      "translation": "domain",
+      "keepEnglish": true,
+      "note": "Standard in Active Directory/Windows security context; paired with 'username' in the same cracked-hash tables (username@domain)."
+    },
+    "username": {
+      "translation": "username",
+      "keepEnglish": true,
+      "note": "Fixed from draft's 'nama pengguna': displayed alongside 'domain' in the same AD/cracked-hash context (username@domain, table columns); keeping 'domain' English while translating 'username' would make adjacent, paired column headers inconsistent."
+    },
+    "audit log": {
+      "translation": "log audit",
+      "keepEnglish": false
+    },
+    "dashboard": {
+      "translation": "dashboard",
+      "keepEnglish": true,
+      "note": "Standard in Indonesian software UI."
+    },
+    "settings": {
+      "translation": "pengaturan",
+      "keepEnglish": false
+    },
+    "autosave": {
+      "translation": "simpan otomatis",
+      "keepEnglish": false
+    },
+    "apply": {
+      "translation": "terapkan",
+      "keepEnglish": false
+    },
+    "certificate": {
+      "translation": "sertifikat",
+      "keepEnglish": false
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "Acronym for Subject Alternative Name; the full Indonesian translation is too long for certificate UI and nobody expands the acronym in practice."
+    },
+    "network share": {
+      "translation": "network share",
+      "keepEnglish": true,
+      "note": "Fixed from draft's 'berbagi jaringan': that phrase is the verb/gerund 'sharing a network' (e.g. a mobile hotspot), not the noun for a mounted SMB/NFS resource — wrong concept, not just a style choice. SMB/NFS are already kept English (doNotTranslate) and Indonesian sysadmins overwhelmingly use English-only tooling (no official Indonesian AWS/Azure/GCP/Samba localization) for this exact term, so 'network share' stays English rather than inventing an unused Indonesian noun."
+    },
+    "mount": {
+      "translation": "mount",
+      "keepEnglish": true,
+      "note": "Standard term in filesystem/storage contexts, including Indonesian Linux documentation."
+    },
+    "cloud fleet": {
+      "translation": "armada cloud",
+      "keepEnglish": false,
+      "note": "'armada' (fleet) is a natural, understood metaphor already used in Indonesian ride-hailing/logistics tech ('armada kendaraan'); 'cloud' stays as the loanword since 'awan' reads as a textbook/BSSN term that working engineers don't actually use for cloud infrastructure."
+    },
+    "provisioning": {
+      "translation": "penyediaan",
+      "keepEnglish": false
+    },
+    "budget": {
+      "translation": "anggaran",
+      "keepEnglish": false
+    },
+    "threshold": {
+      "translation": "ambang batas",
+      "keepEnglish": false
+    },
+    "drain": {
+      "translation": "drain",
+      "keepEnglish": true,
+      "note": "Fixed from draft's 'menguras': this is the Kubernetes/orchestration sense (stop scheduling new work, let in-flight work finish), not physically draining/emptying something. No official Indonesian localization of this devops concept exists (kubectl, cloud consoles are English-only for Indonesian users), and 'menguras' only carries the literal/physical meaning and loses the scheduling sense entirely."
+    },
+    "teardown": {
+      "translation": "teardown",
+      "keepEnglish": true,
+      "note": "Fixed from draft's 'pembongkaran': an IaC/cloud-ops term for deprovisioning an instance, paired with 'provisioning' and 'drain' in the same cloud-fleet lifecycle. 'Pembongkaran' reads as physical demolition/disassembly; no official Indonesian cloud-console localization exists to anchor a natural translated alternative, so it stays English like 'drain'."
+    },
+    "webhook": {
+      "translation": "webhook",
+      "keepEnglish": true,
+      "note": "Standard term in web development and API contexts."
+    },
+    "notification": {
+      "translation": "notifikasi",
+      "keepEnglish": false
+    },
+    "two-factor authentication": {
+      "translation": "autentikasi dua faktor",
+      "keepEnglish": false
+    },
+    "backup codes": {
+      "translation": "kode cadangan",
+      "keepEnglish": false
+    },
+    "authenticator app": {
+      "translation": "aplikasi autentikator",
+      "keepEnglish": false
+    },
+    "session": {
+      "translation": "sesi",
+      "keepEnglish": false
+    },
+    "API key": {
+      "translation": "kunci API",
+      "keepEnglish": false
+    },
+    "branding": {
+      "translation": "branding",
+      "keepEnglish": true,
+      "note": "Standard marketing/UI loanword in Indonesian business usage; matches the project's own 'branding' feature naming."
+    },
+    "diagnostics": {
+      "translation": "diagnostik",
+      "keepEnglish": false
+    }
+  }
+}

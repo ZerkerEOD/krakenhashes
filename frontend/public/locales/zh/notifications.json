@@ -8,16 +8,13 @@
   "viewAll": "查看所有通知",
   "deleteSelected": "删除 {{count}} 个已选",
   "selectAll": "全选",
-
   "aria": {
     "bellButton": "显示通知"
   },
-
   "center": {
     "title": "通知中心",
     "description": "查看和管理您的通知"
   },
-
   "filters": {
     "category": "类别",
     "status": "状态",
@@ -26,15 +23,14 @@
     "unread": "未读",
     "read": "已读"
   },
-
   "categories": {
     "job": "作业",
     "agent": "代理",
     "security": "安全",
     "system": "系统"
   },
-
   "types": {
+    "header": "通知类型",
     "job_started": "作业已开始",
     "job_completed": "作业已完成",
     "job_failed": "作业失败",
@@ -47,7 +43,6 @@
     "security_password_changed": "密码已更改",
     "webhook_failure": "Webhook失败"
   },
-
   "typeDescriptions": {
     "job_started": "作业开始执行时",
     "job_completed": "作业成功完成时",
@@ -61,13 +56,11 @@
     "security_password_changed": "密码更改时（强制）",
     "webhook_failure": "Webhook投递失败时"
   },
-
   "channels": {
     "inApp": "应用内",
     "email": "邮件",
     "webhook": "Webhook"
   },
-
   "settings": {
     "title": "通知设置",
     "description": "配置接收通知的方式和时机",
@@ -85,7 +78,6 @@
     "noWebhooksConfigured": "未配置活动的webhook",
     "toggleAll": "全部切换"
   },
-
   "webhooks": {
     "title": "Webhook配置",
     "description": "管理您的Webhook集成",
@@ -110,9 +102,18 @@
     "test": "测试Webhook",
     "testUrl": "测试URL",
     "testSuccess": "Webhook测试成功",
-    "testFailed": "Webhook测试失败"
+    "testFailed": "Webhook测试失败",
+    "secretExists": "密钥已设置。留空以保留当前值，或输入新值以替换。",
+    "invalidJson": "JSON 格式无效",
+    "noWebhooks": "未配置webhook。创建一个以通过webhook接收通知。",
+    "updated": "Webhook已更新",
+    "created": "Webhook已创建",
+    "deleted": "Webhook已删除",
+    "secretEditHelp": "留空以保留现有密钥",
+    "validation": {
+      "nameAndUrl": "名称和 URL 为必填项"
+    }
   },
-
   "admin": {
     "title": "通知设置",
     "globalWebhook": {
@@ -140,7 +141,6 @@
       "empty": "未配置用户Webhook"
     }
   },
-
   "auditLog": {
     "title": "审计日志",
     "description": "所有用户的安全和关键事件",
@@ -175,21 +175,30 @@
     },
     "errors": {
       "loadFailed": "加载审计日志失败"
-    }
+    },
+    "system": "系统"
   },
-
   "systemAlert": {
     "title": "系统警报",
     "dismiss": "忽略",
     "dismissAll": "忽略全部"
   },
-
   "errors": {
     "fetchFailed": "加载通知失败",
     "markReadFailed": "标记通知为已读失败",
     "deleteFailed": "删除通知失败",
+    "saveFailed": "保存设置失败",
     "webhookCreateFailed": "创建webhook失败",
     "webhookUpdateFailed": "更新webhook失败",
-    "webhookDeleteFailed": "删除webhook失败"
+    "webhookDeleteFailed": "删除webhook失败",
+    "webhookSaveFailed": "保存webhook失败"
+  },
+  "common": {
+    "actions": "操作",
+    "active": "启用",
+    "inactive": "禁用",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除"
   }
 }

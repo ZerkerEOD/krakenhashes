@@ -24,10 +24,12 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import SecurityIcon from '@mui/icons-material/Security';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
+import { useTranslation } from 'react-i18next';
 import { UserIdentity } from '../../types/sso';
 import { getMyIdentities, unlinkMyIdentity, getProviderTypeLabel } from '../../services/sso';
 
 const LinkedAccountsCard: React.FC = () => {
+  const { t } = useTranslation('settings');
   const [identities, setIdentities] = useState<UserIdentity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,7 @@ const LinkedAccountsCard: React.FC = () => {
       setError(null);
     } catch (err: any) {
       console.error('Failed to fetch linked accounts:', err);
-      setError(err.message || 'Failed to load linked accounts');
+      setError(err.message || (t('linkedAccounts.errors.loadFailed') as string));
     } finally {
       setLoading(false);
     }
@@ -67,7 +69,7 @@ const LinkedAccountsCard: React.FC = () => {
       setUnlinkDialogOpen(false);
       setIdentityToUnlink(null);
     } catch (err: any) {
-      setError(err.message || 'Failed to unlink account');
+      setError(err.message || (t('linkedAccounts.errors.unlinkFailed') as string));
     } finally {
       setUnlinking(false);
     }
@@ -88,11 +90,11 @@ const LinkedAccountsCard: React.FC = () => {
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Never';
+    if (!dateString) return t('common.never') as string;
     try {
       return new Date(dateString).toLocaleString();
     } catch {
-      return 'Invalid date';
+      return t('common.invalidDate') as string;
     }
   };
 
@@ -100,10 +102,10 @@ const LinkedAccountsCard: React.FC = () => {
     <Card sx={{ mb: 3 }}>
       <CardContent>
         <Typography variant="h6" gutterBottom>
-          Linked Accounts
+          {t('linkedAccounts.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          External authentication providers linked to your account
+          {t('linkedAccounts.description')}
         </Typography>
 
         {error && (
@@ -118,7 +120,7 @@ const LinkedAccountsCard: React.FC = () => {
           </Box>
         ) : identities.length === 0 ? (
           <Alert severity="info">
-            No external accounts are linked to your profile. You can link accounts by signing in through an SSO provider.
+            {t('linkedAccounts.noAccountsMessage')}
           </Alert>
         ) : (
           <List>
@@ -153,22 +155,22 @@ const LinkedAccountsCard: React.FC = () => {
                     <Box>
                       {identity.external_email && (
                         <Typography variant="body2" color="text.secondary">
-                          Email: {identity.external_email}
+                          {t('linkedAccounts.emailLabel', { email: identity.external_email })}
                         </Typography>
                       )}
                       {identity.external_username && (
                         <Typography variant="body2" color="text.secondary">
-                          Username: {identity.external_username}
+                          {t('linkedAccounts.usernameLabel', { username: identity.external_username })}
                         </Typography>
                       )}
                       <Typography variant="caption" color="text.secondary">
-                        Last login: {formatDate(identity.last_login_at)} | Linked: {formatDate(identity.created_at)}
+                        {t('linkedAccounts.lastLoginLinked', { lastLogin: formatDate(identity.last_login_at), linked: formatDate(identity.created_at) })}
                       </Typography>
                     </Box>
                   }
                 />
                 <ListItemSecondaryAction>
-                  <Tooltip title="Unlink account">
+                  <Tooltip title={t('linkedAccounts.unlinkTooltip') as string}>
                     <IconButton
                       edge="end"
                       onClick={() => handleUnlinkClick(identity)}
@@ -191,13 +193,13 @@ const LinkedAccountsCard: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Unlink Account</DialogTitle>
+        <DialogTitle>{t('linkedAccounts.unlinkDialog.title')}</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            You will no longer be able to sign in using this provider.
+            {t('linkedAccounts.unlinkDialog.warning')}
           </Alert>
           <Typography>
-            Are you sure you want to unlink your {identityToUnlink?.provider_name || getProviderTypeLabel(identityToUnlink?.provider_type || '')} account?
+            {t('linkedAccounts.unlinkDialog.confirmation', { provider: identityToUnlink?.provider_name || getProviderTypeLabel(identityToUnlink?.provider_type || '') })}
           </Typography>
           {identityToUnlink?.external_email && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
@@ -207,7 +209,7 @@ const LinkedAccountsCard: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setUnlinkDialogOpen(false)} disabled={unlinking}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleUnlinkConfirm}
@@ -215,7 +217,7 @@ const LinkedAccountsCard: React.FC = () => {
             variant="contained"
             disabled={unlinking}
           >
-            {unlinking ? <CircularProgress size={24} /> : 'Unlink'}
+            {unlinking ? <CircularProgress size={24} /> : t('linkedAccounts.unlink')}
           </Button>
         </DialogActions>
       </Dialog>

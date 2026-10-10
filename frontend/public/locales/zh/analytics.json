@@ -19,7 +19,18 @@
     "endDate": "结束日期",
     "customPatterns": "自定义模式（逗号分隔）",
     "customPatternsPlaceholder": "例如：goog, ggl, micro, soft",
-    "customPatternsHelper": "添加要检查的自定义组织名称变体"
+    "customPatternsHelper": "添加要检查的自定义组织名称变体",
+    "quickSelect": "快速选择",
+    "datePresets": {
+      "lastMonth": "最近一个月",
+      "lastQuarter": "最近一个季度",
+      "last6Months": "最近 6 个月",
+      "lastYear": "最近一年",
+      "priorMonth": "上一个月",
+      "priorQuarter": "上一个季度",
+      "prior6Months": "前 6 个月",
+      "priorYear": "上一年"
+    }
   },
   "hashlistSelection": {
     "title": "哈希列表",
@@ -32,7 +43,8 @@
     "cracked": "已破解",
     "status": "状态",
     "active": "活跃",
-    "archived": "已归档"
+    "archived": "已归档",
+    "titleWithCount": "{{title}}（{{selected}}/{{total}}）"
   },
   "table": {
     "dateRange": "日期范围",
@@ -58,7 +70,16 @@
     "retry": "重试",
     "delete": "删除",
     "exportHcmask": "导出 .hcmask",
-    "exportTxt": "导出 .txt"
+    "exportTxt": "导出 .txt",
+    "exportInternalPdf": "内部 PDF",
+    "exportExternalPdf": "外部 PDF"
+  },
+  "pdfExport": {
+    "internalConfirmTitle": "确定要导出内部报告吗？",
+    "internalConfirmBody": "内部 PDF 包含恢复的明文密码、用户名和哈希值。仅通过批准的安全渠道处理和存储。此导出记录在审计日志中。",
+    "confirm": "下载内部 PDF",
+    "cancel": "取消",
+    "error": "生成 PDF 失败。请重试。"
   },
   "messages": {
     "selectClient": "请选择客户",
@@ -80,7 +101,8 @@
     "copiedSuccess": "用户名已复制到剪贴板！",
     "noRecommendations": "目前没有具体建议。密码策略看起来已经足够。",
     "top50Hashes": "显示前 50 个最常重用的哈希",
-    "top50PartialCracks": "显示前 50 个部分破解"
+    "top50PartialCracks": "显示前 50 个部分破解",
+    "confirmDeleteReport": "确定要删除此分析报告吗？此操作无法撤销。"
   },
   "sections": {
     "lengthDistribution": "密码长度分布",
@@ -117,7 +139,8 @@
     "kerberos": "Kerberos",
     "encryptionTypes": "加密类型",
     "linkedHashCorrelation": "LM/NTLM 链接哈希关联",
-    "reusedPasswords": "按出现次数排列的重用密码"
+    "reusedPasswords": "按出现次数排列的重用密码",
+    "overviewWithDomain": "{{base}} - {{domain}}"
   },
   "charts": {
     "count": "数量",
@@ -197,7 +220,8 @@
     "totalEstimatedKeyspace": "总预估密钥空间",
     "underOrEqual7Chars": "<=7 字符：",
     "8To14Chars": "8-14 字符：",
-    "partiallyCracked": "部分破解："
+    "partiallyCracked": "部分破解：",
+    "domainFilterTabs": "域筛选选项卡"
   },
   "cards": {
     "totalHashes": "总哈希数",
@@ -334,11 +358,11 @@
     "chars": "字符"
   },
   "pagination": {
-    "masks": "{{from}}-{{to}}，共 {{count}} 个掩码"
+    "masks_other": "{{from}}-{{to}} / {{count}} 掩码"
   },
   "export": {
     "header": "# LM 到 NTLM Hashcat 掩码",
-    "generatedFrom": "# 从 {{count}} 个已破解的 LM 密码生成",
+    "generatedFrom_other": "# 由 {{count}} 个已破解的 LM 密码生成",
     "totalMasks": "# 总掩码数：{{count}}",
     "totalKeyspace": "# 总预估密钥空间：{{keyspace}}",
     "format": "# 格式：掩码 | 模式 | 数量 | 匹配率 | 密钥空间 | 示例"
@@ -394,5 +418,11 @@
     "largestSingleReach": "单一账户最大触及范围",
     "computers": "计算机",
     "notApplicable": "不适用"
+  },
+  "bloodhoundUpload": {
+    "attachButton": "附加 BloodHound 转储（可选）",
+    "filesSelected_other": "已选择 {{count}} 个文件",
+    "clear": "清除",
+    "helperText": "上传 SharpHound .zip（或 BloodHound .json 文件），用 AD 权限分析丰富报告内容。转储在内存中处理，永不存储——重新上传以重新分析。"
   }
 }

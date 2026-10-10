@@ -8,16 +8,13 @@
   "viewAll": "Alle meldingen bekijken",
   "deleteSelected": "{{count}} geselecteerd verwijderen",
   "selectAll": "Alles selecteren",
-
   "aria": {
     "bellButton": "Meldingen weergeven"
   },
-
   "center": {
     "title": "Meldingscentrum",
     "description": "Bekijk en beheer uw meldingen"
   },
-
   "filters": {
     "category": "Categorie",
     "status": "Status",
@@ -26,15 +23,14 @@
     "unread": "Ongelezen",
     "read": "Gelezen"
   },
-
   "categories": {
     "job": "Taak",
     "agent": "Agent",
     "security": "Beveiliging",
     "system": "Systeem"
   },
-
   "types": {
+    "header": "Meldingstype",
     "job_started": "Taak gestart",
     "job_completed": "Taak voltooid",
     "job_failed": "Taak mislukt",
@@ -47,7 +43,6 @@
     "security_password_changed": "Wachtwoord gewijzigd",
     "webhook_failure": "Webhook mislukt"
   },
-
   "typeDescriptions": {
     "job_started": "Wanneer een taak begint",
     "job_completed": "Wanneer een taak succesvol is voltooid",
@@ -61,13 +56,11 @@
     "security_password_changed": "Wanneer wachtwoord wordt gewijzigd (verplicht)",
     "webhook_failure": "Wanneer webhook-levering mislukt"
   },
-
   "channels": {
     "inApp": "In-App",
     "email": "E-mail",
     "webhook": "Webhook"
   },
-
   "settings": {
     "title": "Meldingsinstellingen",
     "description": "Configureer hoe en wanneer u meldingen ontvangt",
@@ -85,7 +78,6 @@
     "noWebhooksConfigured": "Geen actieve webhooks geconfigureerd",
     "toggleAll": "Alles omschakelen"
   },
-
   "webhooks": {
     "title": "Webhook-configuratie",
     "description": "Beheer uw webhook-integraties",
@@ -110,9 +102,18 @@
     "test": "Webhook testen",
     "testUrl": "URL testen",
     "testSuccess": "Webhook-test geslaagd",
-    "testFailed": "Webhook-test mislukt"
+    "testFailed": "Webhook-test mislukt",
+    "secretExists": "Geheim is ingesteld. Laat leeg om het huidige te behouden, of voer een nieuwe waarde in om het te vervangen.",
+    "invalidJson": "Ongeldige JSON-indeling",
+    "noWebhooks": "Geen webhooks geconfigureerd. Maak er een aan om meldingen via webhook te ontvangen.",
+    "updated": "Webhook bijgewerkt",
+    "created": "Webhook aangemaakt",
+    "deleted": "Webhook verwijderd",
+    "secretEditHelp": "Laat leeg om bestaand geheim te behouden",
+    "validation": {
+      "nameAndUrl": "Naam en URL zijn vereist"
+    }
   },
-
   "admin": {
     "title": "Meldingsinstellingen",
     "globalWebhook": {
@@ -140,7 +141,6 @@
       "empty": "Geen gebruikers-webhooks geconfigureerd"
     }
   },
-
   "auditLog": {
     "title": "Auditlogboek",
     "description": "Beveiligings- en kritieke gebeurtenissen van alle gebruikers",
@@ -175,21 +175,30 @@
     },
     "errors": {
       "loadFailed": "Auditlogboek kon niet worden geladen"
-    }
+    },
+    "system": "Systeem"
   },
-
   "systemAlert": {
     "title": "Systeemwaarschuwing",
     "dismiss": "Negeren",
     "dismissAll": "Alles negeren"
   },
-
   "errors": {
     "fetchFailed": "Meldingen konden niet worden geladen",
     "markReadFailed": "Melding kon niet als gelezen worden gemarkeerd",
     "deleteFailed": "Meldingen konden niet worden verwijderd",
+    "saveFailed": "Kon instellingen niet opslaan",
     "webhookCreateFailed": "Webhook kon niet worden aangemaakt",
     "webhookUpdateFailed": "Webhook kon niet worden bijgewerkt",
-    "webhookDeleteFailed": "Webhook kon niet worden verwijderd"
+    "webhookDeleteFailed": "Webhook kon niet worden verwijderd",
+    "webhookSaveFailed": "Kon webhook niet opslaan"
+  },
+  "common": {
+    "actions": "Acties",
+    "active": "Actief",
+    "inactive": "Inactief",
+    "cancel": "Annuleren",
+    "save": "Opslaan",
+    "delete": "Verwijderen"
   }
 }

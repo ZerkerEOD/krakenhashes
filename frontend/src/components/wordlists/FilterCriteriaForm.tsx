@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Grid,
@@ -42,6 +43,7 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
   onChange,
   showPreview = true,
 }) => {
+  const { t } = useTranslation('admin');
   const [preview, setPreview] = useState<{ count: number; rate: number } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [regexError, setRegexError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
       return;
     }
     if (/\(\?(=|!|<=|<!)/.test(value.regex)) {
-      setRegexError('Lookarounds ((?=…), (?!…), (?<=…), (?<!…)) are not supported by the backend regex engine (RE2). Use length/class filters instead.');
+      setRegexError(t('wordlists.filterForm.regexLookaroundError') as string);
       return;
     }
     try {
@@ -73,9 +75,9 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
       new RegExp(value.regex);
       setRegexError(null);
     } catch (e: any) {
-      setRegexError(e.message || 'Invalid regular expression');
+      setRegexError(e.message || (t('wordlists.filterForm.regexInvalidDefault') as string));
     }
-  }, [value.regex]);
+  }, [value.regex, t]);
 
   // Debounced live preview of the resulting candidate count.
   const runPreview = useCallback(() => {
@@ -103,21 +105,19 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
   }, [showPreview, parentWordlistId, value, regexError]);
 
   useEffect(() => {
-    const t = setTimeout(runPreview, 600);
-    return () => clearTimeout(t);
+    const timer = setTimeout(runPreview, 600);
+    return () => clearTimeout(timer);
   }, [runPreview]);
 
   return (
     <Box>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-        All criteria are combined (AND) — a word must satisfy every one you set. If your
-        regex is stricter than the length fields (e.g. min length 8 but regex requires 12+),
-        the stricter rule wins. The estimate below reflects the combined result.
+        {t('wordlists.filterForm.helpText')}
       </Typography>
       <Grid container spacing={2}>
         <Grid item xs={6}>
           <TextField
-            label="Min length"
+            label={t('wordlists.filterForm.minLength')}
             type="number"
             size="small"
             fullWidth
@@ -128,7 +128,7 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
         </Grid>
         <Grid item xs={6}>
           <TextField
-            label="Max length"
+            label={t('wordlists.filterForm.maxLength')}
             type="number"
             size="small"
             fullWidth
@@ -140,31 +140,31 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
       </Grid>
 
       <Typography variant="subtitle2" sx={{ mt: 2, mb: 0.5 }}>
-        Required character classes
+        {t('wordlists.filterForm.requiredClasses')}
       </Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
         <FormControlLabel
           control={<Checkbox checked={!!value.require_upper} onChange={(e) => update({ require_upper: e.target.checked })} />}
-          label="Uppercase"
+          label={t('wordlists.filterForm.uppercase') as string}
         />
         <FormControlLabel
           control={<Checkbox checked={!!value.require_lower} onChange={(e) => update({ require_lower: e.target.checked })} />}
-          label="Lowercase"
+          label={t('wordlists.filterForm.lowercase') as string}
         />
         <FormControlLabel
           control={<Checkbox checked={!!value.require_digit} onChange={(e) => update({ require_digit: e.target.checked })} />}
-          label="Digit"
+          label={t('wordlists.filterForm.digit') as string}
         />
         <FormControlLabel
           control={<Checkbox checked={!!value.require_special} onChange={(e) => update({ require_special: e.target.checked })} />}
-          label="Special"
+          label={t('wordlists.filterForm.special') as string}
         />
       </Box>
 
       <Grid container spacing={2} sx={{ mt: 0 }}>
         <Grid item xs={6}>
           <TextField
-            label="Min # of classes (1-4)"
+            label={t('wordlists.filterForm.minClasses')}
             type="number"
             size="small"
             fullWidth
@@ -174,18 +174,18 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
               update({ min_classes: n === null ? null : Math.max(1, Math.min(4, n)) });
             }}
             inputProps={{ min: 1, max: 4 }}
-            helperText="e.g. 3 = at least 3 of the 4 classes"
+            helperText={t('wordlists.filterForm.minClassesHelp') as string}
           />
         </Grid>
         <Grid item xs={6}>
           <TextField
-            label="Regex (RE2)"
+            label={t('wordlists.filterForm.regexLabel')}
             size="small"
             fullWidth
             value={value.regex ?? ''}
             onChange={(e) => update({ regex: e.target.value })}
             error={!!regexError}
-            helperText={regexError || 'e.g. ^.{10,16}$'}
+            helperText={regexError || (t('wordlists.filterForm.regexHelperDefault') as string)}
           />
         </Grid>
       </Grid>
@@ -196,21 +196,24 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
             <>
               <CircularProgress size={16} />
               <Typography variant="body2" color="text.secondary">
-                Estimating…
+                {t('wordlists.filterForm.estimating')}
               </Typography>
             </>
           ) : preview ? (
-            <Tooltip title="Estimated by sampling the start of the source wordlist. For sorted lists the true total may differ.">
+            <Tooltip title={t('wordlists.filterForm.previewTooltip') as string}>
               <Chip
                 size="small"
                 color="primary"
                 variant="outlined"
-                label={`~${preview.count.toLocaleString()} candidates (${(preview.rate * 100).toFixed(1)}% of sample)`}
+                label={t('wordlists.filterForm.previewLabel', {
+                  countDisplay: preview.count.toLocaleString(),
+                  rateDisplay: (preview.rate * 100).toFixed(1),
+                }) as string}
               />
             </Tooltip>
           ) : (
             <Typography variant="body2" color="text.secondary">
-              Preview unavailable
+              {t('wordlists.filterForm.previewUnavailable')}
             </Typography>
           )}
         </Box>

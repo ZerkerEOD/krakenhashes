@@ -1,0 +1,470 @@
+{
+  "title": "Zadania",
+  "createJob": "Utwórz zadanie",
+  "page": {
+    "title": "Zadania"
+  },
+  "columns": {
+    "name": "Nazwa zadania",
+    "hashlist": "Lista haszy",
+    "createdBy": "Utworzono przez",
+    "progress": "Postęp",
+    "keyspace": "Przestrzeń kluczy",
+    "cracked": "Złamane",
+    "agents": "Agenci",
+    "priority": "Priorytet",
+    "maxAgents": "Maks. agentów",
+    "actions": "Akcje",
+    "status": "Status",
+    "createdAt": "Utworzono",
+    "client": "Klient"
+  },
+  "status": {
+    "preparing": "Przygotowywanie",
+    "pending": "Oczekujące",
+    "running": "Uruchomione",
+    "completed": "Ukończone",
+    "failed": "Nieudane",
+    "stopped": "Zatrzymane",
+    "paused": "Wstrzymane",
+    "active": "Aktywne",
+    "cancelled": "Anulowane"
+  },
+  "actions": {
+    "delete": "Usuń zadanie",
+    "retry": "Ponów zadanie",
+    "stop": "Zatrzymaj zadanie",
+    "pause": "Wstrzymaj zadanie",
+    "resume": "Wznów zadanie",
+    "viewDetails": "Wyświetl szczegóły"
+  },
+  "sections": {
+    "activeJobs": "Aktywne zadania",
+    "completedJobs": "Ukończone zadania"
+  },
+  "confirmDelete": {
+    "title": "Usuń zadanie",
+    "message": "Czy na pewno chce Pan/Pani usunąć to zadanie? Tej akcji nie można cofnąć.",
+    "messageNamed": "Czy na pewno chce Pan/Pani usunąć zadanie \"{{name}}\"? Tej akcji nie można cofnąć."
+  },
+  "row": {
+    "completed": "Ukończono:",
+    "unknown": "Nieznane",
+    "error": "Błąd:",
+    "rulesLabel": "(reguły)",
+    "custom": "Atak niestandardowy"
+  },
+  "tooltips": {
+    "combinedHashRate": "Łączny hashrate",
+    "retry": "Ponów zadanie",
+    "delete": "Usuń zadanie",
+    "save": "Zapisz",
+    "cancel": "Anuluj"
+  },
+  "validation": {
+    "priorityRange": "Priorytet musi być między 0 a {{max}}",
+    "maxAgentsRange": "Maks. agentów musi być między 1 a 100",
+    "maxAgentsPositive": "Maks. agentów musi być 0 (nieograniczone) lub dodatnia",
+    "chunkSizeMin": "Rozmiar porcji musi wynosić co najmniej 5 sekund",
+    "chunkSizeMax": "Rozmiar porcji nie może przekraczać 24 godzin (86400 sekund)",
+    "invalidNumber": "Proszę wpisać prawidłową liczbę",
+    "minValue": "Wartość musi wynosić co najmniej {{min}}",
+    "maxValue": "Wartość musi wynosić co najwyżej {{max}}"
+  },
+  "errors": {
+    "loadFailed": "Nie udało się załadować zadań",
+    "loadDetailsFailed": "Nie udało się załadować szczegółów zadania",
+    "deleteFailed": "Nie udało się usunąć zadania",
+    "updateFailed": "Nie udało się zaktualizować zadania",
+    "fetchFailed": "Nie udało się pobrać zadań: {{message}}",
+    "willRetry": "Zostanie automatycznie ponowione.",
+    "notFound": "Nie znaleziono zadania",
+    "saveFailed": "Nie udało się zapisać zmian",
+    "updatePriorityFailed": "Nie udało się zaktualizować priorytetu",
+    "updateMaxAgentsFailed": "Nie udało się zaktualizować maks. agentów",
+    "updateChunkSizeFailed": "Nie udało się zaktualizować rozmiaru porcji",
+    "retryTaskFailed": "Nie udało się ponowić podzadania",
+    "forceCompleteFailed": "Nie udało się wymusić ukończenia zadania"
+  },
+  "details": {
+    "title": "Szczegóły zadania",
+    "pageTitle": "Szczegóły zadania",
+    "overview": "Przegląd",
+    "tasks": "Podzadania",
+    "results": "Wyniki",
+    "logs": "Dzienniki",
+    "jobInformation": "Informacje o zadaniu",
+    "timeRemaining": "Pozostały czas",
+    "estimatedCompletion": "Szacunkowe ukończenie",
+    "crackingCompletedAt": "Łamanie ukończone o",
+    "totalRunningTime": "Całkowity czas działania",
+    "chunkSizeDefault": "Nie ustawiono (używana wartość domyślna)",
+    "noActiveTasksEstimate": "Nie można oszacować - żadne podzadania nie są obecnie w toku.",
+    "lessThanOneMinute": "Mniej niż 1 minuta",
+    "jobCompleted": "Zadanie ukończone",
+    "finishingUp": "Kończenie…",
+    "completingShortly": "Wkrótce będzie ukończone",
+    "processingDuration": "Przetwarzanie: {{duration}}",
+    "wordlists": "Wordlista(y)",
+    "rules": "Reguły",
+    "splittingMode": "Tryb podziału",
+    "ruleSplitting": "Podział reguł",
+    "firstWordlist": "Pierwsza wordlista",
+    "secondWordlist": "Druga wordlista",
+    "wordlist": "Wordlista",
+    "mask": "Maska",
+    "incrementMode": "Tryb inkrementacji",
+    "incrementRange": "Zakres inkrementacji",
+    "maskSuffix": "Maska (sufiks)",
+    "maskPrefix": "Maska (prefiks)",
+    "associationHints": "Wskazówki asocjacji",
+    "autoRefreshOn": "Automatyczne odświeżanie: WŁ.",
+    "autoRefreshPaused": "Automatyczne odświeżanie: WSTRZYMANE",
+    "forceComplete": "Wymuś ukończenie",
+    "refreshNow": "Odśwież teraz",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=nieograniczone",
+    "chunkSizeHint": "Sekundy (5-86400)",
+    "incrementLayers": "Warstwy inkrementacji ({{count}} razem)",
+    "estimatedKeyspace": "Szacunkowa",
+    "taskProgressVisualization": "Wizualizacja postępu podzadań",
+    "activeTasks": "Aktywne podzadania ({{count}} w toku)",
+    "noActiveTasks": "Brak aktywnych podzadań",
+    "failedTasks": "Nieudane podzadania ({{count}} razem)",
+    "completedTasks": "Ukończone podzadania ({{count}} razem)",
+    "noCompletedTasks": "Brak ukończonych podzadań",
+    "increment": "Inkrementacja",
+    "incrementInverse": "Inkrementacja odwrotna",
+    "jobNotFound": "Nie znaleziono zadania",
+    "priority": "Priorytet",
+    "timeUnits": {
+      "year": "rok",
+      "years": "lat",
+      "month": "miesiąc",
+      "months": "miesięcy",
+      "day": "dzień",
+      "days": "dni",
+      "hour": "godzina",
+      "hours": "godzin",
+      "minute": "minuta",
+      "minutes": "minut",
+      "second": "sekunda",
+      "seconds": "sekund"
+    },
+    "layerTable": {
+      "layer": "Warstwa",
+      "mask": "Maska",
+      "minLength": "Min. długość",
+      "maxLength": "Maks. długość",
+      "keyspace": "Przestrzeń kluczy",
+      "effectiveKeyspace": "Efektywna przestrzeń kluczy",
+      "progress": "Postęp",
+      "tasks": "Podzadania",
+      "cracks": "Złamane",
+      "status": "Status",
+      "running": "w toku",
+      "total": "razem",
+      "failed": "{{count}} nieudane"
+    },
+    "activeTasksTable": {
+      "agentId": "ID agenta",
+      "taskId": "ID podzadania",
+      "agent": "Agent",
+      "skip": "Skip",
+      "limit": "Limit",
+      "keyspaceRange": "Zakres przestrzeni kluczy",
+      "progress": "Postęp",
+      "speed": "Szybkość",
+      "currentSpeed": "Bieżąca szybkość",
+      "cracks": "Złamane",
+      "startedAt": "Rozpoczęte o"
+    },
+    "failedTasksTable": {
+      "agentId": "ID agenta",
+      "taskId": "ID podzadania",
+      "agent": "Agent",
+      "status": "Status",
+      "retryCount": "Liczba ponowień",
+      "error": "Błąd",
+      "errorMessage": "Komunikat błędu",
+      "lastUpdated": "Ostatnia aktualizacja",
+      "failedAt": "Nieudane o",
+      "actions": "Akcje"
+    },
+    "completedTasksTable": {
+      "agentId": "ID agenta",
+      "taskId": "ID podzadania",
+      "agent": "Agent",
+      "completedAt": "Ukończone o",
+      "keyspaceRange": "Zakres przestrzeni kluczy",
+      "finalProgress": "Ostateczny postęp",
+      "averageSpeed": "Średnia szybkość",
+      "cracks": "Złamane",
+      "cracksFound": "Znalezione złamania"
+    },
+    "additionalArgs": "Dodatkowe argumenty",
+    "attackModes": {
+      "dictionary": "Słownik",
+      "combination": "Kombinacja",
+      "bruteforce": "Brute force",
+      "hybridWordlistMask": "Hybrydowy Wordlista + Maska",
+      "hybridMaskWordlist": "Hybrydowy Maska + Wordlista",
+      "association": "Asocjacja",
+      "modeNumber": "Tryb {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Budżet chmury wyczerpany",
+      "cloud_cap_reached": "Limit instancji chmury osiągnięty",
+      "cloud_settling": "Oczekiwanie na uruchomienie wynajętej instancji",
+      "cloud_no_capacity": "Brak dostępnej pojemności chmury",
+      "cloud_dead_on_arrival": "Wynajęte instancje nie mogły się połączyć",
+      "cloud_launch_failed": "Nie udało się wynająć instancji chmury",
+      "seenTimes_few": "Odnotowano {{count}} razy",
+      "seenTimes_many": "Odnotowano {{count}} razy",
+      "seenTimes_one": "Odnotowano {{count}} raz",
+      "seenTimes_other": "Odnotowano {{count}} razy",
+      "cloud_rental_too_short": "Wynajem byłby zbyt krótki, aby był przydatny",
+      "cloud_cracks_lost": "Złamane hasła mogły być utracone",
+      "cloud_draining": "Instancja chmury jest opróżniana (bez nowej pracy)"
+    },
+    "client": "Klient",
+    "presetJob": "Szablon zadania",
+    "workflow": "Przepływ pracy",
+    "createdBy": "Utworzono przez",
+    "system": "System"
+  },
+  "common": {
+    "id": "ID",
+    "name": "Nazwa",
+    "status": "Status",
+    "hashlist": "Lista haszy",
+    "hashType": "Typ hasza",
+    "attackMode": "Tryb ataku",
+    "keyspace": "Przestrzeń kluczy",
+    "effectiveKeyspace": "Efektywna przestrzeń kluczy",
+    "processedKeyspace": "Przetworzona przestrzeń kluczy",
+    "dispatchedKeyspace": "Przydzielona przestrzeń kluczy",
+    "progress": "Postęp",
+    "cracksFound": "Złamane hasze",
+    "createdAt": "Utworzone",
+    "startedAt": "Rozpoczęte",
+    "completedAt": "Ukończone",
+    "error": "Błąd",
+    "warning": "Ostrzeżenie",
+    "maxAgents": "Maks. agentów",
+    "chunkSize": "Rozmiar porcji",
+    "unassigned": "Nieprzydzielone",
+    "noErrorMessage": "Brak komunikatu błędu",
+    "notAvailable": "N/D",
+    "back": "Wstecz",
+    "rulesMultiplier": "(reguły)"
+  },
+  "editableCell": {
+    "clickToEdit": "Kliknij, aby edytować"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Usuń ukończone zadania",
+      "message": "Czy na pewno chcesz usunąć wszystkie ukończone zadania? Ta czynność nie może być cofnięta."
+    },
+    "forceComplete": {
+      "title": "Wymuś ukończenie zadania",
+      "warning": "To oznaczy wszystkie niekompletne podzadania jako ukończone i ustawi status zadania na ukończone.",
+      "onlyUseIf": "Używaj tylko, jeśli:",
+      "reason1": "Zadanie faktycznie ukończyło przetwarzanie całej pracy",
+      "reason2": "Zadanie utknęło w statusie uruchomionym/oczekującym",
+      "reason3": "Potwierdzono, że przestrzeń kluczy została w pełni przeszukana",
+      "note": "Uwaga: Pracujemy nad lepszymi sposobami obsługi obliczeń przestrzeni kluczy i wykrywania ukończenia zadań w różnych sytuacjach.",
+      "confirmation": "Czy na pewno chcesz wymusić ukończenie tego zadania?",
+      "completing": "Ukańczanie...",
+      "button": "Wymuś ukończenie"
+    },
+    "deleteConfirm": {
+      "deleting": "Usuwanie..."
+    }
+  },
+  "buttons": {
+    "refresh": "Odśwież",
+    "deleteFinished": "Usuń ukończone",
+    "cancel": "Anuluj",
+    "delete": "Usuń",
+    "save": "Zapisz",
+    "retry": "Spróbuj ponownie"
+  },
+  "success": {
+    "chunkSizeUpdated": "Rozmiar porcji został zaktualizowany pomyślnie. Zmiany wejdą w życie przy następnym utworzeniu podzadania.",
+    "forceCompleted": "Wymuszono ukończenie zadania"
+  },
+  "form": {
+    "name": "Nazwa zadania",
+    "hashlist": "Wybierz listę haszy",
+    "attackMode": "Tryb ataku",
+    "wordlist": "Wordlista",
+    "rules": "Reguły",
+    "priority": "Priorytet",
+    "maxAgents": "Maksymalna liczba agentów"
+  },
+  "autoRefresh": {
+    "on": "Automatyczne odświeżanie włączone",
+    "off": "Automatyczne odświeżanie wyłączone"
+  },
+  "pagination": {
+    "jobsPerPage": "Zadań na stronie"
+  },
+  "filters": {
+    "searchPlaceholder": "Szukaj zadań...",
+    "priority": "Priorytet",
+    "status": "Status",
+    "all": "Wszystkie"
+  },
+  "priority": {
+    "low": "Niski",
+    "medium": "Średni",
+    "high": "Wysoki",
+    "critical": "Krytyczny",
+    "maximum": "Maksymalny"
+  },
+  "lastUpdated": "Ostatnia aktualizacja: {{time}}",
+  "filtered": "(przefiltrowane)",
+  "loading": "Ładowanie zadań...",
+  "archive": {
+    "showArchived": "Pokaż archiwizowane",
+    "archive": "Archiwizuj",
+    "unarchive": "Przywróć z archiwum",
+    "archived": "Archiwizowane",
+    "archiveSelected": "Archiwizuj wybrane",
+    "unarchiveSelected": "Przywróć z archiwum wybrane",
+    "deleteSelected": "Usuń wybrane",
+    "selectedCount": "Zaznaczono: {{count}}",
+    "confirmBulkDelete": {
+      "title": "Potwierdź usuwanie zbiorcze",
+      "message_few": "Czy na pewno chcesz usunąć {{count}} zadania? Ta czynność nie może być cofnięta.",
+      "message_many": "Czy na pewno chcesz usunąć {{count}} zadań? Ta czynność nie może być cofnięta.",
+      "message_one": "Czy na pewno chcesz usunąć {{count}} zadanie? Ta czynność nie może być cofnięta.",
+      "message_other": "Czy na pewno chcesz usunąć {{count}} zadań? Ta czynność nie może być cofnięta.",
+      "warning": "To trwale usunie wybrane zadania i wszystkie powiązane dane.",
+      "cancel": "Anuluj",
+      "delete": "Usuń",
+      "deleting": "Usuwanie..."
+    },
+    "bulkArchiveSuccess_few": "{{count}} zadania zostały archiwizowane pomyślnie",
+    "bulkArchiveSuccess_many": "{{count}} zadań zostało archiwizowanych pomyślnie",
+    "bulkArchiveSuccess_one": "{{count}} zadanie zostało archiwizowane pomyślnie",
+    "bulkArchiveSuccess_other": "{{count}} zadań zostało archiwizowanych pomyślnie",
+    "bulkUnarchiveSuccess_few": "{{count}} zadania zostały przywrócone z archiwum pomyślnie",
+    "bulkUnarchiveSuccess_many": "{{count}} zadań zostało przywróconych z archiwum pomyślnie",
+    "bulkUnarchiveSuccess_one": "{{count}} zadanie zostało przywrócone z archiwum pomyślnie",
+    "bulkUnarchiveSuccess_other": "{{count}} zadań zostało przywróconych z archiwum pomyślnie",
+    "bulkDeleteSuccess_few": "{{count}} zadania zostały usunięte pomyślnie",
+    "bulkDeleteSuccess_many": "{{count}} zadań zostało usuniętych pomyślnie",
+    "bulkDeleteSuccess_one": "{{count}} zadanie zostało usunięte pomyślnie",
+    "bulkDeleteSuccess_other": "{{count}} zadań zostało usuniętych pomyślnie"
+  },
+  "cloud": {
+    "projection": {
+      "title": "Czy to zostanie ukończone w ramach budżetu?",
+      "loadFailed": "Nie udało się wygenerować prognozy dla tego zadania",
+      "coverageLabel": "Pokrycie budżetu",
+      "coverageValue": "{{pct}}% pozostałej pracy jest sfinansowane",
+      "timeToFinish": "Przewidywany czas do ukończenia",
+      "projectedCost": "Przewidywany koszt chmury",
+      "availableBudget": "Dostępny budżet",
+      "onpremSpeed": "Szybkość lokalna",
+      "cloudSpeed": "Szybkość chmury",
+      "unknown": "Nieznana",
+      "confirm": "Uruchom",
+      "pessimistic": "Jest to typ hasza ze solą, więc rzeczywista przepustowość będzie przewyższać to oszacowanie, gdy sole zostaną złamane. Projekcję należy traktować jako najgorszy przypadek.",
+      "shortfallTitle": "Budżet się wyczerpuje, zanim praca się skończy",
+      "shortfallBody": "Przy przewidywanym tempie budżet pokrywa {{pct}}% pozostałej przestrzeni kluczy. Zadanie zatrzyma się w połowie. Częściowy postęp może nadal być wart swojej ceny — ale to powinna być świadoma decyzja.",
+      "shortfallAcknowledge": "Rozumiem, że to zadanie nie zostanie ukończone w ramach budżetu",
+      "metric": "Metryka",
+      "value": "Wartość"
+    },
+    "cloudBurst": {
+      "label": "Zezwól na cloud burst dla tego zadania",
+      "help": "Wynajmuje instancje GPU, gdy lokalna flota nie nadąża. Wymaga to, aby klient był sfinansowany i wybrał dostawcę. Bez tego nic nie zostanie wynajęte.",
+      "maxInstances": "Maksymalna liczba wynajmowanych instancji",
+      "maxInstancesHelp": "Oddzielnie od maks. agentów, która reguluje wspólną pulę lokalną. Pozostaw puste, aby pozwolić pozostałemu budżetowi zdecydować.",
+      "badge": "Cloud burst",
+      "thirdPartyBadge": "Host zewnętrzny",
+      "provisionNow": "Zainicjuj teraz",
+      "provisionConfirm": "Czy wynająć teraz jedną instancję w chmurze dla tego zadania?\n\nTo omija reguły głodzenia zasobów i reguły bliskiego zakończenia autoskalera, a także wydaje pieniądze z budżetu tego klienta. Budżet, okno wydatków, limit na zadanie i zgoda dostawcy nadal obowiązują.",
+      "provisionRequested": "Zażądano instancji w chmurze",
+      "provisionFailed": "Nie można było zainicjować instancji w chmurze"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Całkowity postęp: {{percent}}%",
+    "noTasks": "Nie przydzielono jeszcze żadnych podzadań",
+    "notAvailable": "N/D",
+    "tooltip": {
+      "taskId": "ID podzadania: {{id}}",
+      "status": "Status: {{status}}",
+      "keyspace": "Przestrzeń kluczy: {{start}} - {{end}}",
+      "progress": "Postęp: {{percent}}%",
+      "speed": "Hashrate: {{speed}}",
+      "cracksFound": "Złamane hasze: {{count}}",
+      "agentId": "ID agenta: {{id}}"
+    },
+    "legend": {
+      "pending": "Oczekujące",
+      "running": "Uruchomione",
+      "processing": "Przetwarzane",
+      "completed": "Ukończone",
+      "processingError": "Błąd przetwarzania",
+      "failed": "Nieudane",
+      "crackFound": "Hasło złamane"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Blokady testów wydajności",
+    "subtitle": "Agenci obecnie na czarnej liście dla testów wydajności tego zadania po powtórzonych niepowodzeniach. Wyczyść wpis, aby ponowić próbę w następnym cyklu planowania.",
+    "loadFailed": "Nie udało się załadować czarnej listy",
+    "clearSuccess": "Wpis czarnej listy wyczyszczony — planista spróbuje ponownie w następnym cyklu",
+    "clearFailedPrefix": "Nie udało się wyczyścić: {{error}}",
+    "clearFailedDefault": "Nie udało się wyczyścić wpisu",
+    "expired": "wygasło",
+    "retryNow": "Spróbuj teraz",
+    "scope": {
+      "thisJob": "to zadanie",
+      "global": "globalne"
+    },
+    "columns": {
+      "agent": "Agent",
+      "scope": "Zakres",
+      "hashMode": "Hasz / Tryb",
+      "failures": "Niepowodzenia",
+      "reason": "Przyczyna",
+      "expires": "Wygasa",
+      "action": "Działanie"
+    }
+  },
+  "loopback": {
+    "title": "Pętla zwrotna",
+    "subtitle": "Każda pętla zwrotna ponownie uruchamia mutację ataku tylko względem nowo złamanych haseł, powtarzając aż żadne nowe złamane hasła nie zostaną znalezione.",
+    "runningCount": "{{count}} uruchomione",
+    "statusLabel": {
+      "waiting": "Oczekiwanie na zakończenie rundy",
+      "active": "Zapętlanie",
+      "completed": "Gotowe",
+      "failed": "Nieudane",
+      "cancelled": "Anulowane"
+    },
+    "roundLabel": "Runda {{current}} / {{max}}",
+    "hashlistFallback": "Lista haszy #{{id}}",
+    "jobCount_few": "{{count}} zadania",
+    "jobCount_many": "{{count}} zadań",
+    "jobCount_one": "{{count}} zadanie",
+    "jobCount_other": "{{count}} zadań",
+    "noJobsYet": "Nie zarejestrowano jeszcze żadnych zadań.",
+    "loopsBackYes": "Tak",
+    "loopsBackFeedsDelta": "Zasila deltę",
+    "columns": {
+      "round": "Runda",
+      "original": "Oryginalna",
+      "job": "Zadanie",
+      "role": "Rola",
+      "loopsBack": "Zapętlenie"
+    }
+  }
+}

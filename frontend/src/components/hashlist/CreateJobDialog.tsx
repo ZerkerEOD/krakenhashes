@@ -41,6 +41,7 @@ import {
 import { api } from '../../services/api';
 import { getJobDefaultsForUsers } from '../../services/jobSettings';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation, Trans } from 'react-i18next';
 import BinaryVersionSelector from '../common/BinaryVersionSelector';
 import CharsetInputs from '../common/CharsetInputs';
 import { CustomCharset } from '../../types/customCharsets';
@@ -146,8 +147,9 @@ export default function CreateJobDialog({
   totalHashes = 0
 }: CreateJobDialogProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation('hashlists');
   const [loading, setLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('Creating...');
+  const [loadingMessage, setLoadingMessage] = useState(t('createJob.loadingDefault') as string);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [tabValue, setTabValue] = useState(0);
@@ -215,7 +217,7 @@ export default function CreateJobDialog({
     if (formData?.client_potfile) {
       options.push({
         id: `potfile:${formData.client_potfile.id}`,
-        name: `Client Potfile (${formData.client_potfile.line_count.toLocaleString()} passwords)`,
+        name: t('createJob.form.clientPotfileName', { count: formData.client_potfile.line_count }) as string,
         file_size: formData.client_potfile.file_size,
         category: 'Client Specific',
         line_count: formData.client_potfile.line_count,
@@ -249,7 +251,7 @@ export default function CreateJobDialog({
     }
 
     return options;
-  }, [formData]);
+  }, [formData, t]);
 
   // Fetch available jobs and workflows
   useEffect(() => {
@@ -289,7 +291,7 @@ export default function CreateJobDialog({
       }));
     } catch (err: any) {
       console.error('Failed to fetch available jobs:', err);
-      setError('Failed to load available jobs');
+      setError(t('createJob.errors.loadFailed') as string);
     } finally {
       setLoadingJobs(false);
     }
@@ -297,7 +299,7 @@ export default function CreateJobDialog({
 
   const handleSubmit = async () => {
     setLoading(true);
-    setLoadingMessage('Creating job...');
+    setLoadingMessage(t('createJob.loadingCreating') as string);
     setError(null);
 
     try {
@@ -306,7 +308,7 @@ export default function CreateJobDialog({
       if (tabValue === 0) {
         // Workflows
         if (selectedWorkflows.length === 0) {
-          setError('Please select at least one workflow');
+          setError(t('createJob.errors.selectWorkflow') as string);
           setLoading(false);
           return;
         }
@@ -318,7 +320,7 @@ export default function CreateJobDialog({
       } else if (tabValue === 1) {
         // Preset jobs
         if (selectedPresetJobs.length === 0) {
-          setError('Please select at least one preset job');
+          setError(t('createJob.errors.selectPresetJob') as string);
           setLoading(false);
           return;
         }
@@ -331,23 +333,23 @@ export default function CreateJobDialog({
       } else if (tabValue === 2) {
         // Custom job
         // Name is now optional - will use default format if not provided
-        
+
         // Validate attack mode requirements
         if ([0, 6, 7].includes(customJob.attack_mode) && customJob.wordlist_ids.length === 0) {
-          setError('Selected attack mode requires at least one wordlist');
+          setError(t('createJob.errors.wordlistRequired') as string);
           setLoading(false);
           return;
         }
 
         // Combination attack requires exactly 2 wordlists
         if (customJob.attack_mode === 1 && customJob.wordlist_ids.length !== 2) {
-          setError('Combination attack requires both wordlists to be selected');
+          setError(t('createJob.errors.combinationRequiresTwo') as string);
           setLoading(false);
           return;
         }
 
         if ([3, 6, 7].includes(customJob.attack_mode) && !customJob.mask) {
-          setError('Selected attack mode requires a mask');
+          setError(t('createJob.errors.maskRequired') as string);
           setLoading(false);
           return;
         }
@@ -355,12 +357,12 @@ export default function CreateJobDialog({
         // Association attack validation
         if (customJob.attack_mode === 9) {
           if (hasMixedWorkFactors) {
-            setError('Association attacks cannot be run on hashlists with mixed work factors');
+            setError(t('createJob.errors.associationMixedWorkFactors') as string);
             setLoading(false);
             return;
           }
           if (!customJob.association_wordlist_id) {
-            setError('Association attack requires an association wordlist');
+            setError(t('createJob.errors.associationWordlistRequired') as string);
             setLoading(false);
             return;
           }
@@ -368,18 +370,18 @@ export default function CreateJobDialog({
 
         // Validate chunk duration
         if (customJob.chunk_duration < 5) {
-          setError('Chunk duration must be at least 5 seconds');
+          setError(t('createJob.errors.chunkDurationMin') as string);
           setLoading(false);
           return;
         }
         if (customJob.chunk_duration > 86400) {
-          setError('Chunk duration cannot exceed 24 hours (86400 seconds)');
+          setError(t('createJob.errors.chunkDurationMax') as string);
           setLoading(false);
           return;
         }
 
         // Custom jobs need keyspace calculation
-        setLoadingMessage('Calculating keyspace...');
+        setLoadingMessage(t('createJob.loadingKeyspace') as string);
 
         // Map chunk_duration to chunk_size_seconds for API
         const customJobPayload: any = {
@@ -419,14 +421,17 @@ export default function CreateJobDialog({
         | Array<{ preset_job_id?: string; name?: string; error: string }>
         | undefined;
       if (failures && failures.length > 0) {
+        const itemFallback = t('createJob.errors.unnamedItem') as string;
         setError(
-          `${response.data.message}. Not created: ` +
-          failures.map((f) => `${f.name || f.preset_job_id || 'item'} — ${f.error}`).join('; ')
+          t('createJob.errors.partialFailure', {
+            message: response.data.message,
+            details: failures.map((f) => `${f.name || f.preset_job_id || itemFallback} — ${f.error}`).join('; ')
+          }) as string
         );
         return;
       }
 
-      setLoadingMessage(response.data.message || 'Job created successfully!');
+      setLoadingMessage(response.data.message || (t('createJob.successDefault') as string));
       setSuccess(true);
 
       // Navigate to jobs page after a short delay
@@ -439,11 +444,11 @@ export default function CreateJobDialog({
       setError(
         err.response?.data?.error ||
         (typeof err.response?.data === 'string' ? err.response.data : null) ||
-        'Failed to create job'
+        (t('createJob.errors.createFailed') as string)
       );
     } finally {
       setLoading(false);
-      setLoadingMessage('Creating...');
+      setLoadingMessage(t('createJob.loadingDefault') as string);
     }
   };
 
@@ -454,14 +459,14 @@ export default function CreateJobDialog({
 
   const getAttackModeName = (mode: number) => {
     const modes: { [key: number]: string } = {
-      0: 'Dictionary',
-      1: 'Combination',
-      3: 'Brute-force',
-      6: 'Hybrid Wordlist + Mask',
-      7: 'Hybrid Mask + Wordlist',
-      9: 'Association'
+      0: t('createJob.attackModes.dictionary') as string,
+      1: t('createJob.attackModes.combination') as string,
+      3: t('createJob.attackModes.bruteforce') as string,
+      6: t('createJob.attackModes.hybridWordlistMask') as string,
+      7: t('createJob.attackModes.hybridMaskWordlist') as string,
+      9: t('createJob.attackModes.association') as string
     };
-    return modes[mode] || `Mode ${mode}`;
+    return modes[mode] || (t('createJob.attackModes.modeFallback', { mode }) as string);
   };
 
   const handleClose = () => {
@@ -529,26 +534,26 @@ export default function CreateJobDialog({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        Create Job for "{hashlistName}"
+        {t('createJob.title', { name: hashlistName })}
       </DialogTitle>
-      
+
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
-        
+
         {success && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            Job(s) created successfully! Redirecting to jobs page...
+            {t('createJob.successRedirect') as string}
           </Alert>
         )}
 
         <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3 }}>
-          <Tab icon={<WorkflowIcon />} label="Workflows" />
-          <Tab icon={<WorkIcon />} label="Preset Jobs" />
-          <Tab icon={<CustomIcon />} label="Custom Job" />
+          <Tab icon={<WorkflowIcon />} label={t('createJob.tabs.workflows') as string} />
+          <Tab icon={<WorkIcon />} label={t('createJob.tabs.presetJobs') as string} />
+          <Tab icon={<CustomIcon />} label={t('createJob.tabs.customJob') as string} />
         </Tabs>
 
         {loadingJobs ? (
@@ -562,22 +567,21 @@ export default function CreateJobDialog({
               <Box>
                 {workflows.length === 0 ? (
                   <Alert severity="info">
-                    No workflows available. Please create workflows in the admin panel first.
+                    {t('createJob.workflows.empty') as string}
                   </Alert>
                 ) : (
                   <>
                     <TextField
                       fullWidth
-                      label="Job Name (Optional)"
-                      placeholder="Leave empty for auto-generated name"
+                      label={t('createJob.form.jobName') as string}
+                      placeholder={t('createJob.form.jobNamePlaceholder') as string}
                       value={customJobName}
                       onChange={(e) => setCustomJobName(e.target.value)}
-                      helperText="Your name will be appended with each workflow name"
+                      helperText={t('createJob.workflows.jobNameHelper') as string}
                       sx={{ mb: 3 }}
                     />
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Select one or more workflows to run. You can select multiple workflows - each will create its own sequence of job executions.
-                      Loopback settings are configured in the workflow itself — a workflow tagged “Loopback” will automatically re-run its eligible steps against newly-cracked passwords.
+                      {t('createJob.workflows.description') as string}
                     </Typography>
                     <List>
                       {workflows.map((workflow) => (
@@ -610,7 +614,7 @@ export default function CreateJobDialog({
                                   <Chip
                                     size="small"
                                     icon={<WorkflowIcon />}
-                                    label={`${workflow.steps?.length || 0} jobs`}
+                                    label={t('createJob.workflows.jobsCount', { count: workflow.steps?.length || 0 }) as string}
                                     sx={{ mr: 1 }}
                                   />
                                   {(workflow.loopback_all_eligible || (workflow.loopback_step_count ?? 0) > 0) && (
@@ -620,8 +624,8 @@ export default function CreateJobDialog({
                                       variant="outlined"
                                       label={
                                         workflow.loopback_all_eligible
-                                          ? 'Loopback: all eligible'
-                                          : `Loopback: ${workflow.loopback_step_count} step(s)`
+                                          ? (t('createJob.workflows.loopbackAllEligible') as string)
+                                          : (t('createJob.workflows.loopbackSteps', { count: workflow.loopback_step_count }) as string)
                                       }
                                       sx={{ mr: 1 }}
                                     />
@@ -629,7 +633,7 @@ export default function CreateJobDialog({
                                   {workflow.has_high_priority_override && (
                                     <Chip
                                       size="small"
-                                      label="Can Interrupt"
+                                      label={t('createJob.canInterrupt') as string}
                                       color="error"
                                       variant="filled"
                                     />
@@ -637,7 +641,7 @@ export default function CreateJobDialog({
                                 </Box>
                                 {workflow.steps && workflow.steps.length > 0 && (
                                   <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                                    Jobs: {workflow.steps.map(s => s.preset_job_name).filter(Boolean).join(', ')}
+                                    {t('createJob.workflows.jobsList', { names: workflow.steps.map(s => s.preset_job_name).filter(Boolean).join(', ') }) as string}
                                   </Typography>
                                 )}
                               </Box>
@@ -647,7 +651,7 @@ export default function CreateJobDialog({
                       ))}
                     </List>
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-                      {selectedWorkflows.length} workflow(s) selected
+                      {t('createJob.workflows.selectedCount', { count: selectedWorkflows.length }) as string}
                     </Typography>
                   </>
                 )}
@@ -659,21 +663,21 @@ export default function CreateJobDialog({
               <Box>
                 {presetJobs.length === 0 ? (
                   <Alert severity="info">
-                    No preset jobs available. Please create preset jobs in the admin panel first.
+                    {t('createJob.presetJobs.empty') as string}
                   </Alert>
                 ) : (
                   <>
                     <TextField
                       fullWidth
-                      label="Job Name (Optional)"
-                      placeholder="Leave empty for auto-generated name"
+                      label={t('createJob.form.jobName') as string}
+                      placeholder={t('createJob.form.jobNamePlaceholder') as string}
                       value={customJobName}
                       onChange={(e) => setCustomJobName(e.target.value)}
-                      helperText="Your name will be appended with each job type (e.g., 'My Name - Potfile Run')"
+                      helperText={t('createJob.presetJobs.jobNameHelper') as string}
                       sx={{ mb: 3 }}
                     />
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Select one or more preset jobs to run. You can select multiple jobs - they will be created as separate job executions.
+                      {t('createJob.presetJobs.description') as string}
                     </Typography>
                     {/* Loopback toggle (GH #64) kept ABOVE the preset list so it's visible
                         without scrolling past a long list. Enables once an eligible preset
@@ -684,10 +688,10 @@ export default function CreateJobDialog({
                         return p ? isLoopbackEligibleMode(p.attack_mode, p.rule_ids) : false;
                       });
                       const helper = anyEligible
-                        ? 'Runs the selected job(s), then re-runs the mutatable ones (straight + rules, or a hybrid attack) against only the newly-cracked passwords — repeating until no new cracks are found.'
+                        ? (t('createJob.loopback.helperEligible') as string)
                         : selectedPresetJobs.length === 0
-                          ? 'Select an eligible preset (straight + rules, or a hybrid attack) below to enable loopback.'
-                          : 'None of the selected jobs have a mutation to loop back (they are wordlist-only, brute-force or association).';
+                          ? (t('createJob.loopback.helperSelectEligible') as string)
+                          : (t('createJob.loopback.helperNoneEligible') as string);
                       return (
                         <Box sx={{ mb: 2, p: 2, borderRadius: 1, bgcolor: 'action.hover' }}>
                           <FormControlLabel
@@ -698,7 +702,7 @@ export default function CreateJobDialog({
                                 onChange={(e) => setPresetLoopback(e.target.checked)}
                               />
                             }
-                            label="Loopback until dry"
+                            label={t('createJob.loopback.label') as string}
                           />
                           <FormHelperText>{helper}</FormHelperText>
                         </Box>
@@ -740,13 +744,13 @@ export default function CreateJobDialog({
                                   <Chip
                                     size="small"
                                     icon={<SpeedIcon />}
-                                    label={`Priority: ${job.priority}`}
+                                    label={t('createJob.presetJobs.priorityLabel', { priority: job.priority }) as string}
                                     sx={{ mr: 1 }}
                                   />
                                   {job.allow_high_priority_override && (
                                     <Chip
                                       size="small"
-                                      label="Can Interrupt"
+                                      label={t('createJob.canInterrupt') as string}
                                       color="error"
                                       variant="filled"
                                     />
@@ -759,7 +763,7 @@ export default function CreateJobDialog({
                       ))}
                     </List>
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-                      {selectedPresetJobs.length} job(s) selected
+                      {t('createJob.presetJobs.selectedCount', { count: selectedPresetJobs.length }) as string}
                     </Typography>
                   </>
                 )}
@@ -773,17 +777,17 @@ export default function CreateJobDialog({
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
-                      label="Job Name (Optional)"
-                      placeholder="Leave empty for auto-generated name"
+                      label={t('createJob.form.jobName') as string}
+                      placeholder={t('createJob.form.jobNamePlaceholder') as string}
                       value={customJob.name}
                       onChange={(e) => setCustomJob(prev => ({ ...prev, name: e.target.value }))}
-                      helperText="Leave empty for auto-generated name based on attack configuration"
+                      helperText={t('createJob.form.jobNameHelper') as string}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
-                      <InputLabel>Attack Mode</InputLabel>
+                      <InputLabel>{t('createJob.form.attackModeLabel') as string}</InputLabel>
                       <Select
                         value={customJob.attack_mode}
                         onChange={(e) => {
@@ -805,20 +809,20 @@ export default function CreateJobDialog({
                           // Reset association wordlist state
                           setSelectedAssociationWordlist('');
                         }}
-                        label="Attack Mode"
+                        label={t('createJob.form.attackModeLabel') as string}
                       >
-                        <MenuItem value={0}>Dictionary Attack</MenuItem>
-                        <MenuItem value={1}>Combination Attack</MenuItem>
-                        <MenuItem value={3}>Brute-force Attack</MenuItem>
-                        <MenuItem value={6}>Hybrid Wordlist + Mask</MenuItem>
-                        <MenuItem value={7}>Hybrid Mask + Wordlist</MenuItem>
+                        <MenuItem value={0}>{t('createJob.form.attackModeDictionary') as string}</MenuItem>
+                        <MenuItem value={1}>{t('createJob.form.attackModeCombination') as string}</MenuItem>
+                        <MenuItem value={3}>{t('createJob.form.attackModeBruteforce') as string}</MenuItem>
+                        <MenuItem value={6}>{t('createJob.form.attackModeHybridWordlistMask') as string}</MenuItem>
+                        <MenuItem value={7}>{t('createJob.form.attackModeHybridMaskWordlist') as string}</MenuItem>
                         <MenuItem
                           value={9}
                           disabled={hasMixedWorkFactors || associationWordlists.length === 0}
                         >
-                          Association Attack
-                          {hasMixedWorkFactors && ' (Blocked: Mixed work factors)'}
-                          {!hasMixedWorkFactors && associationWordlists.length === 0 && ' (No wordlists uploaded)'}
+                          {t('createJob.form.attackModeAssociation') as string}
+                          {hasMixedWorkFactors && (t('createJob.form.associationBlockedMixed') as string)}
+                          {!hasMixedWorkFactors && associationWordlists.length === 0 && (t('createJob.form.associationNoWordlists') as string)}
                         </MenuItem>
                       </Select>
                     </FormControl>
@@ -829,7 +833,7 @@ export default function CreateJobDialog({
                       value={customJob.binary_version}
                       onChange={(value) => setCustomJob(prev => ({ ...prev, binary_version: value }))}
                       margin="none"
-                      helperText="Select binary version pattern"
+                      helperText={t('createJob.form.binaryVersionHelper') as string}
                     />
                   </Grid>
 
@@ -861,8 +865,8 @@ export default function CreateJobDialog({
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              label="Wordlists"
-                              placeholder="Select wordlists"
+                              label={t('createJob.form.wordlists') as string}
+                              placeholder={t('createJob.form.selectWordlists') as string}
                             />
                           )}
                           renderGroup={(params) => (
@@ -877,7 +881,7 @@ export default function CreateJobDialog({
                                   bgcolor: 'action.hover'
                                 }}
                               >
-                                {params.group}
+                                {params.group === 'Client Specific' ? (t('createJob.form.categoryClientSpecific') as string) : (t('createJob.form.categoryGlobal') as string)}
                               </Typography>
                               <ul style={{ padding: 0 }}>{params.children}</ul>
                             </li>
@@ -887,7 +891,7 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <Autocomplete
                           options={formData?.rules || []}
-                          getOptionLabel={(option) => `${option.name} (${option.rule_count} rules)`}
+                          getOptionLabel={(option) => t('createJob.form.ruleOptionLabel', { name: option.name, count: option.rule_count }) as string}
                           value={formData?.rules?.find(r => customJob.rule_ids.includes(String(r.id))) || null}
                           onChange={(e, newValue) => {
                             setCustomJob(prev => ({
@@ -898,8 +902,8 @@ export default function CreateJobDialog({
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              label="Rule (Optional)"
-                              placeholder="Select a rule"
+                              label={t('createJob.form.ruleOptional') as string}
+                              placeholder={t('createJob.form.selectRule') as string}
                             />
                           )}
                         />
@@ -912,7 +916,7 @@ export default function CreateJobDialog({
                     <>
                       <Grid item xs={12} sm={6}>
                         <FormControl fullWidth required>
-                          <InputLabel shrink>First Wordlist</InputLabel>
+                          <InputLabel shrink>{t('createJob.form.firstWordlist') as string}</InputLabel>
                           <Select
                             value={combWordlist1}
                             onChange={(e) => {
@@ -923,29 +927,31 @@ export default function CreateJobDialog({
                                 wordlist_ids: [value, combWordlist2].filter(Boolean)
                               }));
                             }}
-                            label="First Wordlist"
+                            label={t('createJob.form.firstWordlist') as string}
                             displayEmpty
                           >
-                            <MenuItem value="" disabled><em>Select first wordlist</em></MenuItem>
+                            <MenuItem value="" disabled><em>{t('createJob.form.selectFirstWordlist') as string}</em></MenuItem>
                             {combinedWordlistOptions.filter(w => w.category === 'Client Specific').length > 0 && (
-                              <ListSubheader>Client Specific</ListSubheader>
+                              <ListSubheader>{t('createJob.form.categoryClientSpecific') as string}</ListSubheader>
                             )}
                             {combinedWordlistOptions
                               .filter(w => w.category === 'Client Specific')
                               .map((w) => (
                                 <MenuItem key={`first-${w.id}`} value={w.id}>
-                                  {w.name} {w.line_count ? `(${w.line_count.toLocaleString()} lines)` : `(${(w.file_size / 1024 / 1024).toFixed(2)} MB)`}
+                                  {w.line_count
+                                    ? t('createJob.form.wordlistOptionWithLines', { name: w.name, lines: w.line_count.toLocaleString() })
+                                    : t('createJob.form.wordlistOptionWithSize', { name: w.name, size: (w.file_size / 1024 / 1024).toFixed(2) })}
                                 </MenuItem>
                               ))
                             }
                             {combinedWordlistOptions.filter(w => w.category === 'Global').length > 0 && (
-                              <ListSubheader>Global</ListSubheader>
+                              <ListSubheader>{t('createJob.form.categoryGlobal') as string}</ListSubheader>
                             )}
                             {combinedWordlistOptions
                               .filter(w => w.category === 'Global')
                               .map((w) => (
                                 <MenuItem key={`first-${w.id}`} value={w.id}>
-                                  {w.name} ({(w.file_size / 1024 / 1024).toFixed(2)} MB)
+                                  {t('createJob.form.wordlistOptionWithSize', { name: w.name, size: (w.file_size / 1024 / 1024).toFixed(2) })}
                                 </MenuItem>
                               ))
                             }
@@ -954,7 +960,7 @@ export default function CreateJobDialog({
                       </Grid>
                       <Grid item xs={12} sm={6}>
                         <FormControl fullWidth required>
-                          <InputLabel shrink>Second Wordlist</InputLabel>
+                          <InputLabel shrink>{t('createJob.form.secondWordlist') as string}</InputLabel>
                           <Select
                             value={combWordlist2}
                             onChange={(e) => {
@@ -965,29 +971,31 @@ export default function CreateJobDialog({
                                 wordlist_ids: [combWordlist1, value].filter(Boolean)
                               }));
                             }}
-                            label="Second Wordlist"
+                            label={t('createJob.form.secondWordlist') as string}
                             displayEmpty
                           >
-                            <MenuItem value="" disabled><em>Select second wordlist</em></MenuItem>
+                            <MenuItem value="" disabled><em>{t('createJob.form.selectSecondWordlist') as string}</em></MenuItem>
                             {combinedWordlistOptions.filter(w => w.category === 'Client Specific').length > 0 && (
-                              <ListSubheader>Client Specific</ListSubheader>
+                              <ListSubheader>{t('createJob.form.categoryClientSpecific') as string}</ListSubheader>
                             )}
                             {combinedWordlistOptions
                               .filter(w => w.category === 'Client Specific')
                               .map((w) => (
                                 <MenuItem key={`second-${w.id}`} value={w.id}>
-                                  {w.name} {w.line_count ? `(${w.line_count.toLocaleString()} lines)` : `(${(w.file_size / 1024 / 1024).toFixed(2)} MB)`}
+                                  {w.line_count
+                                    ? t('createJob.form.wordlistOptionWithLines', { name: w.name, lines: w.line_count.toLocaleString() })
+                                    : t('createJob.form.wordlistOptionWithSize', { name: w.name, size: (w.file_size / 1024 / 1024).toFixed(2) })}
                                 </MenuItem>
                               ))
                             }
                             {combinedWordlistOptions.filter(w => w.category === 'Global').length > 0 && (
-                              <ListSubheader>Global</ListSubheader>
+                              <ListSubheader>{t('createJob.form.categoryGlobal') as string}</ListSubheader>
                             )}
                             {combinedWordlistOptions
                               .filter(w => w.category === 'Global')
                               .map((w) => (
                                 <MenuItem key={`second-${w.id}`} value={w.id}>
-                                  {w.name} ({(w.file_size / 1024 / 1024).toFixed(2)} MB)
+                                  {t('createJob.form.wordlistOptionWithSize', { name: w.name, size: (w.file_size / 1024 / 1024).toFixed(2) })}
                                 </MenuItem>
                               ))
                             }
@@ -1003,11 +1011,11 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <TextField
                           fullWidth
-                          label="Mask"
+                          label={t('createJob.form.mask') as string}
                           value={customJob.mask}
                           onChange={(e) => setCustomJob(prev => ({ ...prev, mask: e.target.value }))}
-                          placeholder="e.g., ?u?l?l?l?l?d?d"
-                          helperText="?l = lowercase, ?u = uppercase, ?d = digit, ?s = special, ?1-?4 = custom"
+                          placeholder={t('createJob.form.maskPlaceholder') as string}
+                          helperText={t('createJob.form.maskHelper') as string}
                           required
                         />
                       </Grid>
@@ -1057,8 +1065,8 @@ export default function CreateJobDialog({
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              label="Wordlists"
-                              placeholder="Select wordlists"
+                              label={t('createJob.form.wordlists') as string}
+                              placeholder={t('createJob.form.selectWordlists') as string}
                             />
                           )}
                           renderGroup={(params) => (
@@ -1073,7 +1081,7 @@ export default function CreateJobDialog({
                                   bgcolor: 'action.hover'
                                 }}
                               >
-                                {params.group}
+                                {params.group === 'Client Specific' ? (t('createJob.form.categoryClientSpecific') as string) : (t('createJob.form.categoryGlobal') as string)}
                               </Typography>
                               <ul style={{ padding: 0 }}>{params.children}</ul>
                             </li>
@@ -1083,11 +1091,11 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <TextField
                           fullWidth
-                          label="Mask"
+                          label={t('createJob.form.mask') as string}
                           value={customJob.mask}
                           onChange={(e) => setCustomJob(prev => ({ ...prev, mask: e.target.value }))}
-                          placeholder="e.g., ?u?l?l?l?l?d?d"
-                          helperText="?l = lowercase, ?u = uppercase, ?d = digit, ?s = special, ?1-?4 = custom"
+                          placeholder={t('createJob.form.maskPlaceholder') as string}
+                          helperText={t('createJob.form.maskHelper') as string}
                           required
                         />
                       </Grid>
@@ -1115,11 +1123,11 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <TextField
                           fullWidth
-                          label="Mask"
+                          label={t('createJob.form.mask') as string}
                           value={customJob.mask}
                           onChange={(e) => setCustomJob(prev => ({ ...prev, mask: e.target.value }))}
-                          placeholder="e.g., ?u?l?l?l?l?d?d"
-                          helperText="?l = lowercase, ?u = uppercase, ?d = digit, ?s = special, ?1-?4 = custom"
+                          placeholder={t('createJob.form.maskPlaceholder') as string}
+                          helperText={t('createJob.form.maskHelper') as string}
                           required
                         />
                       </Grid>
@@ -1163,8 +1171,8 @@ export default function CreateJobDialog({
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              label="Wordlists"
-                              placeholder="Select wordlists"
+                              label={t('createJob.form.wordlists') as string}
+                              placeholder={t('createJob.form.selectWordlists') as string}
                             />
                           )}
                           renderGroup={(params) => (
@@ -1179,7 +1187,7 @@ export default function CreateJobDialog({
                                   bgcolor: 'action.hover'
                                 }}
                               >
-                                {params.group}
+                                {params.group === 'Client Specific' ? (t('createJob.form.categoryClientSpecific') as string) : (t('createJob.form.categoryGlobal') as string)}
                               </Typography>
                               <ul style={{ padding: 0 }}>{params.children}</ul>
                             </li>
@@ -1199,14 +1207,12 @@ export default function CreateJobDialog({
                             onChange={(e) => setFilterEnabled(e.target.checked)}
                           />
                         }
-                        label="Pre-filter the selected wordlist(s) for this job"
+                        label={t('createJob.filter.enableLabel') as string}
                       />
                       {filterEnabled && (
                         <Box sx={{ pl: 1, pt: 1 }}>
                           <Alert severity="info" sx={{ mb: 2 }}>
-                            This filtered list is ephemeral and used only for this job. To create a
-                            reusable filtered wordlist, use Wordlist Management. Generation runs in the
-                            background; the job starts automatically once it's ready.
+                            {t('createJob.filter.ephemeralNotice') as string}
                           </Alert>
                           <FilterCriteriaForm
                             value={customFilter}
@@ -1229,12 +1235,12 @@ export default function CreateJobDialog({
                             onChange={(e) => setCustomLoopback(e.target.checked)}
                           />
                         }
-                        label="Loopback until dry"
+                        label={t('createJob.loopback.label') as string}
                       />
                       <FormHelperText>
                         {filterEnabled
-                          ? 'Loopback is unavailable while pre-filtering is enabled for this job.'
-                          : 'Runs this attack, then re-runs its mutation (rules or mask) against only the newly-cracked passwords — repeating until no new cracks are found.'}
+                          ? (t('createJob.loopback.helperFilterConflict') as string)
+                          : (t('createJob.loopback.helperCustom') as string)}
                       </FormHelperText>
                     </Grid>
                   )}
@@ -1244,18 +1250,18 @@ export default function CreateJobDialog({
                     <>
                       <Grid item xs={12}>
                         <FormControl fullWidth>
-                          <InputLabel>Increment Mode</InputLabel>
+                          <InputLabel>{t('createJob.form.incrementModeLabel') as string}</InputLabel>
                           <Select
                             value={customJob.increment_mode}
                             onChange={(e) => setCustomJob(prev => ({ ...prev, increment_mode: e.target.value }))}
-                            label="Increment Mode"
+                            label={t('createJob.form.incrementModeLabel') as string}
                           >
-                            <MenuItem value="off">Off</MenuItem>
-                            <MenuItem value="increment">Increment (L→R)</MenuItem>
-                            <MenuItem value="increment_inverse">Increment Inverse (R→L)</MenuItem>
+                            <MenuItem value="off">{t('createJob.form.incrementModeOff') as string}</MenuItem>
+                            <MenuItem value="increment">{t('createJob.form.incrementModeForward') as string}</MenuItem>
+                            <MenuItem value="increment_inverse">{t('createJob.form.incrementModeInverse') as string}</MenuItem>
                           </Select>
                           <FormHelperText>
-                            Increment tries shorter masks first, growing progressively
+                            {t('createJob.form.incrementModeHelper') as string}
                           </FormHelperText>
                         </FormControl>
                       </Grid>
@@ -1266,7 +1272,7 @@ export default function CreateJobDialog({
                             <Grid item xs={6}>
                               <TextField
                                 fullWidth
-                                label="Min Length"
+                                label={t('createJob.form.minLength') as string}
                                 type="number"
                                 value={customJob.increment_min || ''}
                                 onChange={(e) => setCustomJob(prev => ({
@@ -1279,7 +1285,7 @@ export default function CreateJobDialog({
                             <Grid item xs={6}>
                               <TextField
                                 fullWidth
-                                label="Max Length"
+                                label={t('createJob.form.maxLength') as string}
                                 type="number"
                                 value={customJob.increment_max || ''}
                                 onChange={(e) => setCustomJob(prev => ({
@@ -1301,21 +1307,18 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <Alert severity="info" sx={{ mb: 2 }}>
                           <Typography variant="body2">
-                            Association attack maps each hash to a corresponding wordlist line 1:1.
-                            The wordlist line count must match the total hash count ({totalHashes.toLocaleString()}).
+                            {t('createJob.association.explainer', { hashCount: totalHashes.toLocaleString() })}
                           </Typography>
                         </Alert>
                         <Alert severity="warning" sx={{ mb: 2 }}>
                           <Typography variant="body2">
-                            <strong>Note:</strong> Association attacks can produce false positives.
-                            It is recommended to verify results by downloading cracked hashes,
-                            deleting the hashlist, re-uploading, and confirming with a dictionary attack.
+                            <Trans t={t} i18nKey="createJob.association.falsePositiveWarning" components={{ strong: <strong /> }} />
                           </Typography>
                         </Alert>
                       </Grid>
                       <Grid item xs={12}>
                         <FormControl fullWidth required>
-                          <InputLabel shrink>Association Wordlist</InputLabel>
+                          <InputLabel shrink>{t('createJob.association.wordlistLabel') as string}</InputLabel>
                           <Select
                             value={selectedAssociationWordlist}
                             onChange={(e) => {
@@ -1326,25 +1329,29 @@ export default function CreateJobDialog({
                                 association_wordlist_id: value || undefined
                               }));
                             }}
-                            label="Association Wordlist"
+                            label={t('createJob.association.wordlistLabel') as string}
                             displayEmpty
                           >
-                            <MenuItem value="" disabled><em>Select association wordlist</em></MenuItem>
+                            <MenuItem value="" disabled><em>{t('createJob.association.selectWordlist') as string}</em></MenuItem>
                             {associationWordlists.map((w) => (
                               <MenuItem key={w.id} value={w.id}>
-                                {w.file_name} ({w.line_count.toLocaleString()} lines, {(w.file_size / 1024).toFixed(1)} KB)
+                                {t('createJob.association.wordlistOptionLabel', {
+                                  name: w.file_name,
+                                  lines: w.line_count.toLocaleString(),
+                                  size: (w.file_size / 1024).toFixed(1)
+                                }) as string}
                               </MenuItem>
                             ))}
                           </Select>
                           <FormHelperText>
-                            Upload association wordlists via the Hashlist's Association Wordlists section
+                            {t('createJob.association.wordlistHelper') as string}
                           </FormHelperText>
                         </FormControl>
                       </Grid>
                       <Grid item xs={12}>
                         <Autocomplete
                           options={formData?.rules || []}
-                          getOptionLabel={(option) => `${option.name} (${option.rule_count} rules)`}
+                          getOptionLabel={(option) => t('createJob.form.ruleOptionLabel', { name: option.name, count: option.rule_count }) as string}
                           value={formData?.rules?.find(r => customJob.rule_ids.includes(String(r.id))) || null}
                           onChange={(e, newValue) => {
                             setCustomJob(prev => ({
@@ -1355,8 +1362,8 @@ export default function CreateJobDialog({
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              label="Rule (Optional)"
-                              placeholder="Select a rule"
+                              label={t('createJob.form.ruleOptional') as string}
+                              placeholder={t('createJob.form.selectRule') as string}
                             />
                           )}
                         />
@@ -1367,7 +1374,7 @@ export default function CreateJobDialog({
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label="Priority"
+                      label={t('createJob.form.priority') as string}
                       type="number"
                       value={customJob.priority}
                       onChange={(e) => {
@@ -1375,28 +1382,28 @@ export default function CreateJobDialog({
                         setCustomJob(prev => ({ ...prev, priority: value }));
                       }}
                       inputProps={{ min: 1, max: 1000 }}
-                      helperText="Higher priority jobs are executed first (1-1000)"
+                      helperText={t('createJob.form.priorityHelper') as string}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label="Chunk Duration (seconds)"
+                      label={t('createJob.form.chunkDuration') as string}
                       type="number"
                       value={customJob.chunk_duration}
                       onChange={(e) => {
                         const value = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
                         setCustomJob(prev => ({ ...prev, chunk_duration: value }));
                       }}
-                      helperText="Time in seconds for each chunk (5-86400 seconds)"
+                      helperText={t('createJob.form.chunkDurationHelper') as string}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label="Max Agents"
+                      label={t('createJob.form.maxAgents') as string}
                       type="number"
                       value={customJob.max_agents}
                       onChange={(e) => {
@@ -1404,7 +1411,7 @@ export default function CreateJobDialog({
                         setCustomJob(prev => ({ ...prev, max_agents: value }));
                       }}
                       inputProps={{ min: 0 }}
-                      helperText="Maximum number of agents (0 = unlimited)"
+                      helperText={t('createJob.form.maxAgentsHelper') as string}
                     />
                   </Grid>
 
@@ -1419,11 +1426,11 @@ export default function CreateJobDialog({
                           onChange={(e) => setCustomJob(prev => ({ ...prev, cloud_burst_enabled: e.target.checked }))}
                         />
                       }
-                      label="Allow Cloud Burst"
+                      label={t('createJob.cloud.allowBurst') as string}
                       sx={{ mt: 1 }}
                     />
                     <Typography variant="caption" color="text.secondary" display="block">
-                      Rent GPU instances when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.
+                      {t('createJob.cloud.allowBurstHelper') as string}
                     </Typography>
                   </Grid>
 
@@ -1441,15 +1448,10 @@ export default function CreateJobDialog({
                             onChange={(e) => setCustomJob(prev => ({ ...prev, cloud_allow_community_hosts: e.target.checked }))}
                           />
                         }
-                        label="Allow peer-operated hosts (Vast.ai, RunPod Community)"
+                        label={t('createJob.cloud.allowPeerHosts') as string}
                       />
                       <Alert severity="warning" sx={{ mt: 1 }}>
-                        These are someone else's machines. The host's owner has root over the
-                        container, so this client's hashes, wordlists and cracked plaintexts are
-                        readable by a third party and are <strong>not encrypted at rest on the
-                        host</strong>. Not recommended for production or client engagement data.
-                        Leave this off and the job will still use secure capacity (AWS, RunPod
-                        Secure Cloud) if the client allows it.
+                        <Trans t={t} i18nKey="createJob.cloud.peerHostsWarning" components={{ strong: <strong /> }} />
                       </Alert>
                     </Grid>
                   )}
@@ -1458,7 +1460,7 @@ export default function CreateJobDialog({
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
-                        label="Max Cloud Instances"
+                        label={t('createJob.cloud.maxInstances') as string}
                         type="number"
                         value={customJob.cloud_max_instances ?? ''}
                         onChange={(e) => {
@@ -1469,7 +1471,7 @@ export default function CreateJobDialog({
                           }));
                         }}
                         inputProps={{ min: 1 }}
-                        helperText="Separate from Max Agents, which governs the on-prem pool. Blank lets the budget decide."
+                        helperText={t('createJob.cloud.maxInstancesHelper') as string}
                       />
                     </Grid>
                   )}
@@ -1482,7 +1484,7 @@ export default function CreateJobDialog({
                           onChange={(e) => setCustomJob(prev => ({ ...prev, allow_high_priority_override: e.target.checked }))}
                         />
                       }
-                      label="Allow High Priority Override"
+                      label={t('createJob.form.allowHighPriorityOverride') as string}
                       sx={{ mt: 1 }}
                     />
                   </Grid>
@@ -1491,11 +1493,11 @@ export default function CreateJobDialog({
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
-                      label="Additional Hashcat Arguments (Optional)"
+                      label={t('createJob.additionalArgs') as string}
                       value={customJob.additional_args || ''}
                       onChange={(e) => setCustomJob(prev => ({ ...prev, additional_args: e.target.value }))}
-                      placeholder="e.g., -w 4 -O --force"
-                      helperText="Extra hashcat flags for this job. Agent-level flags take priority on conflicts."
+                      placeholder={t('createJob.form.additionalArgsPlaceholder') as string}
+                      helperText={t('createJob.additionalArgsHelper') as string}
                     />
                   </Grid>
                 </Grid>
@@ -1507,7 +1509,7 @@ export default function CreateJobDialog({
 
       <DialogActions>
         <Button onClick={handleClose} disabled={loading}>
-          Cancel
+          {t('createJob.cancel') as string}
         </Button>
         <Button
           onClick={handleSubmit}
@@ -1518,7 +1520,7 @@ export default function CreateJobDialog({
           )}
           startIcon={loading && <CircularProgress size={20} />}
         >
-          {loading ? loadingMessage : 'Create Job(s)'}
+          {loading ? loadingMessage : (t('createJob.submit') as string)}
         </Button>
       </DialogActions>
     </Dialog>

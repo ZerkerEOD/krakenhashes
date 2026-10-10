@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "대시보드",
+    "jobs": "작업",
+    "agents": "에이전트",
+    "hashlists": "해시 목록",
+    "crackedHashes": "크래킹된 해시",
+    "wordlists": "워드리스트",
+    "rules": "규칙",
+    "clientManagement": "클라이언트 관리",
+    "teams": "팀",
+    "analytics": "분석",
+    "about": "정보",
+    "logout": "로그아웃"
+  },
+  "admin": {
+    "title": "관리자",
+    "settings": "설정",
+    "userManagement": "사용자 관리",
+    "customCharsets": "사용자 정의 문자 집합",
+    "presetJobs": "프리셋 작업",
+    "jobWorkflows": "작업 워크플로우",
+    "diagnostics": "진단",
+    "auditLog": "감사 로그",
+    "jobAnalytics": "작업 분석",
+    "teamManagement": "팀 관리",
+    "cloudFleet": "클라우드 플릿",
+    "binaries": "바이너리",
+    "hashTypes": "해시 유형",
+    "vouchers": "바우처",
+    "clients": "클라이언트",
+    "teams": "팀"
+  },
+  "userMenu": {
+    "userSettings": "사용자 설정",
+    "savedCharsets": "저장된 문자 집합",
+    "logout": "로그아웃",
+    "user": "사용자"
+  },
+  "aria": {
+    "toggleDrawer": "네비게이션 서랍 토글",
+    "mainNavigation": "주 네비게이션",
+    "adminNavigation": "관리자 네비게이션",
+    "downloadCaCert": "CA 인증서 다운로드"
+  },
+  "groups": {
+    "resources": "리소스",
+    "peopleAccess": "사용자 및 액세스",
+    "operations": "운영"
+  }
+}

@@ -413,6 +413,7 @@ type LMPartialCrackDetail struct {
 	FirstHalfPwd      *string `json:"first_half_pwd,omitempty"`
 	SecondHalfCracked bool    `json:"second_half_cracked"`
 	SecondHalfPwd     *string `json:"second_half_pwd,omitempty"`
+	HashlistID        int64   `json:"hashlist_id,omitempty"`
 	HashlistName      string  `json:"hashlist_name"`
 }
 

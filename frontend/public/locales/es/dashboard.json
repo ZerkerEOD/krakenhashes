@@ -14,7 +14,8 @@
   },
   "recentActivity": {
     "title": "Actividad reciente",
-    "noActivity": "Sin actividad reciente"
+    "noActivity": "Sin actividad reciente",
+    "viewAll": "Todas las notificaciones"
   },
   "quickActions": {
     "title": "Acciones rápidas",
@@ -112,5 +113,86 @@
       "maxAgents": "Agentes máx.",
       "actions": "Acciones"
     }
+  },
+  "kpi": {
+    "runningJobs": "Trabajos en ejecución",
+    "queued": "{{count}} en cola",
+    "agentsOnline": "Agentes en línea",
+    "agentProblems": "{{count}} requieren atención",
+    "hashRate": "Tasa de hash",
+    "cracks24h": "Descifrado (24h)",
+    "cracks7d": "{{count}} en 7 días",
+    "crackRate": "Tasa de descifrado",
+    "hashlistTotals": "{{cracked}} de {{total}} hashes",
+    "failed24h": "Fallido (24h)",
+    "completed24h": "{{count}} completados"
+  },
+  "agentHealth": {
+    "title": "Salud del agente",
+    "viewAll": "Todos los agentes",
+    "utilization": "Utilización de GPU",
+    "temperature": "GPU más caliente",
+    "lastSeen": "Visto por última vez {{when}}",
+    "warnings": {
+      "error": "Error",
+      "offline": "Sin conexión",
+      "update_failed": "Actualización fallida",
+      "stale_heartbeat": "Sin latido",
+      "gpu_hot": "GPU caliente"
+    }
+  },
+  "recentCracks": {
+    "title": "Descifrados recientes",
+    "viewAll": "Todos los hashes descifrados",
+    "empty": "Nada descifrado aún",
+    "copy": "Copiar contraseña",
+    "copied": "Copiado"
+  },
+  "activeJobs": {
+    "title": "Trabajos activos",
+    "showing": "Mostrando 10 de {{total}}",
+    "viewAll": "Todos los trabajos",
+    "empty": "Nada en ejecución",
+    "emptyHint": "Inicia un trabajo desde una lista de hashes.",
+    "goHashlists": "Ir a listas de hashes",
+    "recentTitle": "Trabajos",
+    "recentSubtitle": "Activos primero, luego los finalizados recientemente",
+    "recentEmpty": "Aún no hay trabajos"
+  },
+  "welcomeUser": "Bienvenido de nuevo, {{name}}",
+  "autoRefresh": {
+    "on": "En vivo",
+    "off": "Pausado"
+  },
+  "view": {
+    "label": "Vista del panel",
+    "mine": "Míos",
+    "teams": "Mis equipos",
+    "all": "Todos"
+  },
+  "attention": {
+    "title": "Requiere atención",
+    "allClear": "Todo en orden",
+    "allClearHint": "Nada está fallando ni espera su intervención.",
+    "kind": {
+      "job_failed": "Trabajo fallido: {{name}}",
+      "job_blocked": "Trabajo en espera: {{name}}",
+      "hashlist_error": "No se pudo procesar la lista de hashes: {{name}}",
+      "hashlist_awaiting_decision": "La lista de hashes requiere su revisión: {{name}}",
+      "hashlist_stuck": "Lista de hashes atascada en el procesamiento: {{name}}",
+      "agent_error": "Error del agente: {{name}}",
+      "agent_update_failed": "Falló la actualización del agente: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Hashes descifrados a lo largo del tiempo",
+    "subtitle_many": "{{count}} hashes descifrados en los últimos {{days}} días",
+    "subtitle_one": "{{count}} hash descifrado en los últimos {{days}} días",
+    "subtitle_other": "{{count}} hashes descifrados en los últimos {{days}} días",
+    "tooltip_many": "{{count}} hashes descifrados",
+    "tooltip_one": "{{count}} hash descifrado",
+    "tooltip_other": "{{count}} hashes descifrados",
+    "topHashlists": "Listas de hashes destacadas de la semana",
+    "noCracksWeek": "No hay hashes descifrados en los últimos 7 días"
   }
 }

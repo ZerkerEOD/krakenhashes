@@ -15,7 +15,6 @@ import type {
   AdminWebhookView,
   GlobalWebhookSettings,
   UpdateGlobalWebhookSettingsRequest,
-  AgentOfflineSettings,
   AuditLogListResponse,
   AuditLogListParams,
   AuditLog,
@@ -243,32 +242,7 @@ export async function getAllUserWebhooks(): Promise<{
 }
 
 /**
- * Get agent offline buffer settings
- */
-export async function getAgentOfflineSettings(): Promise<AgentOfflineSettings> {
-  const response = await api.get<AgentOfflineSettings>(
-    '/api/admin/notification-settings/agent-offline'
-  );
-  return response.data;
-}
-
-/**
- * Update agent offline buffer settings
- */
-export async function updateAgentOfflineSettings(
-  bufferMinutes: number
-): Promise<void> {
-  await api.put('/api/admin/notification-settings/agent-offline', {
-    buffer_minutes: bufferMinutes,
-  });
-}
-
-// =====================
-// Admin Audit Log API
-// =====================
-
-/**
- * Get audit logs with optional filters (admin only)
+ * List audit log entries
  */
 export async function getAuditLogs(
   params?: AuditLogListParams

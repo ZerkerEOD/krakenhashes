@@ -4,12 +4,6 @@ import {
   Paper,
   Typography,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Chip,
   IconButton,
   Tooltip,
@@ -61,6 +55,15 @@ import {
   checkNginxLogsExist,
   reloadNginx
 } from '../../services/diagnostics';
+import { EntityLink, SimpleTable, StatusChip } from '../ui';
+
+type LogDir = 'backend' | 'nginx' | 'postgres' | 'all';
+interface LogStatRow {
+  key: LogDir;
+  label: string;
+  files: number;
+  size: number;
+}
 
 const Diagnostics: React.FC = () => {
   const { t } = useTranslation('admin');
@@ -583,89 +586,56 @@ const Diagnostics: React.FC = () => {
           {t('diagnostics.serverLogsDescription') as string}
         </Typography>
         {logStats ? (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('diagnostics.directory') as string}</TableCell>
-                  <TableCell align="right">{t('diagnostics.files') as string}</TableCell>
-                  <TableCell align="right">{t('diagnostics.size') as string}</TableCell>
-                  <TableCell align="right">{t('diagnostics.actions') as string}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow>
-                  <TableCell>{t('diagnostics.backend') as string}</TableCell>
-                  <TableCell align="right">{logStats.backend.files}</TableCell>
-                  <TableCell align="right">{formatBytes(logStats.backend.size)}</TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
-                      color="error"
-                      startIcon={purging === 'backend' ? <CircularProgress size={14} /> : <DeleteIcon />}
-                      onClick={() => handlePurgeServerLogs('backend')}
-                      disabled={purging !== null || logStats.backend.files === 0}
-                    >
-                      {t('diagnostics.purge') as string}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t('diagnostics.nginx') as string}</TableCell>
-                  <TableCell align="right">{logStats.nginx.files}</TableCell>
-                  <TableCell align="right">{formatBytes(logStats.nginx.size)}</TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
-                      color="error"
-                      startIcon={purging === 'nginx' ? <CircularProgress size={14} /> : <DeleteIcon />}
-                      onClick={() => handlePurgeServerLogs('nginx')}
-                      disabled={purging !== null || logStats.nginx.files === 0}
-                    >
-                      {t('diagnostics.purge') as string}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t('diagnostics.postgresql') as string}</TableCell>
-                  <TableCell align="right">{logStats.postgres.files}</TableCell>
-                  <TableCell align="right">{formatBytes(logStats.postgres.size)}</TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
-                      color="error"
-                      startIcon={purging === 'postgres' ? <CircularProgress size={14} /> : <DeleteIcon />}
-                      onClick={() => handlePurgeServerLogs('postgres')}
-                      disabled={purging !== null || logStats.postgres.files === 0}
-                    >
-                      {t('diagnostics.purge') as string}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-                <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '2px solid', borderColor: 'divider' } }}>
-                  <TableCell>{t('diagnostics.total') as string}</TableCell>
-                  <TableCell align="right">
-                    {logStats.backend.files + logStats.nginx.files + logStats.postgres.files}
-                  </TableCell>
-                  <TableCell align="right">
-                    {formatBytes(logStats.backend.size + logStats.nginx.size + logStats.postgres.size)}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
-                      color="error"
-                      variant="contained"
-                      startIcon={purging === 'all' ? <CircularProgress size={14} color="inherit" /> : <DeleteIcon />}
-                      onClick={() => handlePurgeServerLogs('all')}
-                      disabled={purging !== null || (logStats.backend.files + logStats.nginx.files + logStats.postgres.files) === 0}
-                    >
-                      {t('diagnostics.purgeAll') as string}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <SimpleTable<LogStatRow>
+            rows={[
+              { key: 'backend', label: t('diagnostics.backend') as string, files: logStats.backend.files, size: logStats.backend.size },
+              { key: 'nginx', label: t('diagnostics.nginx') as string, files: logStats.nginx.files, size: logStats.nginx.size },
+              { key: 'postgres', label: t('diagnostics.postgresql') as string, files: logStats.postgres.files, size: logStats.postgres.size },
+              {
+                key: 'all',
+                label: t('diagnostics.total') as string,
+                files: logStats.backend.files + logStats.nginx.files + logStats.postgres.files,
+                size: logStats.backend.size + logStats.nginx.size + logStats.postgres.size,
+              },
+            ]}
+            getRowKey={(r) => r.key}
+            columns={[
+              {
+                field: 'label',
+                headerName: t('diagnostics.directory') as string,
+                render: (r) => <Typography variant="body2" fontWeight={r.key === 'all' ? 700 : undefined}>{r.label}</Typography>,
+              },
+              {
+                field: 'files',
+                headerName: t('diagnostics.files') as string,
+                align: 'right',
+                render: (r) => <Typography variant="body2" fontWeight={r.key === 'all' ? 700 : undefined}>{r.files}</Typography>,
+              },
+              {
+                field: 'size',
+                headerName: t('diagnostics.size') as string,
+                align: 'right',
+                render: (r) => <Typography variant="body2" fontWeight={r.key === 'all' ? 700 : undefined}>{formatBytes(r.size)}</Typography>,
+              },
+              {
+                field: 'actions',
+                headerName: t('diagnostics.actions') as string,
+                align: 'right',
+                render: (r) => (
+                  <Button
+                    size="small"
+                    color="error"
+                    variant={r.key === 'all' ? 'contained' : 'text'}
+                    startIcon={purging === r.key ? <CircularProgress size={14} color="inherit" /> : <DeleteIcon />}
+                    onClick={() => handlePurgeServerLogs(r.key)}
+                    disabled={purging !== null || r.files === 0}
+                  >
+                    {r.key === 'all' ? (t('diagnostics.purgeAll') as string) : (t('diagnostics.purge') as string)}
+                  </Button>
+                ),
+              },
+            ]}
+          />
         ) : (
           <Typography color="text.secondary">{t('diagnostics.loadingLogStatistics') as string}</Typography>
         )}
@@ -704,84 +674,79 @@ const Diagnostics: React.FC = () => {
             {t('diagnostics.noAgentsWithDebugStatus') as string}
           </Typography>
         ) : (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('diagnostics.agentId') as string}</TableCell>
-                  <TableCell>{t('diagnostics.debugEnabled') as string}</TableCell>
-                  <TableCell>{t('diagnostics.logLevel') as string}</TableCell>
-                  <TableCell>{t('diagnostics.fileLogging') as string}</TableCell>
-                  <TableCell>{t('diagnostics.logFileSize') as string}</TableCell>
-                  <TableCell>{t('diagnostics.buffer') as string}</TableCell>
-                  <TableCell>{t('diagnostics.lastUpdated') as string}</TableCell>
-                  <TableCell>{t('diagnostics.actions') as string}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {agents.map((agent) => (
-                  <TableRow key={agent.agent_id}>
-                    <TableCell>{agent.agent_id}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={agent.enabled ? t('common.on') as string : t('common.off') as string}
-                        color={agent.enabled ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{agent.level}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={agent.file_logging_enabled ? t('common.yes') as string : t('common.no') as string}
-                        color={agent.file_logging_enabled ? 'info' : 'default'}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {agent.log_file_exists
-                        ? formatBytes(agent.log_file_size)
-                        : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {agent.buffer_count}/{agent.buffer_capacity}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(agent.last_updated).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title={agent.enabled ? t('diagnostics.disableDebug') as string : t('diagnostics.enableDebug') as string}>
-                        <IconButton
-                          size="small"
-                          color={agent.enabled ? 'warning' : 'success'}
-                          onClick={() => handleToggleDebug(agent.agent_id, agent.enabled)}
-                        >
-                          <BugReportIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={t('diagnostics.viewLogs') as string}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleViewLogs(agent.agent_id)}
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={t('diagnostics.purgeLogs') as string}>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handlePurgeLogs(agent.agent_id)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <SimpleTable<AgentDebugStatus>
+            rows={agents}
+            getRowKey={(a) => a.agent_id}
+            columns={[
+              {
+                field: 'agent_id',
+                headerName: t('diagnostics.agent') as string,
+                render: (a) => (
+                  <EntityLink type="agent" id={a.agent_id} label={a.agent_name ? `${a.agent_name} (#${a.agent_id})` : `#${a.agent_id}`} />
+                ),
+              },
+              {
+                field: 'enabled',
+                headerName: t('diagnostics.debugEnabled') as string,
+                render: (a) => (
+                  <StatusChip
+                    entity="generic"
+                    status={a.enabled ? 'enabled' : 'disabled'}
+                    label={a.enabled ? (t('common.on') as string) : (t('common.off') as string)}
+                  />
+                ),
+              },
+              { field: 'level', headerName: t('diagnostics.logLevel') as string },
+              {
+                field: 'file_logging_enabled',
+                headerName: t('diagnostics.fileLogging') as string,
+                render: (a) => (
+                  <StatusChip
+                    entity="generic"
+                    status={a.file_logging_enabled ? 'info' : 'disabled'}
+                    label={a.file_logging_enabled ? (t('common.yes') as string) : (t('common.no') as string)}
+                    variant="outlined"
+                  />
+                ),
+              },
+              {
+                field: 'log_file_size',
+                headerName: t('diagnostics.logFileSize') as string,
+                render: (a) => (a.log_file_exists ? formatBytes(a.log_file_size) : '-'),
+              },
+              { field: 'buffer', headerName: t('diagnostics.buffer') as string, render: (a) => `${a.buffer_count}/${a.buffer_capacity}` },
+              {
+                field: 'last_updated',
+                headerName: t('diagnostics.lastUpdated') as string,
+                noWrap: true,
+                render: (a) => new Date(a.last_updated).toLocaleString(),
+              },
+              {
+                field: 'actions',
+                headerName: t('diagnostics.actions') as string,
+                noWrap: true,
+                render: (a) => (
+                  <>
+                    <Tooltip title={a.enabled ? (t('diagnostics.disableDebug') as string) : (t('diagnostics.enableDebug') as string)}>
+                      <IconButton size="small" color={a.enabled ? 'warning' : 'success'} onClick={() => handleToggleDebug(a.agent_id, a.enabled)}>
+                        <BugReportIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t('diagnostics.viewLogs') as string}>
+                      <IconButton size="small" onClick={() => handleViewLogs(a.agent_id)}>
+                        <VisibilityIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t('diagnostics.purgeLogs') as string}>
+                      <IconButton size="small" color="error" onClick={() => handlePurgeLogs(a.agent_id)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                ),
+              },
+            ]}
+          />
         )}
       </Paper>
 
@@ -841,44 +806,35 @@ const Diagnostics: React.FC = () => {
                       {selectedAgentLogs.truncated && ` (${t('diagnostics.truncated') as string})`}
                     </Typography>
                     {filteredEntries.length > 0 ? (
-                      <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
-                        <Table size="small" stickyHeader>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>{t('diagnostics.time') as string}</TableCell>
-                              <TableCell>{t('diagnostics.level') as string}</TableCell>
-                              <TableCell>{t('diagnostics.message') as string}</TableCell>
-                              <TableCell>{t('diagnostics.location') as string}</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {filteredEntries.map((entry: LogEntry, idx: number) => (
-                              <TableRow key={idx}>
-                                <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                                  {formatTimestamp(entry.timestamp)}
-                                </TableCell>
-                                <TableCell>
-                                  <Chip
-                                    label={entry.level}
-                                    size="small"
-                                    color={
-                                      entry.level === 'ERROR' ? 'error' :
-                                      entry.level === 'WARNING' ? 'warning' :
-                                      entry.level === 'DEBUG' ? 'secondary' : 'default'
-                                    }
-                                  />
-                                </TableCell>
-                                <TableCell sx={{ maxWidth: 400, wordBreak: 'break-word' }}>
-                                  {entry.message}
-                                </TableCell>
-                                <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
-                                  {entry.file && `${entry.file}:${entry.line}`}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
+                      <SimpleTable<LogEntry>
+                        rows={filteredEntries}
+                        getRowKey={(_e, idx) => idx}
+                        stickyHeader
+                        maxHeight={400}
+                        columns={[
+                          { field: 'timestamp', headerName: t('diagnostics.time') as string, noWrap: true, render: (e) => formatTimestamp(e.timestamp) },
+                          {
+                            field: 'level',
+                            headerName: t('diagnostics.level') as string,
+                            render: (e) => <StatusChip entity="diagnostic" status={e.level} label={e.level} />,
+                          },
+                          {
+                            field: 'message',
+                            headerName: t('diagnostics.message') as string,
+                            render: (e) => <Box component="span" sx={{ wordBreak: 'break-word' }}>{e.message}</Box>,
+                          },
+                          {
+                            field: 'location',
+                            headerName: t('diagnostics.location') as string,
+                            noWrap: true,
+                            render: (e) => (
+                              <Typography component="span" variant="caption">
+                                {e.file && `${e.file}:${e.line}`}
+                              </Typography>
+                            ),
+                          },
+                        ]}
+                      />
                     ) : (
                       <Typography color="text.secondary">
                         {logLevelFilter !== 'ALL'
@@ -975,7 +931,7 @@ const Diagnostics: React.FC = () => {
       {/* Reconnecting Overlay */}
       <Backdrop
         sx={{
-          color: '#fff',
+          color: 'common.white',
           zIndex: (theme) => theme.zIndex.drawer + 1,
           flexDirection: 'column',
           gap: 2

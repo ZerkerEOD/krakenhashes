@@ -1,0 +1,398 @@
+{
+  "title": "Uživatelské nastavení",
+  "profileSettings": {
+    "title": "Nastavení profilu"
+  },
+  "profile": {
+    "title": "Profil",
+    "username": "Uživatelské jméno",
+    "email": "E-mail",
+    "changePassword": "Změnit heslo",
+    "currentPassword": "Aktuální heslo",
+    "newPassword": "Nové heslo",
+    "confirmPassword": "Potvrďte nové heslo",
+    "updateProfile": "Aktualizovat profil",
+    "profileUpdated": "Profil byl úspěšně aktualizován"
+  },
+  "account": {
+    "title": "Informace o účtu",
+    "username": "Uživatelské jméno",
+    "email": "E-mail",
+    "usernameCannotChange": "Uživatelské jméno nelze změnit",
+    "saving": "Ukládání...",
+    "saveEmail": "Uložit e-mail",
+    "confirmEmailUpdate": {
+      "title": "Potvrdit aktualizaci e-mailu",
+      "message": "Chcete-li aktualizovat svou e-mailovou adresu, zadejte prosím své aktuální heslo."
+    },
+    "errors": {
+      "noChanges": "Žádné změny k uložení",
+      "invalidEmail": "Neplatná e-mailová adresa",
+      "updateFailed": "Nepodařilo se aktualizovat e-mail",
+      "incorrectPassword": "Nesprávné heslo"
+    },
+    "success": {
+      "emailUpdated": "E-mail byl úspěšně aktualizován"
+    }
+  },
+  "password": {
+    "title": "Změnit heslo",
+    "currentPassword": "Aktuální heslo",
+    "newPassword": "Nové heslo",
+    "confirmNewPassword": "Potvrďte nové heslo",
+    "enterCurrentFirst": "Nejdříve zadejte aktuální heslo",
+    "passwordsMatch": "Hesla se shodují",
+    "changePassword": "Změnit heslo",
+    "changing": "Změna hesla...",
+    "errors": {
+      "currentRequired": "Aktuální heslo je povinné",
+      "newRequired": "Nové heslo je povinné",
+      "mismatch": "Hesla se neshodují",
+      "requirements": "Nové heslo nesplňuje požadavky",
+      "updateFailed": "Nepodařilo se aktualizovat heslo"
+    },
+    "success": {
+      "changed": "Heslo bylo úspěšně změněno"
+    }
+  },
+  "apiKey": {
+    "title": "API klíče",
+    "status": "Stav API klíče",
+    "active": "Aktivní",
+    "noKeyGenerated": "API klíč nebyl vygenerován",
+    "created": "Vytvořeno",
+    "lastUsed": "Naposledy použito",
+    "generate": "Generovat API klíč",
+    "regenerate": "Regenerovat API klíč",
+    "revoke": "Odvolat API klíč",
+    "viewDocs": "Zobrazit dokumentaci API",
+    "dialog": {
+      "title": "Váš API klíč",
+      "saveNow": "Uložte tento klíč nyní!",
+      "cantSeeAgain": "Nebudete jej moci vidět znovu.",
+      "instructions": "Používejte tento API klíč v požadavcích HTTP zahrnutím do hlavičky X-API-Key.",
+      "saved": "Už jsem to uložil"
+    },
+    "confirmRegenerate": {
+      "title": "Regenerovat API klíč?",
+      "warning": "Tím se váš stávající API klíč zneplatní. Všechny aplikace, které používají současný klíč, přestanou fungovat.",
+      "confirm": "Jste si jistí, že chcete pokračovat?"
+    },
+    "confirmRevoke": {
+      "title": "Odvolat API klíč?",
+      "warning": "Tím se okamžitě deaktivuje přístup prostřednictvím API. Všechny aplikace, které používají tento klíč, přestanou fungovat.",
+      "confirm": "Jste si jistí, že chcete odvolat svůj API klíč?"
+    },
+    "errors": {
+      "generateFailed": "Nepodařilo se generovat API klíč",
+      "revokeFailed": "Nepodařilo se odvolat API klíč"
+    },
+    "success": {
+      "revoked": "API klíč byl úspěšně odvolán",
+      "copied": "API klíč zkopírován do schránky"
+    }
+  },
+  "security": {
+    "title": "Zabezpečení",
+    "caCertificate": {
+      "title": "Certifikát certifikační autority",
+      "description": "Pokud používáte certifikáty podepsané samy sebou, stáhněte si a nainstalujte certifikát certifikační autority, abyste důvěřovali tomuto serveru.",
+      "download": "Stáhnout certifikát certifikační autority",
+      "docsLink": "Zobrazit dokumentaci SSL/TLS"
+    }
+  },
+  "common": {
+    "cancel": "Zrušit",
+    "never": "Nikdy",
+    "invalidDate": "Neplatné datum",
+    "create": "Vytvořit",
+    "delete": "Smazat"
+  },
+  "mfa": {
+    "title": "Dvoufaktorová autentizace",
+    "status": "Stav 2FA",
+    "enabled": "Povoleno",
+    "disabled": "Zakázáno",
+    "enable": "Povolit 2FA",
+    "disable": "Zakázat 2FA",
+    "methods": {
+      "title": "Metody ověření",
+      "totp": "Ověřovací aplikace",
+      "email": "E-mail",
+      "backupCodes": "Záložní kódy",
+      "passkey": "Přístupový klíč"
+    },
+    "setup": {
+      "scanQR": "Naskenujte tento QR kód vaší ověřovací aplikací",
+      "enterCode": "Zadejte kód z vaší aplikace k ověření",
+      "backupCodesGenerated": "Uložte tyto záložní kódy na bezpečné místo"
+    },
+    "methodSelection": {
+      "title": "Zvolte metodu vícefaktorového ověřování",
+      "description": "Vyberte, jak se chcete ověřit při přihlášení.",
+      "authenticatorDescription": "Použijte časově omezený kód z ověřovací aplikace jako Google Authenticator, Authy nebo 1Password.",
+      "passkeyDescription": "Použijte bezpečnostní klíč, otisk prstu, rozpoznání obličeje nebo PIN zařízení pro rychlé a bezpečné ověření."
+    },
+    "card": {
+      "title": "Vícefaktorové ověřování",
+      "requiredByPolicy": "Vícefaktorové ověřování je vyžadováno bezpečnostní politikou vaší organizace",
+      "enableLabel": "Povolit vícefaktorové ověřování",
+      "preferredMethod": "Preferovaná metoda vícefaktorového ověřování",
+      "preferredMethodNames": {
+        "authenticator": "Ověřovač",
+        "email": "E-mail",
+        "passkey": "Přístupový klíč"
+      },
+      "emailAuth": "Ověřování e-mailem",
+      "emailRequired": "Vyžadováno pro zabezpečení účtu",
+      "optional": "Volitelné",
+      "required": "Vyžadováno",
+      "configured": "Nakonfigurováno",
+      "notConfigured": "Není nakonfigurováno",
+      "disable": "Zakázat",
+      "setup": "Nastavit",
+      "passkeys": "Přístupové klíče",
+      "passkeysRegistered_few": "Registrovány {{count}} přístupové klíče",
+      "passkeysRegistered_many": "Registrováno {{count}} přístupového klíče",
+      "passkeysRegistered_one": "Registrován {{count}} přístupový klíč",
+      "passkeysRegistered_other": "Registrováno {{count}} přístupových klíčů",
+      "addPasskey": "Přidat přístupový klíč",
+      "passkeyAdded": "Přidáno: {{date}}",
+      "passkeyLastUsed": " | Naposledy použito: {{date}}",
+      "rename": "Přejmenovat",
+      "delete": "Smazat",
+      "passkeysUnsupported": "Přístupové klíče nejsou v tomto prohlížeči podporovány. Chcete-li povolit ověřování přístupovým klíčem, použijte prosím moderní prohlížeč.",
+      "backupCodesRemaining_few": "Zbývají {{count}} záložní kódy",
+      "backupCodesRemaining_many": "Zbývá {{count}} záložního kódu",
+      "backupCodesRemaining_one": "Zbývá {{count}} záložní kód",
+      "backupCodesRemaining_other": "Zbývá {{count}} záložních kódů",
+      "noBackupCodes": "Žádné dostupné záložní kódy",
+      "regenerate": "Regenerovat",
+      "generate": "Generovat"
+    },
+    "dialogs": {
+      "cancel": "Zrušit",
+      "close": "Zavřít",
+      "warning": "Upozornění",
+      "setupAuthenticatorTitle": "Nastavit ověřovací aplikaci",
+      "qrAlt": "QR kód",
+      "manualEntry": "Pokud nemůžete naskenovat QR kód, zadejte ručně tento kód: <strong>{{secret}}</strong>",
+      "scanInstructions": "Naskenujte tento QR kód vaší ověřovací aplikací (např. Google Authenticator, Authy)",
+      "verificationCode": "Ověřovací kód",
+      "verificationPlaceholder": "Zadejte 6místný kód",
+      "verify": "Ověřit",
+      "backupCodesTitle": "Záložní kódy",
+      "generateBackupPrompt": "Generujte záložní kódy, které můžete použít, když nemáte přístup k primární metodě ověření",
+      "generateBackupCodes": "Generovat záložní kódy",
+      "saveCodesWarning": "Uložte tyto kódy na bezpečné místo. Nebudou zobrazeny znovu!",
+      "copied": "Zkopírováno!",
+      "copyAll": "ZKOPÍROVAT VŠECHNY KÓDY",
+      "regenerateWarning": "Tím se zneplatní všechny vaše stávající záložní kódy. Jste si jistí, že chcete generovat nové?",
+      "generateNewCodes": "Generovat nové kódy",
+      "disableAuthWarning": "Jste si jistí, že chcete zakázat ověřovač? Tím se odebere z vašeho účtu a budete jej muset znovu nastavit, pokud jej chcete v budoucnu používat.",
+      "disableAuthenticator": "Zakázat ověřovač",
+      "addPasskeyTitle": "Přidat přístupový klíč",
+      "addPasskeyDescription": "Zaregistrujte nový přístupový klíč (bezpečnostní klíč, otisk prstu nebo zařízení) pro dvoufaktorovou autentizaci.",
+      "passkeyName": "Název přístupového klíče",
+      "passkeyNamePlaceholder": "např. YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn není v tomto prohlížeči podporován. Použijte prosím moderní prohlížeč.",
+      "webauthnUnsupportedBrowsers": "WebAuthn není v tomto prohlížeči podporován. Použijte prosím moderní prohlížeč jako Chrome, Firefox, Safari nebo Edge.",
+      "registering": "Registrace...",
+      "registerPasskey": "Zaregistrovat přístupový klíč",
+      "renamePasskeyTitle": "Přejmenovat přístupový klíč",
+      "saving": "Ukládání...",
+      "save": "Uložit",
+      "deletePasskeyTitle": "Smazat přístupový klíč",
+      "deletePasskeyConfirm": "Jste si jistí, že chcete smazat přístupový klíč \"{{name}}\"? Tuto akci nelze vrátit zpět.",
+      "deleting": "Mazání...",
+      "delete": "Smazat",
+      "setupPasskeyTitle": "Nastavit přístupový klíč pro vícefaktorové ověřování",
+      "setupPasskeyDescription": "Zaregistrujte přístupový klíč k povolení vícefaktorového ověřování. Použijte bezpečnostní klíč, otisk prstu, rozpoznání obličeje nebo PIN zařízení.",
+      "registerAndEnable": "Zaregistrovat a povolit vícefaktorové ověřování"
+    },
+    "messages": {
+      "loadFailed": "Nepodařilo se načíst nastavení vícefaktorového ověřování",
+      "disabled": "Vícefaktorové ověřování bylo úspěšně zakázáno",
+      "passkeyBrowserRequired": "Ověřování přístupovým klíčem je povinné, ale váš prohlížeč WebAuthn nepodporuje. Chcete-li povolit vícefaktorové ověřování, použijte prosím moderní prohlížeč jako Chrome, Firefox, Safari nebo Edge.",
+      "enabledEmail": "Vícefaktorové ověřování povoleno s ověřováním e-mailem",
+      "noMethods": "Nejsou dostupné žádné metody vícefaktorového ověřování. Obraťte se prosím na správce.",
+      "toggleFailed": "Nepodařilo se přepnout vícefaktorové ověřování",
+      "passkeyNameRequired": "Zadejte prosím název přístupového klíče",
+      "passkeyRegisteredSaveCodes": "Passkey byl úspěšně zaregistrován! Prosím, uložte si své záložní kódy.",
+      "passkeyRegisteredNoCodes": "Passkey byl úspěšně zaregistrován. Z nastavení dvoufaktorové autentizace si můžete vygenerovat záložní kódy.",
+      "authenticatorSetupFailed": "Nastavení ověřovací aplikace se nezdařilo",
+      "authenticatorSetup": "Ověřovací aplikace byla úspěšně nastavena",
+      "verifyFailed": "Ověření kódu se nezdařilo",
+      "backupCodesGenerated": "Byly vygenerovány nové záložní kódy",
+      "backupCodesFailed": "Generování záložních kódů se nezdařilo",
+      "preferredUpdated": "Preferovaná metoda dvoufaktorové autentizace byla úspěšně aktualizována",
+      "preferredFailed": "Aktualizace preferované metody dvoufaktorové autentizace se nezdařila",
+      "disableAuthFailed": "Zakázání ověřovací aplikace se nezdařilo",
+      "authenticatorDisabled": "Ověřovací aplikace byla úspěšně zakázána",
+      "newBackupCodesFailed": "Generování nových záložních kódů se nezdařilo",
+      "newBackupCodesGenerated": "Nové záložní kódy byly úspěšně vygenerovány",
+      "invalidResponse": "Neplatný formát odpovědi od serveru",
+      "passkeyRegistered": "Passkey byl úspěšně zaregistrován",
+      "passkeyDeleted": "Passkey byl úspěšně odstraněn",
+      "passkeyDeleteFailed": "Odstranění passkey se nezdařilo",
+      "passkeyRenamed": "Passkey byl úspěšně přejmenován",
+      "passkeyRenameFailed": "Přejmenování passkey se nezdařilo"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Propojené účty",
+    "noAccounts": "Žádné propojené účty",
+    "link": "Propojit účet",
+    "unlink": "Odpojit",
+    "description": "Externí poskytovatelé autentizace propojení s vaším účtem",
+    "noAccountsMessage": "K vašemu profilu nejsou propojeny žádné externí účty. Účty si můžete propojit přihlášením přes poskytovatele jednotného přihlášení.",
+    "emailLabel": "E-mail: {{email}}",
+    "usernameLabel": "Uživatelské jméno: {{username}}",
+    "lastLoginLinked": "Poslední přihlášení: {{lastLogin}} | Propojeno: {{linked}}",
+    "unlinkTooltip": "Odpojit účet",
+    "errors": {
+      "loadFailed": "Načtení propojených účtů se nezdařilo",
+      "unlinkFailed": "Odpojení účtu se nezdařilo"
+    },
+    "unlinkDialog": {
+      "title": "Odpojit účet",
+      "warning": "Nebudete se moci přihlásit pomocí tohoto poskytovatele.",
+      "confirmation": "Opravdu chcete odpojit svůj {{provider}} účet?"
+    }
+  },
+  "notifications": {
+    "title": "Oznámení",
+    "emailNotifications": "E-mailová oznámení",
+    "jobCompleted": "Úloha dokončena",
+    "agentOffline": "Agent offline",
+    "securityAlerts": "Bezpečnostní upozornění"
+  },
+  "preferences": {
+    "title": "Předvolby",
+    "language": "Jazyk",
+    "timezone": "Časová zóna",
+    "dateFormat": "Formát data",
+    "theme": "Motiv",
+    "themes": {
+      "light": "Světlý",
+      "dark": "Tmavý",
+      "system": "Systémový"
+    },
+    "languageHelper": "Vztahuje se pouze na tento prohlížeč.",
+    "themeHelper": "Systémový motiv se řídí nastavením vašeho operačního systému."
+  },
+  "errors": {
+    "updateFailed": "Aktualizace nastavení se nezdařila",
+    "passwordMismatch": "Hesla se neshodují",
+    "invalidPassword": "Neplatné aktuální heslo"
+  },
+  "nav": {
+    "description": "Váš účet, bezpečnost a předvolby.",
+    "groupAccount": "Účet",
+    "profile": "Profil",
+    "profileDesc": "E-mailová adresa, jazyk a vzhled.",
+    "security": "Bezpečnost",
+    "securityDesc": "Heslo, dvoufaktorová autentizace, propojené účty a certifikát CA.",
+    "notifications": "Oznámení",
+    "notificationsDesc": "Které události se k vám dostanou a jak.",
+    "api": "API klíč",
+    "apiDesc": "Osobní klíč pro HTTP API.",
+    "charsets": "Uložené sady znaků",
+    "charsetsDesc": "Vlastní sady znaků pro útoky na bázi masky."
+  },
+  "savedCharsets": {
+    "title": "Uložené sady znaků",
+    "description": "Spravujte své osobní vlastní sady znaků pro použití v útocích na bázi masky. Podporuje vložené definice a binární soubory sady znaků ve formátu .hcchr.",
+    "createCharset": "Vytvořit sadu znaků",
+    "sections": {
+      "mine": "Moje sady znaků",
+      "team": "Týmové sady znaků",
+      "global": "Globální sady znaků",
+      "globalSubtitle": "Tyto sady znaků spravují administrátoři a jsou dostupné všem."
+    },
+    "columns": {
+      "name": "Název",
+      "team": "Tým",
+      "definition": "Definice / Info",
+      "description": "Popis",
+      "created": "Vytvořeno"
+    },
+    "typeLabels": {
+      "file": "Soubor",
+      "hex": "Hex"
+    },
+    "uniqueBytes_few": "{{count}} unikátní bajty",
+    "uniqueBytes_many": "{{count}} unikátního bajtu",
+    "uniqueBytes_one": "{{count}} unikátní bajt",
+    "uniqueBytes_other": "{{count}} unikátních bajtů",
+    "hexBytes_few": "{{count}} bajty",
+    "hexBytes_many": "{{count}} bajtu",
+    "hexBytes_one": "{{count}} bajt",
+    "hexBytes_other": "{{count}} bajtů",
+    "rowActions": {
+      "edit": "Upravit",
+      "delete": "Smazat"
+    },
+    "empty": "V této kategorii nejsou žádné sady znaků.",
+    "dialogs": {
+      "create": {
+        "title": "Vytvořit osobní sadu znaků"
+      },
+      "edit": {
+        "title": "Upravit sadu znaků"
+      },
+      "delete": {
+        "title": "Smazat sadu znaků",
+        "confirmation": "Opravdu chcete smazat sadu znaků \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Vložená definice",
+        "file": "Nahrání souboru (.hcchr)"
+      },
+      "fields": {
+        "name": "Název",
+        "namePlaceholder": "např. Úplná sada znaků DES",
+        "definition": "Definice",
+        "definitionPlaceholderHex": "např. 41424344 (hexadecimální páry bajtů)",
+        "definitionPlaceholderPlain": "např. ?u?d nebo abcdef0123456789",
+        "definitionHelperHex": "Hexadecimální páry bajtů — každá dvojice = jeden bajt sady znaků. {{bytes}}",
+        "definitionHelperHexBytes_few": "{{count}} bajty",
+        "definitionHelperHexBytes_many": "{{count}} bajtu",
+        "definitionHelperHexBytes_one": "{{count}} bajt",
+        "definitionHelperHexBytes_other": "{{count}} bajtů",
+        "definitionHelperPlain": "Definice sady znaků hashcatu. Použijte ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H nebo literální znaky.",
+        "hexTooltip": "Pokud je povoleno, je definice interpretována jako hexadecimální páry bajtů (např. 41424344 = bajty A, B, C, D). Úlohy používající tuto sadu znaků automaticky vloží --hex-charset.",
+        "hexLabel": "Hexadecimálně kódovaná definice",
+        "selectFile": "Vyberte soubor .hcchr",
+        "fileSizeBytes_few": "{{count}} bajty",
+        "fileSizeBytes_many": "{{count}} bajtu",
+        "fileSizeBytes_one": "{{count}} bajt",
+        "fileSizeBytes_other": "{{count}} bajtů",
+        "fileHelperText": "Binární soubor sady znaků obsahující surové hodnoty bajtů (max 1023 bajtů, až 256 unikátních bajtů).",
+        "fileCharsetInfo_few": "Sada znaků souboru: {{count}} unikátní bajty. Lze upravit pouze název a popis.",
+        "fileCharsetInfo_many": "Sada znaků souboru: {{count}} unikátního bajtu. Lze upravit pouze název a popis.",
+        "fileCharsetInfo_one": "Sada znaků souboru: {{count}} unikátní bajt. Lze upravit pouze název a popis.",
+        "fileCharsetInfo_other": "Sada znaků souboru: {{count}} unikátních bajtů. Lze upravit pouze název a popis.",
+        "description": "Popis",
+        "descriptionPlaceholder": "Nepovinný popis, k čemu se tato sada znaků používá"
+      },
+      "update": "Aktualizovat",
+      "upload": "Nahrát"
+    },
+    "messages": {
+      "createSuccess": "Sada znaků vytvořena úspěšně",
+      "uploadSuccess": "Sada znaků nahrána úspěšně",
+      "updateSuccess": "Sada znaků aktualizována úspěšně",
+      "deleteSuccess": "Sada znaků smazána úspěšně"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Povoleny jsou pouze soubory .hcchr",
+      "fileTooLarge": "Soubor příliš velký (max 1023 bajtů — limit vyrovnávací paměti čtení hashcatu)",
+      "nameRequired": "Název je povinný",
+      "definitionRequired": "Definice je povinná",
+      "selectFile": "Prosím, vyberte soubor .hcchr",
+      "deleteFailed": "Smazání sady znaků se nezdařilo: {{message}}",
+      "globalDeleteForbidden": "Globální sady znaků mohou být mazány pouze administrátory v administračním panelu"
+    }
+  }
+}

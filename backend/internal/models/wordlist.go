@@ -256,6 +256,7 @@ type DeletionImpactJob struct {
 	ID           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
 	Status       string    `json:"status"`
+	HashlistID   *int64    `json:"hashlist_id,omitempty"`
 	HashlistName string    `json:"hashlist_name"`
 }
 

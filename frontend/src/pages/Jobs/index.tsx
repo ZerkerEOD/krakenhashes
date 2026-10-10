@@ -1,45 +1,36 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
-  Typography,
   Button,
-  Paper,
-  Alert,
-  CircularProgress,
+  Checkbox,
   Chip,
   FormControl,
+  FormControlLabel,
   InputLabel,
-  Select,
   MenuItem,
-  TextField,
-  Stack,
-  Badge,
+  Select,
   ToggleButton,
   ToggleButtonGroup,
-  FormControlLabel,
-  Checkbox,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
+  Typography,
 } from '@mui/material';
-import {
-  Delete as DeleteIcon,
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
-  FilterList as FilterListIcon,
-  Archive as ArchiveIcon,
-  Unarchive as UnarchiveIcon,
-} from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
-import JobsTable from './JobsTable';
-import DeleteConfirm from './DeleteConfirm';
+import DeleteIcon from '@mui/icons-material/Delete';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ArchiveIcon from '@mui/icons-material/Archive';
+import UnarchiveIcon from '@mui/icons-material/Unarchive';
+import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
+import type { GridRowId } from '@mui/x-data-grid';
 import LoopbackSessionsPanel from '../../components/jobs/LoopbackSessionsPanel';
+import JobsDataTable from '../../components/jobs/JobsDataTable';
+import { PageHeader, useConfirm, useToast } from '../../components/ui';
 import { api, archiveJob, unarchiveJob } from '../../services/api';
 import { JobSummary, PaginationInfo } from '../../types/jobs';
 import { useTeamFilter } from '../../contexts/TeamFilterContext';
+import { usePolling } from '../../contexts/PollingContext';
+import { useLiveQuery } from '../../hooks/useLiveQuery';
+import useDebounce from '../../hooks/useDebounce';
+import { qk } from '../../services/queryKeys';
+import { getErrorMessage } from '../../utils/errors';
 
 interface JobsResponse {
   jobs: JobSummary[];
@@ -47,558 +38,270 @@ interface JobsResponse {
   status_counts: Record<string, number>;
 }
 
-interface Filters {
-  status: string | null;
-  priority: number | null;
-  search: string;
-}
+const STATUS_FILTERS = ['pending', 'running', 'completed', 'failed'] as const;
+const BADGE_COLOR: Record<string, 'default' | 'primary' | 'success' | 'error'> = {
+  pending: 'default',
+  running: 'primary',
+  completed: 'success',
+  failed: 'error',
+};
+
+/** Count shown inside a status filter button (inline, never overlapping the label). */
+const FilterCount: React.FC<{ value: number; tone?: 'default' | 'primary' | 'success' | 'error' }> = ({ value, tone = 'default' }) => (
+  <Box
+    component="span"
+    sx={{
+      minWidth: 22,
+      px: 0.75,
+      py: 0.125,
+      borderRadius: 10,
+      fontSize: '0.7rem',
+      fontWeight: 600,
+      lineHeight: 1.6,
+      textAlign: 'center',
+      bgcolor: tone === 'default' ? 'action.selected' : `${tone}.main`,
+      color: tone === 'default' ? 'text.primary' : `${tone}.contrastText`,
+      opacity: value === 0 ? 0.6 : 1,
+    }}
+  >
+    {value.toLocaleString()}
+  </Box>
+);
 
 const Jobs: React.FC = () => {
   const { t } = useTranslation('jobs');
+  const toast = useToast();
+  const confirm = useConfirm();
+  const queryClient = useQueryClient();
   const { teamsEnabled, selectedTeamId } = useTeamFilter();
-  const { enqueueSnackbar } = useSnackbar();
-  // Pagination state
-  const [page, setPage] = useState(1);
+  const { enabled: polling, setEnabled: setPolling } = usePolling();
+
+  const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
-
-  // Filter state
-  const [filters, setFilters] = useState<Filters>({
-    status: null,
-    priority: null,
-    search: '',
-  });
-
-  // Data state
-  const [jobs, setJobs] = useState<JobSummary[]>([]);
-  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
-  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  // UI state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
-  const [isPolling, setIsPolling] = useState(true);
-
-  // Archive & selection state
+  const [status, setStatus] = useState<string | null>(null);
+  const [priority, setPriority] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
-  const [bulkOperating, setBulkOperating] = useState(false);
+  const [selected, setSelected] = useState<GridRowId[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const debouncedSearch = useDebounce(search, 400);
 
-  // Refs for cleanup
-  const pollingTimer = useRef<NodeJS.Timeout | null>(null);
-  const abortController = useRef<AbortController | null>(null);
+  const params = useMemo(() => {
+    const p: Record<string, string> = { page: String(page + 1), page_size: String(pageSize) };
+    if (status) p.status = status;
+    if (priority !== null) p.priority = String(priority);
+    if (debouncedSearch.trim()) p.search = debouncedSearch.trim();
+    if (teamsEnabled && selectedTeamId) p.team_id = selectedTeamId;
+    if (showArchived) p.include_archived = 'true';
+    return p;
+  }, [page, pageSize, status, priority, debouncedSearch, teamsEnabled, selectedTeamId, showArchived]);
 
-  // Build query parameters from current state
-  const buildQueryParams = useCallback(() => {
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('page_size', pageSize.toString());
-    
-    if (filters.status) {
-      params.append('status', filters.status);
-    }
-    
-    if (filters.priority !== null) {
-      params.append('priority', filters.priority.toString());
-    }
-    
-    if (filters.search.trim()) {
-      params.append('search', filters.search.trim());
-    }
-
-    if (teamsEnabled && selectedTeamId) {
-      params.append('team_id', selectedTeamId);
-    }
-
-    if (showArchived) {
-      params.append('include_archived', 'true');
-    }
-
-    return params.toString();
-  }, [page, pageSize, filters, teamsEnabled, selectedTeamId, showArchived]);
-
-  // Fetch jobs with current filters and pagination
-  const fetchJobs = useCallback(async (showLoading = false) => {
-    // Cancel any ongoing request
-    if (abortController.current) {
-      abortController.current.abort();
-    }
-    
-    // Create new abort controller
-    abortController.current = new AbortController();
-    
-    try {
-      if (showLoading) {
-        setLoading(true);
-      }
-      
-      const queryString = buildQueryParams();
-      const response = await api.get<JobsResponse>(
-        `/api/jobs?${queryString}`,
-        { signal: abortController.current.signal }
-      );
-      
-      setJobs(response.data.jobs);
-      setPagination(response.data.pagination);
-      setStatusCounts(response.data.status_counts || {});
-      setError(null);
-      setLastUpdateTime(new Date());
-    } catch (err: any) {
-      // Ignore abort errors
-      if (err.name !== 'AbortError') {
-        console.error('Failed to fetch jobs:', err);
-        setError(err);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [buildQueryParams]);
-
-  // Initial load and when dependencies change
-  useEffect(() => {
-    fetchJobs(true);
-    setSelectedIds(new Set());
-  }, [page, pageSize, filters, selectedTeamId, showArchived]);
-
-  // Set up polling
-  useEffect(() => {
-    if (!isPolling) {
-      return;
-    }
-
-    // Clear any existing timer
-    if (pollingTimer.current) {
-      clearInterval(pollingTimer.current);
-    }
-
-    // Set up new polling timer (2s — the jobs list is cheap to serve after the N+1 fix, so
-    // the UI reflects task changes faster without extra DB load).
-    pollingTimer.current = setInterval(() => {
-      fetchJobs(false); // Don't show loading indicator for polling updates
-    }, 2000);
-
-    // Cleanup on unmount or when polling is disabled
-    return () => {
-      if (pollingTimer.current) {
-        clearInterval(pollingTimer.current);
-      }
-    };
-  }, [fetchJobs, isPolling]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingTimer.current) {
-        clearInterval(pollingTimer.current);
-      }
-      if (abortController.current) {
-        abortController.current.abort();
-      }
-    };
-  }, []);
-
-  const handleDeleteFinished = async () => {
-    setIsDeleting(true);
-    try {
-      await api.delete('/api/jobs/finished');
-      setDeleteDialogOpen(false);
-      // Refresh the job list after deletion
-      await fetchJobs(true);
-    } catch (error) {
-      console.error('Failed to delete finished jobs:', error);
-    } finally {
-      setIsDeleting(false);
-    }
+  const query = useLiveQuery<JobsResponse>(
+    {
+      queryKey: qk.jobs.list(params),
+      queryFn: async ({ signal }) => (await api.get<JobsResponse>('/api/jobs', { params, signal })).data,
+      placeholderData: keepPreviousData,
+    },
+    { tier: 'live' }
+  );
+  const jobs = query.data?.jobs ?? [];
+  const counts = query.data?.status_counts ?? {};
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: qk.jobs.all });
+  const resetPage = () => {
+    setPage(0);
+    setSelected([]);
   };
 
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
+  const selectedJobs = selected.map((id) => jobs.find((j) => j.id === id)).filter(Boolean) as JobSummary[];
 
-  const handlePageSizeChange = (newPageSize: number) => {
-    setPageSize(newPageSize);
-    setPage(1); // Reset to first page when changing page size
-  };
-
-  const handleStatusFilter = (event: React.MouseEvent<HTMLElement>, newStatus: string | null) => {
-    setFilters(prev => ({ ...prev, status: newStatus === '' ? null : newStatus }));
-    setPage(1); // Reset to first page when filtering
-  };
-
-  const handlePriorityFilter = (priority: number | null) => {
-    setFilters(prev => ({ ...prev, priority }));
-    setPage(1); // Reset to first page when filtering
-  };
-
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFilters(prev => ({ ...prev, search: event.target.value }));
-    setPage(1); // Reset to first page when searching
-  };
-
-  const handleRefresh = () => {
-    fetchJobs(true);
-  };
-
-  const togglePolling = () => {
-    setIsPolling(prev => !prev);
-  };
-
-  // Selection handlers
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(new Set(jobs.map(j => j.id)));
-    } else {
-      setSelectedIds(new Set());
-    }
-  };
-
-  const handleSelectOne = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  // Bulk archive handler
-  const handleBulkArchive = async (archive: boolean) => {
-    setBulkOperating(true);
-    const ids = Array.from(selectedIds).filter(id => {
-      const job = jobs.find(j => j.id === id);
-      return archive ? !job?.archived_at : !!job?.archived_at;
-    });
-    let successCount = 0;
+  const runBulk = async (ids: string[], fn: (id: string) => Promise<unknown>, successKey: string) => {
+    setBulkBusy(true);
+    let ok = 0;
     for (const id of ids) {
       try {
-        if (archive) {
-          await archiveJob(id);
-        } else {
-          await unarchiveJob(id);
-        }
-        successCount++;
-      } catch (err: any) {
-        const name = jobs.find(j => j.id === id)?.name || id;
-        enqueueSnackbar(`${name}: ${err.response?.data?.error || err.message}`, { variant: 'error' });
+        await fn(id);
+        ok++;
+      } catch (err) {
+        const name = jobs.find((j) => j.id === id)?.name || id;
+        toast.error(`${name}: ${getErrorMessage(err)}`);
       }
     }
-    if (successCount > 0) {
-      enqueueSnackbar(
-        t(archive ? 'archive.bulkArchiveSuccess' : 'archive.bulkUnarchiveSuccess', { count: successCount }) as string,
-        { variant: 'success' }
-      );
-      fetchJobs(true);
-    }
-    setSelectedIds(new Set());
-    setBulkOperating(false);
+    if (ok > 0) toast.success(t(successKey, { count: ok }) as string);
+    setSelected([]);
+    setBulkBusy(false);
+    void refresh();
   };
 
-  // Bulk delete handler
-  const handleBulkDelete = async () => {
-    setBulkOperating(true);
-    const ids = Array.from(selectedIds);
-    let successCount = 0;
-    for (const id of ids) {
-      try {
-        await api.delete(`/api/jobs/${id}`);
-        successCount++;
-      } catch (err: any) {
-        const name = jobs.find(j => j.id === id)?.name || id;
-        enqueueSnackbar(`${name}: ${err.response?.data?.error || err.message}`, { variant: 'error' });
-      }
-    }
-    if (successCount > 0) {
-      enqueueSnackbar(
-        t('archive.bulkDeleteSuccess', { count: successCount }) as string,
-        { variant: 'success' }
-      );
-      fetchJobs(true);
-    }
-    setSelectedIds(new Set());
-    setBulkOperating(false);
-    setBulkDeleteDialogOpen(false);
+  const bulkDelete = async () => {
+    const ok = await confirm({
+      title: t('archive.confirmBulkDelete.title') as string,
+      message: (
+        <>
+          {t('archive.confirmBulkDelete.message', { count: selected.length }) as string}
+          <br />
+          <br />
+          {t('archive.confirmBulkDelete.warning') as string}
+        </>
+      ),
+      severity: 'danger',
+      confirmLabel: t('archive.confirmBulkDelete.delete') as string,
+    });
+    if (ok) await runBulk(selected.map(String), (id) => api.delete(`/api/jobs/${id}`), 'archive.bulkDeleteSuccess');
   };
 
-  // Get status badge color
-  const getStatusColor = (status: string): 'default' | 'primary' | 'success' | 'error' | 'warning' => {
-    switch (status) {
-      case 'pending': return 'default';
-      case 'running': return 'primary';
-      case 'completed': return 'success';
-      case 'failed': return 'error';
-      default: return 'default';
-    }
+  const deleteFinished = async () => {
+    const ok = await confirm({
+      title: t('dialogs.deleteFinished.title') as string,
+      message: t('dialogs.deleteFinished.message') as string,
+      severity: 'danger',
+      confirmLabel: t('buttons.deleteFinished') as string,
+      action: () => api.delete('/api/jobs/finished'),
+    });
+    if (ok) void refresh();
   };
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          {t('page.title') as string}
-        </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {/* Polling Status */}
-          <Chip
-            icon={<RefreshIcon />}
-            label={isPolling ? t('autoRefresh.on') as string : t('autoRefresh.off') as string}
-            color={isPolling ? 'success' : 'default'}
-            variant="outlined"
-            size="small"
-            onClick={togglePolling}
-            sx={{ cursor: 'pointer' }}
-          />
-
-          {/* Manual Refresh */}
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<RefreshIcon />}
-            onClick={handleRefresh}
-            disabled={loading}
-          >
-            {t('buttons.refresh') as string}
-          </Button>
-
-          {/* Page Size Selector */}
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>{t('pagination.jobsPerPage') as string}</InputLabel>
-            <Select
-              value={pageSize}
-              label={t('pagination.jobsPerPage') as string}
-              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            >
-              <MenuItem value={25}>25</MenuItem>
-              <MenuItem value={50}>50</MenuItem>
-              <MenuItem value={100}>100</MenuItem>
-              <MenuItem value={200}>200</MenuItem>
-            </Select>
-          </FormControl>
-
-          {/* Delete Finished Button */}
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setDeleteDialogOpen(true)}
-            disabled={!jobs || jobs.length === 0}
-          >
-            {t('buttons.deleteFinished') as string}
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Bulk Action Bar */}
-      {selectedIds.size > 0 && (
-        <Paper sx={{ p: 1.5, mb: 2, display: 'flex', alignItems: 'center', gap: 2, bgcolor: 'action.selected' }}>
-          <Typography variant="body2" fontWeight="medium">
-            {t('archive.selectedCount', { count: selectedIds.size })}
-          </Typography>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<ArchiveIcon />}
-            onClick={() => handleBulkArchive(true)}
-            disabled={bulkOperating}
-          >
-            {t('archive.archiveSelected')}
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<UnarchiveIcon />}
-            onClick={() => handleBulkArchive(false)}
-            disabled={bulkOperating}
-          >
-            {t('archive.unarchiveSelected')}
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setBulkDeleteDialogOpen(true)}
-            disabled={bulkOperating}
-          >
-            {t('archive.deleteSelected')}
-          </Button>
-        </Paper>
-      )}
-
-      {/* Filters Section */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack spacing={2}>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Search Field */}
-            <TextField
+      <PageHeader
+        title={t('page.title') as string}
+        actions={
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Chip
+              icon={<RefreshIcon />}
+              label={polling ? (t('autoRefresh.on') as string) : (t('autoRefresh.off') as string)}
+              color={polling ? 'success' : 'default'}
+              variant="outlined"
               size="small"
-              placeholder={t('filters.searchPlaceholder') as string}
-              value={filters.search}
-              onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-              }}
-              sx={{ minWidth: 300 }}
+              onClick={() => setPolling(!polling)}
             />
-
-            {/* Priority Filter */}
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>{t('filters.priority') as string}</InputLabel>
-              <Select
-                value={filters.priority ?? ''}
-                label={t('filters.priority') as string}
-                onChange={(e) => handlePriorityFilter(e.target.value === '' ? null : Number(e.target.value))}
-              >
-                <MenuItem value="">{t('filters.all') as string}</MenuItem>
-                <MenuItem value={1}>{t('priority.low') as string}</MenuItem>
-                <MenuItem value={2}>{t('priority.medium') as string}</MenuItem>
-                <MenuItem value={3}>{t('priority.high') as string}</MenuItem>
-                <MenuItem value={4}>{t('priority.critical') as string}</MenuItem>
-                <MenuItem value={5}>{t('priority.maximum') as string}</MenuItem>
-              </Select>
-            </FormControl>
-
-            {/* Show Archived Toggle */}
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={showArchived}
-                  onChange={(e) => {
-                    setShowArchived(e.target.checked);
-                    setSelectedIds(new Set());
-                  }}
-                  size="small"
-                />
-              }
-              label={t('archive.showArchived') as string}
-            />
+            <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={() => void refresh()} disabled={query.isFetching}>
+              {t('buttons.refresh') as string}
+            </Button>
+            <Button variant="outlined" color="error" size="small" startIcon={<DeleteIcon />} onClick={deleteFinished} disabled={jobs.length === 0}>
+              {t('buttons.deleteFinished') as string}
+            </Button>
           </Box>
-
-          {/* Status Filter Buttons */}
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography variant="body2" sx={{ mr: 1 }}>
-              {t('filters.status') as string}:
-            </Typography>
-            <ToggleButtonGroup
-              value={filters.status}
-              exclusive
-              onChange={handleStatusFilter}
-              size="small"
-            >
-              <ToggleButton value="">
-                <Badge badgeContent={Object.values(statusCounts).reduce((a, b) => a + b, 0)} color="default">
-                  {t('filters.all') as string}
-                </Badge>
-              </ToggleButton>
-              <ToggleButton value="pending">
-                <Badge badgeContent={statusCounts.pending || 0} color="default">
-                  {t('status.pending') as string}
-                </Badge>
-              </ToggleButton>
-              <ToggleButton value="running">
-                <Badge badgeContent={statusCounts.running || 0} color="primary">
-                  {t('status.running') as string}
-                </Badge>
-              </ToggleButton>
-              <ToggleButton value="completed">
-                <Badge badgeContent={statusCounts.completed || 0} color="success">
-                  {t('status.completed') as string}
-                </Badge>
-              </ToggleButton>
-              <ToggleButton value="failed">
-                <Badge badgeContent={statusCounts.failed || 0} color="error">
-                  {t('status.failed') as string}
-                </Badge>
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-        </Stack>
-      </Paper>
-
-      {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {t('errors.fetchFailed', { message: error.message }) as string}
-          {isPolling && ` ${t('errors.willRetry') as string}`}
-        </Alert>
-      )}
-
-      {/* Last Update Timestamp */}
-      {!loading && jobs.length > 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-          {t('lastUpdated', { time: lastUpdateTime.toLocaleTimeString() }) as string}
-          {filters.status || filters.priority !== null || filters.search ? ` ${t('filtered') as string}` : ''}
-        </Typography>
-      )}
-
-      {/* Loopback sessions (GH #64) — renders nothing when no loopback is in flight.
-          scope="visible": this page lists everyone's jobs the user can see, so the panel
-          matches it (still team-scoped server-side). */}
-      <LoopbackSessionsPanel scope="visible" />
-
-      {/* Jobs Table */}
-      <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-        {loading && jobs.length === 0 ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
-            <CircularProgress />
-            <Typography variant="body1" sx={{ ml: 2 }}>
-              {t('loading') as string}
-            </Typography>
-          </Box>
-        ) : (
-          <JobsTable
-            jobs={jobs}
-            pagination={pagination ?? undefined}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-            currentPage={page}
-            pageSize={pageSize}
-            onJobUpdated={fetchJobs}
-            selectedIds={selectedIds}
-            onSelectAll={handleSelectAll}
-            onSelectOne={handleSelectOne}
-            showArchived={showArchived}
-          />
-        )}
-      </Paper>
-
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirm
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleDeleteFinished}
-        isLoading={isDeleting}
-        title={t('dialogs.deleteFinished.title') as string}
-        message={t('dialogs.deleteFinished.message') as string}
+        }
       />
 
-      {/* Bulk Delete Confirmation Dialog */}
-      <Dialog open={bulkDeleteDialogOpen} onClose={() => setBulkDeleteDialogOpen(false)}>
-        <DialogTitle>{t('archive.confirmBulkDelete.title')}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {t('archive.confirmBulkDelete.message', { count: selectedIds.size })}
-          </DialogContentText>
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            {t('archive.confirmBulkDelete.warning')}
-          </Alert>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setBulkDeleteDialogOpen(false)} disabled={bulkOperating}>
-            {t('archive.confirmBulkDelete.cancel')}
-          </Button>
-          <Button onClick={handleBulkDelete} color="error" variant="contained" disabled={bulkOperating}>
-            {bulkOperating ? t('archive.confirmBulkDelete.deleting') : t('archive.confirmBulkDelete.delete')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+          {t('filters.status') as string}:
+        </Typography>
+        <ToggleButtonGroup
+          value={status ?? ''}
+          exclusive
+          size="small"
+          onChange={(_e, v: string | null) => {
+            if (v === null) return;
+            setStatus(v === '' ? null : v);
+            resetPage();
+          }}
+        >
+          <ToggleButton value="" sx={{ gap: 1, px: 1.5 }}>
+            {t('filters.all') as string}
+            <FilterCount value={total} />
+          </ToggleButton>
+          {STATUS_FILTERS.map((s) => (
+            <ToggleButton key={s} value={s} sx={{ gap: 1, px: 1.5 }}>
+              {t(`status.${s}`) as string}
+              <FilterCount value={counts[s] || 0} tone={BADGE_COLOR[s]} />
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Box>
+
+      <LoopbackSessionsPanel scope="visible" />
+
+      <JobsDataTable
+        jobs={jobs}
+        loading={query.isLoading}
+        fetching={query.isFetching && !query.isLoading}
+        error={query.error}
+        onRetry={() => void query.refetch()}
+        onChanged={() => void refresh()}
+        tableKey="jobs"
+        pagination={{
+          mode: 'server',
+          page,
+          pageSize,
+          rowCount: query.data?.pagination.total ?? 0,
+          pageSizeOptions: [25, 50, 100],
+          onChange: (m) => {
+            if (m.pageSize !== pageSize) {
+              setPageSize(m.pageSize);
+              setPage(0);
+            } else setPage(m.page);
+            setSelected([]);
+          },
+        }}
+        selection={{ model: selected, onChange: setSelected }}
+        toolbar={{
+          search: {
+            value: search,
+            onChange: (v) => {
+              setSearch(v);
+              resetPage();
+            },
+            placeholder: t('filters.searchPlaceholder') as string,
+          },
+          filters: (
+            <>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>{t('filters.priority') as string}</InputLabel>
+                <Select
+                  value={priority ?? ''}
+                  label={t('filters.priority') as string}
+                  onChange={(e) => {
+                    setPriority(e.target.value === '' ? null : Number(e.target.value));
+                    resetPage();
+                  }}
+                >
+                  <MenuItem value="">{t('filters.all') as string}</MenuItem>
+                  <MenuItem value={1}>{t('priority.low') as string}</MenuItem>
+                  <MenuItem value={2}>{t('priority.medium') as string}</MenuItem>
+                  <MenuItem value={3}>{t('priority.high') as string}</MenuItem>
+                  <MenuItem value={4}>{t('priority.critical') as string}</MenuItem>
+                  <MenuItem value={5}>{t('priority.maximum') as string}</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={showArchived}
+                    onChange={(e) => {
+                      setShowArchived(e.target.checked);
+                      resetPage();
+                    }}
+                  />
+                }
+                label={t('archive.showArchived') as string}
+              />
+            </>
+          ),
+        }}
+        bulkActions={() => (
+          <>
+            {selectedJobs.some((j) => !j.archived_at) && (
+              <Button size="small" variant="outlined" startIcon={<ArchiveIcon />} disabled={bulkBusy}
+                onClick={() => void runBulk(selectedJobs.filter((j) => !j.archived_at).map((j) => j.id), archiveJob, 'archive.bulkArchiveSuccess')}>
+                {t('archive.archiveSelected') as string}
+              </Button>
+            )}
+            {selectedJobs.some((j) => j.archived_at) && (
+              <Button size="small" variant="outlined" startIcon={<UnarchiveIcon />} disabled={bulkBusy}
+                onClick={() => void runBulk(selectedJobs.filter((j) => j.archived_at).map((j) => j.id), unarchiveJob, 'archive.bulkUnarchiveSuccess')}>
+                {t('archive.unarchiveSelected') as string}
+              </Button>
+            )}
+            <Button size="small" variant="outlined" color="error" startIcon={<DeleteIcon />} disabled={bulkBusy} onClick={bulkDelete}>
+              {t('archive.deleteSelected') as string}
+            </Button>
+          </>
+        )}
+      />
     </Box>
   );
 };

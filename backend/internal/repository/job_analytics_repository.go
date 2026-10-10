@@ -68,37 +68,37 @@ type HashlistOption struct {
 
 // JobAnalyticsSummary contains aggregate statistics
 type JobAnalyticsSummary struct {
-	TotalJobs        int     `json:"total_jobs"`
-	CompletedJobs    int     `json:"completed_jobs"`
-	CancelledJobs    int     `json:"cancelled_jobs"`
-	FailedJobs       int     `json:"failed_jobs"`
-	TotalCracks      int64   `json:"total_cracks"`
-	AverageSpeed     float64 `json:"average_speed"`
-	TotalKeyspace    int64   `json:"total_keyspace_processed"`
-	AverageDuration  float64 `json:"average_duration_seconds"`
+	TotalJobs       int     `json:"total_jobs"`
+	CompletedJobs   int     `json:"completed_jobs"`
+	CancelledJobs   int     `json:"cancelled_jobs"`
+	FailedJobs      int     `json:"failed_jobs"`
+	TotalCracks     int64   `json:"total_cracks"`
+	AverageSpeed    float64 `json:"average_speed"`
+	TotalKeyspace   int64   `json:"total_keyspace_processed"`
+	AverageDuration float64 `json:"average_duration_seconds"`
 }
 
 // JobAnalyticsEntry represents a single job with computed metrics
 type JobAnalyticsEntry struct {
-	ID                    uuid.UUID  `json:"id"`
-	Name                  string     `json:"name"`
-	AttackMode            int        `json:"attack_mode"`
-	HashType              int        `json:"hash_type"`
-	HashTypeName          string     `json:"hash_type_name"`
-	EffectiveKeyspace     int64      `json:"effective_keyspace"`
-	Status                string     `json:"status"`
-	Priority              int        `json:"priority"`
-	StartedAt             *time.Time `json:"started_at"`
-	CompletedAt           *time.Time `json:"completed_at"`
-	DurationSeconds       *float64   `json:"duration_seconds"`
-	TaskCount             int        `json:"task_count"`
-	TotalCracks           int64      `json:"total_cracks"`
-	AvgSpeed              float64    `json:"avg_speed"`
-	MaxSpeed              int64      `json:"max_speed"`
-	UniqueAgents          int        `json:"unique_agents"`
-	HashlistID            int64      `json:"hashlist_id"`
-	HashlistName          string     `json:"hashlist_name"`
-	OverallProgressPercent float64   `json:"overall_progress_percent"`
+	ID                     uuid.UUID  `json:"id"`
+	Name                   string     `json:"name"`
+	AttackMode             int        `json:"attack_mode"`
+	HashType               int        `json:"hash_type"`
+	HashTypeName           string     `json:"hash_type_name"`
+	EffectiveKeyspace      int64      `json:"effective_keyspace"`
+	Status                 string     `json:"status"`
+	Priority               int        `json:"priority"`
+	StartedAt              *time.Time `json:"started_at"`
+	CompletedAt            *time.Time `json:"completed_at"`
+	DurationSeconds        *float64   `json:"duration_seconds"`
+	TaskCount              int        `json:"task_count"`
+	TotalCracks            int64      `json:"total_cracks"`
+	AvgSpeed               float64    `json:"avg_speed"`
+	MaxSpeed               int64      `json:"max_speed"`
+	UniqueAgents           int        `json:"unique_agents"`
+	HashlistID             int64      `json:"hashlist_id"`
+	HashlistName           string     `json:"hashlist_name"`
+	OverallProgressPercent float64    `json:"overall_progress_percent"`
 }
 
 // TimelinePoint represents a single data point in a time series
@@ -142,25 +142,26 @@ type SuccessRateRow struct {
 
 // SuccessRateEntry is the enriched response sent to the frontend
 type SuccessRateEntry struct {
-	DisplayName    string  `json:"display_name"`
-	IsPreset       bool    `json:"is_preset"`
-	PresetName     string  `json:"preset_name,omitempty"`
-	AttackMode     int     `json:"attack_mode"`
-	AttackModeLabel string `json:"attack_mode_label"`
-	HashType       int     `json:"hash_type"`
-	HashTypeName   string  `json:"hash_type_name"`
-	WordlistNames  string  `json:"wordlist_names"`
-	RuleNames      string  `json:"rule_names"`
-	Mask           string  `json:"mask,omitempty"`
-	IncrementMode  string  `json:"increment_mode"`
-	IncrementMin   *int    `json:"increment_min,omitempty"`
-	IncrementMax   *int    `json:"increment_max,omitempty"`
-	TotalRuns      int     `json:"total_runs"`
-	TotalCracks    int64   `json:"total_cracks"`
-	TotalHashes    int64   `json:"total_hashes"`
-	SuccessRate    float64 `json:"success_rate_percent"`
-	AvgDuration    float64 `json:"avg_job_duration_seconds"`
-	TotalCompute   float64 `json:"total_compute_seconds"`
+	DisplayName     string  `json:"display_name"`
+	IsPreset        bool    `json:"is_preset"`
+	PresetID        string  `json:"preset_id,omitempty"`
+	PresetName      string  `json:"preset_name,omitempty"`
+	AttackMode      int     `json:"attack_mode"`
+	AttackModeLabel string  `json:"attack_mode_label"`
+	HashType        int     `json:"hash_type"`
+	HashTypeName    string  `json:"hash_type_name"`
+	WordlistNames   string  `json:"wordlist_names"`
+	RuleNames       string  `json:"rule_names"`
+	Mask            string  `json:"mask,omitempty"`
+	IncrementMode   string  `json:"increment_mode"`
+	IncrementMin    *int    `json:"increment_min,omitempty"`
+	IncrementMax    *int    `json:"increment_max,omitempty"`
+	TotalRuns       int     `json:"total_runs"`
+	TotalCracks     int64   `json:"total_cracks"`
+	TotalHashes     int64   `json:"total_hashes"`
+	SuccessRate     float64 `json:"success_rate_percent"`
+	AvgDuration     float64 `json:"avg_job_duration_seconds"`
+	TotalCompute    float64 `json:"total_compute_seconds"`
 }
 
 // PresetFingerprint holds the configuration fingerprint of a preset job for matching
@@ -369,15 +370,15 @@ func (r *JobAnalyticsRepository) GetJobsList(ctx context.Context, filter *JobAna
 
 	// Validate sort
 	allowedSorts := map[string]string{
-		"name":             "je.name",
-		"started_at":       "je.started_at",
-		"duration":         "duration_seconds",
-		"avg_speed":        "avg_speed",
-		"total_cracks":     "total_cracks",
+		"name":               "je.name",
+		"started_at":         "je.started_at",
+		"duration":           "duration_seconds",
+		"avg_speed":          "avg_speed",
+		"total_cracks":       "total_cracks",
 		"effective_keyspace": "je.effective_keyspace",
-		"status":           "je.status",
-		"attack_mode":      "je.attack_mode",
-		"hash_type":        "je.hash_type",
+		"status":             "je.status",
+		"attack_mode":        "je.attack_mode",
+		"hash_type":          "je.hash_type",
 	}
 	sortColumn, ok := allowedSorts[sortBy]
 	if !ok {

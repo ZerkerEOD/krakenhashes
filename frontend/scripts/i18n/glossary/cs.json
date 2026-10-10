@@ -1,0 +1,397 @@
+{
+  "language": "cs",
+  "formality": "Formal address only (vykání — 2nd person plural 'Vy/jste/máte', the Czech equivalent of French 'vous' or German 'Sie'). Never use informal tykání ('ty/jsi/máš'), even in onboarding, errors, or empty-state copy — this is professional pentest/security tooling used across teams and client engagements, not a consumer app.",
+  "styleNotes": "Button and action labels use the infinitive verb form ('Uložit', 'Zrušit', 'Archivovat'), never a bare noun. Status/state badges use the neuter short passive-participle form ending in '-o' ('Dokončeno', 'Prolomeno', 'Zrušeno') regardless of the referent's grammatical gender, so status chips read consistently across the UI. Keep hashcat- and product-specific technical terms in English when there is no established Czech equivalent or a literal calque would mislead (hash, potfile, keyspace, loopback, benchmark, webhook, voucher) — decline them with Czech endings where natural ('hashe', 'hashů') rather than inventing awkward neologisms. Always keep full Czech diacritics (ě š č ř ž ý á í é ů ú ď ť ň); never strip them to save space in buttons or labels.",
+  "terms": {
+    "hash": {
+      "translation": "Hash",
+      "keepEnglish": true,
+      "note": "Used as-is in professional Czech security usage, declined with Czech endings (hash, hashe, hashů); 'heš' is a marginal native spelling, not standard in professional contexts."
+    },
+    "hashlist": {
+      "translation": "Hashlist",
+      "keepEnglish": true,
+      "note": "Product-specific feature/page name (matches 'HashList' in the codebase); no established Czech equivalent."
+    },
+    "hash type": {
+      "translation": "Typ hashe",
+      "keepEnglish": false,
+      "note": "The hashcat mode designation, e.g. NTLM (mode 1000)."
+    },
+    "crack": {
+      "translation": "Prolomit",
+      "keepEnglish": false,
+      "note": "Verb: recover the plaintext of a hash; 'zlomit' is an alternative but less precise in a cryptography context."
+    },
+    "cracked": {
+      "translation": "Prolomeno",
+      "keepEnglish": false,
+      "note": "Standalone status label/badge — use the neutral '-o' form, consistent with other status chips ('Dokončeno', 'Odesláno'). When modifying 'hash' directly in running text, use the agreeing adjective 'prolomený' (e.g. 'prolomený hash')."
+    },
+    "cracked hashes": {
+      "translation": "Prolomené hashe",
+      "keepEnglish": false,
+      "note": "These are hashes with a recovered plaintext, not passwords themselves — keep 'hash' and 'heslo'/'plaintext' distinct, they are separate glossary concepts in this product."
+    },
+    "plaintext": {
+      "translation": "Plaintext",
+      "keepEnglish": true,
+      "note": "Matches hashcat's own output terminology (hash:plaintext pairs); 'nešifrovaný text' reads as a generic cryptography term, not the specific recovered value shown in the UI."
+    },
+    "potfile": {
+      "translation": "Potfile",
+      "keepEnglish": true,
+      "note": "hashcat-specific file format name; never translate a literal filename."
+    },
+    "client potfile": {
+      "translation": "Klientský potfile",
+      "keepEnglish": false,
+      "note": "'Potfile' stays untranslated as in the base term; only the 'client' qualifier is localized."
+    },
+    "wordlist": {
+      "translation": "Slovník",
+      "keepEnglish": false,
+      "note": "Standard in Czech security usage (cf. 'slovníkový útok' = dictionary attack)."
+    },
+    "rule": {
+      "translation": "Pravidlo",
+      "keepEnglish": false,
+      "note": "hashcat rule (password mangling rule); 'pravidlo' is the standard term."
+    },
+    "rule file": {
+      "translation": "Soubor pravidel",
+      "keepEnglish": false,
+      "note": "A file of hashcat rules."
+    },
+    "mask": {
+      "translation": "Maska",
+      "keepEnglish": false,
+      "note": "hashcat mask pattern such as ?u?l?l?d."
+    },
+    "charset": {
+      "translation": "Sada znaků",
+      "keepEnglish": false,
+      "note": "Custom character set for masks."
+    },
+    "attack mode": {
+      "translation": "Režim útoku",
+      "keepEnglish": false,
+      "note": "The category label for the attack-mode selector."
+    },
+    "brute force": {
+      "translation": "Útok hrubou silou",
+      "keepEnglish": false,
+      "note": "Matches the parallel structure of the other attack-mode entries (all end in 'útok'); bare 'Hrubá síla' would stand out inconsistently in the same dropdown as 'Slovníkový útok' / 'Hybridní útok'. This is also the standard Czech security term for the mode."
+    },
+    "dictionary attack": {
+      "translation": "Slovníkový útok",
+      "keepEnglish": false,
+      "note": "The established Czech security term; 'útok ze slovníku' is a stiffer, less idiomatic literal rendering."
+    },
+    "hybrid attack": {
+      "translation": "Hybridní útok",
+      "keepEnglish": false,
+      "note": "Wordlist + mask attack."
+    },
+    "association attack": {
+      "translation": "Asociační útok",
+      "keepEnglish": false,
+      "note": "hashcat association attack (mode 9); a rarely-used, niche mode with no established Czech term, but the calque is understandable and matches the other attack-mode entries' adjective+'útok' pattern."
+    },
+    "keyspace": {
+      "translation": "Keyspace",
+      "keepEnglish": true,
+      "note": "hashcat's own term for the space of candidate passwords. A literal calque ('prostor klíčů') wrongly suggests cryptographic keys, which are not involved here — kept in English like 'hash'/'potfile' to avoid misleading professionals who read hashcat's own English output."
+    },
+    "effective keyspace": {
+      "translation": "Efektivní keyspace",
+      "keepEnglish": false,
+      "note": "Mixed form like 'Klientský potfile' — Czech qualifier plus the retained English base term 'keyspace', for the same reason as 'keyspace'."
+    },
+    "chunk": {
+      "translation": "Blok",
+      "keepEnglish": false,
+      "note": "One slice of a job's keyspace given to one agent; use 'blok', not 'kus'."
+    },
+    "task": {
+      "translation": "Úkol",
+      "keepEnglish": false,
+      "note": "One chunk assignment running on an agent."
+    },
+    "job": {
+      "translation": "Úloha",
+      "keepEnglish": false,
+      "note": "A cracking job against a hashlist; distinct from 'Úkol' (task) — keep the two visibly different in the UI."
+    },
+    "preset job": {
+      "translation": "Přednastavená úloha",
+      "keepEnglish": false,
+      "note": "A saved, reusable attack configuration."
+    },
+    "workflow": {
+      "translation": "Pracovní postup",
+      "keepEnglish": false,
+      "note": "An ordered sequence of preset jobs."
+    },
+    "loopback": {
+      "translation": "Loopback",
+      "keepEnglish": true,
+      "note": "hashcat/product-specific feature name (re-run an attack using newly cracked passwords); 'zpětná smyčka' reads as an electronics/audio feedback-loop term and is not an established rendering here — kept as the feature's own name, like 'benchmark' or 'potfile'."
+    },
+    "priority": {
+      "translation": "Priorita",
+      "keepEnglish": false,
+      "note": "Scheduling priority of a job."
+    },
+    "max agents": {
+      "translation": "Max. agentů",
+      "keepEnglish": false,
+      "note": "Abbreviated form for UI labels."
+    },
+    "overflow": {
+      "translation": "Přetečení",
+      "keepEnglish": false,
+      "note": "Extra agents given to a job beyond its limit; 'přetečení' is the standard Czech IT term for 'overflow' (cf. integer/capacity overflow) — 'přetok' is a plumbing/hydraulics term, not the usual computing sense."
+    },
+    "benchmark": {
+      "translation": "Benchmark",
+      "keepEnglish": true,
+      "note": "Speed test; 'benchmark' is standard as-is in Czech security tooling."
+    },
+    "hash rate": {
+      "translation": "Rychlost hashování",
+      "keepEnglish": false,
+      "note": "Speed in hashes per second; matches common Czech usage in hashing/mining contexts."
+    },
+    "progress": {
+      "translation": "Pokrok",
+      "keepEnglish": false,
+      "note": "How much of the keyspace is done."
+    },
+    "agent": {
+      "translation": "Agent",
+      "keepEnglish": true,
+      "note": "Identical spelling in Czech; no translation needed."
+    },
+    "device": {
+      "translation": "Zařízení",
+      "keepEnglish": false,
+      "note": "A GPU/CPU on an agent."
+    },
+    "claim code": {
+      "translation": "Voucher",
+      "keepEnglish": true,
+      "note": "Per terms.json this is the same concept as 'voucher' — use one consistent term across both the admin and agent-registration flows so users don't read them as two different things. 'Aktivační kód' is accurate but breaks that consistency."
+    },
+    "voucher": {
+      "translation": "Voucher",
+      "keepEnglish": true,
+      "note": "Registration voucher; 'voucher' is a fully naturalized loanword in Czech (gift/discount vouchers) and is used as-is. Same underlying concept as 'claim code' — keep both rendered identically."
+    },
+    "heartbeat": {
+      "translation": "Kontrola činnosti",
+      "keepEnglish": false,
+      "note": "Periodic agent check-in; 'srdeční tep' is a literal translation but reads informally/biologically, not as a technical status signal."
+    },
+    "offline buffer": {
+      "translation": "Ochranná lhůta",
+      "keepEnglish": false,
+      "note": "Grace period before an agent is reported offline; 'ochranná lhůta' is the standard Czech legal/technical rendering of 'grace period' (cf. domain-registration grace periods). 'Časová rezerva odpojení' is unclear and non-standard."
+    },
+    "auto-update": {
+      "translation": "Automatická aktualizace",
+      "keepEnglish": false,
+      "note": "Automatic agent binary update."
+    },
+    "binary": {
+      "translation": "Binární soubor",
+      "keepEnglish": false,
+      "note": "A hashcat binary version managed by the server."
+    },
+    "client": {
+      "translation": "Klient",
+      "keepEnglish": false,
+      "note": "Customer/engagement the hashlists belong to; 'zákazník' is more purely commercial, 'klient' matches pentest/consulting usage."
+    },
+    "team": {
+      "translation": "Tým",
+      "keepEnglish": false,
+      "note": "A group of users that share clients, hashlists and agents."
+    },
+    "member": {
+      "translation": "Člen",
+      "keepEnglish": false,
+      "note": "A user in a team."
+    },
+    "owner": {
+      "translation": "Vlastník",
+      "keepEnglish": false,
+      "note": "The user an agent or resource belongs to."
+    },
+    "retention": {
+      "translation": "Uchovávání",
+      "keepEnglish": false,
+      "note": "How long data is kept before deletion; 'uchovávání' (imperfective) matches the standard Czech GDPR/data-protection phrase 'doba uchovávání' (data retention period). 'Uchování' (perfective) is a workable alternative but less idiomatic for an ongoing policy."
+    },
+    "archive": {
+      "translation": "Archivovat",
+      "keepEnglish": false,
+      "note": "Button action (hide from default lists without deleting) — use the infinitive verb, the same pattern as 'apply' → 'Použít', not the noun 'Archiv'."
+    },
+    "analytics report": {
+      "translation": "Analytická zpráva",
+      "keepEnglish": false,
+      "note": "Password-analysis report for cracked hashes."
+    },
+    "password reuse": {
+      "translation": "Opakované použití hesla",
+      "keepEnglish": false,
+      "note": "Same password used by several accounts."
+    },
+    "hash reuse": {
+      "translation": "Opakované použití hashe",
+      "keepEnglish": false,
+      "note": "Same hash appearing for several accounts; parallel construction to 'password reuse'."
+    },
+    "complexity": {
+      "translation": "Složitost",
+      "keepEnglish": false,
+      "note": "Password character-class complexity."
+    },
+    "entropy": {
+      "translation": "Entropie",
+      "keepEnglish": false,
+      "note": "Password entropy (bits); fully assimilated loanword."
+    },
+    "domain": {
+      "translation": "Doména",
+      "keepEnglish": false,
+      "note": "Windows/AD domain of an account."
+    },
+    "username": {
+      "translation": "Uživatelské jméno",
+      "keepEnglish": false,
+      "note": "Account name."
+    },
+    "audit log": {
+      "translation": "Auditní log",
+      "keepEnglish": false,
+      "note": "'Log' is a fully naturalized loanword in Czech IT (cf. 'bezpečnostní log', 'log událostí'), but 'audit' should still take the Czech adjective form 'auditní' — leaving the whole phrase as unmarked English 'Audit log' reads as un-localized. 'Auditní protokol' is correct but noticeably more formal/verbose for UI."
+    },
+    "dashboard": {
+      "translation": "Přehled",
+      "keepEnglish": false,
+      "note": "Home overview page."
+    },
+    "settings": {
+      "translation": "Nastavení",
+      "keepEnglish": false,
+      "note": "Configuration pages."
+    },
+    "autosave": {
+      "translation": "Automatické uložení",
+      "keepEnglish": false,
+      "note": "Saved automatically when leaving a field."
+    },
+    "apply": {
+      "translation": "Použít",
+      "keepEnglish": false,
+      "note": "Button: put pending changes into effect; 'aplikovat' is an alternative but less native for a button label."
+    },
+    "certificate": {
+      "translation": "Certifikát",
+      "keepEnglish": false,
+      "note": "Server TLS certificate."
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "Subject Alternative Name; acronym kept as-is, as with other protocol/standard acronyms in doNotTranslate."
+    },
+    "network share": {
+      "translation": "Síťové sdílení",
+      "keepEnglish": false,
+      "note": "SMB/NFS share used for wordlist storage."
+    },
+    "mount": {
+      "translation": "Připojit",
+      "keepEnglish": false,
+      "note": "Attach a network share to a path; standard Czech IT verb for mounting."
+    },
+    "cloud fleet": {
+      "translation": "Cloudová flotila",
+      "keepEnglish": false,
+      "note": "Rented cloud GPU instances. 'Cloud' is inflected as the Czech adjective 'cloudová' (cf. 'cloudové služby'); leaving the bare English noun 'Cloud' next to a Czech noun ('Cloud flotila') reads as a grammar error."
+    },
+    "provisioning": {
+      "translation": "Zřizování",
+      "keepEnglish": false,
+      "note": "Starting cloud instances automatically; matches standard Czech cloud documentation ('zřízení instance/prostředků'). 'Přidělování' is a workable alternative."
+    },
+    "budget": {
+      "translation": "Rozpočet",
+      "keepEnglish": false,
+      "note": "Monthly cloud spending limit."
+    },
+    "threshold": {
+      "translation": "Práh",
+      "keepEnglish": false,
+      "note": "Percentage of budget that triggers an action; standard in Czech monitoring/alerting contexts ('prahová hodnota')."
+    },
+    "drain": {
+      "translation": "Vyprazdňování",
+      "keepEnglish": false,
+      "note": "Let running work finish without starting new work; matches the standard Czech rendering of 'drain' in cluster/orchestration contexts (cf. 'vyprázdnit uzel' for 'drain a node')."
+    },
+    "teardown": {
+      "translation": "Odstraňování",
+      "keepEnglish": false,
+      "note": "Destroying a cloud instance. Uses the same ongoing-process word-formation pattern as 'zřizování' (provisioning) and 'vyprazdňování' (drain) for a consistent lifecycle trio. 'Demontáž' evokes physically disassembling hardware, not terminating a cloud instance; 'rozpad' is a disintegration/breakup metaphor and equally off-target."
+    },
+    "webhook": {
+      "translation": "Webhook",
+      "keepEnglish": true,
+      "note": "HTTP callback for notifications; universally kept as-is in Czech developer usage."
+    },
+    "notification": {
+      "translation": "Oznámení",
+      "keepEnglish": false,
+      "note": "In-app/email/webhook message."
+    },
+    "two-factor authentication": {
+      "translation": "Dvoufaktorová autentizace",
+      "keepEnglish": false,
+      "note": "MFA; the standard Czech security term, matching 'two-factor' precisely."
+    },
+    "backup codes": {
+      "translation": "Záložní kódy",
+      "keepEnglish": false,
+      "note": "One-time MFA recovery codes."
+    },
+    "authenticator app": {
+      "translation": "Ověřovací aplikace",
+      "keepEnglish": false,
+      "note": "TOTP app, e.g. Google Authenticator; standard Czech rendering."
+    },
+    "session": {
+      "translation": "Relace",
+      "keepEnglish": false,
+      "note": "A logged-in browser session."
+    },
+    "API key": {
+      "translation": "API klíč",
+      "keepEnglish": false,
+      "note": "Personal key for the HTTP API; 'API' kept per doNotTranslate, 'klíč' translated."
+    },
+    "branding": {
+      "translation": "Branding",
+      "keepEnglish": true,
+      "note": "Custom app name, colours and logo; Czech business/software usage keeps the English term as-is."
+    },
+    "diagnostics": {
+      "translation": "Diagnostika",
+      "keepEnglish": false,
+      "note": "Troubleshooting/debug tools page."
+    }
+  }
+}

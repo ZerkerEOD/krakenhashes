@@ -1,0 +1,377 @@
+{
+  "title": "ユーザー設定",
+  "profileSettings": {
+    "title": "プロフィール設定"
+  },
+  "profile": {
+    "title": "プロフィール",
+    "username": "ユーザー名",
+    "email": "メールアドレス",
+    "changePassword": "パスワード変更",
+    "currentPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード",
+    "confirmPassword": "新しいパスワードを確認",
+    "updateProfile": "プロフィールを更新",
+    "profileUpdated": "プロフィールが正常に更新されました"
+  },
+  "account": {
+    "title": "アカウント情報",
+    "username": "ユーザー名",
+    "email": "メールアドレス",
+    "usernameCannotChange": "ユーザー名は変更できません",
+    "saving": "保存中...",
+    "saveEmail": "メールアドレスを保存",
+    "confirmEmailUpdate": {
+      "title": "メールアドレスの更新を確認",
+      "message": "メールアドレスを更新するには、現在のパスワードを入力してください。"
+    },
+    "errors": {
+      "noChanges": "保存する変更がありません",
+      "invalidEmail": "無効なメールアドレス",
+      "updateFailed": "メールアドレスの更新に失敗しました",
+      "incorrectPassword": "パスワードが正しくありません"
+    },
+    "success": {
+      "emailUpdated": "メールアドレスが正常に更新されました"
+    }
+  },
+  "password": {
+    "title": "パスワード変更",
+    "currentPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード",
+    "confirmNewPassword": "新しいパスワードを確認",
+    "enterCurrentFirst": "まず現在のパスワードを入力してください",
+    "passwordsMatch": "パスワードが一致しています",
+    "changePassword": "パスワードを変更",
+    "changing": "パスワードを変更中...",
+    "errors": {
+      "currentRequired": "現在のパスワードは必須です",
+      "newRequired": "新しいパスワードは必須です",
+      "mismatch": "パスワードが一致しません",
+      "requirements": "新しいパスワードが要件を満たしていません",
+      "updateFailed": "パスワードの更新に失敗しました"
+    },
+    "success": {
+      "changed": "パスワードが正常に変更されました"
+    }
+  },
+  "apiKey": {
+    "title": "APIキー",
+    "status": "APIキーのステータス",
+    "active": "アクティブ",
+    "noKeyGenerated": "生成されたAPIキーがありません",
+    "created": "作成日時",
+    "lastUsed": "最終使用日時",
+    "generate": "APIキーを生成",
+    "regenerate": "APIキーを再生成",
+    "revoke": "APIキーを取り消す",
+    "viewDocs": "APIドキュメントを表示",
+    "dialog": {
+      "title": "APIキー",
+      "saveNow": "このキーを今すぐ保存してください！",
+      "cantSeeAgain": "二度と表示できません。",
+      "instructions": "このAPIキーをHTTPリクエストで X-API-Key ヘッダーに含めて使用してください。",
+      "saved": "保存しました"
+    },
+    "confirmRegenerate": {
+      "title": "APIキーを再生成しますか？",
+      "warning": "既存のAPIキーが無効になります。現在のキーを使用しているアプリケーションは機能しなくなります。",
+      "confirm": "続行してもよろしいですか？"
+    },
+    "confirmRevoke": {
+      "title": "APIキーを取り消しますか？",
+      "warning": "APIアクセスが即座に無効になります。このキーを使用しているアプリケーションは機能しなくなります。",
+      "confirm": "APIキーを取り消してもよろしいですか？"
+    },
+    "errors": {
+      "generateFailed": "APIキーの生成に失敗しました",
+      "revokeFailed": "APIキーの取り消しに失敗しました"
+    },
+    "success": {
+      "revoked": "APIキーが正常に取り消されました",
+      "copied": "APIキーがクリップボードにコピーされました"
+    }
+  },
+  "security": {
+    "title": "セキュリティ",
+    "caCertificate": {
+      "title": "CA証明書",
+      "description": "自己署名証明書を使用している場合は、CA証明書をダウンロードしてインストールし、このサーバーを信頼してください。",
+      "download": "CA証明書をダウンロード",
+      "docsLink": "SSL/TLSドキュメントを表示"
+    }
+  },
+  "common": {
+    "cancel": "キャンセル",
+    "never": "なし",
+    "invalidDate": "無効な日付",
+    "create": "作成",
+    "delete": "削除"
+  },
+  "mfa": {
+    "title": "二要素認証",
+    "status": "2FAステータス",
+    "enabled": "有効",
+    "disabled": "無効",
+    "enable": "2FAを有効にする",
+    "disable": "2FAを無効にする",
+    "methods": {
+      "title": "認証方法",
+      "totp": "認証アプリ",
+      "email": "メール",
+      "backupCodes": "バックアップコード",
+      "passkey": "パスキー"
+    },
+    "setup": {
+      "scanQR": "認証アプリでこのQRコードをスキャンしてください",
+      "enterCode": "アプリからのコードを入力して確認してください",
+      "backupCodesGenerated": "これらのバックアップコードを安全な場所に保存してください"
+    },
+    "methodSelection": {
+      "title": "MFA方法を選択",
+      "description": "サインイン時に身元を確認する方法を選択してください。",
+      "authenticatorDescription": "Google AuthenticatorやAuthy、1Passwordなどの認証アプリからの時間ベースのコードを使用してください。",
+      "passkeyDescription": "セキュリティキー、指紋、顔認証、またはデバイスPINを使用して、迅速で安全な認証を実行してください。"
+    },
+    "card": {
+      "title": "多要素認証",
+      "requiredByPolicy": "MFAは組織のセキュリティポリシーで必須です",
+      "enableLabel": "多要素認証を有効にする",
+      "preferredMethod": "優先MFA方法",
+      "preferredMethodNames": {
+        "authenticator": "認証アプリ",
+        "email": "メール",
+        "passkey": "パスキー"
+      },
+      "emailAuth": "メール認証",
+      "emailRequired": "アカウントセキュリティのため必須です",
+      "optional": "オプション",
+      "required": "必須",
+      "configured": "設定済み",
+      "notConfigured": "未設定",
+      "disable": "無効にする",
+      "setup": "設定",
+      "passkeys": "パスキー",
+      "passkeysRegistered_other": "{{count}} 個のパスキーが登録されています",
+      "addPasskey": "パスキーを追加",
+      "passkeyAdded": "追加: {{date}}",
+      "passkeyLastUsed": " | 最後に使用: {{date}}",
+      "rename": "名前変更",
+      "delete": "削除",
+      "passkeysUnsupported": "このブラウザではパスキーがサポートされていません。パスキー認証を有効にするには、最新のブラウザを使用してください。",
+      "backupCodesRemaining_other": "{{count}} 個のバックアップコードが残っています",
+      "noBackupCodes": "利用可能なバックアップコードがありません",
+      "regenerate": "再生成",
+      "generate": "生成"
+    },
+    "dialogs": {
+      "cancel": "キャンセル",
+      "close": "閉じる",
+      "warning": "警告",
+      "setupAuthenticatorTitle": "認証アプリを設定",
+      "qrAlt": "QRコード",
+      "manualEntry": "QRコードをスキャンできない場合は、このコードを手動で入力してください: <strong>{{secret}}</strong>",
+      "scanInstructions": "認証アプリ (例: Google Authenticator、Authy) でこのQRコードをスキャンしてください",
+      "verificationCode": "確認コード",
+      "verificationPlaceholder": "6桁のコードを入力",
+      "verify": "確認",
+      "backupCodesTitle": "バックアップコード",
+      "generateBackupPrompt": "プライマリ認証方法にアクセスできない場合に使用するバックアップコードを生成してください",
+      "generateBackupCodes": "バックアップコードを生成",
+      "saveCodesWarning": "これらのコードを安全な場所に保存してください。二度と表示されません！",
+      "copied": "コピーしました！",
+      "copyAll": "すべてのコードをコピー",
+      "regenerateWarning": "既存のすべてのバックアップコードが無効になります。新しいコードを生成してもよろしいですか？",
+      "generateNewCodes": "新しいコードを生成",
+      "disableAuthWarning": "認証アプリを無効にしてもよろしいですか？これでアカウントから削除され、将来使用する場合は再度設定する必要があります。",
+      "disableAuthenticator": "認証アプリを無効にする",
+      "addPasskeyTitle": "パスキーを追加",
+      "addPasskeyDescription": "二要素認証用の新しいパスキー (セキュリティキー、指紋、またはデバイス) を登録してください。",
+      "passkeyName": "パスキー名",
+      "passkeyNamePlaceholder": "例: YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "このブラウザではWebAuthnがサポートされていません。最新のブラウザを使用してください。",
+      "webauthnUnsupportedBrowsers": "このブラウザではWebAuthnがサポートされていません。Chrome、Firefox、Safari、Edgeなどの最新ブラウザを使用してください。",
+      "registering": "登録中...",
+      "registerPasskey": "パスキーを登録",
+      "renamePasskeyTitle": "パスキー名を変更",
+      "saving": "保存中...",
+      "save": "保存",
+      "deletePasskeyTitle": "パスキーを削除",
+      "deletePasskeyConfirm": "パスキー \"{{name}}\" を削除してもよろしいですか？このアクションは取り消せません。",
+      "deleting": "削除中...",
+      "delete": "削除",
+      "setupPasskeyTitle": "MFA用パスキーを設定",
+      "setupPasskeyDescription": "多要素認証を有効にするためにパスキーを登録してください。セキュリティキー、指紋、顔認証、またはデバイスPINを使用できます。",
+      "registerAndEnable": "登録してMFAを有効にする"
+    },
+    "messages": {
+      "loadFailed": "MFA設定の読み込みに失敗しました",
+      "disabled": "MFAが正常に無効になりました",
+      "passkeyBrowserRequired": "パスキー認証が必須ですが、ブラウザはWebAuthnをサポートしていません。MFAを有効にするには、Chrome、Firefox、Safari、Edgeなどの最新ブラウザを使用してください。",
+      "enabledEmail": "メール認証でMFAが有効になりました",
+      "noMethods": "利用可能なMFA方法がありません。管理者にお問い合わせください。",
+      "toggleFailed": "MFAの切り替えに失敗しました",
+      "passkeyNameRequired": "パスキーの名前を入力してください",
+      "passkeyRegisteredSaveCodes": "パスキーが正常に登録されました！バックアップコードを保存してください。",
+      "passkeyRegisteredNoCodes": "パスキーが正常に登録されました。MFA設定からバックアップコードを生成できます。",
+      "authenticatorSetupFailed": "認証アプリの設定に失敗しました",
+      "authenticatorSetup": "認証アプリが正常に設定されました",
+      "verifyFailed": "コードの確認に失敗しました",
+      "backupCodesGenerated": "新しいバックアップコードが生成されました",
+      "backupCodesFailed": "バックアップコードの生成に失敗しました",
+      "preferredUpdated": "優先MFA方法が正常に更新されました",
+      "preferredFailed": "優先MFA方法の更新に失敗しました",
+      "disableAuthFailed": "認証アプリの無効化に失敗しました",
+      "authenticatorDisabled": "認証アプリが正常に無効になりました",
+      "newBackupCodesFailed": "新しいバックアップコードの生成に失敗しました",
+      "newBackupCodesGenerated": "新しいバックアップコードが正常に生成されました",
+      "invalidResponse": "サーバーからの応答形式が無効です",
+      "passkeyRegistered": "パスキーが正常に登録されました",
+      "passkeyDeleted": "パスキーが正常に削除されました",
+      "passkeyDeleteFailed": "パスキーの削除に失敗しました",
+      "passkeyRenamed": "パスキーが正常に名前変更されました",
+      "passkeyRenameFailed": "パスキーの名前変更に失敗しました"
+    }
+  },
+  "linkedAccounts": {
+    "title": "リンク済みアカウント",
+    "noAccounts": "リンク済みアカウントなし",
+    "link": "アカウントをリンク",
+    "unlink": "リンク解除",
+    "description": "アカウントにリンクされた外部認証プロバイダー",
+    "noAccountsMessage": "プロフィールにリンクされた外部アカウントはありません。SSOプロバイダーでサインインしてアカウントをリンクできます。",
+    "emailLabel": "メール: {{email}}",
+    "usernameLabel": "ユーザー名: {{username}}",
+    "lastLoginLinked": "最後のログイン: {{lastLogin}} | リンク日: {{linked}}",
+    "unlinkTooltip": "アカウントのリンクを解除",
+    "errors": {
+      "loadFailed": "リンク済みアカウントの読み込みに失敗しました",
+      "unlinkFailed": "アカウントのリンク解除に失敗しました"
+    },
+    "unlinkDialog": {
+      "title": "アカウントのリンク解除",
+      "warning": "このプロバイダーを使ってサインインできなくなります。",
+      "confirmation": "{{provider}}のアカウントのリンクを解除してもよろしいですか？"
+    }
+  },
+  "notifications": {
+    "title": "通知",
+    "emailNotifications": "メール通知",
+    "jobCompleted": "ジョブ完了",
+    "agentOffline": "エージェントオフライン",
+    "securityAlerts": "セキュリティアラート"
+  },
+  "preferences": {
+    "title": "基本設定",
+    "language": "言語",
+    "timezone": "タイムゾーン",
+    "dateFormat": "日付形式",
+    "theme": "テーマ",
+    "themes": {
+      "light": "ライト",
+      "dark": "ダーク",
+      "system": "システム"
+    },
+    "languageHelper": "このブラウザのみに適用されます。",
+    "themeHelper": "システムはお使いのOSの設定に従います。"
+  },
+  "errors": {
+    "updateFailed": "設定の更新に失敗しました",
+    "passwordMismatch": "パスワードが一致しません",
+    "invalidPassword": "現在のパスワードが無効です"
+  },
+  "nav": {
+    "description": "アカウント、セキュリティ、設定です。",
+    "groupAccount": "アカウント",
+    "profile": "プロフィール",
+    "profileDesc": "メールアドレス、言語、外観です。",
+    "security": "セキュリティ",
+    "securityDesc": "パスワード、二要素認証、リンク済みアカウント、CA証明書です。",
+    "notifications": "通知",
+    "notificationsDesc": "どのイベントがどのように通知されるかです。",
+    "api": "APIキー",
+    "apiDesc": "HTTP APIの個人キーです。",
+    "charsets": "保存済み文字セット",
+    "charsetsDesc": "マスク攻撃用のカスタム文字セットです。"
+  },
+  "savedCharsets": {
+    "title": "保存済み文字セット",
+    "description": "マスク攻撃で使用する個人用カスタム文字セットを管理します。インライン定義とバイナリ.hcchrファイルに対応しています。",
+    "createCharset": "文字セットを作成",
+    "sections": {
+      "mine": "マイ文字セット",
+      "team": "チーム文字セット",
+      "global": "グローバル文字セット",
+      "globalSubtitle": "これらの文字セットは管理者によって管理され、全員が利用できます。"
+    },
+    "columns": {
+      "name": "名前",
+      "team": "チーム",
+      "definition": "定義 / 情報",
+      "description": "説明",
+      "created": "作成日時"
+    },
+    "typeLabels": {
+      "file": "ファイル",
+      "hex": "16進"
+    },
+    "uniqueBytes_other": "{{count}}個の一意なバイト",
+    "hexBytes_other": "{{count}}バイト",
+    "rowActions": {
+      "edit": "編集",
+      "delete": "削除"
+    },
+    "empty": "このカテゴリに文字セットがありません。",
+    "dialogs": {
+      "create": {
+        "title": "個人用文字セットを作成"
+      },
+      "edit": {
+        "title": "文字セットを編集"
+      },
+      "delete": {
+        "title": "文字セットを削除",
+        "confirmation": "文字セット「{{name}}」を削除してもよろしいですか？"
+      },
+      "modeToggle": {
+        "inline": "インライン定義",
+        "file": "ファイルアップロード(.hcchr)"
+      },
+      "fields": {
+        "name": "名前",
+        "namePlaceholder": "例: DES Full Charset",
+        "definition": "定義",
+        "definitionPlaceholderHex": "例: 41424344(16進バイトペア)",
+        "definitionPlaceholderPlain": "例: ?u?d または abcdef0123456789",
+        "definitionHelperHex": "16進バイトペア — 各ペアは1つの文字セットバイトです。{{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}}バイト",
+        "definitionHelperPlain": "hashcatの文字セット定義です。?l、?u、?d、?s、?a、?b、?h、?Hまたはリテラル文字を使用します。",
+        "hexTooltip": "有効にすると、定義は16進バイトペア(例: 41424344 = バイトA、B、C、D)として解釈されます。この文字セットを使用するジョブは自動的に--hex-charsetを追加します。",
+        "hexLabel": "16進エンコード定義",
+        "selectFile": ".hcchrファイルを選択",
+        "fileSizeBytes_other": "{{count}}バイト",
+        "fileHelperText": "生バイト値を含むバイナリ文字セットファイル(最大1023バイト、最大256個の一意なバイト)です。",
+        "fileCharsetInfo_other": "ファイル文字セット: {{count}}個の一意なバイト。名前と説明のみ編集できます。",
+        "description": "説明",
+        "descriptionPlaceholder": "この文字セットの用途に関するオプション説明"
+      },
+      "update": "更新",
+      "upload": "アップロード"
+    },
+    "messages": {
+      "createSuccess": "文字セットが正常に作成されました",
+      "uploadSuccess": "ファイル文字セットが正常にアップロードされました",
+      "updateSuccess": "文字セットが正常に更新されました",
+      "deleteSuccess": "文字セットが正常に削除されました"
+    },
+    "errors": {
+      "onlyHcchrAllowed": ".hcchrファイルのみが許可されています",
+      "fileTooLarge": "ファイルが大きすぎます(最大1023バイト — hashcatの読み込みバッファ制限)",
+      "nameRequired": "名前は必須です",
+      "definitionRequired": "定義は必須です",
+      "selectFile": ".hcchrファイルを選択してください",
+      "deleteFailed": "文字セットの削除に失敗しました: {{message}}",
+      "globalDeleteForbidden": "グローバル文字セットは管理者が管理パネルでのみ削除できます"
+    }
+  }
+}

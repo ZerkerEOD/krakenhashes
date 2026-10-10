@@ -1,0 +1,194 @@
+{
+  "title": "대시보드",
+  "welcome": "KrakenHashes에 오신 것을 환영합니다",
+  "stats": {
+    "title": "개요",
+    "totalJobs": "전체 작업",
+    "activeJobs": "활성 작업",
+    "completedJobs": "완료된 작업",
+    "totalHashes": "전체 해시",
+    "crackedHashes": "크래킹된 해시",
+    "crackRate": "크래킹 비율",
+    "activeAgents": "활성 에이전트",
+    "totalAgents": "전체 에이전트"
+  },
+  "recentActivity": {
+    "title": "최근 활동",
+    "noActivity": "최근 활동 없음",
+    "viewAll": "모든 알림"
+  },
+  "quickActions": {
+    "title": "빠른 작업",
+    "createJob": "작업 생성",
+    "uploadHashlist": "해시 목록 업로드",
+    "viewAgents": "에이전트 보기"
+  },
+  "agents": {
+    "title": "나의 에이전트",
+    "loadError": "에이전트 로드 실패: {{message}}",
+    "noAgents": "등록된 에이전트 없음",
+    "hashRate": "해시레이트",
+    "notAvailable": "N/A",
+    "job": "작업",
+    "unnamedJob": "이름 없는 작업",
+    "noActiveTask": "활성 태스크 없음"
+  },
+  "pagination": {
+    "previous": "이전",
+    "next": "다음",
+    "pageOf": "페이지 {{current}} / {{total}}"
+  },
+  "jobs": {
+    "title": "나의 작업",
+    "total": "전체",
+    "autoRefreshOn": "자동",
+    "autoRefreshOff": "꺼짐",
+    "lastUpdated": "마지막 업데이트: {{time}}",
+    "loadError": "작업 로드 실패: {{message}}",
+    "noJobs": "작업을 찾을 수 없습니다. 시작하려면 새 작업을 만드세요."
+  },
+  "buttons": {
+    "refresh": "새로 고침",
+    "deleteFinished": "완료된 작업 삭제"
+  },
+  "filters": {
+    "status": "상태",
+    "priority": "우선순위",
+    "all": "모두",
+    "searchPlaceholder": "작업 검색...",
+    "clear": "필터 지우기"
+  },
+  "status": {
+    "pending": "대기 중",
+    "running": "실행 중",
+    "paused": "일시 중지됨",
+    "completed": "완료됨",
+    "failed": "실패",
+    "cancelled": "취소됨"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "완료된 작업 삭제",
+      "message": "완료된 모든 작업을 삭제하시겠습니까? 이 작업은 취소할 수 없습니다."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "완료된 작업 삭제 실패",
+    "deleteJobFailed": "작업 삭제 실패",
+    "retryJobFailed": "작업 재시도 실패",
+    "updateJobFailed": "작업 업데이트 실패"
+  },
+  "hashlistOverview": {
+    "title": "해시 목록 개요",
+    "loadError": "해시 목록 로드 실패",
+    "noHashlists": "해시 목록을 찾을 수 없음",
+    "columns": {
+      "name": "이름",
+      "client": "클라이언트",
+      "status": "상태",
+      "total": "전체",
+      "cracked": "크래킹됨",
+      "progress": "진행률"
+    },
+    "status": {
+      "ready": "준비됨",
+      "error": "오류",
+      "uploading": "업로드 중",
+      "processing": "처리 중"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "작업을 찾을 수 없음",
+    "noJobsHint": "시작하려면 해시 목록 페이지에서 새 작업을 만드세요.",
+    "completedJobs": "완료된 작업",
+    "columns": {
+      "jobName": "작업 이름",
+      "hashlist": "해시 목록 / 프리셋",
+      "createdBy": "생성자",
+      "progress": "진행률",
+      "keyspace": "키스페이스",
+      "cracked": "크래킹됨",
+      "agents": "에이전트",
+      "priority": "우선순위",
+      "maxAgents": "최대 에이전트 수",
+      "actions": "관리"
+    }
+  },
+  "kpi": {
+    "runningJobs": "실행 중인 작업",
+    "queued": "{{count}}개 대기 중",
+    "agentsOnline": "온라인 에이전트",
+    "agentProblems": "{{count}}개 주의 필요",
+    "hashRate": "해시레이트",
+    "cracks24h": "크래킹됨(24시간)",
+    "cracks7d": "7일 동안 {{count}}개",
+    "crackRate": "크래킹 비율",
+    "hashlistTotals": "{{total}}개 중 {{cracked}}개 해시",
+    "failed24h": "실패(24시간)",
+    "completed24h": "{{count}}개 완료"
+  },
+  "agentHealth": {
+    "title": "에이전트 상태",
+    "viewAll": "모든 에이전트",
+    "utilization": "GPU 사용률",
+    "temperature": "가장 뜨거운 GPU",
+    "lastSeen": "마지막 접속 {{when}}",
+    "warnings": {
+      "error": "오류",
+      "offline": "오프라인",
+      "update_failed": "업데이트 실패",
+      "stale_heartbeat": "하트비트 없음",
+      "gpu_hot": "GPU 과열"
+    }
+  },
+  "recentCracks": {
+    "title": "최근 크래킹",
+    "viewAll": "모든 크래킹된 해시",
+    "empty": "아직 크래킹된 것이 없음",
+    "copy": "평문 복사",
+    "copied": "복사됨"
+  },
+  "activeJobs": {
+    "title": "활성 작업",
+    "showing": "{{total}}개 중 10개 표시",
+    "viewAll": "모든 작업",
+    "empty": "실행 중인 것 없음",
+    "emptyHint": "해시 목록에서 작업을 시작하세요.",
+    "goHashlists": "해시 목록으로 이동",
+    "recentTitle": "작업",
+    "recentSubtitle": "활성 작업 먼저, 그다음 최근 완료된 작업",
+    "recentEmpty": "아직 작업이 없습니다"
+  },
+  "welcomeUser": "{{name}}님, 다시 오신 것을 환영합니다",
+  "autoRefresh": {
+    "on": "라이브",
+    "off": "일시 중지"
+  },
+  "view": {
+    "label": "대시보드 보기",
+    "mine": "내 항목",
+    "teams": "내 팀",
+    "all": "전체"
+  },
+  "attention": {
+    "title": "조치 필요",
+    "allClear": "모두 정상",
+    "allClearHint": "실패하거나 사용자의 조치를 기다리는 항목이 없습니다.",
+    "kind": {
+      "job_failed": "작업 실패: {{name}}",
+      "job_blocked": "작업 대기 중: {{name}}",
+      "hashlist_error": "해시 목록 처리 실패: {{name}}",
+      "hashlist_awaiting_decision": "해시 목록 검토 필요: {{name}}",
+      "hashlist_stuck": "해시 목록 처리 중단됨: {{name}}",
+      "agent_error": "에이전트 오류: {{name}}",
+      "agent_update_failed": "에이전트 업데이트 실패: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "기간별 크래킹",
+    "subtitle_other": "지난 {{days}}일간 {{count}}개 크래킹",
+    "tooltip_other": "{{count}}개 크래킹",
+    "topHashlists": "이번 주 상위 해시 목록",
+    "noCracksWeek": "지난 7일간 크래킹된 항목이 없습니다"
+  }
+}

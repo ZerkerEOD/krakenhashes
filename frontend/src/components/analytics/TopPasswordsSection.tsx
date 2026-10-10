@@ -3,21 +3,11 @@
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Paper,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Alert,
-  Chip,
-} from '@mui/material';
+import { Paper, Typography, Alert, Chip } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
 import { TopPassword } from '../../types/analytics';
 import CrackedPassword from '../common/CrackedPassword';
+import { SimpleTable, SimpleColumn } from '../ui';
 
 interface TopPasswordsSectionProps {
   data: TopPassword[];
@@ -29,6 +19,28 @@ export default function TopPasswordsSection({ data }: TopPasswordsSectionProps) 
   if (data.length === 0) {
     return null;
   }
+
+  const columns: SimpleColumn<TopPassword>[] = [
+    { field: 'rank', headerName: t('columns.rank'), render: (_r, i) => i + 1 },
+    {
+      field: 'password',
+      headerName: t('columns.password'),
+      render: (pwd) => (
+        <Chip
+          label={<CrackedPassword password={pwd.password} />}
+          size="small"
+          sx={{ fontFamily: (th) => th.typography.monoFamily }}
+        />
+      ),
+    },
+    { field: 'count', headerName: t('columns.count'), align: 'right', render: (pwd) => pwd.count.toLocaleString() },
+    {
+      field: 'percentage',
+      headerName: t('columns.percentage'),
+      align: 'right',
+      render: (pwd) => `${pwd.percentage.toFixed(2)}%`,
+    },
+  ];
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
@@ -42,34 +54,7 @@ export default function TopPasswordsSection({ data }: TopPasswordsSectionProps) 
         {t('descriptions.topPasswords')}
       </Typography>
 
-      <TableContainer>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>{t('columns.rank')}</TableCell>
-              <TableCell>{t('columns.password')}</TableCell>
-              <TableCell align="right">{t('columns.count')}</TableCell>
-              <TableCell align="right">{t('columns.percentage')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {data.map((pwd, index) => (
-              <TableRow key={index}>
-                <TableCell>{index + 1}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={<CrackedPassword password={pwd.password} />}
-                    size="small"
-                    sx={{ fontFamily: 'monospace' }}
-                  />
-                </TableCell>
-                <TableCell align="right">{pwd.count.toLocaleString()}</TableCell>
-                <TableCell align="right">{pwd.percentage.toFixed(2)}%</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <SimpleTable rows={data} getRowKey={(_r, i) => i} columns={columns} />
     </Paper>
   );
 }

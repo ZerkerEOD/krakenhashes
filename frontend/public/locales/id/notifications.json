@@ -1,0 +1,204 @@
+{
+  "title": "Notifikasi",
+  "connected": "Notifikasi",
+  "disconnected": "Menyambung kembali...",
+  "empty": "Tidak ada notifikasi",
+  "markAllRead": "Tandai semua dibaca",
+  "markRead": "Tandai sebagai dibaca",
+  "viewAll": "Lihat semua notifikasi",
+  "deleteSelected": "Hapus {{count}} terpilih",
+  "selectAll": "Pilih semua",
+  "aria": {
+    "bellButton": "Tampilkan notifikasi"
+  },
+  "center": {
+    "title": "Pusat Notifikasi",
+    "description": "Lihat dan kelola notifikasi Anda"
+  },
+  "filters": {
+    "category": "Kategori",
+    "status": "Status",
+    "allCategories": "Semua kategori",
+    "all": "Semua",
+    "unread": "Belum dibaca",
+    "read": "Dibaca"
+  },
+  "categories": {
+    "job": "Job",
+    "agent": "Agent",
+    "security": "Keamanan",
+    "system": "Sistem"
+  },
+  "types": {
+    "header": "Tipe Notifikasi",
+    "job_started": "Job Dimulai",
+    "job_completed": "Job Selesai",
+    "job_failed": "Job Gagal",
+    "first_crack": "Crack Pertama",
+    "task_completed_with_cracks": "Laporan Penyelesaian Task",
+    "agent_offline": "Agent Offline",
+    "agent_error": "Kesalahan Agent",
+    "security_suspicious_login": "Login Mencurigakan",
+    "security_mfa_disabled": "MFA Dinonaktifkan",
+    "security_password_changed": "Kata Sandi Diubah",
+    "webhook_failure": "Kegagalan Webhook"
+  },
+  "typeDescriptions": {
+    "job_started": "Ketika sebuah job mulai dieksekusi",
+    "job_completed": "Ketika sebuah job selesai dengan sukses",
+    "job_failed": "Ketika sebuah job gagal",
+    "first_crack": "Ketika hash pertama tercrack (notifikasi langsung)",
+    "task_completed_with_cracks": "Ketika sebuah task selesai",
+    "agent_offline": "Ketika agent offline (setelah masa tenggang)",
+    "agent_error": "Ketika agent melaporkan kesalahan kritis",
+    "security_suspicious_login": "Login dari lokasi atau perangkat baru",
+    "security_mfa_disabled": "Ketika MFA dinonaktifkan (wajib)",
+    "security_password_changed": "Ketika kata sandi diubah (wajib)",
+    "webhook_failure": "Ketika pengiriman webhook gagal"
+  },
+  "channels": {
+    "inApp": "Dalam Aplikasi",
+    "email": "Email",
+    "webhook": "Webhook"
+  },
+  "settings": {
+    "title": "Pengaturan Notifikasi",
+    "description": "Konfigurasi bagaimana dan kapan Anda menerima notifikasi",
+    "enabledChannels": "Saluran Aktif",
+    "taskReportMode": "Kapan memberi notifikasi",
+    "taskReportModeOnlyIfCracks": "Hanya jika crack ditemukan",
+    "taskReportModeAlways": "Selalu beri notifikasi",
+    "modeUpdated": "Mode laporan task diperbarui",
+    "onlyIfCracks": "Hanya jika crack ditemukan",
+    "always": "Selalu beri notifikasi",
+    "mandatory": "Wajib",
+    "mandatoryDescription": "Notifikasi ini tidak dapat dinonaktifkan",
+    "emailNotConfigured": "Gateway email tidak dikonfigurasi",
+    "emailNotConfiguredWarning": "Gateway email tidak dikonfigurasi. Notifikasi email saat ini tidak tersedia.",
+    "noWebhooksConfigured": "Tidak ada webhook aktif yang dikonfigurasi",
+    "toggleAll": "Alihkan semua"
+  },
+  "webhooks": {
+    "title": "Konfigurasi Webhook",
+    "description": "Kelola integrasi webhook Anda",
+    "name": "Nama",
+    "url": "URL",
+    "secret": "Secret",
+    "secretPlaceholder": "Secret webhook opsional",
+    "isActive": "Aktif",
+    "notificationTypes": "Tipe Notifikasi",
+    "allTypes": "Semua tipe",
+    "retryCount": "Jumlah Percobaan Ulang",
+    "timeout": "Timeout (detik)",
+    "lastTriggered": "Pemicu Terakhir",
+    "lastSuccess": "Keberhasilan Terakhir",
+    "lastError": "Kesalahan Terakhir",
+    "totalSent": "Total Terkirim",
+    "totalFailed": "Total Gagal",
+    "create": "Buat Webhook",
+    "edit": "Edit Webhook",
+    "delete": "Hapus Webhook",
+    "deleteConfirm": "Apakah Anda yakin ingin menghapus webhook ini?",
+    "test": "Test Webhook",
+    "testUrl": "URL Test",
+    "testSuccess": "Test webhook berhasil",
+    "testFailed": "Test webhook gagal",
+    "secretExists": "Secret sudah diatur. Biarkan kosong untuk mempertahankan yang ada, atau masukkan nilai baru untuk mengganti.",
+    "invalidJson": "Format JSON tidak valid",
+    "noWebhooks": "Tidak ada webhook yang dikonfigurasi. Buat satu untuk menerima notifikasi melalui webhook.",
+    "updated": "Webhook diperbarui",
+    "created": "Webhook dibuat",
+    "deleted": "Webhook dihapus",
+    "secretEditHelp": "Biarkan kosong untuk mempertahankan secret yang ada",
+    "validation": {
+      "nameAndUrl": "Nama dan URL diperlukan"
+    }
+  },
+  "admin": {
+    "title": "Pengaturan Notifikasi",
+    "globalWebhook": {
+      "title": "Webhook Global",
+      "description": "Konfigurasi webhook untuk semua notifikasi di seluruh sistem",
+      "enabled": "Aktifkan webhook global",
+      "url": "URL Webhook",
+      "secret": "Secret Webhook",
+      "customHeaders": "Header Khusus (JSON)",
+      "test": "Test Webhook Global",
+      "saved": "Pengaturan webhook global disimpan"
+    },
+    "agentOffline": {
+      "title": "Masa Tenggang Agent Offline",
+      "description": "Konfigurasi berapa lama menunggu sebelum mengirim notifikasi agent offline",
+      "bufferMinutes": "Menit Masa Tenggang",
+      "bufferHelp": "Tunggu sejumlah menit ini sebelum memberitahu tentang agent yang offline",
+      "saved": "Pengaturan agent offline disimpan"
+    },
+    "userWebhooks": {
+      "title": "Webhook Pengguna",
+      "description": "Lihat semua webhook yang dikonfigurasi pengguna",
+      "username": "Username",
+      "email": "Email",
+      "empty": "Tidak ada webhook pengguna yang dikonfigurasi"
+    }
+  },
+  "auditLog": {
+    "title": "Log Audit",
+    "description": "Kejadian keamanan dan kritis dari seluruh pengguna",
+    "noData": "Tidak ada entri log audit yang ditemukan",
+    "columns": {
+      "time": "Waktu",
+      "severity": "Keparahan",
+      "eventType": "Tipe Kejadian",
+      "user": "Pengguna",
+      "title": "Judul",
+      "ip": "Alamat IP"
+    },
+    "filters": {
+      "eventType": "Tipe Kejadian",
+      "severity": "Keparahan",
+      "startDate": "Tanggal Mulai",
+      "endDate": "Tanggal Akhir",
+      "all": "Semua",
+      "clear": "Hapus filter"
+    },
+    "severity": {
+      "critical": "Kritis",
+      "warning": "Peringatan",
+      "info": "Info"
+    },
+    "details": {
+      "message": "Pesan",
+      "ipAddress": "Alamat IP",
+      "userAgent": "User Agent",
+      "source": "Sumber",
+      "data": "Data Tambahan"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat log audit"
+    },
+    "system": "Sistem"
+  },
+  "systemAlert": {
+    "title": "Peringatan Sistem",
+    "dismiss": "Tutup",
+    "dismissAll": "Tutup Semua"
+  },
+  "errors": {
+    "fetchFailed": "Gagal memuat notifikasi",
+    "markReadFailed": "Gagal menandai notifikasi sebagai dibaca",
+    "deleteFailed": "Gagal menghapus notifikasi",
+    "saveFailed": "Gagal menyimpan pengaturan",
+    "webhookCreateFailed": "Gagal membuat webhook",
+    "webhookUpdateFailed": "Gagal memperbarui webhook",
+    "webhookDeleteFailed": "Gagal menghapus webhook",
+    "webhookSaveFailed": "Gagal menyimpan webhook"
+  },
+  "common": {
+    "actions": "Tindakan",
+    "active": "Aktif",
+    "inactive": "Tidak aktif",
+    "cancel": "Batal",
+    "save": "Simpan",
+    "delete": "Hapus"
+  }
+}

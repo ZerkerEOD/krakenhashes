@@ -104,12 +104,34 @@ var numericSettingBounds = map[string]settingBound{
 	"metrics_retention_weekly_days":   {0, 3650},
 }
 
-// ValidateSettingValue checks value against the registered range for key.
+// enumSettingValues lists the accepted values for settings that are not
+// numeric but still have a fixed domain. Registered here for the same reason
+// as the numeric bounds: the generic key/value route must not be the lenient
+// one when the admin UI writes these keys directly (per-field autosave).
+var enumSettingValues = map[string][]string{
+	"aggregation_interval":           {"hourly", "daily", "weekly"},
+	"enable_aggregation":             {"true", "false"},
+	"agent_auto_update_enabled":      {"true", "false"},
+	"agent_overflow_allocation_mode": {"fifo", "round_robin", "enforce_max_agents", "max_agents_fifo", "max_agents_round_robin"},
+	"global_webhook_enabled":         {"true", "false"},
+}
+
+// ValidateSettingValue checks value against the registered range or enum for key.
 //
 // Returns nil for any key with no registered bound, so unregistered settings
 // keep their previous write-anything behaviour rather than failing closed on a
 // key nobody has characterised yet.
 func ValidateSettingValue(key, value string) error {
+	if allowed, ok := enumSettingValues[key]; ok {
+		v := strings.TrimSpace(value)
+		for _, a := range allowed {
+			if v == a {
+				return nil
+			}
+		}
+		return fmt.Errorf("%s must be one of %s, got %q", key, strings.Join(allowed, ", "), value)
+	}
+
 	bound, registered := numericSettingBounds[key]
 	if !registered {
 		return nil

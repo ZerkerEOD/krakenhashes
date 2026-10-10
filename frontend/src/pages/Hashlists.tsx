@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { Box, Button } from '@mui/material';
+import { PageHeader } from '../components/ui';
 import { Add as AddIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import HashlistsDashboard from '../components/hashlist/HashlistsDashboard';
@@ -10,23 +11,15 @@ const Hashlists: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {t('page.title') as string}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {t('page.description') as string}
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setUploadDialogOpen(true)}
-        >
-          {t('uploadButton') as string}
-        </Button>
-      </Box>
+      <PageHeader
+        title={t('page.title') as string}
+        description={t('page.description') as string}
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setUploadDialogOpen(true)}>
+            {t('uploadButton') as string}
+          </Button>
+        }
+      />
       <HashlistsDashboard
         uploadDialogOpen={uploadDialogOpen}
         setUploadDialogOpen={setUploadDialogOpen}

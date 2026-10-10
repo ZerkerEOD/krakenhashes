@@ -1,0 +1,97 @@
+{
+  "title": "Hashes Quebrados",
+  "page": {
+    "title": "Hashes Quebrados (Potfile)",
+    "description": "Visualize todos os hashes de senha quebrados com sucesso em todas as hashlists e clientes.",
+    "filterByHashlist": "Ir para Hashlist",
+    "hashlistPlaceholder": "Selecione uma hashlist..."
+  },
+  "table": {
+    "allCrackedHashes": "Todos os Hashes Quebrados"
+  },
+  "navigation": {
+    "backToAll": "Voltar para Todos os Hashes Quebrados",
+    "backToSource": "Voltar"
+  },
+  "client": {
+    "title": "Hashes Quebrados - Visualização de Cliente",
+    "description": "Visualizando hashes quebrados para o cliente: {{clientName}}",
+    "tableTitle": "Hashes Quebrados para \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Hashes Quebrados - Visualização de Hashlist",
+    "description": "Visualizando hashes quebrados para a hashlist: {{hashlistName}}",
+    "tableTitle": "Hashes Quebrados para \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Hashes Quebrados para Job: {{jobName}}",
+    "description": "Visualize todos os hashes de senha quebrados com sucesso desta execução de job.",
+    "tableTitle": "Hashes Quebrados - {{jobName}}",
+    "defaultName": "Job {{id}}"
+  },
+  "columns": {
+    "originalHash": "Hash Original",
+    "domain": "Domínio",
+    "username": "Nome de usuário",
+    "password": "Senha",
+    "hashType": "Tipo de hash",
+    "actions": "Ações"
+  },
+  "search": {
+    "placeholder": "Pesquisar banco de dados...",
+    "filterPlaceholder": "Filtrar esta página...",
+    "button": "Pesquisar",
+    "resultsFound_many": "Encontrados {{count}} resultados",
+    "resultsFound_one": "Encontrado {{count}} resultado",
+    "resultsFound_other": "Encontrados {{count}} resultados",
+    "noResults": "Nenhum resultado encontrado",
+    "searching": "Pesquisando..."
+  },
+  "export": {
+    "hashPass": "Hash:Senha",
+    "userPass": "Usuário:Senha",
+    "username": "Nome de usuário",
+    "password": "Senha",
+    "domainUser": "Domínio\\Usuário",
+    "domainUserPass": "Domínio\\Usuário:Senha",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "Exportar resultados visíveis",
+    "downloaded": "Baixado {{filename}}",
+    "downloadFailed": "Falha ao baixar arquivo"
+  },
+  "tooltips": {
+    "copyHash": "Copiar hash:senha",
+    "copyDomain": "Clique para copiar domínio",
+    "copyUsername": "Clique para copiar nome de usuário",
+    "copyPassword": "Clique para copiar senha"
+  },
+  "dialogs": {
+    "loadAllTitle": "Carregar Todos os Resultados?",
+    "loadAllMessage": "Carregar todos os {{value}} resultados pode levar um tempo significativo e impactar o desempenho. Você tem certeza de que deseja continuar?",
+    "loadingAll": "Carregando todos os resultados. Isto pode levar algum tempo...",
+    "cancel": "Cancelar",
+    "loadAll": "Carregar Tudo"
+  },
+  "pagination": {
+    "all": "Todos"
+  },
+  "notifications": {
+    "copiedToClipboard": "Copiado para a área de transferência",
+    "exported": "Hashes quebrados exportados"
+  },
+  "errors": {
+    "loadFailed": "Falha ao carregar hashes quebrados",
+    "loadClientFailed": "Falha ao carregar informações do cliente",
+    "loadHashlistFailed": "Falha ao carregar informações da hashlist",
+    "loadJobFailed": "Falha ao carregar informações do job"
+  },
+  "filter": {
+    "filteredBy": "Filtrado por {{param}}: {{value}}"
+  },
+  "breadcrumb": "Hashes quebrados",
+  "sourceLabel": {
+    "job": "Job",
+    "client": "Cliente",
+    "hashlist": "Hashlist"
+  }
+}

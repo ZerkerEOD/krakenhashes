@@ -104,7 +104,9 @@
   "common": {
     "cancel": "取消",
     "never": "从未",
-    "invalidDate": "无效日期"
+    "invalidDate": "无效日期",
+    "create": "创建",
+    "delete": "删除"
   },
   "mfa": {
     "title": "双因素身份验证",
@@ -117,19 +119,140 @@
       "title": "验证方式",
       "totp": "身份验证器应用",
       "email": "电子邮件",
-      "backupCodes": "备份代码"
+      "backupCodes": "备份代码",
+      "passkey": "通行密钥"
     },
     "setup": {
       "scanQR": "使用身份验证器应用扫描此二维码",
       "enterCode": "输入应用中的验证码以完成验证",
       "backupCodesGenerated": "请将这些备份代码保存在安全的地方"
+    },
+    "methodSelection": {
+      "title": "选择多因素身份验证方法",
+      "description": "选择您在登录时如何验证身份。",
+      "authenticatorDescription": "使用身份验证器应用（如 Google Authenticator、Authy 或 1Password）生成的基于时间的代码。",
+      "passkeyDescription": "使用安全密钥、指纹、面部识别或设备 PIN 进行快速、安全的身份验证。"
+    },
+    "card": {
+      "title": "多因素身份验证",
+      "requiredByPolicy": "您的组织的安全策略要求进行多因素身份验证。",
+      "enableLabel": "启用多因素身份验证",
+      "preferredMethod": "首选多因素身份验证方法",
+      "preferredMethodNames": {
+        "authenticator": "身份验证器",
+        "email": "电子邮件",
+        "passkey": "通行密钥"
+      },
+      "emailAuth": "电子邮件身份验证",
+      "emailRequired": "账户安全所需",
+      "optional": "可选",
+      "required": "必需",
+      "configured": "已配置",
+      "notConfigured": "未配置",
+      "disable": "禁用",
+      "setup": "设置",
+      "passkeys": "通行密钥",
+      "passkeysRegistered_other": "{{count}} 个通行密钥已注册",
+      "addPasskey": "添加通行密钥",
+      "passkeyAdded": "已添加：{{date}}",
+      "passkeyLastUsed": " | 最后使用：{{date}}",
+      "rename": "重命名",
+      "delete": "删除",
+      "passkeysUnsupported": "此浏览器不支持通行密钥。请使用现代浏览器以启用通行密钥身份验证。",
+      "backupCodesRemaining_other": "剩余 {{count}} 个备份代码",
+      "noBackupCodes": "没有可用的备份代码",
+      "regenerate": "重新生成",
+      "generate": "生成"
+    },
+    "dialogs": {
+      "cancel": "取消",
+      "close": "关闭",
+      "warning": "警告",
+      "setupAuthenticatorTitle": "设置身份验证器应用",
+      "qrAlt": "二维码",
+      "manualEntry": "如果您无法扫描二维码，请手动输入此代码：<strong>{{secret}}</strong>",
+      "scanInstructions": "使用您的身份验证器应用扫描此二维码（例如 Google Authenticator、Authy）",
+      "verificationCode": "验证码",
+      "verificationPlaceholder": "输入 6 位代码",
+      "verify": "验证",
+      "backupCodesTitle": "备份代码",
+      "generateBackupPrompt": "生成备份代码，在无法访问主身份验证方法时使用。",
+      "generateBackupCodes": "生成备份代码",
+      "saveCodesWarning": "在安全位置保存这些代码。它们将不再显示！",
+      "copied": "已复制！",
+      "copyAll": "复制所有代码",
+      "regenerateWarning": "这将使所有现有备份代码无效。您确定要生成新代码吗？",
+      "generateNewCodes": "生成新代码",
+      "disableAuthWarning": "您确定要禁用身份验证器吗？这将从您的账户中删除它，如果您将来想使用它，您需要重新设置。",
+      "disableAuthenticator": "禁用身份验证器",
+      "addPasskeyTitle": "添加通行密钥",
+      "addPasskeyDescription": "注册新通行密钥（安全密钥、指纹或设备）以进行双因素身份验证。",
+      "passkeyName": "通行密钥名称",
+      "passkeyNamePlaceholder": "例如 YubiKey、MacBook Touch ID、Bitwarden",
+      "webauthnUnsupported": "此浏览器不支持 WebAuthn。请使用现代浏览器。",
+      "webauthnUnsupportedBrowsers": "此浏览器不支持 WebAuthn。请使用现代浏览器，如 Chrome、Firefox、Safari 或 Edge。",
+      "registering": "注册中...",
+      "registerPasskey": "注册通行密钥",
+      "renamePasskeyTitle": "重命名通行密钥",
+      "saving": "保存中...",
+      "save": "保存",
+      "deletePasskeyTitle": "删除通行密钥",
+      "deletePasskeyConfirm": "您确定要删除通行密钥“{{name}}”吗？此操作无法撤销。",
+      "deleting": "删除中...",
+      "delete": "删除",
+      "setupPasskeyTitle": "为多因素身份验证设置通行密钥",
+      "setupPasskeyDescription": "注册通行密钥以启用多因素身份验证。使用安全密钥、指纹、面部识别或设备 PIN。",
+      "registerAndEnable": "注册并启用多因素身份验证"
+    },
+    "messages": {
+      "loadFailed": "加载多因素身份验证设置失败",
+      "disabled": "多因素身份验证已成功禁用",
+      "passkeyBrowserRequired": "需要通行密钥身份验证，但您的浏览器不支持 WebAuthn。请使用现代浏览器（如 Chrome、Firefox、Safari 或 Edge）来启用多因素身份验证。",
+      "enabledEmail": "已使用电子邮件身份验证启用多因素身份验证",
+      "noMethods": "没有可用的多因素身份验证方法。请联系您的管理员。",
+      "toggleFailed": "切换多因素身份验证失败",
+      "passkeyNameRequired": "请为通行密钥输入名称",
+      "passkeyRegisteredSaveCodes": "通行密钥注册成功！请保存您的备份代码。",
+      "passkeyRegisteredNoCodes": "通行密钥注册成功。您可以从多因素身份验证设置中生成备份代码。",
+      "authenticatorSetupFailed": "设置身份验证器失败",
+      "authenticatorSetup": "身份验证器应用已成功设置",
+      "verifyFailed": "验证代码失败",
+      "backupCodesGenerated": "新备份代码已生成",
+      "backupCodesFailed": "生成备份代码失败",
+      "preferredUpdated": "首选多因素身份验证方法已成功更新",
+      "preferredFailed": "更新首选多因素身份验证方法失败",
+      "disableAuthFailed": "禁用身份验证器失败",
+      "authenticatorDisabled": "身份验证器已成功禁用",
+      "newBackupCodesFailed": "生成新备份代码失败",
+      "newBackupCodesGenerated": "新备份代码已成功生成",
+      "invalidResponse": "来自服务器的响应格式无效",
+      "passkeyRegistered": "通行密钥注册成功",
+      "passkeyDeleted": "通行密钥已成功删除",
+      "passkeyDeleteFailed": "删除通行密钥失败",
+      "passkeyRenamed": "通行密钥重命名成功",
+      "passkeyRenameFailed": "重命名通行密钥失败"
     }
   },
   "linkedAccounts": {
     "title": "关联账户",
     "noAccounts": "暂无关联账户",
     "link": "关联账户",
-    "unlink": "取消关联"
+    "unlink": "取消关联",
+    "description": "链接到您账户的外部身份验证提供者",
+    "noAccountsMessage": "您的资料中未链接任何外部账户。您可以通过 SSO 提供者登录来链接账户。",
+    "emailLabel": "电子邮件：{{email}}",
+    "usernameLabel": "用户名：{{username}}",
+    "lastLoginLinked": "最后登录：{{lastLogin}} | 链接：{{linked}}",
+    "unlinkTooltip": "取消链接账户",
+    "errors": {
+      "loadFailed": "加载链接账户失败",
+      "unlinkFailed": "取消链接账户失败"
+    },
+    "unlinkDialog": {
+      "title": "取消链接账户",
+      "warning": "您将无法再使用此提供者登录。",
+      "confirmation": "确定要取消链接您的 {{provider}} 账户吗？"
+    }
   },
   "notifications": {
     "title": "通知",
@@ -148,11 +271,107 @@
       "light": "浅色",
       "dark": "深色",
       "system": "跟随系统"
-    }
+    },
+    "languageHelper": "仅适用于此浏览器。",
+    "themeHelper": "系统跟随您的操作系统设置。"
   },
   "errors": {
     "updateFailed": "更新设置失败",
     "passwordMismatch": "密码不匹配",
     "invalidPassword": "当前密码无效"
+  },
+  "nav": {
+    "description": "您的账户、安全和偏好设置。",
+    "groupAccount": "账户",
+    "profile": "资料",
+    "profileDesc": "电子邮件地址、语言和外观。",
+    "security": "安全",
+    "securityDesc": "密码、双因素身份验证、已链接账户和 CA 证书。",
+    "notifications": "通知",
+    "notificationsDesc": "哪些事件会通知您以及如何通知。",
+    "api": "API 密钥",
+    "apiDesc": "HTTP API 的个人密钥。",
+    "charsets": "已保存的字符集",
+    "charsetsDesc": "用于掩码攻击的自定义字符集。"
+  },
+  "savedCharsets": {
+    "title": "已保存的字符集",
+    "description": "管理您的个人自定义字符集，用于基于掩码的攻击。支持内联定义和二进制 .hcchr 字符集文件。",
+    "createCharset": "创建字符集",
+    "sections": {
+      "mine": "我的字符集",
+      "team": "团队字符集",
+      "global": "全局字符集",
+      "globalSubtitle": "这些字符集由管理员管理，所有人都可以使用。"
+    },
+    "columns": {
+      "name": "名称",
+      "team": "团队",
+      "definition": "定义/信息",
+      "description": "描述",
+      "created": "创建时间"
+    },
+    "typeLabels": {
+      "file": "文件",
+      "hex": "十六进制"
+    },
+    "uniqueBytes_other": "{{count}} 个唯一字节",
+    "hexBytes_other": "{{count}} 个字节",
+    "rowActions": {
+      "edit": "编辑",
+      "delete": "删除"
+    },
+    "empty": "此类别中没有字符集。",
+    "dialogs": {
+      "create": {
+        "title": "创建个人字符集"
+      },
+      "edit": {
+        "title": "编辑字符集"
+      },
+      "delete": {
+        "title": "删除字符集",
+        "confirmation": "确定要删除字符集“{{name}}”吗？"
+      },
+      "modeToggle": {
+        "inline": "内联定义",
+        "file": "文件上传（.hcchr）"
+      },
+      "fields": {
+        "name": "名称",
+        "namePlaceholder": "例如，DES Full Charset",
+        "definition": "定义",
+        "definitionPlaceholderHex": "例如，41424344（十六进制字节对）",
+        "definitionPlaceholderPlain": "例如，?u?d 或 abcdef0123456789",
+        "definitionHelperHex": "十六进制字节对 — 每对 = 一个字符集字节。{{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}} 个字节",
+        "definitionHelperPlain": "Hashcat 字符集定义。使用 ?l、?u、?d、?s、?a、?b、?h、?H 或字面字符。",
+        "hexTooltip": "启用时，定义被解释为十六进制字节对（例如，41424344 = 字节 A、B、C、D）。使用此字符集的任务将自动注入 --hex-charset。",
+        "hexLabel": "十六进制编码的定义",
+        "selectFile": "选择 .hcchr 文件",
+        "fileSizeBytes_other": "{{count}} 个字节",
+        "fileHelperText": "包含原始字节值的二进制字符集文件（最多 1023 字节，最多 256 个唯一字节）。",
+        "fileCharsetInfo_other": "文件字符集：{{count}} 个唯一字节。仅可编辑名称和描述。",
+        "description": "描述",
+        "descriptionPlaceholder": "此字符集用途的可选描述"
+      },
+      "update": "更新",
+      "upload": "上传"
+    },
+    "messages": {
+      "createSuccess": "字符集创建成功",
+      "uploadSuccess": "文件字符集上传成功",
+      "updateSuccess": "字符集更新成功",
+      "deleteSuccess": "字符集删除成功"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "仅允许 .hcchr 文件",
+      "fileTooLarge": "文件过大（最多 1023 字节 — hashcat 读取缓冲区限制）",
+      "nameRequired": "名称为必填项",
+      "definitionRequired": "定义为必填项",
+      "selectFile": "请选择 .hcchr 文件",
+      "deleteFailed": "删除字符集失败：{{message}}",
+      "globalDeleteForbidden": "全局字符集只能由管理员在管理面板中删除"
+    }
   }
 }

@@ -1,0 +1,204 @@
+{
+  "title": "알림",
+  "connected": "알림",
+  "disconnected": "재연결 중...",
+  "empty": "알림 없음",
+  "markAllRead": "모두 읽음으로 표시",
+  "markRead": "읽음으로 표시",
+  "viewAll": "모든 알림 보기",
+  "deleteSelected": "선택된 {{count}}개 삭제",
+  "selectAll": "모두 선택",
+  "aria": {
+    "bellButton": "알림 표시"
+  },
+  "center": {
+    "title": "알림 센터",
+    "description": "알림을 보고 관리합니다"
+  },
+  "filters": {
+    "category": "카테고리",
+    "status": "상태",
+    "allCategories": "모든 카테고리",
+    "all": "모두",
+    "unread": "읽지 않음",
+    "read": "읽음"
+  },
+  "categories": {
+    "job": "작업",
+    "agent": "에이전트",
+    "security": "보안",
+    "system": "시스템"
+  },
+  "types": {
+    "header": "알림 유형",
+    "job_started": "작업 시작됨",
+    "job_completed": "작업 완료됨",
+    "job_failed": "작업 실패됨",
+    "first_crack": "첫 번째 크래킹",
+    "task_completed_with_cracks": "태스크 완료 보고서",
+    "agent_offline": "에이전트 오프라인",
+    "agent_error": "에이전트 오류",
+    "security_suspicious_login": "의심스러운 로그인",
+    "security_mfa_disabled": "이중 인증 비활성화됨",
+    "security_password_changed": "비밀번호 변경됨",
+    "webhook_failure": "웹훅 실패"
+  },
+  "typeDescriptions": {
+    "job_started": "작업이 실행을 시작할 때",
+    "job_completed": "작업이 성공적으로 완료될 때",
+    "job_failed": "작업이 실패할 때",
+    "first_crack": "첫 번째 해시가 크래킹될 때 (즉시 알림)",
+    "task_completed_with_cracks": "태스크가 완료될 때",
+    "agent_offline": "에이전트가 오프라인 상태가 될 때 (유예 기간 후)",
+    "agent_error": "에이전트가 중대 오류를 보고할 때",
+    "security_suspicious_login": "새로운 위치 또는 장치에서의 로그인",
+    "security_mfa_disabled": "이중 인증이 비활성화될 때 (필수)",
+    "security_password_changed": "비밀번호가 변경될 때 (필수)",
+    "webhook_failure": "웹훅 전달이 실패할 때"
+  },
+  "channels": {
+    "inApp": "앱 내",
+    "email": "이메일",
+    "webhook": "웹훅"
+  },
+  "settings": {
+    "title": "알림 설정",
+    "description": "알림을 받는 방법 및 시기를 설정합니다",
+    "enabledChannels": "활성화된 채널",
+    "taskReportMode": "알림 시기",
+    "taskReportModeOnlyIfCracks": "크래킹 결과가 있을 때만",
+    "taskReportModeAlways": "항상 알림",
+    "modeUpdated": "태스크 보고 모드가 업데이트되었습니다",
+    "onlyIfCracks": "크래킹 결과가 있을 때만",
+    "always": "항상 알림",
+    "mandatory": "필수",
+    "mandatoryDescription": "이 알림은 비활성화할 수 없습니다",
+    "emailNotConfigured": "이메일 게이트웨이가 구성되지 않았습니다",
+    "emailNotConfiguredWarning": "이메일 게이트웨이가 구성되지 않았습니다. 이메일 알림을 현재 사용할 수 없습니다.",
+    "noWebhooksConfigured": "활성화된 웹훅이 구성되지 않았습니다",
+    "toggleAll": "모두 토글"
+  },
+  "webhooks": {
+    "title": "웹훅 설정",
+    "description": "웹훅 통합을 관리합니다",
+    "name": "이름",
+    "url": "URL",
+    "secret": "비밀",
+    "secretPlaceholder": "선택적 웹훅 비밀",
+    "isActive": "활성",
+    "notificationTypes": "알림 유형",
+    "allTypes": "모든 유형",
+    "retryCount": "재시도 횟수",
+    "timeout": "시간 초과 (초)",
+    "lastTriggered": "마지막 실행",
+    "lastSuccess": "마지막 성공",
+    "lastError": "마지막 오류",
+    "totalSent": "전송된 총 개수",
+    "totalFailed": "실패한 총 개수",
+    "create": "웹훅 생성",
+    "edit": "웹훅 편집",
+    "delete": "웹훅 삭제",
+    "deleteConfirm": "이 웹훅을 삭제하시겠습니까?",
+    "test": "웹훅 테스트",
+    "testUrl": "테스트 URL",
+    "testSuccess": "웹훅 테스트 성공",
+    "testFailed": "웹훅 테스트 실패",
+    "secretExists": "비밀이 설정되어 있습니다. 비워 두면 기존 값을 유지하고, 새 값을 입력하면 교체됩니다.",
+    "invalidJson": "잘못된 JSON 형식",
+    "noWebhooks": "구성된 웹훅이 없습니다. 웹훅을 통해 알림을 받으려면 웹훅을 생성합니다.",
+    "updated": "웹훅이 업데이트되었습니다",
+    "created": "웹훅이 생성되었습니다",
+    "deleted": "웹훅이 삭제되었습니다",
+    "secretEditHelp": "기존 비밀을 유지하려면 비워 두세요",
+    "validation": {
+      "nameAndUrl": "이름과 URL은 필수입니다"
+    }
+  },
+  "admin": {
+    "title": "알림 설정",
+    "globalWebhook": {
+      "title": "전역 웹훅",
+      "description": "모든 알림에 대한 시스템 전체 웹훅을 구성합니다",
+      "enabled": "전역 웹훅 활성화",
+      "url": "웹훅 URL",
+      "secret": "웹훅 비밀",
+      "customHeaders": "사용자 정의 헤더 (JSON)",
+      "test": "전역 웹훅 테스트",
+      "saved": "전역 웹훅 설정이 저장되었습니다"
+    },
+    "agentOffline": {
+      "title": "에이전트 오프라인 유예 기간",
+      "description": "에이전트 오프라인 알림을 보내기 전에 대기할 시간을 설정합니다",
+      "bufferMinutes": "유예 기간 (분)",
+      "bufferHelp": "오프라인 에이전트에 대해 알리기 전에 설정된 시간(분)만큼 대기합니다",
+      "saved": "에이전트 오프라인 설정이 저장되었습니다"
+    },
+    "userWebhooks": {
+      "title": "사용자 웹훅",
+      "description": "사용자가 구성한 모든 웹훅을 봅니다",
+      "username": "사용자명",
+      "email": "이메일",
+      "empty": "사용자 웹훅이 구성되지 않았습니다"
+    }
+  },
+  "auditLog": {
+    "title": "감사 로그",
+    "description": "모든 사용자의 보안 및 중대 이벤트",
+    "noData": "감사 로그 항목이 없습니다",
+    "columns": {
+      "time": "시간",
+      "severity": "심각도",
+      "eventType": "이벤트 유형",
+      "user": "사용자",
+      "title": "제목",
+      "ip": "IP 주소"
+    },
+    "filters": {
+      "eventType": "이벤트 유형",
+      "severity": "심각도",
+      "startDate": "시작 날짜",
+      "endDate": "종료 날짜",
+      "all": "모두",
+      "clear": "필터 지우기"
+    },
+    "severity": {
+      "critical": "중대",
+      "warning": "경고",
+      "info": "정보"
+    },
+    "details": {
+      "message": "메시지",
+      "ipAddress": "IP 주소",
+      "userAgent": "사용자 에이전트",
+      "source": "원본",
+      "data": "추가 데이터"
+    },
+    "errors": {
+      "loadFailed": "감사 로그를 로드하지 못했습니다"
+    },
+    "system": "시스템"
+  },
+  "systemAlert": {
+    "title": "시스템 알림",
+    "dismiss": "닫기",
+    "dismissAll": "모두 닫기"
+  },
+  "errors": {
+    "fetchFailed": "알림을 로드하지 못했습니다",
+    "markReadFailed": "알림을 읽음으로 표시하지 못했습니다",
+    "deleteFailed": "알림을 삭제하지 못했습니다",
+    "saveFailed": "설정을 저장하지 못했습니다",
+    "webhookCreateFailed": "웹훅을 생성하지 못했습니다",
+    "webhookUpdateFailed": "웹훅을 업데이트하지 못했습니다",
+    "webhookDeleteFailed": "웹훅을 삭제하지 못했습니다",
+    "webhookSaveFailed": "웹훅을 저장하지 못했습니다"
+  },
+  "common": {
+    "actions": "동작",
+    "active": "활성",
+    "inactive": "비활성",
+    "cancel": "취소",
+    "save": "저장",
+    "delete": "삭제"
+  }
+}

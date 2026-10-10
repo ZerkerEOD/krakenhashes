@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
-	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 )
 
@@ -74,21 +73,30 @@ func (h *AuthSettingsHandler) GetSettings(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(response)
 }
 
-// UpdateSettings updates the authentication settings
+// UpdateSettings updates the authentication settings.
+//
+// The request is a PATCH in PUT clothing: every field is optional and only the
+// fields present are written. The frontend saves one field at a time (autosave
+// on blur), and the previous whole-object contract made each such save rewrite
+// every column -- including display_timezone, which the UI never showed and
+// therefore reset to "UTC" on every blur.
 func (h *AuthSettingsHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	debug.Info("Received request to update auth settings")
 
 	var settings struct {
-		MinPasswordLength              int    `json:"min_password_length"`
-		RequireUppercase               bool   `json:"require_uppercase"`
-		RequireLowercase               bool   `json:"require_lowercase"`
-		RequireNumbers                 bool   `json:"require_numbers"`
-		RequireSpecialChars            bool   `json:"require_special_chars"`
-		MaxFailedAttempts              int    `json:"max_failed_attempts"`
-		LockoutDurationMinutes         int    `json:"lockout_duration_minutes"`
-		JWTExpiryMinutes               int    `json:"jwt_expiry_minutes"`
-		DisplayTimezone                string `json:"display_timezone"`
-		NotificationAggregationMinutes int    `json:"notification_aggregation_minutes"`
+		MinPasswordLength              *int    `json:"min_password_length"`
+		RequireUppercase               *bool   `json:"require_uppercase"`
+		RequireLowercase               *bool   `json:"require_lowercase"`
+		RequireNumbers                 *bool   `json:"require_numbers"`
+		RequireSpecialChars            *bool   `json:"require_special_chars"`
+		MaxFailedAttempts              *int    `json:"max_failed_attempts"`
+		LockoutDurationMinutes         *int    `json:"lockout_duration_minutes"`
+		JWTExpiryMinutes               *int    `json:"jwt_expiry_minutes"`
+		DisplayTimezone                *string `json:"display_timezone"`
+		NotificationAggregationMinutes *int    `json:"notification_aggregation_minutes"`
+		TokenCleanupIntervalSeconds    *int    `json:"token_cleanup_interval_seconds"`
+		MaxConcurrentSessions          *int    `json:"max_concurrent_sessions"`
+		SessionAbsoluteTimeoutHours    *int    `json:"session_absolute_timeout_hours"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
@@ -99,18 +107,83 @@ func (h *AuthSettingsHandler) UpdateSettings(w http.ResponseWriter, r *http.Requ
 
 	debug.Info("Decoded settings: %+v", settings)
 
-	// Create model settings
-	modelSettings := &models.AuthSettings{
-		MinPasswordLength:              settings.MinPasswordLength,
-		RequireUppercase:               settings.RequireUppercase,
-		RequireLowercase:               settings.RequireLowercase,
-		RequireNumbers:                 settings.RequireNumbers,
-		RequireSpecialChars:            settings.RequireSpecialChars,
-		MaxFailedAttempts:              settings.MaxFailedAttempts,
-		LockoutDurationMinutes:         settings.LockoutDurationMinutes,
-		JWTExpiryMinutes:               settings.JWTExpiryMinutes,
-		DisplayTimezone:                settings.DisplayTimezone,
-		NotificationAggregationMinutes: settings.NotificationAggregationMinutes,
+	// Read-modify-write: start from what is stored, apply only what was sent.
+	modelSettings, err := h.db.GetAuthSettings()
+	if err != nil {
+		debug.Error("Failed to load auth settings before update: %v", err)
+		http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+		return
+	}
+	if settings.MinPasswordLength != nil {
+		if *settings.MinPasswordLength < 1 || *settings.MinPasswordLength > 128 {
+			http.Error(w, "min_password_length must be between 1 and 128", http.StatusBadRequest)
+			return
+		}
+		modelSettings.MinPasswordLength = *settings.MinPasswordLength
+	}
+	if settings.RequireUppercase != nil {
+		modelSettings.RequireUppercase = *settings.RequireUppercase
+	}
+	if settings.RequireLowercase != nil {
+		modelSettings.RequireLowercase = *settings.RequireLowercase
+	}
+	if settings.RequireNumbers != nil {
+		modelSettings.RequireNumbers = *settings.RequireNumbers
+	}
+	if settings.RequireSpecialChars != nil {
+		modelSettings.RequireSpecialChars = *settings.RequireSpecialChars
+	}
+	if settings.MaxFailedAttempts != nil {
+		if *settings.MaxFailedAttempts < 0 {
+			http.Error(w, "max_failed_attempts cannot be negative", http.StatusBadRequest)
+			return
+		}
+		modelSettings.MaxFailedAttempts = *settings.MaxFailedAttempts
+	}
+	if settings.LockoutDurationMinutes != nil {
+		if *settings.LockoutDurationMinutes < 0 {
+			http.Error(w, "lockout_duration_minutes cannot be negative", http.StatusBadRequest)
+			return
+		}
+		modelSettings.LockoutDurationMinutes = *settings.LockoutDurationMinutes
+	}
+	if settings.JWTExpiryMinutes != nil {
+		if *settings.JWTExpiryMinutes < 1 {
+			http.Error(w, "jwt_expiry_minutes must be at least 1", http.StatusBadRequest)
+			return
+		}
+		modelSettings.JWTExpiryMinutes = *settings.JWTExpiryMinutes
+	}
+	if settings.DisplayTimezone != nil {
+		modelSettings.DisplayTimezone = *settings.DisplayTimezone
+	}
+	if settings.NotificationAggregationMinutes != nil {
+		if *settings.NotificationAggregationMinutes < 0 {
+			http.Error(w, "notification_aggregation_minutes cannot be negative", http.StatusBadRequest)
+			return
+		}
+		modelSettings.NotificationAggregationMinutes = *settings.NotificationAggregationMinutes
+	}
+	if settings.TokenCleanupIntervalSeconds != nil {
+		if *settings.TokenCleanupIntervalSeconds < 10 {
+			http.Error(w, "token_cleanup_interval_seconds must be at least 10", http.StatusBadRequest)
+			return
+		}
+		modelSettings.TokenCleanupIntervalSeconds = *settings.TokenCleanupIntervalSeconds
+	}
+	if settings.MaxConcurrentSessions != nil {
+		if *settings.MaxConcurrentSessions < 0 {
+			http.Error(w, "max_concurrent_sessions cannot be negative", http.StatusBadRequest)
+			return
+		}
+		modelSettings.MaxConcurrentSessions = *settings.MaxConcurrentSessions
+	}
+	if settings.SessionAbsoluteTimeoutHours != nil {
+		if *settings.SessionAbsoluteTimeoutHours < 0 {
+			http.Error(w, "session_absolute_timeout_hours cannot be negative", http.StatusBadRequest)
+			return
+		}
+		modelSettings.SessionAbsoluteTimeoutHours = *settings.SessionAbsoluteTimeoutHours
 	}
 
 	// Update database settings
@@ -167,30 +240,85 @@ func (h *AuthSettingsHandler) GetMFASettings(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(response)
 }
 
-// UpdateMFASettings updates the MFA settings
+// mfaSettingsPayload is the (fully-specified) shape validateMFASettings checks.
+type mfaSettingsPayload = struct {
+	RequireMFA             bool     `json:"requireMfa"`
+	AllowedMFAMethods      []string `json:"allowedMfaMethods"`
+	EmailCodeValidity      int      `json:"emailCodeValidity"`
+	BackupCodesCount       int      `json:"backupCodesCount"`
+	MFACodeCooldownMinutes int      `json:"mfaCodeCooldownMinutes"`
+	MFACodeExpiryMinutes   int      `json:"mfaCodeExpiryMinutes"`
+	MFAMaxAttempts         int      `json:"mfaMaxAttempts"`
+}
+
+// UpdateMFASettings updates the MFA settings.
+//
+// Partial: only the fields present are changed. BulkEnableMFA runs only when
+// requireMfa transitions from off to on; previously every save while MFA was
+// required re-ran it, so editing an unrelated field (backup code count) forced
+// MFA onto every user again.
 func (h *AuthSettingsHandler) UpdateMFASettings(w http.ResponseWriter, r *http.Request) {
 	debug.Info("Received request to update MFA settings")
 
-	var settings struct {
-		RequireMFA             bool     `json:"requireMfa"`
-		AllowedMFAMethods      []string `json:"allowedMfaMethods"`
-		EmailCodeValidity      int      `json:"emailCodeValidity"`
-		BackupCodesCount       int      `json:"backupCodesCount"`
-		MFACodeCooldownMinutes int      `json:"mfaCodeCooldownMinutes"`
-		MFACodeExpiryMinutes   int      `json:"mfaCodeExpiryMinutes"`
-		MFAMaxAttempts         int      `json:"mfaMaxAttempts"`
+	var patch struct {
+		RequireMFA             *bool     `json:"requireMfa"`
+		AllowedMFAMethods      *[]string `json:"allowedMfaMethods"`
+		EmailCodeValidity      *int      `json:"emailCodeValidity"`
+		BackupCodesCount       *int      `json:"backupCodesCount"`
+		MFACodeCooldownMinutes *int      `json:"mfaCodeCooldownMinutes"`
+		MFACodeExpiryMinutes   *int      `json:"mfaCodeExpiryMinutes"`
+		MFAMaxAttempts         *int      `json:"mfaMaxAttempts"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
 		debug.Error("Failed to decode MFA settings: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	debug.Info("Decoded MFA settings: %+v", settings)
+	current, err := h.db.GetMFASettings()
+	if err != nil {
+		debug.Error("Failed to load MFA settings before update: %v", err)
+		http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+		return
+	}
+	wasRequired := current.RequireMFA
+
+	settings := mfaSettingsPayload{
+		RequireMFA:             current.RequireMFA,
+		AllowedMFAMethods:      current.AllowedMFAMethods,
+		EmailCodeValidity:      current.EmailCodeValidityMinutes,
+		BackupCodesCount:       current.BackupCodesCount,
+		MFACodeCooldownMinutes: current.MFACodeCooldownMinutes,
+		MFACodeExpiryMinutes:   current.MFACodeExpiryMinutes,
+		MFAMaxAttempts:         current.MFAMaxAttempts,
+	}
+	if patch.RequireMFA != nil {
+		settings.RequireMFA = *patch.RequireMFA
+	}
+	if patch.AllowedMFAMethods != nil {
+		settings.AllowedMFAMethods = *patch.AllowedMFAMethods
+	}
+	if patch.EmailCodeValidity != nil {
+		settings.EmailCodeValidity = *patch.EmailCodeValidity
+	}
+	if patch.BackupCodesCount != nil {
+		settings.BackupCodesCount = *patch.BackupCodesCount
+	}
+	if patch.MFACodeCooldownMinutes != nil {
+		settings.MFACodeCooldownMinutes = *patch.MFACodeCooldownMinutes
+	}
+	if patch.MFACodeExpiryMinutes != nil {
+		settings.MFACodeExpiryMinutes = *patch.MFACodeExpiryMinutes
+	}
+	if patch.MFAMaxAttempts != nil {
+		settings.MFAMaxAttempts = *patch.MFAMaxAttempts
+	}
+
+	debug.Info("Effective MFA settings: %+v", settings)
 
 	// Check if trying to enable global MFA
-	if settings.RequireMFA {
+	if settings.RequireMFA && !wasRequired {
 		// Check if email provider is configured
 		hasEmailProvider, err := h.db.HasActiveEmailProvider()
 		if err != nil {
@@ -232,8 +360,8 @@ func (h *AuthSettingsHandler) UpdateMFASettings(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// If global MFA is being enabled, enable it for all active users
-	if settings.RequireMFA {
+	// If global MFA is being turned on, enable it for all active users (once).
+	if settings.RequireMFA && !wasRequired {
 		if err := h.db.BulkEnableMFA(); err != nil {
 			debug.Error("Failed to bulk enable MFA: %v", err)
 			http.Error(w, "Failed to enable MFA for all users", http.StatusInternalServerError)
@@ -246,15 +374,7 @@ func (h *AuthSettingsHandler) UpdateMFASettings(w http.ResponseWriter, r *http.R
 }
 
 // validateMFASettings checks if the MFA settings are valid
-func validateMFASettings(s *struct {
-	RequireMFA             bool     `json:"requireMfa"`
-	AllowedMFAMethods      []string `json:"allowedMfaMethods"`
-	EmailCodeValidity      int      `json:"emailCodeValidity"`
-	BackupCodesCount       int      `json:"backupCodesCount"`
-	MFACodeCooldownMinutes int      `json:"mfaCodeCooldownMinutes"`
-	MFACodeExpiryMinutes   int      `json:"mfaCodeExpiryMinutes"`
-	MFAMaxAttempts         int      `json:"mfaMaxAttempts"`
-}) error {
+func validateMFASettings(s *mfaSettingsPayload) error {
 	if s.RequireMFA && len(s.AllowedMFAMethods) == 0 {
 		return fmt.Errorf("at least one MFA method must be enabled when MFA is required")
 	}
@@ -340,11 +460,17 @@ func (h *AuthSettingsHandler) GetAccountSecurity(w http.ResponseWriter, r *http.
 		LockoutDuration                int `json:"lockoutDuration"`
 		JWTExpiryMinutes               int `json:"jwtExpiryMinutes"`
 		NotificationAggregationMinutes int `json:"notificationAggregationMinutes"`
+		TokenCleanupIntervalSeconds    int `json:"tokenCleanupIntervalSeconds"`
+		MaxConcurrentSessions          int `json:"maxConcurrentSessions"`
+		SessionAbsoluteTimeoutHours    int `json:"sessionAbsoluteTimeoutHours"`
 	}{
 		MaxFailedAttempts:              settings.MaxFailedAttempts,
 		LockoutDuration:                settings.LockoutDurationMinutes,
 		JWTExpiryMinutes:               settings.JWTExpiryMinutes,
 		NotificationAggregationMinutes: settings.NotificationAggregationMinutes,
+		TokenCleanupIntervalSeconds:    settings.TokenCleanupIntervalSeconds,
+		MaxConcurrentSessions:          settings.MaxConcurrentSessions,
+		SessionAbsoluteTimeoutHours:    settings.SessionAbsoluteTimeoutHours,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

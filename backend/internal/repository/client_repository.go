@@ -430,3 +430,69 @@ func (r *ClientRepository) ListForTeams(ctx context.Context, teamIDs []uuid.UUID
 
 	return clients, rows.Err()
 }
+
+// ClientOverviewStats are the headline numbers for the client detail page.
+type ClientOverviewStats struct {
+	HashlistCount  int            `json:"hashlist_count"`
+	TotalHashes    int64          `json:"total_hashes"`
+	CrackedHashes  int64          `json:"cracked_hashes"`
+	JobCounts      map[string]int `json:"job_counts"`
+	WordlistCount  int            `json:"wordlist_count"`
+	HasPotfile     bool           `json:"has_potfile"`
+	LastActivityAt *time.Time     `json:"last_activity_at,omitempty"`
+}
+
+// GetOverviewStats aggregates a client's hashlists, jobs and wordlists in three
+// small queries (no per-row fan-out).
+func (r *ClientRepository) GetOverviewStats(ctx context.Context, clientID uuid.UUID) (ClientOverviewStats, error) {
+	out := ClientOverviewStats{JobCounts: map[string]int{}}
+
+	var lastActivity sql.NullTime
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(*), COALESCE(SUM(total_hashes), 0), COALESCE(SUM(cracked_hashes), 0), MAX(updated_at)
+		FROM hashlists WHERE client_id = $1 AND archived_at IS NULL`, clientID).
+		Scan(&out.HashlistCount, &out.TotalHashes, &out.CrackedHashes, &lastActivity)
+	if err != nil {
+		return out, fmt.Errorf("client overview hashlists: %w", err)
+	}
+	if lastActivity.Valid {
+		t := lastActivity.Time
+		out.LastActivityAt = &t
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT je.status, COUNT(*)
+		FROM job_executions je
+		JOIN hashlists h ON h.id = je.hashlist_id
+		WHERE h.client_id = $1 AND je.archived_at IS NULL
+		GROUP BY je.status`, clientID)
+	if err != nil {
+		return out, fmt.Errorf("client overview jobs: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var status string
+		var n int
+		if err := rows.Scan(&status, &n); err != nil {
+			return out, fmt.Errorf("client overview jobs scan: %w", err)
+		}
+		out.JobCounts[status] = n
+	}
+	if err := rows.Err(); err != nil {
+		return out, err
+	}
+
+	var wl, pot, assoc int
+	err = r.db.QueryRowContext(ctx, `
+		SELECT
+			(SELECT COUNT(*) FROM client_wordlists WHERE client_id = $1),
+			(SELECT COUNT(*) FROM client_potfiles WHERE client_id = $1),
+			(SELECT COUNT(*) FROM association_wordlists aw JOIN hashlists hl ON hl.id = aw.hashlist_id WHERE hl.client_id = $1)`,
+		clientID).Scan(&wl, &pot, &assoc)
+	if err != nil {
+		return out, fmt.Errorf("client overview wordlists: %w", err)
+	}
+	out.WordlistCount = wl + pot + assoc
+	out.HasPotfile = pot > 0
+	return out, nil
+}

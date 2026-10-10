@@ -1,0 +1,3238 @@
+{
+  "title": "Nastavení administrace",
+  "sections": {
+    "general": "Obecné nastavení",
+    "authentication": "Ověřování",
+    "email": "Nastavení e-mailu",
+    "security": "Bezpečnost",
+    "sso": "Jednotné přihlášení",
+    "monitoring": "Monitorování"
+  },
+  "tabs": {
+    "emailSettings": "Nastavení e-mailu",
+    "authenticationSettings": "Nastavení ověřování",
+    "ssoSettings": "Nastavení jednotného přihlášení",
+    "binaryManagement": "Správa binárních souborů",
+    "systemSettings": "Systémová nastavení",
+    "clientSettings": "Nastavení klientů",
+    "hashTypes": "Typy hashů",
+    "jobExecution": "Provádění úloh",
+    "monitoring": "Monitorování",
+    "agentDownloads": "Stahování agentů",
+    "notifications": "Oznámení",
+    "cloudProvisioning": "Zřizování cloudu",
+    "serverCertificate": "Certifikát serveru"
+  },
+  "common": {
+    "cancel": "Zrušit",
+    "create": "Vytvořit",
+    "edit": "Upravit",
+    "delete": "Smazat",
+    "save": "Uložit",
+    "saveChanges": "Uložit změny",
+    "copyToClipboard": "Zkopírovat do schránky",
+    "never": "Nikdy",
+    "invalidDate": "Neplatné datum",
+    "all": "Vše",
+    "yes": "Ano",
+    "no": "Ne",
+    "note": "Poznámka",
+    "default": "Výchozí",
+    "on": "Zapnuto",
+    "off": "Vypnuto",
+    "none": "Žádné",
+    "unlimited": "Neomezeno",
+    "close": "Zavřít",
+    "unknownError": "Neznámá chyba",
+    "dialogs": {
+      "confirmDeleteNamed": "Opravdu chcete smazat \"{{name}}\"?"
+    },
+    "download": "Stáhnout",
+    "confirm": "Potvrdit"
+  },
+  "users": {
+    "title": "Správa uživatelů",
+    "description": "Správa uživatelských účtů a oprávnění",
+    "addUser": "Přidat uživatele",
+    "createUser": "Vytvořit uživatele",
+    "columns": {
+      "username": "Uživatelské jméno",
+      "email": "E-mail",
+      "role": "Role",
+      "status": "Stav",
+      "createdAt": "Vytvořeno",
+      "lastLogin": "Poslední přihlášení",
+      "actions": "Akce",
+      "provider": "Poskytovatel",
+      "providerLocal": "Místní",
+      "mfa": "Dvoufaktorová autentizace",
+      "apiKey": "API klíč",
+      "lastApiUse": "Poslední použití API"
+    },
+    "roles": {
+      "admin": "Správce",
+      "user": "Uživatel",
+      "system": "Systém"
+    },
+    "status": {
+      "active": "Aktivní",
+      "pending": "Čeká na schválení",
+      "disabled": "Deaktivováno",
+      "locked": "Uzamčeno"
+    },
+    "actions": {
+      "edit": "Upravit uživatele",
+      "delete": "Smazat uživatele",
+      "approve": "Schválit",
+      "disable": "Deaktivovat",
+      "enable": "Aktivovat",
+      "unlock": "Odemknout",
+      "resetPassword": "Obnovit heslo",
+      "disableMfa": "Deaktivovat dvoufaktorovou autentizaci",
+      "revokeApiKey": "Zrušit API klíč",
+      "cannotDeleteSystem": "Nelze smazat systémové uživatele",
+      "terminateSession": "Ukončit relaci",
+      "terminateAllSessions": "Ukončit všechny relace"
+    },
+    "apiKey": {
+      "none": "Žádný"
+    },
+    "validation": {
+      "usernameRequired": "Uživatelské jméno je povinné",
+      "emailRequired": "E-mail je povinný",
+      "emailInvalid": "Neplatný formát e-mailu",
+      "passwordRequired": "Heslo je povinné",
+      "passwordMinLength": "nejméně {{value}} znaků",
+      "passwordUppercase": "jedno velké písmeno",
+      "passwordLowercase": "jedno malé písmeno",
+      "passwordNumber": "jednu číslici",
+      "passwordSpecial": "jeden speciální znak",
+      "passwordMustContain": "Heslo musí obsahovat {{requirements}}",
+      "confirmPasswordRequired": "Potvrďte prosím heslo",
+      "passwordsMismatch": "Hesla se neshodují"
+    },
+    "errors": {
+      "loadFailed": "Nepodařilo se načíst uživatele. Zkuste prosím obnovit stránku.",
+      "loadDetailsFailed": "Nepodařilo se načíst podrobnosti uživatele",
+      "loadSessionsFailed": "Nepodařilo se načíst relace",
+      "loadLoginAttemptsFailed": "Nepodařilo se načíst pokusy o přihlášení",
+      "loadApiKeyFailed": "Nepodařilo se načíst informace o API klíči",
+      "createFailed": "Nepodařilo se vytvořit uživatele",
+      "updateFailed": "Nepodařilo se aktualizovat uživatele",
+      "deleteFailed": "Nepodařilo se smazat uživatele",
+      "enableFailed": "Nepodařilo se aktivovat uživatele",
+      "disableFailed": "Nepodařilo se deaktivovat uživatele",
+      "unlockFailed": "Nepodařilo se odemknout účet",
+      "reasonRequired": "Poskytněte prosím důvod pro deaktivaci tohoto uživatele",
+      "passwordResetFailed": "Nepodařilo se obnovit heslo",
+      "mfaDisableFailed": "Nepodařilo se deaktivovat dvoufaktorovou autentizaci",
+      "accountStatusFailed": "Nepodařilo se aktualizovat stav účtu",
+      "terminateSessionFailed": "Nepodařilo se ukončit relaci",
+      "terminateAllSessionsFailed": "Nepodařilo se ukončit všechny relace",
+      "revokeApiKeyFailed": "Nepodařilo se zrušit API klíč",
+      "userNotFound": "Uživatel nenalezen"
+    },
+    "messages": {
+      "createSuccess": "Uživatel byl úspěšně vytvořen",
+      "updateSuccess": "Podrobnosti uživatele byly úspěšně aktualizovány",
+      "deleteSuccess": "Uživatel byl úspěšně smazán",
+      "enableSuccess": "Uživatel byl úspěšně aktivován",
+      "disableSuccess": "Uživatel byl úspěšně deaktivován",
+      "passwordResetSuccess": "Heslo bylo úspěšně obnoveno!",
+      "passwordCopied": "Heslo zkopírováno do schránky",
+      "mfaDisableSuccess": "Dvoufaktorová autentizace byla úspěšně deaktivována",
+      "accountDisabled": "Uživatelský účet deaktivován",
+      "accountEnabled": "Uživatelský účet aktivován",
+      "accountUnlocked": "Uživatelský účet odemčen",
+      "sessionTerminated": "Relace byla úspěšně ukončena",
+      "allSessionsTerminated_few": "Ukončeny {{count}} relace",
+      "allSessionsTerminated_many": "Ukončeno {{count}} relací",
+      "allSessionsTerminated_one": "Ukončena {{count}} relace",
+      "allSessionsTerminated_other": "Ukončeno {{count}} relací",
+      "apiKeyRevoked": "API klíč byl úspěšně zrušen"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Vytvořit nového uživatele",
+        "password": "Heslo",
+        "confirmPassword": "Potvrdit heslo",
+        "roleHelperText": "Vyberte roli uživatele v systému"
+      },
+      "disableUser": {
+        "title": "Deaktivovat uživatelský účet",
+        "description": "Poskytněte prosím důvod pro deaktivaci tohoto uživatelského účtu. Tato akce bude zaznamenána pro auditní účely.",
+        "reasonLabel": "Důvod deaktivace",
+        "reasonPlaceholder": "např. Kompromitace účtu, Porušení podmínek, Žádost uživatele atd.",
+        "disableAccount": "Deaktivovat účet"
+      },
+      "deleteUser": {
+        "title": "Smazat uživatelský účet",
+        "warning": "Tuto akci nelze vrátit zpět. Uživatel bude trvale odstraněn ze systému.",
+        "confirmation": "Opravdu chcete smazat uživatele <strong>{{username}}</strong>?",
+        "dataNote": "Všechna související data budou zachována, ale uživatel se již nebude moci přihlásit."
+      },
+      "resetPassword": {
+        "title": "Obnovit heslo uživatele",
+        "generateTemporary": "Vygenerovat dočasné heslo",
+        "newPassword": "Nové heslo",
+        "passwordHelperText": "Musí být alespoň 8 znaků"
+      },
+      "disableMfa": {
+        "title": "Deaktivovat dvoufaktorovou autentizaci",
+        "confirmation": "Opravdu chcete deaktivovat dvoufaktorovou autentizaci pro tohoto uživatele? Pokud bude vyžadována, bude ji muset nastavit znovu."
+      },
+      "terminateSession": {
+        "title": "Ukončit relaci?",
+        "description": "Tím se uživatel odhlásí z tohoto zařízení. Aby mohl pokračovat v používání aplikace, bude se muset znovu přihlásit.",
+        "terminate": "Ukončit"
+      },
+      "terminateAllSessions": {
+        "title": "Ukončit všechny relace?",
+        "description": "Tím se uživatel odhlásí ze VŠECH zařízení, včetně své aktuální relace. Uživatel se bude muset znovu přihlásit. Tuto akci nelze vrátit zpět.",
+        "warning": "To zahrnuje všechny aktivní pracovní relace!",
+        "terminateAll": "Ukončit vše"
+      },
+      "revokeApiKey": {
+        "title": "Zrušit API klíč uživatele?",
+        "warning": "Tím se okamžitě zakáže přístup přes API pro tohoto uživatele. Všechny aplikace používající tento klíč přestanou fungovat.",
+        "confirmation": "Opravdu chcete zrušit API klíč tohoto uživatele?"
+      }
+    },
+    "detail": {
+      "title": "Podrobnosti uživatele",
+      "backToUsers": "Zpět na uživatele",
+      "userInformation": "Informace o uživateli",
+      "userId": "ID uživatele",
+      "systemUserReadOnly": "Systémové uživatele nelze upravovat",
+      "accountStatus": "Stav účtu",
+      "accountStatusLabel": "Stav účtu",
+      "enabled": "Aktivováno",
+      "disabled": "Deaktivováno",
+      "noReasonProvided": "Nebyl poskytnut žádný důvod",
+      "lockStatus": "Stav zámku",
+      "lockedUntil": "Uzamčeno do {{date}}",
+      "notLocked": "Není uzamčeno",
+      "mfaStatus": "Stav dvoufaktorové autentizace",
+      "mfaEnabled": "Aktivováno ({{types}})",
+      "mfaDisabled": "Deaktivováno",
+      "apiKeyManagement": "Správa API klíče",
+      "apiKeyStatus": "Stav API klíče",
+      "noApiKeyGenerated": "Nebyl vygenerován žádný API klíč",
+      "created": "Vytvořeno",
+      "lastUsed": "Naposledy použito",
+      "apiKeySecurityNote": "Správci mohou zrušit API klíče, ale z bezpečnostních důvodů nemohou zobrazit klíč v plaintextu.",
+      "activityInformation": "Informace o aktivitě",
+      "passwordChanged": "Heslo změněno",
+      "failedLoginAttempts": "Neúspěšné pokusy o přihlášení",
+      "attemptsCount_few": "{{count}} pokusy",
+      "attemptsCount_many": "{{count}} pokusů",
+      "attemptsCount_one": "{{count}} pokus",
+      "attemptsCount_other": "{{count}} pokusů",
+      "disabledAt": "Datum deaktivace",
+      "activeSessions": "Aktivní relace",
+      "noActiveSessions": "Žádné aktivní relace",
+      "loginHistory": "Historie přihlášení",
+      "noLoginAttempts": "Nebyly nalezeny žádné pokusy o přihlášení",
+      "temporaryPassword": "Dočasné heslo",
+      "sharePasswordSecurely": "Sdělte prosím toto heslo bezpečným způsobem uživateli.",
+      "sessions": {
+        "ipAddress": "IP adresa",
+        "deviceBrowser": "Zařízení / Prohlížeč",
+        "lastActive": "Naposledy aktivní"
+      },
+      "loginAttempts": {
+        "timestamp": "Časové razítko",
+        "success": "Úspěch",
+        "failed": "Selhání",
+        "failureReason": "Důvod selhání"
+      },
+      "teams": "Týmy",
+      "teamName": "Tým",
+      "teamDescription": "Popis",
+      "noTeams": "Není členem žádného týmu",
+      "ownedAgents": "Vlastnění agenti",
+      "noOwnedAgents": "Tento uživatel nevlastní žádné agenty",
+      "agentName": "Agent",
+      "agentVersion": "Verze",
+      "agentLastSeen": "Naposledy viděno"
+    }
+  },
+  "clients": {
+    "title": "Správa klientů",
+    "addClient": "Přidat klienta",
+    "columns": {
+      "name": "Název",
+      "description": "Popis",
+      "contact": "Kontakt",
+      "cracked": "Prolomeno",
+      "retention": "Uchovávání (měsíce)",
+      "createdAt": "Vytvořeno",
+      "actions": "Akce",
+      "wordlists": "Slovníky"
+    },
+    "form": {
+      "clientName": "Název klienta",
+      "description": "Popis",
+      "contactInfo": "Kontaktní informace",
+      "dataRetention": "Uchovávání dat (měsíce)",
+      "dataRetentionHelperText": "Nechte prázdné pro výchozí nastavení systému. Zadejte 0 pro trvalé uchovávání.",
+      "excludeFromPotfile": "Vyloučit z potfile (neukládat prolomená hesla)",
+      "excludeFromPotfileHelperText": "Povolte toto pro klienty se striktními požadavky na uchovávání dat",
+      "cloudInherit": "Cloud burst: tento klient bude dědit výchozí nastavení serveru — {{state}}, ${{amount}} za {{period}}. Změňte to v Zřizování cloudu → Rozpočty klientů.",
+      "cloudInheritUnfunded": "Cloud burst: není nastaven výchozí rozpočet, takže tento klient začíná bez financování a nemůže si pronajmout placenou kapacitu. Nastavte výchozí hodnotu v Zřizování cloudu → Rozpočty klientů.",
+      "cloudInheritUnknown": "Nastavení Cloud burst se dědí z výchozích hodnot serveru v Zřizování cloudu → Rozpočty klientů.",
+      "cloudEnabledWord": "povoleno",
+      "cloudDisabledWord": "zakázáno",
+      "excludeFromClientPotfile": "Vyloučit z klientského potfile",
+      "excludeFromClientPotfileHelperText": "Pokud je zaškrtnuto, prolomená hesla pro tohoto klienta se NEPŘIDÁVAJÍ do jeho klientského potfile.",
+      "clientPotfileSettings": "Nastavení smazání potfile",
+      "useSystemDefault": "Použít výchozí nastavení systému",
+      "alwaysRemove": "Vždy odebrat",
+      "neverRemove": "Nikdy neodebírat",
+      "assignToTeam": "Přiřadit týmu",
+      "assignToTeamHelperText": "Nový klient bude přiřazen tomuto týmu. Přeřazení existujícího klienta se spravuje prostřednictvím Správy týmu v administraci.",
+      "removeFromGlobalPotfileOnDelete": "Odebrat z globálního potfile při smazání",
+      "removeFromGlobalPotfileHelperText": "Určuje, zda jsou hesla odstraněna z globálního potfile při smazání hashlistu.",
+      "removeFromClientPotfileOnDelete": "Odebrat z klientského potfile při smazání",
+      "removeFromClientPotfileHelperText": "Určuje, zda jsou hesla odstraněna z klientského potfile při smazání hashlistu."
+    },
+    "validation": {
+      "nameRequired": "Název klienta je povinný.",
+      "retentionInvalid": "Doba uchovávání musí být nezáporné číslo nebo prázdné (pro výchozí hodnotu).",
+      "teamRequired": "Výběr týmu je vyžadován, když jsou týmy povoleny"
+    },
+    "errors": {
+      "loadFailed": "Nepodařilo se načíst klienty. Zkuste prosím obnovit.",
+      "loadDefaultSettingsFailed": "Nepodařilo se načíst výchozí nastavení klienta.",
+      "saveFailed": "Nepodařilo se uložit klienta.",
+      "deleteFailed": "Nepodařilo se odstranit klienta."
+    },
+    "messages": {
+      "createSuccess": "Klient byl úspěšně vytvořen",
+      "updateSuccess": "Klient byl úspěšně aktualizován",
+      "deleteSuccess": "Klient byl úspěšně odstraněn"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Přidat nového klienta",
+        "createButton": "Vytvořit klienta"
+      },
+      "editClient": {
+        "title": "Upravit klienta"
+      },
+      "deleteClient": {
+        "title": "Potvrdit smazání",
+        "confirmation": "Jste si jisti, že chcete odstranit klienta \"{{name}}\"? Tuto akci nelze vrátit zpět. Přidružené hashlisty mohou být okamžitě smazány nebo opuštěny na základě zásad uchovávání."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Název",
+        "status": "Stav",
+        "total": "Hashe",
+        "cracked": "Prolomeno",
+        "created": "Vytvořeno"
+      },
+      "notFound": "Klient nenalezen",
+      "notFoundHint": "Mohl být smazán nebo patří týmu, kterého nejste členem.",
+      "backToClients": "Zpět na klienty",
+      "breadcrumb": "Klienti",
+      "manageWordlists": "Slovníky a potfile",
+      "stats": {
+        "hashlists": "Hashlisty",
+        "cracked": "Prolomeno",
+        "jobs": "Úlohy",
+        "active": "{{count}} aktivní",
+        "wordlists": "Slovníky",
+        "hasPotfile": "Klientský potfile přítomen"
+      },
+      "hashlists": "Hashlisty",
+      "noHashlists": "Zatím žádné hashlisty pro tohoto klienta",
+      "jobs": "Úlohy",
+      "noJobs": "Pro tohoto klienta neběžely žádné úlohy",
+      "teams": "Týmy",
+      "noTeams": "Není přiřazen žádnému týmu",
+      "policy": "Uchovávání a potfile",
+      "retention": "Uchovávání dat",
+      "retentionDefault": "Výchozí nastavení systému",
+      "retentionForever": "Zachovat navždy",
+      "retentionMonths_few": "{{count}} měsíce",
+      "retentionMonths_many": "{{count}} měsíců",
+      "retentionMonths_one": "{{count}} měsíc",
+      "retentionMonths_other": "{{count}} měsíců",
+      "globalPotfile": "Globální potfile",
+      "excluded": "Vyloučeno",
+      "included": "Zahrnuto",
+      "clientPotfile": "Klientský potfile",
+      "contact": "Kontakt",
+      "lastActivity": "Poslední aktivita"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Přiřadit klienty k týmu",
+      "dialogDescription_few": "Přiřadí {{count}} vybrané klienty k týmu. Klienti již v tomto týmu budou přeskočeni.",
+      "dialogDescription_many": "Přiřadí {{count}} vybraných klientů k týmu. Klienti již v tomto týmu budou přeskočeni.",
+      "dialogDescription_one": "Přiřadí {{count}} vybraného klienta k týmu. Klienti již v tomto týmu budou přeskočeni.",
+      "dialogDescription_other": "Přiřadí {{count}} vybraných klientů k týmu. Klienti již v tomto týmu budou přeskočeni.",
+      "selectTeam": "Vybrat tým",
+      "assignButton": "Přiřadit",
+      "fallbackTeamName": "tým",
+      "success_few": "Přiřazeni {{count}} klienti k {{team}}",
+      "success_many": "Přiřazeno {{count}} klientů k {{team}}",
+      "success_one": "Přiřazen {{count}} klient k {{team}}",
+      "success_other": "Přiřazeno {{count}} klientů k {{team}}",
+      "successWithSkipped_few": "Přiřazeni {{count}} klienti k {{team}} ({{skipped}} již přiřazeni)",
+      "successWithSkipped_many": "Přiřazeno {{count}} klientů k {{team}} ({{skipped}} již přiřazeno)",
+      "successWithSkipped_one": "Přiřazen {{count}} klient k {{team}} ({{skipped}} již přiřazen)",
+      "successWithSkipped_other": "Přiřazeno {{count}} klientů k {{team}} ({{skipped}} již přiřazeno)",
+      "errors": {
+        "assignFailed": "Nepodařilo se přiřadit klienty k týmu"
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Správa slovníků",
+    "description": "Spravujte slovníky pro prolomování hesel",
+    "uploadWordlist": "Nahrát slovník",
+    "refresh": "Obnovit",
+    "loading": "Načítání slovníků...",
+    "noWordlistsFound": "Žádné slovníky nenalezeny",
+    "tryDifferentSearch": "Zkuste jiný vyhledávací termín",
+    "uploadToGetStarted": "Chcete-li začít, nahrajte slovník",
+    "noDescription": "Nebyl poskytnut žádný popis",
+    "searchPlaceholder": "Hledat slovníky...",
+    "tabs": {
+      "all": "Všechny slovníky",
+      "general": "Obecný",
+      "specialized": "Specializovaný",
+      "targeted": "Cílený",
+      "custom": "Vlastní"
+    },
+    "columns": {
+      "name": "Název",
+      "status": "Stav",
+      "type": "Typ",
+      "size": "Velikost",
+      "wordCount": "Počet slov",
+      "updated": "Aktualizováno",
+      "actions": "Akce"
+    },
+    "status": {
+      "verified": "Ověřeno",
+      "pending": "Čekající",
+      "failed": "Selhalo",
+      "missing": "Soubor chybí na disku",
+      "missingSince": "Soubor chybí na disku od {{date}}. Nahrajte jej znovu nebo odeberte položku."
+    },
+    "types": {
+      "general": "Obecný",
+      "specialized": "Specializovaný",
+      "targeted": "Cílený",
+      "custom": "Vlastní"
+    },
+    "fields": {
+      "name": "Název",
+      "description": "Popis",
+      "wordlistType": "Typ slovníku"
+    },
+    "tooltips": {
+      "refreshMetadata": "Obnovit metadata",
+      "download": "Stáhnout",
+      "edit": "Upravit",
+      "delete": "Smazat"
+    },
+    "errors": {
+      "loadFailed": "Nepodařilo se načíst slovníky",
+      "uploadFailed": "Nepodařilo se nahrát slovník",
+      "deleteFailed": "Nepodařilo se odstranit slovník",
+      "downloadFailed": "Nepodařilo se stáhnout slovník",
+      "refreshFailed": "Nepodařilo se obnovit metadata slovníku",
+      "updateFailed": "Nepodařilo se aktualizovat slovník: {{error}}",
+      "sessionExpired": "Vaše relace vypršela. Prosím přihlaste se znovu."
+    },
+    "messages": {
+      "uploadSuccess": "Slovník byl úspěšně nahrán",
+      "duplicateWordlist": "Slovník \"{{name}}\" již existuje",
+      "deleteSuccess": "Slovník \"{{name}}\" byl úspěšně smazán",
+      "updateSuccess": "Slovník byl úspěšně aktualizován",
+      "refreshSuccess": "Metadata slovníku byla úspěšně obnovena"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Nahrát slovník",
+        "fileUploadTitle": "Nahrajte soubor slovníku",
+        "fileUploadDescription": "Vyberte soubor slovníku k nahrání. Podporované formáty: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Upravit slovník"
+      },
+      "delete": {
+        "title": "Potvrdit smazání",
+        "cascadeTitle": "Potvrdit kaskádové smazání",
+        "confirmation": "Jste si jisti, že chcete odstranit slovník \"{{name}}\"? Tuto akci nelze vrátit zpět.",
+        "cascadeWarning": "Smazání slovníku \"{{name}}\" také odstraní následující:",
+        "checkingDependencies": "Kontrola závislostí...",
+        "jobsCount_few": "{{count}} Úlohy (čekající/spuštěné/neúspěšné):",
+        "jobsCount_many": "{{count}} Úloh (čekající/spuštěné/neúspěšné):",
+        "jobsCount_one": "{{count}} Úloha (čekající/spuštěná/neúspěšná):",
+        "jobsCount_other": "{{count}} Úloh (čekající/spuštěné/neúspěšné):",
+        "presetJobsCount_few": "{{count}} Přednastavené úlohy:",
+        "presetJobsCount_many": "{{count}} Přednastavených úloh:",
+        "presetJobsCount_one": "{{count}} Přednastavená úloha:",
+        "presetJobsCount_other": "{{count}} Přednastavených úloh:",
+        "workflowStepsCount_few": "{{count}} Kroky pracovního postupu:",
+        "workflowStepsCount_many": "{{count}} Kroků pracovního postupu:",
+        "workflowStepsCount_one": "{{count}} Krok pracovního postupu:",
+        "workflowStepsCount_other": "{{count}} Kroků pracovního postupu:",
+        "emptyWorkflowsCount_few": "{{count}} Prázdné pracovní postupy budou smazány:",
+        "emptyWorkflowsCount_many": "{{count}} Prázdných pracovních postupů bude smazáno:",
+        "emptyWorkflowsCount_one": "{{count}} Prázdný pracovní postup bude smazán:",
+        "emptyWorkflowsCount_other": "{{count}} Prázdných pracovních postupů bude smazáno:",
+        "noHashlist": "Žádný hashlist",
+        "step": "Krok {{order}}",
+        "andMore": "...a {{count}} dalších",
+        "confirmationPrompt": "Chcete-li potvrdit toto kaskádové smazání, zadejte ID slovníku: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Zadejte {{id}} k potvrzení",
+        "idMismatch": "ID se neshoduje",
+        "deleteAll": "Smazat vše"
+      }
+    },
+    "filterForm": {
+      "helpText": "Všechna kritéria jsou kombinována (AND) — slovo musí splňovat všechna, která nastavíte. Pokud je váš regulární výraz přísnější než pole délky (např. minimální délka 8, ale regulární výraz vyžaduje 12+), vyhraje přísnější pravidlo. Odhad níže odráží kombinovaný výsledek.",
+      "minLength": "Minimální délka",
+      "maxLength": "Maximální délka",
+      "requiredClasses": "Požadované třídy znaků",
+      "uppercase": "Velká písmena",
+      "lowercase": "Malá písmena",
+      "digit": "Číslice",
+      "special": "Speciální",
+      "minClasses": "Min # tříd (1-4)",
+      "minClassesHelp": "např. 3 = alespoň 3 ze 4 tříd",
+      "regexLabel": "Regulární výraz (RE2)",
+      "regexHelperDefault": "např. ^.{10,16}$",
+      "regexLookaroundError": "Pozitivní a negativní aserce ((?=…), (?!…), (?<=…), (?<!…)) nejsou podporovány enginem backendu (RE2). Místo toho použijte filtry délky/třídy.",
+      "regexInvalidDefault": "Neplatný regulární výraz",
+      "estimating": "Odhadování…",
+      "previewTooltip": "Odhadnuto vzorkováním začátku zdrojového slovníku. U seřazených seznamů se skutečný celkový počet může lišit.",
+      "previewLabel": "~{{countDisplay}} kandidátů ({{rateDisplay}}% vzorku)",
+      "previewUnavailable": "Náhled není dostupný"
+    },
+    "filtered": {
+      "badge": "Filtrováno",
+      "regeneratingBadge": "Regenerování…",
+      "regeneratingTooltip": "Zdroj se změnil; tento filtrovaný slovník se regeneruje (pokud je to možné, regenerují se pouze nové záznamy).",
+      "staleBadge": "Zastaralé",
+      "staleTooltip": "Zdrojový slovník se změnil od vygenerování. Filtrované slovníky se na backendu regenerují automaticky, když se změní jejich zdroj; můžete jej také regenerovat nyní.",
+      "namePlaceholder": "{{name}} (filtrováno)",
+      "wordCount_few": "{{count}} slova",
+      "wordCount_many": "{{count}} slov",
+      "wordCount_one": "{{count}} slovo",
+      "wordCount_other": "{{count}} slov",
+      "plaintextChip": "prostý text",
+      "compressedChip": "komprimované",
+      "messages": {
+        "generating": "Filtrovaný slovník se generuje",
+        "createFailed": "Nepodařilo se vytvořit filtrovaný slovník",
+        "regenerating": "Začalo se s plnou regenerací filtrovaného slovníku",
+        "regenerateFailed": "Nepodařilo se regenerovat filtrovaný slovník"
+      },
+      "createDialog": {
+        "title": "Vytvořit filtrovaný slovník",
+        "description": "Vygenerujte nový slovník obsahující pouze řádky zdrojového slovníku, které odpovídají vašim kritériím. Výsledek je znovu použitelný v rámci úloh a je sledován vůči svému zdroji.",
+        "sourceWordlistLabel": "Zdrojový slovník",
+        "nameLabel": "Název",
+        "create": "Vytvořit"
+      },
+      "regenerateDialog": {
+        "title": "Regenerovat filtrovaný slovník?",
+        "autoInfo": "Filtrované slovníky se normálně regenerují <strong>automaticky na backendu</strong>, kdykoli se změní jejich zdrojový slovník — nemusíte to dělat ručně.",
+        "manualHint": "Regenerujte ručně pouze v případě, že víte, že se <strong>pořadí slov ve zdroji změnilo</strong> (slova byla upravena, odstraněna nebo přeuspořádána, spíše než jen přidána na konec).",
+        "warningWithExample": "Tím se spustí <strong>plná regenerace</strong> — celý zdroj se znovu filtruje, což může u velkých slovníků trvat dlouho (např. \"{{name}}\").",
+        "warningNoExample": "Tím se spustí <strong>plná regenerace</strong> — celý zdroj se znovu filtruje, což může u velkých slovníků trvat dlouho.",
+        "confirmButton": "Regenerovat plně"
+      }
+    }
+  },
+  "rules": {
+    "title": "Správa pravidel",
+    "description": "Správa pravidel Hashcat pro prolomování hesel",
+    "uploadRule": "Nahrát pravidlo",
+    "refresh": "Obnovit",
+    "loading": "Načítání pravidel...",
+    "noRulesFound": "Nenalezena pravidla",
+    "tryDifferentSearch": "Zkuste jiný vyhledávací výraz",
+    "uploadToGetStarted": "Nahrajte pravidlo, abyste mohli začít",
+    "noDescription": "Popis nebyl poskytnut",
+    "searchPlaceholder": "Hledat pravidla...",
+    "tabs": {
+      "all": "Všechna pravidla",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Název",
+      "status": "Stav",
+      "type": "Typ",
+      "size": "Velikost",
+      "ruleCount": "Počet pravidel",
+      "updated": "Aktualizováno",
+      "actions": "Akce"
+    },
+    "status": {
+      "verified": "Ověřeno",
+      "pending": "Čekající",
+      "failed": "Selhalo",
+      "ready": "Připraveno",
+      "processing": "Zpracování",
+      "missing": "Soubor chybí na disku",
+      "missingSince": "Soubor chybí na disku od {{date}}. Nahrajte jej znovu nebo odstraňte záznam."
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Název",
+      "description": "Popis",
+      "ruleType": "Typ pravidla"
+    },
+    "tooltips": {
+      "download": "Stáhnout",
+      "edit": "Upravit",
+      "delete": "Odstranit"
+    },
+    "errors": {
+      "loadFailed": "Chyba při načítání pravidel",
+      "uploadFailed": "Chyba při nahrávání pravidla",
+      "deleteFailed": "Chyba při odstraňování pravidla",
+      "downloadFailed": "Chyba při stahování pravidla",
+      "updateFailed": "Chyba při aktualizaci pravidla: {{error}}",
+      "verifyFailed": "Chyba při ověřování pravidla",
+      "sessionExpired": "Vaše relace vypršela. Prosím, přihlaste se znovu."
+    },
+    "messages": {
+      "uploadSuccess": "Pravidlo bylo úspěšně nahráno",
+      "duplicateRule": "Pravidlo \"{{name}}\" již existuje",
+      "deleteSuccess": "Pravidlo \"{{name}}\" bylo úspěšně odstraněno",
+      "updateSuccess": "Pravidlo bylo úspěšně aktualizováno",
+      "verifySuccess": "Pravidlo \"{{name}}\" bylo úspěšně ověřeno"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Nahrát pravidlo",
+        "fileUploadTitle": "Nahrajte soubor pravidel",
+        "fileUploadDescription": "Vyberte soubor pravidel k nahrání. Podporované formáty: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Upravit pravidlo"
+      },
+      "delete": {
+        "title": "Potvrdit smazání",
+        "cascadeTitle": "Potvrdit kaskádové smazání",
+        "confirmation": "Opravdu chcete odstranit pravidlo \"{{name}}\"? Tuto akci nelze vrátit zpět.",
+        "cascadeWarning": "Odstranění pravidla \"{{name}}\" také odstraní následující:",
+        "checkingDependencies": "Kontrola závislostí...",
+        "jobsCount_few": "{{count}} Úlohy (čekající/spuštěné/selhané):",
+        "jobsCount_many": "{{count}} Úloh (čekající/spuštěné/selhané):",
+        "jobsCount_one": "{{count}} Úloha (čekající/spuštěná/selhána):",
+        "jobsCount_other": "{{count}} Úloh (čekající/spuštěné/selhané):",
+        "presetJobsCount_few": "{{count}} Přednastavené úlohy:",
+        "presetJobsCount_many": "{{count}} Přednastavených úloh:",
+        "presetJobsCount_one": "{{count}} Přednastavená úloha:",
+        "presetJobsCount_other": "{{count}} Přednastavených úloh:",
+        "workflowStepsCount_few": "{{count}} Kroky pracovního postupu:",
+        "workflowStepsCount_many": "{{count}} Kroků pracovního postupu:",
+        "workflowStepsCount_one": "{{count}} Krok pracovního postupu:",
+        "workflowStepsCount_other": "{{count}} Kroků pracovního postupu:",
+        "emptyWorkflowsCount_few": "{{count}} Prázdné pracovní postupy budou odstraněny:",
+        "emptyWorkflowsCount_many": "{{count}} Prázdných pracovních postupů bude odstraněno:",
+        "emptyWorkflowsCount_one": "{{count}} Prázdný pracovní postup bude odstraněn:",
+        "emptyWorkflowsCount_other": "{{count}} Prázdných pracovních postupů bude odstraněno:",
+        "noHashlist": "Žádný Hashlist",
+        "step": "Krok {{order}}",
+        "andMore": "...a {{count}} dalších",
+        "confirmationPrompt": "Potvrďte kaskádové smazání zadáním ID pravidla: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Zadejte {{id}} pro potvrzení",
+        "idMismatch": "ID se neshoduje",
+        "deleteAll": "Odstranit vše"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Správa přednastavených úloh",
+    "createNew": "Vytvořit přednastavenou úlohu",
+    "confirmDelete": "Opravdu chcete odstranit tuto přednastavenou úlohu?",
+    "noJobsFound": "Nenalezeny přednastavené úlohy. Vytvořte si jednu, abyste mohli začít.",
+    "keyspaceNotCalculated": "Nevypočítáno",
+    "calculating": "Počítání...",
+    "calculateKeyspace": "Vypočítat Keyspace",
+    "calculateAllMissingKeyspaces": "Vypočítat všechny chybějící Keyspace",
+    "calculatingKeyspaces": "Počítání...",
+    "calculatingAllKeyspacesMessage": "Počítání keyspace pro všechny přednastavené úlohy. Chvíli to může trvat...",
+    "canInterruptRunningJobs": "Může přerušit spuštěné úlohy",
+    "columns": {
+      "name": "Název",
+      "description": "Popis",
+      "attackMode": "Režim útoku",
+      "priority": "Priorita",
+      "highPriorityOverride": "Přepsání vysoké priority",
+      "maxAgents": "Max. agentů",
+      "keyspace": "Keyspace",
+      "binaryVersion": "Verze binárního souboru",
+      "wordlists": "Slovníky",
+      "rules": "Pravidla",
+      "createdAt": "Vytvořeno",
+      "actions": "Akce"
+    },
+    "messages": {
+      "deleteSuccess": "Přednastavená úloha byla úspěšně odstraněna",
+      "deleteFailed": "Chyba při odstraňování přednastavené úlohy: {{error}}",
+      "fetchError": "Chyba při načítání přednastavených úloh: {{error}}",
+      "deleteError": "Chyba při odstraňování přednastavené úlohy: {{error}}",
+      "keyspaceRecalculateSuccess": "Keyspace bylo úspěšně přepočítáno",
+      "keyspaceRecalculateFailed": "Chyba při přepočítávání Keyspace: {{error}}",
+      "keyspaceAllComplete": "Aktualizováno {{updated}}, přeskočeno {{skipped}}, selhalo {{failed}}",
+      "keyspaceAllFailed": "Chyba při přepočítávání keyspace: {{error}}"
+    },
+    "form": {
+      "createTitle": "Vytvořit přednastavenou úlohu",
+      "editTitle": "Upravit přednastavenou úlohu",
+      "createJob": "Vytvořit přednastavenou úlohu",
+      "updateJob": "Aktualizovat přednastavenou úlohu",
+      "attackModeRequirements": "Požadavky režimu útoku",
+      "wordlistSelectionCombination": "Výběr slovníků (režim kombinace)",
+      "selectFirstWordlist": "Vyberte první slovník",
+      "selectSecondWordlist": "Vyberte druhý slovník",
+      "fields": {
+        "jobName": "Název úlohy",
+        "attackMode": "Režim útoku",
+        "priority": "Priorita",
+        "chunkSize": "Trvání bloku (sekundy)",
+        "maxAgents": "Max. agentů",
+        "maskPattern": "Vzor masky",
+        "incrementMode": "Režim inkrementace",
+        "incrementMin": "Min. délka inkrementace",
+        "incrementMax": "Max. délka inkrementace",
+        "wordlists": "Slovníky",
+        "rules": "Pravidla",
+        "mask": "Maska",
+        "ruleOptional": "Pravidlo (nepovinné)",
+        "firstWordlist": "První slovník",
+        "secondWordlist": "Druhý slovník",
+        "allowHighPriorityOverride": "Povolit přepsání vysoké priority (může přerušit spuštěné úlohy)",
+        "additionalArgs": "Další argumenty Hashcat",
+        "cloudBurstEnabled": "Povolit cloudový burst",
+        "cloudMaxInstances": "Max. cloudových instancí",
+        "cloudAllowCommunityHosts": "Povolit hostitele provozované komunitou (Vast.ai, RunPod Community)"
+      },
+      "incrementModes": {
+        "off": "Vypnuto (použít plnou masku)",
+        "increment": "Inkrementace (1 až max)",
+        "incrementInverse": "Inverzní inkrementace (max až 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Vyberte verzi binárního souboru Hashcat, kterou chcete používat",
+        "priority": "Úlohy s vyšší prioritou se spouštějí dříve (0–{{maxPriority}})",
+        "maskPattern": "Vzor masky Hashcat (např. ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=malá písmena, ?u=velká písmena, ?d=číslice, ?s=speciální, ?a=vše",
+        "incrementMode": "Použijte režim inkrementace ke zkoušení masek různých délek",
+        "incrementMin": "Minimální délka masky, kterou chcete vyzkoušet",
+        "incrementMax": "Maximální délka masky, kterou chcete vyzkoušet",
+        "chunkSize": "Doba trvání každého bloku práce v sekundách",
+        "maxAgents": "Maximální počet agentů (0 = neomezeno)",
+        "allowHighPriorityOverride": "Je-li povoleno, tato úloha může přerušit úlohy s nižší prioritou a převzít jejich agenty",
+        "wordlistsNotUsed": "Slovníky se pro tento režim útoku nepoužívají",
+        "selectWordlists_few": "Vyberte přesně {{count}} slovníky",
+        "selectWordlists_many": "Vyberte přesně {{count}} slovníků",
+        "selectWordlists_one": "Vyberte přesně {{count}} slovník",
+        "selectWordlists_other": "Vyberte přesně {{count}} slovníků",
+        "rulesNotUsed": "Pravidla se pro tento režim útoku nepoužívají",
+        "selectRule": "Volitelně vyberte soubor pravidel pro aplikaci transformací",
+        "firstWordlist": "Slova z tohoto seznamu se budou používat jako první část",
+        "secondWordlist": "Slova z tohoto seznamu budou připojena k první části",
+        "additionalArgs": "Další příznaky Hashcat pro tuto úlohu. Příznaky na úrovni agenta mají v případě konfliktů přednost.",
+        "cloudBurstEnabled": "Pronajměte si GPU instance pro úlohy vytvořené z této předvolby, pokud místní flotila nemůže držet krok. Vyžaduje, aby klient byl financován a přihlášen u poskytovatele.",
+        "cloudMaxInstances": "Odděleno od Max. agentů, které řídí sdílený místní fond. Nechejte prázdné, aby zbývající rozpočet rozhodl.",
+        "cloudAllowCommunityHosts": "Jedná se o počítače někoho jiného. Vlastník hostitele má rootový přístup ke kontejneru, takže hashe, slovníky a prolomené plaintexty tohoto klienta lze přečíst třetí stranou a nejsou na hostiteli šifrovány v klidovém stavu. Nedoporučuje se pro produkční data nebo data klientských zakázek. Nechejte toto vypnuté a úlohy budou stále používat zabezpečenou kapacitu (AWS, RunPod Secure Cloud), pokud to klient povoluje.",
+        "prefilteredWordlistHint": "Chcete-li použít předfiltrovaný slovník v přednastavené úloze, vytvořte jej nejdříve ve správě slovníků – poté se zobrazí v tomto seznamu. Vložené dočasné filtrování je dostupné pouze pro jednorázové vlastní úlohy."
+      },
+      "errors": {
+        "nameRequired": "Vyžaduje se název úlohy",
+        "binaryVersionRequired": "Vyžaduje se verze binárního souboru",
+        "straightModeWordlist": "Režim slovníkového útoku vyžaduje přesně 1 slovník",
+        "combinationModeWordlists": "Režim kombinace vyžaduje přesně 2 slovníky",
+        "selectBothWordlists": "Vyberte oba slovníky pro režim kombinace",
+        "bruteForceModeMask": "Režim útoku hrubou silou vyžaduje masku",
+        "hybridModeWordlist": "Hybridní režim vyžaduje přesně 1 slovník",
+        "hybridModeMask": "Hybridní režim vyžaduje masku",
+        "associationModeNotImplemented": "Režim asociačního útoku není implementován",
+        "noWordlistsAvailable": "Nejsou k dispozici žádné slovníky. Nejprve nahrajte slovníky.",
+        "loadFailed": "Chyba při načítání přednastavené úlohy",
+        "loadFormDataFailed": "Chyba při načítání dat formuláře",
+        "saveFailed": "Chyba při ukládání přednastavené úlohy"
+      },
+      "messages": {
+        "createSuccess": "Přednastavená úloha byla úspěšně vytvořena",
+        "updateSuccess": "Přednastavená úloha byla úspěšně aktualizována"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Slovníkový útok",
+          "description": "Používá slova ze slovníku, volitelně aplikuje pravidlo na jejich transformaci",
+          "wordlistRequirement": "Vyžaduje přesně 1 slovník",
+          "rulesRequirement": "0 nebo 1 soubor pravidel",
+          "maskRequirement": "Maska není potřeba"
+        },
+        "combination": {
+          "name": "Kombinace",
+          "description": "Kombinuje slova ze dvou slovníků (první_slovo + druhé_slovo)",
+          "wordlistRequirement": "Vyžaduje přesně 2 slovníky",
+          "rulesRequirement": "Pravidla nejsou potřeba",
+          "maskRequirement": "Maska není potřeba"
+        },
+        "bruteForce": {
+          "name": "Útok hrubou silou (Maska)",
+          "description": "Generuje hesla na základě vzoru/masky",
+          "wordlistRequirement": "Slovník není potřeba",
+          "rulesRequirement": "Pravidla nejsou potřeba",
+          "maskRequirement": "Vyžaduje masku (např. ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Hybridní: Slovník + Maska",
+          "description": "Připojuje znaky generované maskou k slovům ze slovníku",
+          "wordlistRequirement": "Vyžaduje přesně 1 slovník",
+          "rulesRequirement": "Pravidla nejsou potřeba",
+          "maskRequirement": "Vyžaduje masku (např. ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Hybridní: Maska + Slovník",
+          "description": "Předřazuje znaky generované maskou k slovům ze slovníku",
+          "wordlistRequirement": "Vyžaduje přesně 1 slovník",
+          "rulesRequirement": "Pravidla nejsou potřeba",
+          "maskRequirement": "Vyžaduje masku (např. ?d?d?d?d)"
+        },
+        "association": {
+          "name": "Asociační útok (Není implementováno)",
+          "description": "Tento režim útoku není v současné době implementován",
+          "wordlistRequirement": "N/A",
+          "rulesRequirement": "N/A",
+          "maskRequirement": "N/A"
+        }
+      }
+    }
+  },
+  "workflows": {
+    "title": "Správa pracovních postupů úloh",
+    "create": "Vytvořit pracovní postup",
+    "deleteTitle": "Smazat pracovní postup",
+    "confirmDelete": "Chcete opravdu smazat pracovní postup \"{{name}}\"?",
+    "noWorkflowsFound": "Nebyly nalezeny žádné pracovní postupy. Vytvořte jeden pro začátek.",
+    "canInterrupt": "Může přerušit",
+    "normal": "Normální",
+    "loopbackAllEligible": "Všechny vhodné",
+    "loopbackStepCount_few": "{{count}} kroky",
+    "loopbackStepCount_many": "{{count}} kroku",
+    "loopbackStepCount_one": "{{count}} krok",
+    "loopbackStepCount_other": "{{count}} kroků",
+    "columns": {
+      "name": "Název",
+      "description": "Popis",
+      "steps": "Kroky",
+      "jobCount": "Úlohy",
+      "highPriority": "Režim priority",
+      "loopback": "Loopback",
+      "created": "Vytvořeno",
+      "lastUpdated": "Poslední aktualizace",
+      "actions": "Akce"
+    },
+    "messages": {
+      "loadFailed": "Nepodařilo se načíst pracovní postupy",
+      "deleteFailed": "Nepodařilo se smazat pracovní postup"
+    },
+    "form": {
+      "createTitle": "Vytvořit pracovní postup",
+      "editTitle": "Upravit pracovní postup",
+      "createWorkflow": "Vytvořit pracovní postup",
+      "saveChanges": "Uložit změny",
+      "workflowSteps": "Kroky pracovního postupu",
+      "noJobsAdded": "Zatím nebyly přidány žádné úlohy do tohoto pracovního postupu. Vyhledejte a přidejte přednastavené úlohy výše.",
+      "priority": "Priorita: {{priority}}",
+      "binary": "Binární soubor: {{name}}",
+      "wordlistCount_few": "{{count}} slovníky",
+      "wordlistCount_many": "{{count}} slovníku",
+      "wordlistCount_one": "{{count}} slovník",
+      "wordlistCount_other": "{{count}} slovníků",
+      "ruleCount_few": "{{count}} pravidla",
+      "ruleCount_many": "{{count}} pravidla",
+      "ruleCount_one": "{{count}} pravidlo",
+      "ruleCount_other": "{{count}} pravidel",
+      "loopback": {
+        "masterToggle": "Povolit loopback pro všechny vhodné kroky",
+        "masterHelperText": "Pokud je zapnuto, celý pracovní postup se spustí a každý vhodný krok (slovníkový útok s pravidly nebo hybridní útok se slovníkem ± maskou) se znovu spustí pouze proti nově prolomeným heslům — inteligentně se opakuje, dokud se nenajdou nová prolomení. Kroky bez mutace (pouze slovník, útok hrubou silou, asociační útok) stále přispívají svými novými prolomeními do smyčky. Přepínače pro jednotlivé kroky níže jsou deaktivovány, dokud je toto zapnuto.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Nic na mutaci (pouze slovník, útok hrubou silou, asociační útok nebo kombinátor). Tento krok stále přispívá svými novými prolomeními do smyčky, ale není znovu spuštěn.",
+        "tooltipMasterOn": "Loopback na úrovni pracovního postupu je zapnut, takže se každý vhodný krok vrací zpět.",
+        "tooltipStep": "Znovu spustit tento krok pouze proti nově prolomeným heslům, dokud se nenajdou nová prolomení."
+      },
+      "fields": {
+        "workflowName": "Název pracovního postupu",
+        "searchPresetJobs": "Vyhledávat přednastavené úlohy"
+      },
+      "helperText": {
+        "searchPresetJobs": "Vyhledejte přednastavené úlohy, které chcete přidat k tomuto pracovnímu postupu"
+      },
+      "errors": {
+        "nameRequired": "Název pracovního postupu je povinný",
+        "presetJobRequired": "Vyžaduje se nejméně jedna přednastavená úloha",
+        "noPresetJobsAvailable": "Nejsou k dispozici žádné přednastavené úlohy. Nejdříve vytvořte přednastavené úlohy.",
+        "loadFailed": "Nepodařilo se načíst pracovní postup",
+        "loadFormDataFailed": "Nepodařilo se načíst data formuláře",
+        "saveFailed": "Nepodařilo se uložit pracovní postup"
+      },
+      "messages": {
+        "createSuccess": "Pracovní postup byl úspěšně vytvořen",
+        "updateSuccess": "Pracovní postup byl úspěšně aktualizován"
+      },
+      "cloudBurst": {
+        "toggle": "Povolit cloud burst pro každý krok",
+        "helperText": "Platí pro všechny kroky a přepisuje vlastní nastavení každé přednastavené úlohy. Nastavte na úrovni pracovního postupu, aby jedna pronajatá instance zvládla celý pracovní postup, místo aby byla mezi kroky odstraněna a znovu pronajata."
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Správa binárních souborů",
+    "title": "Binární soubory hashcat",
+    "addBinary": "Přidat binární soubor",
+    "showingActiveOnly": "Zobrazovány pouze aktivní binární soubory",
+    "showingAll": "Zobrazovány všechny binární soubory",
+    "noBinaries": "Nebyly nalezeny žádné binární soubory",
+    "noActiveBinaries": "Nebyly nalezeny žádné aktivní binární soubory",
+    "default": "Výchozí",
+    "verifyBinary": "Ověřit binární soubor",
+    "deleteBinary": "Smazat binární soubor",
+    "sourceUpload": "Nahrání",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Verze",
+      "type": "Typ",
+      "source": "Zdroj",
+      "size": "Velikost",
+      "status": "Stav",
+      "default": "Výchozí",
+      "lastVerified": "Poslední ověření",
+      "actions": "Akce"
+    },
+    "messages": {
+      "fetchFailed": "Nepodařilo se získat binární soubory",
+      "verifySuccess": "Binární soubor byl úspěšně ověřen",
+      "verifyFailed": "Nepodařilo se ověřit binární soubor",
+      "deleteSuccess": "Binární soubor byl úspěšně smazán",
+      "deleteFailed": "Nepodařilo se smazat binární soubor",
+      "cannotDeleteLast": "Nelze smazat poslední aktivní binární soubor {{type}}",
+      "cannotDeleteOnly": "Nelze smazat jediný binární soubor tohoto typu",
+      "setDefaultSuccess": "Výchozí binární soubor byl úspěšně aktualizován",
+      "setDefaultFailed": "Nepodařilo se nastavit výchozí binární soubor",
+      "addSuccess": "Binární soubor byl úspěšně přidán",
+      "addFailed": "Nepodařilo se přidat binární soubor"
+    },
+    "deleteDialog": {
+      "title": "Potvrdit smazání",
+      "message": "Chcete opravdu smazat binární soubor \"{{fileName}}\"? Tuto akci nelze vrátit zpět."
+    },
+    "form": {
+      "addDialogTitle": "Přidat nový binární soubor",
+      "sourceLabel": "Zdroj",
+      "downloadFromUrl": "Stáhnout z adresy URL",
+      "uploadFile": "Nahrát soubor",
+      "binaryTypeLabel": "Typ binárního souboru",
+      "johnPending": "John the Ripper (podpora čeká)",
+      "compressionTypeLabel": "Typ komprese",
+      "sourceUrlLabel": "Zdrojová adresa URL",
+      "sourceUrlHelp": "Adresa URL ke stažení binárního souboru (např. https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Vybrat archivní soubor",
+      "uploadHelp": "Nahrajte archiv .7z, .zip, .tar.gz nebo .tar.xz obsahující binární soubor",
+      "fileNameLabel": "Název souboru",
+      "fileNameHelp": "Automaticky vyplněno z adresy URL/souboru, ale lze upravit v případě potřeby",
+      "versionLabel": "Verze",
+      "versionHelp": "Automaticky detekováno z názvu souboru. Přepsat pro vlastní sestavení.",
+      "descriptionLabel": "Popis",
+      "descriptionHelp": "Volitelné poznámky o tomto binárním souboru (např. podrobnosti vlastního sestavení)",
+      "setAsDefault": "Nastavit jako výchozí binární soubor",
+      "selectFileRequired": "Prosím, vyberte soubor k nahrání",
+      "uploadBinarySubmit": "Nahrát binární soubor"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Diagnostika systému",
+    "diagnosticPackage": "Diagnostický balíček",
+    "diagnosticPackageDescription": "Stáhněte diagnostický balíček obsahující informace o systému, protokoly a podrobnosti o konfiguraci pro řešení problémů.",
+    "refreshData": "Obnovit data",
+    "hours": "Hodiny",
+    "hoursTooltip": "Počet hodin protokolů k zahrnutí",
+    "includeAgentLogs": "Zahrnout protokoly agenta",
+    "includeNginxLogs": "Zahrnout protokoly Nginx",
+    "includePostgresLogs": "Zahrnout protokoly PostgreSQL",
+    "preparing": "Příprava...",
+    "downloadDiagnostics": "Stáhnout diagnostiku",
+    "systemInfo": "Informace o systému",
+    "runtime": "Runtime",
+    "cpus": "CPUs",
+    "goroutines": "Goroutines",
+    "memory": "Paměť",
+    "heap": "Heap",
+    "system": "Systém",
+    "gcRuns": "Spuštění GC",
+    "database": "Databáze",
+    "size": "Velikost",
+    "connections": "Připojení",
+    "agents": "Agenti",
+    "connected": "Připojeno",
+    "withDebugStatus": "Se stavem ladění",
+    "serverDebugStatus": "Stav ladění serveru",
+    "serverDebugDescription": "Povolit podrobné protokolování serveru. To zvětší velikost souborů protokolu a může ovlivnit výkon.",
+    "debugEnabled": "Ladění povoleno",
+    "debugDisabled": "Ladění zakázáno",
+    "level": "Úroveň",
+    "enableDebug": "Povolit ladění",
+    "disableDebug": "Zakázat ladění",
+    "loadingServerDebugStatus": "Načítání stavu ladění serveru...",
+    "serverLogs": "Protokoly serveru",
+    "serverLogsDescription": "Spravujte soubory protokolu serveru. Vyčištění protokolů je trvalé a nelze je vrátit zpět.",
+    "refreshLogStats": "Obnovit statistiku protokolu",
+    "directory": "Adresář",
+    "files": "Soubory",
+    "actions": "Akce",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Celkem",
+    "purge": "Vyčistit",
+    "purgeAll": "Vyčistit vše",
+    "loadingLogStatistics": "Načítání statistiky protokolu...",
+    "agentDebugStatus": "Stav ladění agenta",
+    "enableAll": "Povolit vše",
+    "disableAll": "Zakázat vše",
+    "noAgentsWithDebugStatus": "Nejsou k dispozici žádní agenti se stavem ladění",
+    "agentId": "ID agenta",
+    "logLevel": "Úroveň protokolu",
+    "fileLogging": "Protokolování do souboru",
+    "logFileSize": "Velikost souboru protokolu",
+    "buffer": "Vyrovnávací paměť",
+    "lastUpdated": "Poslední aktualizace",
+    "viewLogs": "Zobrazit protokoly",
+    "purgeLogs": "Vyčistit protokoly",
+    "agentLogs": "Protokoly agenta",
+    "agent": "Agent",
+    "allLevels": "Všechny úrovně",
+    "refresh": "Obnovit",
+    "showingEntries": "Zobrazeno {{shown}} z {{total}} záznamů",
+    "filtered": "filtrováno",
+    "truncated": "zkráceno",
+    "time": "Čas",
+    "message": "Zpráva",
+    "location": "Umístění",
+    "noEntriesForLevel": "Nebyly nalezeny žádné záznamy pro úroveň {{level}}",
+    "noLogEntriesAvailable": "Nejsou k dispozici žádné záznamy protokolu",
+    "logFileContent": "Obsah souboru protokolu",
+    "noLogsAvailable": "Nejsou k dispozici žádné protokoly",
+    "securityWarning": "Bezpečnostní upozornění",
+    "postgresLogsWarning": "Protokoly PostgreSQL mohou obsahovat citlivé údaje. Po řešení problémů zvažte jejich vyčištění.",
+    "nginxLogsWarning": "Protokoly přístupu Nginx mohou obsahovat citlivé údaje požadavku. Po řešení problémů zvažte jejich vyčištění.",
+    "sensitiveNginxLogsWarning": "Protokoly přístupu Nginx mohou obsahovat citlivé informace včetně ověřovacích tokenů v hlavičkách požadavků a parametrech dotazu.",
+    "sensitivePostgresLogsWarning": "Protokoly PostgreSQL mohou obsahovat citlivé informace včetně dotazů s uživatelskými údaji, hesly a podrobnostmi o připojení.",
+    "sensitiveLogsTestEnvironmentWarning": "Tyto protokoly zahrnujte pouze v testovacích/vývojových prostředích nebo když je to naprosto nezbytné pro ladění.",
+    "sensitiveLogsProductionWarning": "Nezahrnujte citlivé protokoly do produkčních diagnostických balíčků sdílených externě.",
+    "iUnderstandIncludeLogs": "Rozumím, zahrnout protokoly",
+    "allServerLogs": "všechny protokoly serveru",
+    "directoryLogs": "protokoly {{directory}}",
+    "purgeServerLogs": "Vyčistit protokoly serveru",
+    "confirmPurgeLogs": "Chcete opravdu vyčistit {{dirLabel}}?",
+    "cannotBeUndone": "Tuto akci nelze vrátit zpět.",
+    "purgeAgentLogs": "Vyčistit protokoly agenta",
+    "confirmPurgeAgentLogs": "Chcete opravdu vyčistit protokoly agenta {{agentId}}?",
+    "enable": "Povolit",
+    "disable": "Zakázat",
+    "serverDebugModeTitle": "{{action}} režim ladění serveru",
+    "serverDebugModeMessage": "Tím se změní úroveň protokolování serveru. Server Nginx bude znovu načten, aby se změny projevily.",
+    "serverDebugModeWarning": "Stránka se po aplikaci změn krátce znovu připojí.",
+    "reconnectingToServer": "Opětovné připojení k serveru",
+    "pleaseWaitReconnecting": "Prosím počkejte, zatímco se server restartuje...",
+    "nginxLogsTooltip": "Upozornění: Může obsahovat citlivé údaje o požadavku",
+    "postgresLogsTooltip": "Upozornění: Může obsahovat citlivé databázové dotazy",
+    "messages": {
+      "loadFailed": "Nepodařilo se načíst data diagnostiky:",
+      "logStatsFailed": "Nepodařilo se načíst statistiku protokolu:",
+      "purgeFailed": "Nepodařilo se vyčistit protokoly:",
+      "reconnectionTimedOut": "Vypršel časový limit opětovného připojení. Prosím, aktualizujte stránku.",
+      "toggleDebugFailed": "Nepodařilo se přepnout režim ladění:",
+      "downloadFailed": "Nepodařilo se stáhnout diagnostiku:",
+      "toggleAgentDebugFailed": "Nepodařilo se přepnout ladění agenta:",
+      "toggleAllAgentsDebugFailed": "Nepodařilo se přepnout ladění pro všechny agenty:",
+      "fetchAgentLogsFailed": "Nepodařilo se získat protokoly agenta:",
+      "purgeAgentLogsFailed": "Nepodařilo se vyčistit protokoly agenta:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Nastavení autentizace",
+    "unsavedChanges": "Máte neuložené změny. Klikněte na 'Uložit nastavení' a použijte je.",
+    "saving": "Ukládání...",
+    "saveSettings": "Uložit nastavení",
+    "resetToSaved": "Obnovit uložená nastavení",
+    "passwordPolicy": {
+      "title": "Zásady hesel",
+      "minLength": "Minimální délka hesla",
+      "requireUppercase": "Vyžadovat velká písmena",
+      "requireLowercase": "Vyžadovat malá písmena",
+      "requireNumbers": "Vyžadovat čísla",
+      "requireSpecialChars": "Vyžadovat speciální znaky"
+    },
+    "accountSecurity": {
+      "title": "Bezpečnost účtu",
+      "maxFailedAttempts": "Max. neúspěšných pokusů o přihlášení",
+      "lockoutDuration": "Doba uzamčení (minuty)",
+      "jwtExpiry": "Vypršení JWT (minuty)",
+      "notificationAggregation": "Agregace oznámení (minuty)",
+      "notificationAggregationHelper": "Jak dlouho agregovat podobná oznámení před odesláním"
+    },
+    "mfa": {
+      "title": "Dvoufaktorová autentizace",
+      "requireMfa": "Vyžadovat dvoufaktorovou autentizaci pro všechny uživatele",
+      "requireMfaEmailRequired": "Vyžadovat dvoufaktorovou autentizaci (vyžaduje e-mailovou bránu)",
+      "allowedMethods": "Povolené metody dvoufaktorové autentizace",
+      "methodEmail": "Kód e-mailem",
+      "methodAuthenticator": "Ověřovací aplikace (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (není podporováno v tomto prohlížeči)",
+      "codeSettings": "Nastavení kódu",
+      "emailCodeValidity": "Platnost kódu e-mailem (minuty)",
+      "emailCodeValidityHelper": "Jak dlouho jsou kódy e-mailového ověření platné",
+      "codeCooldown": "Doba mezi žádostmi o kód (minuty)",
+      "codeCooldownHelper": "Minimální doba mezi žádostmi o kód",
+      "codeExpiry": "Vypršení kódu (minuty)",
+      "codeExpiryHelper": "Jak dlouho jsou kódy dvoufaktorové autentizace platné",
+      "maxCodeAttempts": "Max. pokusů o zadání kódu",
+      "maxCodeAttemptsHelper": "Maximum neúspěšných pokusů o zadání kódu před uzamčením",
+      "backupCodesCount": "Počet záložních kódů",
+      "backupCodesCountHelper": "Počet záložních kódů, které se mají vygenerovat",
+      "requireMfaHelper": "Každý uživatel musí při přihlášení absolvovat dvoufaktorovou autentizaci. Vyžaduje nakonfigurovaného poskytovatele e-mailu, aby bylo možné kódy doručit."
+    },
+    "webauthn": {
+      "title": "Konfigurace WebAuthn / Passkey",
+      "notSupported": "WebAuthn není v tomto prohlížeči podporován.",
+      "requiresDomain": "Passkey vyžadují správnou doménu a HTTPS. Nakonfigurujte svá nastavení domény níže.",
+      "rpId": "Relying Party ID",
+      "rpIdHelper": "Váš název domény (např. krakenhashes.example.com)",
+      "rpDisplayName": "Zobrazované jméno",
+      "rpDisplayNameHelper": "Název, který se zobrazí uživatelům při registraci passkey",
+      "allowedOrigins": "Povolené původy",
+      "allowedOriginsHelper": "Jeden původ na řádek (např. https://krakenhashes.example.com)",
+      "configured": "WebAuthn je nakonfigurován a připraven k použití.",
+      "save": "Uložit nastavení WebAuthn"
+    },
+    "session": {
+      "title": "Správa relací",
+      "tokenCleanupInterval": "Interval čištění tokenů (sekundy)",
+      "tokenCleanupIntervalHelper": "Jak často čistit vypršené tokeny",
+      "maxConcurrentSessions": "Max. souběžných relací",
+      "maxConcurrentSessionsHelper": "Maximum relací na uživatele (0 = neomezeno)",
+      "absoluteTimeout": "Absolutní časový limit relace (hodiny)",
+      "absoluteTimeoutHelper": "Vynutit opětovné ověření po této době (0 = zakázáno)"
+    },
+    "errors": {
+      "loadFailed": "Selhalo načtení nastavení autentizace",
+      "noSettingsToSave": "Žádná nastavení k uložení",
+      "saveFailed": "Selhalo uložení nastavení",
+      "emailProviderRequired": "Poskytovatel e-mailu je vyžadován pro dvoufaktorovou autentizaci prostřednictvím e-mailu",
+      "webauthnSaveFailed": "Selhalo uložení nastavení WebAuthn",
+      "resetFailed": "Selhalo obnovení nastavení"
+    },
+    "messages": {
+      "updateSuccess": "Nastavení autentizace bylo úspěšně aktualizováno",
+      "updateFailed": "Selhala aktualizace nastavení autentizace"
+    },
+    "teams": {
+      "title": "Izolace mezi týmy",
+      "description": "Pokud je povoleno, jsou klienti, hashlisty, úlohy a agenti omezeni na týmy a uživatelé vidí pouze to, co jejich týmy vlastní.",
+      "enable": "Povolit týmy",
+      "enableHelper": "Existující data jsou umístěna do týmu Default Team."
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "Nastavení SSO",
+    "pageDescription": "Nakonfigurujte poskytovatele jednotného přihlášení a možnosti autentizace",
+    "warnings": {
+      "ephemeralKeyTitle": "Šifrovací klíč SSO není nakonfigurován",
+      "ephemeralKeyDescription": "Tajemství poskytovatelů SSO (klientská tajemství, hesla pro připojení, soukromé klíče) jsou v současné době zašifrována dočasným klíčem, který bude ztracen při restartu serveru. Všichni nakonfigurovaní poskytovatelé SSO přestanou fungovat po restartu.",
+      "ephemeralKeyInstructions": "Chcete-li to opravit, vygenerujte trvalý šifrovací klíč spuštěním:",
+      "ephemeralKeyAddToEnv": "Poté přidejte následující do souboru .env a restartujte server:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Příkaz zkopírován do schránky"
+    },
+    "authMethods": {
+      "title": "Metody autentizace",
+      "description": "Globálně povolit nebo zakázat metody autentizace",
+      "localAuth": "Lokální autentizace",
+      "localAuthDescription": "Přihlášení pomocí uživatelského jména a hesla",
+      "ldapAuth": "Autentizace LDAP",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "Autentizace SAML",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "Autentizace OAuth/OIDC",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Zřizování uživatelů",
+      "description": "Nakonfigurujte automatické vytváření uživatelů z přihlášení SSO",
+      "autoCreateUsers": "Automaticky vytvářet uživatele",
+      "autoCreateUsersDescription": "Automaticky vytvářet účty uživatelů pro nová přihlášení SSO",
+      "autoEnableUsers": "Automaticky aktivovat uživatele",
+      "autoEnableUsersDescription": "Automaticky aktivovat nově vytvořené uživatele SSO (jinak vyžaduje schválení správcem)"
+    },
+    "providers": {
+      "title": "Poskytovatelé SSO",
+      "addProvider": "Přidat poskytovatele",
+      "noProviders": "Nejsou nakonfigurováni žádní poskytovatelé SSO. Klikněte na \"Přidat poskytovatele\" a vytvořte jednoho.",
+      "enabled": "Povoleno",
+      "disabled": "Zakázáno",
+      "callbackUrl": "Adresa URL zpětného volání",
+      "acsUrl": "ACS URL",
+      "metadata": "Metadata",
+      "viewXml": "Zobrazit XML",
+      "testConnection": "Testovat připojení",
+      "downloadCertificate": "Stáhnout certifikát SP"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Odstranit poskytovatele",
+        "confirmation": "Opravdu chcete odstranit poskytovatele \"{{name}}\"? Tuto akci nelze vrátit zpět a odpojí všechny přidružené uživatelské identity."
+      },
+      "providerForm": {
+        "addTitle": "Přidat poskytovatele",
+        "editTitle": "Upravit poskytovatele",
+        "providerName": "Název poskytovatele",
+        "providerType": "Typ poskytovatele",
+        "enabled": "Povoleno"
+      }
+    },
+    "ldapConfig": {
+      "title": "Konfigurace LDAP",
+      "serverUrl": "Adresa URL serveru",
+      "serverUrlHelper": "Použijte ldaps:// pro zabezpečená připojení",
+      "baseDn": "Base DN",
+      "userSearchFilter": "Filtr vyhledávání uživatelů",
+      "userSearchFilterHelper": "Použijte {{username}} jako zástupný symbol",
+      "bindDn": "Bind DN (volitelné)",
+      "bindPassword": "Heslo pro připojení",
+      "emailAttribute": "Atribut e-mailu",
+      "usernameAttribute": "Atribut uživatelského jména",
+      "usernameAttributeHelper": "Atribut LDAP obsahující uživatelské jméno (např. sAMAccountName, uid)",
+      "connectionTimeout": "Časový limit připojení (sekundy)",
+      "useStartTls": "Používat StartTLS",
+      "skipCertVerify": "Přeskočit ověřování certifikátu (pouze pro testování)"
+    },
+    "samlConfig": {
+      "title": "Konfigurace SAML",
+      "spEntityId": "SP Entity ID",
+      "spEntityIdHelper": "Identifikátor SAML vaší aplikace",
+      "idpEntityId": "IdP Entity ID",
+      "idpSsoUrl": "IdP SSO URL",
+      "idpCertificate": "Certifikát IdP",
+      "emailAttribute": "Atribut e-mailu",
+      "usernameAttribute": "Atribut uživatelského jména",
+      "usernameAttributeHelper": "Atribut SAML obsahující uživatelské jméno (např. uid, username)",
+      "requireSignedAssertions": "Vyžadovat podepsaná tvrzení"
+    },
+    "oauthConfig": {
+      "title": "Konfigurace OAuth/OIDC",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "ID klienta",
+      "clientSecret": "Tajemství klienta",
+      "discoveryUrl": "Adresa URL zjišťování",
+      "discoveryUrlHelper": "Koncový bod zjišťování OIDC (automaticky konfiguruje další adresy URL)",
+      "authorizationUrl": "Adresa URL autorizace",
+      "tokenUrl": "Adresa URL tokenu",
+      "userInfoUrl": "Adresa URL informací o uživateli",
+      "scopes": "Rozsahy",
+      "scopesHelper": "Seznam oddělený mezerami",
+      "emailAttribute": "Atribut e-mailu",
+      "usernameAttribute": "Atribut uživatelského jména",
+      "usernameAttributeHelper": "Claim obsahující uživatelské jméno (např. preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Selhalo načtení nastavení SSO",
+      "settingsUpdated": "Nastavení SSO bylo úspěšně aktualizováno",
+      "updateFailed": "Selhala aktualizace nastavení SSO",
+      "loadProviderFailed": "Selhalo načtení podrobností poskytovatele",
+      "providerDeleted": "Poskytovatel byl úspěšně odstraněn",
+      "deleteFailed": "Selhalo odstranění poskytovatele",
+      "testSuccess": "Test připojení byl úspěšný",
+      "testFailed": "Test připojení se nezdařil",
+      "certificateDownloaded": "Certifikát byl úspěšně stažen",
+      "certificateNotFound": "Certifikát nebyl nalezen v metadatech",
+      "certificateDownloadFailed": "Selhalo stažení certifikátu",
+      "providerUpdated": "Poskytovatel byl úspěšně aktualizován",
+      "providerCreated": "Poskytovatel byl úspěšně vytvořen",
+      "saveProviderFailed": "Selhalo uložení poskytovatele"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Konfigurace poskytovatele",
+      "emailTemplates": "Šablony e-mailů"
+    },
+    "provider": {
+      "titles": {
+        "current": "Aktuální konfigurace e-mailu",
+        "create": "Vytvořit konfiguraci e-mailu",
+        "edit": "Upravit konfiguraci e-mailu"
+      },
+      "labels": {
+        "provider": "Poskytovatel",
+        "apiKey": "API klíč",
+        "password": "Heslo",
+        "smtpHost": "Hostitel SMTP",
+        "port": "Port",
+        "username": "Uživatelské jméno",
+        "encryption": "Šifrování",
+        "fromEmail": "E-mail odesílatele",
+        "fromName": "Jméno odesílatele",
+        "domain": "Doména",
+        "region": "Oblast",
+        "monthlyLimit": "Měsíční limit",
+        "skipTlsVerify": "Přeskočit ověřování certifikátu TLS (nezabezpečené, nedoporučuje se)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "Testovací e-mailová adresa"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Ponechte prázdné pro zachování stávajícího hesla",
+        "monthlyLimit": "Ponechte prázdné pro neomezeno",
+        "mailgunFromEmail": "Obvykle noreply@yourdomain",
+        "fromName": "Zobrazované jméno pro e-maily"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Žádné (Port 25)",
+        "encryptionStarttls": "STARTTLS (Port 587)",
+        "encryptionTls": "TLS/SSL (Port 465)",
+        "regionUS": "USA (api.mailgun.net)",
+        "regionEU": "EU (api.eu.mailgun.net)"
+      },
+      "buttons": {
+        "edit": "Upravit konfiguraci",
+        "cancel": "Zrušit",
+        "testConnection": "Testovat připojení",
+        "save": "Uložit konfiguraci",
+        "saveOnly": "Pouze uložit",
+        "saveAndTest": "Uložit a testovat",
+        "sendTestEmail": "Odeslat testovací e-mail"
+      },
+      "dialogs": {
+        "test": {
+          "title": "Testovat konfiguraci e-mailu",
+          "content": "Zadejte e-mailovou adresu, na kterou chcete odeslat testovací e-mail:"
+        },
+        "save": {
+          "title": "Uložit konfiguraci",
+          "content": "Chcete testovat konfiguraci po uložení?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "Ověřování certifikátu TLS je zakázáno",
+        "tlsVerifyWarning": "Zakázání ověřování TLS činí vaše připojení zranitelné vůči útokům typu man-in-the-middle. Používejte to pouze pro testování pomocí certifikátů s vlastním podpisem."
+      },
+      "messages": {
+        "testSuccess": "Testovací e-mail byl úspěšně odeslán",
+        "testFailed": "Selhalo odeslání testovacího e-mailu",
+        "saveSuccess": "Konfigurace byla úspěšně uložena",
+        "saveFailed": "Selhalo uložení konfigurace",
+        "loadFailed": "Selhalo načtení konfigurace"
+      }
+    },
+    "templates": {
+      "title": "Šablony e-mailů",
+      "createTemplate": "Vytvořit šablonu e-mailu",
+      "editTemplate": "Upravit šablonu e-mailu",
+      "labels": {
+        "templateType": "Typ šablony",
+        "name": "Název",
+        "subject": "Předmět",
+        "htmlContent": "Obsah HTML",
+        "textContent": "Textový obsah"
+      },
+      "menuItems": {
+        "securityEvent": "Bezpečnostní událost",
+        "jobCompletion": "Dokončení úlohy",
+        "adminError": "Chyba správce",
+        "mfaCode": "Kód dvoufaktorové autentizace",
+        "securityPasswordChanged": "Heslo změněno",
+        "securityMfaDisabled": "Dvoufaktorová autentizace zakázána",
+        "securitySuspiciousLogin": "Podezřelé přihlášení",
+        "jobStarted": "Úloha spuštěna",
+        "jobFailed": "Úloha selhala",
+        "firstCrack": "První prolomení",
+        "taskCompleted": "Úkol dokončen",
+        "agentOffline": "Agent je offline",
+        "agentError": "Chyba agenta",
+        "webhookFailure": "Selhání webhooku"
+      },
+      "buttons": {
+        "create": "Vytvořit šablonu",
+        "cancel": "Zrušit",
+        "test": "Testovat",
+        "save": "Uložit",
+        "edit": "Upravit",
+        "delete": "Odstranit"
+      },
+      "table": {
+        "name": "Název",
+        "type": "Typ",
+        "subject": "Předmět",
+        "actions": "Akce"
+      },
+      "preview": "Náhled v reálném čase (se vzorkovými daty):",
+      "messages": {
+        "loadSuccess": "Šablony byly úspěšně načteny",
+        "loadFailed": "Selhalo načtení šablon",
+        "createSuccess": "Šablona byla úspěšně vytvořena",
+        "createFailed": "Nepodařilo se vytvořit šablonu",
+        "updateSuccess": "Šablona byla úspěšně aktualizována",
+        "updateFailed": "Nepodařilo se aktualizovat šablonu",
+        "deleteSuccess": "Šablona byla úspěšně smazána",
+        "deleteFailed": "Nepodařilo se smazat šablonu",
+        "testSuccess": "Testovací e-mail byl úspěšně odeslán",
+        "testFailed": "Nepodařilo se odeslat testovací e-mail",
+        "saveFailed": "Nepodařilo se uložit šablonu"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Nastavení byla úspěšně uložena",
+    "saveFailed": "Nepodařilo se uložit nastavení"
+  },
+  "clientSettings": {
+    "title": "Nastavení klienta",
+    "retentionPeriod": "Výchozí uchovávání dat (měsíce)",
+    "retentionHelperText": "Výchozí doba uchovávání pro nové klienty (0 = uchovávat věčně)",
+    "saveButton": "Uložit nastavení",
+    "errors": {
+      "invalidRetention": "Doba uchovávání musí být nezáporné číslo",
+      "saveFailed": "Nepodařilo se uložit nastavení klienta"
+    },
+    "messages": {
+      "updateSuccess": "Nastavení klienta bylo úspěšně aktualizováno"
+    }
+  },
+  "systemSettings": {
+    "title": "Nastavení systému",
+    "priority": {
+      "title": "Nastavení priority",
+      "tooltip": "Nakonfigurujte maximální hodnotu priority, kterou lze přiřadit úlohám a přednastaveným úlohám. To pomáhá udržovat konzistentní rozsahy priorit v celé vaší organizaci.",
+      "maxPriority": "Maximální priorita úloh",
+      "helperText": "Nastavte maximální hodnotu priority (1–1 000 000). Úlohy a přednastavené úlohy nemohou překročit tuto prioritu.",
+      "saveButton": "Uložit nastavení",
+      "saving": "Ukládání…",
+      "reset": "Obnovit"
+    },
+    "priorityInfo": {
+      "title": "Informace o systému priorit",
+      "description": "Systém priorit používá rozsah od 0 do vaší nakonfigurované maximální priority. Vyšší čísla znamenají vyšší prioritu.",
+      "currentMax": "Aktuální maximum",
+      "note": "Nemůžete nastavit maximální prioritu nižší, než mají jakékoli existující přednastavené úlohy. V případě potřeby nejprve aktualizujte nebo odeberte přednastavené úlohy s vysokou prioritou.",
+      "recommended": "Doporučené rozsahy podle velikosti organizace:",
+      "small": "Malá organizace: 0–100",
+      "medium": "Střední/velká organizace: 0–1 000",
+      "large": "Šíleně přetížená organizace: 0–10 000"
+    },
+    "agentScheduling": {
+      "title": "Plánování agentů",
+      "tooltip": "Globálně povolte nebo zakažte systém plánování agentů. Pokud je povolen, mohou mít agenti nakonfigurované denní plány.",
+      "enable": "Povolit systém plánování agentů",
+      "description": "Pokud je povoleno, mohou být agenti nakonfigurováni s denními plány. Úlohy budou přiřazeny pouze agentům, kteří jsou naplánováni pro aktuální čas.",
+      "note": "Aby se to projevilo, musí mít jednotliví agenti také povoleno plánování a nakonfigurované plány."
+    },
+    "agentOverflow": {
+      "title": "Přidělení přetečení agentů",
+      "tooltip": "Nakonfigurujte, jak se volní agenti distribuují poté, co každá úloha v každé úrovni priority dosáhne limitu max_agents.",
+      "modeLabel": "Režim přidělení přetečení",
+      "priorityFifoMode": "Priorita – FIFO",
+      "priorityRoundRobinMode": "Priorita – Round Robin",
+      "enforceMaxAgentsMode": "Vynucovat Max. agentů",
+      "maxAgentsFifoMode": "Max. agentů – FIFO",
+      "maxAgentsRoundRobinMode": "Max. agentů – Round Robin",
+      "priorityFifoDescription": "Úrovně se zaplňují nejprve nejvyšší prioritou. Jakmile úroveň dosáhne max_agents, zbývající agenti se kupí na NEJSTARŠÍ úlohu v této úrovni – překračují její limit. Úlohy s nižší prioritou mohou čekat, dokud nejsou vyčerpány vyšší úrovně.",
+      "priorityRoundRobinDescription": "Úrovně se zaplňují nejprve nejvyšší prioritou. Jakmile úroveň dosáhne max_agents, zbývající agenti rotují rovnoměrně mezi úlohami v této úrovni – překračují limity. Úlohy s nižší prioritou mohou čekat.",
+      "enforceMaxAgentsDescription": "Každá úloha je striktně omezena na svůj limit max_agents – bez přetečení. Nadbyteční agenti zůstávají nečinní. Nejpředvídatelnější režim, ale může plýtvat kapacitou.",
+      "maxAgentsFifoDescription": "Všechny úlohy na všech prioritách se nejprve zaplní na max_agents (přísné limity). Zbývající agenti se pak kupí na NEJSTARŠÍ úlohu celkově – obcházejí prioritu. Maximalizuje propustnost a stále dává každé úloze svůj základ.",
+      "maxAgentsRoundRobinDescription": "Všechny úlohy na všech prioritách se nejprve zaplní na max_agents (přísné limity). Zbývající agenti pak rotují rovnoměrně mezi VŠEMI úlohami – obcházejí prioritu. Maximalizuje propustnost s férovou distribucí mimo základ."
+    },
+    "hashlist": {
+      "title": "Nastavení hashlistů",
+      "tooltip": "Nakonfigurujte nastavení související s uploadem a správou hashlistů",
+      "requireClient": "Vyžadovat klienta pro hashlisty",
+      "requireClientDescription": "Pokud je povoleno, musí uživatelé přiřadit klienta při uploadu nových hashlistů. To pomáhá lépe organizovat a sledovat hashlisty podle klienta.",
+      "batchSize": "Velikost dávky hromadného importu",
+      "batchSizeHelper": "Počet hashů zpracovaných za dávku při nahrávání. Výchozí: 100 000. Doporučeno: 500 000–1 000 000 pro velké hashlisty (47M+)",
+      "performanceGuide": "Průvodce výkonem:",
+      "performance100k": "100K (výchozí): Vhodné pro většinu případů",
+      "performance500k": "500K: Lepší pro velké hashlisty, může zlepšit propustnost",
+      "performance1m": "1M: Nejlepší pro velmi velké hashlisty (50M+), vyžaduje více paměti RAM"
+    },
+    "potfile": {
+      "title": "Nastavení Potfile",
+      "tooltip": "Nakonfigurujte, jak potfile zpracovává prolomená hesla pro opakované použití v rámci úloh",
+      "maxBatchSize": "Maximální velikost dávky",
+      "maxBatchSizeHelper": "Počet zařazených hesel, která se mají zpracovat v každém cyklu dávky (1 000–500 000)",
+      "batchInterval": "Interval dávky (sekundy)",
+      "batchIntervalHelper": "Sekundy mezi cykly dávkového zpracování potfile (10–600)",
+      "description": "Potfile shromažďuje prolomená hesla ze všech úloh a opakovaně je používá v následujících útocích. Vyšší velikosti dávek zpracují více hesel najednou, ale trvají déle na cyklus.",
+      "processingRate": "Rychlost zpracování",
+      "passwordsPerSecond": "hesel/sekundu",
+      "currentSettings": "Aktuální nastavení",
+      "passwordsEvery": "hesel každých",
+      "seconds": "sekund"
+    },
+    "speedTest": {
+      "title": "Test rychlosti (Benchmark)",
+      "tooltip": "Nalaďte, jak dlouho agenti čekají, než hashcat vytvoří použitelný benchmark, než test selže. Komprimované slovníky potřebují výrazně více času na předzpracování dictstat.",
+      "timeoutUncompressed": "Timeout: slovníky v prostém textu (sekundy)",
+      "timeoutUncompressedHelper": "Maximální sekundy, které agent čeká na platný odečet rychlosti u slovníků v prostém textu. Výchozí: 120.",
+      "timeoutCompressed": "Timeout: komprimované slovníky (sekundy)",
+      "timeoutCompressedHelper": "Maximální sekundy pro slovníky .gz / .zip / .xz – tři formáty, které hashcat nativně čte. Tyto potřebují více času na dekompresi a předzpracování dictstat. Výchozí: 300.",
+      "minStatusUpdates": "Minimální aktualizace stavu",
+      "minStatusUpdatesHelper": "Minimální počet aktualizací hashcat --status-json, které agent musí shromáždit před vrácením výsledku. Výchozí: 3.",
+      "minUpdatesLowWarning": "Hodnoty pod 3 mohou vést k nepřesným odečtům: GPU možná ještě nedokončily spuštění.",
+      "description": "Pokud agentovi vyprší časový limit bez vytvoření nenulové rychlosti, benchmark se hlásí jako neúspěšný a úloha zobrazí chybu, kterou může vyřešit správce. Dělení na bloky také odmítne odeslat úkol s 1 kandidátem, takže zastaralý benchmark s 0 H/s nemůže smyčkovat věčně."
+    },
+    "errors": {
+      "loadFailed": "Nepodařilo se načíst nastavení systému",
+      "maxPriorityRequired": "Maximální priorita je vyžadována",
+      "maxPriorityPositive": "Maximální priorita musí být kladné číslo",
+      "maxPriorityMax": "Maximální priorita nemůže překročit 1 000 000",
+      "saveFailed": "Nepodařilo se uložit nastavení systému",
+      "batchSizeRange": "Velikost dávky musí být mezi {{min}} a {{max}}",
+      "intervalRange": "Interval musí být mezi {{min}} a {{max}} sekundami",
+      "speedTestTimeoutRange": "Timeout testu rychlosti musí být mezi {{min}} a {{max}} sekundami",
+      "minStatusUpdatesRange": "Minimální aktualizace stavu musí být mezi {{min}} a {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Nastavení systému bylo úspěšně aktualizováno",
+      "schedulingUpdated": "Nastavení plánování agentů aktualizováno",
+      "schedulingFailed": "Nepodařilo se aktualizovat nastavení plánování",
+      "overflowUpdated": "Režim přidělení přetečení agentů aktualizován",
+      "overflowFailed": "Nepodařilo se aktualizovat režim přidělení přetečení",
+      "hashlistClientUpdated": "Požadavek klienta pro hashlisty aktualizován",
+      "hashlistBatchUpdated": "Velikost dávky hashlistů aktualizována",
+      "potfileBatchUpdated": "Velikost dávky potfile aktualizována",
+      "potfileIntervalUpdated": "Interval dávky potfile aktualizován",
+      "speedTestTimeoutUpdated": "Timeout testu rychlosti aktualizován",
+      "speedTestMinUpdatesUpdated": "Minimální aktualizace stavu testu rychlosti aktualizovány",
+      "updateFailed": "Nepodařilo se aktualizovat nastavení"
+    }
+  },
+  "jobExecution": {
+    "title": "Nastavení provádění úloh",
+    "description": "Nakonfigurujte, jak se úlohy provádějí a distribuují mezi agenty",
+    "chunking": {
+      "title": "Dělení úloh na bloky",
+      "defaultChunkDuration": "Výchozí trvání bloku",
+      "defaultChunkDurationHelper": "Cílová doba běhu bloku (scheduler-v2 podle toho volí velikost bloku pro každého agenta, aby tohoto cíle dosáhl)",
+      "minChunkSeconds": "Minimální trvání bloku",
+      "minChunkSecondsHelper": "Dolní limit pro skutečný čas jednoho bloku; zabraňuje malým osiřelým blokům",
+      "minutes": "minut",
+      "overrunTolerance": "Tolerance překročení bloku",
+      "overrunToleranceHelper": "Jak daleko za svou plánovanou dobu může blok běžet, než jej strážce zastaví a znovu odešle zbytek.",
+      "overrunGuard": "Povolit strážce překročení bloku",
+      "overrunGuardHelper": "Zastaví úkol, který běží daleko za jeho plánovanou dobu bloku, a znovu odešle nedokončenou část."
+    },
+    "agentConfig": {
+      "title": "Konfigurace agenta",
+      "hashlistRetention": "Uchovávání hashlistů",
+      "hashlistRetentionHelper": "Jak dlouho agenti uchovávají hashlisty",
+      "maxConcurrentJobs": "Max. souběžných úloh na agenta",
+      "maxConcurrentJobsHelper": "Maximální počet úloh, které agent může spouštět současně",
+      "progressReporting": "Interval hlášení pokroku",
+      "progressReportingHelper": "Jak často agenti hlásí pokrok",
+      "benchmarkCache": "Trvání mezipaměti benchmarku",
+      "benchmarkCacheHelper": "Jak dlouho ukládat benchmarky agenta do mezipaměti.",
+      "benchmarkHistoryRetention": "Uchovávání historie benchmarku",
+      "benchmarkHistoryRetentionHelper": "Dny na uchování záznamů historie benchmarku (0 = neomezeno)",
+      "reconnectGrace": "Doba odkladu opětovného připojení",
+      "reconnectGraceHelper": "Čas, který se má čekat, aby se agenti znovu připojili po restartování serveru",
+      "days": "dnů",
+      "seconds": "sekund",
+      "minutes": "minut"
+    },
+    "jobControl": {
+      "title": "Ovládání úloh",
+      "allowInterruption": "Povolit přerušení úlohy",
+      "allowInterruptionHelper": "Úlohy s vyšší prioritou mohou přerušit spuštěné úlohy",
+      "realtimeNotifications": "Oznámení o prolomení v reálném čase",
+      "realtimeNotificationsHelper": "Odesílá oznámení, když jsou hashe prolomeny",
+      "refreshInterval": "Interval obnovení úlohy",
+      "refreshIntervalHelper": "Jak často obnovit stav úlohy v UI",
+      "maxRetryAttempts": "Max. pokusů o opakování bloku",
+      "maxRetryAttemptsHelper": "Počet pokusů o opakování neúspěšných bloků",
+      "jobsPerPage": "Úloh na stránku",
+      "jobsPerPageHelper": "Výchozí velikost stránkování pro seznamy úloh",
+      "keyspaceTimeout": "Timeout výpočtu keyspace",
+      "keyspaceTimeoutHelper": "Maximální čas pro příkazy hashcat --keyspace a --total-candidates. Zvyšte pro velké slovníky/pravidla."
+    },
+    "potfile": {
+      "title": "Nastavení Potfile",
+      "enablePotfile": "Povolit Potfile",
+      "enablePotfileHelper": "Automaticky ukládat prolomená hesla pro použití v budoucích úlohách. Jednotlivé hashlisty stále mohou být vyloučeny.",
+      "maxBatchSize": "Maximální velikost dávky",
+      "maxBatchSizeHelper": "Počet zařazených hesel, která se mají zpracovat v každém cyklu dávky (1 000–500 000)",
+      "batchInterval": "Interval dávky",
+      "batchIntervalHelper": "Sekundy mezi cykly dávkového zpracování potfile (10–600)",
+      "enableClientPotfiles": "Povolit potfile klienta",
+      "enableClientPotfilesHelper": "Udržuje zvláštní potfile pro každého klienta, kromě globálního.",
+      "removeGlobalDefault": "Odebrat z globálního potfile při odstranění hashlistů (výchozí)",
+      "removeClientDefault": "Odebrat z potfile klienta při odstranění hashlistů (výchozí)"
+    },
+    "scheduler": {
+      "title": "Plánovač (v2)",
+      "description": "Pokročilé ladění pro živost úkolu a zpracování překročení plánovače v2. Výchozí nastavení je bezpečné pro většinu nasazení.",
+      "taskHeartbeatTimeout": "Timeout kontroly činnosti úkolu",
+      "taskHeartbeatTimeoutHelper": "Sekundy bez kontroly činnosti, než je spuštěný úkol označen jako ztracený a obnoven",
+      "taskStartupGrace": "Doba odkladu spuštění úkolu",
+      "taskStartupGraceHelper": "Další čas odkladu před prvním pokrokem (stažení souboru, dekomprese, autotune)",
+      "networkGrace": "Čas odkladu sítě",
+      "networkGraceHelper": "Tolerance opětovného připojení WebSocket před obnovou při odpojení",
+      "overrunGuardEnabled": "Strážce překročení bloku",
+      "overrunGuardEnabledHelper": "Zastavit úkoly, které běží za jejich cílem bloku dále než tolerance níže",
+      "overrunTolerance": "Tolerance překročení",
+      "overrunToleranceHelper": "Okno odkladu: zastavit, když skutečný čas překročí cíl bloku o toto procento"
+    },
+    "buttons": {
+      "save": "Uložit nastavení"
+    },
+    "errors": {
+      "loadFailed": "Nepodařilo se načíst nastavení",
+      "outOfRange": "{{label}} musí být mezi {{min}} a {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Nastavení provádění úloh bylo úspěšně aktualizováno",
+      "loadFailed": "Nepodařilo se načíst nastavení provádění úloh",
+      "saveFailed": "Nepodařilo se uložit nastavení"
+    },
+    "keyspaceBenchmark": {
+      "title": "Keyspace a Benchmark",
+      "caption": "Jak dlouho může KrakenHashes strávit měřením útoku. První nastavení omezuje SERVER měřící slovník při vytváření úlohy; nastavení testu rychlosti omezují AGENTA měřícího svou vlastní rychlost hašování. Jedná se o různé fáze – zvýšení jednoho neovlivňuje druhé.",
+      "keyspaceTimeout": "Timeout výpočtu keyspace",
+      "keyspaceTimeoutHelper": "Na straně serveru. Čas povolený pro hashcat --keyspace / --total-candidates, když je úloha vytvořena. Běží na pozadí, takže zvýšení tohoto limitu nezpomaluje vytváření úloh. Pokud je překročeno, přímý útok se vrátí na počet slov ve slovníku a upozorní uživatele.",
+      "speedTestUncompressed": "Timeout testu rychlosti agenta",
+      "speedTestUncompressedHelper": "Na straně agenta. Limit skutečného času pro benchmark agenta na nekomprimovaném slovníku.",
+      "speedTestCompressed": "Timeout testu rychlosti agenta (komprimovaný)",
+      "speedTestCompressedHelper": "Na straně agenta. Delší limit pro komprimované slovníky, které hashcat musí dekomprimovat, aby mohl nahlásit rychlost.",
+      "minStatusUpdates": "Minimální aktualizace stavu",
+      "minStatusUpdatesHelper": "Kolik hlášení o stavu musí test rychlosti hashcat vytvořit, než lze jeho výsledku důvěřovat. Nízké hodnoty riskují zaznamenání rychlosti před ustálením GPU.",
+      "cacheDuration": "Trvání mezipaměti benchmarku",
+      "cacheDurationHelper": "Jak dlouho zaznamenovaný benchmark zůstává platný, než je agent požádán o opětovné měření.",
+      "historyRetention": "Uchovávání historie benchmarku",
+      "historyRetentionHelper": "Jak dlouho se uchovávají jednotlivé záznamy benchmarku pro analýzu trendů.",
+      "hours": "hodin",
+      "days": "dnů"
+    },
+    "benchmarkReliability": {
+      "title": "Spolehlivost benchmarku",
+      "caption": "Co se stane, když benchmarky opakovaně selhávají. Tato opatření chrání před jedním špatným agentem nebo jednou špatnou konfigurací úlohy, která by vyčerpávala celou flotilu opakovaným spouštěním benchmarku, jenž nemůže uspět.",
+      "failureThreshold": "Práh selhání",
+      "failureThresholdHelper": "Po kolika po sobě jdoucích selháních benchmarku pro jednu kombinaci agent/úloha/útok je tato kombinace zablokována.",
+      "hardFailureCap": "Pevný limit selhání",
+      "hardFailureCapHelper": "Absolutní horní limit počtu pokusů o benchmark pro danou kombinaci, bez ohledu na výše uvedený práh.",
+      "blocklistCooldown": "Doba blokace",
+      "blocklistCooldownHelper": "Jak dlouho zůstane blokovaná kombinace agent/úloha/útok, než ji bude možné znovu zkusit.",
+      "stormThreshold": "Práh bouře benchmarků",
+      "stormThresholdHelper": "Počet selhání benchmarků v rámci okna bouře, který spustí oznámení správci.",
+      "stormWindow": "Okno bouře benchmarků",
+      "stormWindowHelper": "Období, během kterého se počítají selhání pro práh bouře.",
+      "streakReset": "Reset série selhání",
+      "streakResetHelper": "Jak dlouho musí agent fungovat bez selhání benchmarku, než se jeho série selhání vynuluje.",
+      "quarantineStreak": "Série selhání do karantény",
+      "quarantineStreakHelper": "Po sobě jdoucí selhání v libovolné kombinaci, po kterých je samotný agent karanténován a vyřazen z benchmarkování.",
+      "quarantineDistinct": "Karanténa odlišných kombinací",
+      "quarantineDistinctHelper": "Kolik RŮZNÝCH kombinací útok/typ hashe musí selhat, než je za vadný považován agent, a nikoli úloha."
+    },
+    "scheduling": {
+      "title": "Plánování a přidělování",
+      "overflowMode": "Režim přidělování agentů při přetečení",
+      "overflowModeHelper": "Jak se rozdělují agenti, kteří zbydou, jakmile úlohy dosáhnou svého limitu Max. agentů.",
+      "maxConcurrentJobs": "Maximální počet souběžných úloh na agenta",
+      "maxConcurrentJobsHelper": "Na kolika úlohách může jeden agent pracovat najednou.",
+      "agentScheduling": "Povolit plánování agentů",
+      "agentSchedulingHelper": "Globálně povoluje plány pracovních hodin pro jednotlivé agenty. Pokud je tato možnost vypnuta, plány agentů se ignorují.",
+      "jobInterruption": "Povolit přerušení úlohy",
+      "jobInterruptionHelper": "Globální brána pro preempci. Úloha musí TAKÉ mít svůj vlastní příznak pro přepsání vysoké priority a nenulovou prioritu, než se cokoli přeruší.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Round robin",
+        "enforceMaxAgents": "Vynucení Max. agentů",
+        "maxAgentsFifo": "Max. agentů, pak FIFO",
+        "maxAgentsRoundRobin": "Max. agentů, pak round robin"
+      }
+    },
+    "taskHealth": {
+      "title": "Zdraví úkolů",
+      "caption": "Kdy je spuštěný úkol považován za ztracený a jak agresivně se práce obnovuje. Nastavíte-li tyto hodnoty příliš těsně, budou vyřazovány i zdravé úkoly; příliš volně a mrtvý úkol drží svou keyspace po celé hodiny.",
+      "heartbeatTimeout": "Časový limit kontroly činnosti úkolu",
+      "heartbeatTimeoutHelper": "Jak dlouho může spuštěný úkol fungovat bez kontroly činnosti, než bude považován za ztracený a jeho keyspace bude znovu otevřena.",
+      "startupGrace": "Doba tolerance spuštění úkolu",
+      "startupGraceHelper": "Dodatečný čas poskytnutý po přiřazení předtím, než začnou platit pravidla kontroly činnosti; zahrnuje spuštění hashcat a načítání souborů.",
+      "networkGrace": "Tolerance sítě",
+      "networkGraceHelper": "Krátká tolerance pro přechodné výpadky sítě, než se započítá chybějící kontrola činnosti.",
+      "reconnectGrace": "Doba tolerance opětovného připojení",
+      "reconnectGraceHelper": "Jak dlouho se může odpojený agent znovu připojit a získat zpět svůj spuštěný úkol.",
+      "offlineBuffer": "Ochranná lhůta offline agenta",
+      "offlineBufferHelper": "Jak dlouho jsou zprávy pro krátce offline agenta ukládány do vyrovnávací paměti, než se zahodí.",
+      "maxRetryAttempts": "Maximální počet pokusů o opakování bloku",
+      "maxRetryAttemptsHelper": "Kolikrát se neúspěšný blok zopakuje, než úkol selže. Nastavte na 0 pro zakázání opakování.",
+      "progressInterval": "Interval hlášení pokroku",
+      "progressIntervalHelper": "Jak často agenti hlásí pokrok. Nižší hodnoty poskytují jemnější pokrok, ale vyšší zátěž.",
+      "hashlistRetention": "Uchovávání hashlistů agenta",
+      "hashlistRetentionHelper": "Jak dlouho agenti uchovávají stažený hashlist po skončení práce s ním."
+    },
+    "loopback": {
+      "title": "Loopback",
+      "maxRounds": "Maximální počet kol loopback",
+      "maxRoundsHelper": "Bezpečnostní horní limit na to, kolikrát relace loopback znovu spustí útok proti nově prolomeným plaintextům, než se zastaví, i když stále nachází nová prolomení."
+    },
+    "jobNotifications": {
+      "title": "Oznámení o úlohách",
+      "realtimeCracks": "Oznámení o prolomení v reálném čase",
+      "realtimeCracksHelper": "Upozorní, jakmile budou hashe prolomeny. U velmi velkých úloh to může znatelně zvýšit zátěž."
+    }
+  },
+  "monitoring": {
+    "title": "Nastavení monitorování",
+    "metricsRetention": {
+      "title": "📊 Období uchovávání metrik",
+      "description": "Nakonfigurujte, jak dlouho uchovávat metriky na různých úrovních podrobnosti. Data se postupem času kaskádovitě přesouvají z podrobných na agregovaná.",
+      "realtimeData": "Uchovávání dat v reálném čase",
+      "realtimeDataHelper": "Počet dní, po které se uchovávají podrobné metriky nedávné aktivity (např. 7 dní)",
+      "dailyAggregates": "Uchovávání denních agregátů",
+      "dailyAggregatesHelper": "Počet dní, po které se ukládají denní souhrny po skončení období v reálném čase (např. 30 dní)",
+      "weeklyAggregates": "Uchovávání týdenních agregátů",
+      "weeklyAggregatesHelper": "Počet dní, po které se uchovávají dlouhodobé trendy jako týdenní souhrny (např. 365 dní)"
+    },
+    "aggregation": {
+      "title": "⚙️ Nastavení agregace",
+      "enableAggregation": "Povolit automatickou agregaci",
+      "enableAggregationDescription": "Automaticky konsolidovat starší metriky, aby se ušetřilo místo v úložišti a zároveň se zachovaly trendy",
+      "interval": "Interval agregace",
+      "intervalHelper": "Jak často spustit proces agregace",
+      "hourly": "Hodinově",
+      "daily": "Denně",
+      "weekly": "Týdně"
+    },
+    "cascading": {
+      "title": "Jak funguje kaskádová agregace:",
+      "realtime": "Data v reálném čase poskytují podrobné metriky pro nedávnou aktivitu",
+      "daily": "Po období reálného času jsou data agregována do denních souhrnů",
+      "weekly": "Po denním období jsou data dále agregována do týdenních souhrnů",
+      "benefit": "Tento přístup udržuje grafy čitelné a zároveň zachovává historické trendy"
+    },
+    "buttons": {
+      "save": "Uložit nastavení",
+      "saving": "Ukládání..."
+    },
+    "errors": {
+      "loadFailed": "Nepodařilo se načíst nastavení. Zkuste to prosím znovu.",
+      "saveFailed": "Nepodařilo se uložit nastavení. Zkuste to prosím znovu."
+    },
+    "messages": {
+      "updateSuccess": "Nastavení monitorování bylo úspěšně uloženo"
+    }
+  },
+  "agentDownloads": {
+    "title": "Nastavení přenosu souborů agenta",
+    "description": "Nakonfigurujte, jak agenti stahují soubory z backendu. Tato nastavení se vztahují na všechny připojené agenty.",
+    "concurrentDownloads": {
+      "title": "Souběžné stahování",
+      "description": "Maximální počet souborů, které lze stahovat současně"
+    },
+    "downloadTimeout": {
+      "title": "Časový limit stahování",
+      "description": "Maximální čas povolený pro stažení jednoho souboru",
+      "helper": "Mezi 1 minutou a 24 hodinami (1440 minut)",
+      "unit": "minut"
+    },
+    "retryAttempts": {
+      "title": "Pokusy o opakování",
+      "description": "Počet pokusů o opakování neúspěšných stahování"
+    },
+    "progressInterval": {
+      "title": "Interval hlášení pokroku",
+      "description": "Jak často agenti hlásí pokrok stahování",
+      "helper": "Mezi 1 sekundou a 5 minutami (300 sekund)",
+      "unit": "sekund"
+    },
+    "chunkSize": {
+      "title": "Velikost bloku",
+      "description": "Velikost bloku stahování pro budoucí možnost obnovení",
+      "helper": "Mezi 1 MB a 100 MB",
+      "unit": "MB"
+    },
+    "applyNote": "Změny se uplatní u agentů při jejich dalším připojení. Aktuálně připojení agenti obdrží aktualizace automaticky.",
+    "buttons": {
+      "save": "Uložit nastavení",
+      "saving": "Ukládání..."
+    },
+    "errors": {
+      "loadFailed": "Nepodařilo se načíst nastavení stahování agenta",
+      "saveFailed": "Nepodařilo se aktualizovat nastavení stahování agenta"
+    },
+    "messages": {
+      "updateSuccess": "Nastavení stahování agenta bylo úspěšně aktualizováno"
+    }
+  },
+  "hashTypes": {
+    "title": "Správa typů hashů",
+    "description": "Spravujte podporované typy hashů pro operace prolomování hesel",
+    "addHashType": "Přidat typ hashe",
+    "searchPlaceholder": "Hledat typy hashů...",
+    "hashTypesFound_few": "{{count}} typy hashů nalezeny",
+    "hashTypesFound_many": "{{count}} typů hashů nalezeno",
+    "hashTypesFound_one": "{{count}} typ hashe nalezen",
+    "hashTypesFound_other": "{{count}} typů hashů nalezeno",
+    "table": {
+      "id": "ID",
+      "name": "Název",
+      "description": "Popis",
+      "example": "Příklad",
+      "slow": "Pomalý",
+      "salted": "Slaný",
+      "actions": "Akce",
+      "loading": "Načítání typů hashů...",
+      "noResults": "Nebyly nalezeny žádné typy hashů"
+    },
+    "dialog": {
+      "addTitle": "Přidat nový typ hashe",
+      "editTitle": "Upravit typ hashe",
+      "hashIdLabel": "Hash ID (číslo režimu Hashcat)",
+      "hashIdHelper": "např. 1000 pro NTLM",
+      "nameLabel": "Název",
+      "descriptionLabel": "Popis",
+      "exampleLabel": "Příklad hashe",
+      "exampleHelper": "Příklad tohoto formátu hashe",
+      "slowLabel": "Pomalý algoritmus hashe",
+      "saltedLabel": "Typ slaného hashe (např. NTLMv2, bcrypt)",
+      "processingInfo": "Tento typ hashe vyžaduje speciální zpracování. Logika zpracování je spravována programově.",
+      "cancel": "Zrušit",
+      "save": "Uložit",
+      "saving": "Ukládání..."
+    },
+    "validation": {
+      "hashIdRequired": "Hash ID je povinné a musí být kladné",
+      "hashIdExists": "Toto Hash ID již existuje",
+      "nameRequired": "Název je povinný"
+    },
+    "tooltips": {
+      "requiresProcessing": "Vyžaduje speciální zpracování",
+      "processing": "Zpracování",
+      "slowAlgorithm": "Pomalý algoritmus hashe (výpočetně nákladný)",
+      "salted": "Používá soli pro každý hash (ovlivňuje výpočet keyspace)"
+    },
+    "confirmDelete": {
+      "title": "Potvrďte odstranění",
+      "warning": "Tento typ hashe je právě povolen. Jeho odstranění může ovlivnit stávající funkčnost.",
+      "cancel": "Zrušit",
+      "delete": "Smazat",
+      "deleting": "Mazání..."
+    },
+    "messages": {
+      "createSuccess": "Typ hashe byl úspěšně vytvořen",
+      "createFailed": "Nepodařilo se vytvořit typ hashe",
+      "updateSuccess": "Typ hashe byl úspěšně aktualizován",
+      "updateFailed": "Nepodařilo se aktualizovat typ hashe",
+      "deleteSuccess": "Typ hashe byl úspěšně smazán",
+      "deleteFailed": "Nepodařilo se smazat typ hashe",
+      "deleteInUse": "Nelze smazat: Tento typ hashe je používán existujícími hashlisty",
+      "loadFailed": "Nepodařilo se načíst typy hashů. Zkuste prosím obnovit stránku."
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "Zřizování cloudových GPU",
+      "body": "Pronajměte si GPU instance na vyžádání, když on-prem flotila nestíhá. Instance se připojí k vaší stávající VPN, obdrží pouze soubory, které jejich úloha potřebuje, a jsou automaticky odstraněny. Náklady se vyhradí z rozpočtu klienta ještě před spuštěním instance, takže limit je skutečný strop, a ne až dodatečné zjištění.",
+      "fleetLink": "Zobrazit živou flotilu"
+    },
+    "sections": {
+      "providers": "Poskytovatelé",
+      "clients": "Rozpočty klientů",
+      "policy": "Zásada prahu",
+      "rules": "Pravidla zřizování",
+      "system": "Limity a operace"
+    },
+    "providers": {
+      "title": "Poskytovatelé cloudu",
+      "description": "Odkud pocházejí pronajaté instance a jak se dostávají na tento server.",
+      "add": "Přidat poskytovatele",
+      "addTitle": "Přidat poskytovatele cloudu",
+      "editTitle": "Upravit poskytovatele cloudu",
+      "edit": "Upravit",
+      "delete": "Smazat",
+      "save": "Uložit",
+      "saved": "Poskytovatel uložen",
+      "saveFailed": "Nepodařilo se uložit poskytovatele",
+      "deleted": "Poskytovatel smazán",
+      "deleteFailed": "Nepodařilo se smazat poskytovatele",
+      "deleteTitle": "Smazat poskytovatele?",
+      "deleteBody": "Smazat „{{name}}“? Toto se nezdaří, pokud na něj stále odkazuje jakákoli pronajatá instance.",
+      "loadFailed": "Nepodařilo se načíst poskytovatele",
+      "empty": "Nejsou nakonfigurováni žádní poskytovatelé cloudu. Nic se nebude pronajímat.",
+      "enabled": "Povoleno",
+      "disabled": "Zakázáno",
+      "noCredentials": "Žádné přihlašovací údaje",
+      "noVpn": "Žádná VPN",
+      "credentialExpired": "Přihlašovací údaj vypršel",
+      "credentialExpiresIn": "Vyprší za {{days}}d",
+      "limitsValue": "{{instances}} max, {{rate}}/hod limit",
+      "thirdPartyBadge": "Běží na strojích třetích stran",
+      "preflight": "Předletová kontrola",
+      "preflightTitle": "Zpráva předletové kontroly",
+      "preflightOk": "Tento poskytovatel může spouštět instance.",
+      "preflightFailed": "Požadavek na předletovou kontrolu selhal",
+      "preflightFailedBody": "Tento poskytovatel zatím nemůže spouštět instance.",
+      "preflightIdentity": "Ověřeno jako {{identity}}",
+      "preflightQuota": "Kvóta: {{used}} z {{limit}} v použití ({{source}})",
+      "preflightSections": {
+        "missing_permissions": "Chybějící oprávnění",
+        "inconclusive": "Nelze ověřit (považováno za selhání)",
+        "errors": "Chyby",
+        "warnings": "Upozornění"
+      },
+      "acknowledge": "Potvrdit",
+      "acknowledged": "Potvrzení zaznamenáno",
+      "ackFailed": "Nepodařilo se zaznamenat potvrzení",
+      "ackTitle": "Potvrďte vystavení dat třetím stranám",
+      "ackBody": {
+        "vastai": "Vast.ai pronajímá GPU na individuálně vlastněných strojích, jejichž operátoři mají root přístup do kontejneru. Hashe, slovníky a prolomené plaintexty umístěné tam jsou viditelné pro třetí stranu. Toto je kategoricky odlišné od AWS nebo RunPod Secure Cloud, kde instance běží v rámci vašeho vlastního účtu nebo v datových centrech SOC 2.",
+        "runpod_community": "RunPod Community Cloud pronajímá GPU na strojích provozovaných vrstevníky, jejichž vlastníci mají root přístup do kontejneru. Hashe, slovníky a prolomené plaintexty umístěné tam jsou viditelné pro třetí stranu. Osvědčení o souladu RunPod pokrývají pouze Secure Cloud a nevztahují se na tuto vrstvu."
+      },
+      "ackConfirm": "Přijímáte toto vystavení pro úlohy odesílané tomuto poskytovateli?",
+      "ackAccept": "Rozumím a přijímám",
+      "ephemeralKeyTitle": "Šifrovací klíč je dočasný",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY není nastaven, proto byl při spuštění vygenerován náhodný klíč. Všechny uložené přihlašovací údaje se po dalším restartu stanou nečitelnými. Před uložením přihlašovacích údajů poskytovatele nastavte KH_ENCRYPTION_KEY.",
+      "vpnSection": "Připojení VPN",
+      "vpnSectionHelp": "Tento server není nikdy vystaven internetu, takže pronajaté instance se připojí k VPN, kterou již provozujete. OpenVPN není podporován: vyžaduje /dev/net/tun a CAP_NET_ADMIN, které neprivilegované kontejnery Vast.ai neposkytují.",
+      "reusableKeyWarning": {
+        "tailscale": "Opakovaně použitelný klíč je sdílený všemi instancemi a má omezenou platnost — Tailscale omezuje platnost autentizačních klíčů na 90 dní. Jakmile vyprší, zřizování se odmítne, místo aby se spouštěly instance, které se nemohou připojit. Klient OAuth umožňuje KrakenHashes vygenerovat pro každou instanci jeden jednorázový dočasný klíč se štítkem.",
+        "netbird": "Opakovaně použitelný instalační klíč je sdílený všemi instancemi, takže stejné tajemství dorazí na každého pronajatého hostitele. Pokud má klíč datum vypršení platnosti, zadejte je níže do pole „Platnost přihlašovacích údajů do“ — jakmile vyprší, zřizování se odmítne, místo aby se spouštěly instance, které se nemohou připojit; pole nechte prázdné pro klíč, který nikdy nevyprší. Štítek nebo skupina se pro tento typ přihlašovacích údajů ignorují: skupina a příznak dočasnosti pocházejí z vlastní konfigurace klíče v NetBirdu. Přístupový token umožňuje KrakenHashes vygenerovat pro každou instanci jeden jednorázový dočasný instalační klíč a nastavit skupinu samo."
+      },
+      "staticConfigWarning": "WireGuard používá statickou konfiguraci partnerů: neexistují žádné přihlašovací údaje na instanci ani automatické zrušení registrace, když instance zanikne. Tailscale nebo NetBird je bezpečnější.",
+      "kinds": {
+        "aws": "AWS EC2 (váš vlastní účet)",
+        "vastai": "Vast.ai (stroje třetích stran)",
+        "mock": "Mock (místní testovací agenti, bez nákladů)",
+        "runpod": "RunPod Secure Cloud (datová centra SOC 2)",
+        "runpod_community": "RunPod Community Cloud (stroje provozované vrstevníky)"
+      },
+      "credentialKinds": {
+        "oauth": "Klient OAuth — vytvořit jeden dočasný klíč na instanci (doporučeno)",
+        "pat": "Přístupový token — vytvořit jeden dočasný klíč na instanci (doporučeno)",
+        "reusable_key": "Opakovaně použitelný klíč — sdílený každou instancí",
+        "static_config": "Statická konfigurace — bez přihlašovacích údajů na instanci"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "Klient Tailscale OAuth jako client_id:client_secret. Vyžaduje rozsah auth_keys a vybranou značku.",
+        "pat": "Osobní přístupový token NetBird nebo token uživatele služby.",
+        "reusable_key": "Předem autorizovaný klíč, který bude používat každá instance.",
+        "static_config": "Úplná konfigurace partnerského uzlu WireGuard."
+      },
+      "columns": {
+        "name": "Název",
+        "provider": "Poskytovatel",
+        "status": "Stav",
+        "vpn": "VPN",
+        "limits": "Omezení",
+        "actions": "Akce"
+      },
+      "fields": {
+        "name": "Název",
+        "provider": "Poskytovatel",
+        "credentials": "Přihlašovací údaje poskytovatele",
+        "credentialsHelp": "Přihlašovací údaje API pro {{provider}}. Uloženy šifrovaně a nikdy nevráceny.",
+        "credentialsKeepHelp": "Nechte prázdné pro zachování uloženého přihlašovacího údaje.",
+        "maxConcurrent": "Maximální počet souběžných instancí",
+        "maxHourlyCents": "Maximální hodinová sazba (centy)",
+        "maxHourlyHelp": "Nabídky nad touto sazbou nejsou nikdy pronajaty, bez ohledu na rozpočet.",
+        "vpnProvider": "Poskytovatel VPN",
+        "credentialKind": "Typ přihlašovacího údaje",
+        "vpnCredential": "Přihlašovací údaj VPN",
+        "credentialExpiry": "Přihlašovací údaj vyprší v",
+        "credentialExpiryHelp": "Nepovinné – nechte prázdné pro klíč, který nikdy nevyprší. Zřizování je po tomto čase odmítnuto a budete varováni, jak se tento termín blíží.",
+        "vpnTag": "Značka nebo skupina",
+        "vpnTagHelp": "např. tag:kraken-worker. Vyžadováno pro Tailscale OAuth; určuje, kam mohou tyto uzly dosáhnout.",
+        "backendVpnHost": "Adresa tohoto serveru v síti VPN",
+        "backendVpnHostHelp": "Hodnota KH_HOST, kterou používají cloudoví agenti. Certifikát serveru ji musí pokrýt – přidejte ji na kartě Certifikát serveru a klikněte na Použít a znovu vystavit, jinak agentům selže ověření TLS názvu hostitele.",
+        "enabled": "Povoleno",
+        "awsAccessKeyId": "ID přístupového klíče AWS",
+        "awsAccessKeyIdHelp": "Klíč uživatele IAM nebo role vymezený pro zřizování EC2. Uložen šifrovaně a nikdy nevrácen.",
+        "awsSecretAccessKey": "Tajný přístupový klíč AWS",
+        "awsRegion": "Oblast",
+        "awsRegionHelp": "např. us-east-2. Všechna ostatní pole AWS níže musí být v této oblasti.",
+        "awsSubnet": "ID podsítě",
+        "awsSubnetHelp": "např. subnet-0abc123. Musí automaticky přiřadit veřejnou IP adresu, jinak se instance nemůže připojit k řídicí rovině vaší sítě VPN.",
+        "awsSecurityGroups": "ID skupin zabezpečení",
+        "awsSecurityGroupsHelp": "Odděleno čárkami, např. sg-0abc123. Vyžaduje pouze odchozí přístup; není vyžadováno žádné pravidlo pro příchozí provoz.",
+        "awsAmiSsm": "Parametr AMI SSM",
+        "awsAmiSsmHelp": "Vyhodnoceno při spuštění, takže obraz nikdy nezastará. např. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "ID AMI (přepisuje parametr SSM)",
+        "awsAmiIdHelp": "Místo toho zafixujte konkrétní obraz. Nechte prázdné pro vyhodnocení prostřednictvím SSM. Jeden z nich je povinný.",
+        "awsInstanceProfile": "ARN profilu instance IAM",
+        "awsInstanceProfileHelp": "Nepovinné. Vyžadováno pouze v případě, že agent sám musí volat rozhraní AWS API.",
+        "awsRootVolume": "Kořenový svazek (GB)",
+        "awsRootVolumeHelp": "Minimum; sada souborů úlohy může potřebovat více. Musí být alespoň velikost snímku AMI, jinak spuštění selhá.",
+        "awsEbsRate": "Sazba EBS (centy/GB-měsíc)",
+        "awsEbsRateHelp": "Cena úložiště gp3. Ponecháno na 0, rozpočet nevyhrazuje nic pro disk.",
+        "awsUseSpot": "Použít kapacitu Spot",
+        "awsUseSpotHelp": "Požadavky Spot jsou jednorázové a ukončují se při přerušení. Slevy na GPU současné generace jsou často skromné, takže to není automaticky levnější. Spot a on-demand čerpají z oddělených kvót vCPU.",
+        "awsInstanceType": "Typ instance",
+        "awsHourlyCents": "Centy/hodinu",
+        "awsGpuModel": "Model GPU",
+        "awsGpuCount": "GPU",
+        "awsVram": "VRAM/GPU",
+        "mockAgentBinary": "Cesta k binárnímu souboru agenta",
+        "mockAgentBinaryHelp": "Cesta k binárnímu souboru agenta, který server může spustit s příznakem --test-mode.",
+        "mockBackendHost": "Hostitel backendu pro vytvořené agenty",
+        "mockBackendHostHelp": "např. localhost:31337.",
+        "mockHourlyRate": "Simulovaná sazba (centy/hodinu)",
+        "mockBootDelay": "Simulované zpoždění spuštění (sekundy)",
+        "mockFailLaunch": "Chyba: selhání každého spuštění",
+        "mockDropLaunchResponse": "Chyba: zahodit odpověď na spuštění (instance běží, ale je nahlášena jako neúspěšná)",
+        "mockNeverRegister": "Chyba: instance se nikdy neregistruje",
+        "mockFailDestroy": "Chyba: selhání každého zničení",
+        "vpnTagIgnoredHelp": "Ignorováno pro opakovaně použitelný klíč NetBird: členství ve skupině a přechodný příznak pocházejí z vlastní konfigurace klíče nastavení v NetBird. Používáno pouze na cestě přístupového tokenu, jako auto_groups na každém vytvořeném klíči.",
+        "vpnUrl": {
+          "netbird": "URL správy NetBird",
+          "tailscale": "Server přihlášení Tailscale (Headscale)"
+        },
+        "vpnUrlHelp": {
+          "netbird": "Váš vlastní hostovaný server správy NetBird, např. https://netbird.example.com. Používá se jak pro vytváření klíčů nastavení, tak pro spuštění klienta. Nechte prázdné pro hostovanou službu NetBird.",
+          "tailscale": "Pouze pro vlastní hostovaný server řízení. Všimněte si, že vytváření tokenu přístupu vždy používá api.tailscale.com a nepodporuje Headscale."
+        },
+        "vastCountries": "Země (odděleno čárkami)",
+        "vastCountriesHelp": "Kódy zemí Vast.ai, např. US, DE, SE. Prázdné znamená kdekoli. Porovnáno bez rozlišování velikosti písmen s hlášenou geolokací, takže 'US' odpovídá 'US, Texas'. Funguje také jako váš nástroj řízení umístění dat.",
+        "vastGpuModels": "Povolené modely GPU (odděleno čárkami)",
+        "vastGpuModelsHelp": "Prázdné znamená libovolnou kartu. Porovnáno na normalizovaném klíči, takže 'rtx_4090' odpovídá 'NVIDIA GeForce RTX 4090' i 'RTX 4090'. Rozšíření tohoto seznamu je nejlevnější způsob, jak zvýšit dostupnost.",
+        "vastDeniedGpuModels": "Odmítnuté modely GPU (odděleno čárkami)",
+        "vastDeniedGpuModelsHelp": "Vždy zvítězí nad seznamem povolení. Toto je nouzová páka pro 'ta karta stále selhává, přestaňte ji pronajímat'.",
+        "vastMinReliability": "Minimální spolehlivost hostitele (0-1)",
+        "vastMinReliabilityHelp": "Vlastní skóre spolehlivosti hostitele Vast.ai. 0 toto minimum vypne. Hostitelé, kteří nehlásí skóre, jsou zachováni. Vyměňuje trochu dostupnosti za méně mrtvých pronájmů – hostitel, který zruší instanci uprostřed bloku, byl stále zaplacen za své uvedení do provozu.",
+        "vastAllowUnverified": "Povolit neověřené hostitele (zvyšuje dostupnost; neprověřené stroje)",
+        "vastAllowResidential": "Povolit domácí hostitele (zvyšuje dostupnost; domácí stroje, ne datová centra)",
+        "runpodDataCenters": "Datová centra (odděleno čárkami)",
+        "runpodDataCentersHelp": "ID datových center RunPod, např. EU-RO-1, US-KS-2. PRÁZDNÉ JE NEJŠIRŠÍ NASTAVENÍ, ne nejužší – vlastní plánovač RunPod pak může umístit pod kamkoli. To je opak zón AWS, kde nechání prázdného vás stále připíná k jedné. Nastavte to pro umístění dat nebo aby spouštěcí smyčka opakování procházela skutečně nezávislými fondy.",
+        "runpodGpuTypes": "Povolené typy GPU (odděleno čárkami)",
+        "runpodGpuTypesHelp": "ID gpuType RunPod přesně tak, jak se objevují v tabulce dostupnosti, např. 'NVIDIA GeForce RTX 4090'. Prázdné znamená každou kartu, kterou tato úroveň nabízí.",
+        "runpodDiskGb": "Minimální diskový prostor kontejneru (GB)",
+        "runpodDiskGbHelp": "Minimum, ne limit: úloha, jejíž sada souborů potřebuje více, dostane více. Diskový prostor kontejneru je vymazán při restartování podu a žádný síťový svazek není nikdy připojen – jeden by přežil pod a zachoval by prolomené plaintexty po ukončení.",
+        "runpodDiskRate": "Disk kontejneru (centy/GB-měsíc)",
+        "runpodDiskRateHelp": "Započítává se do části rozpočtu vyhrazené pro úložiště. Zaokrouhleno nahoru, protože rezervace, která podhodnocuje úložiště, umožňuje klientovi překročit limit, o kterém mu bylo řečeno, že je pevný.",
+        "runpodSelfDestruct": "Nechat pody smazat samy sebe, pokud VPN zemře (pouze Secure tier)",
+        "runpodSelfDestructHelp": "Přidá třetí mechanismus odstraňování, takže se pod může SMAZAT SÁM, když ztratí kontakt, což odpovídá Vast.ai. RunPod nemá přihlašovací údaje vymezené na pod, takže toto umístí klíč VYMEZENÝ NA ÚČET do každého podu – klíč, který může vytvářet a odstraňovat každý další pod na účtu. Místo opakovaného použití klíče pro zřizování zadejte samostatný, užší klíč jako self_destruct_api_key v JSON přihlašovacích údajů. Nikdy není k dispozici na Community tier."
+      },
+      "peerWarningTitle": "Hardware třetích stran",
+      "peerWarningBody": {
+        "vastai": "Instance Vast.ai běží na jednotlivě vlastněných strojích, které neovládáte. Povolte ji pouze pro klienty, jejichž data mohou být vystavena třetí straně, a potvrďte to i pro každého klienta.",
+        "runpod_community": "RunPod Community Cloud běží na strojích provozovaných jinými uživateli, jejichž majitelé mají root nad kontejnerem. Atestace RunPod SOC 2, ISO 27001 a PCI DSS pokrývají pouze Secure Cloud, ne tuto úroveň. Povolte ji pouze pro klienty, jejichž data mohou být vystavena třetí straně, a potvrďte to i pro každého klienta."
+      },
+      "awsSection": "Umístění a ceny AWS",
+      "awsSectionHelp": "Kde se instance spouští a jaké stojí. EC2 nevystavuje tomuto kódu strojově čitelný model GPU ani hodinovou sazbu, takže oba jsou zde deklarovány.",
+      "awsInstanceTypes": "Nabízené typy instancí",
+      "awsInstanceTypesHelp": "Mohou být pronajaty pouze uvedené typy. Deklarujte sazbu, za kterou jste ochotni být účtováni – zaokrouhlete nahoru, protože rozpočet se vyhrazuje na základě tohoto čísla a nic jej nekontroluje proti faktuře. Deklarování modelu GPU a počtu je to, co umožňuje hodnocení na základě nákladů na práci; bez toho se hodnocení vrací k ceně za hodinu.",
+      "awsAddInstanceType": "Přidat typ instance",
+      "awsRemoveInstanceType": "Odebrat",
+      "mockSection": "Chování mock poskytovatele a injekce chyb",
+      "mockSectionHelp": "Mock poskytovatel spouští místní agenty --test-mode. Přepínače chyb testují větve selhání bez překompilování.",
+      "providerNotImplemented": "Tento poskytovatel ještě nemá adaptér: backend jej zamítá s \"unsupported cloud provider\" při spuštění. Lze jej uložit, ale nic z něj nelze zřizovat.",
+      "zones": {
+        "title": "Umístění a hardware",
+        "help": "Zaškrtněte každé místo a každé GPU, které jste ochotni pronajmout. Kapacita obvykle patří spíše k páru (hardware, umístění) než k jednomu nebo druhému, takže každá zaškrtnutá buňka je jedna nezávislá šance na získání stroje – jediná zaškrtnutá buňka znamená, že odmítnutí kapacity nemá kam padnout. Nechání všech karet řady zaškrtnuté znamená 'jakýkoli hardware, který jsem schválil', včetně těch přidaných později.",
+        "probe": "Zkontrolovat dostupnost",
+        "probeHelp": "Čte živá data o zóně, podsíti, nabídce, ceně spotů a skóre umístění z AWS. Pouze pro čtení: nic nespouští a nic nestojí.",
+        "probeIdle": "pro načtení živých zón, podsítí a cen spotů pro tohoto poskytovatele.",
+        "probeFailed": "Nepodařilo se přečíst kapacitu z AWS.",
+        "saveFirst": "Nejdříve uložte poskytovatele. Dostupnost se čte pomocí uložených přihlašovacích údajů a oblasti, takže neuložený formulář nemá s čím se dotazovat.",
+        "selectAll": "Vybrat všechny použitelné zóny",
+        "colZone": "Zóna",
+        "colSubnet": "Podsíť",
+        "notOffered": "EC2 nenabízí tento typ instance v této zóně. To je definitivní – spuštění by zde selhalo s Unsupported.",
+        "unusable": "Do tohoto umístění nelze nic spustit. Viz poznámka vedle jeho názvu.",
+        "freeIps_few": "{{count}} volné IP adresy",
+        "freeIps_many": "{{count}} volných IP adres",
+        "freeIps_one": "{{count}} volná IP adresa",
+        "freeIps_other": "{{count}} volných IP adres",
+        "scoreHelp": "Vlastní hodnocení AWS 1-10 pro TUTO kartu V TÉTO zóně a slabý důkaz: každá zóna v této oblasti dosáhla skóre 1/10 na tomto účtu minuty předtím, než se spuštění v jedné z nich poprvé podařilo. Rozhoduje, který fond se zkusí první. Nikdy neodstraní fond ze seznamu. Porovnejte jej se skóre všech typů vedle názvu zóny.",
+        "spotVsConfigured": "Spot zde nabízí {{spot}}/hr; vaše nakonfigurovaná sazba pro tento typ je {{configured}}/hr. Rezervace používají NAKONFIGUROVANOU hodnotu, takže ceny pod živou sazbou vedou k nedostatečné rezervaci vůči rozpočtovému limitu, o kterém vám bylo řečeno, že je pevný.",
+        "poolCount_few": "{{count}} fondy kapacity vybrány",
+        "poolCount_many": "{{count}} fondů kapacity vybráno",
+        "poolCount_one": "{{count}} fond kapacity vybrán",
+        "poolCount_other": "{{count}} fondů kapacity vybráno",
+        "poolCountWarning": "Jeden fond je jedna šance. Když je vyčerpán, smyčka opakování spuštění nemá kam padnout a zřizování jednoduše přestane, dokud se kapacita nevrátí. Zaškrtněte více zón, více typů instancí nebo obojí.",
+        "poolCountOk": "Odmítnutí kapacity v jednom fondu přejde do dalšího, v nejpravděpodobnějším pořadí.",
+        "legacyOverridden": "Zóny jsou nakonfigurované, takže jediné ID podsítě výše ({{subnet}}) je ignorováno. Zůstává jako záložní, pokud jsou všechny zóny nezaškrtnuté.",
+        "combinedScore": "všechny typy: {{score}}/10",
+        "combinedScoreHelp": "Skóre umístění AWS pro VŠECHNY vaše oceněné typy instancí v této zóně, což je jiná otázka než skóre kterékoli jednotlivé karty — a obvykle dává mnohem lepší odpověď. Měřeno v jednom regionu za jednu minutu: g6.xlarge sám zde získal 1/10, zatímco g4dn + g5 + g6 dohromady získaly 9/10. Šíře není ochrana proti nedostatku; je to samotná věc, která se boduje.",
+        "availableCount": "{{count}} volné",
+        "availableCountHelp": "Aktuální počet strojů, které jsou k pronajmutí dostupné právě teď. Jedná se o skutečný inventář a nejsilnější signál na obrazovce — mnohem lepší než skóre umístění, které je jen názor.",
+        "livePriceHelp": "Co vám poskytovatel účtuje za toto právě teď.",
+        "trust": {
+          "definitive": "definitivní",
+          "measured": "živě",
+          "advisory": "jen poradní"
+        },
+        "axesModeNote": "Tento poskytovatel uchovává země a modely GPU jako dva nezávislé seznamy, takže zaškrtnutí karty ji aplikuje v každé vybrané zemi. Počty a ceny v jednotlivých buňkách níže jsou stále skutečné a specifické pro danou zemi."
+      },
+      "vastSection": "Zásady umístění a hardwaru Vast.ai",
+      "vastSectionHelp": "Které země a které karty si tento poskytovatel může pronajmout. Ponechání seznamu prázdného znamená žádné omezení, což je nejširší fond a výchozí nastavení.",
+      "vastTierWarningTitle": "Otevíráte neověřenou vrstvu hostů",
+      "vastTierWarningBody": "Toto je jediné největší zvýšení dostupnosti, které Vast.ai nabízí, a umisťuje hashe klientů, slovníky, potfile a prolomené plaintexty na stroje, které Vast.ai neověřilo. Každý Vast host již má root přístup k kontejneru; tyto přepínače odstraňují jediný filtr, který jej omezuje na ověřené hostitele. Neověřená vrstva je také místem, kde se soustřeďují zprávy „zasekne se při připojování“ a „špatný ovladač“, takže část dodatečné dostupnosti je iluzorní — pronájem, který nikdy nedosáhne užitečné práce, vás stále stojí jeho zprovoznění.",
+      "runpodSection": "Zásady umístění a hardwaru RunPod",
+      "runpodSectionHelp": "Která datová centra a typy GPU si tento poskytovatel může pronajmout. RunPod má živé ceny, takže zde nejsou žádné sazby k deklaraci — na rozdíl od AWS.",
+      "runpodCommunityTeardownTitle": "Odstraňování komunitního podu zajišťuje jen backendový sběrač",
+      "runpodCommunityTeardownBody": "RunPod neposkytuje žádné pověření s rozsahem na jednotlivý pod, takže neexistuje bezpečný způsob, jak by se komunitní pod mohl sám smazat: jediný funkční klíč by měl rozsah celého účtu, a operátor komunitního hostitele má root přístup k kontejneru a vyčetl by jej z prostředí. Lhůta uvnitř kontejneru stále ukončuje hashcat a ukončuje expozici dat, ale NEMŮŽE zastavit fakturaci podu. Pokud je tento backend nedostupný nebo zaseknutý, komunitní pod se fakturuje, dokud jej ručně neodstraníte ze stránky Cloud Fleet. Nastavte nízký limit TTL instance a malý limit rozpočtu pro každého klienta, kterému je povoleno tuto vrstvu používat.",
+      "experimentalChip": "Experimentální",
+      "experimentalTooltip": "Experimentální — dosud netestováno. Tento adaptér nebyl nikdy vyzkoušen end-to-end proti skutečnému poskytovateli se skutečnými penězi. Očekávejte chyby; sledujte své úlohy a hlaste, co najdete.",
+      "experimentalTitle": "Experimentální — dosud netestováno",
+      "experimentalBody": "Tento poskytovatel nebyl nikdy prokázán end-to-end se skutečnými penězi: nebylo nikdy ověřeno, že boot, zprovoznění, prolamování, čisté uvolnění a vrácení rozpočtu fungují společně. Měl by fungovat a bude mít chyby. Začněte s malým limitem rozpočtu a nízkým limitem instancí a sledujte stránku Cloud Fleet, zda se nějaké instance neuvolňují. Prosím, hlaste cokoliv, co se pokazí.",
+      "testedChip": "Testováno",
+      "testedTooltip": "Testováno — vyzkoušeno end-to-end proti skutečnému poskytovateli se skutečnými penězi, skrze boot, prolamování, čisté uvolnění a vypořádané vrácení rozpočtu.",
+      "reportIssueLink": "Nahlásit chybu na GitHubu",
+      "reportDiagnosticsLink": "Odeslat diagnostiku na Discordu (ne v issue)"
+    },
+    "budgets": {
+      "title": "Rozpočty klientů",
+      "description": "Kolik může každý klient utratit a kterým poskytovatelům se jeho data mohou odeslat. Klienti s prázdnými poli dodržují výchozí nastavení serveru níže.",
+      "loadFailed": "Selhalo načtení rozpočtů klientů",
+      "empty": "Zatím neexistují žádní klienti. Nejdříve vytvořte klienta a poté jej zde financujte.",
+      "edit": "Upravit",
+      "editTitle": "Cloudová nastavení — {{name}}",
+      "saved": "Cloudová nastavení klienta uloženo",
+      "saveFailed": "Selhalo uložení cloudových nastavení klienta",
+      "enabled": "Povoleno",
+      "disabled": "Zakázáno",
+      "unfunded": "Žádný rozpočet",
+      "noProviders": "Žádní poskytovatelé nejsou povoleni",
+      "ttlValue": "{{minutes}} min",
+      "spendSummary": "{{used}} z {{cap}} rezervováno ({{pct}}%)",
+      "acknowledged": "Potvrzení zaznamenáno",
+      "acknowledgedChip": "Potvrzeno",
+      "ackFailed": "Selhalo zaznamenání potvrzení",
+      "ackTitle": "Potvrďte expozici třetích stran pro tohoto klienta",
+      "ackWarningTitle": "Data tohoto klienta by opustila vaši kontrolu",
+      "ackWarningBody": "Povolení Vast.ai pro {{name}} znamená, že hashe klienta, slovníky a prolomené plaintexty mohou být umístěny na strojích vlastněných třetími stranami, které mají root přístup ke kontejneru.",
+      "ackConfirm": "Akceptujete tuto expozici pro tohoto klienta?",
+      "ackAccept": "Rozumím a přijímám",
+      "actions": {
+        "none": "V rámci rozpočtu",
+        "notify": "Dosažen práh",
+        "stop_provisioning": "Zřizování zastaveno",
+        "drain": "Vyprazdňování",
+        "hard_stop": "Tvrdý stop"
+      },
+      "columns": {
+        "client": "Klient",
+        "status": "Stav",
+        "providers": "Povolení poskytovatelé",
+        "spend": "Výdaje",
+        "ttl": "Max TTL",
+        "actions": "Akce"
+      },
+      "fields": {
+        "budget": "Rozpočet",
+        "budgetHelp": "Limit výdajů za aktuální období. Ponechte prázdné, aby se dědilo výchozí nastavení serveru; klient skončí bez financování pouze v případě, že není nastaven ani výchozí.",
+        "ttl": "Maximální doba života instance (minuty)",
+        "ttlHelp": "Instance je zničena po dosažení tohoto stáří bez ohledu na pokrok. Ponechte prázdné, aby se použilo výchozí nastavení systému.",
+        "providers": "Povolení poskytovatelé",
+        "providersHelp": "Prázdné znamená, že pro tohoto klienta nelze nic pronajmout. Povolení AWS při zakázání Vast.ai je normální konfigurace.",
+        "enabled": "Cloud burst",
+        "period": "Období rozpočtu",
+        "periodHelp": "Ponechte prázdné, aby se dědilo výchozí nastavení serveru."
+      },
+      "errors": {
+        "invalidBudget": "Rozpočet musí být číslo, např. 25.00",
+        "negativeBudget": "Rozpočet nesmí být záporný",
+        "invalidTtl": "Maximální doba života musí být kladné číslo minut",
+        "enabledWithoutBudget": "Nastavte rozpočet před povolením funkce Cloud burst — klient bez financování nikdy nic nezřídí.",
+        "enabledWithoutProvider": "Povolte alespoň jednoho poskytovatele před povolením funkce Cloud burst."
+      },
+      "peerTooltip": "Hardware provozovaný třetí stranou: data tohoto klienta budou čitelná vlastníkem stroje.",
+      "defaults": {
+        "title": "Výchozí nastavení serveru",
+        "description": "Hodnoty, které klient používá, pokud si vlastní nenastavil. Ponechání pole klienta prázdného znamená, že se řídí výchozím nastavením zde, takže změna tohoto nastavení ovlivní každého klienta, který stále dědí.",
+        "summary": "{{amount}} za {{period}}",
+        "summaryUnset": "Není nastaven výchozí rozpočet — klienti, kteří dědí, zůstanou bez financování",
+        "budget": "Výchozí rozpočet",
+        "budgetHelp": "Ponechte prázdné pro žádný výchozí rozpočet: dědící klienti pak zůstanou bez financování a nemohou využít Cloud burst.",
+        "period": "Výchozí období rozpočtu",
+        "enabled": "Klienti mohou ve výchozím nastavení přejít na placenou kapacitu",
+        "providers": "Výchozí poskytovatelé",
+        "providersHelp": "Aplikováno na každého klienta, jehož vlastní seznam poskytovatelů je prázdný.",
+        "peerAckNote": "Poskytovatelé provozovaní třetí stranou stále vyžadují potvrzení pro jednotlivého klienta. Jejich výchozí nastavení neuděluje souhlas — každý klient musí být stále individuálně potvrzen, než se jeho data mohou odeslat tam.",
+        "appliesNow": "Cloud burst je standardně povolen a je nastaven výchozí rozpočet, takže každý klient, který stále dědí, může nyní zřídit placenou kapacitu.",
+        "save": "Uložit výchozí nastavení",
+        "saved": "Výchozí nastavení uloženo",
+        "saveFailed": "Selhalo uložení výchozího nastavení",
+        "fundedButDisabled": "Je nastaven výchozí rozpočet, ale Cloud burst je standardně vypnutý, takže žádný dědící klient nemůže nic zřídit. Zaškrtněte políčko výše, aby byl rozpočet použitelný.",
+        "enabledWithoutProviders": "Cloud burst je standardně zapnutý, ale nejsou vybráni žádní výchozí poskytovatelé, takže dědící klienti stále nemohou nic pronajmout. Vyberte alespoň jednoho poskytovatele výše.",
+        "willEnableTitle_few": "To umožní {{count}} klientům pronajmout si placenou kapacitu",
+        "willEnableTitle_many": "To umožní {{count}} klientům pronajmout si placenou kapacitu",
+        "willEnableTitle_one": "To umožní {{count}} klientovi pronajmout si placenou kapacitu",
+        "willEnableTitle_other": "To umožní {{count}} klientům pronajmout si placenou kapacitu",
+        "willEnableBody": "Tito klienti nemají vlastní nastavení, takže se řídí výchozím nastavením výše. Uložení umožní každému z nich zřídit cloudové instance a čerpat z tohoto rozpočtu. Chcete-li klienta vyloučit, nastavte jeho Cloud burst na Zakázáno.",
+        "andMore": "+{{count}} více",
+        "confirmTitle_few": "Povolit cloudové výdaje pro {{count}} klienty?",
+        "confirmTitle_many": "Povolit cloudové výdaje pro {{count}} klientů?",
+        "confirmTitle_one": "Povolit cloudové výdaje pro {{count}} klienta?",
+        "confirmTitle_other": "Povolit cloudové výdaje pro {{count}} klientů?",
+        "confirmBody_few": "{{count}} klienti momentálně nemohou nic pronajmout. Uložení těchto výchozích hodnot dá každému z nich limit {{amount}} za {{period}} a povolení jej utratit. Rozpočet je na klienta, ne sdílený, takže toto je celková expozice násobená počtem uvedených klientů.",
+        "confirmBody_many": "{{count}} klientů momentálně nemůže nic pronajmout. Uložení těchto výchozích hodnot dá každému z nich limit {{amount}} za {{period}} a povolení jej utratit. Rozpočet je na klienta, ne sdílený, takže toto je celková expozice násobená počtem uvedených klientů.",
+        "confirmBody_one": "{{count}} klient momentálně nemůže nic pronajmout. Uložení těchto výchozích hodnot mu dá limit {{amount}} za {{period}} a povolení jej utratit. Rozpočet je na klienta, ne sdílený, takže toto je celková expozice násobená počtem uvedených klientů.",
+        "confirmBody_other": "{{count}} klientů momentálně nemůže nic pronajmout. Uložení těchto výchozích hodnot dá každému z nich limit {{amount}} za {{period}} a povolení jej utratit. Rozpočet je na klienta, ne sdílený, takže toto je celková expozice násobená počtem uvedených klientů.",
+        "confirmAlternative": "Raději se přihlásit postupně? Zrušte, nechte Cloud burst standardně vypnutý a nastavte Cloud burst a rozpočet na každém klientovi jednotlivě.",
+        "confirmAccept_few": "Povolit {{count}} klienty",
+        "confirmAccept_many": "Povolit {{count}} klientů",
+        "confirmAccept_one": "Povolit {{count}} klienta",
+        "confirmAccept_other": "Povolit {{count}} klientů"
+      },
+      "periods": {
+        "monthly": "měsíc",
+        "quarterly": "čtvrtletí",
+        "semiannual": "šest měsíců"
+      },
+      "inheritLabel": "Dědit výchozí ({{value}})",
+      "on": "Povoleno",
+      "off": "Zakázáno",
+      "inheriting": "dědí"
+    },
+    "policy": {
+      "title": "Zásady prahu výdajů",
+      "description": "Co se stane, když se klient blíží svému limitu. Tyto prahy rozhodují, jak elegantně se limitu dosáhne; to, co skutečně zabraňuje překročení, je skutečnost, že celkové náklady na celou dobu života instance jsou rezervovány ještě před bootováním.",
+      "loadFailed": "Selhalo načtení zásady prahu",
+      "saved": "Zásada prahu uložena",
+      "saveFailed": "Selhalo uložení zásady prahu",
+      "overageWarning": "Přesah je povolen: rezervace mohou překročit zbývající rozpočet. Limit se stane poradním, nikoli absolutním.",
+      "hardStopAboveCapNote": "Tvrdý stop je nastaven na {{pct}}%, ale přesah je vypnutý, takže rezervace stále nemohou překročit 100% rozpočtu. Povolte přesah, pokud máte v úmyslu dovolit výdaje nad limit.",
+      "fields": {
+        "notifyEnabled": "Upozornit mě, když se výdaje blíží limitu",
+        "notifyPct": "Upozornit na (% rozpočtu)",
+        "notifyPctHelp": "Odešle oznámení jednou. Vypnutím zaškrtávacího pole upozornění zcela vypnete.",
+        "stopProvisionPct": "Zastavit zřizování na (%)",
+        "stopProvisionPctHelp": "Žádné nové instance se nebudou spouštět za tímto bodem. Běžící instance pokračují.",
+        "drainPct": "Začít vyprazdňovat na (%)",
+        "drainPctHelp": "Žádná nová práce se nepřiděluje; již běžícím blokům se povolí dokončení.",
+        "hardStopPct": "Tvrdý stop na (%)",
+        "hardStopPctHelp": "Instance jsou okamžitě zničeny, ať už dokončily práci, nebo ne.",
+        "drainTimeout": "Časový limit vyprazdňování (sekundy)",
+        "drainTimeoutHelp": "Jak dlouho může instance pokračovat v dokončování svého bloku, než bude přesto zničena.",
+        "allowOverage": "Povolit výdaje přesahující limit",
+        "allowOverageHelp": "Ponechte vypnuté, aby byl limit absolutní. Při vypnutí se rozpočet 10 USD zastaví na 10 USD."
+      },
+      "errors": {
+        "notifyRange": "Prahová hodnota oznámení musí být mezi 1 % a prahovou hodnotou zastavení zřizování.",
+        "stopBeforeDrain": "Prahová hodnota zastavení zřizování nesmí překročit prahovou hodnotu vyprazdňování.",
+        "drainBeforeHardStop": "Prahová hodnota vyprazdňování nesmí překročit prahovou hodnotu tvrdého zastavení.",
+        "negativeTimeout": "Časový limit vyprazdňování nesmí být záporný."
+      }
+    },
+    "fleet": {
+      "title": "Cloudová flotila",
+      "description": "Každá pronajatá instance, která vás může stále stát peníze.",
+      "loadFailed": "Nepodařilo se načíst flotilu",
+      "empty": "Žádné instance nejsou spuštěny. Nic se neúčtuje.",
+      "summary_few": "{{count}} spuštěné instance, {{hourly}}/hod, {{reserved}} rezervováno.",
+      "summary_many": "{{count}} spuštěných instancí, {{hourly}}/hod, {{reserved}} rezervováno.",
+      "summary_one": "{{count}} spuštěná instance, {{hourly}}/hod, {{reserved}} rezervováno.",
+      "summary_other": "{{count}} spuštěných instancí, {{hourly}}/hod, {{reserved}} rezervováno.",
+      "destroy": "Zničit",
+      "destroyed": "Instance zničena",
+      "destroyFailed": "Poskytovatel odmítl zničit tuto instanci – stále se vám účtuje",
+      "destroyTitle": "Zničit instanci?",
+      "destroyBody": "Zničit „{{label}}“ nyní? Účtování se zastaví hned, jak poskytovatel potvrdí.",
+      "destroyJobWarning": "Tato instance zpracovává úlohu. Její právě zpracovávaný blok bude ztracen a znovu odeslán jinam.",
+      "teardownFailingTitle": "Odstraňování se nedaří",
+      "teardownFailingBody_few": "{{count}} instance se nepodařilo zničit a stále se vám účtují. Zkontrolujte konzoli poskytovatele.",
+      "teardownFailingBody_many": "{{count}} instancí se nepodařilo zničit a stále se vám účtují. Zkontrolujte konzoli poskytovatele.",
+      "teardownFailingBody_one": "{{count}} instanci se nepodařilo zničit a stále se vám účtuje. Zkontrolujte konzoli poskytovatele.",
+      "teardownFailingBody_other": "{{count}} instancí se nepodařilo zničit a stále se vám účtují. Zkontrolujte konzoli poskytovatele.",
+      "teardownFailingTooltip": "Odstraňování se nezdařilo; tato instance se stále účtuje",
+      "estimated": "odh.",
+      "estimatedTooltip": "Odhadnuto z uplynulého času a sazby; vlastní údaje poskytovatele přijdou později.",
+      "perHour": "{{rate}}/hod",
+      "ttlExpired": "Vypršelo",
+      "states": {
+        "requested": "Požadováno",
+        "launching": "Spouštění",
+        "provisioning": "Zřizování",
+        "syncing": "Synchronizace souborů",
+        "running": "Spuštěno",
+        "draining": "Vyprazdňování",
+        "terminating": "Ukončování",
+        "terminated": "Ukončeno",
+        "failed": "Selhalo"
+      },
+      "columns": {
+        "label": "Instance",
+        "state": "Stav",
+        "client": "Klient",
+        "gpu": "GPU",
+        "rate": "Sazba",
+        "spend": "Výdaje",
+        "ttl": "Zbývající TTL",
+        "disk": "Disk",
+        "actions": "Akce",
+        "agent": "Agent",
+        "job": "Úloha"
+      },
+      "experimentalRunningTitle_few": "{{count}} instance spuštěny na experimentálním poskytovateli",
+      "experimentalRunningTitle_many": "{{count}} instancí spuštěno na experimentálním poskytovateli",
+      "experimentalRunningTitle_one": "{{count}} instance spuštěna na experimentálním poskytovateli",
+      "experimentalRunningTitle_other": "{{count}} instancí spuštěno na experimentálním poskytovateli",
+      "experimentalRunningBody": "{{providers}} nebylo dosud ověřeno od začátku do konce s reálnými penězi. Sledujte, zda tyto instance dosáhnou stavu „Ukončeno“, a nespoléhejte na to, že se ukončí samy: cesta odstraňování je nejméně testovaná část každého nového adaptéru a instance, která se nikdy neuvolní, se vám bude účtovat, dokud ji zde ručně nezničíte. Nahlaste prosím, co vidíte.",
+      "experimentalTooltip": "{{provider}} je experimentální poskytovatel – dosud neotestovaný. Očekávejte chyby; potvrďte, že se tato instance skutečně uvolní, když skončí její úloha."
+    },
+    "rules": {
+      "title": "Kdy může systém utrácet",
+      "description": "Rozpočty určují, kolik lze utratit. Toto určuje, kdy lze vůbec cokoliv utratit. Bez nich si autoscaler pronajímá kapacitu po jediném hladovějícím taktu, pro libovolnou úlohu, v libovolnou hodinu, bez limitu na úlohu.",
+      "inheritTitle": "Toto jsou systémové výchozí hodnoty",
+      "inheritBody": "Klienti dědí každé pole jednotlivě, takže zpřísnění výchozího nastavení zde dosáhne každého klienta, který toto konkrétní pole nepřepsal. Přepsání pro jednotlivé klienty se upravují na obrazovce klienta.",
+      "saved": "Pravidla zřizování uložena",
+      "saveFailed": "Nepodařilo se uložit pravidla zřizování",
+      "loadFailed": "Nepodařilo se načíst pravidla zřizování",
+      "save": "Uložit pravidla",
+      "fields": {
+        "minJobPriority": "Minimální priorita úlohy",
+        "minStarvation": "Minimální doba hladovění (minuty)",
+        "skipIfFinishing": "Přeskočit, pokud skončí během (minut)",
+        "maxSpendPerJob": "Maximální výdaje na úlohu",
+        "windowEnabled": "Omezit zřizování na časové okno",
+        "windowStart": "Okno se otevírá",
+        "windowEnd": "Okno se zavírá",
+        "windowTz": "Časové pásmo"
+      },
+      "helperText": {
+        "minJobPriority": "Absolutní priorita, ne procento. Váš současný strop je {{ceiling}}.",
+        "floorOff": "Žádné minimum: jakákoliv úloha s povoleným cloud burst se kvalifikuje pro automatické zřizování.",
+        "minStarvation": "Jak dlouho musí úloha dělat absolutně žádný pokrok, než bude pronajata placená kapacita. 0 pronajímá od prvního hladovějícího taktu. Platí pouze pro autoscaler.",
+        "skipIfFinishing": "Nepronajímejte kapacitu pro úlohu, která má na stávající kapacitě skončit tak brzy – pronajatá instance potřebuje 5–10 minut na spuštění a synchronizaci. 0 nikdy nepřeskočí.",
+        "maxSpendPerJob": "Celoživotní limit cloudových výdajů na jednu úlohu, nikoli měsíční okno. Prázdné pole znamená žádný limit. Vynucuje se všude, včetně ručního zřizování administrátorem.",
+        "windowEnabled": "Platí pouze pro spouštění. Instance nejsou nikdy odstraněny jen proto, že se okno zavřelo – odstraňování řídí TTL a nečinné vyprazdňování.",
+        "windowTz": "Název IANA, např. America/Chicago. Ponechte prázdné pro UTC.",
+        "windowWrap": "Čas zavření dřívější než čas otevření se zalamuje přes půlnoc, což je běžný způsob, jak napsat „pouze pronajímat přes noc“. Nastavení obou na stejnou hodnotu znamená vždy otevřeno."
+      },
+      "bands": {
+        "minimal": "Minimální",
+        "low": "Nízká",
+        "normal": "Normální",
+        "high": "Vysoká",
+        "critical": "Kritická"
+      }
+    },
+    "system": {
+      "ceilings": "Limity výdajů a souběhu",
+      "ceilingsHelp": "Absolutní limity na úrovni systému, aplikované předtím, než se zkontroluje rozpočet klienta.",
+      "work": "Velikost práce a odstraňování",
+      "workHelp": "Jak velkou dávku práce dostane pronajatá instance najednou a jak rychle se uvolní, když je nečinná. Režie na blok se účtuje podle sazby za pronájem, takže toto nastavení vyvažuje propustnost proti plýtvání.",
+      "reconciliation": "Sladění",
+      "reconciliationHelp": "Jak často se databáze kontroluje oproti tomu, co poskytovatel skutečně spouští, a jak dlouho se neznámá instance toleruje, než se zničí.",
+      "capDisabledWarning": "Zřizování cloudu je v současné době ZAKÁZÁNO: globální měsíční limit je 0. Poskytovatelé, rozpočty klientů a úlohy s podporou cloudu budou všechny správně nakonfigurované a nic se nikdy nepronajme. Nastavte nenulový limit, aby se to povolilo.",
+      "saved": "Nastavení uloženo",
+      "saveFailed": "Nepodařilo se uložit nastavení",
+      "loadFailed": "Nepodařilo se načíst nastavení cloudu",
+      "units": {
+        "seconds": "s",
+        "minutes": "min"
+      },
+      "fields": {
+        "monthlyCap": "Globální měsíční limit výdajů",
+        "monthlyCapHelp": "Napříč všemi klienty a poskytovateli. 0 zcela zakazuje zřizování cloudu – nejde o neomezený limit.",
+        "concurrentCap": "Globální limit souběžných instancí",
+        "concurrentCapHelp": "Maximální počet pronajatých instancí najednou, napříč všemi poskytovateli a klienty. 0 znamená neomezeno, stále omezeno rozpočty a kvótami poskytovatele.",
+        "defaultMaxInstancesPerJob": "Výchozí maximální počet instancí na úlohu",
+        "defaultMaxInstancesPerJobHelp": "Maximální počet pronajatých instancí pro úlohu, která svůj vlastní limit nechá prázdný. Prázdné pole dříve znamenalo neomezeno, což v cloudovém nasazení dělá z rozpočtu klienta jedinou věc, která zabrání hladovějící úloze pronajímat si kapacitu jednou za minutu. Hodnota nastavená pro jednotlivou úlohu má stále přednost. 0 obnoví neomezeno.",
+        "chunkDuration": "Minimální trvání cloudového bloku",
+        "chunkDurationHelp": "Minimální trvání bloku pro cloudové agenty. Pronajaté GPU se účtuje už od chvíle, kdy hashcat startuje, provádí autotune kernelů a načítá slovník, takže cloudové bloky mají spodní hranici na této hodnotě, i když úloha požaduje méně. Úloha požadující VÍCE si drží svou vlastní hodnotu. Vždy omezeno zbývající dobou životnosti instance. Nastavte na 0, chcete-li toto minimum vypnout.",
+        "teardownSlack": "Časová rezerva odstraňování",
+        "teardownSlackHelp": "Vyhrazeno na konci životnosti instance pro vyprazdňování a zničení, aby se blok nikdy neplánoval za bod, kdy instance zemře.",
+        "idleDrain": "Nečinné vyprazdňování",
+        "idleDrainHelp": "Zničit pronajatou instanci po tak dlouhé době bez čekající práce. Omezuje, kolik zaplatíte za GPU, kterému už nezbyla žádná práce.",
+        "commissioningGrace": "Lhůta pro uvedení do provozu",
+        "commissioningGraceHelp": "Zničit pronajatou instanci, která nikdy nedostala úkol, po tak dlouhé době, měřeno od okamžiku, kdy se její agent zaregistroval. Studená instance musí nejdříve stáhnout své soubory a spustit benchmark, takže nastavení pod přibližně 20 minut zničí zdravé instance uprostřed startu – a protože úloha stále čeká, další se pronajímá okamžitě. 0 deaktivuje.",
+        "reaperInterval": "Interval Reaperu",
+        "reaperIntervalHelp": "Jak často sladit databázi s inventářem poskytovatele a zničit cokoli, co by nemělo existovat.",
+        "orphanGrace": "Ochranná lhůta pro osiřelé instance",
+        "orphanGraceHelp": "Zničit instance nalezené na účtu poskytovatele bez odpovídajícího řádku v databázi po tak dlouhé době. Toto je jediná možnost nápravy pro spuštění, jehož záznam nikdy nedorazil.",
+        "agentImage": "Image agenta",
+        "agentImageHelp": "např. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Ponechte prázdné, abyste se vrátili ke KH_CLOUD_AGENT_IMAGE, poté k vestavěné výchozí hodnotě. Poznámka: vestavěná výchozí hodnota je :latest, která existuje pouze po označení vydání – nasazení před vydáním musí tuto hodnotu nastavit.",
+        "defaultBurstEnabled": "Povolit cloud burst pro každou úlohu",
+        "defaultBurstEnabledHelp": "Zachází s každou úlohou, jako by měla povolený cloud burst, bez zaškrtnutí pole na každé předvolbě, pracovním postupu a úloze. Určeno pro nasazení bez lokálních GPU, kde je pronájem jediným způsobem, jak se práce vůbec provede. Rozpočty klientů a limity instancí stále platí. Nabývá účinnosti okamžitě, včetně úloh již zařazených do fronty.",
+        "defaultClient": "Výchozí fakturační klient",
+        "defaultClientHelp": "Cloudové výdaje za hashlist bez vlastního klienta se fakturují zde. Ponechte jako Žádný a nepřiřazená práce si vůbec nemůže pronajmout kapacitu. Rozpočty, limity instancí a žebřík prahů se vztahují na vybraného klienta přesně jako obvykle – díky klientovi pojmenovanému například „Nepřiřazená práce“ zůstává přehled výdajů přesný.",
+        "defaultClientNone": "Žádný – nepřiřazená práce nemůže použít cloud",
+        "crackDrainGrace": "Lhůta pro dokončení nahrávání prolomených hesel",
+        "crackDrainGraceHelp": "Před zničením pronajaté instance se čeká až tak dlouho, než úkol, který na ní ještě běží, dokončí nahrávání prolomených hesel. Měří se od posledního zápisu k tomuto úkolu, ne od jeho zahájení, takže pracující agent není nikdy zničen a na uvízlý se nečeká navěky. Musí být delší než nečinné vyprazdňování a kratší než 30 minut. 0 zničí okamžitě, což může trvale ztratit prolomená hesla, která agent již nalezl – ta nelze znovu odeslat z počítače, který už neexistuje."
+      },
+      "agent": "Image cloudového agenta",
+      "agentHelp": "Image kontejneru, který si pronajaté instance stáhnou a spustí. Musí to být značka, která existuje v registru: chybějící značka není chybou při startu – instance se spustí, stažení selže a hostitel se přibližně o minutu později sám ukončí, přičemž vám je to naúčtováno.",
+      "save": "Uložit změny",
+      "discard": "Zrušit",
+      "unsaved_few": "{{count}} neuložené změny",
+      "unsaved_many": "{{count}} neuložených změn",
+      "unsaved_one": "{{count}} neuložená změna",
+      "unsaved_other": "{{count}} neuložených změn",
+      "eligibility": "Nasazení pouze v cloudu",
+      "eligibilityHelp": "Zda jsou úlohy vůbec zvažovány k pronájmu. Vše výše omezuje, co lze utratit; toto určuje, zda se vůbec něco utratí."
+    }
+  },
+  "serverCertificate": {
+    "title": "Certifikát serveru",
+    "description": "Správa adres, které pokrývá certifikát TLS serveru. Agenti se mohou připojit pouze k adrese uvedené zde.",
+    "apply": "Použít a znovu vystavit",
+    "warning": {
+      "title": "KrakenHashes je interní nástroj",
+      "body": "Nikdy nesmí být dosažitelný z veřejného internetu. Zpracovává prolomená pověření, takže do certifikátu lze přidat pouze privátní a VPN adresy – veřejné IP adresy jsou odmítnuty. Pokud je toto nasazení veřejně exponováno, přesuňte je offline, než budete pokračovat."
+    },
+    "summary": {
+      "title": "Aktuální certifikát",
+      "unavailable": "Certifikát serveru se nepodařilo přečíst.",
+      "subject": "Předmět",
+      "issuer": "Vydavatel",
+      "validity": "Platnost",
+      "serial": "Sériové číslo",
+      "covers": "Tento certifikát je platný pro",
+      "coversNothing": "Tento certifikát neobsahuje žádné adresy. Žádný agent se nemůže připojit.",
+      "daysRemaining_few": "{{count}} dny zbývají",
+      "daysRemaining_many": "{{count}} dní zbývá",
+      "daysRemaining_one": "{{count}} den zbývá",
+      "daysRemaining_other": "{{count}} dní zbývá",
+      "caSubject": "Certifikační autorita",
+      "caExpires": "Certifikační autorita vyprší",
+      "caFingerprint": "Otisk CA (SHA-256)",
+      "pending_few": "{{count}} adresy byly uloženy, ale ještě nejsou v certifikátu. Klikněte na Použít a znovu vydat.",
+      "pending_many": "{{count}} adres bylo uloženo, ale ještě nejsou v certifikátu. Klikněte na Použít a znovu vydat.",
+      "pending_one": "{{count}} adresa byla uložena, ale ještě není v certifikátu. Klikněte na Použít a znovu vydat.",
+      "pending_other": "{{count}} adres bylo uloženo, ale ještě nejsou v certifikátu. Klikněte na Použít a znovu vydat.",
+      "deprecatedEnv": "Proměnná KH_ADDITIONAL_IP_ADDRESSES nebo KH_ADDITIONAL_DNS_NAMES je stále nastavena v prostředí. Již není čtena — tato nastavení ji nahrazují. Odstraňte proměnnou, abyste se vyhnuli záměně."
+    },
+    "sans": {
+      "title": "Adresy, které by měl certifikát pokrývat",
+      "add": "Přidat",
+      "empty": "Nejsou nakonfigurované žádné další adresy.",
+      "unsaved": "Máte neuložené změny. Klikněte na Použít a znovu vydat, abyste je vložili do certifikátu.",
+      "lockedTooltip": "Vždy zahrnuto. Jeho odstranění by narušilo interní proxy a kontroly stavu.",
+      "ip": {
+        "title": "IP adresy",
+        "help": "Pouze privátní a VPN adresy: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local a IPv6 ULA.",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "DNS jména",
+        "help": "Jména hostitelů, která agenti a prohlížeče používají k dosažení tohoto serveru.",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "\"{{address}}\" není platná adresa.",
+      "public_ip": "Adresa {{address}} je veřejná IP adresa a nelze ji přidat. KrakenHashes je výhradně interní nástroj. Pracuje s prolomenými přihlašovacími údaji a nikdy nesmí být dostupný z internetu. Lze přidat pouze privátní adresy (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local a IPv6 ULA). Pokud se jedná o adresu vaší VPN, vaše VPN používá adresní prostor patřící někomu jinému na internetu — změňte její síťový rozsah na privátní nebo CGNAT rozsah.",
+      "duplicate": "Adresa {{address}} je již v seznamu.",
+      "bind_address": "{{address}} je adresa, na které server naslouchá, ne adresa, na kterou se lze připojit. Žádný klient se k ní nepřipojuje.",
+      "multicast": "Adresa {{address}} je multicastová adresa a nemůže identifikovat server.",
+      "wildcard_dns": "Zástupná jména nejsou podporována.",
+      "has_port": "Zadejte pouze název hostitele, bez portu.",
+      "is_ip": "To je IP adresa. Místo toho ji přidejte do seznamu IP adres.",
+      "too_long": "Toto jméno je delší než limit 253 znaků."
+    },
+    "discovered": {
+      "title": "Zjištěné adresy",
+      "help": "Adresy, které se snažily dosáhnout tohoto serveru a které certifikát nepokrývá. Nic se zde nepoužije automaticky.",
+      "empty": "Zatím nejsou zjištěny žádné adresy. Spusťte agenta nebo otevřete tuto stránku z adresy, kterou vaši agenti používají, a objeví se zde.",
+      "address": "Adresa",
+      "source": "Zdroj",
+      "reportedBy": "Hlášeno",
+      "lastSeen": "Naposledy viděno",
+      "hits": "Výskyty",
+      "actions": "Akce",
+      "add": "Přidat",
+      "added": "Adresa {{address}} byla přidána. Klikněte na Použít a znovu vydat, abyste ji vložili do certifikátu.",
+      "dismiss": "Odmítnout",
+      "pending": "Čeká na nové vydání",
+      "sources": {
+        "agent_tls_failure": "Selhání TLS agenta",
+        "host_header": "Prohlížeč / Záhlaví Host",
+        "tls_sni": "TLS SNI",
+        "manual": "Ruční"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "Ověřený agent oznámil, že nemohl ověřit certifikát tohoto serveru pro tuto adresu.",
+        "host_header": "Pozorováno v záhlaví Host požadavku. Kdokoli, kdo může dosáhnout tohoto serveru, může ovlivnit tuto hodnotu — potvrďte ji před přidáním.",
+        "tls_sni": "Pozorováno jako název serveru v handshaku TLS.",
+        "manual": "Přidáno správcem."
+      }
+    },
+    "reissue": {
+      "doneTitle": "Certifikát znovu vydán",
+      "noChangeTitle": "Není potřeba žádná změna",
+      "noChangeBody": "Certifikát již pokrývá všechny nakonfigurované adresy a není blízko vypršení.",
+      "changes": "Změny",
+      "validUntil": "Nový certifikát je platný do {{date}}.",
+      "backendReloaded": "API na portu 31337 již poskytuje nový certifikát. Restart nebyl nutný.",
+      "nginxReloaded": "Webové rozhraní na portu 443 bylo znovu načteno a poskytuje nový certifikát.",
+      "nginxFailed": "Webové rozhraní na portu 443 stále poskytuje předchozí certifikát",
+      "backup": "Soubory předchozího certifikátu byly zazálohovány do {{path}}.",
+      "agentsReconnect": "Agenti, kteří selhávali, se sami znovu připojí do 30 sekund. Není nutný restart agentů.",
+      "agentsRefetch": "Každý agent si musí znovu načíst certifikační autoritu. Agenti to dělají automaticky při příštím selhání handshaku, ale prohlížeče, které důvěřovaly staré certifikační autoritě, si musí novou nainstalovat ručně.",
+      "close": "Zavřít",
+      "nginxFailedBody": "API již poskytuje nový certifikát, takže agenti nejsou ovlivněni. Webové rozhraní na portu 443 bude i nadále poskytovat předchozí certifikát, dokud se KrakenHashes nerestartuje."
+    },
+    "confirmRemoval": {
+      "title": "Odebrat adresy z certifikátu?",
+      "body": "Následující adresy jsou v aktuálním certifikátu a budou odebrány: {{addresses}}. Žádný agent, který se připojuje na jednu z nich, se nebude moci připojit, dokud není přidána zpět.",
+      "cancel": "Zrušit",
+      "confirm": "Odebrat a znovu vydat"
+    },
+    "rotateCa": {
+      "section": "Pokročilé",
+      "title": "Rotovat certifikační autoritu",
+      "warning": "Rotace certifikační autority vydá zcela novou certifikační autoritu a znovu podepíše certifikáty serveru a agenta. Každý agent si musí znovu stáhnout certifikační autoritu, než se bude moci znovu připojit, a každý prohlížeč, který důvěřoval staré certifikační autoritě, bude zobrazovat varování, dokud nebude nový soubor ca.crt nainstalován. Proveďte to pouze v případě, že privátní klíč certifikační autority mohl být prozrazen.",
+      "instruction": "Chcete-li potvrdit, zadejte {{phrase}}.",
+      "action": "Rotovat CA"
+    },
+    "banner": {
+      "title_few": "{{count}} agenti nemohou ověřit certifikát tohoto serveru",
+      "title_many": "{{count}} agentů nemůže ověřit certifikát tohoto serveru",
+      "title_one": "{{count}} agent nemůže ověřit certifikát tohoto serveru",
+      "title_other": "{{count}} agentů nemůže ověřit certifikát tohoto serveru",
+      "body": "{{agents}} se připojuje na {{address}}, což není uvedeno v certifikátu serveru. Bude se dále pokoušet připojit a nemůže být online, dokud není certifikát znovu vydán.",
+      "anAgent": "Agent",
+      "action": "Opravit v nastavení Certifikátu serveru"
+    }
+  },
+  "branding": {
+    "title": "Branding",
+    "description": "Prezentujte tuto instanci pod jménem, barvami a logem vaší organizace. Vše zde se vztahuje na webové rozhraní, kartu prohlížeče, e-maily s oznámeními (prostřednictvím proměnné šablony AppName), registraci nových ověřovacích aplikací a export analytických PDF.",
+    "attributionNote": "Označení \"powered by KrakenHashes\" je vždy zobrazeno vedle vlastního jména a v exportovaných PDF. Je přidáno serverem a nemůže být odstraněno.",
+    "identity": "Identita a barvy",
+    "appName": "Název aplikace",
+    "appNameHelper": "Zobrazeno v záhlaví, přihlašovací stránce, e-mailech a zprávách. Nechte prázdné pro KrakenHashes.",
+    "pageTitle": "Název stránky prohlížeče",
+    "pageTitleHelper": "Efektivní název: {{title}}",
+    "primaryColor": "Primární barva zvýraznění",
+    "secondaryColor": "Sekundární barva zvýraznění",
+    "colorHint": "Hexadecimální barvy (#rrggbb). Tmavé pozadí zůstává fixní; zvolte zvýraznění, která zůstanou čitelná na téměř černých površích. Primární barva se také používá pro linky a pruhy v PDF zprávách.",
+    "save": "Uložit branding",
+    "logo": "Logo",
+    "logoHint": "PNG nebo JPEG, do 2 MB a 2048×2048 px. Používá se v záhlaví, přihlašovací stránce a PDF zprávách (RGB obrázky se vykreslují nejlépe).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG nebo ICO, do 512 KB a 512×512 px. Prohlížeče agresivně ukládají ikony do mezipaměti; jednou může být nutné vynucené obnovení stránky.",
+    "upload": "Nahrát",
+    "replace": "Nahradit",
+    "remove": "Odebrat",
+    "messages": {
+      "saved": "Branding uložen",
+      "uploaded": "Obrázek nahrán",
+      "removed": "Obrázek odebrán"
+    },
+    "errors": {
+      "loadFailed": "Nepodařilo se načíst nastavení brandingu",
+      "saveFailed": "Nepodařilo se uložit nastavení brandingu",
+      "uploadFailed": "Nepodařilo se nahrát obrázek",
+      "removeFailed": "Nepodařilo se odebrat obrázek",
+      "invalidHex": "Zadejte hexadecimální barvu jako #1e88e5",
+      "tooLarge": "Soubor je příliš velký (max {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Sekce nastavení",
+    "groups": {
+      "general": "Obecné",
+      "security": "Bezpečnost",
+      "jobs": "Úlohy",
+      "agents": "Agenti",
+      "integrations": "Integrace",
+      "cloud": "Cloud"
+    },
+    "sections": {
+      "branding": "Branding",
+      "brandingDesc": "Název aplikace, barvy, logo a favicon.",
+      "data": "Data",
+      "dataDesc": "Výchozí nastavení uchovávání a ingestace hashlistů.",
+      "storage": "Úložiště",
+      "storageDesc": "Síťové sdílení úložiště pro slovníky a pravidla.",
+      "certificate": "Certifikát",
+      "certificateDesc": "Jména a adresy certifikátu serveru.",
+      "authentication": "Ověřování",
+      "authenticationDesc": "Politika hesel, uzamčení a relace.",
+      "mfa": "Vícefaktorové ověřování",
+      "mfaDesc": "Politika MFA a relying party pro passkeys.",
+      "sso": "Jednotné přihlášení",
+      "ssoDesc": "Poskytovatelé identity a zřizování.",
+      "access": "Model přístupu",
+      "accessDesc": "Izolace více týmů.",
+      "execution": "Provádění",
+      "executionDesc": "Dělení na bloky, keyspace a benchmarky.",
+      "scheduling": "Plánování",
+      "schedulingDesc": "Přidělení agentů a priorita úloh.",
+      "potfile": "Potfile a loopback",
+      "potfileDesc": "Chování potfile a kola loopbacku.",
+      "health": "Stav",
+      "healthDesc": "Kontroly činnosti, ochranné lhůty a ochranná lhůta offline.",
+      "downloads": "Stahování",
+      "downloadsDesc": "Jak agenti stahují soubory ze serveru.",
+      "updates": "Aktualizace",
+      "updatesDesc": "Automatické aktualizace binárního souboru agenta.",
+      "monitoring": "Monitorování",
+      "monitoringDesc": "Uchovávání a agregace metrik.",
+      "email": "E-mail",
+      "emailDesc": "Konfigurace poskytovatele a šablony.",
+      "webhooks": "Webhooky",
+      "webhooksDesc": "Globální webhook a webhooky uživatelů.",
+      "notifications": "Oznámení",
+      "notificationsDesc": "Které události úloh spouštějí oznámení.",
+      "providers": "Poskytovatelé",
+      "providersDesc": "Přístupové údaje poskytovatelů cloudových GPU.",
+      "budgets": "Rozpočty klientů",
+      "budgetsDesc": "Měsíční limity na klienta.",
+      "policy": "Prahová politika",
+      "policyDesc": "Žebřík prahů výdajů.",
+      "rules": "Pravidla zřizování",
+      "rulesDesc": "Kdy autoscaler může utratit.",
+      "limits": "Limity",
+      "limitsDesc": "Systémové stropy a časování."
+    }
+  },
+  "hub": {
+    "pageDescription": "Vše, co konfiguruje tento server, seskupeno podle toho, co ovlivňuje. Pole se ukládají, když je opustíte, pokud sekce neuvádí jinak.",
+    "navLabel": "Přehled",
+    "attentionTitle": "Vyžaduje pozornost",
+    "attentionSubtitle": "Problémy, které ovlivňují, jak server funguje.",
+    "allGood": "Vše vypadá v pořádku",
+    "allGoodHint": "Nebyly zjištěny žádné problémy s konfigurací.",
+    "loadFailed": "Nepodařilo se načíst stav nastavení.",
+    "overviewTitle": "Stav",
+    "attentionCount": "{{count}} k přezkoumání",
+    "browseTitle": "Všechna nastavení",
+    "loading": "Kontrola…",
+    "cards": {
+      "email": "E-mail",
+      "certificate": "Certifikát",
+      "sso": "Jednotné přihlášení",
+      "binaries": "Binární soubory",
+      "cloud": "Cloud",
+      "storage": "Úložiště",
+      "webhook": "Globální webhook"
+    },
+    "detail": {
+      "emailConfigured": "Nakonfigurováno ({{provider}})",
+      "emailNotConfigured": "Žádný poskytovatel není nakonfigurován",
+      "certUnmanaged": "Spravováno mimo KrakenHashes ({{mode}})",
+      "certDays": "{{days}} zbývajících dní",
+      "certPending": "Dosud není vydáno",
+      "ssoProviders_few": "{{count}} poskytovatelé povoleni",
+      "ssoProviders_many": "{{count}} poskytovatelů povoleno",
+      "ssoProviders_one": "{{count}} poskytovatel povolen",
+      "ssoProviders_other": "{{count}} poskytovatelů povoleno",
+      "binaries": "{{verified}} z {{total}} ověřeno",
+      "cloudNoProviders": "Žádní poskytovatelé nejsou nakonfigurováni",
+      "cloudCap": "{{providers}} poskytovatel(é), měsíční limit {{cap}}",
+      "storageLocal": "Místní úložiště",
+      "storageReachable": "Sdílení připojeno a dostupné",
+      "storageUnreachable": "Sdílení není dostupné",
+      "webhookOff": "Vypnuto",
+      "webhookOn": "Povoleno",
+      "webhookNoUrl": "Povoleno bez URL"
+    },
+    "attention": {
+      "ok": "V pořádku",
+      "probeFailed": "Stav se nepodařilo zkontrolovat",
+      "emailNotConfigured": "E-mail není nakonfigurován; kódy MFA a oznámení nelze odeslat.",
+      "certExpiring": "Certifikát serveru vyprší za {{days}} dní.",
+      "ssoEphemeralKey": "SSO používá dočasný podpisový klíč; relace nepřežijí restart.",
+      "noVerifiedBinary": "Žádný ověřený binární soubor hashcat není k dispozici; úlohy nemohou běžet.",
+      "cloudCapZero": "Poskytovatelé cloudu jsou nakonfigurováni, ale měsíční limit je 0, takže nebude zřízeno nic.",
+      "shareUnreachable": "Síťové sdílení je povoleno, ale není dostupné.",
+      "migration": "Migrace úložiště je {{state}}.",
+      "webhookNoUrl": "Globální webhook je povolen, ale nemá URL."
+    },
+    "severity": {
+      "default": "Informace",
+      "success": "V pořádku",
+      "warning": "Varování",
+      "error": "Chyba"
+    }
+  },
+  "fieldState": {
+    "saving": "Ukládání…",
+    "saved": "Uloženo",
+    "error": "Neuloženo",
+    "minSelected": "Vyberte alespoň {{count}}",
+    "autosaveHint": "Ukládá se automaticky",
+    "autosaveHintLong": "Každé pole se uloží samo, jakmile jej opustíte.",
+    "applyHint": "Vyžaduje Použít",
+    "applyHintLong": "Změny se projeví teprve poté, co je použijete."
+  },
+  "unsaved": {
+    "title": "Neuložené změny",
+    "body": "Máte změny, které nebyly použity. Opustit tuto stránku a zahodit je?",
+    "stay": "Zůstat",
+    "leave": "Opustit"
+  },
+  "agentAutoUpdate": {
+    "title": "Automatické aktualizace",
+    "description": "Umožnit serveru posílat nové binární soubory agentů připojeným agentům.",
+    "enable": "Povolit automatické aktualizace agentů",
+    "maxConcurrent": "Souběžné aktualizace",
+    "maxConcurrentHelper": "Kolik agentů může aktualizovat současně.",
+    "maxAttempts": "Pokusy na agenta",
+    "maxAttemptsHelper": "Vzdá se agenta po tolika neúspěšných aktualizacích.",
+    "healthTimeout": "Timeout zdravotnosti",
+    "healthTimeoutHelper": "Jak dlouho čekat na opětovné připojení aktualizovaného agenta, než se aktualizace označí za neúspěšnou.",
+    "applyNote": "Agenti si tato nastavení převezmou při svém příštím připojení."
+  },
+  "networkShare": {
+    "intro": "Ukládat slovníky a pravidla na síťovém sdílení, aby server nemusel mít velký místní disk. Operátor připojí sdílení na hostiteli serveru (přes docker-compose jako <code>KH_SHARE_DIR</code>) a na libovolném hostiteli agenta s úrovní network_direct; KrakenHashes pouze čte připojenou cestu — nikdy se nepřipojuje k samotnému sdílení ani neukládá její přihlašovací údaje. Cloudoví agenti GPU nepřipojují sdílení: stahují si slovníky/pravidla ze serveru přes VPN.",
+    "migrationLocked": "Probíhá migrace ({{state}}). Konfigurace je uzamčena, dokud se nedokončí.",
+    "server": {
+      "title": "Připojení úložiště serveru",
+      "description": "Server čte slovníky a pravidla z této operátorem připojené cesty (nastaveno v docker-compose jako <code>KH_SHARE_DIR</code>). KrakenHashes se k samotnému sdílení nepřipojuje — připojování je odpovědností operátora.",
+      "mountedPath": "Připojená cesta (pouze pro čtení)",
+      "shareDirNotSet": "KH_SHARE_DIR není nastaven — připojte sdílení v docker-compose",
+      "servingFromShare": "Slouží z: síťového sdílení",
+      "servingFromLocal": "Slouží z: místního disku",
+      "shareReachable": "Sdílení je dostupné",
+      "shareNotMounted": "Sdílení není připojeno",
+      "migrationChip": "Migrace: {{state}}",
+      "lastValidated": "Poslední ověření {{date}}",
+      "enable": "Povolit síťové sdílení",
+      "saving": "Ukládání…",
+      "save": "Uložit konfiguraci",
+      "validating": "Ověřování…",
+      "validate": "Ověřit připojení serveru",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "Cesta připojení: <code>{{path}}</code>",
+      "unset": "(není nastaveno)",
+      "yes": "ano",
+      "no": "ne",
+      "summary": "Připojeno: {{mounted}} · Zapisovatelné: {{writable}} · Volné: {{free}} · Zápis: {{write}} MB/s · Čtení: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Migrace dat",
+      "descriptionToShare": "Zkopírovat existující slovníky a pravidla na síťové sdílení a přepnout aktivní backend úložiště. Toto je operace údržby: nové úlohy se přestanou odesílat, dokud se flotila nevyprázdní, pak se zmrazí nahrávání slovníků/pravidel a soubory se zkopírují a ověří kontrolní součtem před přepnutím. V závislosti na velikosti dat to může trvat dlouho a server bude během kopírování nedostupný pro nahrávání a nové úlohy. Klientské a asociační slovníky, binární soubory, sady znaků a hashlisty zůstávají vždy místní.",
+      "descriptionToLocal": "Zkopírovat existující slovníky a pravidla zpět na místní disk a přepnout aktivní backend úložiště. Toto je operace údržby: nové úlohy se přestanou odesílat, dokud se flotila nevyprázdní, pak se zmrazí nahrávání slovníků/pravidel a soubory se zkopírují a ověří kontrolní součtem před přepnutím. V závislosti na velikosti dat to může trvat dlouho a server bude během kopírování nedostupný pro nahrávání a nové úlohy. Klientské a asociační slovníky, binární soubory, sady znaků a hashlisty zůstávají vždy místní.",
+      "phase": "Fáze: {{phase}}",
+      "directionToShare": "místní → sdílení",
+      "directionToLocal": "sdílení → místní",
+      "waitingTasks_few": "Čekáme na dokončení {{count}} úkolů",
+      "waitingTasks_many": "Čekáme na dokončení {{count}} úkolů",
+      "waitingTasks_one": "Čekáme na dokončení {{count}} úkolu",
+      "waitingTasks_other": "Čekáme na dokončení {{count}} úkolů",
+      "earliestLock": " — nejdřívější uzamčení {{time}}",
+      "filesProgress": "{{done}}/{{total}} souborů · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "Zrušování…",
+      "abort": "Zrušit migraci",
+      "abortHelp": "Zastaví migraci na jejím dalším kontrolním bodě (užitečné, pokud je sdílení pomalé nebo neodpovídá). Úložiště zůstane na svém aktuálním backendu a odesílání se obnoví; již zkopírované soubory zůstávají a jsou znovu použity, pokud to zkusíte znovu.",
+      "complete": "Migrace dokončena.",
+      "failed": "Migrace se nezdařila.",
+      "migrateToShare": "Migrovat slovníky a pravidla na sdílení",
+      "migrateToLocal": "Migrovat zpět na místní disk",
+      "enableFirst": "Povolte sdílení a potvrďte, že se ověří, než budete migrovat."
+    },
+    "agent": {
+      "title": "Příkaz připojení agenta on-prem (volitelné)",
+      "description": "Tato pole se používají <b>pouze</b> ke generování příkazu připojení pro agenty on-prem nastavené na úroveň <b>network_direct</b>. Server (výše) a cloudoví agenti GPU <b>je nepoužívají</b> — cloudoví agenti stahují přes VPN. Nejsou tajná; přihlašovací údaje se nikdy neukládají ani neposílají.",
+      "protocol": "Protokol",
+      "protocolHelp": "SMB je nejpřenositelější pro agenty Windows/macOS/Linux; NFS funguje dobře přes VPN s exportem pouze pro čtení.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Hostitel sdílení, ze kterého se agenti připojují (VPN adresa)",
+      "hostHelp": "Adresa sdílení, jak ji agenti vidí přes VPN — není to nastavení serveru (server používá svou připojenou cestu výše).",
+      "exportPath": "Cesta exportu",
+      "shareName": "Název sdílení",
+      "mountOptions": "Možnosti připojení (jeden klíč=hodnota na řádek)",
+      "runThis": "Spusťte toto na hostiteli agenta, poté na jeho stránce Agenta nastavte úroveň úložiště na \"Network direct\" s cestou připojení:",
+      "replaceSmb": "Nahraďte <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> a <code>&lt;PASSWORD&gt;</code> před spuštěním — příkaz stále obsahuje zástupné symboly.",
+      "replaceNfs": "Nahraďte <code>&lt;MOUNT_PATH&gt;</code> před spuštěním — příkaz stále obsahuje zástupné symboly.",
+      "softSmb": "Příkaz obsahuje <code>soft</code>, aby se připojení nezdařilo rychle, pokud je sdílení pomalé nebo se odpojí, místo aby se zaseklo (výchozí chování jádra <code>hard</code>). To se kombinuje s kontrolou selhání sdílení agenta, která přesměruje práci, když připojení není čitelné. <b>network_direct</b> je určen pro sdílení s nízkou latencí v rámci LAN — vzdálená nebo vysokolatenční sdílení umístěte na úrovně stahování <b>on_demand</b>/<b>full_cache</b>. Přepište jakoukoli možnost nastavením výše.",
+      "softNfs": "Příkaz obsahuje <code>soft</code>, <code>timeo</code> a <code>retrans</code>, aby se připojení nezdařilo rychle, pokud je sdílení pomalé nebo se odpojí, místo aby se zaseklo (výchozí chování jádra <code>hard</code>). To se kombinuje s kontrolou selhání sdílení agenta, která přesměruje práci, když připojení není čitelné. <b>network_direct</b> je určen pro sdílení s nízkou latencí v rámci LAN — vzdálená nebo vysokolatenční sdílení umístěte na úrovně stahování <b>on_demand</b>/<b>full_cache</b>. Přepište jakoukoli možnost nastavením výše.",
+      "otherOs": "macOS: použijte <code>mount_smbfs</code> (SMB) nebo <code>mount -t nfs</code> (NFS). Windows: použijte <code>net use</code> na <code>{{uncPath}}</code>. Agent pouze čte z připojení. Tato pole se ukládají pomocí <b>Uložit konfiguraci</b> výše."
+    },
+    "confirm": {
+      "title": "Začít migraci dat?",
+      "intro": "Toto:",
+      "step1": "Zastavit odesílání nových úloh a počkat na dokončení běžících úkolů (až ~12 minut na opětovné připojení agentů, déle pokud běží dlouhé úlohy).",
+      "step2": "Zamrazit nahrávání slovníků/pravidel a zobrazit stránku údržby, zatímco se soubory kopírují a ověřují kontrolní součtem.",
+      "step3ToShare": "Přepnout aktivní backend úložiště na síťové sdílení po dokončení.",
+      "step3ToLocal": "Přepnout aktivní backend úložiště na místní disk po dokončení.",
+      "outro": "Pozastavené úlohy se automaticky obnoví poté. Pokud se něco nezdaří, úložiště zůstane beze změn a server zůstane funkční.",
+      "cancel": "Zrušit",
+      "start": "Začít migraci"
+    },
+    "toast": {
+      "loadFailed": "Nepodařilo se načíst konfiguraci síťového sdílení",
+      "migrationStarted": "Migrace byla spuštěna.",
+      "startFailed": "Nepodařilo se spustit migraci",
+      "migrationCanceled": "Migrace byla zrušena — úložiště zůstalo nezměněno.",
+      "cancelFailed": "Nepodařilo se zrušit migraci",
+      "saved": "Konfigurace síťového sdílení byla uložena.",
+      "saveFailed": "Nepodařilo se uložit konfiguraci",
+      "validated": "Sdílení bylo úspěšně ověřeno.",
+      "validationProblems": "Ověření sdílení nahlásilo problémy.",
+      "validationFailed": "Ověření se nepodařilo spustit"
+    }
+  },
+  "jobAnalytics": {
+    "title": "Analýza výkonu úloh",
+    "description": "Analyzujte výkon spouštění úloh, rychlosti hashování a historii benchmarků napříč vašimi agenty.",
+    "loadFiltersFailed": "Nepodařilo se načíst možnosti filtrů",
+    "tabs": {
+      "jobPerformance": "Výkon úloh",
+      "successRate": "Míra úspěchu",
+      "benchmarkHistory": "Historie benchmarků"
+    },
+    "summary": {
+      "totalJobs": "Celkové úlohy",
+      "totalJobsSubtitle": "{{completed}} dokončeno, {{failed}} selhalo",
+      "totalCracks": "Celkem prolomených hashů",
+      "totalCracksSubtitle": "Ve všech filtrovaných úlohách",
+      "avgSpeed": "Průměrná rychlost",
+      "avgSpeedSubtitle": "Průměrná rychlost hashování na úlohu",
+      "avgDuration": "Průměrná doba trvání",
+      "avgDurationSubtitle": "{{keys}} klíčů zpracováno"
+    },
+    "hashRateChart": {
+      "title": "Časová osa rychlosti hashování",
+      "daily": "Denně",
+      "weekly": "Týdně",
+      "empty": "Pro vybrané filtry nejsou dostupná data časové osy",
+      "hashRate": "Rychlost hashování",
+      "tooltipHashRate": "Rychlost hashování: {{speed}}",
+      "tooltipJobs": "Úlohy: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Trendy rychlosti benchmarku",
+      "agent": "Agent",
+      "selectAgent": "Vybrat agenta",
+      "hashType": "Typ hashe",
+      "attackMode": "Režim útoku",
+      "all": "Vše",
+      "range90d": "90d",
+      "range1y": "1r",
+      "rangeAll": "Vše",
+      "selectAgentPrompt": "Vyberte agenta, abyste viděli trendy benchmarku",
+      "empty": "Pro tohoto agenta nebyla nalezena historie benchmarku",
+      "speed": "Rychlost",
+      "tooltipSpeed": "Rychlost: {{speed}}"
+    },
+    "filters": {
+      "title": "Filtry",
+      "active": "Aktivní",
+      "dateStart": "Počáteční datum",
+      "dateEnd": "Koncové datum",
+      "hashlist": "Hashlist",
+      "status": "Stav",
+      "minKeyspace": "Min. keyspace",
+      "maxKeyspace": "Max. keyspace",
+      "reset": "Obnovit",
+      "apply": "Použít"
+    },
+    "attackModes": {
+      "straight": "Slovníkový útok",
+      "combination": "Kombinační útok",
+      "bruteforce": "Útok hrubou silou",
+      "hybridWlMask": "Hybridní útok WL+Maska",
+      "hybridMaskWl": "Hybridní útok Maska+WL",
+      "association": "Asociační útok",
+      "modeNumber": "Režim {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Historie benchmarků",
+      "empty": "Nebyla nalezena žádná historie benchmarku",
+      "columns": {
+        "date": "Datum",
+        "agentFallback": "Agent #{{id}}",
+        "status": "Stav"
+      },
+      "success": "Úspěch",
+      "failed": "Selhání"
+    },
+    "successRate": {
+      "title": "Míra úspěchu podle konfigurace úlohy",
+      "subtitle": "Seskupeno podle slovníku, pravidel, režimu útoku a typu hashe. Přednastavené úlohy zahrnují odpovídající vlastní úlohy.",
+      "empty": "Pro vybrané filtry nejsou dostupná data o míře úspěchu",
+      "preset": "Přednastavená",
+      "columns": {
+        "configuration": "Konfigurace",
+        "runs": "Spuštění",
+        "hashes": "Hashe",
+        "cracks": "Prolomeno",
+        "successRate": "Míra úspěchu",
+        "avgDuration": "Průměrná doba trvání",
+        "totalCompute": "Celkový výpočetní čas"
+      }
+    },
+    "jobExecution": {
+      "title": "Podrobnosti spuštění úloh",
+      "empty": "Pro vybrané filtry nebyly nalezeny žádné úlohy",
+      "noTaskData": "Nejsou dostupná data úkolů",
+      "taskBreakdown": "Rozdělení úkolů ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_few": "{{count}} úkoly",
+      "taskCount_many": "{{count}} úkolů",
+      "taskCount_one": "{{count}} úkol",
+      "taskCount_other": "{{count}} úkolů",
+      "metricPointCount_few": "{{count}} metrické body",
+      "metricPointCount_many": "{{count}} metrických bodů",
+      "metricPointCount_one": "{{count}} metrický bod",
+      "metricPointCount_other": "{{count}} metrických bodů",
+      "columns": {
+        "name": "Název",
+        "attack": "Útok",
+        "duration": "Doba trvání",
+        "keyspace": "Keyspace",
+        "agents": "Agenti",
+        "progress": "Pokrok",
+        "benchmark": "Benchmark",
+        "started": "Spuštěno",
+        "completed": "Dokončeno"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Správa slovníků - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Klientské slovníky ({{count}})",
+      "clientPotfile": "Klientský potfile",
+      "associationWordlists": "Asociační slovníky ({{count}})"
+    },
+    "columns": {
+      "fileName": "Název souboru",
+      "lineCount": "Počet řádků",
+      "fileSize": "Velikost souboru",
+      "uploaded": "Nahráno",
+      "hashlist": "Hashlist",
+      "actions": "Akce"
+    },
+    "hashlistFallback": "Hashlist č. {{id}}",
+    "clientTab": {
+      "info": "Klientské slovníky jsou dostupné pro všechny hashlisty tohoto klienta. Lze je použít s jakýmkoli režimem útoku.",
+      "uploadWordlist": "Nahrát slovník",
+      "uploading": "Nahrávání... {{progress}}%",
+      "noWordlists": "Zatím nebyly nahrány žádné klientské slovníky."
+    },
+    "potfileTab": {
+      "noPotfile": "Žádný klientský potfile zatím neexistuje. Bude vytvořen automaticky, když budou prolomeny hashe pro hashlisty tohoto klienta.",
+      "autoGenerated": "Klientský potfile (Automaticky vytvořeno)",
+      "description": "Tento potfile obsahuje všechna prolomená hesla pro tohoto klienta. Je automaticky aktualizován, když jsou hashe prolomeny.",
+      "passwordCount_few": "{{countDisplay}} hesla",
+      "passwordCount_many": "{{countDisplay}} hesel",
+      "passwordCount_one": "{{countDisplay}} heslo",
+      "passwordCount_other": "{{countDisplay}} hesel",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Aktualizováno: {{date}}",
+      "downloadPotfile": "Stáhnout potfile"
+    },
+    "associationTab": {
+      "info": "Asociační slovníky jsou specifické pro jednotlivé hashlisty a mapují každý hash na kandidáta hesla 1:1 podle čísla řádku. Jsou nahrávány a spravovány na stránce podrobností hashlistu. Tento pohled zobrazuje všechny asociační slovníky ve všech hashlistech pro tohoto klienta.",
+      "noWordlists": "Pro hashlisty tohoto klienta nebyly nalezeny žádné asociační slovníky."
+    },
+    "messages": {
+      "wordlistDeleted": "Klientský slovník smazán",
+      "associationDeleted": "Asociační slovník smazán",
+      "deleteFailed": "Nepodařilo se smazat slovník",
+      "uploadSuccess": "Klientský slovník úspěšně nahrán",
+      "uploadFailed": "Nepodařilo se nahrát slovník",
+      "downloaded": "Staženo {{filename}}",
+      "downloadFailed": "Nepodařilo se stáhnout soubor"
+    },
+    "deleteConfirm": {
+      "title": "Smazat slovník",
+      "message": "Smazat \"{{fileName}}\"? Tuto akci nelze vrátit zpět."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Správa týmů",
+      "titleMine": "Moje týmy",
+      "description": "Správa všech týmů v systému",
+      "descriptionMine": "Týmy, kterých jste členem",
+      "createTeam": "Vytvořit tým",
+      "bulkAssignHint": "Chcete-li přiřadit více klientů týmu najednou, použijte funkci hromadného přiřazení na stránce <link>Správa klientů</link>.",
+      "columns": {
+        "name": "Název týmu",
+        "description": "Popis",
+        "members": "Členové",
+        "clients": "Klienti",
+        "hashlists": "Hashlisty",
+        "agents": "Agenti",
+        "created": "Vytvořeno"
+      },
+      "rowActions": {
+        "manage": "Spravovat tým",
+        "edit": "Upravit tým",
+        "delete": "Smazat tým"
+      },
+      "empty": "Nebyly nalezeny žádné týmy",
+      "emptyMine": "Zatím nejste členem žádného týmu.",
+      "viewDetails": "Zobrazit podrobnosti",
+      "memberCount_few": "{{count}} členové",
+      "memberCount_many": "{{count}} členů",
+      "memberCount_one": "{{count}} člen",
+      "memberCount_other": "{{count}} členů",
+      "clientCount_few": "{{count}} klienti",
+      "clientCount_many": "{{count}} klientů",
+      "clientCount_one": "{{count}} klient",
+      "clientCount_other": "{{count}} klientů",
+      "hashlistCount_few": "{{count}} hashlisty",
+      "hashlistCount_many": "{{count}} hashlistů",
+      "hashlistCount_one": "{{count}} hashlist",
+      "hashlistCount_other": "{{count}} hashlistů",
+      "agentCount_few": "{{count}} agenti",
+      "agentCount_many": "{{count}} agentů",
+      "agentCount_one": "{{count}} agent",
+      "agentCount_other": "{{count}} agentů",
+      "dialogs": {
+        "create": {
+          "title": "Vytvořit nový tým",
+          "nameLabel": "Název týmu",
+          "descriptionLabel": "Popis",
+          "creatingButton": "Vytváření..."
+        },
+        "delete": {
+          "title": "Smazat tým",
+          "confirmation": "Opravdu chcete smazat tým \"{{name}}\"? Tímto budou odstraněny všechny členství v týmu a přiřazení klientů."
+        }
+      },
+      "messages": {
+        "createSuccess": "Tým úspěšně vytvořen",
+        "deleteSuccess": "Tým úspěšně smazán",
+        "updateSuccess": "Tým úspěšně aktualizován"
+      },
+      "errors": {
+        "loadFailed": "Nepodařilo se načíst týmy",
+        "createFailed": "Nepodařilo se vytvořit tým",
+        "deleteFailed": "Nepodařilo se smazat tým",
+        "updateFailed": "Nepodařilo se aktualizovat tým"
+      }
+    },
+    "detail": {
+      "notFound": "Tým nenalezen",
+      "noDescription": "Bez popisu",
+      "breadcrumb": "Týmy",
+      "editTeam": "Upravit tým",
+      "confirmActionTitle": "Potvrdit akci",
+      "tabs": {
+        "members": "Členové ({{count}})",
+        "clients": "Klienti ({{count}})",
+        "trustedTeams": "Důvěryhodné týmy ({{count}})",
+        "agents": "Agenti ({{count}})"
+      },
+      "addMember": "Přidat člena",
+      "assignClient": "Přiřadit klienta",
+      "addTrust": "Přidat důvěru",
+      "trustInfo": "Důvěra jinému týmu umožňuje jejich agentům spouštět úlohy vašeho týmu. Jedná se o jednosměrný vztah — důvěra Týmu B vám nedává přístup k úlohám Týmu B.",
+      "agentsInfo": "<strong>Přímí</strong> agenti jsou vlastněni členy tohoto týmu. <strong>Důvěryhodní</strong> agenti pocházejí z týmů, se kterými jste vytvořili vztahy důvěry.",
+      "systemOwner": "Systém",
+      "columns": {
+        "username": "Uživatelské jméno",
+        "email": "E-mail",
+        "role": "Role",
+        "joined": "Připojeno",
+        "clientName": "Název klienta",
+        "description": "Popis",
+        "trustedTeam": "Důvěryhodný tým",
+        "trustedSince": "Důvěryhodný od",
+        "agentName": "Název agenta",
+        "status": "Stav",
+        "version": "Verze",
+        "owner": "Vlastník",
+        "source": "Zdroj"
+      },
+      "roles": {
+        "member": "Člen",
+        "admin": "Admin",
+        "adminManager": "Admin (Správce týmu)"
+      },
+      "source": {
+        "direct": "Přímý",
+        "trusted": "Důvěryhodný {{team}}",
+        "trustedBadge": "Důvěryhodný",
+        "unknown": "Neznámý"
+      },
+      "rowActions": {
+        "removeMember": "Odebrat člena",
+        "removeClientFromTeam": "Odebrat klienta z týmu",
+        "removeTrust": "Odebrat důvěru"
+      },
+      "empty": {
+        "noMembers": "V tomto týmu nejsou žádní členové",
+        "noClients": "K tomuto týmu nejsou přiřazeni žádní klienti",
+        "noTrustedTeams": "Žádné důvěryhodné týmy. Pouze systémoví agenti a vlastní agenti tohoto týmu mohou spouštět úlohy.",
+        "noAgents": "Pro tento tým nejsou dostupní žádní agenti",
+        "noAgentsHint": "Přidejte členy týmu s agenty nebo vytvořte vztahy důvěry."
+      },
+      "confirm": {
+        "removeMember": "Opravdu chcete odebrat tohoto člena?",
+        "removeClient": "Opravdu chcete odebrat \"{{name}}\" z tohoto týmu? Členové týmu ztratí přístup k datům tohoto klienta.",
+        "removeTrust": "Odebrat tento vztah důvěry? Agenti z tohoto týmu již nebudou moci spouštět vaše úlohy."
+      },
+      "messages": {
+        "memberAdded": "Člen úspěšně přidán",
+        "memberRemoved": "Člen odstraněn",
+        "roleUpdated": "Role aktualizována",
+        "teamUpdated": "Tým úspěšně aktualizován",
+        "clientAssigned": "Klient přiřazen týmu",
+        "clientRemoved": "Klient odstraněn z týmu",
+        "trustAdded": "Vztah důvěry přidán",
+        "trustRemoved": "Vztah důvěry odstraněn"
+      },
+      "errors": {
+        "loadFailed": "Nepodařilo se načíst data týmu",
+        "addMemberFailed": "Nepodařilo se přidat člena",
+        "removeMemberFailed": "Nepodařilo se odebrat člena",
+        "updateRoleFailed": "Nepodařilo se aktualizovat roli",
+        "loadClientsFailed": "Nepodařilo se načíst klienty",
+        "assignClientFailed": "Nepodařilo se přiřadit klienta",
+        "removeClientFailed": "Nepodařilo se odebrat klienta",
+        "updateTeamFailed": "Nepodařilo se aktualizovat tým",
+        "loadTeamNamesFailed": "Nepodařilo se načíst názvy týmů",
+        "addTrustFailed": "Nepodařilo se přidat vztah důvěry",
+        "removeTrustFailed": "Nepodařilo se odebrat vztah důvěry"
+      },
+      "dialogs": {
+        "cancel": "Zrušit",
+        "editTeam": {
+          "title": "Upravit tým",
+          "nameLabel": "Název týmu",
+          "descriptionLabel": "Popis",
+          "saveButton": "Uložit",
+          "savingButton": "Ukládání..."
+        },
+        "addMember": {
+          "title": "Přidat člena týmu",
+          "searchLabel": "Hledat uživatele",
+          "searchPlaceholder": "Zadejte alespoň 2 znaky...",
+          "typeToSearch": "Hledejte...",
+          "noUsersFound": "Žádní uživatelé nebyli nalezeni",
+          "roleLabel": "Role",
+          "addButton": "Přidat člena"
+        },
+        "addTrust": {
+          "title": "Přidat důvěryhodný tým",
+          "info": "Agenti vlastněni členy důvěryhodného týmu budou moci spouštět úlohy tohoto týmu.",
+          "selectLabel": "Vyberte tým, kterému chcete důvěřovat",
+          "searchPlaceholder": "Hledat týmy...",
+          "noTeamsAvailable": "Nejsou dostupné žádné týmy",
+          "optionLabel_few": "{{name}} ({{count}} agenti)",
+          "optionLabel_many": "{{name}} ({{count}} agentů)",
+          "optionLabel_one": "{{name}} ({{count}} agent)",
+          "optionLabel_other": "{{name}} ({{count}} agentů)"
+        },
+        "assignClient": {
+          "title": "Přiřadit klienta týmu",
+          "info": "Přiřazení klienta uděluje všem členům týmu přístup k hashlistům, úlohám a prolomeným datům tohoto klienta.",
+          "selectLabel": "Vyberte klienta",
+          "searchPlaceholder": "Hledat klienty...",
+          "noClientsAvailable": "Nejsou dostupní žádní nepřiřazení klienti"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Správa vlastních sad znaků",
+    "description": "Spravujte globální vlastní sady znaků dostupné všem přednastaveným úlohám a uživatelům. Podporuje jak inline definice, tak binární soubory .hcchr se sadami znaků.",
+    "createCharset": "Vytvořit sadu znaků",
+    "columns": {
+      "name": "Název",
+      "type": "Typ",
+      "definition": "Definice / Info",
+      "description": "Popis",
+      "created": "Vytvořeno"
+    },
+    "typeLabels": {
+      "file": "Soubor",
+      "inline": "Inline",
+      "hex": "Hex"
+    },
+    "uniqueBytes_few": "{{count}} jedinečné byty",
+    "uniqueBytes_many": "{{count}} jedinečného bytu",
+    "uniqueBytes_one": "{{count}} jedinečný byte",
+    "uniqueBytes_other": "{{count}} jedinečných bytů",
+    "rowActions": {
+      "edit": "Upravit",
+      "delete": "Smazat"
+    },
+    "empty": "Nenalezeny žádné vlastní sady znaků. Vytvořte jednu a začněte.",
+    "dialogs": {
+      "create": {
+        "title": "Vytvořit vlastní sadu znaků"
+      },
+      "edit": {
+        "title": "Upravit vlastní sadu znaků"
+      },
+      "delete": {
+        "title": "Smazat sadu znaků",
+        "confirmation": "Chcete opravdu smazat sadu znaků \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Inline definice",
+        "file": "Nahrávání souboru (.hcchr)"
+      },
+      "fields": {
+        "name": "Název",
+        "namePlaceholder": "např. DES Full Charset",
+        "definition": "Definice",
+        "definitionPlaceholderHex": "např. 41424344 (páry hexadecimálních bytů)",
+        "definitionPlaceholderPlain": "např. ?u?d nebo abcdef0123456789",
+        "definitionHelperHex": "Páry hexadecimálních bytů — každá dvojice = jeden byte sady znaků. {{bytes}}",
+        "definitionHelperHexBytes_few": "{{count}} byty",
+        "definitionHelperHexBytes_many": "{{count}} bytu",
+        "definitionHelperHexBytes_one": "{{count}} byte",
+        "definitionHelperHexBytes_other": "{{count}} bytů",
+        "definitionHelperPlain": "Definice sady znaků hashcat. Používejte ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H nebo literální znaky.",
+        "hexTooltip": "Pokud je povoleno, je definice interpretována jako páry hexadecimálních bytů (např. 41424344 = byty A, B, C, D). Úlohy používající tuto sadu znaků budou automaticky vkládat --hex-charset.",
+        "hexLabel": "Hexadecimálně kódovaná definice",
+        "selectFile": "Vybrat soubor .hcchr",
+        "fileSizeBytes_few": "{{count}} byty",
+        "fileSizeBytes_many": "{{count}} bytu",
+        "fileSizeBytes_one": "{{count}} byte",
+        "fileSizeBytes_other": "{{count}} bytů",
+        "fileHelperText": "Binární soubor sady znaků obsahující surové hodnoty bytů (max 1023 bytů, až 256 jedinečných bytů). Používáno pro prolomení DES, NTLMv1 a jazykově specifická kódování.",
+        "fileCharsetInfo_few": "Soubor sady znaků: {{count}} jedinečné byty. Lze upravit pouze název a popis.",
+        "fileCharsetInfo_many": "Soubor sady znaků: {{count}} jedinečného bytu. Lze upravit pouze název a popis.",
+        "fileCharsetInfo_one": "Soubor sady znaků: {{count}} jedinečný byte. Lze upravit pouze název a popis.",
+        "fileCharsetInfo_other": "Soubor sady znaků: {{count}} jedinečných bytů. Lze upravit pouze název a popis.",
+        "description": "Popis",
+        "descriptionPlaceholder": "Volitelný popis toho, k čemu se tato sada znaků používá"
+      },
+      "update": "Aktualizovat",
+      "upload": "Nahrát"
+    },
+    "messages": {
+      "createSuccess": "Sada znaků byla úspěšně vytvořena",
+      "uploadSuccess": "Soubor sady znaků byl úspěšně nahrán",
+      "updateSuccess": "Sada znaků byla úspěšně aktualizována",
+      "deleteSuccess": "Sada znaků byla úspěšně smazána"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Jsou povoleny pouze soubory .hcchr",
+      "fileTooLarge": "Soubor je příliš velký (max 1023 bytů — limit čtecího bufferu hashcatu)",
+      "nameRequired": "Název je povinný",
+      "definitionRequired": "Definice je povinná",
+      "selectFile": "Vyberte prosím soubor .hcchr",
+      "loadFailed": "Nepodařilo se načíst sady znaků: {{message}}",
+      "deleteFailed": "Nepodařilo se smazat sadu znaků: {{message}}"
+    }
+  }
+}

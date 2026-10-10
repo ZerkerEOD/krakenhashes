@@ -46,7 +46,55 @@
     "selectFile": "选择文件",
     "uploading": "上传中...",
     "cancel": "取消",
-    "executableBlocked": "此文件似乎是可执行二进制文件，无法作为哈希列表上传。"
+    "executableBlocked": "此文件似乎是可执行二进制文件，无法作为哈希列表上传。",
+    "description": "描述",
+    "methodLabel": "上传方法",
+    "methodAriaLabel": "上传模式",
+    "fileAriaLabel": "文件上传",
+    "pasteAriaLabel": "粘贴哈希",
+    "uploadFile": "上传文件",
+    "pasteHashes": "粘贴哈希",
+    "dropHere": "在此处放置哈希列表文件...",
+    "dragAndDrop": "拖放哈希列表文件，或点击选择",
+    "allFileTypesExceptExecutables": "接受所有文件类型（可执行文件除外）",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "清除",
+    "hashCount_other": "{{count}} 个哈希",
+    "hashCountDetected_other": "检测到 {{count}} 个哈希",
+    "pasteHashesLabel": "在此粘贴哈希（每行一个）",
+    "pasteHashesPlaceholder": "输入哈希，每行一个...&#10;&#10;示例：&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "在上方粘贴您的哈希，每行一个",
+    "excludeFromGlobalPotfile": "从全局 potfile 中排除",
+    "excludeFromGlobalPotfileHelper": "此哈希列表中破解的密码不会保存到全局 potfile",
+    "globalPotfileDisabledNotice": "注意：全局 potfile 当前已被管理员设置禁用。",
+    "excludeFromClientPotfile": "从客户 potfile 中排除",
+    "excludeFromClientPotfileHelper": "此哈希列表中破解的密码不会保存到客户特定的 potfile",
+    "clientPotfilesDisabledNotice": "注意：客户 potfile 已被管理员设置禁用。",
+    "uploadButtonLabel": "上传哈希列表",
+    "selectTeamForNewClient": "请为新客户选择一个团队。",
+    "validationCancelled": "上传已取消。请修复文件后重试。",
+    "errors": {
+      "nameRequired": "需要输入名称",
+      "hashTypeRequired": "需要选择哈希类型",
+      "clientRequired": "需要选择客户",
+      "noHashesToUpload": "没有哈希可上传",
+      "uploadFailedWithStatus": "上传失败（HTTP {{status}})",
+      "uploadFailedWithMessage": "上传失败：{{message}}",
+      "uploadFailedUnknown": "上传失败（未知错误）",
+      "uploadErrorPrefix": "上传哈希列表出错：{{message}}",
+      "unknownError": "发生了一个未知错误"
+    },
+    "linkDialog": {
+      "title": "检测到 LM/NTLM 哈希",
+      "detected": "检测到 pwdump 格式文件，包含：",
+      "lmCount_other": "{{count}} 个 LM 哈希（非空）",
+      "ntlmCount_other": "{{count}} 个 NTLM 哈希",
+      "blankLmCount_other": "{{count}} 个空白 LM 哈希（空密码 - 将被跳过）",
+      "question": "您想为单独的破解工作流创建两个关联的哈希列表吗？",
+      "explanation": "这将创建名为\"{{lmName}}\"和\"{{ntlmName}}\"的关联哈希列表。",
+      "uploadSingle": "作为单一列表上传",
+      "createLinked": "创建关联列表"
+    }
   },
   "actions": {
     "viewDetails": "查看详情",
@@ -54,12 +102,148 @@
     "download": "下载",
     "delete": "删除"
   },
+  "createJob": {
+    "additionalArgs": "其他 Hashcat 参数（可选）",
+    "additionalArgsHelper": "此任务的额外 hashcat 标志。代理级标志在冲突时优先。",
+    "title": "为\"{{name}}\"创建任务",
+    "successRedirect": "任务创建成功！正在重定向到任务页面...",
+    "successDefault": "任务创建成功！",
+    "loadingDefault": "正在创建...",
+    "loadingCreating": "正在创建任务...",
+    "loadingKeyspace": "正在计算密钥空间...",
+    "cancel": "取消",
+    "submit": "创建任务",
+    "canInterrupt": "可中断",
+    "tabs": {
+      "workflows": "工作流",
+      "presetJobs": "预设任务",
+      "customJob": "自定义任务"
+    },
+    "attackModes": {
+      "dictionary": "字典",
+      "combination": "组合",
+      "bruteforce": "暴力破解",
+      "hybridWordlistMask": "混合字典 + 掩码",
+      "hybridMaskWordlist": "混合掩码 + 字典",
+      "association": "关联",
+      "modeFallback": "模式 {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "请至少选择一个工作流",
+      "selectPresetJob": "请至少选择一个预设任务",
+      "wordlistRequired": "选定的攻击模式至少需要一个字典",
+      "combinationRequiresTwo": "组合攻击需要同时选择两个字典",
+      "maskRequired": "选定的攻击模式需要掩码",
+      "associationMixedWorkFactors": "无法对具有混合工作因子的哈希列表运行关联攻击",
+      "associationWordlistRequired": "关联攻击需要关联字典",
+      "chunkDurationMin": "分块时长必须至少 5 秒",
+      "chunkDurationMax": "分块时长不能超过 24 小时（86400 秒）",
+      "partialFailure": "{{message}}。未创建：{{details}}",
+      "unnamedItem": "项目",
+      "createFailed": "创建任务失败",
+      "loadFailed": "加载可用任务失败"
+    },
+    "workflows": {
+      "empty": "没有可用的工作流。请先在管理面板中创建工作流。",
+      "jobNameHelper": "您的名称后将附加每个工作流的名称",
+      "description": "选择一个或多个工作流来运行。您可以选择多个工作流 - 每个工作流都会创建其自己的任务执行序列。回环设置在工作流本身中配置 — 标记为\"回环\"的工作流将自动针对新破解的密码重新运行其符合条件的步骤。",
+      "jobsCount_other": "{{count}} 个任务",
+      "loopbackAllEligible": "回环：全部符合条件",
+      "loopbackSteps_other": "回环：{{count}} 个步骤",
+      "jobsList": "任务：{{names}}",
+      "selectedCount_other": "已选择 {{count}} 个工作流"
+    },
+    "presetJobs": {
+      "empty": "没有可用的预设任务。请先在管理面板中创建预设任务。",
+      "jobNameHelper": "您的名称后将附加每个任务类型（例如\"我的名称 - Potfile 运行\"）",
+      "description": "选择一个或多个预设任务来运行。您可以选择多个任务 - 它们将被创建为单独的任务执行。",
+      "priorityLabel": "优先级：{{priority}}",
+      "selectedCount_other": "已选择 {{count}} 个任务"
+    },
+    "loopback": {
+      "label": "回环直至无新破解",
+      "helperEligible": "运行选定的任务，然后仅针对新破解的密码重新运行可变形的任务（直接 + 规则，或混合攻击）— 重复直到找不到新破解为止。",
+      "helperSelectEligible": "在下方选择符合条件的预设（直接 + 规则，或混合攻击）以启用回环。",
+      "helperNoneEligible": "选定的任务都没有可回环的变形（它们是仅字典、暴力破解或关联攻击）。",
+      "helperFilterConflict": "启用此任务的预筛选时，回环不可用。",
+      "helperCustom": "运行此攻击，然后仅针对新破解的密码重新运行其变形（规则或掩码）— 重复直到找不到新破解为止。"
+    },
+    "filter": {
+      "enableLabel": "为此任务预筛选选定的字典",
+      "ephemeralNotice": "此筛选列表是临时的，仅用于此任务。要创建可重复使用的筛选字典，请使用字典管理。生成在后台运行；任务在就绪后自动启动。"
+    },
+    "association": {
+      "explainer": "关联攻击将每个哈希 1:1 映射到相应的字典行。字典行数必须与总哈希数匹配（{{hashCount}})。",
+      "falsePositiveWarning": "<strong>注意：</strong>关联攻击可能产生误报。建议通过下载已破解哈希、删除哈希列表、重新上传和使用字典攻击确认来验证结果。",
+      "wordlistLabel": "关联字典",
+      "selectWordlist": "选择关联字典",
+      "wordlistOptionLabel": "{{name}}（{{lines}} 行，{{size}} KB）",
+      "wordlistHelper": "通过哈希列表的关联字典部分上传关联字典"
+    },
+    "cloud": {
+      "allowBurst": "允许云突发",
+      "allowBurstHelper": "当本地机群无法跟上时租赁 GPU 实例。要求客户有资金且已选择加入提供商。",
+      "allowPeerHosts": "允许对等运营的主机（Vast.ai、RunPod Community）",
+      "peerHostsWarning": "这些是他人的机器。机器所有者对容器拥有 root 权限，因此此客户的哈希、字典和破解出的明文可被第三方读取，且<strong>在主机上不加密存储</strong>。不建议用于生产或客户项目数据。若保持关闭，任务仍会使用安全算力（AWS、RunPod Secure Cloud），前提是客户允许。",
+      "maxInstances": "最大云实例数",
+      "maxInstancesHelper": "与控制本地池的最大代理数分离。留空让预算决定。"
+    },
+    "form": {
+      "jobName": "任务名称（可选）",
+      "jobNamePlaceholder": "留空以自动生成名称",
+      "jobNameHelper": "留空以根据攻击配置自动生成名称",
+      "attackModeLabel": "攻击模式",
+      "attackModeDictionary": "字典攻击",
+      "attackModeCombination": "组合攻击",
+      "attackModeBruteforce": "暴力破解攻击",
+      "attackModeHybridWordlistMask": "混合字典 + 掩码",
+      "attackModeHybridMaskWordlist": "混合掩码 + 字典",
+      "attackModeAssociation": "关联攻击",
+      "associationBlockedMixed": " （已阻止：混合工作因子）",
+      "associationNoWordlists": " （未上传字典）",
+      "binaryVersionHelper": "选择二进制版本模式",
+      "wordlists": "字典",
+      "selectWordlists": "选择字典",
+      "ruleOptional": "规则（可选）",
+      "ruleOptionLabel_other": "{{name}}（{{count}} 条规则）",
+      "selectRule": "选择一个规则",
+      "firstWordlist": "第一个字典",
+      "secondWordlist": "第二个字典",
+      "selectFirstWordlist": "选择第一个字典",
+      "selectSecondWordlist": "选择第二个字典",
+      "categoryClientSpecific": "客户特定",
+      "categoryGlobal": "全局",
+      "wordlistOptionWithLines": "{{name}}（{{lines}} 行）",
+      "wordlistOptionWithSize": "{{name}}（{{size}} MB）",
+      "clientPotfileName_other": "客户 Potfile（{{count, number}} 个密码）",
+      "mask": "掩码",
+      "maskPlaceholder": "例如 ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = 小写，?u = 大写，?d = 数字，?s = 特殊字符，?1-?4 = 自定义",
+      "incrementModeLabel": "递增模式",
+      "incrementModeOff": "关闭",
+      "incrementModeForward": "递增（左→右）",
+      "incrementModeInverse": "递增反向（右→左）",
+      "incrementModeHelper": "递增先尝试较短的掩码，逐渐增长",
+      "minLength": "最小长度",
+      "maxLength": "最大长度",
+      "priority": "优先级",
+      "priorityHelper": "优先级较高的任务首先执行（1-1000）",
+      "chunkDuration": "分块时长（秒）",
+      "chunkDurationHelper": "每个分块的时间（秒）（5-86400 秒）",
+      "maxAgents": "最大代理数",
+      "maxAgentsHelper": "最大代理数（0 = 无限制）",
+      "allowHighPriorityOverride": "允许高优先级覆盖",
+      "additionalArgsPlaceholder": "例如 -w 4 -O --force"
+    }
+  },
   "confirmDelete": {
     "title": "确认删除",
     "message": "确定要删除哈希列表 \"{{name}}\" 吗？此操作无法撤销。",
     "cancel": "取消",
     "delete": "删除",
-    "deleting": "删除中..."
+    "deleting": "删除中...",
+    "removeFromGlobalPotfile": "从全局 potfile 中删除已破解的密码",
+    "removeFromClientPotfile": "从客户 potfile 中删除已破解的密码"
   },
   "deletionProgress": {
     "title": "删除哈希列表",
@@ -94,8 +278,8 @@
     "downloaded": "已下载 {{filename}}",
     "archiveSuccess": "哈希列表归档成功",
     "unarchiveSuccess": "哈希列表取消归档成功",
-    "bulkArchiveSuccess": "{{count}} 个哈希列表归档成功",
-    "bulkUnarchiveSuccess": "{{count}} 个哈希列表取消归档成功"
+    "bulkArchiveSuccess_other": "{{count}} 个哈希列表已成功归档",
+    "bulkUnarchiveSuccess_other": "{{count}} 个哈希列表已成功取消归档"
   },
   "errors": {
     "loadFailed": "获取哈希列表时出错。",
@@ -113,10 +297,10 @@
     "deleteSelected": "删除所选",
     "confirmBulkDelete": {
       "title": "确认批量删除",
-      "message": "确定要删除 {{count}} 个哈希列表吗？此操作无法撤销。",
+      "message_other": "您确定要删除 {{count}} 个哈希列表吗？此操作无法撤销。",
       "warning": "这将永久删除所选哈希列表及所有相关数据。"
     },
-    "bulkDeleteSuccess": "{{count}} 个哈希列表删除成功"
+    "bulkDeleteSuccess_other": "{{count}} 个哈希列表已成功删除"
   },
   "hashDetails": {
     "title": "哈希详情",
@@ -124,5 +308,194 @@
     "password": "密码",
     "cracked": "已破解",
     "crackedAt": "破解时间"
+  },
+  "detail": {
+    "backToHashlists": "返回哈希列表",
+    "viewCrackedHashes": "查看已破解哈希",
+    "noDescription": "暂无描述",
+    "statusLabel": "状态：",
+    "hashType": "哈希类型：{{name}}",
+    "clientLabel": "客户：",
+    "noClient": "无",
+    "editClient": "编辑客户",
+    "created": "创建于：{{date}}",
+    "crackProgress": "破解进度（{{cracked}} / {{total}}）",
+    "fallbackHashlistName": "哈希列表",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} 行",
+      "rate": "（{{rate}}/秒）",
+      "eta": "• 预计时间：{{eta}}"
+    },
+    "deletionBanner": {
+      "title": "该哈希列表正在删除 — {{phase}}",
+      "progress": "{{checked}} / {{total}}（{{percent}}%）"
+    },
+    "validationBanner": {
+      "loading": "加载中…",
+      "resumeReview": "继续审核",
+      "title": "此哈希列表已暂停，等待验证决定。",
+      "message": "哈希验证发现 <strong>{{totalLines}}</strong> 行中有 <strong>{{invalidCount}}</strong> 行格式错误。打开审核对话框以继续导入有效的哈希、更改哈希类型或取消上传。"
+    },
+    "jobsRun": {
+      "title": "已运行的任务",
+      "subtitle": "对该哈希列表运行过的任务，包括已归档的任务。",
+      "empty": "尚未对此哈希列表运行任何任务"
+    },
+    "editClientDialog": {
+      "title": "编辑客户分配",
+      "description": "为此哈希列表选择一个客户，或留空以移除客户分配。",
+      "save": "保存",
+      "saving": "保存中…"
+    },
+    "notifications": {
+      "clientUpdated": "客户已成功更新",
+      "processingResumed": "处理已恢复。",
+      "uploadCancelled": "上传已取消。"
+    },
+    "errors": {
+      "deleteFailed": "删除哈希列表失败",
+      "clientUpdateFailed": "客户更新失败",
+      "clientNotFound": "未找到客户",
+      "clientLookupFailed": "客户查询失败",
+      "downloadFailed": "文件下载失败",
+      "downloadHashlistFailed": "哈希列表下载失败",
+      "serverError": "服务器错误（{{status}}）",
+      "loadInvalidHashesFailed": "加载无效哈希失败"
+    }
+  },
+  "associationWordlists": {
+    "header": "客户专用字典",
+    "blocked": "已阻止",
+    "blockedTooltip": "由于哈希列表中存在混合工作因子，关联攻击已阻止",
+    "delete": "删除",
+    "uploadAssociation": "上传关联字典",
+    "uploadClient": "上传客户字典",
+    "uploadingPercent": "上传中…{{percent}}%",
+    "emptyAssociation": "尚未上传关联字典。",
+    "emptyClient": "尚未上传客户字典。",
+    "mixedWorkFactorsWarning": "此哈希列表具有混合工作因子。无法对具有不同 bcrypt 成本或类似可变工作因子的哈希列表运行关联攻击。您仍然可以上传字典，但创建关联攻击任务将被阻止。",
+    "explainer": "关联字典按行号将每个哈希 1:1 映射到密码候选。字典必须恰好具有 <strong>{{lines}}</strong> 行以匹配此哈希列表的哈希计数。",
+    "tabs": {
+      "associationAttack": "关联攻击",
+      "clientWordlists": "客户字典"
+    },
+    "columns": {
+      "fileName": "文件名",
+      "lineCount": "行数",
+      "fileSize": "文件大小",
+      "status": "状态",
+      "uploaded": "上传时间",
+      "actions": "操作"
+    },
+    "status": {
+      "ready": "就绪",
+      "lineCountMismatch": "行数不匹配",
+      "lineCountMismatchTooltip": "预期 {{expected}} 行，实际 {{actual}} 行"
+    },
+    "deleteConfirm": {
+      "title": "删除字典",
+      "message": "删除\"{{fileName}}\"？此操作无法撤销。"
+    },
+    "clientWordlists": {
+      "noClientNotice": "客户字典仅可用于与客户关联的哈希列表。",
+      "description": "客户字典在此客户的所有哈希列表中都可用。这些可以与任何攻击模式一起使用，不仅限于关联攻击。"
+    },
+    "clientPotfile": {
+      "title": "客户 potfile（自动生成）",
+      "description": "此 potfile 包含此客户的所有已破解密码。当哈希被破解时，它会自动更新。",
+      "passwordCount_other": "{{count}} 个密码",
+      "updated": "更新于：{{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "关联字典已删除",
+      "clientDeleted": "客户字典已删除",
+      "associationUploaded": "关联字典已成功上传",
+      "clientUploaded": "客户字典已成功上传"
+    },
+    "errors": {
+      "deleteFailed": "删除字典失败",
+      "uploadFailed": "上传字典失败",
+      "loadAssociationFailed": "加载关联字典失败",
+      "loadClientFailed": "加载客户字典失败",
+      "lineCountMismatch": "字典有 {{wordlistLines}} 行，但哈希列表有 {{hashlistLines}} 个有效哈希。"
+    }
+  },
+  "clientAutocomplete": {
+    "label": "客户",
+    "placeholder": "选择客户…",
+    "createNewClient": "创建新客户",
+    "newClientDetails": "新客户信息",
+    "team": "团队",
+    "teamHelper": "新客户将分配给此团队。",
+    "clientName": "客户名称",
+    "description": "描述",
+    "contactInfo": "联系信息",
+    "dataRetention": "数据保留期（月）",
+    "dataRetentionPlaceholderDefault": "系统默认：{{months}}",
+    "dataRetentionPlaceholderUnset": "未设置（永久保留）",
+    "dataRetentionHelperDefault": "留空使用系统默认值（{{months}} 个月）。设置 0 以永久保留。",
+    "dataRetentionHelperUnset": "留空使用系统默认值。设置 0 以永久保留。",
+    "excludeFromGlobalPotfile": "从全局 potfile 中排除",
+    "excludeFromGlobalPotfileHelper": "此客户的已破解密码不会添加到全局 potfile 中。",
+    "excludeFromClientPotfile": "从客户 potfile 中排除",
+    "excludeFromClientPotfileHelper": "此客户的已破解密码不会添加到其客户 potfile 中。",
+    "errors": {
+      "fetchFailed": "获取客户列表失败"
+    }
+  },
+  "hashesTable": {
+    "title": "哈希",
+    "subtitle": "{{cracked}} / {{total}} 已破解（{{pct}}%）",
+    "searchPlaceholder": "搜索哈希…",
+    "ariaLabel": "哈希列表的哈希表",
+    "copiedToClipboard": "已复制到剪贴板",
+    "copyPassword": "复制密码",
+    "copyHash": "复制哈希",
+    "loadFailed": "加载哈希失败",
+    "columns": {
+      "originalHash": "原始哈希",
+      "username": "用户名",
+      "domain": "域",
+      "password": "密码",
+      "status": "状态"
+    },
+    "status": {
+      "cracked": "已破解",
+      "partial": "部分",
+      "pending": "待处理"
+    }
+  },
+  "validationPreview": {
+    "title": "哈希验证：审核格式错误的行",
+    "modeFallback": "模式 {{id}}",
+    "truncatedNotice": "前 10,000 行无效行已被记录以供审核；文件中还存在其他无效行，但未在此列出。",
+    "hashTypeLabel": "哈希类型",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "重新验证中…",
+    "revalidateButton": "重新验证",
+    "cancelAndFix": "取消并修复",
+    "cancelling": "取消中…",
+    "starting": "开始中…",
+    "proceedButton": "继续导入 {{validCount}} 个有效哈希",
+    "noInvalidLines": "无无效行可显示。",
+    "allInvalid": {
+      "body1": "<em>{{hashlistName}}</em> 中的 {{totalLines}} 行<strong>都不</strong>与 <strong>{{hashTypeName}}</strong> 匹配。哈希类型选择可能有误。",
+      "body2": "在下方选择正确的类型并点击 <strong>重新验证</strong> — 文件保持上传状态，您无需重新开始。"
+    },
+    "notAllInvalid": {
+      "body": "<em>{{hashlistName}}</em> 中的 <strong>{{totalLines}}</strong> 行中有 <strong>{{invalidCount}}</strong> 行验证失败，如果继续将被跳过。将导入 <strong>{{validCount}}</strong> 个有效哈希。"
+    },
+    "chooseActionText": "选择 <strong>仅使用有效哈希继续</strong> 导入 {{validCount}} 个有效哈希（列出的错误行将被忽略），或选择 <strong>取消并修复</strong> 以删除此上传，以便您可以更正源文件并重试。",
+    "columns": {
+      "line": "行号",
+      "hashTruncated": "哈希（截断）",
+      "reason": "原因"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "加载无效哈希失败",
+      "proceedFailed": "继续操作失败",
+      "cancelFailed": "取消操作失败",
+      "revalidationFailed": "重新验证失败"
+    }
   }
 }

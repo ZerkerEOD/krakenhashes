@@ -4,55 +4,74 @@
  */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Paper,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Box,
-  Divider,
-} from '@mui/material';
+import { Paper, Typography } from '@mui/material';
 import { ComplexityStats } from '../../types/analytics';
-import { threeColumnTableStyles } from './tableStyles';
+import { SimpleTable, SimpleColumn } from '../ui';
+import { CountPctRow, nonZeroRows } from './tableStyles';
 
 interface ComplexityAnalysisSectionProps {
   data: ComplexityStats;
 }
 
+/** A category row, or a group heading row (no count/percentage). */
+type ComplexityRow = CountPctRow & { group?: boolean };
+
 export default function ComplexityAnalysisSection({ data }: ComplexityAnalysisSectionProps) {
   const { t } = useTranslation('analytics');
 
-  // Helper to filter out zero counts
-  const filterNonZero = (obj: Record<string, { count: number; percentage: number }>) => {
-    return Object.entries(obj).filter(([_, value]) => value.count > 0);
-  };
+  const rows = useMemo<ComplexityRow[]>(() => {
+    const fromRecord = (obj: Record<string, { count: number; percentage: number }>) =>
+      nonZeroRows(Object.entries(obj).map(([name, stats]) => [name, name, stats]));
 
-  const singleType = useMemo(() => filterNonZero(data.single_type), [data.single_type]);
-  const twoTypes = useMemo(() => filterNonZero(data.two_types), [data.two_types]);
-  const threeTypes = useMemo(() => filterNonZero(data.three_types), [data.three_types]);
-  const fourTypes = data.four_types.count > 0 ? data.four_types : null;
-  const complexShort = data.complex_short.count > 0 ? data.complex_short : null;
-  const complexLong = data.complex_long.count > 0 ? data.complex_long : null;
+    const groups: Array<[string, CountPctRow[]]> = [
+      [t('categories.singleCharType'), fromRecord(data.single_type)],
+      [t('categories.twoCharTypes'), fromRecord(data.two_types)],
+      [t('categories.threeCharTypes'), fromRecord(data.three_types)],
+      [t('categories.fourCharTypes'), nonZeroRows([['four_types', t('categories.allCharTypes'), data.four_types]])],
+      [
+        t('categories.complexPasswords'),
+        nonZeroRows([
+          ['complex_short', t('categories.complexShort'), data.complex_short],
+          ['complex_long', t('categories.complexLong'), data.complex_long],
+        ]),
+      ],
+    ];
 
-  // Check if there's any data to display
-  const hasData = singleType.length > 0 || twoTypes.length > 0 || threeTypes.length > 0 ||
-                  fourTypes || complexShort || complexLong;
+    const out: ComplexityRow[] = [];
+    groups.forEach(([heading, items], gi) => {
+      if (items.length === 0) return;
+      out.push({ key: `group-${gi}`, label: heading, count: 0, percentage: 0, group: true });
+      items.forEach((item) => out.push({ ...item, key: `${gi}-${item.key}` }));
+    });
+    return out;
+  }, [data, t]);
 
-  if (!hasData) {
+  if (rows.length === 0) {
     return null;
   }
 
-  const renderCategory = (label: string, stats: { count: number; percentage: number }) => (
-    <TableRow>
-      <TableCell sx={threeColumnTableStyles.labelCell}>{label}</TableCell>
-      <TableCell sx={threeColumnTableStyles.countCell}>{stats.count.toLocaleString()}</TableCell>
-      <TableCell sx={threeColumnTableStyles.percentageCell}>{stats.percentage.toFixed(2)}%</TableCell>
-    </TableRow>
-  );
+  const columns: SimpleColumn<ComplexityRow>[] = [
+    {
+      field: 'label',
+      headerName: t('columns.category'),
+      width: '60%',
+      render: (r) => (r.group ? <strong>{r.label}</strong> : r.label),
+    },
+    {
+      field: 'count',
+      headerName: t('columns.count'),
+      width: '20%',
+      align: 'right',
+      render: (r) => (r.group ? '' : r.count.toLocaleString()),
+    },
+    {
+      field: 'percentage',
+      headerName: t('columns.percentage'),
+      width: '20%',
+      align: 'right',
+      render: (r) => (r.group ? '' : `${r.percentage.toFixed(2)}%`),
+    },
+  ];
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
@@ -63,79 +82,7 @@ export default function ComplexityAnalysisSection({ data }: ComplexityAnalysisSe
         {t('descriptions.complexityDistribution')}
       </Typography>
 
-      <TableContainer>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.category')}</TableCell>
-              <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
-              <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* Single Type */}
-            {singleType.length > 0 && (
-              <>
-                <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                  <TableCell colSpan={3}>
-                    <strong>{t('categories.singleCharType')}</strong>
-                  </TableCell>
-                </TableRow>
-                {singleType.map(([name, stats]) => renderCategory(name, stats))}
-              </>
-            )}
-
-            {/* Two Types */}
-            {twoTypes.length > 0 && (
-              <>
-                <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                  <TableCell colSpan={3}>
-                    <strong>{t('categories.twoCharTypes')}</strong>
-                  </TableCell>
-                </TableRow>
-                {twoTypes.map(([name, stats]) => renderCategory(name, stats))}
-              </>
-            )}
-
-            {/* Three Types */}
-            {threeTypes.length > 0 && (
-              <>
-                <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                  <TableCell colSpan={3}>
-                    <strong>{t('categories.threeCharTypes')}</strong>
-                  </TableCell>
-                </TableRow>
-                {threeTypes.map(([name, stats]) => renderCategory(name, stats))}
-              </>
-            )}
-
-            {/* Four Types */}
-            {fourTypes && (
-              <>
-                <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                  <TableCell colSpan={3}>
-                    <strong>{t('categories.fourCharTypes')}</strong>
-                  </TableCell>
-                </TableRow>
-                {renderCategory(t('categories.allCharTypes'), fourTypes)}
-              </>
-            )}
-
-            {/* Complex Short/Long */}
-            {(complexShort || complexLong) && (
-              <>
-                <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                  <TableCell colSpan={3}>
-                    <strong>{t('categories.complexPasswords')}</strong>
-                  </TableCell>
-                </TableRow>
-                {complexShort && renderCategory(t('categories.complexShort'), complexShort)}
-                {complexLong && renderCategory(t('categories.complexLong'), complexLong)}
-              </>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <SimpleTable rows={rows} getRowKey={(r) => r.key} columns={columns} isGroupRow={(r) => Boolean(r.group)} />
     </Paper>
   );
 }

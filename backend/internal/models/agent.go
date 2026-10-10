@@ -107,6 +107,7 @@ type Agent struct {
 	APIKeyLastUsed      sql.NullTime      `json:"-"`
 	Metadata            map[string]string `json:"metadata,omitempty"`
 	OwnerID             *uuid.UUID        `json:"ownerId,omitempty"`
+	OwnerUsername       *string           `json:"ownerUsername,omitempty"` // Populated from a JOIN on owner_id; nil for system/ownerless agents
 	ExtraParameters     string            `json:"extraParameters"`
 	IsEnabled           bool              `json:"isEnabled"`
 	ConsecutiveFailures int               `json:"consecutiveFailures"` // Track consecutive task failures
@@ -278,6 +279,7 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		UpdatedAt                     time.Time         `json:"updatedAt"`
 		Metadata                      map[string]string `json:"metadata,omitempty"`
 		OwnerID                       *uuid.UUID        `json:"ownerId,omitempty"`
+		OwnerUsername                 *string           `json:"ownerUsername,omitempty"`
 		ExtraParameters               string            `json:"extraParameters"`
 		IsEnabled                     bool              `json:"isEnabled"`
 		IsSystemAgent                 bool              `json:"isSystemAgent"`
@@ -323,6 +325,7 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		UpdatedAt:                     a.UpdatedAt,
 		Metadata:                      a.Metadata,
 		OwnerID:                       a.OwnerID,
+		OwnerUsername:                 a.OwnerUsername,
 		ExtraParameters:               a.ExtraParameters,
 		IsEnabled:                     a.IsEnabled,
 		IsSystemAgent:                 a.IsSystemAgent(),

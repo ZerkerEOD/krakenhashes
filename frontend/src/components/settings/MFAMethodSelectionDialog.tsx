@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogTitle,
@@ -29,16 +30,17 @@ const MFAMethodSelectionDialog: React.FC<MFAMethodSelectionDialogProps> = ({
   onSelectMethod,
   availableMethods,
 }) => {
+  const { t } = useTranslation('settings');
   const methodInfo = {
     authenticator: {
       icon: <KeyIcon sx={{ fontSize: 48 }} />,
-      title: 'Authenticator App',
-      description: 'Use a time-based code from an authenticator app like Google Authenticator, Authy, or 1Password.',
+      title: t('mfa.methods.totp') as string,
+      description: t('mfa.methodSelection.authenticatorDescription') as string,
     },
     passkey: {
       icon: <FingerprintIcon sx={{ fontSize: 48 }} />,
-      title: 'Passkey',
-      description: 'Use a security key, fingerprint, face recognition, or device PIN for quick and secure authentication.',
+      title: t('mfa.methods.passkey') as string,
+      description: t('mfa.methodSelection.passkeyDescription') as string,
     },
   };
 
@@ -49,10 +51,10 @@ const MFAMethodSelectionDialog: React.FC<MFAMethodSelectionDialogProps> = ({
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>Choose MFA Method</DialogTitle>
+      <DialogTitle>{t('mfa.methodSelection.title')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Select how you'd like to verify your identity when signing in.
+          {t('mfa.methodSelection.description')}
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {availableMethods.map((method) => {
@@ -98,7 +100,7 @@ const MFAMethodSelectionDialog: React.FC<MFAMethodSelectionDialogProps> = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t('mfa.dialogs.cancel')}</Button>
       </DialogActions>
     </Dialog>
   );

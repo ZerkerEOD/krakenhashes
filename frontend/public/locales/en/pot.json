@@ -10,7 +10,8 @@
     "allCrackedHashes": "All Cracked Hashes"
   },
   "navigation": {
-    "backToAll": "Back to All Cracked Hashes"
+    "backToAll": "Back to All Cracked Hashes",
+    "backToSource": "Back"
   },
   "client": {
     "title": "Cracked Hashes - Client View",
@@ -40,8 +41,8 @@
     "placeholder": "Search database...",
     "filterPlaceholder": "Filter this page...",
     "button": "Search",
-    "resultsFound": "Found {{count}} result",
-    "resultsFound_plural": "Found {{count}} results",
+    "resultsFound_one": "Found {{count}} result",
+    "resultsFound_other": "Found {{count}} results",
     "noResults": "No results found",
     "searching": "Searching..."
   },
@@ -85,5 +86,11 @@
   },
   "filter": {
     "filteredBy": "Filtered by {{param}}: {{value}}"
+  },
+  "breadcrumb": "Cracked hashes",
+  "sourceLabel": {
+    "job": "Job",
+    "client": "Client",
+    "hashlist": "Hashlist"
   }
 }

@@ -6,7 +6,6 @@ import {
   Button,
   Checkbox,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -20,14 +19,7 @@ import {
   ListItem,
   ListItemText,
   MenuItem,
-  Paper,
   Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -40,7 +32,8 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSnackbar } from 'notistack';
+import type { GridColDef } from '@mui/x-data-grid';
+import { DataTable, useToast } from '../../ui';
 import { useTranslation } from 'react-i18next';
 import {
   AWSZoneSelection,
@@ -265,7 +258,7 @@ const selectionToRunPod = (sel: PlacementSelection[]) => ({
 const CloudProviderSettings: React.FC = () => {
   const { t } = useTranslation('admin');
   const queryClient = useQueryClient();
-  const { enqueueSnackbar } = useSnackbar();
+  const toast = useToast();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CloudProviderConfig | null>(null);
@@ -295,7 +288,7 @@ const CloudProviderSettings: React.FC = () => {
     mutationFn: (input: CloudProviderConfigInput) =>
       editing ? updateCloudProvider(editing.id, input) : createCloudProvider(input),
     onSuccess: () => {
-      enqueueSnackbar(t('cloud.providers.saved') as string, { variant: 'success' });
+      toast.success(t('cloud.providers.saved') as string);
       invalidate();
       setDialogOpen(false);
     },
@@ -305,13 +298,13 @@ const CloudProviderSettings: React.FC = () => {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteCloudProvider(id),
     onSuccess: () => {
-      enqueueSnackbar(t('cloud.providers.deleted') as string, { variant: 'success' });
+      toast.success(t('cloud.providers.deleted') as string);
       invalidate();
       setDeleteTarget(null);
     },
     onError: (err: any) => {
       // 409: rented hardware still references this config.
-      enqueueSnackbar(apiError(err, t('cloud.providers.deleteFailed') as string), { variant: 'error' });
+      toast.error(apiError(err, t('cloud.providers.deleteFailed') as string));
       setDeleteTarget(null);
     },
   });
@@ -319,12 +312,12 @@ const CloudProviderSettings: React.FC = () => {
   const ackMutation = useMutation({
     mutationFn: (id: string) => acknowledgeCloudProvider(id),
     onSuccess: () => {
-      enqueueSnackbar(t('cloud.providers.acknowledged') as string, { variant: 'success' });
+      toast.success(t('cloud.providers.acknowledged') as string);
       invalidate();
       setAckTarget(null);
     },
     onError: (err: any) => {
-      enqueueSnackbar(apiError(err, t('cloud.providers.ackFailed') as string), { variant: 'error' });
+      toast.error(apiError(err, t('cloud.providers.ackFailed') as string));
       setAckTarget(null);
     },
   });
@@ -333,7 +326,7 @@ const CloudProviderSettings: React.FC = () => {
     mutationFn: (id: string) => runCloudPreflight(id),
     onSuccess: (report) => setPreflight(report),
     onError: (err: any) =>
-      enqueueSnackbar(apiError(err, t('cloud.providers.preflightFailed') as string), { variant: 'error' }),
+      toast.error(apiError(err, t('cloud.providers.preflightFailed') as string)),
   });
 
   const openCreate = () => {
@@ -435,6 +428,133 @@ const CloudProviderSettings: React.FC = () => {
     return Math.floor((new Date(iso).getTime() - Date.now()) / 86_400_000);
   };
 
+  const providerColumns: GridColDef<CloudProviderConfig>[] = [
+    { field: 'name', headerName: t('cloud.providers.columns.name') as string, flex: 1, minWidth: 150 },
+    {
+      field: 'provider',
+      headerName: t('cloud.providers.columns.provider') as string,
+      flex: 1.2,
+      minWidth: 220,
+      renderCell: (p) => {
+        const cfg = p.row;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', py: 1 }}>
+            <Chip
+              size="small"
+              label={cfg.provider}
+              color={requiresThirdPartyAck(cfg.provider) ? 'warning' : 'default'}
+            />
+            {requiresThirdPartyAck(cfg.provider) && (
+              <Tooltip title={t('cloud.providers.thirdPartyBadge') as string}>
+                <WarningIcon fontSize="small" color="warning" sx={{ ml: 1, verticalAlign: 'middle' }} />
+              </Tooltip>
+            )}
+            {/*
+              * A SEPARATE badge from the third-party one, deliberately.
+              * "Nobody has proven this works" and "this runs on hardware
+              * you do not control" are different risks that happen to
+              * overlap on Vast: RunPod Secure is experimental but
+              * first-party, and collapsing them would hide that.
+              *
+              * BOTH states are rendered, unlike the Fleet page. This
+              * table is where providers are compared side by side, and
+              * "proven" inferred from the absence of a warning is not a
+              * claim anyone reads. The Fleet page stays warning-only
+              * because a Tested chip on every AWS instance row is noise
+              * on a page an operator watches continuously.
+              */}
+            {cfg.maturity === 'experimental' ? (
+              <Tooltip title={t('cloud.providers.experimentalTooltip') as string}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  label={t('cloud.providers.experimentalChip') as string}
+                  sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                />
+              </Tooltip>
+            ) : (
+              <Tooltip title={t('cloud.providers.testedTooltip') as string}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="success"
+                  label={t('cloud.providers.testedChip') as string}
+                  sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                />
+              </Tooltip>
+            )}
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'enabled',
+      headerName: t('cloud.providers.columns.status') as string,
+      width: 200,
+      renderCell: (p) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, py: 1 }}>
+          <Chip
+            size="small"
+            label={
+              p.row.enabled
+                ? (t('cloud.providers.enabled') as string)
+                : (t('cloud.providers.disabled') as string)
+            }
+            color={p.row.enabled ? 'success' : 'default'}
+          />
+          {!p.row.has_credentials && p.row.provider !== 'mock' && (
+            <Chip size="small" color="error" label={t('cloud.providers.noCredentials') as string} />
+          )}
+        </Box>
+      ),
+    },
+    {
+      field: 'vpn_provider',
+      headerName: t('cloud.providers.columns.vpn') as string,
+      flex: 1,
+      minWidth: 180,
+      renderCell: (p) => {
+        const cfg = p.row;
+        const expiryDays = daysUntil(cfg.vpn_credential_expires_at);
+        return cfg.vpn_provider ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', py: 1 }}>
+            {cfg.vpn_provider}
+            {cfg.vpn_credential_kind && ` (${cfg.vpn_credential_kind})`}
+            {/* A lapsed reusable key strands every future launch,
+                so this warns well before it expires. */}
+            {expiryDays !== null && (
+              <Chip
+                size="small"
+                sx={{ ml: 1 }}
+                color={expiryDays <= 3 ? 'error' : expiryDays <= 14 ? 'warning' : 'default'}
+                label={
+                  expiryDays <= 0
+                    ? (t('cloud.providers.credentialExpired') as string)
+                    : (t('cloud.providers.credentialExpiresIn', { days: expiryDays }) as string)
+                }
+              />
+            )}
+          </Box>
+        ) : (
+          <Chip size="small" color="error" label={t('cloud.providers.noVpn') as string} />
+        );
+      },
+    },
+    {
+      field: 'max_concurrent_instances',
+      headerName: t('cloud.providers.columns.limits') as string,
+      width: 170,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (p) =>
+        t('cloud.providers.limitsValue', {
+          instances: p.row.max_concurrent_instances,
+          rate: formatCents(p.row.max_instance_hourly_cents),
+        }) as string,
+    },
+  ];
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
@@ -460,162 +580,46 @@ const CloudProviderSettings: React.FC = () => {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{apiError(error, t('cloud.providers.loadFailed') as string)}</Alert>}
 
-      {isLoading ? (
-        <CircularProgress />
-      ) : providers.length === 0 ? (
-        <Alert severity="info">{t('cloud.providers.empty') as string}</Alert>
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('cloud.providers.columns.name') as string}</TableCell>
-                <TableCell>{t('cloud.providers.columns.provider') as string}</TableCell>
-                <TableCell>{t('cloud.providers.columns.status') as string}</TableCell>
-                <TableCell>{t('cloud.providers.columns.vpn') as string}</TableCell>
-                <TableCell align="right">{t('cloud.providers.columns.limits') as string}</TableCell>
-                <TableCell align="right">{t('cloud.providers.columns.actions') as string}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {providers.map((cfg) => {
-                const expiryDays = daysUntil(cfg.vpn_credential_expires_at);
-                return (
-                  <TableRow key={cfg.id}>
-                    <TableCell>{cfg.name}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={cfg.provider}
-                        color={requiresThirdPartyAck(cfg.provider) ? 'warning' : 'default'}
-                      />
-                      {requiresThirdPartyAck(cfg.provider) && (
-                        <Tooltip title={t('cloud.providers.thirdPartyBadge') as string}>
-                          <WarningIcon fontSize="small" color="warning" sx={{ ml: 1, verticalAlign: 'middle' }} />
-                        </Tooltip>
-                      )}
-                      {/*
-                        * A SEPARATE badge from the third-party one, deliberately.
-                        * "Nobody has proven this works" and "this runs on hardware
-                        * you do not control" are different risks that happen to
-                        * overlap on Vast: RunPod Secure is experimental but
-                        * first-party, and collapsing them would hide that.
-                        *
-                        * BOTH states are rendered, unlike the Fleet page. This
-                        * table is where providers are compared side by side, and
-                        * "proven" inferred from the absence of a warning is not a
-                        * claim anyone reads. The Fleet page stays warning-only
-                        * because a Tested chip on every AWS instance row is noise
-                        * on a page an operator watches continuously.
-                        */}
-                      {cfg.maturity === 'experimental' ? (
-                        <Tooltip title={t('cloud.providers.experimentalTooltip') as string}>
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            color="warning"
-                            label={t('cloud.providers.experimentalChip') as string}
-                            sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                          />
-                        </Tooltip>
-                      ) : (
-                        <Tooltip title={t('cloud.providers.testedTooltip') as string}>
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            color="success"
-                            label={t('cloud.providers.testedChip') as string}
-                            sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                          />
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={
-                          cfg.enabled
-                            ? (t('cloud.providers.enabled') as string)
-                            : (t('cloud.providers.disabled') as string)
-                        }
-                        color={cfg.enabled ? 'success' : 'default'}
-                      />
-                      {!cfg.has_credentials && cfg.provider !== 'mock' && (
-                        <Chip
-                          size="small"
-                          sx={{ ml: 1 }}
-                          color="error"
-                          label={t('cloud.providers.noCredentials') as string}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {cfg.vpn_provider ? (
-                        <>
-                          {cfg.vpn_provider}
-                          {cfg.vpn_credential_kind && ` (${cfg.vpn_credential_kind})`}
-                          {/* A lapsed reusable key strands every future launch,
-                              so this warns well before it expires. */}
-                          {expiryDays !== null && (
-                            <Chip
-                              size="small"
-                              sx={{ ml: 1 }}
-                              color={expiryDays <= 3 ? 'error' : expiryDays <= 14 ? 'warning' : 'default'}
-                              label={
-                                expiryDays <= 0
-                                  ? (t('cloud.providers.credentialExpired') as string)
-                                  : (t('cloud.providers.credentialExpiresIn', { days: expiryDays }) as string)
-                              }
-                            />
-                          )}
-                        </>
-                      ) : (
-                        <Chip size="small" color="error" label={t('cloud.providers.noVpn') as string} />
-                      )}
-                    </TableCell>
-                    <TableCell align="right">
-                      {t('cloud.providers.limitsValue', {
-                        instances: cfg.max_concurrent_instances,
-                        rate: formatCents(cfg.max_instance_hourly_cents),
-                      }) as string}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title={t('cloud.providers.preflight') as string}>
-                        <span>
-                          <Button
-                            size="small"
-                            startIcon={<NetworkCheckIcon />}
-                            disabled={preflightMutation.isPending}
-                            onClick={() => preflightMutation.mutate(cfg.id)}
-                          >
-                            {t('cloud.providers.preflight') as string}
-                          </Button>
-                        </span>
-                      </Tooltip>
-                      {requiresThirdPartyAck(cfg.provider) && !cfg.third_party_ack_at && (
-                        <Button size="small" color="warning" onClick={() => setAckTarget(cfg)}>
-                          {t('cloud.providers.acknowledge') as string}
-                        </Button>
-                      )}
-                      <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(cfg)}>
-                        {t('cloud.providers.edit') as string}
-                      </Button>
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={() => setDeleteTarget(cfg)}
-                      >
-                        {t('cloud.providers.delete') as string}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <DataTable<CloudProviderConfig>
+        rows={providers}
+        columns={providerColumns}
+        getRowId={(r) => r.id}
+        loading={isLoading}
+        pagination={false}
+        sorting={{ mode: 'client' }}
+        rowActionsInlineLimit={3}
+        rowActions={(cfg) => [
+          {
+            key: 'preflight',
+            label: t('cloud.providers.preflight') as string,
+            icon: <NetworkCheckIcon fontSize="small" />,
+            disabled: preflightMutation.isPending,
+            onClick: (r) => preflightMutation.mutate(r.id),
+          },
+          {
+            key: 'acknowledge',
+            label: t('cloud.providers.acknowledge') as string,
+            icon: <WarningIcon fontSize="small" color="warning" />,
+            hidden: !(requiresThirdPartyAck(cfg.provider) && !cfg.third_party_ack_at),
+            onClick: (r) => setAckTarget(r),
+          },
+          {
+            key: 'edit',
+            label: t('cloud.providers.edit') as string,
+            icon: <EditIcon fontSize="small" />,
+            onClick: (r) => openEdit(r),
+          },
+          {
+            key: 'delete',
+            label: t('cloud.providers.delete') as string,
+            icon: <DeleteIcon fontSize="small" />,
+            danger: true,
+            onClick: (r) => setDeleteTarget(r),
+          },
+        ]}
+        emptyState={{ title: t('cloud.providers.empty') as string }}
+        tableKey="cloud-providers"
+      />
 
       {/* --- Create / edit --- */}
       {/* md, not sm: the AWS section carries a five-column instance-type table. */}

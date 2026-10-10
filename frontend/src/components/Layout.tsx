@@ -1,397 +1,208 @@
 /**
- * Layout - Main application layout component with navigation
- *
- * Features:
- *   - Responsive drawer navigation
- *   - Dynamic menu items based on permissions
- *   - Collapsible sidebar
- *   - App bar with user controls
- *   - Internationalization support
- *
- * Dependencies:
- *   - @mui/material for UI components
- *   - react-router-dom for navigation
- *   - @mui/icons-material for icons
- *   - react-i18next for translations
- *
- * Error Scenarios:
- *   - Navigation failure handling
- *   - Route access permissions
- *   - Component rendering errors
- *
- * Usage Examples:
- * ```tsx
- * // Basic usage with child component
- * <Layout>
- *   <Dashboard />
- * </Layout>
- *
- * // Usage with multiple children
- * <Layout>
- *   <Header />
- *   <Content />
- *   <Footer />
- * </Layout>
- * ```
- *
- * Performance Considerations:
- *   - Memoized menu items to prevent unnecessary re-renders
- *   - Lazy loading of icons
- *   - Optimized drawer transitions
- *
- * @param {LayoutProps} props - Component props
- * @returns {JSX.Element} Layout wrapper with navigation
+ * Layout - application shell: app bar, collapsible grouped sidebar, content
+ * outlet and footer. The sidebar's items come from `navigation/navConfig`;
+ * the drawer state and group expansion persist in localStorage.
  */
-
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-    AppBar,
-    Box,
-    CssBaseline,
-    Drawer,
-    IconButton,
-    List,
-    ListItem,
-    ListItemIcon,
-    ListItemText,
-    Toolbar,
-    Tooltip,
-    Typography,
-    Divider,
-    Theme,
+  AppBar,
+  Box,
+  Divider,
+  Drawer,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Toolbar,
+  Tooltip,
+  Typography,
+  Theme,
 } from '@mui/material';
-import {
-    Menu as MenuIcon,
-    ChevronLeft as ChevronLeftIcon,
-    Dashboard as DashboardIcon,
-    Work as WorkIcon,
-    Computer as ComputerIcon,
-    Logout as LogoutIcon,
-    Info as InfoIcon,
-    Description as DescriptionIcon,
-    Rule as RuleIcon,
-    ListAlt as ListAltIcon,
-    Lock as LockIcon,
-    People as PeopleIcon,
-    Analytics as AnalyticsIcon,
-    Groups as GroupsIcon,
-    Download as DownloadIcon,
-} from '@mui/icons-material';
+import MenuIcon from '@mui/icons-material/Menu';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import LogoutIcon from '@mui/icons-material/Logout';
+import InfoIcon from '@mui/icons-material/Info';
+import DownloadIcon from '@mui/icons-material/Download';
 import { logout } from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
-import { useTeamFilter } from '../contexts/TeamFilterContext';
 import { useBranding, fallbackToStockLogo } from '../contexts/BrandingContext';
-import AdminMenu from './AdminMenu';
 import UserMenu from './common/UserMenu';
 import Footer from './Footer';
 import { NotificationBell } from './Notifications';
 import { TeamFilter } from './common/TeamFilter';
+import NavList from './navigation/NavList';
+import ErrorBoundary from './ui/ErrorBoundary';
+import { ROUTES } from '../constants/routes';
 
-interface MenuItem {
-    textKey: string;
-    icon: JSX.Element;
-    path: string;
-}
+const DRAWER_WIDTH = 240;
+const STORAGE_KEY_OPEN = 'kh.nav.open';
 
-interface LayoutProps {}
+const readOpen = (): boolean => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_OPEN);
+    return raw === null ? true : raw === 'true';
+  } catch {
+    return true;
+  }
+};
 
-const drawerWidth = 240;
+const Layout: React.FC = () => {
+  const [open, setOpen] = useState<boolean>(readOpen);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { setAuth, setUser, setUserRole } = useAuth();
+  const { t } = useTranslation('navigation');
+  const { t: tCommon } = useTranslation('common');
+  const { branding } = useBranding();
 
-// Menu items with translation keys instead of hardcoded text
-const menuItemsConfig: MenuItem[] = [
-    { textKey: 'menu.dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { textKey: 'menu.jobs', icon: <WorkIcon />, path: '/jobs' },
-    { textKey: 'menu.agents', icon: <ComputerIcon />, path: '/agents' },
-    { textKey: 'menu.hashlists', icon: <ListAltIcon />, path: '/hashlists' },
-    { textKey: 'menu.crackedHashes', icon: <LockIcon />, path: '/pot' },
-    { textKey: 'menu.wordlists', icon: <DescriptionIcon />, path: '/wordlists' },
-    { textKey: 'menu.rules', icon: <RuleIcon />, path: '/rules' },
-    {
-        textKey: 'menu.clientManagement',
-        icon: <PeopleIcon />,
-        path: '/clients',
-    },
-    { textKey: 'menu.analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-];
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_OPEN, String(open));
+    } catch {
+      /* private mode */
+    }
+  }, [open]);
 
-const bottomMenuItemsConfig: MenuItem[] = [
-    { textKey: 'menu.about', icon: <InfoIcon />, path: '/about' },
-];
+  const handleLogout = useCallback(async (): Promise<void> => {
+    try {
+      await logout();
+      setAuth(false);
+      setUser(null);
+      setUserRole(null);
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  }, [navigate, setAuth, setUser, setUserRole]);
 
-const Layout: React.FC<LayoutProps> = () => {
-    const [open, setOpen] = useState<boolean>(true);
-    const navigate = useNavigate();
-    const location = useLocation();
-    const { setAuth, setUser, setUserRole, userRole } = useAuth();
-    const { t } = useTranslation('navigation');
-    const { t: tCommon } = useTranslation('common');
-    const { teamsEnabled } = useTeamFilter();
-    const { branding } = useBranding();
-
-    const handleDrawerToggle = (): void => {
-        setOpen(!open);
-    };
-
-    const handleLogout = useCallback(async (): Promise<void> => {
-        try {
-            await logout();
-            setAuth(false);
-            setUser(null);
-            setUserRole(null);
-            navigate('/login', { replace: true });
-        } catch (error) {
-            console.error('Logout failed:', error);
-        }
-    }, [navigate, setAuth, setUser, setUserRole]);
-
-    // Memoize menu items with translations (conditionally includes Teams when enabled)
-    const menuItems = useMemo(
-        () => {
-            const items = [...menuItemsConfig];
-            if (teamsEnabled) {
-                // Insert Teams after Client Management
-                const clientIdx = items.findIndex(i => i.textKey === 'menu.clientManagement');
-                items.splice(clientIdx + 1, 0, {
-                    textKey: 'menu.teams',
-                    icon: <GroupsIcon />,
-                    path: '/teams',
-                });
-            }
-            return items.map((item) => ({
-                ...item,
-                text: t(item.textKey) as string,
-            }));
-        },
-        [t, teamsEnabled]
+  const railItem = (key: string, label: string, icon: React.ReactNode, onClick: () => void, selected = false) => {
+    const button = (
+      <ListItemButton
+        key={key}
+        onClick={onClick}
+        selected={selected}
+        sx={{ minHeight: 44, justifyContent: open ? 'initial' : 'center', px: 2.5 }}
+      >
+        <ListItemIcon sx={{ minWidth: 0, mr: open ? 2.5 : 'auto', justifyContent: 'center' }}>{icon}</ListItemIcon>
+        <ListItemText primary={label} sx={{ opacity: open ? 1 : 0, whiteSpace: 'nowrap' }} />
+      </ListItemButton>
     );
-
-    const bottomMenuItems = useMemo(
-        () =>
-            bottomMenuItemsConfig.map((item) => ({
-                ...item,
-                text: t(item.textKey) as string,
-            })),
-        [t]
+    return open ? button : (
+      <Tooltip key={key} title={label} placement="right">
+        {button}
+      </Tooltip>
     );
+  };
 
-    return (
-        <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-            <CssBaseline />
-            <AppBar
-                position="fixed"
-                sx={{
-                    zIndex: (theme: Theme) => theme.zIndex.drawer + 1,
-                    width: '100%',
-                }}
-            >
-                <Toolbar>
-                    <IconButton
-                        color="inherit"
-                        aria-label={t('aria.toggleDrawer') as string}
-                        onClick={handleDrawerToggle}
-                        edge="start"
-                        sx={{ mr: 2 }}
-                    >
-                        {open ? <ChevronLeftIcon /> : <MenuIcon />}
-                    </IconButton>
-                    <Box
-                        sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}
-                    >
-                        <img
-                            src={branding.logo_url ?? '/logo.png'}
-                            alt={
-                                branding.branded
-                                    ? (tCommon('layout.logoAltBranded', { appName: branding.app_name }) as string)
-                                    : (tCommon('layout.logoAlt') as string)
-                            }
-                            style={{ height: 32, maxWidth: 160, objectFit: 'contain', marginRight: 12 }}
-                            onError={fallbackToStockLogo}
-                        />
-                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                            <Typography variant="h6" noWrap component="div" sx={{ lineHeight: 1.2 }}>
-                                {branding.branded ? branding.app_name : (t('appName') as string)}
-                            </Typography>
-                            {branding.branded && (
-                                <Typography
-                                    variant="caption"
-                                    noWrap
-                                    component="div"
-                                    sx={{ lineHeight: 1, opacity: 0.75 }}
-                                >
-                                    {branding.powered_by}
-                                </Typography>
-                            )}
-                        </Box>
-                    </Box>
-                    <Box sx={{ flexGrow: 1 }} />
-                    <TeamFilter />
-                    <Tooltip title={t('aria.downloadCaCert') as string}>
-                        <IconButton
-                            color="inherit"
-                            aria-label={t('aria.downloadCaCert') as string}
-                            onClick={() =>
-                                window.open(
-                                    `http://${window.location.hostname}:1337/ca.crt`,
-                                    '_blank'
-                                )
-                            }
-                            sx={{ ml: 2 }}
-                        >
-                            <DownloadIcon />
-                        </IconButton>
-                    </Tooltip>
-                    <Box sx={{ ml: 2 }}>
-                        <NotificationBell />
-                    </Box>
-                    <UserMenu />
-                </Toolbar>
-            </AppBar>
-            <Drawer
-                variant="permanent"
-                open={open}
-                sx={{
-                    width: open
-                        ? drawerWidth
-                        : (theme: Theme) => theme.spacing(7),
-                    flexShrink: 0,
-                    '& .MuiDrawer-paper': {
-                        width: open
-                            ? drawerWidth
-                            : (theme: Theme) => theme.spacing(7),
-                        overflowX: 'hidden',
-                        borderRight: (theme: Theme) =>
-                            `1px solid ${theme.palette.divider}`,
-                        transition: (theme: Theme) =>
-                            theme.transitions.create('width', {
-                                easing: theme.transitions.easing.sharp,
-                                duration:
-                                    theme.transitions.duration.enteringScreen,
-                            }),
-                        position: 'fixed',
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                    },
-                }}
-            >
-                <Toolbar />
+  const width = (theme: Theme) => (open ? DRAWER_WIDTH : parseInt(theme.spacing(7), 10));
 
-                <List aria-label={t('aria.mainNavigation') as string}>
-                    {menuItems.map((item) => (
-                        <ListItem
-                            button
-                            key={item.textKey}
-                            onClick={() => navigate(item.path)}
-                            selected={location.pathname === item.path}
-                            sx={{
-                                minHeight: 48,
-                                justifyContent: open ? 'initial' : 'center',
-                                px: 2.5,
-                            }}
-                        >
-                            <ListItemIcon
-                                sx={{
-                                    minWidth: 0,
-                                    mr: open ? 3 : 'auto',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                {item.icon}
-                            </ListItemIcon>
-                            <ListItemText
-                                primary={item.text}
-                                sx={{ opacity: open ? 1 : 0 }}
-                            />
-                        </ListItem>
-                    ))}
-                </List>
-
-                {userRole === 'admin' && (
-                    <>
-                        <Divider />
-                        <AdminMenu />
-                    </>
-                )}
-
-                <Box sx={{ flexGrow: 1 }} />
-
-                <Divider />
-                <List>
-                    {bottomMenuItems.map((item) => (
-                        <ListItem
-                            button
-                            key={item.textKey}
-                            onClick={() => navigate(item.path)}
-                            selected={location.pathname === item.path}
-                            sx={{
-                                minHeight: 48,
-                                justifyContent: open ? 'initial' : 'center',
-                                px: 2.5,
-                            }}
-                        >
-                            <ListItemIcon
-                                sx={{
-                                    minWidth: 0,
-                                    mr: open ? 3 : 'auto',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                {item.icon}
-                            </ListItemIcon>
-                            <ListItemText
-                                primary={item.text}
-                                sx={{ opacity: open ? 1 : 0 }}
-                            />
-                        </ListItem>
-                    ))}
-                    <ListItem
-                        button
-                        onClick={handleLogout}
-                        sx={{
-                            minHeight: 48,
-                            justifyContent: open ? 'initial' : 'center',
-                            px: 2.5,
-                        }}
-                    >
-                        <ListItemIcon
-                            sx={{
-                                minWidth: 0,
-                                mr: open ? 3 : 'auto',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <LogoutIcon />
-                        </ListItemIcon>
-                        <ListItemText
-                            primary={t('menu.logout') as string}
-                            sx={{ opacity: open ? 1 : 0 }}
-                        />
-                    </ListItem>
-                </List>
-            </Drawer>
-            <Box
-                component="main"
-                sx={{
-                    flexGrow: 1,
-                    p: 3,
-                    pb: 8, // Add padding bottom to account for fixed footer
-                    ml: (theme: Theme) =>
-                        `${open ? drawerWidth + theme.spacing(1) : theme.spacing(8)}px`,
-                    transition: (theme: Theme) =>
-                        theme.transitions.create(['margin', 'width'], {
-                            easing: theme.transitions.easing.sharp,
-                            duration: theme.transitions.duration.enteringScreen,
-                        }),
-                }}
-            >
-                <Toolbar /> {/* Spacer for AppBar */}
-                <Outlet />
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <AppBar position="fixed" sx={{ zIndex: (theme: Theme) => theme.zIndex.drawer + 1, width: '100%' }}>
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            aria-label={t('aria.toggleDrawer') as string}
+            onClick={() => setOpen((o) => !o)}
+            edge="start"
+            sx={{ mr: 2 }}
+          >
+            {open ? <ChevronLeftIcon /> : <MenuIcon />}
+          </IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, minWidth: 0 }}>
+            <img
+              src={branding.logo_url ?? '/logo.png'}
+              alt={
+                branding.branded
+                  ? (tCommon('layout.logoAltBranded', { appName: branding.app_name }) as string)
+                  : (tCommon('layout.logoAlt') as string)
+              }
+              style={{ height: 32, maxWidth: 160, objectFit: 'contain', marginRight: 12 }}
+              onError={fallbackToStockLogo}
+            />
+            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <Typography variant="h6" noWrap component="div" sx={{ lineHeight: 1.2 }}>
+                {branding.branded ? branding.app_name : (t('appName') as string)}
+              </Typography>
+              {branding.branded && (
+                <Typography variant="caption" noWrap component="div" sx={{ lineHeight: 1, opacity: 0.75 }}>
+                  {branding.powered_by}
+                </Typography>
+              )}
             </Box>
-            <Footer drawerOpen={open} />
+          </Box>
+          <TeamFilter />
+          <Tooltip title={t('aria.downloadCaCert') as string}>
+            <IconButton
+              color="inherit"
+              aria-label={t('aria.downloadCaCert') as string}
+              onClick={() => window.open(`http://${window.location.hostname}:1337/ca.crt`, '_blank')}
+              sx={{ ml: 1 }}
+            >
+              <DownloadIcon />
+            </IconButton>
+          </Tooltip>
+          <Box sx={{ ml: 1 }}>
+            <NotificationBell />
+          </Box>
+          <UserMenu />
+        </Toolbar>
+      </AppBar>
+
+      <Drawer
+        variant="permanent"
+        open={open}
+        sx={{
+          width,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width,
+            overflowX: 'hidden',
+            borderRight: (theme: Theme) => `1px solid ${theme.palette.divider}`,
+            transition: (theme: Theme) =>
+              theme.transitions.create('width', {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+            position: 'fixed',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        }}
+      >
+        <Toolbar />
+        <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', pb: 1 }}>
+          <NavList open={open} />
         </Box>
-    );
+        <Divider />
+        <List disablePadding>
+          {railItem('about', t('menu.about') as string, <InfoIcon />, () => navigate(ROUTES.about), location.pathname === ROUTES.about)}
+          {railItem('logout', t('menu.logout') as string, <LogoutIcon />, handleLogout)}
+        </List>
+      </Drawer>
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          p: 3,
+          pb: 8,
+          // No left margin: the permanent drawer already takes its width in the flex row.
+        }}
+      >
+        <Toolbar />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
+      </Box>
+      <Footer drawerOpen={open} />
+    </Box>
+  );
 };
 
 export default Layout;

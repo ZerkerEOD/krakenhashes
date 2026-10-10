@@ -260,6 +260,7 @@ func isolationRoutes() []isoRoute {
 		{name: "GET client wordlist download", method: "GET", path: func(f *isoFixtures) string {
 			return "/api/clients/" + f.clientA.String() + "/wordlists/" + f.clientWLA.String() + "/download"
 		}, deny: denyClient},
+		{name: "GET client overview", method: "GET", path: client("/overview"), deny: denyClient},
 		{name: "GET client potfile", method: "GET", path: client("/potfile"), deny: denyClient},
 		{name: "GET client potfile download", method: "GET", path: client("/potfile/download"), deny: denyClient},
 		{name: "GET client association-wordlists", method: "GET", path: client("/association-wordlists"), deny: denyClient},

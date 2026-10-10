@@ -46,7 +46,60 @@
     "selectFile": "Bestand selecteren",
     "uploading": "Uploaden...",
     "cancel": "Annuleren",
-    "executableBlocked": "Dit bestand lijkt een uitvoerbaar binair bestand te zijn en kan niet worden geüpload als hashlijst."
+    "executableBlocked": "Dit bestand lijkt een uitvoerbaar binair bestand te zijn en kan niet worden geüpload als hashlijst.",
+    "description": "Beschrijving",
+    "methodLabel": "Uploadmethode",
+    "methodAriaLabel": "uploadmodus",
+    "fileAriaLabel": "bestand uploaden",
+    "pasteAriaLabel": "hashes plakken",
+    "uploadFile": "Bestand uploaden",
+    "pasteHashes": "Hashes plakken",
+    "dropHere": "Zet het hashlijstbestand hier neer...",
+    "dragAndDrop": "Sleep een hashlijstbestand of klik om te selecteren",
+    "allFileTypesExceptExecutables": "Alle bestandstypen aanvaard behalve uitvoerbare bestanden",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "Wissen",
+    "hashCount_one": "{{count}} hash",
+    "hashCount_other": "{{count}} hashes",
+    "hashCountDetected_one": "{{count}} hash gedetecteerd",
+    "hashCountDetected_other": "{{count}} hashes gedetecteerd",
+    "pasteHashesLabel": "Plak hier hashes (één per regel)",
+    "pasteHashesPlaceholder": "Voer hashes in, één per regel...&#10;&#10;Voorbeeld:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Plak uw hashes hierboven, één per regel",
+    "excludeFromGlobalPotfile": "Uitsluiten van globale potfile",
+    "excludeFromGlobalPotfileHelper": "Gekraakte wachtwoorden van deze hashlijst worden niet opgeslagen in de globale potfile",
+    "globalPotfileDisabledNotice": "Opmerking: globale potfile is momenteel uitgeschakeld door beheerdersinstellingen.",
+    "excludeFromClientPotfile": "Uitsluiten van klant-potfile",
+    "excludeFromClientPotfileHelper": "Gekraakte wachtwoorden van deze hashlijst worden niet opgeslagen in de klantspecifieke potfile",
+    "clientPotfilesDisabledNotice": "Opmerking: klant-potfiles zijn uitgeschakeld door beheerdersinstellingen.",
+    "uploadButtonLabel": "Hashlijst uploaden",
+    "selectTeamForNewClient": "Selecteer alstublieft een team voor de nieuwe klant.",
+    "validationCancelled": "Upload geannuleerd. Corrigeer het bestand en probeer opnieuw.",
+    "errors": {
+      "nameRequired": "Naam is vereist",
+      "hashTypeRequired": "Hashtype is vereist",
+      "clientRequired": "Klant is vereist",
+      "noHashesToUpload": "Geen hashes om te uploaden",
+      "uploadFailedWithStatus": "Upload mislukt (HTTP {{status}})",
+      "uploadFailedWithMessage": "Upload mislukt: {{message}}",
+      "uploadFailedUnknown": "Upload mislukt (onbekende fout)",
+      "uploadErrorPrefix": "Fout bij uploaden van hashlijst: {{message}}",
+      "unknownError": "Er is een onbekende fout opgetreden"
+    },
+    "linkDialog": {
+      "title": "LM/NTLM hashes gedetecteerd",
+      "detected": "Pwdump-formaatbestand gedetecteerd met:",
+      "lmCount_one": "{{count}} LM hash (niet-leeg)",
+      "lmCount_other": "{{count}} LM hashes (niet-leeg)",
+      "ntlmCount_one": "{{count}} NTLM hash",
+      "ntlmCount_other": "{{count}} NTLM hashes",
+      "blankLmCount_one": "{{count}} lege LM hash (leeg wachtwoord - wordt overgeslagen)",
+      "blankLmCount_other": "{{count}} lege LM hashes (leeg wachtwoord - worden overgeslagen)",
+      "question": "Wilt u twee gekoppelde hashlijsten maken voor aparte kraakworkflows?",
+      "explanation": "Dit maakt \"{{lmName}}\" en \"{{ntlmName}}\" hashlijsten die met elkaar gekoppeld zijn.",
+      "uploadSingle": "Uploaden als enkele lijst",
+      "createLinked": "Gekoppelde lijsten maken"
+    }
   },
   "actions": {
     "viewDetails": "Details bekijken",
@@ -54,12 +107,154 @@
     "download": "Downloaden",
     "delete": "Verwijderen"
   },
+  "createJob": {
+    "additionalArgs": "Aanvullende hashcat-argumenten (optioneel)",
+    "additionalArgsHelper": "Extra hashcat-vlaggen voor deze taak. Vlaggen op agentniveau hebben voorrang bij conflicten.",
+    "title": "Taak maken voor \"{{name}}\"",
+    "successRedirect": "Taak(en) succesvol aangemaakt! Doorverwijzing naar pagina Taken...",
+    "successDefault": "Taak succesvol aangemaakt!",
+    "loadingDefault": "Bezig met maken...",
+    "loadingCreating": "Taak wordt gemaakt...",
+    "loadingKeyspace": "Keyspace wordt berekend...",
+    "cancel": "Annuleren",
+    "submit": "Taak(en) maken",
+    "canInterrupt": "Kan onderbroken worden",
+    "tabs": {
+      "workflows": "Workflows",
+      "presetJobs": "Vooringestelde taken",
+      "customJob": "Aangepaste taak"
+    },
+    "attackModes": {
+      "dictionary": "Woordenboek",
+      "combination": "Combinatie",
+      "bruteforce": "Brute-force",
+      "hybridWordlistMask": "Hybride woordenlijst + masker",
+      "hybridMaskWordlist": "Hybride masker + woordenlijst",
+      "association": "Associatie",
+      "modeFallback": "Modus {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Selecteer alstublieft ten minste één workflow",
+      "selectPresetJob": "Selecteer alstublieft ten minste één vooringestelde taak",
+      "wordlistRequired": "Geselecteerde aanvalsmodus vereist ten minste één woordenlijst",
+      "combinationRequiresTwo": "Combinatie-aanval vereist dat beide woordenlijsten worden geselecteerd",
+      "maskRequired": "Geselecteerde aanvalsmodus vereist een masker",
+      "associationMixedWorkFactors": "Associatie-aanvallen kunnen niet worden uitgevoerd op hashlijsten met gemengde werkfactoren",
+      "associationWordlistRequired": "Associatie-aanval vereist een associatiewoordenlijst",
+      "chunkDurationMin": "Chunkduur moet minstens 5 seconden zijn",
+      "chunkDurationMax": "Chunkduur kan niet meer dan 24 uur (86400 seconden) zijn",
+      "partialFailure": "{{message}}. Niet aangemaakt: {{details}}",
+      "unnamedItem": "item",
+      "createFailed": "Taak kan niet worden aangemaakt",
+      "loadFailed": "Beschikbare taken kunnen niet worden geladen"
+    },
+    "workflows": {
+      "empty": "Geen workflows beschikbaar. Maak eerst workflows in het beheerderspaneel.",
+      "jobNameHelper": "Uw naam wordt toegevoegd aan elke workflownaam",
+      "description": "Selecteer een of meer workflows om uit te voeren. U kunt meerdere workflows selecteren - elk maakt zijn eigen reeks taakuitvoeringen. Loopback-instellingen worden in de workflow zelf geconfigureerd - een workflow met tag \"Loopback\" voert zijn geschikte stappen automatisch opnieuw uit tegen nieuw gekraakte wachtwoorden.",
+      "jobsCount_one": "{{count}} taak",
+      "jobsCount_other": "{{count}} taken",
+      "loopbackAllEligible": "Loopback: allemaal geschikt",
+      "loopbackSteps_one": "Loopback: {{count}} stap",
+      "loopbackSteps_other": "Loopback: {{count}} stappen",
+      "jobsList": "Taken: {{names}}",
+      "selectedCount_one": "{{count}} workflow geselecteerd",
+      "selectedCount_other": "{{count}} workflows geselecteerd"
+    },
+    "presetJobs": {
+      "empty": "Geen vooringestelde taken beschikbaar. Maak eerst vooringestelde taken in het beheerderspaneel.",
+      "jobNameHelper": "Uw naam wordt met elk taaktype toegevoegd (bijvoorbeeld 'Mijn naam - potfile-run')",
+      "description": "Selecteer een of meer vooringestelde taken om uit te voeren. U kunt meerdere taken selecteren - zij worden als afzonderlijke taakuitvoeringen aangemaakt.",
+      "priorityLabel": "Prioriteit: {{priority}}",
+      "selectedCount_one": "{{count}} taak geselecteerd",
+      "selectedCount_other": "{{count}} taken geselecteerd"
+    },
+    "loopback": {
+      "label": "Loopback tot droog",
+      "helperEligible": "Voert de geselecteerde taak(en) uit, voert vervolgens de veranderbare taken (straight + regels, of een hybride aanval) opnieuw uit tegen alleen de nieuw gekraakte wachtwoorden - herhalend totdat geen nieuwe kraken meer worden gevonden.",
+      "helperSelectEligible": "Selecteer een geschikte voorinstelling (straight + regels, of een hybride aanval) hieronder om loopback in te schakelen.",
+      "helperNoneEligible": "Geen van de geselecteerde taken heeft een mutatie voor loopback (ze zijn woordenlijst-alleen, brute-force of associatie).",
+      "helperFilterConflict": "Loopback is niet beschikbaar terwijl voorfiltering is ingeschakeld voor deze taak.",
+      "helperCustom": "Voert deze aanval uit, voert vervolgens de mutatie ervan (regels of masker) opnieuw uit tegen alleen de nieuw gekraakte wachtwoorden - herhalend totdat geen nieuwe kraken meer worden gevonden."
+    },
+    "filter": {
+      "enableLabel": "Voorfilteren van de geselecteerde woordenlijst(en) voor deze taak",
+      "ephemeralNotice": "Deze gefilterde lijst is tijdelijk en wordt alleen voor deze taak gebruikt. Als u een herbruikbare gefilterde woordenlijst wilt maken, gebruikt u Woordenlijstbeheer. Generatie wordt op de achtergrond uitgevoerd; de taak start automatisch wanneer deze klaar is."
+    },
+    "association": {
+      "explainer": "Associatie-aanval wijst elke hash toe aan een overeenkomende woordenlijstregel 1:1. Het aantal woordenlijstregels moet overeenkomen met het totale hashaantal ({{hashCount}}).",
+      "falsePositiveWarning": "<strong>Opmerking:</strong> Associatie-aanvallen kunnen vals-positieven produceren. Het wordt aanbevolen om resultaten te verifiëren door gekraakte hashes te downloaden, de hashlijst te verwijderen, opnieuw te uploaden en te bevestigen met een woordenboek-aanval.",
+      "wordlistLabel": "Associatiewoordenlijst",
+      "selectWordlist": "Selecteer associatiewoordenlijst",
+      "wordlistOptionLabel": "{{name}} ({{lines}} regels, {{size}} KB)",
+      "wordlistHelper": "Upload associatiewoordenlijsten via het gedeelte Associatiewoordenlijsten van de hashlijst"
+    },
+    "cloud": {
+      "allowBurst": "Cloud Burst toestaan",
+      "allowBurstHelper": "Huur GPU-exemplaren wanneer de on-prem-vloot niet kan meekomen. Vereist dat de klant gefinancierd is en zich heeft aangemeld bij een provider.",
+      "allowPeerHosts": "Peer-beheerde hosts toestaan (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "Dit zijn andermans machines. De eigenaar van de host heeft root over de container, dus de hashes, woordenlijsten en gekraakte platte teksten van deze klant zijn leesbaar voor een derde partij en zijn <strong>niet versleuteld in rust op de host</strong>. Niet aanbevolen voor productie- of klantopdrachtgegevens. Laat dit uit en de taak gebruikt nog steeds veilige capaciteit (AWS, RunPod Secure Cloud) als de klant dit toestaat.",
+      "maxInstances": "Max. cloud-exemplaren",
+      "maxInstancesHelper": "Gescheiden van Max. agents, waarmee de on-prem-groep wordt beheerd. Leeg laat het budget bepalen."
+    },
+    "form": {
+      "jobName": "Taaknaam (optioneel)",
+      "jobNamePlaceholder": "Leeg laten voor automatisch gegenereerde naam",
+      "jobNameHelper": "Leeg laten voor automatisch gegenereerde naam op basis van aanvalsconfiguratie",
+      "attackModeLabel": "Aanvalsmodus",
+      "attackModeDictionary": "Woordenboek-aanval",
+      "attackModeCombination": "Combinatie-aanval",
+      "attackModeBruteforce": "Brute force-aanval",
+      "attackModeHybridWordlistMask": "Hybride woordenlijst + masker",
+      "attackModeHybridMaskWordlist": "Hybride masker + woordenlijst",
+      "attackModeAssociation": "Associatie-aanval",
+      "associationBlockedMixed": " (Geblokkeerd: gemengde werkfactoren)",
+      "associationNoWordlists": " (Geen woordenlijsten geüpload)",
+      "binaryVersionHelper": "Selecteer binaryversiepatroon",
+      "wordlists": "Woordenlijsten",
+      "selectWordlists": "Selecteer woordenlijsten",
+      "ruleOptional": "Regel (optioneel)",
+      "ruleOptionLabel_one": "{{name}} ({{count}} regel)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} regels)",
+      "selectRule": "Selecteer een regel",
+      "firstWordlist": "Eerste woordenlijst",
+      "secondWordlist": "Tweede woordenlijst",
+      "selectFirstWordlist": "Selecteer eerste woordenlijst",
+      "selectSecondWordlist": "Selecteer tweede woordenlijst",
+      "categoryClientSpecific": "Klantspecifiek",
+      "categoryGlobal": "Globaal",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} regels)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} MB)",
+      "clientPotfileName_one": "Klant-potfile ({{count, number}} wachtwoord)",
+      "clientPotfileName_other": "Klant-potfile ({{count, number}} wachtwoorden)",
+      "mask": "Masker",
+      "maskPlaceholder": "bijv. ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = kleine letters, ?u = hoofdletters, ?d = cijfer, ?s = speciaal, ?1-?4 = aangepast",
+      "incrementModeLabel": "Verhogingsmodus",
+      "incrementModeOff": "Uit",
+      "incrementModeForward": "Verhoging (L→R)",
+      "incrementModeInverse": "Verhoging omgekeerd (R→L)",
+      "incrementModeHelper": "Verhoging probeert eerst kortere maskers, groeiend stapsgewijs",
+      "minLength": "Min. lengte",
+      "maxLength": "Max. lengte",
+      "priority": "Prioriteit",
+      "priorityHelper": "Taken met hogere prioriteit worden eerst uitgevoerd (1-1000)",
+      "chunkDuration": "Chunkduur (seconden)",
+      "chunkDurationHelper": "Tijd in seconden voor elke chunk (5-86400 seconden)",
+      "maxAgents": "Max. agents",
+      "maxAgentsHelper": "Maximaal aantal agents (0 = onbeperkt)",
+      "allowHighPriorityOverride": "Overschrijving door hogere prioriteit toestaan",
+      "additionalArgsPlaceholder": "bijv. -w 4 -O --force"
+    }
+  },
   "confirmDelete": {
     "title": "Verwijdering bevestigen",
     "message": "Weet u zeker dat u de hashlijst \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
     "cancel": "Annuleren",
     "delete": "Verwijderen",
-    "deleting": "Verwijderen..."
+    "deleting": "Verwijderen...",
+    "removeFromGlobalPotfile": "Verwijder gekraakte wachtwoorden uit de globale potfile",
+    "removeFromClientPotfile": "Verwijder gekraakte wachtwoorden uit de klant-potfile"
   },
   "deletionProgress": {
     "title": "Hashlijst verwijderen",
@@ -94,8 +289,10 @@
     "downloaded": "{{filename}} gedownload",
     "archiveSuccess": "Hashlijst succesvol gearchiveerd",
     "unarchiveSuccess": "Hashlijst succesvol hersteld",
-    "bulkArchiveSuccess": "{{count}} hashlijst(en) succesvol gearchiveerd",
-    "bulkUnarchiveSuccess": "{{count}} hashlijst(en) succesvol hersteld"
+    "bulkArchiveSuccess_one": "{{count}} hashlijst met succes gearchiveerd",
+    "bulkArchiveSuccess_other": "{{count}} hashlijsten met succes gearchiveerd",
+    "bulkUnarchiveSuccess_one": "{{count}} hashlijst met succes uit het archief gehaald",
+    "bulkUnarchiveSuccess_other": "{{count}} hashlijsten met succes uit het archief gehaald"
   },
   "errors": {
     "loadFailed": "Fout bij ophalen van hashlijsten.",
@@ -113,10 +310,12 @@
     "deleteSelected": "Geselecteerde verwijderen",
     "confirmBulkDelete": {
       "title": "Massaverwijdering bevestigen",
-      "message": "Weet u zeker dat u {{count}} hashlijst(en) wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+      "message_one": "Weet u zeker dat u {{count}} hashlijst wilt verwijderen? Deze actie kan niet ongedaan gemaakt worden.",
+      "message_other": "Weet u zeker dat u {{count}} hashlijsten wilt verwijderen? Deze actie kan niet ongedaan gemaakt worden.",
       "warning": "Dit verwijdert de geselecteerde hashlijsten en alle bijbehorende gegevens permanent."
     },
-    "bulkDeleteSuccess": "{{count}} hashlijst(en) succesvol verwijderd"
+    "bulkDeleteSuccess_one": "{{count}} hashlijst met succes verwijderd",
+    "bulkDeleteSuccess_other": "{{count}} hashlijsten met succes verwijderd"
   },
   "hashDetails": {
     "title": "Hash-details",
@@ -124,5 +323,195 @@
     "password": "Wachtwoord",
     "cracked": "Gekraakt",
     "crackedAt": "Gekraakt op"
+  },
+  "detail": {
+    "backToHashlists": "Terug naar Hashlijsten",
+    "viewCrackedHashes": "Gekraakte hashes weergeven",
+    "noDescription": "Geen beschrijving",
+    "statusLabel": "Status:",
+    "hashType": "Hashtype: {{name}}",
+    "clientLabel": "Klant:",
+    "noClient": "Geen",
+    "editClient": "Klant bewerken",
+    "created": "Aangemaakt: {{date}}",
+    "crackProgress": "Kraakvoortgang ({{cracked}} van {{total}})",
+    "fallbackHashlistName": "Hashlijst",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} regels",
+      "rate": "({{rate}}/sec)",
+      "eta": "• ETA: {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Deze hashlijst wordt verwijderd — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Laden…",
+      "resumeReview": "Beoordeling hervatten",
+      "title": "Deze hashlijst is gepauzeerd en wacht op een validatiebeslissing.",
+      "message": "Hashvalidatie heeft <strong>{{invalidCount}}</strong> van <strong>{{totalLines}}</strong> regels als misvormd gemarkeerd. Open het beoordelingsdialoogvenster om door te gaan met de geldige hashes, het hashtype te wijzigen of de upload te annuleren."
+    },
+    "jobsRun": {
+      "title": "Uitgevoerde taken",
+      "subtitle": "Taken die tegen deze hashlijst zijn uitgevoerd, inclusief gearchiveerde taken.",
+      "empty": "Er zijn nog geen taken tegen deze hashlijst uitgevoerd"
+    },
+    "editClientDialog": {
+      "title": "Klanttoewijzing bewerken",
+      "description": "Selecteer een klant voor deze hashlijst of laat dit leeg om de klanttoewijzing te verwijderen.",
+      "save": "Opslaan",
+      "saving": "Opslaan…"
+    },
+    "notifications": {
+      "clientUpdated": "Klant met succes bijgewerkt",
+      "processingResumed": "Verwerking hervat.",
+      "uploadCancelled": "Upload geannuleerd."
+    },
+    "errors": {
+      "deleteFailed": "Hashlijst kon niet worden verwijderd",
+      "clientUpdateFailed": "Klant kon niet worden bijgewerkt",
+      "clientNotFound": "Klant niet gevonden",
+      "clientLookupFailed": "Klantopzoeking mislukt",
+      "downloadFailed": "Bestand kon niet worden gedownload",
+      "downloadHashlistFailed": "Hashlijst kon niet worden gedownload",
+      "serverError": "Serverfout ({{status}})",
+      "loadInvalidHashesFailed": "Ongeldige hashes konden niet worden geladen"
+    }
+  },
+  "associationWordlists": {
+    "header": "Klantspecifieke woordenlijsten",
+    "blocked": "Geblokkeerd",
+    "blockedTooltip": "Associatie-aanvallen geblokkeerd vanwege gemengde werkfactoren in deze hashlijst",
+    "delete": "Verwijderen",
+    "uploadAssociation": "Associatie-woordenlijst uploaden",
+    "uploadClient": "Klantwoordenlijst uploaden",
+    "uploadingPercent": "Uploaden… {{percent}}%",
+    "emptyAssociation": "Nog geen associatie-woordenlijsten geüpload.",
+    "emptyClient": "Nog geen klantwoordenlijsten geüpload.",
+    "mixedWorkFactorsWarning": "Deze hashlijst heeft gemengde werkfactoren. Associatie-aanvallen kunnen niet worden uitgevoerd op hashlijsten met verschillende bcrypt-kosten of soortgelijke variabele werkfactoren. U kunt nog steeds woordenlijsten uploaden, maar het maken van associatie-aanvaltaken wordt geblokkeerd.",
+    "explainer": "Associatie-woordenlijsten wijzen elke hash 1:1 aan een wachtwoordkandidaat toe op regelnummer. De woordenlijst moet exact <strong>{{lines}}</strong> regels hebben om te passen bij het aantal hashes van deze hashlijst.",
+    "tabs": {
+      "associationAttack": "Associatie-aanval",
+      "clientWordlists": "Klantwoordenlijsten"
+    },
+    "columns": {
+      "fileName": "Bestandsnaam",
+      "lineCount": "Regelaantal",
+      "fileSize": "Bestandsgrootte",
+      "status": "Status",
+      "uploaded": "Geüpload",
+      "actions": "Acties"
+    },
+    "status": {
+      "ready": "Klaar",
+      "lineCountMismatch": "Regelaantal komt niet overeen",
+      "lineCountMismatchTooltip": "Verwacht {{expected}} regels, ontvangen {{actual}}"
+    },
+    "deleteConfirm": {
+      "title": "Woordenlijst verwijderen",
+      "message": "Verwijder \"{{fileName}}\"? Dit kan niet ongedaan gemaakt worden."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Klantwoordenlijsten zijn alleen beschikbaar voor hashlijsten die aan een klant zijn gekoppeld.",
+      "description": "Klantwoordenlijsten zijn beschikbaar voor alle hashlijsten van deze klant. Deze kunnen bij elke aanvalsmodus worden gebruikt, niet alleen bij associatie-aanvallen."
+    },
+    "clientPotfile": {
+      "title": "Klant-potfile (automatisch gegenereerd)",
+      "description": "Deze potfile bevat alle gekraakte wachtwoorden voor deze klant. Ze wordt automatisch bijgewerkt wanneer hashes worden gekraakt.",
+      "passwordCount_one": "{{count}} wachtwoord",
+      "passwordCount_other": "{{count}} wachtwoorden",
+      "updated": "Bijgewerkt: {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "Associatie-woordenlijst verwijderd",
+      "clientDeleted": "Klantwoordenlijst verwijderd",
+      "associationUploaded": "Associatie-woordenlijst met succes geüpload",
+      "clientUploaded": "Klantwoordenlijst met succes geüpload"
+    },
+    "errors": {
+      "deleteFailed": "Woordenlijst kon niet worden verwijderd",
+      "uploadFailed": "Woordenlijst kon niet worden geüpload",
+      "loadAssociationFailed": "Associatie-woordenlijsten konden niet worden geladen",
+      "loadClientFailed": "Klantwoordenlijsten konden niet worden geladen",
+      "lineCountMismatch": "De woordenlijst heeft {{wordlistLines}} regels, maar de hashlijst heeft {{hashlistLines}} geldige hashes."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Klant",
+    "placeholder": "Selecteer een klant…",
+    "createNewClient": "Nieuwe klant aanmaken",
+    "newClientDetails": "Nieuwe klantgegevens",
+    "team": "Team",
+    "teamHelper": "De nieuwe klant wordt aan dit team toegewezen.",
+    "clientName": "Klantnaam",
+    "description": "Beschrijving",
+    "contactInfo": "Contactgegevens",
+    "dataRetention": "Gegevensretentie (maanden)",
+    "dataRetentionPlaceholderDefault": "Systeemstandaard: {{months}}",
+    "dataRetentionPlaceholderUnset": "Niet ingesteld (onbeperkt bewaren)",
+    "dataRetentionHelperDefault": "Laat leeg om systeemstandaard te gebruiken ({{months}} maanden). Stel 0 in om onbeperkt te behouden.",
+    "dataRetentionHelperUnset": "Laat leeg om systeemstandaard te gebruiken. Stel 0 in om onbeperkt te behouden.",
+    "excludeFromGlobalPotfile": "Uitsluiten van de globale potfile",
+    "excludeFromGlobalPotfileHelper": "Gekraakte wachtwoorden van deze klant worden niet aan de globale potfile toegevoegd.",
+    "excludeFromClientPotfile": "Uitsluiten van de klant-potfile",
+    "excludeFromClientPotfileHelper": "Gekraakte wachtwoorden van deze klant worden niet aan hun klantspecifieke potfile toegevoegd.",
+    "errors": {
+      "fetchFailed": "Klanten ophalen mislukt"
+    }
+  },
+  "hashesTable": {
+    "title": "Hashes",
+    "subtitle": "{{cracked}} van {{total}} gekraakt ({{pct}}%)",
+    "searchPlaceholder": "Hashes zoeken…",
+    "ariaLabel": "hashlijst hashes tabel",
+    "copiedToClipboard": "Gekopieerd naar klembord",
+    "copyPassword": "Wachtwoord kopiëren",
+    "copyHash": "Hash kopiëren",
+    "loadFailed": "Hashes laden mislukt",
+    "columns": {
+      "originalHash": "Originele hash",
+      "username": "Gebruikersnaam",
+      "domain": "Domein",
+      "password": "Wachtwoord",
+      "status": "Status"
+    },
+    "status": {
+      "cracked": "Gekraakt",
+      "partial": "Gedeeltelijk",
+      "pending": "In behandeling"
+    }
+  },
+  "validationPreview": {
+    "title": "Hashvalidatie: controleer misvormde regels",
+    "modeFallback": "modus {{id}}",
+    "truncatedNotice": "De eerste 10.000 ongeldige regels worden opgeslagen voor controle; extra ongeldige regels bestaan in het bestand maar worden hier niet vermeld.",
+    "hashTypeLabel": "Hashtype",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Opnieuw valideren…",
+    "revalidateButton": "Opnieuw valideren",
+    "cancelAndFix": "Annuleren en herstellen",
+    "cancelling": "Annuleren…",
+    "starting": "Starten…",
+    "proceedButton": "Doorgaan met {{validCount}} geldige hashes",
+    "noInvalidLines": "Geen ongeldige regels om weer te geven.",
+    "allInvalid": {
+      "body1": "<strong>Geen</strong> van de {{totalLines}} regels in <em>{{hashlistName}}</em> past bij <strong>{{hashTypeName}}</strong>. De hashtypeselectie is waarschijnlijk onjuist.",
+      "body2": "Kies het juiste type hieronder en klik op <strong>Opnieuw valideren</strong> — het bestand blijft geüpload, dus u hoeft niet opnieuw te beginnen."
+    },
+    "notAllInvalid": {
+      "body": "<strong>{{invalidCount}}</strong> van <strong>{{totalLines}}</strong> regels in <em>{{hashlistName}}</em> zijn niet gevalideerd en worden overgeslagen als u doorgaat. <strong>{{validCount}}</strong> geldige hashes worden geïmporteerd."
+    },
+    "chooseActionText": "Kies <strong>Doorgaan met alleen geldige</strong> om de {{validCount}} geldige hashes te importeren (vermelde slechte regels worden genegeerd), of <strong>Annuleren en herstellen</strong> om deze upload te verwijderen, zodat u het bronbestand kunt corrigeren en opnieuw proberen.",
+    "columns": {
+      "line": "Regel",
+      "hashTruncated": "Hash (ingekort)",
+      "reason": "Reden"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "Ongeldige hashes konden niet worden geladen",
+      "proceedFailed": "Doorgaan mislukt",
+      "cancelFailed": "Annulering mislukt",
+      "revalidationFailed": "Opnieuw valideren mislukt"
+    }
   }
 }

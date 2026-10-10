@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#b71c1c" />
+    <meta name="theme-color" content="#171a21" />
     <meta name="description" content="KrakenHashes - Distributed password cracking system for security professionals" />
 
     <link rel="icon" href="/favicon.ico" />
@@ -14,6 +14,20 @@
     <link rel="manifest" href="/manifest.json" />
 
     <title>KrakenHashes</title>
+    <script>
+      // Pre-paint: resolve the stored theme preference before the bundle loads so
+      // the first frame already has the right background (keys mirror styles/tokens.ts).
+      (function () {
+        try {
+          var p = localStorage.getItem('kh.theme-mode');
+          var dark = p === 'dark' || (p !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var r = document.documentElement;
+          r.dataset.mode = dark ? 'dark' : 'light';
+          r.style.colorScheme = dark ? 'dark' : 'light';
+          r.style.backgroundColor = dark ? '#0f1115' : '#f5f6f8';
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

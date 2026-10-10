@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Box, Typography, Button, Paper, CircularProgress, Alert,
+    Box, Typography, Button, CircularProgress, Alert,
     Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField, FormControlLabel, Checkbox,
     FormControl, InputLabel, Select, MenuItem, Divider, SelectChangeEvent
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRowParams, GridActionsCellItem, GridRowSelectionModel } from '@mui/x-data-grid';
+import type { GridColDef, GridRowId, GridRowSelectionModel } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import { getClientCloudDefaults } from '../../services/cloud';
 import { ClientCloudDefaults } from '../../types/cloud';
@@ -12,8 +12,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FolderIcon from '@mui/icons-material/Folder';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
-import { useSnackbar } from 'notistack';
-import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../components/ui/toast';
 import { useTranslation } from 'react-i18next';
 
 import { Client } from '../../types/client';
@@ -23,6 +22,9 @@ import { teamsService, adminTeamsService } from '../../services/teams';
 import { useTeamFilter } from '../../contexts/TeamFilterContext';
 import { useAuth } from '../../contexts/AuthContext';
 import ClientWordlistManagementDialog from '../../components/admin/ClientWordlistManagementDialog';
+import { DataTable, EntityLink, PageHeader } from '../../components/ui';
+import { ROUTES } from '../../constants/routes';
+import { formatDateTime } from '../../utils/formatters';
 
 export const AdminClients: React.FC = () => {
     const { t } = useTranslation('admin');
@@ -60,9 +62,9 @@ export const AdminClients: React.FC = () => {
     const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
     const [bulkAssignTeamId, setBulkAssignTeamId] = useState<string>('');
     const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+    const [search, setSearch] = useState('');
 
-    const { enqueueSnackbar } = useSnackbar();
-    const navigate = useNavigate();
+    const toast = useToast();
     const { teamsEnabled } = useTeamFilter();
     const { userRole } = useAuth();
 
@@ -76,11 +78,11 @@ export const AdminClients: React.FC = () => {
         } catch (err) {
             console.error("Failed to fetch clients:", err);
             setError(t('clients.errors.loadFailed') as string);
-            enqueueSnackbar(t('clients.errors.loadFailed') as string, { variant: 'error' });
+            toast.error(t('clients.errors.loadFailed') as string);
         } finally {
             setLoading(false);
         }
-    }, [enqueueSnackbar]);
+    }, [toast]);
 
     const fetchDefaultRetention = useCallback(async () => {
         console.log("[AdminClients] Fetching default retention...");
@@ -117,8 +119,20 @@ export const AdminClients: React.FC = () => {
     }, [fetchClients, fetchDefaultRetention]);
 
 
-    const columns: GridColDef[] = [
-        { field: 'name', headerName: t('clients.columns.name') as string, flex: 1, minWidth: 150 },
+    const visibleClients = React.useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return clients;
+        return clients.filter((c) => [c.name, c.description, c.contactInfo].some((v) => (v || '').toLowerCase().includes(q)));
+    }, [clients, search]);
+
+    const columns: GridColDef<Client>[] = [
+        {
+            field: 'name',
+            headerName: t('clients.columns.name') as string,
+            flex: 1,
+            minWidth: 150,
+            renderCell: (params) => <EntityLink type="client" id={params.row.id} label={params.row.name} />,
+        },
         { field: 'description', headerName: t('clients.columns.description') as string, flex: 2, minWidth: 200 },
         { field: 'contactInfo', headerName: t('clients.columns.contact') as string, flex: 1, minWidth: 150 },
         {
@@ -127,29 +141,12 @@ export const AdminClients: React.FC = () => {
             width: 100,
             align: 'center',
             headerAlign: 'center',
-            renderCell: (params) => {
-                const crackedCount = params.value || 0;
-                if (crackedCount > 0) {
-                    return (
-                        <Box
-                            sx={{
-                                cursor: 'pointer',
-                                color: 'primary.main',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                },
-                            }}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/pot/client/${params.row.id}`);
-                            }}
-                        >
-                            {crackedCount.toLocaleString()}
-                        </Box>
-                    );
-                }
-                return <span>{crackedCount}</span>;
-            },
+            renderCell: (params) =>
+                (params.value || 0) > 0 ? (
+                    <EntityLink type="pot_client" id={params.row.id} label={Number(params.value).toLocaleString()} />
+                ) : (
+                    '0'
+                ),
         },
         {
             field: 'wordlist_count',
@@ -167,39 +164,19 @@ export const AdminClients: React.FC = () => {
             headerName: t('clients.columns.retention') as string,
             flex: 1,
             minWidth: 150,
+            valueFormatter: (v: number | null) =>
+                v === null || v === undefined
+                    ? (t('clients.detail.retentionDefault', 'System default') as string)
+                    : v === 0
+                    ? (t('clients.detail.retentionForever', 'Keep forever') as string)
+                    : (t('clients.detail.retentionMonths', '{{count}} months', { count: v }) as string),
         },
         {
             field: 'createdAt',
             headerName: t('clients.columns.createdAt') as string,
             flex: 1,
-            minWidth: 180,
-        },
-        {
-            field: 'actions',
-            type: 'actions',
-            headerName: t('clients.columns.actions') as string,
-            width: 130,
-            cellClassName: 'actions',
-            getActions: (params: GridRowParams<Client>) => [
-                <GridActionsCellItem
-                    icon={<FolderIcon />}
-                    label={t('clients.columns.wordlists', 'Wordlists') as string}
-                    onClick={() => handleWordlistClick(params.row)}
-                    color="inherit"
-                />,
-                <GridActionsCellItem
-                    icon={<EditIcon />}
-                    label={t('common.edit') as string}
-                    onClick={() => handleEditClick(params.row)}
-                    color="inherit"
-                />,
-                <GridActionsCellItem
-                    icon={<DeleteIcon />}
-                    label={t('common.delete') as string}
-                    onClick={() => handleDeleteClick(params.row)}
-                    color="inherit"
-                />,
-            ],
+            minWidth: 160,
+            valueFormatter: (v: string) => formatDateTime(v),
         },
     ];
     
@@ -301,7 +278,7 @@ export const AdminClients: React.FC = () => {
         }
         // When creating and teams are enabled, require team selection
         if (!selectedClient && teamsEnabled && !selectedTeamId) {
-            setFormError('Team selection is required when teams are enabled');
+            setFormError(t('clients.validation.teamRequired') as string);
             setIsSaving(false);
             return;
         }
@@ -331,10 +308,10 @@ export const AdminClients: React.FC = () => {
         try {
             if (selectedClient) {
                 await updateClient(selectedClient.id, payload);
-                enqueueSnackbar(t('clients.messages.updateSuccess') as string, { variant: 'success' });
+                toast.success(t('clients.messages.updateSuccess') as string);
             } else {
                 await createClient(payload as Omit<Client, 'id' | 'createdAt' | 'updatedAt'>);
-                enqueueSnackbar(t('clients.messages.createSuccess') as string, { variant: 'success' });
+                toast.success(t('clients.messages.createSuccess') as string);
             }
             fetchClients();
             handleCloseDialog();
@@ -342,7 +319,7 @@ export const AdminClients: React.FC = () => {
             console.error("Failed to save client:", err);
             const message = err.response?.data?.error || t('clients.errors.saveFailed') as string;
             setFormError(message);
-            enqueueSnackbar(message, { variant: 'error' });
+            toast.error(message);
         } finally {
             setIsSaving(false);
         }
@@ -353,13 +330,13 @@ export const AdminClients: React.FC = () => {
         setIsSaving(true);
         try {
             await deleteClient(selectedClient.id);
-            enqueueSnackbar(t('clients.messages.deleteSuccess') as string, { variant: 'success' });
+            toast.success(t('clients.messages.deleteSuccess') as string);
             fetchClients();
             handleCloseDialog();
         } catch (err: any) {
             console.error("Failed to delete client:", err);
             const message = err.response?.data?.error || t('clients.errors.deleteFailed') as string;
-            enqueueSnackbar(message, { variant: 'error' });
+            toast.error(message);
         } finally {
             setIsSaving(false);
             setIsDeleteDialogOpen(false);
@@ -392,18 +369,18 @@ export const AdminClients: React.FC = () => {
                 bulkAssignTeamId,
             );
             const data = response.data;
-            const teamName = availableTeams.find(t => t.id === bulkAssignTeamId)?.name || 'team';
-            enqueueSnackbar(
-                `Assigned ${data.assigned} client(s) to ${teamName}` +
-                (data.already_assigned > 0 ? ` (${data.already_assigned} already assigned)` : ''),
-                { variant: 'success' }
+            const assignedTeamName = availableTeams.find(team => team.id === bulkAssignTeamId)?.name || (t('clients.bulkAssign.fallbackTeamName') as string);
+            toast.success(
+                data.already_assigned > 0
+                    ? t('clients.bulkAssign.successWithSkipped', { count: data.assigned, team: assignedTeamName, skipped: data.already_assigned }) as string
+                    : t('clients.bulkAssign.success', { count: data.assigned, team: assignedTeamName }) as string
             );
             setIsBulkAssignDialogOpen(false);
             setSelectedClientIds([]);
             fetchClients();
         } catch (err: any) {
-            const message = err.response?.data?.error || 'Failed to assign clients to team';
-            enqueueSnackbar(message, { variant: 'error' });
+            const message = err.response?.data?.error || t('clients.bulkAssign.errors.assignFailed') as string;
+            toast.error(message);
         } finally {
             setIsBulkAssigning(false);
         }
@@ -411,59 +388,41 @@ export const AdminClients: React.FC = () => {
 
     return (
         <Box sx={{ width: '100%', p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h4" gutterBottom>
-                    {t('clients.title')}
-                </Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={handleAddClick}
-                >
-                    {t('clients.addClient')}
-                </Button>
-            </Box>
-
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-            {teamsEnabled && userRole === 'admin' && selectedClientIds.length > 0 && (
-                <Paper sx={{ p: 1.5, mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="body2">
-                        {selectedClientIds.length} client{selectedClientIds.length !== 1 ? 's' : ''} selected
-                    </Typography>
-                    <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<GroupAddIcon />}
-                        onClick={handleBulkAssignOpen}
-                    >
-                        Assign to Team
+            <PageHeader
+                title={t('clients.title') as string}
+                actions={
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddClick}>
+                        {t('clients.addClient')}
                     </Button>
-                </Paper>
-            )}
+                }
+            />
 
-            <Paper sx={{ height: '70vh', width: '100%' }}>
-                {loading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <DataGrid
-                        rows={clients}
-                        columns={columns}
-                        pageSizeOptions={[10, 25, 50]}
-                        initialState={{
-                            pagination: {
-                              paginationModel: { pageSize: 10 },
-                            },
-                          }}
-                        checkboxSelection={teamsEnabled && userRole === 'admin'}
-                        disableRowSelectionOnClick
-                        onRowSelectionModelChange={(newSelection) => setSelectedClientIds(newSelection)}
-                        rowSelectionModel={selectedClientIds}
-                    />
+            <DataTable<Client>
+                rows={visibleClients}
+                columns={columns}
+                loading={loading}
+                error={error && clients.length === 0 ? error : undefined}
+                onRetry={() => void fetchClients()}
+                pagination={{ mode: 'client', initialPageSize: 25 }}
+                sorting={{ mode: 'client', initial: [{ field: 'name', sort: 'asc' }] }}
+                tableKey="clients"
+                rowLinkTo={(row) => ROUTES.client(row.id)}
+                toolbar={{
+                    search: { value: search, onChange: setSearch, placeholder: t('clients.search', 'Search clients') as string },
+                }}
+                selection={teamsEnabled && userRole === 'admin' ? { model: selectedClientIds as GridRowId[], onChange: (ids) => setSelectedClientIds(ids) } : undefined}
+                bulkActions={() => (
+                    <Button variant="contained" size="small" startIcon={<GroupAddIcon />} onClick={handleBulkAssignOpen}>
+                        {t('clients.assignToTeam', 'Assign to team') as string}
+                    </Button>
                 )}
-            </Paper>
+                rowActions={() => [
+                    { key: 'wordlists', label: t('clients.columns.wordlists', 'Wordlists') as string, icon: <FolderIcon fontSize="small" />, onClick: handleWordlistClick },
+                    { key: 'edit', label: t('common.edit') as string, icon: <EditIcon fontSize="small" />, onClick: handleEditClick },
+                    { key: 'delete', label: t('common.delete') as string, icon: <DeleteIcon fontSize="small" />, danger: true, placement: 'menu', onClick: handleDeleteClick },
+                ]}
+                emptyState={{ title: t('clients.empty', 'No clients yet') as string, action: { label: t('clients.addClient') as string, onClick: handleAddClick } }}
+            />
 
             <Dialog open={isAddEditDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
                 <DialogTitle>{selectedClient ? t('clients.dialogs.editClient.title') : t('clients.dialogs.addClient.title')}</DialogTitle>
@@ -484,11 +443,11 @@ export const AdminClients: React.FC = () => {
                     {/* Team selection - only shown when creating a new client and teams are enabled */}
                     {!selectedClient && teamsEnabled && (
                         <FormControl fullWidth margin="dense" required>
-                            <InputLabel id="team-select-label">Assign to Team</InputLabel>
+                            <InputLabel id="team-select-label">{t('clients.form.assignToTeam')}</InputLabel>
                             <Select
                                 labelId="team-select-label"
                                 value={selectedTeamId}
-                                label="Assign to Team"
+                                label={t('clients.form.assignToTeam')}
                                 onChange={(e) => setSelectedTeamId(e.target.value)}
                             >
                                 {availableTeams.map((team) => (
@@ -498,7 +457,7 @@ export const AdminClients: React.FC = () => {
                                 ))}
                             </Select>
                             <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
-                                The new client will be assigned to this team. Existing client reassignment is managed via Admin Team Management.
+                                {t('clients.form.assignToTeamHelperText')}
                             </Typography>
                         </FormControl>
                     )}
@@ -601,7 +560,7 @@ export const AdminClients: React.FC = () => {
 
                     <FormControl fullWidth sx={{ mt: 1 }}>
                         <InputLabel id="remove-global-potfile-label">
-                            Remove from global potfile on delete
+                            {t('clients.form.removeFromGlobalPotfileOnDelete')}
                         </InputLabel>
                         <Select
                             labelId="remove-global-potfile-label"
@@ -613,7 +572,7 @@ export const AdminClients: React.FC = () => {
                                     ? 'true'
                                     : 'false'
                             }
-                            label="Remove from global potfile on delete"
+                            label={t('clients.form.removeFromGlobalPotfileOnDelete')}
                             onChange={handleSelectChange}
                         >
                             <MenuItem value="system">
@@ -627,13 +586,13 @@ export const AdminClients: React.FC = () => {
                             </MenuItem>
                         </Select>
                         <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
-                            Controls whether passwords are removed from the global potfile when a hashlist is deleted.
+                            {t('clients.form.removeFromGlobalPotfileHelperText')}
                         </Typography>
                     </FormControl>
 
                     <FormControl fullWidth sx={{ mt: 2 }}>
                         <InputLabel id="remove-client-potfile-label">
-                            Remove from client potfile on delete
+                            {t('clients.form.removeFromClientPotfileOnDelete')}
                         </InputLabel>
                         <Select
                             labelId="remove-client-potfile-label"
@@ -645,7 +604,7 @@ export const AdminClients: React.FC = () => {
                                     ? 'true'
                                     : 'false'
                             }
-                            label="Remove from client potfile on delete"
+                            label={t('clients.form.removeFromClientPotfileOnDelete')}
                             onChange={handleSelectChange}
                         >
                             <MenuItem value="system">
@@ -659,7 +618,7 @@ export const AdminClients: React.FC = () => {
                             </MenuItem>
                         </Select>
                         <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
-                            Controls whether passwords are removed from the client potfile when a hashlist is deleted.
+                            {t('clients.form.removeFromClientPotfileHelperText')}
                         </Typography>
                     </FormControl>
                 </DialogContent>
@@ -701,18 +660,17 @@ export const AdminClients: React.FC = () => {
 
             {/* Bulk Assign to Team Dialog */}
             <Dialog open={isBulkAssignDialogOpen} onClose={() => setIsBulkAssignDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Assign Clients to Team</DialogTitle>
+                <DialogTitle>{t('clients.bulkAssign.dialogTitle')}</DialogTitle>
                 <DialogContent>
                     <DialogContentText sx={{ mb: 2 }}>
-                        Assign {selectedClientIds.length} selected client{selectedClientIds.length !== 1 ? 's' : ''} to a team.
-                        Clients already in the selected team will be skipped.
+                        {t('clients.bulkAssign.dialogDescription', { count: selectedClientIds.length })}
                     </DialogContentText>
                     <FormControl fullWidth required sx={{ mt: 1 }}>
-                        <InputLabel id="bulk-team-select-label">Select Team</InputLabel>
+                        <InputLabel id="bulk-team-select-label">{t('clients.bulkAssign.selectTeam')}</InputLabel>
                         <Select
                             labelId="bulk-team-select-label"
                             value={bulkAssignTeamId}
-                            label="Select Team"
+                            label={t('clients.bulkAssign.selectTeam')}
                             onChange={(e) => setBulkAssignTeamId(e.target.value)}
                         >
                             {availableTeams.map((team) => (
@@ -722,9 +680,9 @@ export const AdminClients: React.FC = () => {
                     </FormControl>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setIsBulkAssignDialogOpen(false)} disabled={isBulkAssigning}>Cancel</Button>
+                    <Button onClick={() => setIsBulkAssignDialogOpen(false)} disabled={isBulkAssigning}>{t('common.cancel')}</Button>
                     <Button onClick={handleBulkAssignConfirm} variant="contained" disabled={!bulkAssignTeamId || isBulkAssigning}>
-                        {isBulkAssigning ? <CircularProgress size={24} /> : 'Assign'}
+                        {isBulkAssigning ? <CircularProgress size={24} /> : t('clients.bulkAssign.assignButton')}
                     </Button>
                 </DialogActions>
             </Dialog>

@@ -1,5 +1,11 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Box, Tooltip, Typography } from '@mui/material';
+import { getStatusTone } from './ui/statusMaps';
+import type { StatusTone } from '../styles/palette';
+
+/** Theme palette path for a status tone (resolved by `sx`). */
+const toneColor = (tone: StatusTone): string => (tone === 'default' ? 'action.disabled' : `${tone}.main`);
 import { JobTask, JobIncrementLayer } from '../types/jobs';
 
 interface JobProgressBarProps {
@@ -44,6 +50,7 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
   height = 40,
   layers,
 }) => {
+  const { t } = useTranslation('jobs');
   // For increment-mode jobs, precompute the per-layer effective-keyspace
   // offset: layer N's display coords = layerOffset[N] + task.effective_start.
   // For non-increment jobs (layers undefined/empty) every task gets offset=0.
@@ -72,19 +79,8 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
     const startPercent = (start / totalKeyspace) * 100;
     const widthPercent = ((end - start) / totalKeyspace) * 100;
 
-    // Determine color based on status
-    let color = '#e0e0e0'; // Default gray for pending
-    if (task.status === 'running') {
-      color = '#ffc107'; // Yellow for running
-    } else if (task.status === 'processing') {
-      color = '#2196f3'; // Blue for processing (hashcat done, saving to DB)
-    } else if (task.status === 'completed') {
-      color = '#4caf50'; // Green for completed
-    } else if (task.status === 'processing_error') {
-      color = '#ff9800'; // Orange for processing error
-    } else if (task.status === 'failed') {
-      color = '#f44336'; // Red for failed
-    }
+    // Colour from the canonical task status map (theme-aware).
+    const color = toneColor(getStatusTone('task', task.status));
 
     return {
       task,
@@ -122,7 +118,7 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
   };
 
   const formatSpeed = (speed?: number): string => {
-    if (!speed) return 'N/A';
+    if (!speed) return t('progressBar.notAvailable') as string;
     if (speed >= 1e12) return `${(speed / 1e12).toFixed(2)} TH/s`;
     if (speed >= 1e9) return `${(speed / 1e9).toFixed(2)} GH/s`;
     if (speed >= 1e6) return `${(speed / 1e6).toFixed(2)} MH/s`;
@@ -134,7 +130,7 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
     <Box sx={{ width: '100%' }}>
       {/* Progress percentage */}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        Overall Progress: {overallProgress.toFixed(2)}%
+        {t('progressBar.overallProgress', { percent: overallProgress.toFixed(2) })}
       </Typography>
       
       {/* Progress bar container */}
@@ -143,10 +139,11 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
           position: 'relative',
           width: '100%',
           height: height,
-          backgroundColor: '#f5f5f5',
+          backgroundColor: 'surface.sunken',
           borderRadius: 1,
           overflow: 'hidden',
-          border: '1px solid #ddd'
+          border: '1px solid',
+          borderColor: 'divider',
         }}
       >
         {/* Render segments */}
@@ -155,31 +152,36 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
             key={segment.task.id}
             title={
               <Box>
-                <Typography variant="body2">Task ID: {segment.task.id.slice(0, 8)}</Typography>
-                <Typography variant="body2">Status: {segment.task.status}</Typography>
+                <Typography variant="body2">{t('progressBar.tooltip.taskId', { id: segment.task.id.slice(0, 8) })}</Typography>
+                <Typography variant="body2">{t('progressBar.tooltip.status', { status: segment.task.status })}</Typography>
                 <Typography variant="body2">
-                  Keyspace: {formatKeyspace(segment.task.effective_keyspace_start ?? segment.task.keyspace_start)} - {formatKeyspace(segment.task.effective_keyspace_end ?? segment.task.keyspace_end)}
+                  {t('progressBar.tooltip.keyspace', {
+                    start: formatKeyspace(segment.task.effective_keyspace_start ?? segment.task.keyspace_start),
+                    end: formatKeyspace(segment.task.effective_keyspace_end ?? segment.task.keyspace_end),
+                  })}
                 </Typography>
                 <Typography variant="body2">
-                  Progress: {(() => {
-                    const p = segment.task.progress_percent ?? 0;
-                    const shown = segment.task.status === 'running' ? Math.min(p, 99.99) : p;
-                    return shown.toFixed(2);
-                  })()}%
+                  {t('progressBar.tooltip.progress', {
+                    percent: (() => {
+                      const p = segment.task.progress_percent ?? 0;
+                      const shown = segment.task.status === 'running' ? Math.min(p, 99.99) : p;
+                      return shown.toFixed(2);
+                    })(),
+                  })}
                 </Typography>
                 {segment.task.benchmark_speed && (
                   <Typography variant="body2">
-                    Speed: {formatSpeed(segment.task.benchmark_speed)}
+                    {t('progressBar.tooltip.speed', { speed: formatSpeed(segment.task.benchmark_speed) })}
                   </Typography>
                 )}
                 {segment.cracksFound > 0 && (
                   <Typography variant="body2">
-                    Cracks Found: {segment.cracksFound}
+                    {t('progressBar.tooltip.cracksFound', { count: segment.cracksFound })}
                   </Typography>
                 )}
                 {segment.task.agent_id && (
                   <Typography variant="body2">
-                    Agent ID: {segment.task.agent_id}
+                    {t('progressBar.tooltip.agentId', { id: segment.task.agent_id })}
                   </Typography>
                 )}
               </Box>
@@ -217,7 +219,8 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
                     left: 0,
                     width: `${Math.min(segment.task.progress_percent ?? 0, 99.99)}%`,
                     height: '100%',
-                    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                    backgroundColor: 'common.white',
+                    opacity: 0.3,
                     transition: 'width 0.3s ease'
                   }}
                 />
@@ -237,7 +240,7 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
                           left: `${crackPosition}%`,
                           width: '2px',
                           height: '100%',
-                          backgroundColor: '#d32f2f',
+                          backgroundColor: 'error.dark',
                           zIndex: 2
                         }}
                       />
@@ -262,7 +265,7 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
             }}
           >
             <Typography variant="body2" color="text.secondary">
-              No tasks assigned yet
+              {t('progressBar.noTasks')}
             </Typography>
           </Box>
         )}
@@ -271,32 +274,32 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
       {/* Legend */}
       <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 16, height: 16, backgroundColor: '#e0e0e0', borderRadius: 0.5 }} />
-          <Typography variant="caption">Pending</Typography>
+          <Box sx={{ width: 16, height: 16, backgroundColor: toneColor('queued'), borderRadius: 0.5 }} />
+          <Typography variant="caption">{t('progressBar.legend.pending')}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 16, height: 16, backgroundColor: '#ffc107', borderRadius: 0.5 }} />
-          <Typography variant="caption">Running</Typography>
+          <Box sx={{ width: 16, height: 16, backgroundColor: toneColor('running'), borderRadius: 0.5 }} />
+          <Typography variant="caption">{t('progressBar.legend.running')}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 16, height: 16, backgroundColor: '#2196f3', borderRadius: 0.5 }} />
-          <Typography variant="caption">Processing</Typography>
+          <Box sx={{ width: 16, height: 16, backgroundColor: toneColor('info'), borderRadius: 0.5 }} />
+          <Typography variant="caption">{t('progressBar.legend.processing')}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 16, height: 16, backgroundColor: '#4caf50', borderRadius: 0.5 }} />
-          <Typography variant="caption">Completed</Typography>
+          <Box sx={{ width: 16, height: 16, backgroundColor: toneColor('success'), borderRadius: 0.5 }} />
+          <Typography variant="caption">{t('progressBar.legend.completed')}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 16, height: 16, backgroundColor: '#ff9800', borderRadius: 0.5 }} />
-          <Typography variant="caption">Processing Error</Typography>
+          <Box sx={{ width: 16, height: 16, backgroundColor: toneColor('warning'), borderRadius: 0.5 }} />
+          <Typography variant="caption">{t('progressBar.legend.processingError')}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 16, height: 16, backgroundColor: '#f44336', borderRadius: 0.5 }} />
-          <Typography variant="caption">Failed</Typography>
+          <Box sx={{ width: 16, height: 16, backgroundColor: toneColor('error'), borderRadius: 0.5 }} />
+          <Typography variant="caption">{t('progressBar.legend.failed')}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 2, height: 16, backgroundColor: '#d32f2f' }} />
-          <Typography variant="caption">Crack Found</Typography>
+          <Box sx={{ width: 2, height: 16, backgroundColor: 'error.dark' }} />
+          <Typography variant="caption">{t('progressBar.legend.crackFound')}</Typography>
         </Box>
       </Box>
     </Box>

@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Bağlantı başarısız. Lütfen ağınızı kontrol edin.",
+    "timeout": "İstek zaman aşımına uğradı. Lütfen tekrar deneyin.",
+    "serverUnavailable": "Sunucu kullanılamıyor. Lütfen daha sonra tekrar deneyin."
+  },
+  "authentication": {
+    "unauthorized": "Bu işlemi gerçekleştirmeye yetkili değilsiniz.",
+    "sessionExpired": "Oturum süreniz doldu. Lütfen tekrar giriş yapın.",
+    "invalidToken": "Geçersiz kimlik doğrulama belirteci.",
+    "loginRequired": "Devam etmek için lütfen giriş yapın."
+  },
+  "validation": {
+    "required": "Bu alan gereklidir.",
+    "invalidEmail": "Lütfen geçerli bir e-posta adresi girin.",
+    "invalidFormat": "Geçersiz biçim.",
+    "tooShort": "En az {{min}} karakter olmalıdır.",
+    "tooLong": "En fazla {{max}} karakter olmalıdır.",
+    "passwordRequirements": "Parola en az 8 karakter olmalı ve büyük harf, küçük harf, rakam ve özel karakter içermelidir."
+  },
+  "api": {
+    "badRequest": "Geçersiz istek. Lütfen girişinizi kontrol edin.",
+    "notFound": "İstenen kaynak bulunamadı.",
+    "conflict": "Bir çakışma oluştu. Kaynak zaten mevcut olabilir.",
+    "serverError": "İç sunucu hatası oluştu.",
+    "rateLimited": "Çok fazla istek. Lütfen bekleyin ve tekrar deneyin."
+  },
+  "file": {
+    "tooLarge": "Dosya çok büyük. Maksimum boyut {{maxSize}}.",
+    "invalidType": "Geçersiz dosya türü. İzin verilen türler: {{allowedTypes}}.",
+    "uploadFailed": "Dosya yükleme başarısız oldu. Lütfen tekrar deneyin."
+  },
+  "generic": {
+    "unknownError": "Bilinmeyen bir hata oluştu.",
+    "tryAgain": "Lütfen tekrar deneyin.",
+    "contactSupport": "Sorun devam ederse, lütfen desteğe başvurun."
+  }
+}

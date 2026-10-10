@@ -1,36 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Box,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  Typography,
-  CircularProgress,
-  Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  InputAdornment,
-  IconButton,
-  Tooltip,
-  Chip,
-} from '@mui/material';
-import {
-  Search as SearchIcon,
-  ContentCopy as CopyIcon,
-} from '@mui/icons-material';
-import { api } from '../../services/api';
-import { useSnackbar } from 'notistack';
+import { useMemo, useState } from 'react';
+import { Box } from '@mui/material';
+import { ContentCopy as CopyIcon } from '@mui/icons-material';
+import type { GridColDef } from '@mui/x-data-grid';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { api } from '../../services/api';
 import CrackedPassword from '../common/CrackedPassword';
+import { DataTable, StatusChip, useToast } from '../ui';
 
 interface HashDetail {
   id: string;
@@ -55,305 +31,147 @@ interface HashlistHashesTableProps {
   crackedHashes: number;
 }
 
-export default function HashlistHashesTable({
-  hashlistId,
-  hashlistName,
-  totalHashes,
-  crackedHashes,
-}: HashlistHashesTableProps) {
-  const [data, setData] = useState<HashDetail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const ellipsis = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
+const mono = { fontFamily: (th: any) => th.typography.monoFamily, fontSize: '0.875rem' };
+
+/** The hashes of one hashlist, server-paginated, with a filter over the current page. */
+export default function HashlistHashesTable({ hashlistId, totalHashes, crackedHashes }: HashlistHashesTableProps) {
+  const toast = useToast();
+  const { t } = useTranslation('hashlists');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(500);
-  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = useState(100);
   const [searchTerm, setSearchTerm] = useState('');
-  const [openAllConfirm, setOpenAllConfirm] = useState(false);
-  const { enqueueSnackbar } = useSnackbar();
-  const { t } = useTranslation('common');
 
-  const pageSizeOptions = [500, 1000, 1500, 2000, -1];
-
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const limit = rowsPerPage === -1 ? -1 : rowsPerPage;
-      const offset = page * (rowsPerPage === -1 ? 0 : rowsPerPage);
-
-      const response = await api.get(
-        `/api/hashlists/${hashlistId}/hashes?limit=${limit}&offset=${offset}`
-      );
-
-      setData(response.data.hashes || []);
-      setTotalCount(response.data.total || 0);
-    } catch (err) {
-      console.error('Error loading hash data:', err);
-      setError('Failed to load hashes');
-      enqueueSnackbar('Failed to load hashes', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rowsPerPage, hashlistId, enqueueSnackbar]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const newRowsPerPage = parseInt(event.target.value, 10);
-
-    if (newRowsPerPage === -1) {
-      setOpenAllConfirm(true);
-    } else {
-      setRowsPerPage(newRowsPerPage);
-      setPage(0);
-    }
-  };
-
-  const handleConfirmAll = () => {
-    setRowsPerPage(-1);
-    setPage(0);
-    setOpenAllConfirm(false);
-    enqueueSnackbar('Loading all results. This may take some time...', {
-      variant: 'info',
-    });
-  };
-
-  const handleCancelAll = () => {
-    setOpenAllConfirm(false);
-  };
+  const query = useQuery({
+    queryKey: ['hashlists', 'detail', hashlistId, 'hashes', page, pageSize],
+    queryFn: async () => {
+      const response = await api.get(`/api/hashlists/${hashlistId}/hashes`, {
+        params: { limit: pageSize, offset: page * pageSize },
+      });
+      return { hashes: (response.data.hashes || []) as HashDetail[], total: (response.data.total || 0) as number };
+    },
+    placeholderData: keepPreviousData,
+  });
+  const data = useMemo(() => query.data?.hashes ?? [], [query.data]);
+  const totalCount = query.data?.total ?? 0;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    enqueueSnackbar('Copied to clipboard', { variant: 'success' });
+    toast.success(t('hashesTable.copiedToClipboard') as string);
   };
 
-  const filteredData = data.filter((hash) => {
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      hash.original_hash.toLowerCase().includes(searchLower) ||
-      (hash.password && hash.password.toLowerCase().includes(searchLower)) ||
-      (hash.username && hash.username.toLowerCase().includes(searchLower)) ||
-      (hash.domain && hash.domain.toLowerCase().includes(searchLower))
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return data;
+    const s = searchTerm.toLowerCase();
+    return data.filter(
+      (h) =>
+        h.original_hash.toLowerCase().includes(s) ||
+        (h.password && h.password.toLowerCase().includes(s)) ||
+        (h.username && h.username.toLowerCase().includes(s)) ||
+        (h.domain && h.domain.toLowerCase().includes(s))
     );
-  });
+  }, [data, searchTerm]);
 
-  if (loading && data.length === 0) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight={400}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const columns = useMemo<GridColDef<HashDetail>[]>(
+    () => [
+      {
+        field: 'original_hash',
+        headerName: t('hashesTable.columns.originalHash') as string,
+        flex: 3,
+        minWidth: 240,
+        // Wrap long hashes inside their own column instead of overflowing neighbours (#50).
+        renderCell: (p) => (
+          <Box component="span" sx={{ ...mono, wordBreak: 'break-all', py: 0.75, lineHeight: 1.4 }}>
+            {p.row.original_hash}
+          </Box>
+        ),
+      },
+      {
+        field: 'username',
+        headerName: t('hashesTable.columns.username') as string,
+        flex: 1,
+        minWidth: 110,
+        renderCell: (p) => <Box component="span" sx={ellipsis}>{p.row.username || '-'}</Box>,
+      },
+      {
+        field: 'domain',
+        headerName: t('hashesTable.columns.domain') as string,
+        flex: 1,
+        minWidth: 110,
+        renderCell: (p) => <Box component="span" sx={ellipsis}>{p.row.domain || '-'}</Box>,
+      },
+      {
+        field: 'password',
+        headerName: t('hashesTable.columns.password') as string,
+        flex: 1.1,
+        minWidth: 120,
+        renderCell: (p) => {
+          const h = p.row;
+          return (
+            <Box component="span" sx={{ ...mono, ...ellipsis }}>
+              {h.is_cracked
+                ? h.password
+                  ? <CrackedPassword password={h.password} />
+                  : '-'
+                : h.is_partially_lm_cracked
+                ? `[${h.lm_first_half_password || '?'}][${h.lm_second_half_password || '?'}]`
+                : '-'}
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'is_cracked',
+        headerName: t('hashesTable.columns.status') as string,
+        width: 110,
+        renderCell: (p) => {
+          const h = p.row;
+          if (h.is_cracked) return <StatusChip entity="generic" status="success" label={t('hashesTable.status.cracked') as string} />;
+          if (h.is_partially_lm_cracked) return <StatusChip entity="generic" status="warning" label={t('hashesTable.status.partial') as string} />;
+          return <StatusChip entity="generic" status="pending" label={t('hashesTable.status.pending') as string} />;
+        },
+      },
+    ],
+    [t]
+  );
 
-  if (error) {
-    return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        {error}
-      </Alert>
-    );
-  }
+  const pct = totalHashes > 0 ? Math.round((crackedHashes / totalHashes) * 100) : 0;
 
   return (
-    <Paper sx={{ width: '100%', mb: 2 }}>
-      <Box sx={{ p: 2 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 2,
-            flexWrap: 'wrap',
-            gap: 2,
-          }}
-        >
-          <Box>
-            <Typography variant="h6" component="div">
-              Hashes
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {crackedHashes} of {totalHashes} cracked (
-              {totalHashes > 0
-                ? Math.round((crackedHashes / totalHashes) * 100)
-                : 0}
-              %)
-            </Typography>
-          </Box>
-          <TextField
-            size="small"
-            placeholder="Search hashes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Box>
-
-        <TableContainer sx={{ overflowX: 'auto' }}>
-          {/* tableLayout: 'fixed' bounds each column so a long Original Hash wraps within
-              its own column (wordBreak on the cell) instead of overflowing into the
-              Username/Domain columns (#50). */}
-          <Table size="small" aria-label="hashlist hashes table" sx={{ tableLayout: 'fixed' }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ width: '40%' }}>Original Hash</TableCell>
-                <TableCell sx={{ width: '15%' }}>Username</TableCell>
-                <TableCell sx={{ width: '15%' }}>Domain</TableCell>
-                <TableCell sx={{ width: '16%' }}>Password</TableCell>
-                <TableCell sx={{ width: '8%' }}>Status</TableCell>
-                <TableCell sx={{ width: '6%' }} align="center">
-                  Actions
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredData.map((hash) => (
-                <TableRow key={hash.id} hover>
-                  <TableCell
-                    sx={{
-                      fontFamily: 'monospace',
-                      fontSize: '0.875rem',
-                      wordBreak: 'break-all',
-                    }}
-                  >
-                    {hash.original_hash}
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {hash.username || '-'}
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {hash.domain || '-'}
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontFamily: 'monospace',
-                      fontSize: '0.875rem',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {hash.is_cracked
-                      ? hash.password
-                        ? <CrackedPassword password={hash.password} />
-                        : '-'
-                      : hash.is_partially_lm_cracked
-                      ? `[${hash.lm_first_half_password || '?'}][${hash.lm_second_half_password || '?'}]`
-                      : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={
-                        hash.is_cracked
-                          ? 'Cracked'
-                          : hash.is_partially_lm_cracked
-                          ? 'Partial'
-                          : 'Pending'
-                      }
-                      color={
-                        hash.is_cracked
-                          ? 'success'
-                          : hash.is_partially_lm_cracked
-                          ? 'warning'
-                          : 'default'
-                      }
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Tooltip
-                      title={
-                        hash.is_cracked && hash.password
-                          ? 'Copy password'
-                          : 'Copy hash'
-                      }
-                    >
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          copyToClipboard(
-                            hash.is_cracked && hash.password
-                              ? hash.password
-                              : hash.original_hash
-                          )
-                        }
-                      >
-                        <CopyIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        <TablePagination
-          rowsPerPageOptions={pageSizeOptions.map((size) => ({
-            label: size === -1 ? t('pagination.all') as string : size.toString(),
-            value: size,
-          }))}
-          component="div"
-          count={totalCount}
-          rowsPerPage={rowsPerPage === -1 ? totalCount : rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage={t('pagination.rowsPerPage') as string}
-        />
-      </Box>
-
-      <Dialog open={openAllConfirm} onClose={handleCancelAll}>
-        <DialogTitle>Load All Results?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Loading all {totalCount.toLocaleString()} results may take a
-            significant amount of time and could impact performance. Are you
-            sure you want to continue?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCancelAll}>Cancel</Button>
-          <Button
-            onClick={handleConfirmAll}
-            variant="contained"
-            color="primary"
-          >
-            Load All
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Paper>
+    <DataTable<HashDetail>
+      rows={filteredData}
+      columns={columns}
+      loading={query.isLoading}
+      fetching={query.isFetching && !query.isLoading}
+      error={query.error ? (t('hashesTable.loadFailed') as string) : undefined}
+      onRetry={() => void query.refetch()}
+      pagination={{
+        mode: 'server',
+        page,
+        pageSize,
+        rowCount: totalCount,
+        pageSizeOptions: [25, 50, 100],
+        onChange: (m) => {
+          setPage(m.pageSize !== pageSize ? 0 : m.page);
+          setPageSize(m.pageSize);
+        },
+      }}
+      sorting={false}
+      toolbar={{
+        title: t('hashesTable.title') as string,
+        subtitle: t('hashesTable.subtitle', { cracked: crackedHashes, total: totalHashes, pct }) as string,
+        search: { value: searchTerm, onChange: setSearchTerm, placeholder: t('hashesTable.searchPlaceholder') as string, debounceMs: 150 },
+      }}
+      rowActions={(row) => [
+        {
+          key: 'copy',
+          label: row.is_cracked && row.password ? (t('hashesTable.copyPassword') as string) : (t('hashesTable.copyHash') as string),
+          icon: <CopyIcon fontSize="small" />,
+          onClick: (r) => copyToClipboard(r.is_cracked && r.password ? r.password : r.original_hash),
+        },
+      ]}
+      aria-label={t('hashesTable.ariaLabel') as string}
+      sx={{ mb: 2 }}
+    />
   );
 }

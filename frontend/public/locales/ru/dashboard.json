@@ -14,7 +14,8 @@
   },
   "recentActivity": {
     "title": "Последняя активность",
-    "noActivity": "Нет недавней активности"
+    "noActivity": "Нет недавней активности",
+    "viewAll": "Все уведомления"
   },
   "quickActions": {
     "title": "Быстрые действия",
@@ -112,5 +113,88 @@
       "maxAgents": "Макс. агентов",
       "actions": "Действия"
     }
+  },
+  "kpi": {
+    "runningJobs": "Выполняемые задания",
+    "queued": "{{count}} в очереди",
+    "agentsOnline": "Агенты в сети",
+    "agentProblems": "{{count}} требуют внимания",
+    "hashRate": "Скорость хеширования",
+    "cracks24h": "Взломано (24ч)",
+    "cracks7d": "{{count}} за 7 дней",
+    "crackRate": "Скорость взлома",
+    "hashlistTotals": "{{cracked}} из {{total}} хешей",
+    "failed24h": "Провалено (24ч)",
+    "completed24h": "{{count}} завершено"
+  },
+  "agentHealth": {
+    "title": "Здоровье агентов",
+    "viewAll": "Все агенты",
+    "utilization": "Использование GPU",
+    "temperature": "Самый горячий GPU",
+    "lastSeen": "Последняя активность: {{when}}",
+    "warnings": {
+      "error": "Ошибка",
+      "offline": "Не в сети",
+      "update_failed": "Обновление не удалось",
+      "stale_heartbeat": "Нет проверки соединения",
+      "gpu_hot": "GPU перегрет"
+    }
+  },
+  "recentCracks": {
+    "title": "Недавние взломы",
+    "viewAll": "Все взломанные хеши",
+    "empty": "Пока ничего не взломано",
+    "copy": "Скопировать открытый текст",
+    "copied": "Скопировано"
+  },
+  "activeJobs": {
+    "title": "Активные задания",
+    "showing": "Показано 10 из {{total}}",
+    "viewAll": "Все задания",
+    "empty": "Ничего не выполняется",
+    "emptyHint": "Запустите задание из списка хешей.",
+    "goHashlists": "Перейти к спискам хешей",
+    "recentTitle": "Задания",
+    "recentSubtitle": "Сначала активные, затем недавно завершённые",
+    "recentEmpty": "Заданий пока нет"
+  },
+  "welcomeUser": "С возвращением, {{name}}",
+  "autoRefresh": {
+    "on": "Активно",
+    "off": "Приостановлено"
+  },
+  "view": {
+    "label": "Вид панели",
+    "mine": "Мои",
+    "teams": "Мои команды",
+    "all": "Все"
+  },
+  "attention": {
+    "title": "Требует внимания",
+    "allClear": "Всё в порядке",
+    "allClearHint": "Ничего не сбоит и не ждёт ваших действий.",
+    "kind": {
+      "job_failed": "Задание завершилось ошибкой: {{name}}",
+      "job_blocked": "Задание ожидает: {{name}}",
+      "hashlist_error": "Не удалось обработать список хешей: {{name}}",
+      "hashlist_awaiting_decision": "Список хешей требует вашей проверки: {{name}}",
+      "hashlist_stuck": "Обработка списка хешей зависла: {{name}}",
+      "agent_error": "Ошибка агента: {{name}}",
+      "agent_update_failed": "Не удалось обновить агент: {{name}}"
+    }
+  },
+  "crackTrend": {
+    "title": "Взломы по дням",
+    "subtitle_few": "{{count}} взломанных хеша за последние {{days}} дн.",
+    "subtitle_many": "{{count}} взломанных хешей за последние {{days}} дн.",
+    "subtitle_one": "{{count}} взломанный хеш за последние {{days}} дн.",
+    "subtitle_other": "{{count}} взломанного хеша за последние {{days}} дн.",
+    "tooltip_few": "{{count}} взломанных хеша",
+    "tooltip_many": "{{count}} взломанных хешей",
+    "tooltip_one": "{{count}} взломанный хеш",
+    "tooltip_other": "{{count}} взломанного хеша",
+    "topHashlists": "Лучшие списки хешей за неделю",
+    "noCracksWeek": "За последние 7 дней взломов нет"
   }
 }
