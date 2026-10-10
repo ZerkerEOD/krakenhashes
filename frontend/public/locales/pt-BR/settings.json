@@ -1,0 +1,391 @@
+{
+  "title": "Configurações do Usuário",
+  "profileSettings": {
+    "title": "Configurações de Perfil"
+  },
+  "profile": {
+    "title": "Perfil",
+    "username": "Nome de usuário",
+    "email": "Email",
+    "changePassword": "Alterar Senha",
+    "currentPassword": "Senha Atual",
+    "newPassword": "Nova Senha",
+    "confirmPassword": "Confirmar Nova Senha",
+    "updateProfile": "Atualizar Perfil",
+    "profileUpdated": "Perfil atualizado com sucesso"
+  },
+  "account": {
+    "title": "Informações da Conta",
+    "username": "Nome de usuário",
+    "email": "Email",
+    "usernameCannotChange": "O nome de usuário não pode ser alterado",
+    "saving": "Salvando...",
+    "saveEmail": "Salvar Email",
+    "confirmEmailUpdate": {
+      "title": "Confirmar Atualização de Email",
+      "message": "Insira sua senha atual para atualizar seu endereço de email."
+    },
+    "errors": {
+      "noChanges": "Nenhuma alteração para salvar",
+      "invalidEmail": "Endereço de email inválido",
+      "updateFailed": "Falha ao atualizar email",
+      "incorrectPassword": "Senha incorreta"
+    },
+    "success": {
+      "emailUpdated": "Email atualizado com sucesso"
+    }
+  },
+  "password": {
+    "title": "Alterar Senha",
+    "currentPassword": "Senha Atual",
+    "newPassword": "Nova Senha",
+    "confirmNewPassword": "Confirmar Nova Senha",
+    "enterCurrentFirst": "Insira a senha atual primeiro",
+    "passwordsMatch": "As senhas correspondem",
+    "changePassword": "Alterar Senha",
+    "changing": "Alterando Senha...",
+    "errors": {
+      "currentRequired": "A senha atual é obrigatória",
+      "newRequired": "A nova senha é obrigatória",
+      "mismatch": "As senhas não correspondem",
+      "requirements": "A nova senha não atende aos requisitos",
+      "updateFailed": "Falha ao atualizar senha"
+    },
+    "success": {
+      "changed": "Senha alterada com sucesso"
+    }
+  },
+  "apiKey": {
+    "title": "Chaves de API",
+    "status": "Status da Chave de API",
+    "active": "Ativa",
+    "noKeyGenerated": "Nenhuma Chave de API Gerada",
+    "created": "Criada",
+    "lastUsed": "Último Uso",
+    "generate": "Gerar Chave de API",
+    "regenerate": "Regenerar Chave de API",
+    "revoke": "Revogar Chave de API",
+    "viewDocs": "Visualizar Documentação da API",
+    "dialog": {
+      "title": "Sua Chave de API",
+      "saveNow": "Salve esta chave agora!",
+      "cantSeeAgain": "Você não poderá vê-la novamente.",
+      "instructions": "Use esta chave de API em suas solicitações HTTP incluindo-a no cabeçalho X-API-Key.",
+      "saved": "Já Salvei"
+    },
+    "confirmRegenerate": {
+      "title": "Regenerar Chave de API?",
+      "warning": "Isto invalidará sua chave de API existente. Qualquer aplicação usando a chave atual deixará de funcionar.",
+      "confirm": "Você tem certeza de que deseja continuar?"
+    },
+    "confirmRevoke": {
+      "title": "Revogar Chave de API?",
+      "warning": "Isto desabilitará imediatamente o acesso à API. Qualquer aplicação usando esta chave deixará de funcionar.",
+      "confirm": "Você tem certeza de que deseja revogar sua chave de API?"
+    },
+    "errors": {
+      "generateFailed": "Falha ao gerar chave de API",
+      "revokeFailed": "Falha ao revogar chave de API"
+    },
+    "success": {
+      "revoked": "Chave de API revogada com sucesso",
+      "copied": "Chave de API copiada para a área de transferência"
+    }
+  },
+  "security": {
+    "title": "Segurança",
+    "caCertificate": {
+      "title": "Certificado CA",
+      "description": "Se estiver usando certificados auto-assinados, baixe e instale o certificado CA para confiar neste servidor.",
+      "download": "Baixar Certificado CA",
+      "docsLink": "Visualizar Documentação SSL/TLS"
+    }
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "never": "Nunca",
+    "invalidDate": "Data inválida",
+    "create": "Criar",
+    "delete": "Deletar"
+  },
+  "mfa": {
+    "title": "Autenticação de Dois Fatores",
+    "status": "Status 2FA",
+    "enabled": "Habilitada",
+    "disabled": "Desabilitada",
+    "enable": "Habilitar 2FA",
+    "disable": "Desabilitar 2FA",
+    "methods": {
+      "title": "Métodos de Autenticação",
+      "totp": "Aplicativo Autenticador",
+      "email": "Email",
+      "backupCodes": "Códigos de Backup",
+      "passkey": "Chave de Acesso"
+    },
+    "setup": {
+      "scanQR": "Digitalize este código QR com seu aplicativo autenticador",
+      "enterCode": "Insira o código do seu aplicativo para verificar",
+      "backupCodesGenerated": "Salve esses códigos de backup em um local seguro"
+    },
+    "methodSelection": {
+      "title": "Escolha o Método de MFA",
+      "description": "Selecione como você gostaria de verificar sua identidade ao fazer login.",
+      "authenticatorDescription": "Use um código baseado em tempo de um aplicativo autenticador como Google Authenticator, Authy ou 1Password.",
+      "passkeyDescription": "Use uma chave de segurança, impressão digital, reconhecimento facial ou PIN do dispositivo para autenticação rápida e segura."
+    },
+    "card": {
+      "title": "Autenticação Multifator",
+      "requiredByPolicy": "MFA é exigida pela política de segurança da sua organização",
+      "enableLabel": "Habilitar Autenticação Multifator",
+      "preferredMethod": "Método de MFA Preferido",
+      "preferredMethodNames": {
+        "authenticator": "Autenticador",
+        "email": "Email",
+        "passkey": "Chave de Acesso"
+      },
+      "emailAuth": "Autenticação por Email",
+      "emailRequired": "Necessária para a segurança da conta",
+      "optional": "Opcional",
+      "required": "Obrigatória",
+      "configured": "Configurada",
+      "notConfigured": "Não configurada",
+      "disable": "Desabilitar",
+      "setup": "Configurar",
+      "passkeys": "Chaves de Acesso",
+      "passkeysRegistered_many": "{{count}} chaves de acesso registradas",
+      "passkeysRegistered_one": "{{count}} chave de acesso registrada",
+      "passkeysRegistered_other": "{{count}} chaves de acesso registradas",
+      "addPasskey": "Adicionar Chave de Acesso",
+      "passkeyAdded": "Adicionada: {{date}}",
+      "passkeyLastUsed": " | Último uso: {{date}}",
+      "rename": "Renomear",
+      "delete": "Deletar",
+      "passkeysUnsupported": "Chaves de acesso não são suportadas neste navegador. Use um navegador moderno para habilitar autenticação por chave de acesso.",
+      "backupCodesRemaining_many": "{{count}} códigos de backup restantes",
+      "backupCodesRemaining_one": "{{count}} código de backup restante",
+      "backupCodesRemaining_other": "{{count}} códigos de backup restantes",
+      "noBackupCodes": "Nenhum código de backup disponível",
+      "regenerate": "Regenerar",
+      "generate": "Gerar"
+    },
+    "dialogs": {
+      "cancel": "Cancelar",
+      "close": "Fechar",
+      "warning": "Aviso",
+      "setupAuthenticatorTitle": "Configurar Aplicativo Autenticador",
+      "qrAlt": "Código QR",
+      "manualEntry": "Se você não conseguir digitalizar o código QR, insira este código manualmente: <strong>{{secret}}</strong>",
+      "scanInstructions": "Digitalize este código QR com seu aplicativo autenticador (por exemplo, Google Authenticator, Authy)",
+      "verificationCode": "Código de Verificação",
+      "verificationPlaceholder": "Insira o código de 6 dígitos",
+      "verify": "Verificar",
+      "backupCodesTitle": "Códigos de Backup",
+      "generateBackupPrompt": "Gere códigos de backup para usar quando você não conseguir acessar seu método de autenticação principal",
+      "generateBackupCodes": "Gerar Códigos de Backup",
+      "saveCodesWarning": "Salve esses códigos em um local seguro. Eles não serão mostrados novamente!",
+      "copied": "Copiado!",
+      "copyAll": "COPIAR TODOS OS CÓDIGOS",
+      "regenerateWarning": "Isto invalidará todos os seus códigos de backup existentes. Você tem certeza de que deseja gerar novos?",
+      "generateNewCodes": "Gerar Novos Códigos",
+      "disableAuthWarning": "Você tem certeza de que deseja desabilitar o autenticador? Isto o removerá da sua conta e você precisará configurá-lo novamente se quiser usá-lo no futuro.",
+      "disableAuthenticator": "Desabilitar Autenticador",
+      "addPasskeyTitle": "Adicionar Chave de Acesso",
+      "addPasskeyDescription": "Registre uma nova chave de acesso (chave de segurança, impressão digital ou dispositivo) para autenticação de dois fatores.",
+      "passkeyName": "Nome da Chave de Acesso",
+      "passkeyNamePlaceholder": "por exemplo, YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn não é suportado neste navegador. Use um navegador moderno.",
+      "webauthnUnsupportedBrowsers": "WebAuthn não é suportado neste navegador. Use um navegador moderno como Chrome, Firefox, Safari ou Edge.",
+      "registering": "Registrando...",
+      "registerPasskey": "Registrar Chave de Acesso",
+      "renamePasskeyTitle": "Renomear Chave de Acesso",
+      "saving": "Salvando...",
+      "save": "Salvar",
+      "deletePasskeyTitle": "Deletar Chave de Acesso",
+      "deletePasskeyConfirm": "Você tem certeza de que deseja deletar a chave de acesso \"{{name}}\"? Esta ação não pode ser desfeita.",
+      "deleting": "Deletando...",
+      "delete": "Deletar",
+      "setupPasskeyTitle": "Configurar Chave de Acesso para MFA",
+      "setupPasskeyDescription": "Registre uma chave de acesso para habilitar autenticação multifator. Use uma chave de segurança, impressão digital, reconhecimento facial ou PIN do dispositivo.",
+      "registerAndEnable": "Registrar e Habilitar MFA"
+    },
+    "messages": {
+      "loadFailed": "Falha ao carregar configurações de MFA",
+      "disabled": "MFA desabilitada com sucesso",
+      "passkeyBrowserRequired": "Autenticação por chave de acesso é necessária, mas seu navegador não suporta WebAuthn. Use um navegador moderno como Chrome, Firefox, Safari ou Edge para habilitar MFA.",
+      "enabledEmail": "MFA habilitada com autenticação por email",
+      "noMethods": "Nenhum método de MFA está disponível. Por favor, entre em contato com seu administrador.",
+      "toggleFailed": "Falha ao alternar MFA",
+      "passkeyNameRequired": "Insira um nome para a chave de acesso",
+      "passkeyRegisteredSaveCodes": "Chave de acesso registrada com sucesso! Por favor, salve seus códigos de backup.",
+      "passkeyRegisteredNoCodes": "Chave de acesso registrada com sucesso. Você pode gerar códigos de backup nas configurações de MFA.",
+      "authenticatorSetupFailed": "Falha ao configurar autenticador",
+      "authenticatorSetup": "Aplicativo autenticador foi configurado com sucesso",
+      "verifyFailed": "Falha ao verificar código",
+      "backupCodesGenerated": "Novos códigos de backup foram gerados",
+      "backupCodesFailed": "Falha ao gerar códigos de backup",
+      "preferredUpdated": "Método MFA preferido atualizado com sucesso",
+      "preferredFailed": "Falha ao atualizar método MFA preferido",
+      "disableAuthFailed": "Falha ao desabilitar autenticador",
+      "authenticatorDisabled": "Autenticador foi desabilitado com sucesso",
+      "newBackupCodesFailed": "Falha ao gerar novos códigos de backup",
+      "newBackupCodesGenerated": "Novos códigos de backup foram gerados com sucesso",
+      "invalidResponse": "Formato de resposta inválido do servidor",
+      "passkeyRegistered": "Passkey registrada com sucesso",
+      "passkeyDeleted": "Passkey excluída com sucesso",
+      "passkeyDeleteFailed": "Falha ao excluir passkey",
+      "passkeyRenamed": "Passkey renomeada com sucesso",
+      "passkeyRenameFailed": "Falha ao renomear passkey"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Contas Vinculadas",
+    "noAccounts": "Nenhuma conta vinculada",
+    "link": "Vincular Conta",
+    "unlink": "Desvincular",
+    "description": "Provedores de autenticação externa vinculados à sua conta",
+    "noAccountsMessage": "Nenhuma conta externa está vinculada ao seu perfil. Você pode vincular contas fazendo login por meio de um provedor SSO.",
+    "emailLabel": "Email: {{email}}",
+    "usernameLabel": "Nome de usuário: {{username}}",
+    "lastLoginLinked": "Último login: {{lastLogin}} | Vinculado: {{linked}}",
+    "unlinkTooltip": "Desvincular conta",
+    "errors": {
+      "loadFailed": "Falha ao carregar contas vinculadas",
+      "unlinkFailed": "Falha ao desvincular conta"
+    },
+    "unlinkDialog": {
+      "title": "Desvincular Conta",
+      "warning": "Você não conseguirá mais fazer login usando este provedor.",
+      "confirmation": "Tem certeza de que deseja desvincular sua conta do {{provider}}?"
+    }
+  },
+  "notifications": {
+    "title": "Notificações",
+    "emailNotifications": "Notificações por Email",
+    "jobCompleted": "Job Concluído",
+    "agentOffline": "Agente Offline",
+    "securityAlerts": "Alertas de Segurança"
+  },
+  "preferences": {
+    "title": "Preferências",
+    "language": "Idioma",
+    "timezone": "Fuso Horário",
+    "dateFormat": "Formato de Data",
+    "theme": "Tema",
+    "themes": {
+      "light": "Claro",
+      "dark": "Escuro",
+      "system": "Sistema"
+    },
+    "languageHelper": "Aplica-se apenas a este navegador.",
+    "themeHelper": "Sistema segue a configuração do seu sistema operacional."
+  },
+  "errors": {
+    "updateFailed": "Falha ao atualizar configurações",
+    "passwordMismatch": "As senhas não correspondem",
+    "invalidPassword": "Senha atual inválida"
+  },
+  "nav": {
+    "description": "Sua conta, segurança e preferências.",
+    "groupAccount": "Conta",
+    "profile": "Perfil",
+    "profileDesc": "Endereço de email, idioma e aparência.",
+    "security": "Segurança",
+    "securityDesc": "Senha, autenticação de dois fatores, contas vinculadas e o certificado CA.",
+    "notifications": "Notificações",
+    "notificationsDesc": "Quais eventos chegam até você e como.",
+    "api": "Chave de API",
+    "apiDesc": "Chave pessoal para a API HTTP.",
+    "charsets": "Charsets Salvos",
+    "charsetsDesc": "Charsets personalizados para ataques de máscara."
+  },
+  "savedCharsets": {
+    "title": "Charsets Salvos",
+    "description": "Gerencie seus charsets personalizados para uso em ataques baseados em máscara. Suporta definições inline e arquivos de charset binários .hcchr.",
+    "createCharset": "Criar Charset",
+    "sections": {
+      "mine": "Meus Charsets",
+      "team": "Charsets da Equipe",
+      "global": "Charsets Globais",
+      "globalSubtitle": "Estes charsets são gerenciados por administradores e disponíveis para todos."
+    },
+    "columns": {
+      "name": "Nome",
+      "team": "Equipe",
+      "definition": "Definição / Informações",
+      "description": "Descrição",
+      "created": "Criado"
+    },
+    "typeLabels": {
+      "file": "Arquivo",
+      "hex": "Hex"
+    },
+    "uniqueBytes_many": "{{count}} bytes únicos",
+    "uniqueBytes_one": "{{count}} byte único",
+    "uniqueBytes_other": "{{count}} bytes únicos",
+    "hexBytes_many": "{{count}} bytes",
+    "hexBytes_one": "{{count}} byte",
+    "hexBytes_other": "{{count}} bytes",
+    "rowActions": {
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "empty": "Nenhum charset nesta categoria.",
+    "dialogs": {
+      "create": {
+        "title": "Criar Charset Pessoal"
+      },
+      "edit": {
+        "title": "Editar Charset"
+      },
+      "delete": {
+        "title": "Excluir charset",
+        "confirmation": "Tem certeza de que deseja excluir o charset \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Definição Inline",
+        "file": "Upload de Arquivo (.hcchr)"
+      },
+      "fields": {
+        "name": "Nome",
+        "namePlaceholder": "ex.: DES Full Charset",
+        "definition": "Definição",
+        "definitionPlaceholderHex": "ex.: 41424344 (pares de bytes hex)",
+        "definitionPlaceholderPlain": "ex.: ?u?d ou abcdef0123456789",
+        "definitionHelperHex": "Pares de bytes hex — cada par = um byte do charset. {{bytes}}",
+        "definitionHelperHexBytes_many": "{{count}} bytes",
+        "definitionHelperHexBytes_one": "{{count}} byte",
+        "definitionHelperHexBytes_other": "{{count}} bytes",
+        "definitionHelperPlain": "Definição de charset do hashcat. Use ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H ou caracteres literais.",
+        "hexTooltip": "Quando ativado, a definição é interpretada como pares de bytes hex (ex.: 41424344 = bytes A, B, C, D). Jobs que usarem este charset terão o --hex-charset injetado automaticamente.",
+        "hexLabel": "Definição codificada em hex",
+        "selectFile": "Selecionar Arquivo .hcchr",
+        "fileSizeBytes_many": "{{count}} bytes",
+        "fileSizeBytes_one": "{{count}} byte",
+        "fileSizeBytes_other": "{{count}} bytes",
+        "fileHelperText": "Arquivo de charset binário contendo valores de byte brutos (máximo de 1023 bytes, até 256 bytes únicos).",
+        "fileCharsetInfo_many": "Charset de arquivo: {{count}} bytes únicos. Apenas nome e descrição podem ser editados.",
+        "fileCharsetInfo_one": "Charset de arquivo: {{count}} byte único. Apenas nome e descrição podem ser editados.",
+        "fileCharsetInfo_other": "Charset de arquivo: {{count}} bytes únicos. Apenas nome e descrição podem ser editados.",
+        "description": "Descrição",
+        "descriptionPlaceholder": "Descrição opcional do uso deste charset"
+      },
+      "update": "Atualizar",
+      "upload": "Enviar"
+    },
+    "messages": {
+      "createSuccess": "Charset criado com sucesso",
+      "uploadSuccess": "Charset de arquivo enviado com sucesso",
+      "updateSuccess": "Charset atualizado com sucesso",
+      "deleteSuccess": "Charset excluído com sucesso"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Somente arquivos .hcchr são permitidos",
+      "fileTooLarge": "Arquivo muito grande (máximo de 1023 bytes — limite do buffer de leitura do hashcat)",
+      "nameRequired": "O nome é obrigatório",
+      "definitionRequired": "A definição é obrigatória",
+      "selectFile": "Selecione um arquivo .hcchr",
+      "deleteFailed": "Falha ao excluir charset: {{message}}",
+      "globalDeleteForbidden": "Charsets globais só podem ser excluídos por administradores no painel de administração"
+    }
+  }
+}

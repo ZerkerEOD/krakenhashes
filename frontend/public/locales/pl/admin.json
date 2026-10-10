@@ -1,0 +1,3238 @@
+{
+  "title": "Ustawienia administracyjne",
+  "sections": {
+    "general": "Ustawienia ogólne",
+    "authentication": "Uwierzytelnianie",
+    "email": "Ustawienia poczty elektronicznej",
+    "security": "Bezpieczeństwo",
+    "sso": "Logowanie jednokrotne",
+    "monitoring": "Monitorowanie"
+  },
+  "tabs": {
+    "emailSettings": "Ustawienia poczty elektronicznej",
+    "authenticationSettings": "Ustawienia uwierzytelniania",
+    "ssoSettings": "Ustawienia logowania jednokrotnego",
+    "binaryManagement": "Zarządzanie plikami binarnymi",
+    "systemSettings": "Ustawienia systemowe",
+    "clientSettings": "Ustawienia klienta",
+    "hashTypes": "Typy haszy",
+    "jobExecution": "Wykonanie zadania",
+    "monitoring": "Monitorowanie",
+    "agentDownloads": "Pobieranie agentów",
+    "notifications": "Powiadomienia",
+    "cloudProvisioning": "Inicjowanie zasobów w chmurze",
+    "serverCertificate": "Certyfikat serwera"
+  },
+  "common": {
+    "cancel": "Anuluj",
+    "create": "Utwórz",
+    "edit": "Edytuj",
+    "delete": "Usuń",
+    "save": "Zapisz",
+    "saveChanges": "Zapisz zmiany",
+    "copyToClipboard": "Skopiuj do schowka",
+    "never": "Nigdy",
+    "invalidDate": "Nieprawidłowa data",
+    "all": "Wszystkie",
+    "yes": "Tak",
+    "no": "Nie",
+    "note": "Uwaga",
+    "default": "Domyślne",
+    "on": "Włączone",
+    "off": "Wyłączone",
+    "none": "Brak",
+    "unlimited": "Bez ograniczeń",
+    "close": "Zamknij",
+    "unknownError": "Nieznany błąd",
+    "dialogs": {
+      "confirmDeleteNamed": "Czy na pewno chcesz usunąć \"{{name}}\"?"
+    },
+    "download": "Pobierz",
+    "confirm": "Potwierdź"
+  },
+  "users": {
+    "title": "Zarządzanie użytkownikami",
+    "description": "Zarządzaj kontami użytkowników i uprawnieniami",
+    "addUser": "Dodaj użytkownika",
+    "createUser": "Utwórz użytkownika",
+    "columns": {
+      "username": "Nazwa użytkownika",
+      "email": "Adres e-mail",
+      "role": "Rola",
+      "status": "Status",
+      "createdAt": "Utworzono",
+      "lastLogin": "Ostatnie logowanie",
+      "actions": "Akcje",
+      "provider": "Dostawca",
+      "providerLocal": "Lokalny",
+      "mfa": "MFA",
+      "apiKey": "Klucz API",
+      "lastApiUse": "Ostatnie użycie API"
+    },
+    "roles": {
+      "admin": "Administrator",
+      "user": "Użytkownik",
+      "system": "System"
+    },
+    "status": {
+      "active": "Aktywny",
+      "pending": "Oczekujący na zatwierdzenie",
+      "disabled": "Wyłączony",
+      "locked": "Zablokowany"
+    },
+    "actions": {
+      "edit": "Edytuj użytkownika",
+      "delete": "Usuń użytkownika",
+      "approve": "Zatwierdź",
+      "disable": "Wyłącz",
+      "enable": "Włącz",
+      "unlock": "Odblokuj",
+      "resetPassword": "Zresetuj hasło",
+      "disableMfa": "Wyłącz MFA",
+      "revokeApiKey": "Odwołaj klucz API",
+      "cannotDeleteSystem": "Nie można usunąć użytkowników systemu",
+      "terminateSession": "Zakończ sesję",
+      "terminateAllSessions": "Zakończ wszystkie sesje"
+    },
+    "apiKey": {
+      "none": "Brak"
+    },
+    "validation": {
+      "usernameRequired": "Nazwa użytkownika jest wymagana",
+      "emailRequired": "Adres e-mail jest wymagany",
+      "emailInvalid": "Nieprawidłowy format adresu e-mail",
+      "passwordRequired": "Hasło jest wymagane",
+      "passwordMinLength": "co najmniej {{value}} znaków",
+      "passwordUppercase": "jedną wielką literę",
+      "passwordLowercase": "jedną małą literę",
+      "passwordNumber": "jedną cyfrę",
+      "passwordSpecial": "jeden znak specjalny",
+      "passwordMustContain": "Hasło musi zawierać {{requirements}}",
+      "confirmPasswordRequired": "Proszę potwierdzić hasło",
+      "passwordsMismatch": "Hasła nie są takie same"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować użytkowników. Proszę spróbować odświeżyć stronę.",
+      "loadDetailsFailed": "Nie udało się załadować szczegółów użytkownika",
+      "loadSessionsFailed": "Nie udało się załadować sesji",
+      "loadLoginAttemptsFailed": "Nie udało się załadować prób logowania",
+      "loadApiKeyFailed": "Nie udało się załadować informacji o kluczu API",
+      "createFailed": "Nie udało się utworzyć użytkownika",
+      "updateFailed": "Nie udało się zaktualizować użytkownika",
+      "deleteFailed": "Nie udało się usunąć użytkownika",
+      "enableFailed": "Nie udało się włączyć użytkownika",
+      "disableFailed": "Nie udało się wyłączyć użytkownika",
+      "unlockFailed": "Nie udało się odblokować konta",
+      "reasonRequired": "Proszę podać przyczynę wyłączenia tego użytkownika",
+      "passwordResetFailed": "Nie udało się zresetować hasła",
+      "mfaDisableFailed": "Nie udało się wyłączyć MFA",
+      "accountStatusFailed": "Nie udało się zaktualizować statusu konta",
+      "terminateSessionFailed": "Nie udało się zakończyć sesji",
+      "terminateAllSessionsFailed": "Nie udało się zakończyć wszystkich sesji",
+      "revokeApiKeyFailed": "Nie udało się odwołać klucza API",
+      "userNotFound": "Nie znaleziono użytkownika"
+    },
+    "messages": {
+      "createSuccess": "Użytkownik został pomyślnie utworzony",
+      "updateSuccess": "Szczegóły użytkownika zostały pomyślnie zaktualizowane",
+      "deleteSuccess": "Użytkownik został pomyślnie usunięty",
+      "enableSuccess": "Użytkownik został pomyślnie włączony",
+      "disableSuccess": "Użytkownik został pomyślnie wyłączony",
+      "passwordResetSuccess": "Hasło zostało pomyślnie zresetowane!",
+      "passwordCopied": "Hasło skopiowane do schowka",
+      "mfaDisableSuccess": "MFA zostało pomyślnie wyłączone",
+      "accountDisabled": "Konto użytkownika wyłączone",
+      "accountEnabled": "Konto użytkownika włączone",
+      "accountUnlocked": "Konto użytkownika odblokowane",
+      "sessionTerminated": "Sesja została pomyślnie zakończona",
+      "allSessionsTerminated_few": "Zakończono pomyślnie {{count}} sesje",
+      "allSessionsTerminated_many": "Zakończono pomyślnie {{count}} sesji",
+      "allSessionsTerminated_one": "Zakończono pomyślnie {{count}} sesję",
+      "allSessionsTerminated_other": "Zakończono pomyślnie {{count}} sesji",
+      "apiKeyRevoked": "Klucz API został pomyślnie odwołany"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Utwórz nowego użytkownika",
+        "password": "Hasło",
+        "confirmPassword": "Potwierdź hasło",
+        "roleHelperText": "Wybierz rolę użytkownika w systemie"
+      },
+      "disableUser": {
+        "title": "Wyłącz konto użytkownika",
+        "description": "Proszę podać przyczynę wyłączenia tego konta użytkownika. Ta akcja będzie zarejestrowana w dzienniku audytu.",
+        "reasonLabel": "Przyczyna wyłączenia",
+        "reasonPlaceholder": "np. Kompromitacja konta, Naruszenie warunków, Żądanie użytkownika itp.",
+        "disableAccount": "Wyłącz konto"
+      },
+      "deleteUser": {
+        "title": "Usuń konto użytkownika",
+        "warning": "Ta czynność nie może być cofnięta. Użytkownik będzie trwale usunięty z systemu.",
+        "confirmation": "Czy na pewno chcesz usunąć użytkownika <strong>{{username}}</strong>?",
+        "dataNote": "Wszystkie powiązane dane zostaną zachowane, ale użytkownik nie będzie już mógł się zalogować."
+      },
+      "resetPassword": {
+        "title": "Zresetuj hasło użytkownika",
+        "generateTemporary": "Wygeneruj hasło tymczasowe",
+        "newPassword": "Nowe hasło",
+        "passwordHelperText": "Musi mieć co najmniej 8 znaków"
+      },
+      "disableMfa": {
+        "title": "Wyłącz MFA",
+        "confirmation": "Czy na pewno chcesz wyłączyć MFA dla tego użytkownika? Będzie musiał je ustawić ponownie, jeśli będzie wymagane."
+      },
+      "terminateSession": {
+        "title": "Zakończyć sesję?",
+        "description": "To wyloguje użytkownika z tego urządzenia. Użytkownik będzie musiał się zalogować ponownie, aby kontynuować korzystanie z aplikacji.",
+        "terminate": "Zakończ"
+      },
+      "terminateAllSessions": {
+        "title": "Zakończyć wszystkie sesje?",
+        "description": "To wyloguje użytkownika ze WSZYSTKICH urządzeń, w tym z jego bieżącej sesji. Użytkownik będzie musiał się zalogować ponownie. Ta czynność nie może być cofnięta.",
+        "warning": "Dotyczy to również aktywnych sesji roboczych!",
+        "terminateAll": "Zakończ wszystko"
+      },
+      "revokeApiKey": {
+        "title": "Odwołać klucz API użytkownika?",
+        "warning": "To natychmiast wyłączy dostęp API dla tego użytkownika. Wszystkie aplikacje korzystające z tego klucza przestaną działać.",
+        "confirmation": "Czy na pewno chcesz odwołać klucz API tego użytkownika?"
+      }
+    },
+    "detail": {
+      "title": "Szczegóły użytkownika",
+      "backToUsers": "Powrót do użytkowników",
+      "userInformation": "Informacje o użytkowniku",
+      "userId": "ID użytkownika",
+      "systemUserReadOnly": "Użytkownicy systemu nie mogą być modyfikowani",
+      "accountStatus": "Status konta",
+      "accountStatusLabel": "Status konta",
+      "enabled": "Włączony",
+      "disabled": "Wyłączony",
+      "noReasonProvided": "Nie podano przyczyny",
+      "lockStatus": "Status blokady",
+      "lockedUntil": "Zablokowany do {{date}}",
+      "notLocked": "Nie zablokowany",
+      "mfaStatus": "Status MFA",
+      "mfaEnabled": "Włączone ({{types}})",
+      "mfaDisabled": "Wyłączone",
+      "apiKeyManagement": "Zarządzanie kluczem API",
+      "apiKeyStatus": "Status klucza API",
+      "noApiKeyGenerated": "Nie wygenerowano klucza API",
+      "created": "Utworzony",
+      "lastUsed": "Ostatnio używany",
+      "apiKeySecurityNote": "Administratorzy mogą odwołać klucze API, ale nie mogą wyświetlać klucza w postaci tekstu jawnego ze względów bezpieczeństwa.",
+      "activityInformation": "Informacje o aktywności",
+      "passwordChanged": "Hasło zmienione",
+      "failedLoginAttempts": "Nieudane próby logowania",
+      "attemptsCount_few": "{{count}} próby",
+      "attemptsCount_many": "{{count}} prób",
+      "attemptsCount_one": "{{count}} próba",
+      "attemptsCount_other": "{{count}} prób",
+      "disabledAt": "Wyłączony dnia",
+      "activeSessions": "Aktywne sesje",
+      "noActiveSessions": "Brak aktywnych sesji",
+      "loginHistory": "Historia logowania",
+      "noLoginAttempts": "Nie znaleziono prób logowania",
+      "temporaryPassword": "Hasło tymczasowe",
+      "sharePasswordSecurely": "Proszę bezpiecznie udostępnić to hasło użytkownikowi.",
+      "sessions": {
+        "ipAddress": "Adres IP",
+        "deviceBrowser": "Urządzenie / Przeglądarka",
+        "lastActive": "Ostatnia aktywność"
+      },
+      "loginAttempts": {
+        "timestamp": "Znacznik czasu",
+        "success": "Sukces",
+        "failed": "Niepowodzenie",
+        "failureReason": "Przyczyna niepowodzenia"
+      },
+      "teams": "Zespoły",
+      "teamName": "Zespół",
+      "teamDescription": "Opis",
+      "noTeams": "Nie jest członkiem żadnego zespołu",
+      "ownedAgents": "Posiadani agenci",
+      "noOwnedAgents": "Ten użytkownik nie posiada żadnych agentów",
+      "agentName": "Agent",
+      "agentVersion": "Wersja",
+      "agentLastSeen": "Ostatnio widziano"
+    }
+  },
+  "clients": {
+    "title": "Zarządzanie klientami",
+    "addClient": "Dodaj klienta",
+    "columns": {
+      "name": "Nazwa",
+      "description": "Opis",
+      "contact": "Kontakt",
+      "cracked": "Złamane",
+      "retention": "Okres przechowywania (miesiące)",
+      "createdAt": "Utworzono",
+      "actions": "Akcje",
+      "wordlists": "Wordlisty"
+    },
+    "form": {
+      "clientName": "Nazwa klienta",
+      "description": "Opis",
+      "contactInfo": "Informacje kontaktowe",
+      "dataRetention": "Okres przechowywania danych (miesiące)",
+      "dataRetentionHelperText": "Pozostaw puste, aby użyć wartości domyślnej systemu. Wpisz 0, aby przechowywać na zawsze.",
+      "excludeFromPotfile": "Wyklucz z potfile (nie zapisuj złamanych haseł)",
+      "excludeFromPotfileHelperText": "Włącz to dla klientów ze ścisłymi wymaganiami dotyczącymi przechowywania danych",
+      "cloudInherit": "Cloud burst: ten klient będzie dziedziczył wartość domyślną serwera — {{state}}, ${{amount}} na {{period}}. Zmień to w Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnfunded": "Cloud burst: nie ustawiono domyślnego budżetu, więc ten klient zaczyna bez finansowania i nie może wynajmować płatnych zasobów. Ustaw wartość domyślną w Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnknown": "Ustawienia Cloud burst są dziedziczone z wartości domyślnych serwera w Cloud Provisioning → Client Budgets.",
+      "cloudEnabledWord": "włączone",
+      "cloudDisabledWord": "wyłączone",
+      "excludeFromClientPotfile": "Wyklucz z potfile klienta",
+      "excludeFromClientPotfileHelperText": "Po zaznaczeniu złamane hasła tego klienta nie będą dodawane do potfile klienta.",
+      "clientPotfileSettings": "Ustawienia usuwania potfile",
+      "useSystemDefault": "Użyj wartości domyślnej systemu",
+      "alwaysRemove": "Zawsze usuwaj",
+      "neverRemove": "Nigdy nie usuwaj",
+      "assignToTeam": "Przypisz do zespołu",
+      "assignToTeamHelperText": "Nowy klient zostanie przypisany do tego zespołu. Zmiana przypisania istniejącego klienta odbywa się poprzez Zarządzanie zespołami.",
+      "removeFromGlobalPotfileOnDelete": "Usuń z globalnego potfile przy usunięciu",
+      "removeFromGlobalPotfileHelperText": "Kontroluje, czy hasła są usuwane z globalnego potfile po usunięciu listy haszy.",
+      "removeFromClientPotfileOnDelete": "Usuń z potfile klienta przy usunięciu",
+      "removeFromClientPotfileHelperText": "Kontroluje, czy hasła są usuwane z potfile klienta po usunięciu listy haszy."
+    },
+    "validation": {
+      "nameRequired": "Nazwa klienta jest wymagana.",
+      "retentionInvalid": "Okres przechowywania musi być liczbą nieujemną lub pusty (dla wartości domyślnej).",
+      "teamRequired": "Wybranie zespołu jest wymagane, gdy zespoły są włączone"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować klientów. Spróbuj odświeżyć stronę.",
+      "loadDefaultSettingsFailed": "Nie udało się załadować domyślnych ustawień klienta.",
+      "saveFailed": "Nie udało się zapisać klienta.",
+      "deleteFailed": "Nie udało się usunąć klienta."
+    },
+    "messages": {
+      "createSuccess": "Klient został pomyślnie utworzony",
+      "updateSuccess": "Klient został pomyślnie zaktualizowany",
+      "deleteSuccess": "Klient został pomyślnie usunięty"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Dodaj nowego klienta",
+        "createButton": "Utwórz klienta"
+      },
+      "editClient": {
+        "title": "Edytuj klienta"
+      },
+      "deleteClient": {
+        "title": "Potwierdź usunięcie",
+        "confirmation": "Czy na pewno usunąć klienta \"{{name}}\"? Ta akcja nie może być cofnięta. Powiązane listy haszy mogą być usunięte natychmiast lub osierocone na podstawie polityk przechowywania danych."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Nazwa",
+        "status": "Status",
+        "total": "Hasze",
+        "cracked": "Złamane",
+        "created": "Utworzono"
+      },
+      "notFound": "Klient nie znaleziony",
+      "notFoundHint": "Może został usunięty lub należy do zespołu, którego nie jesteś członkiem.",
+      "backToClients": "Powrót do klientów",
+      "breadcrumb": "Klienci",
+      "manageWordlists": "Wordlisty i potfile",
+      "stats": {
+        "hashlists": "Listy haszy",
+        "cracked": "Złamane",
+        "jobs": "Zadania",
+        "active": "{{count}} aktywnych",
+        "wordlists": "Wordlisty",
+        "hasPotfile": "Potfile klienta dostępny"
+      },
+      "hashlists": "Listy haszy",
+      "noHashlists": "Ten klient nie ma jeszcze żadnych list haszy.",
+      "jobs": "Zadania",
+      "noJobs": "Żadne zadania nie zostały uruchomione dla tego klienta",
+      "teams": "Zespoły",
+      "noTeams": "Nie przypisany do żadnego zespołu",
+      "policy": "Okres przechowywania i potfile",
+      "retention": "Okres przechowywania danych",
+      "retentionDefault": "Wartość domyślna systemu",
+      "retentionForever": "Przechowywanie na zawsze",
+      "retentionMonths_few": "{{count}} miesiące",
+      "retentionMonths_many": "{{count}} miesięcy",
+      "retentionMonths_one": "{{count}} miesiąc",
+      "retentionMonths_other": "{{count}} miesiąca",
+      "globalPotfile": "Globalny potfile",
+      "excluded": "Wykluczone",
+      "included": "Włączone",
+      "clientPotfile": "Potfile klienta",
+      "contact": "Kontakt",
+      "lastActivity": "Ostatnia aktywność"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Przypisz klientów do zespołu",
+      "dialogDescription_few": "Przypisz {{count}} wybranych klientów do zespołu. Klienci już w wybranym zespole zostaną pominięci.",
+      "dialogDescription_many": "Przypisz {{count}} wybranych klientów do zespołu. Klienci już w wybranym zespole zostaną pominięci.",
+      "dialogDescription_one": "Przypisz {{count}} wybranego klienta do zespołu. Klienci już w wybranym zespole zostaną pominięci.",
+      "dialogDescription_other": "Przypisz {{count}} wybranych klientów do zespołu. Klienci już w wybranym zespole zostaną pominięci.",
+      "selectTeam": "Wybierz zespół",
+      "assignButton": "Przypisz",
+      "fallbackTeamName": "zespołu",
+      "success_few": "Przypisano {{count}} klientów do {{team}}",
+      "success_many": "Przypisano {{count}} klientów do {{team}}",
+      "success_one": "Przypisano {{count}} klienta do {{team}}",
+      "success_other": "Przypisano {{count}} klientów do {{team}}",
+      "successWithSkipped_few": "Przypisano {{count}} klientów do {{team}} ({{skipped}} już przypisanych)",
+      "successWithSkipped_many": "Przypisano {{count}} klientów do {{team}} ({{skipped}} już przypisanych)",
+      "successWithSkipped_one": "Przypisano {{count}} klienta do {{team}} ({{skipped}} już przypisanych)",
+      "successWithSkipped_other": "Przypisano {{count}} klientów do {{team}} ({{skipped}} już przypisanych)",
+      "errors": {
+        "assignFailed": "Nie udało się przypisać klientów do zespołu"
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Zarządzanie wordlistami",
+    "description": "Zarządzaj wordlistami do łamania haseł",
+    "uploadWordlist": "Prześlij wordlistę",
+    "refresh": "Odśwież",
+    "loading": "Ładowanie wordlist...",
+    "noWordlistsFound": "Nie znaleziono wordlist",
+    "tryDifferentSearch": "Spróbuj innego terminu wyszukiwania",
+    "uploadToGetStarted": "Prześlij wordlistę, aby zacząć",
+    "noDescription": "Brak opisu",
+    "searchPlaceholder": "Szukaj wordlist...",
+    "tabs": {
+      "all": "Wszystkie wordlisty",
+      "general": "Ogólne",
+      "specialized": "Specjalistyczne",
+      "targeted": "Kierowane",
+      "custom": "Niestandardowe"
+    },
+    "columns": {
+      "name": "Nazwa",
+      "status": "Status",
+      "type": "Typ",
+      "size": "Rozmiar",
+      "wordCount": "Liczba słów",
+      "updated": "Zaktualizowano",
+      "actions": "Akcje"
+    },
+    "status": {
+      "verified": "Zweryfikowana",
+      "pending": "Oczekująca",
+      "failed": "Nieudana",
+      "missing": "Brak pliku na dysku",
+      "missingSince": "Brak pliku na dysku od {{date}}. Prześlij go ponownie lub usuń wpis."
+    },
+    "types": {
+      "general": "Ogólne",
+      "specialized": "Specjalistyczne",
+      "targeted": "Kierowane",
+      "custom": "Niestandardowe"
+    },
+    "fields": {
+      "name": "Nazwa",
+      "description": "Opis",
+      "wordlistType": "Typ wordlisty"
+    },
+    "tooltips": {
+      "refreshMetadata": "Odśwież metadane",
+      "download": "Pobierz",
+      "edit": "Edytuj",
+      "delete": "Usuń"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować wordlist",
+      "uploadFailed": "Nie udało się przesłać wordlisty",
+      "deleteFailed": "Nie udało się usunąć wordlisty",
+      "downloadFailed": "Nie udało się pobrać wordlisty",
+      "refreshFailed": "Nie udało się odświeżyć metadanych wordlisty",
+      "updateFailed": "Nie udało się zaktualizować wordlisty: {{error}}",
+      "sessionExpired": "Sesja wygasła. Zaloguj się ponownie."
+    },
+    "messages": {
+      "uploadSuccess": "Wordlista przesłana pomyślnie",
+      "duplicateWordlist": "Wordlista \"{{name}}\" już istnieje",
+      "deleteSuccess": "Wordlista \"{{name}}\" usunięta pomyślnie",
+      "updateSuccess": "Wordlista zaktualizowana pomyślnie",
+      "refreshSuccess": "Metadane wordlisty odświeżone pomyślnie"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Prześlij wordlistę",
+        "fileUploadTitle": "Prześlij plik wordlisty",
+        "fileUploadDescription": "Wybierz plik wordlisty do przesłania. Obsługiwane formaty: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Edytuj wordlistę"
+      },
+      "delete": {
+        "title": "Potwierdź usunięcie",
+        "cascadeTitle": "Potwierdź usuwanie kaskadowe",
+        "confirmation": "Czy na pewno usunąć wordlistę \"{{name}}\"? Ta akcja nie może być cofnięta.",
+        "cascadeWarning": "Usunięcie wordlisty \"{{name}}\" spowoduje również usunięcie następujących:",
+        "checkingDependencies": "Sprawdzanie zależności...",
+        "jobsCount_few": "{{count}} Zadania (oczekujące/uruchomione/nieudane):",
+        "jobsCount_many": "{{count}} Zadań (oczekujące/uruchomione/nieudane):",
+        "jobsCount_one": "{{count}} Zadanie (oczekujące/uruchomione/nieudane):",
+        "jobsCount_other": "{{count}} Zadania (oczekujące/uruchomione/nieudane):",
+        "presetJobsCount_few": "{{count}} Szablony zadań:",
+        "presetJobsCount_many": "{{count}} Szablonów zadań:",
+        "presetJobsCount_one": "{{count}} Szablon zadania:",
+        "presetJobsCount_other": "{{count}} Szablony zadań:",
+        "workflowStepsCount_few": "{{count}} Kroki przepływu pracy:",
+        "workflowStepsCount_many": "{{count}} Kroków przepływu pracy:",
+        "workflowStepsCount_one": "{{count}} Krok przepływu pracy:",
+        "workflowStepsCount_other": "{{count}} Kroki przepływu pracy:",
+        "emptyWorkflowsCount_few": "{{count}} Puste przepływy pracy zostaną usunięte:",
+        "emptyWorkflowsCount_many": "{{count}} Pustych przepływów pracy zostanie usuniętych:",
+        "emptyWorkflowsCount_one": "{{count}} Pusty przepływ pracy zostanie usunięty:",
+        "emptyWorkflowsCount_other": "{{count}} Puste przepływy pracy zostaną usunięte:",
+        "noHashlist": "Brak listy haszy",
+        "step": "Krok {{order}}",
+        "andMore": "...i {{count}} więcej",
+        "confirmationPrompt": "Aby potwierdzić to usuwanie kaskadowe, wpisz ID wordlisty: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Wpisz {{id}}, aby potwierdzić",
+        "idMismatch": "ID nie pasuje",
+        "deleteAll": "Usuń wszystko"
+      }
+    },
+    "filterForm": {
+      "helpText": "Wszystkie kryteria są łączone (AND) — słowo musi spełniać każde ustawione. Jeśli wyrażenie regularne jest bardziej restrykcyjne niż pola długości (np. minimalna długość 8, ale regex wymaga 12+), bardziej restrykcyjna reguła wygrywa. Poniższe oszacowanie odzwierciedla łączny wynik.",
+      "minLength": "Minimalna długość",
+      "maxLength": "Maksymalna długość",
+      "requiredClasses": "Wymagane klasy znaków",
+      "uppercase": "Wielkie litery",
+      "lowercase": "Małe litery",
+      "digit": "Cyfra",
+      "special": "Specjalne",
+      "minClasses": "Minimum # klas (1-4)",
+      "minClassesHelp": "np. 3 = co najmniej 3 z 4 klas",
+      "regexLabel": "Regex (RE2)",
+      "regexHelperDefault": "np. ^.{10,16}$",
+      "regexLookaroundError": "Asercje ((?=…), (?!…), (?<=…), (?<!…)) nie są obsługiwane przez silnik regex na backendzie (RE2). Zamiast tego użyj filtrów długości/klasy.",
+      "regexInvalidDefault": "Nieprawidłowe wyrażenie regularne",
+      "estimating": "Szacowanie…",
+      "previewTooltip": "Szacowane na podstawie pobierania próbki z początku wordlisty źródłowej. W przypadku posortowanych list rzeczywista suma może się różnić.",
+      "previewLabel": "~{{countDisplay}} kandydatów ({{rateDisplay}}% próbki)",
+      "previewUnavailable": "Podgląd niedostępny"
+    },
+    "filtered": {
+      "badge": "Filtrowana",
+      "regeneratingBadge": "Regenerowanie…",
+      "regeneratingTooltip": "Wordlista źródłowa się zmieniła; ta filtrowana wordlista jest regenerowana (tylko nowe wpisy są ponownie filtrowane, jeśli to możliwe).",
+      "staleBadge": "Nieświeża",
+      "staleTooltip": "Wordlista źródłowa zmieniła się od czasu generowania. Filtrowane wordlisty są automatycznie regenerowane, gdy zmienia się ich wordlista źródłowa; można je również zregenerować teraz.",
+      "namePlaceholder": "{{name}} (filtrowana)",
+      "wordCount_few": "{{count}} słowa",
+      "wordCount_many": "{{count}} słów",
+      "wordCount_one": "{{count}} słowo",
+      "wordCount_other": "{{count}} słowa",
+      "plaintextChip": "nieskompresowana",
+      "compressedChip": "skompresowana",
+      "messages": {
+        "generating": "Filtrowana wordlista jest generowana",
+        "createFailed": "Nie udało się utworzyć filtrowanej wordlisty",
+        "regenerating": "Rozpoczęto pełną regenerację filtrowanej wordlisty",
+        "regenerateFailed": "Nie udało się regenerować filtrowanej wordlisty"
+      },
+      "createDialog": {
+        "title": "Utwórz filtrowaną wordlistę",
+        "description": "Wygeneruj nową wordlistę zawierającą tylko linie wordlisty źródłowej, które pasują do podanych kryteriów. Wynik można ponownie wykorzystywać między zadaniami i jest śledzony w stosunku do jego wordlisty źródłowej.",
+        "sourceWordlistLabel": "Wordlista źródłowa",
+        "nameLabel": "Nazwa",
+        "create": "Utwórz"
+      },
+      "regenerateDialog": {
+        "title": "Regenerować filtrowaną wordlistę?",
+        "autoInfo": "Filtrowane wordlisty są normalnie regenerowane <strong>automatycznie na backendzie</strong>, gdy zmieniają się ich wordlisty źródłowe — nie trzeba robić tego ręcznie.",
+        "manualHint": "Ręczną regenerację należy wykonywać tylko wtedy, gdy wiadomo, że <strong>zmienił się porządek słów w wordliście źródłowej</strong> (słowa zostały edytowane, usunięte lub przereorganizowane, a nie po prostu dodane na koniec).",
+        "warningWithExample": "To uruchamia <strong>pełną regenerację</strong> — cała wordlista źródłowa jest ponownie filtrowana, co może zająć trochę czasu dla dużych wordlist (np. \"{{name}}\").",
+        "warningNoExample": "To uruchamia <strong>pełną regenerację</strong> — cała wordlista źródłowa jest ponownie filtrowana, co może zająć trochę czasu dla dużych wordlist.",
+        "confirmButton": "Regeneruj w pełni"
+      }
+    }
+  },
+  "rules": {
+    "title": "Zarządzanie regułami",
+    "description": "Zarządzaj regułami Hashcat do łamania haseł",
+    "uploadRule": "Wgraj regułę",
+    "refresh": "Odśwież",
+    "loading": "Ładowanie reguł...",
+    "noRulesFound": "Nie znaleziono reguł",
+    "tryDifferentSearch": "Spróbuj innego terminu wyszukiwania",
+    "uploadToGetStarted": "Wgraj regułę, aby rozpocząć",
+    "noDescription": "Nie podano opisu",
+    "searchPlaceholder": "Wyszukaj reguły...",
+    "tabs": {
+      "all": "Wszystkie reguły",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Nazwa",
+      "status": "Status",
+      "type": "Typ",
+      "size": "Rozmiar",
+      "ruleCount": "Liczba reguł",
+      "updated": "Zaktualizowano",
+      "actions": "Akcje"
+    },
+    "status": {
+      "verified": "Zweryfikowana",
+      "pending": "Oczekująca",
+      "failed": "Nieudana",
+      "ready": "Gotowa",
+      "processing": "Przetwarzanie",
+      "missing": "Plik nie znaleziony na dysku",
+      "missingSince": "Plik nie znaleziony na dysku od {{date}}. Wgraj go ponownie lub usuń wpis."
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Nazwa",
+      "description": "Opis",
+      "ruleType": "Typ reguły"
+    },
+    "tooltips": {
+      "download": "Pobierz",
+      "edit": "Edytuj",
+      "delete": "Usuń"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować reguły",
+      "uploadFailed": "Nie udało się wgrać reguły",
+      "deleteFailed": "Nie udało się usunąć reguły",
+      "downloadFailed": "Nie udało się pobrać reguły",
+      "updateFailed": "Nie udało się zaktualizować reguły: {{error}}",
+      "verifyFailed": "Nie udało się zweryfikować reguły",
+      "sessionExpired": "Sesja wygasła. Zaloguj się ponownie."
+    },
+    "messages": {
+      "uploadSuccess": "Reguła wgrana pomyślnie",
+      "duplicateRule": "Reguła \"{{name}}\" już istnieje",
+      "deleteSuccess": "Reguła \"{{name}}\" usunięta pomyślnie",
+      "updateSuccess": "Reguła zaktualizowana pomyślnie",
+      "verifySuccess": "Reguła \"{{name}}\" zweryfikowana pomyślnie"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Wgraj regułę",
+        "fileUploadTitle": "Wgraj plik reguły",
+        "fileUploadDescription": "Wybierz plik reguły do wgrania. Obsługiwane formaty: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Edytuj regułę"
+      },
+      "delete": {
+        "title": "Potwierdź usunięcie",
+        "cascadeTitle": "Potwierdź usunięcie kaskadowe",
+        "confirmation": "Czy na pewno chcesz usunąć regułę \"{{name}}\"? Tej czynności nie można cofnąć.",
+        "cascadeWarning": "Usunięcie reguły \"{{name}}\" spowoduje również usunięcie następujących:",
+        "checkingDependencies": "Sprawdzanie zależności...",
+        "jobsCount_few": "{{count}} Zadania (oczekujące/uruchomione/nieudane):",
+        "jobsCount_many": "{{count}} Zadań (oczekujące/uruchomione/nieudane):",
+        "jobsCount_one": "{{count}} Zadanie (oczekujące/uruchomione/nieudane):",
+        "jobsCount_other": "{{count}} Zadań (oczekujące/uruchomione/nieudane):",
+        "presetJobsCount_few": "{{count}} Szablony zadań:",
+        "presetJobsCount_many": "{{count}} Szablonów zadań:",
+        "presetJobsCount_one": "{{count}} Szablon zadania:",
+        "presetJobsCount_other": "{{count}} Szablonów zadań:",
+        "workflowStepsCount_few": "{{count}} Kroki przepływu pracy:",
+        "workflowStepsCount_many": "{{count}} Kroków przepływu pracy:",
+        "workflowStepsCount_one": "{{count}} Krok przepływu pracy:",
+        "workflowStepsCount_other": "{{count}} Kroków przepływu pracy:",
+        "emptyWorkflowsCount_few": "{{count}} Puste przepływy pracy zostaną usunięte:",
+        "emptyWorkflowsCount_many": "{{count}} Pustych przepływów pracy zostanie usuniętych:",
+        "emptyWorkflowsCount_one": "{{count}} Pusty przepływ pracy zostanie usunięty:",
+        "emptyWorkflowsCount_other": "{{count}} Pustych przepływów pracy zostanie usuniętych:",
+        "noHashlist": "Brak listy haszy",
+        "step": "Krok {{order}}",
+        "andMore": "...i {{count}} więcej",
+        "confirmationPrompt": "Aby potwierdzić usunięcie kaskadowe, wpisz ID reguły: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Wpisz {{id}}, aby potwierdzić",
+        "idMismatch": "ID się nie zgadza",
+        "deleteAll": "Usuń wszystko"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Zarządzanie szablonami zadań",
+    "createNew": "Stwórz szablon zadania",
+    "confirmDelete": "Czy na pewno chcesz usunąć ten szablon zadania?",
+    "noJobsFound": "Nie znaleziono szablonów zadań. Stwórz jeden, aby rozpocząć.",
+    "keyspaceNotCalculated": "Nie obliczona",
+    "calculating": "Obliczanie...",
+    "calculateKeyspace": "Oblicz przestrzeń kluczy",
+    "calculateAllMissingKeyspaces": "Oblicz wszystkie brakujące przestrzenie kluczy",
+    "calculatingKeyspaces": "Obliczanie...",
+    "calculatingAllKeyspacesMessage": "Obliczanie przestrzeni kluczy dla wszystkich szablonów zadań. To może chwilę potrwać...",
+    "canInterruptRunningJobs": "Może przerwać uruchomione zadania",
+    "columns": {
+      "name": "Nazwa",
+      "description": "Opis",
+      "attackMode": "Tryb ataku",
+      "priority": "Priorytet",
+      "highPriorityOverride": "Zastąpienie wysokiego priorytetu",
+      "maxAgents": "Maks. agentów",
+      "keyspace": "Przestrzeń kluczy",
+      "binaryVersion": "Wersja binarna",
+      "wordlists": "Wordlisty",
+      "rules": "Reguły",
+      "createdAt": "Utworzono",
+      "actions": "Akcje"
+    },
+    "messages": {
+      "deleteSuccess": "Szablon zadania usunięty pomyślnie",
+      "deleteFailed": "Nie udało się usunąć szablonu zadania: {{error}}",
+      "fetchError": "Błąd podczas ładowania szablonów zadań: {{error}}",
+      "deleteError": "Błąd podczas usuwania szablonu zadania: {{error}}",
+      "keyspaceRecalculateSuccess": "Przestrzeń kluczy obliczona pomyślnie",
+      "keyspaceRecalculateFailed": "Nie udało się obliczyć przestrzeni kluczy: {{error}}",
+      "keyspaceAllComplete": "Zaktualizowano {{updated}}, pominięto {{skipped}}, nie powiodło się {{failed}}",
+      "keyspaceAllFailed": "Nie udało się obliczyć przestrzeni kluczy: {{error}}"
+    },
+    "form": {
+      "createTitle": "Stwórz szablon zadania",
+      "editTitle": "Edytuj szablon zadania",
+      "createJob": "Stwórz szablon zadania",
+      "updateJob": "Zaktualizuj szablon zadania",
+      "attackModeRequirements": "Wymagania trybu ataku",
+      "wordlistSelectionCombination": "Wybór wordlisty (Tryb kombinacji)",
+      "selectFirstWordlist": "Wybierz pierwszą wordlistę",
+      "selectSecondWordlist": "Wybierz drugą wordlistę",
+      "fields": {
+        "jobName": "Nazwa zadania",
+        "attackMode": "Tryb ataku",
+        "priority": "Priorytet",
+        "chunkSize": "Czas trwania porcji (sekund)",
+        "maxAgents": "Maks. agentów",
+        "maskPattern": "Wzór maski",
+        "incrementMode": "Tryb inkrementacji",
+        "incrementMin": "Minimalna długość inkrementacji",
+        "incrementMax": "Maksymalna długość inkrementacji",
+        "wordlists": "Wordlisty",
+        "rules": "Reguły",
+        "mask": "Maska",
+        "ruleOptional": "Reguła (opcjonalnie)",
+        "firstWordlist": "Pierwsza wordlista",
+        "secondWordlist": "Druga wordlista",
+        "allowHighPriorityOverride": "Zezwól na zastąpienie wysokiego priorytetu (może przerwać uruchomione zadania)",
+        "additionalArgs": "Dodatkowe argumenty Hashcat",
+        "cloudBurstEnabled": "Zezwól na doraźne korzystanie z chmury",
+        "cloudMaxInstances": "Maks. instancji w chmurze",
+        "cloudAllowCommunityHosts": "Zezwól na hosty obsługiwane przez społeczność (Vast.ai, RunPod Community)"
+      },
+      "incrementModes": {
+        "off": "Wyłączone (użyj pełnej maski)",
+        "increment": "Inkrementacja (1 do max)",
+        "incrementInverse": "Inkrementacja odwrotna (max do 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Wybierz wersję binarną hashcat do użycia",
+        "priority": "Zadania o wyższym priorytecie uruchamiają się najpierw (0-{{maxPriority}})",
+        "maskPattern": "Wzór maski Hashcat (np. ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=małe litery, ?u=duże litery, ?d=cyfra, ?s=znaki specjalne, ?a=wszystko",
+        "incrementMode": "Użyj trybu inkrementacji, aby spróbować masek o różnych długościach",
+        "incrementMin": "Minimalna długość maski do spróbowania",
+        "incrementMax": "Maksymalna długość maski do spróbowania",
+        "chunkSize": "Czas trwania każdej porcji pracy w sekundach",
+        "maxAgents": "Maksymalna liczba agentów (0 = bez ograniczeń)",
+        "allowHighPriorityOverride": "Po włączeniu to zadanie może przerwać zadania o niższym priorytecie, aby przejąć ich agentów",
+        "wordlistsNotUsed": "Wordlisty nie są używane dla tego trybu ataku",
+        "selectWordlists_few": "Wybierz dokładnie {{count}} wordlisty",
+        "selectWordlists_many": "Wybierz dokładnie {{count}} wordlist",
+        "selectWordlists_one": "Wybierz dokładnie {{count}} wordlistę",
+        "selectWordlists_other": "Wybierz dokładnie {{count}} wordlist",
+        "rulesNotUsed": "Reguły nie są używane dla tego trybu ataku",
+        "selectRule": "Opcjonalnie wybierz plik reguły, aby zastosować transformacje",
+        "firstWordlist": "Słowa z tej listy będą użyte jako pierwsza część",
+        "secondWordlist": "Słowa z tej listy będą dołączone do pierwszej",
+        "additionalArgs": "Dodatkowe flagi hashcat dla tego zadania. Flagi na poziomie agenta mają priorytet w przypadku konfliktów.",
+        "cloudBurstEnabled": "Wynajmuje instancje GPU dla zadań utworzonych na podstawie tego szablonu, gdy flota lokalnych agentów nie nadąża. Wymaga, aby klient miał finansowanie i zaakceptował dostawcę.",
+        "cloudMaxInstances": "Niezależne od ustawienia Maks. agentów, które rządzi wspólną pulą lokalną. Pozostaw puste, aby budżet decydował.",
+        "cloudAllowCommunityHosts": "To są maszyny kogoś innego. Właściciel hosta ma dostęp root do kontenera, więc hasze, wordlisty i złamane teksty jawne tego klienta mogą być czytane przez stronę trzecią i nie są szyfrowane na hoście. Nie jest zalecane dla danych produkcyjnych lub danych zlecenia klienckiego. Wyłącz to, a zadania będą nadal korzystać z bezpiecznych zasobów (AWS, RunPod Secure Cloud), jeśli klient na to pozwoli.",
+        "prefilteredWordlistHint": "Aby użyć wstępnie filtrowanej wordlisty w szablonie zadania, najpierw utwórz ją w Zarządzaniu wordlistami — pojawi się wtedy na tej liście. Filtrowanie efemeryczne w linii jest dostępne tylko dla jednorazowych zadań niestandardowych."
+      },
+      "errors": {
+        "nameRequired": "Nazwa zadania jest wymagana",
+        "binaryVersionRequired": "Wersja binarna jest wymagana",
+        "straightModeWordlist": "Tryb ataku Straight wymaga dokładnie 1 wordlisty",
+        "combinationModeWordlists": "Tryb ataku Combination wymaga dokładnie 2 wordlist",
+        "selectBothWordlists": "Wybierz obie wordlisty dla trybu kombinacji",
+        "bruteForceModeMask": "Tryb ataku brute force wymaga maski",
+        "hybridModeWordlist": "Tryb ataku Hybrid wymaga dokładnie 1 wordlisty",
+        "hybridModeMask": "Tryb ataku Hybrid wymaga maski",
+        "associationModeNotImplemented": "Tryb ataku Association nie został zaimplementowany",
+        "noWordlistsAvailable": "Brak dostępnych wordlist. Najpierw wgraj wordlisty.",
+        "loadFailed": "Nie udało się załadować szablonu zadania",
+        "loadFormDataFailed": "Nie udało się załadować danych formularza",
+        "saveFailed": "Nie udało się zapisać szablonu zadania"
+      },
+      "messages": {
+        "createSuccess": "Szablon zadania stworzony pomyślnie",
+        "updateSuccess": "Szablon zadania zaktualizowany pomyślnie"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Straight",
+          "description": "Używa słów z wordlisty, opcjonalnie stosując regułę do ich transformacji",
+          "wordlistRequirement": "Wymagana dokładnie 1 wordlista",
+          "rulesRequirement": "0 lub 1 plik reguł",
+          "maskRequirement": "Maska nie jest potrzebna"
+        },
+        "combination": {
+          "name": "Combination",
+          "description": "Łączy słowa z dwóch wordlist (pierwsze_słowo + drugie_słowo)",
+          "wordlistRequirement": "Wymagane dokładnie 2 wordlisty",
+          "rulesRequirement": "Reguły nie są potrzebne",
+          "maskRequirement": "Maska nie jest potrzebna"
+        },
+        "bruteForce": {
+          "name": "Brute Force (Maska)",
+          "description": "Generuje hasła na podstawie wzoru/maski",
+          "wordlistRequirement": "Wordlista nie jest potrzebna",
+          "rulesRequirement": "Reguły nie są potrzebne",
+          "maskRequirement": "Maska wymagana (np. ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Hybrid: Wordlista + Maska",
+          "description": "Dołącza znaki generowane przez maskę do słów z wordlisty",
+          "wordlistRequirement": "Wymagana dokładnie 1 wordlista",
+          "rulesRequirement": "Reguły nie są potrzebne",
+          "maskRequirement": "Maska wymagana (np. ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Hybrid: Maska + Wordlista",
+          "description": "Poprzedza znaki generowane przez maskę do słów z wordlisty",
+          "wordlistRequirement": "Wymagana dokładnie 1 wordlista",
+          "rulesRequirement": "Reguły nie są potrzebne",
+          "maskRequirement": "Maska wymagana (np. ?d?d?d?d)"
+        },
+        "association": {
+          "name": "Association (Niezaimplementowany)",
+          "description": "Ten tryb ataku nie jest obecnie zaimplementowany",
+          "wordlistRequirement": "N/A",
+          "rulesRequirement": "N/A",
+          "maskRequirement": "N/A"
+        }
+      }
+    }
+  },
+  "workflows": {
+    "title": "Zarządzanie przepływami pracy zadań",
+    "create": "Utwórz przepływ pracy",
+    "deleteTitle": "Usuń przepływ pracy",
+    "confirmDelete": "Czy na pewno chcesz usunąć przepływ pracy \"{{name}}\"?",
+    "noWorkflowsFound": "Nie znaleziono przepływów pracy. Utwórz jeden, aby rozpocząć.",
+    "canInterrupt": "Może przerwać",
+    "normal": "Normalny",
+    "loopbackAllEligible": "Wszystkie kwalifikujące się",
+    "loopbackStepCount_few": "{{count}} kroki",
+    "loopbackStepCount_many": "{{count}} kroków",
+    "loopbackStepCount_one": "{{count}} krok",
+    "loopbackStepCount_other": "{{count}} kroki",
+    "columns": {
+      "name": "Nazwa",
+      "description": "Opis",
+      "steps": "Kroki",
+      "jobCount": "Zadania",
+      "highPriority": "Tryb priorytetu",
+      "loopback": "Pętla zwrotna",
+      "created": "Utworzono",
+      "lastUpdated": "Ostatnia aktualizacja",
+      "actions": "Działania"
+    },
+    "messages": {
+      "loadFailed": "Nie udało się załadować przepływów pracy",
+      "deleteFailed": "Nie udało się usunąć przepływu pracy"
+    },
+    "form": {
+      "createTitle": "Utwórz przepływ pracy",
+      "editTitle": "Edytuj przepływ pracy",
+      "createWorkflow": "Utwórz przepływ pracy",
+      "saveChanges": "Zapisz zmiany",
+      "workflowSteps": "Kroki przepływu pracy",
+      "noJobsAdded": "Nie dodano jeszcze żadnych zadań do tego przepływu pracy. Wyszukaj i dodaj szablony zadań powyżej.",
+      "priority": "Priorytet: {{priority}}",
+      "binary": "Plik binarny: {{name}}",
+      "wordlistCount_few": "{{count}} wordlisty",
+      "wordlistCount_many": "{{count}} wordlist",
+      "wordlistCount_one": "{{count}} wordlista",
+      "wordlistCount_other": "{{count}} wordlisty",
+      "ruleCount_few": "{{count}} reguły",
+      "ruleCount_many": "{{count}} reguł",
+      "ruleCount_one": "{{count}} reguła",
+      "ruleCount_other": "{{count}} reguły",
+      "loopback": {
+        "masterToggle": "Włącz pętlę zwrotną dla wszystkich kwalifikujących się kroków",
+        "masterHelperText": "Po włączeniu cały przepływ pracy zostanie wykonany, a następnie każdy kwalifikujący się krok (atak słownikowy + reguły lub atak hybrydowy wordlista ± maska) zostanie ponownie uruchomiony tylko dla nowo złamanych haseł — powtarzając inteligentnie, aż nie będą znalezione żadne nowe złamane hasze. Kroki bez mutacji (tylko wordlista, atak brute force, asocjacyjny) wciąż dostarczają swoje nowe złamane hasze do pętli. Poniższe przełączniki dla poszczególnych kroków są wyłączone, gdy ta opcja jest włączona.",
+        "stepLabel": "Pętla zwrotna",
+        "tooltipIneligible": "Nic do zmutowania (tylko wordlista, atak brute force, asocjacyjny lub kombinator). Ten krok wciąż dostarczy swoje nowe złamane hasze do pętli, ale nie zostanie ponownie uruchomiony.",
+        "tooltipMasterOn": "Pętla zwrotna na poziomie przepływu pracy jest włączona, więc każdy kwalifikujący się krok zostanie objęty pętlą zwrotną.",
+        "tooltipStep": "Ponownie uruchom ten krok tylko dla nowo złamanych haseł, aż nie będą znalezione żadne nowe złamane hasze."
+      },
+      "fields": {
+        "workflowName": "Nazwa przepływu pracy",
+        "searchPresetJobs": "Wyszukaj szablony zadań"
+      },
+      "helperText": {
+        "searchPresetJobs": "Wyszukaj szablony zadań, aby dodać je do tego przepływu pracy"
+      },
+      "errors": {
+        "nameRequired": "Nazwa przepływu pracy jest wymagana",
+        "presetJobRequired": "Wymagany jest co najmniej jeden szablon zadania",
+        "noPresetJobsAvailable": "Brak dostępnych szablonów zadań. Najpierw utwórz szablony zadań.",
+        "loadFailed": "Nie udało się załadować przepływu pracy",
+        "loadFormDataFailed": "Nie udało się załadować danych formularza",
+        "saveFailed": "Nie udało się zapisać przepływu pracy"
+      },
+      "messages": {
+        "createSuccess": "Przepływ pracy został pomyślnie utworzony",
+        "updateSuccess": "Przepływ pracy został pomyślnie zaktualizowany"
+      },
+      "cloudBurst": {
+        "toggle": "Zezwól na cloud burst dla każdego kroku",
+        "helperText": "Dotyczy wszystkich kroków, zastępując ustawienia każdego szablonu. Ustaw na poziomie przepływu pracy, aby jedna wynajęta instancja mogła przeprowadzić cały przepływ pracy, zamiast być likwidowana i wynajmowana na nowo między krokami."
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Zarządzanie plikami binarnymi",
+    "title": "Pliki binarne hashcat",
+    "addBinary": "Dodaj plik binarny",
+    "showingActiveOnly": "Wyświetlane są tylko aktywne pliki binarne",
+    "showingAll": "Wyświetlane są wszystkie pliki binarne",
+    "noBinaries": "Nie znaleziono plików binarnych",
+    "noActiveBinaries": "Nie znaleziono aktywnych plików binarnych",
+    "default": "Domyślny",
+    "verifyBinary": "Weryfikuj plik binarny",
+    "deleteBinary": "Usuń plik binarny",
+    "sourceUpload": "Wgranie",
+    "sourceUrl": "Adres URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Wersja",
+      "type": "Typ",
+      "source": "Źródło",
+      "size": "Rozmiar",
+      "status": "Status",
+      "default": "Domyślny",
+      "lastVerified": "Ostatnia weryfikacja",
+      "actions": "Działania"
+    },
+    "messages": {
+      "fetchFailed": "Nie udało się pobrać plików binarnych",
+      "verifySuccess": "Plik binarny został pomyślnie zweryfikowany",
+      "verifyFailed": "Nie udało się zweryfikować pliku binarnego",
+      "deleteSuccess": "Plik binarny został pomyślnie usunięty",
+      "deleteFailed": "Nie udało się usunąć pliku binarnego",
+      "cannotDeleteLast": "Nie można usunąć ostatniego aktywnego pliku binarnego {{type}}",
+      "cannotDeleteOnly": "Nie można usunąć jedynego pliku binarnego tego typu",
+      "setDefaultSuccess": "Domyślny plik binarny został pomyślnie zaktualizowany",
+      "setDefaultFailed": "Nie udało się ustawić domyślnego pliku binarnego",
+      "addSuccess": "Plik binarny został pomyślnie dodany",
+      "addFailed": "Nie udało się dodać pliku binarnego"
+    },
+    "deleteDialog": {
+      "title": "Potwierdź usunięcie",
+      "message": "Czy na pewno chcesz usunąć plik binarny \"{{fileName}}\"? Tego działania nie można cofnąć."
+    },
+    "form": {
+      "addDialogTitle": "Dodaj nowy plik binarny",
+      "sourceLabel": "Źródło",
+      "downloadFromUrl": "Pobierz z adresu URL",
+      "uploadFile": "Wgraj plik",
+      "binaryTypeLabel": "Typ pliku binarnego",
+      "johnPending": "John the Ripper (wsparcie w oczekiwaniu)",
+      "compressionTypeLabel": "Typ kompresji",
+      "sourceUrlLabel": "Adres URL źródła",
+      "sourceUrlHelp": "Adres URL do pobrania pliku binarnego (np. https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Wybierz plik archiwum",
+      "uploadHelp": "Wgraj archiwum .7z, .zip, .tar.gz lub .tar.xz zawierające plik binarny",
+      "fileNameLabel": "Nazwa pliku",
+      "fileNameHelp": "Wypełniane automatycznie z adresu URL/pliku, ale można je modyfikować w razie potrzeby",
+      "versionLabel": "Wersja",
+      "versionHelp": "Automatycznie wykrywane z nazwy pliku. Nadpisz dla niestandardowych kompilacji.",
+      "descriptionLabel": "Opis",
+      "descriptionHelp": "Opcjonalne notatki dotyczące tego pliku binarnego (np. szczegóły niestandardowej kompilacji)",
+      "setAsDefault": "Ustaw jako domyślny plik binarny",
+      "selectFileRequired": "Wybierz plik do wgrania",
+      "uploadBinarySubmit": "Wgraj plik binarny"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Diagnostyka systemu",
+    "diagnosticPackage": "Pakiet diagnostyczny",
+    "diagnosticPackageDescription": "Pobierz pakiet diagnostyczny zawierający informacje o systemie, dzienniki i szczegóły konfiguracji do rozwiązywania problemów.",
+    "refreshData": "Odśwież dane",
+    "hours": "Godziny",
+    "hoursTooltip": "Liczba godzin dzienników do uwzględnienia",
+    "includeAgentLogs": "Dołącz dzienniki agenta",
+    "includeNginxLogs": "Dołącz dzienniki Nginx",
+    "includePostgresLogs": "Dołącz dzienniki PostgreSQL",
+    "preparing": "Przygotowywanie...",
+    "downloadDiagnostics": "Pobierz diagnostykę",
+    "systemInfo": "Informacje o systemie",
+    "runtime": "Środowisko uruchomieniowe",
+    "cpus": "Procesory",
+    "goroutines": "Goroutines",
+    "memory": "Pamięć",
+    "heap": "Sterta",
+    "system": "System",
+    "gcRuns": "Przebiegi GC",
+    "database": "Baza danych",
+    "size": "Rozmiar",
+    "connections": "Połączenia",
+    "agents": "Agenci",
+    "connected": "Połączeni",
+    "withDebugStatus": "Ze statusem debugowania",
+    "serverDebugStatus": "Status debugowania serwera",
+    "serverDebugDescription": "Włącz pełne rejestrowanie serwera. Spowoduje to zwiększenie rozmiarów plików dziennika i może wpłynąć na wydajność.",
+    "debugEnabled": "Debugowanie włączone",
+    "debugDisabled": "Debugowanie wyłączone",
+    "level": "Poziom",
+    "enableDebug": "Włącz debugowanie",
+    "disableDebug": "Wyłącz debugowanie",
+    "loadingServerDebugStatus": "Ładowanie statusu debugowania serwera...",
+    "serverLogs": "Dzienniki serwera",
+    "serverLogsDescription": "Zarządzaj plikami dziennika serwera. Czyszczenie dzienników jest trwałe i nie można go cofnąć.",
+    "refreshLogStats": "Odśwież statystyki dziennika",
+    "directory": "Katalog",
+    "files": "Pliki",
+    "actions": "Działania",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Razem",
+    "purge": "Wyczyść",
+    "purgeAll": "Wyczyść wszystko",
+    "loadingLogStatistics": "Ładowanie statystyk dziennika...",
+    "agentDebugStatus": "Status debugowania agenta",
+    "enableAll": "Włącz wszystko",
+    "disableAll": "Wyłącz wszystko",
+    "noAgentsWithDebugStatus": "Brak dostępnych agentów ze statusem debugowania",
+    "agentId": "ID agenta",
+    "logLevel": "Poziom dziennika",
+    "fileLogging": "Rejestrowanie do pliku",
+    "logFileSize": "Rozmiar pliku dziennika",
+    "buffer": "Bufor",
+    "lastUpdated": "Ostatnia aktualizacja",
+    "viewLogs": "Wyświetl dzienniki",
+    "purgeLogs": "Wyczyść dzienniki",
+    "agentLogs": "Dzienniki agenta",
+    "agent": "Agent",
+    "allLevels": "Wszystkie poziomy",
+    "refresh": "Odśwież",
+    "showingEntries": "Wyświetlane {{shown}} z {{total}} wpisów",
+    "filtered": "filtrowane",
+    "truncated": "obcięte",
+    "time": "Czas",
+    "message": "Wiadomość",
+    "location": "Lokalizacja",
+    "noEntriesForLevel": "Nie znaleziono wpisów dla poziomu {{level}}",
+    "noLogEntriesAvailable": "Brak dostępnych wpisów dziennika",
+    "logFileContent": "Zawartość pliku dziennika",
+    "noLogsAvailable": "Brak dostępnych dzienników",
+    "securityWarning": "Ostrzeżenie bezpieczeństwa",
+    "postgresLogsWarning": "Dzienniki PostgreSQL mogą zawierać poufne dane. Rozważ czyszczenie ich po rozwiązaniu problemów.",
+    "nginxLogsWarning": "Dzienniki dostępu Nginx mogą zawierać poufne dane żądań. Rozważ czyszczenie ich po rozwiązaniu problemów.",
+    "sensitiveNginxLogsWarning": "Dzienniki dostępu Nginx mogą zawierać poufne informacje, w tym tokeny uwierzytelniania w nagłówkach żądań i parametrach zapytania.",
+    "sensitivePostgresLogsWarning": "Dzienniki PostgreSQL mogą zawierać poufne informacje, w tym zapytania z danymi użytkownika, hasłami i szczegółami połączenia.",
+    "sensitiveLogsTestEnvironmentWarning": "Dołączaj te dzienniki tylko dla środowisk testowych/deweloperskich lub gdy jest to absolutnie konieczne do debugowania.",
+    "sensitiveLogsProductionWarning": "Nie dołączaj poufnych dzienników do produkcyjnych pakietów diagnostycznych udostępnianych zewnętrznie.",
+    "iUnderstandIncludeLogs": "Rozumiem, dołącz dzienniki",
+    "allServerLogs": "wszystkie dzienniki serwera",
+    "directoryLogs": "dzienniki {{directory}}",
+    "purgeServerLogs": "Wyczyść dzienniki serwera",
+    "confirmPurgeLogs": "Czy na pewno chcesz wyczyścić {{dirLabel}}?",
+    "cannotBeUndone": "Tego działania nie można cofnąć.",
+    "purgeAgentLogs": "Wyczyść dzienniki agenta",
+    "confirmPurgeAgentLogs": "Czy na pewno chcesz wyczyścić dzienniki agenta {{agentId}}?",
+    "enable": "Włącz",
+    "disable": "Wyłącz",
+    "serverDebugModeTitle": "{{action}} tryb debugowania serwera",
+    "serverDebugModeMessage": "Spowoduje to zmianę poziomu rejestrowania serwera. Serwer nginx zostanie przeładowany w celu zastosowania zmian.",
+    "serverDebugModeWarning": "Strona zostanie krótko ponownie połączona po zastosowaniu zmian.",
+    "reconnectingToServer": "Ponowne połączenie z serwerem",
+    "pleaseWaitReconnecting": "Proszę czekać, serwer się restartuje...",
+    "nginxLogsTooltip": "Ostrzeżenie: Może zawierać poufne dane żądań",
+    "postgresLogsTooltip": "Ostrzeżenie: Może zawierać poufne zapytania bazy danych",
+    "messages": {
+      "loadFailed": "Nie udało się załadować danych diagnostyki:",
+      "logStatsFailed": "Nie udało się załadować statystyk dziennika:",
+      "purgeFailed": "Nie udało się wyczyścić dzienników:",
+      "reconnectionTimedOut": "Przekroczono czas ponownego połączenia. Odśwież stronę.",
+      "toggleDebugFailed": "Nie udało się przełączyć trybu debugowania:",
+      "downloadFailed": "Nie udało się pobrać diagnostyki:",
+      "toggleAgentDebugFailed": "Nie udało się przełączyć debugowania agenta:",
+      "toggleAllAgentsDebugFailed": "Nie udało się przełączyć debugowania dla wszystkich agentów:",
+      "fetchAgentLogsFailed": "Nie udało się pobrać dzienników agenta:",
+      "purgeAgentLogsFailed": "Nie udało się wyczyścić dzienników agenta:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Ustawienia uwierzytelniania",
+    "unsavedChanges": "Wprowadzono niezapisane zmiany. Kliknij \"Zapisz ustawienia\", aby je zastosować.",
+    "saving": "Zapisywanie...",
+    "saveSettings": "Zapisz ustawienia",
+    "resetToSaved": "Przywróć zapisane",
+    "passwordPolicy": {
+      "title": "Polityka haseł",
+      "minLength": "Minimalna długość hasła",
+      "requireUppercase": "Wymagaj wielkich liter",
+      "requireLowercase": "Wymagaj małych liter",
+      "requireNumbers": "Wymagaj cyfr",
+      "requireSpecialChars": "Wymagaj znaków specjalnych"
+    },
+    "accountSecurity": {
+      "title": "Bezpieczeństwo konta",
+      "maxFailedAttempts": "Maksymalna liczba nieudanych prób logowania",
+      "lockoutDuration": "Czas blokady (minuty)",
+      "jwtExpiry": "Ważność JWT (minuty)",
+      "notificationAggregation": "Agregacja powiadomień (minuty)",
+      "notificationAggregationHelper": "Jak długo agregować podobne powiadomienia przed wysłaniem"
+    },
+    "mfa": {
+      "title": "Uwierzytelnianie wieloskładnikowe",
+      "requireMfa": "Wymagaj uwierzytelniania wieloskładnikowego dla wszystkich użytkowników",
+      "requireMfaEmailRequired": "Wymagaj uwierzytelniania wieloskładnikowego (wymaga bramy e-mail)",
+      "allowedMethods": "Dozwolone metody uwierzytelniania wieloskładnikowego",
+      "methodEmail": "Kod e-mail",
+      "methodAuthenticator": "Aplikacja uwierzytelniająca (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (nie obsługiwane w tej przeglądarce)",
+      "codeSettings": "Ustawienia kodu",
+      "emailCodeValidity": "Ważność kodu e-mail (minuty)",
+      "emailCodeValidityHelper": "Jak długo kody weryfikacyjne e-mail są ważne",
+      "codeCooldown": "Czas oczekiwania między żądaniami kodu (minuty)",
+      "codeCooldownHelper": "Minimalny czas między żądaniami kodu",
+      "codeExpiry": "Wygaśnięcie kodu (minuty)",
+      "codeExpiryHelper": "Jak długo kody uwierzytelniania wieloskładnikowego są ważne",
+      "maxCodeAttempts": "Maksymalna liczba prób wprowadzenia kodu",
+      "maxCodeAttemptsHelper": "Maksymalna liczba nieudanych prób wprowadzenia kodu przed blokowaniem",
+      "backupCodesCount": "Liczba kodów zapasowych",
+      "backupCodesCountHelper": "Liczba kodów zapasowych do wygenerowania",
+      "requireMfaHelper": "Każdy użytkownik musi zakończyć uwierzytelnianie wieloskładnikowe przy logowaniu. Wymaga skonfigurowanego dostawcy poczty elektronicznej, aby kody mogły być dostarczane."
+    },
+    "webauthn": {
+      "title": "Konfiguracja WebAuthn / Passkey",
+      "notSupported": "WebAuthn nie jest obsługiwane w tej przeglądarce.",
+      "requiresDomain": "Passkey wymaga właściwej domeny i HTTPS. Skonfiguruj poniżej ustawienia domeny.",
+      "rpId": "Relying Party ID",
+      "rpIdHelper": "Nazwa domeny (np. krakenhashes.example.com)",
+      "rpDisplayName": "Nazwa wyświetlana",
+      "rpDisplayNameHelper": "Nazwa wyświetlana użytkownikom podczas rejestracji passkey",
+      "allowedOrigins": "Dozwolone źródła",
+      "allowedOriginsHelper": "Jedno źródło na linię (np. https://krakenhashes.example.com)",
+      "configured": "WebAuthn jest skonfigurowany i gotowy do użytku.",
+      "save": "Zapisz ustawienia WebAuthn"
+    },
+    "session": {
+      "title": "Zarządzanie sesją",
+      "tokenCleanupInterval": "Interwał czyszczenia tokena (sekundy)",
+      "tokenCleanupIntervalHelper": "Jak często czyszczić wygasłe tokeny",
+      "maxConcurrentSessions": "Maksymalna liczba równoczesnych sesji",
+      "maxConcurrentSessionsHelper": "Maksymalna liczba sesji na użytkownika (0 = bez ograniczeń)",
+      "absoluteTimeout": "Bezwzględny limit czasu sesji (godziny)",
+      "absoluteTimeoutHelper": "Wymuś ponowne uwierzytelnianie po tym czasie (0 = wyłączone)"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować ustawień uwierzytelniania",
+      "noSettingsToSave": "Brak ustawień do zapisania",
+      "saveFailed": "Nie udało się zapisać ustawień",
+      "emailProviderRequired": "Dostawca poczty elektronicznej jest wymagany do uwierzytelniania wieloskładnikowego opartego na e-mailu",
+      "webauthnSaveFailed": "Nie udało się zapisać ustawień WebAuthn",
+      "resetFailed": "Nie udało się przywrócić ustawień"
+    },
+    "messages": {
+      "updateSuccess": "Ustawienia uwierzytelniania zostały pomyślnie zaktualizowane",
+      "updateFailed": "Nie udało się zaktualizować ustawień uwierzytelniania"
+    },
+    "teams": {
+      "title": "Izolacja wielozespołowa",
+      "description": "Gdy włączone, klienci, listy haszy, zadania i agenci są ograniczeni do zespołów, a użytkownicy widzą tylko to, co ich zespoły posiadają.",
+      "enable": "Włącz zespoły",
+      "enableHelper": "Istniejące dane są umieszczane w Zespole Domyślnym."
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "Ustawienia logowania jednokrotnego",
+    "pageDescription": "Skonfiguruj dostawców logowania jednokrotnego i opcje uwierzytelniania",
+    "warnings": {
+      "ephemeralKeyTitle": "Klucz szyfrowania logowania jednokrotnego nie został skonfigurowany",
+      "ephemeralKeyDescription": "Tajne dane dostawców logowania jednokrotnego (tajne klucze klienta, hasła powiązań, klucze prywatne) są obecnie szyfrowane kluczem tymczasowym, który zostanie utracony po ponownym uruchomieniu serwera. Wszyscy skonfigurowani dostawcy logowania jednokrotnego przestaną działać po ponownym uruchomieniu.",
+      "ephemeralKeyInstructions": "Aby to naprawić, wygeneruj trwały klucz szyfrowania, uruchamiając:",
+      "ephemeralKeyAddToEnv": "Następnie dodaj poniższe do pliku .env i uruchom serwer ponownie:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Polecenie skopiowane do schowka"
+    },
+    "authMethods": {
+      "title": "Metody uwierzytelniania",
+      "description": "Włącz lub wyłącz metody uwierzytelniania na całej platformie",
+      "localAuth": "Uwierzytelnianie lokalne",
+      "localAuthDescription": "Logowanie za pomocą nazwy użytkownika/hasła",
+      "ldapAuth": "Uwierzytelnianie LDAP",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "Uwierzytelnianie SAML",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "Uwierzytelnianie OAuth/OIDC",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Inicjowanie użytkowników",
+      "description": "Skonfiguruj automatyczne tworzenie użytkowników z logowań SSO",
+      "autoCreateUsers": "Automatyczne tworzenie użytkowników",
+      "autoCreateUsersDescription": "Automatycznie twórz konta użytkowników dla nowych logowań SSO",
+      "autoEnableUsers": "Automatyczne włączanie użytkowników",
+      "autoEnableUsersDescription": "Automatycznie włącz nowo utworzonych użytkowników SSO (w przeciwnym razie wymagana jest zgoda administratora)"
+    },
+    "providers": {
+      "title": "Dostawcy logowania jednokrotnego",
+      "addProvider": "Dodaj dostawcę",
+      "noProviders": "Brak skonfigurowanych dostawców logowania jednokrotnego. Kliknij \"Dodaj dostawcę\", aby go utworzyć.",
+      "enabled": "Włączone",
+      "disabled": "Wyłączone",
+      "callbackUrl": "Adres URL wywołania zwrotnego",
+      "acsUrl": "Adres URL ACS",
+      "metadata": "Metadane",
+      "viewXml": "Wyświetl XML",
+      "testConnection": "Testuj połączenie",
+      "downloadCertificate": "Pobierz certyfikat SP"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Usuń dostawcę",
+        "confirmation": "Czy na pewno usunąć dostawcę \"{{name}}\"? Ta czynność nie może być cofnięta i spowoduje odłączenie wszystkich powiązanych tożsamości użytkowników."
+      },
+      "providerForm": {
+        "addTitle": "Dodaj dostawcę",
+        "editTitle": "Edytuj dostawcę",
+        "providerName": "Nazwa dostawcy",
+        "providerType": "Typ dostawcy",
+        "enabled": "Włączone"
+      }
+    },
+    "ldapConfig": {
+      "title": "Konfiguracja LDAP",
+      "serverUrl": "Adres URL serwera",
+      "serverUrlHelper": "Użyj ldaps:// dla bezpiecznych połączeń",
+      "baseDn": "Podstawowy DN",
+      "userSearchFilter": "Filtr wyszukiwania użytkownika",
+      "userSearchFilterHelper": "Użyj {{username}} jako zastępnika",
+      "bindDn": "DN powiązania (opcjonalnie)",
+      "bindPassword": "Hasło powiązania",
+      "emailAttribute": "Atrybut e-mail",
+      "usernameAttribute": "Atrybut nazwy użytkownika",
+      "usernameAttributeHelper": "Atrybut LDAP zawierający nazwę użytkownika (np. sAMAccountName, uid)",
+      "connectionTimeout": "Limit czasu połączenia (sekundy)",
+      "useStartTls": "Użyj StartTLS",
+      "skipCertVerify": "Pomiń weryfikację certyfikatu (tylko do testowania)"
+    },
+    "samlConfig": {
+      "title": "Konfiguracja SAML",
+      "spEntityId": "ID jednostki SP",
+      "spEntityIdHelper": "Identyfikator SAML tej aplikacji",
+      "idpEntityId": "ID jednostki dostawcy tożsamości",
+      "idpSsoUrl": "Adres URL SSO dostawcy tożsamości",
+      "idpCertificate": "Certyfikat dostawcy tożsamości",
+      "emailAttribute": "Atrybut e-mail",
+      "usernameAttribute": "Atrybut nazwy użytkownika",
+      "usernameAttributeHelper": "Atrybut SAML zawierający nazwę użytkownika (np. uid, username)",
+      "requireSignedAssertions": "Wymagaj podpisanych asercji"
+    },
+    "oauthConfig": {
+      "title": "Konfiguracja OAuth/OIDC",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "ID klienta",
+      "clientSecret": "Tajny klucz klienta",
+      "discoveryUrl": "Adres URL odkrywania",
+      "discoveryUrlHelper": "Punkt końcowy odkrywania OIDC (automatycznie konfiguruje inne adresy URL)",
+      "authorizationUrl": "Adres URL autoryzacji",
+      "tokenUrl": "Adres URL tokena",
+      "userInfoUrl": "Adres URL informacji o użytkowniku",
+      "scopes": "Zakresy",
+      "scopesHelper": "Lista rozdzielona spacjami",
+      "emailAttribute": "Atrybut e-mail",
+      "usernameAttribute": "Atrybut nazwy użytkownika",
+      "usernameAttributeHelper": "Claim zawierający nazwę użytkownika (np. preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Nie udało się załadować ustawień logowania jednokrotnego",
+      "settingsUpdated": "Ustawienia logowania jednokrotnego zostały pomyślnie zaktualizowane",
+      "updateFailed": "Nie udało się zaktualizować ustawień logowania jednokrotnego",
+      "loadProviderFailed": "Nie udało się załadować szczegółów dostawcy",
+      "providerDeleted": "Dostawca został pomyślnie usunięty",
+      "deleteFailed": "Nie udało się usunąć dostawcy",
+      "testSuccess": "Test połączenia powiódł się",
+      "testFailed": "Test połączenia nie powiódł się",
+      "certificateDownloaded": "Certyfikat został pomyślnie pobrany",
+      "certificateNotFound": "Certyfikat nie znaleziony w metadanych",
+      "certificateDownloadFailed": "Nie udało się pobrać certyfikatu",
+      "providerUpdated": "Dostawca został pomyślnie zaktualizowany",
+      "providerCreated": "Dostawca został pomyślnie utworzony",
+      "saveProviderFailed": "Nie udało się zapisać dostawcy"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Konfiguracja dostawcy",
+      "emailTemplates": "Szablony e-mail"
+    },
+    "provider": {
+      "titles": {
+        "current": "Bieżąca konfiguracja e-mail",
+        "create": "Utwórz konfigurację e-mail",
+        "edit": "Edytuj konfigurację e-mail"
+      },
+      "labels": {
+        "provider": "Dostawca",
+        "apiKey": "Klucz API",
+        "password": "Hasło",
+        "smtpHost": "Host SMTP",
+        "port": "Port",
+        "username": "Nazwa użytkownika",
+        "encryption": "Szyfrowanie",
+        "fromEmail": "E-mail nadawcy",
+        "fromName": "Nazwa nadawcy",
+        "domain": "Domena",
+        "region": "Region",
+        "monthlyLimit": "Limit miesięczny",
+        "skipTlsVerify": "Pomiń weryfikację certyfikatu TLS (niezabezpieczone, niezalecane)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "Testowy adres e-mail"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Pozostaw puste, aby zachować bieżące",
+        "monthlyLimit": "Pozostaw puste, aby ustawić bez limitu",
+        "mailgunFromEmail": "Zwykle noreply@yourdomain",
+        "fromName": "Nazwa wyświetlana dla e-maili"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Brak (Port 25)",
+        "encryptionStarttls": "STARTTLS (Port 587)",
+        "encryptionTls": "TLS/SSL (Port 465)",
+        "regionUS": "US (api.mailgun.net)",
+        "regionEU": "EU (api.eu.mailgun.net)"
+      },
+      "buttons": {
+        "edit": "Edytuj konfigurację",
+        "cancel": "Anuluj",
+        "testConnection": "Testuj połączenie",
+        "save": "Zapisz konfigurację",
+        "saveOnly": "Tylko zapisz",
+        "saveAndTest": "Zapisz i testuj",
+        "sendTestEmail": "Wyślij testowy e-mail"
+      },
+      "dialogs": {
+        "test": {
+          "title": "Testuj konfigurację e-mail",
+          "content": "Wprowadź adres e-mail, na który wysłać testowy e-mail:"
+        },
+        "save": {
+          "title": "Zapisz konfigurację",
+          "content": "Czy przetestować konfigurację po zapisaniu?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "Weryfikacja certyfikatu TLS jest wyłączona",
+        "tlsVerifyWarning": "Wyłączenie weryfikacji TLS sprawia, że połączenie jest podatne na ataki man-in-the-middle. Używaj tego tylko do testowania z certyfikatami z podpisem własnym."
+      },
+      "messages": {
+        "testSuccess": "Testowy e-mail został wysłany pomyślnie",
+        "testFailed": "Nie udało się wysłać testowego e-maila",
+        "saveSuccess": "Konfiguracja została zapisana pomyślnie",
+        "saveFailed": "Nie udało się zapisać konfiguracji",
+        "loadFailed": "Nie udało się załadować konfiguracji"
+      }
+    },
+    "templates": {
+      "title": "Szablony e-mail",
+      "createTemplate": "Utwórz szablon e-mail",
+      "editTemplate": "Edytuj szablon e-mail",
+      "labels": {
+        "templateType": "Typ szablonu",
+        "name": "Nazwa",
+        "subject": "Temat",
+        "htmlContent": "Zawartość HTML",
+        "textContent": "Zawartość tekstowa"
+      },
+      "menuItems": {
+        "securityEvent": "Zdarzenie bezpieczeństwa",
+        "jobCompletion": "Ukończenie zadania",
+        "adminError": "Błąd administratora",
+        "mfaCode": "Kod uwierzytelniania wieloskładnikowego",
+        "securityPasswordChanged": "Hasło zmienione",
+        "securityMfaDisabled": "Uwierzytelnianie wieloskładnikowe wyłączone",
+        "securitySuspiciousLogin": "Podejrzane logowanie",
+        "jobStarted": "Zadanie rozpoczęte",
+        "jobFailed": "Niepowodzenie zadania",
+        "firstCrack": "Pierwsze złamanie",
+        "taskCompleted": "Podzadanie ukończone",
+        "agentOffline": "Agent offline",
+        "agentError": "Błąd agenta",
+        "webhookFailure": "Awaria webhook"
+      },
+      "buttons": {
+        "create": "Utwórz szablon",
+        "cancel": "Anuluj",
+        "test": "Testuj",
+        "save": "Zapisz",
+        "edit": "Edytuj",
+        "delete": "Usuń"
+      },
+      "table": {
+        "name": "Nazwa",
+        "type": "Typ",
+        "subject": "Temat",
+        "actions": "Akcje"
+      },
+      "preview": "Podgląd na żywo (z przykładowymi danymi):",
+      "messages": {
+        "loadSuccess": "Szablony załadowane pomyślnie",
+        "loadFailed": "Nie udało się załadować szablonów",
+        "createSuccess": "Szablon został pomyślnie utworzony",
+        "createFailed": "Nie udało się utworzyć szablonu",
+        "updateSuccess": "Szablon został pomyślnie zaktualizowany",
+        "updateFailed": "Nie udało się zaktualizować szablonu",
+        "deleteSuccess": "Szablon został pomyślnie usunięty",
+        "deleteFailed": "Nie udało się usunąć szablonu",
+        "testSuccess": "Wiadomość testowa została pomyślnie wysłana",
+        "testFailed": "Nie udało się wysłać wiadomości testowej",
+        "saveFailed": "Nie udało się zapisać szablonu"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Ustawienia zostały pomyślnie zapisane",
+    "saveFailed": "Nie udało się zapisać ustawień"
+  },
+  "clientSettings": {
+    "title": "Ustawienia klienta",
+    "retentionPeriod": "Domyślny okres przechowywania danych (miesiące)",
+    "retentionHelperText": "Domyślny okres przechowywania dla nowych klientów (0 = przechowuj na zawsze)",
+    "saveButton": "Zapisz ustawienia",
+    "errors": {
+      "invalidRetention": "Okres przechowywania musi być liczbą nieujemną",
+      "saveFailed": "Nie udało się zapisać ustawień klienta"
+    },
+    "messages": {
+      "updateSuccess": "Ustawienia klienta zostały pomyślnie zaktualizowane"
+    }
+  },
+  "systemSettings": {
+    "title": "Ustawienia systemu",
+    "priority": {
+      "title": "Ustawienia priorytetu",
+      "tooltip": "Skonfiguruj maksymalną wartość priorytetu, którą można przypisać do zadań i szablonów zadań. Pomaga to utrzymać spójne zakresy priorytetów w całej organizacji.",
+      "maxPriority": "Maksymalny priorytet zadania",
+      "helperText": "Ustaw maksymalną wartość priorytetu (1–1 000 000). Zadania i szablony zadań nie mogą przekroczyć tego priorytetu.",
+      "saveButton": "Zapisz ustawienia",
+      "saving": "Zapisywanie...",
+      "reset": "Resetuj"
+    },
+    "priorityInfo": {
+      "title": "Informacje o systemie priorytetów",
+      "description": "System priorytetów wykorzystuje zakres od 0 do skonfigurowanego maksymalnego priorytetu. Wyższe liczby wskazują wyższy priorytet.",
+      "currentMax": "Bieżące maksimum",
+      "note": "Nie możesz ustawić maksymalnego priorytetu niższego niż jakikolwiek istniejący priorytet szablonu zadania. W razie potrzeby najpierw zaktualizuj lub usuń szablony zadań o wysokim priorytecie.",
+      "recommended": "Zalecane zakresy według rozmiaru organizacji:",
+      "small": "Mała organizacja: 0–100",
+      "medium": "Średnia/duża organizacja: 0–1 000",
+      "large": "Organizacja z absurdalnym obciążeniem: 0–10 000"
+    },
+    "agentScheduling": {
+      "title": "Planowanie agentów",
+      "tooltip": "Włącz lub wyłącz globalnie system planowania agentów. Po włączeniu agenci mogą mieć skonfigurowane harmonogramy dzienne.",
+      "enable": "Włącz system planowania agentów",
+      "description": "Po włączeniu agenci mogą zostać skonfigurowani z harmonogramami dziennymi. Tylko agenci zaplanowani na bieżący czas będą przydzielani do zadań.",
+      "note": "Poszczególni agenci muszą również mieć włączone planowanie i skonfigurowane harmonogramy, aby to zadziałało."
+    },
+    "agentOverflow": {
+      "title": "Alokacja nadmiaru agentów",
+      "tooltip": "Skonfiguruj sposób, w jaki wolni agenci są rozdzielani, gdy każde zadanie na każdym poziomie priorytetu wypełni swój limit max_agents.",
+      "modeLabel": "Tryb alokacji nadmiaru",
+      "priorityFifoMode": "Priorytet – FIFO",
+      "priorityRoundRobinMode": "Priorytet – Round Robin",
+      "enforceMaxAgentsMode": "Wymuszanie maksymalnej liczby agentów",
+      "maxAgentsFifoMode": "Maks. agentów – FIFO",
+      "maxAgentsRoundRobinMode": "Maks. agentów – Round Robin",
+      "priorityFifoDescription": "Najpierw wypełniane są poziomy o najwyższym priorytecie. Gdy poziom osiągnie max_agents, pozostali agenci są przydzielani do NAJSTARSZEGO zadania na tym poziomie — przekraczając jego limit. Zadania o niższym priorytecie mogą być zagłodzane, dopóki wyższe poziomy nie będą wyczerpane.",
+      "priorityRoundRobinDescription": "Najpierw wypełniane są poziomy o najwyższym priorytecie. Gdy poziom osiągnie max_agents, pozostali agenci rotują równomiernie między zadaniami tego poziomu — przekraczając limity. Zadania o niższym priorytecie mogą być zagłodzane.",
+      "enforceMaxAgentsDescription": "Ściśle limituj każde zadanie do jego limitu max_agents — bez nadmiaru. Nadliczbowi agenci pozostają bezczynni. Najbardziej przewidywalny; może marnować zasoby.",
+      "maxAgentsFifoDescription": "Wszystkie zadania przy wszystkich priorytetach najpierw wypełniane są do max_agents (ścisłe limity). Wszyscy pozostali agenci są następnie przydzielani do NAJSTARSZEGO zadania ogółem — omijając priorytet. Maksymalizuje to przepustowość, zachowując przy tym bazowy przydział każdego zadania.",
+      "maxAgentsRoundRobinDescription": "Wszystkie zadania przy wszystkich priorytetach najpierw wypełniane są do max_agents (ścisłe limity). Wszyscy pozostali agenci rotują następnie równomiernie między WSZYSTKIMI zadaniami — omijając priorytet. Maksymalizuje to przepustowość, zapewniając sprawiedliwy podział zasobów poza przydziałem bazowym."
+    },
+    "hashlist": {
+      "title": "Ustawienia listy haszy",
+      "tooltip": "Skonfiguruj ustawienia związane z przesyłaniem i zarządzaniem listami haszy",
+      "requireClient": "Wymagaj klienta dla list haszy",
+      "requireClientDescription": "Po włączeniu użytkownicy muszą przypisać klienta podczas przesyłania nowych list haszy. Pomaga to utrzymać lepszą organizację i śledzenie list haszy według klienta.",
+      "batchSize": "Rozmiar partii zbiorczego importu",
+      "batchSizeHelper": "Liczba haszy przetwarzanych na partię podczas przesyłania. Domyślnie: 100 000. Zalecane: 500 000–1 000 000 dla dużych list haszy (47M+)",
+      "performanceGuide": "Przewodnik wydajności:",
+      "performance100k": "100K (domyślnie): Dobry dla większości przypadków użycia",
+      "performance500k": "500K: Lepszy dla dużych list haszy, może zwiększyć przepustowość",
+      "performance1m": "1M: Najlepszy dla bardzo dużych list haszy (50M+), wymaga więcej pamięci RAM"
+    },
+    "potfile": {
+      "title": "Ustawienia potfile",
+      "tooltip": "Skonfiguruj sposób, w jaki potfile przetwarza złamane hasła w celu ponownego użycia między zadaniami",
+      "maxBatchSize": "Maksymalny rozmiar partii",
+      "maxBatchSizeHelper": "Liczba przygotowanych haseł do przetworzenia w każdym cyklu partii (1 000 – 500 000)",
+      "batchInterval": "Interwał partii (sekundy)",
+      "batchIntervalHelper": "Sekund między cyklami wsadowego przetwarzania potfile (10 – 600)",
+      "description": "Potfile zbiera złamane hasła ze wszystkich zadań i ponownie je wykorzystuje w kolejnych atakach. Większe rozmiary partii przetwarzają więcej haseł na raz, ale zajmują więcej czasu na cykl.",
+      "processingRate": "Szybkość przetwarzania",
+      "passwordsPerSecond": "haseł/sekundę",
+      "currentSettings": "Bieżące ustawienia",
+      "passwordsEvery": "haseł co",
+      "seconds": "sekund"
+    },
+    "speedTest": {
+      "title": "Test szybkości (test wydajności)",
+      "tooltip": "Dostrojaj, jak długo agenci czekają, aby hashcat wytworzył użyteczny test wydajności przed zawieszeniem testu szybkości. Skompresowane wordlisty potrzebują znacznie więcej czasu na wstępne przetworzenie dictstat.",
+      "timeoutUncompressed": "Limit czasu: wordlisty w formacie zwykłego tekstu (sekundy)",
+      "timeoutUncompressedHelper": "Maksymalna liczba sekund, które agent będzie czekać na ważny odczyt szybkości na wordlistach w formacie zwykłego tekstu. Domyślnie: 120.",
+      "timeoutCompressed": "Limit czasu: skompresowane wordlisty (sekundy)",
+      "timeoutCompressedHelper": "Maksymalna liczba sekund dla wordlist .gz / .zip / .xz — trzy formaty, które hashcat odczytuje natywnie. Potrzebują więcej czasu na dekompresję i wstępne przetworzenie dictstat. Domyślnie: 300.",
+      "minStatusUpdates": "Minimalna liczba aktualizacji stanu",
+      "minStatusUpdatesHelper": "Minimalna liczba taktów hashcat --status-json, które agent musi zebrać przed zwróceniem wyniku. Domyślnie: 3.",
+      "minUpdatesLowWarning": "Wartości poniżej 3 mogą dać niedokładne odczyty: procesory graficzne mogą nie być w pełni uruchomione.",
+      "description": "Jeśli agent kończy limit czasu bez produkowania niezerowej szybkości, test wydajności jest zgłaszany jako nieudany, a zadanie wyświetla błąd działalny dla administratora. Potok fragmentacji również odmawia wysłania zadania 1-kandydatowego, więc stały test wydajności 0 H/s nie może działać w pętli na zawsze."
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować ustawień systemu",
+      "maxPriorityRequired": "Maksymalny priorytet jest wymagany",
+      "maxPriorityPositive": "Maksymalny priorytet musi być liczbą dodatnią",
+      "maxPriorityMax": "Maksymalny priorytet nie może przekroczyć 1 000 000",
+      "saveFailed": "Nie udało się zapisać ustawień systemu",
+      "batchSizeRange": "Rozmiar partii musi być między {{min}} a {{max}}",
+      "intervalRange": "Interwał musi być między {{min}} a {{max}} sekund",
+      "speedTestTimeoutRange": "Limit czasu testu szybkości musi być między {{min}} a {{max}} sekund",
+      "minStatusUpdatesRange": "Minimalna liczba aktualizacji stanu musi być między {{min}} a {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Ustawienia systemu zostały pomyślnie zaktualizowane",
+      "schedulingUpdated": "Ustawienie planowania agentów zostało zaktualizowane",
+      "schedulingFailed": "Nie udało się zaktualizować ustawienia planowania",
+      "overflowUpdated": "Tryb alokacji nadmiaru agentów został zaktualizowany",
+      "overflowFailed": "Nie udało się zaktualizować trybu alokacji nadmiaru",
+      "hashlistClientUpdated": "Wymóg klienta dla listy haszy został zaktualizowany",
+      "hashlistBatchUpdated": "Rozmiar partii listy haszy został zaktualizowany",
+      "potfileBatchUpdated": "Rozmiar partii potfile został zaktualizowany",
+      "potfileIntervalUpdated": "Interwał partii potfile został zaktualizowany",
+      "speedTestTimeoutUpdated": "Limit czasu testu szybkości został zaktualizowany",
+      "speedTestMinUpdatesUpdated": "Minimalna liczba aktualizacji stanu testu szybkości została zaktualizowana",
+      "updateFailed": "Nie udało się zaktualizować ustawienia"
+    }
+  },
+  "jobExecution": {
+    "title": "Ustawienia wykonywania zadań",
+    "description": "Skonfiguruj sposób wykonywania i rozdzielania zadań między agentami",
+    "chunking": {
+      "title": "Fragmentacja zadań",
+      "defaultChunkDuration": "Domyślny czas trwania porcji",
+      "defaultChunkDurationHelper": "Docelowy czas rzeczywisty przypadający na jedną porcję (scheduler-v2 ustala rozmiar porcji każdego agenta tak, aby go osiągnąć)",
+      "minChunkSeconds": "Minimalny czas trwania porcji",
+      "minChunkSecondsHelper": "Dolny limit czasu rzeczywistego (wall time) dla pojedynczej porcji; zapobiega powstawaniu małych, osieroconych porcji",
+      "minutes": "minut",
+      "overrunTolerance": "Tolerancja przekroczenia czasu porcji",
+      "overrunToleranceHelper": "Jak daleko porcja może przekroczyć planowany czas trwania, zanim zabezpieczenie ją zatrzyma i ponownie rozdysponuje pozostałą część.",
+      "overrunGuard": "Włącz zabezpieczenie przed przekroczeniem czasu porcji",
+      "overrunGuardHelper": "Zatrzymuje podzadanie, które znacznie przekracza planowany czas trwania porcji, i ponownie rozdysponuje niedokończoną część."
+    },
+    "agentConfig": {
+      "title": "Konfiguracja agenta",
+      "hashlistRetention": "Okres przechowywania list haszy",
+      "hashlistRetentionHelper": "Jak długo agenci przechowują listy haszy",
+      "maxConcurrentJobs": "Maksymalna liczba równoczesnych zadań na agenta",
+      "maxConcurrentJobsHelper": "Maksymalna liczba zadań, które agent może wykonywać jednocześnie",
+      "progressReporting": "Interwał raportowania postępu",
+      "progressReportingHelper": "Jak często agenci raportują postęp",
+      "benchmarkCache": "Czas ważności pamięci podręcznej testów wydajności",
+      "benchmarkCacheHelper": "Jak długo przechowywać w pamięci podręcznej testy wydajności agentów",
+      "benchmarkHistoryRetention": "Okres przechowywania historii testów wydajności",
+      "benchmarkHistoryRetentionHelper": "Liczba dni przechowywania rekordów historii testów wydajności (0 = bez limitu)",
+      "reconnectGrace": "Okres tolerancji na ponowne połączenie",
+      "reconnectGraceHelper": "Czas oczekiwania na ponowne połączenie agentów po restarcie serwera",
+      "days": "dni",
+      "seconds": "sekund",
+      "minutes": "minut"
+    },
+    "jobControl": {
+      "title": "Kontrola zadań",
+      "allowInterruption": "Zezwól na przerywanie zadań",
+      "allowInterruptionHelper": "Zadania o wyższym priorytecie mogą przerywać zadania w trakcie wykonywania",
+      "realtimeNotifications": "Powiadomienia o złamanych hasłach w czasie rzeczywistym",
+      "realtimeNotificationsHelper": "Wysyłaj powiadomienia, gdy hasze zostaną złamane",
+      "refreshInterval": "Interwał odświeżania zadań",
+      "refreshIntervalHelper": "Jak często odświeżać status zadania w interfejsie",
+      "maxRetryAttempts": "Maksymalna liczba ponownych prób dla porcji",
+      "maxRetryAttemptsHelper": "Liczba ponownych prób dla nieudanych porcji",
+      "jobsPerPage": "Liczba zadań na stronę",
+      "jobsPerPageHelper": "Domyślna liczba elementów na stronie w listach zadań",
+      "keyspaceTimeout": "Limit czasu obliczania przestrzeni kluczy",
+      "keyspaceTimeoutHelper": "Maksymalny czas dla poleceń hashcat --keyspace i --total-candidates. Zwiększ dla dużych wordlist/reguł."
+    },
+    "potfile": {
+      "title": "Ustawienia potfile",
+      "enablePotfile": "Włącz potfile",
+      "enablePotfileHelper": "Automatycznie zapisuj złamane hasła do wykorzystania w kolejnych zadaniach. Poszczególne listy haszy można nadal wykluczyć.",
+      "maxBatchSize": "Maksymalny rozmiar partii",
+      "maxBatchSizeHelper": "Liczba przygotowanych haseł do przetworzenia w każdym cyklu partii (1 000 – 500 000)",
+      "batchInterval": "Interwał partii",
+      "batchIntervalHelper": "Sekund między cyklami wsadowego przetwarzania potfile (10 – 600)",
+      "enableClientPotfiles": "Włącz potfile klientów",
+      "enableClientPotfilesHelper": "Prowadź oddzielny potfile dla każdego klienta, oprócz globalnego.",
+      "removeGlobalDefault": "Usuń z globalnego potfile po usunięciu listy haszy (domyślnie)",
+      "removeClientDefault": "Usuń z potfile klienta po usunięciu listy haszy (domyślnie)"
+    },
+    "scheduler": {
+      "title": "Scheduler (v2)",
+      "description": "Zaawansowane dostosowywanie wykrywania aktywności podzadań i obsługi przekroczeń czasu w schedulerze v2. Wartości domyślne są bezpieczne dla większości wdrożeń.",
+      "taskHeartbeatTimeout": "Limit czasu heartbeat podzadania",
+      "taskHeartbeatTimeoutHelper": "Liczba sekund bez sygnału aktywności, po której działające podzadanie zostaje oznaczone jako utracone i odzyskane",
+      "taskStartupGrace": "Okres tolerancji na uruchomienie podzadania",
+      "taskStartupGraceHelper": "Dodatkowy czas tolerancji przed pierwszym postępem (pobieranie plików, dekompresja, autotune)",
+      "networkGrace": "Okres tolerancji sieciowej",
+      "networkGraceHelper": "Tolerancja na ponowne połączenie WebSocket przed uruchomieniem odzyskiwania po utracie połączenia",
+      "overrunGuardEnabled": "Zabezpieczenie przed przekroczeniem czasu porcji",
+      "overrunGuardEnabledHelper": "Zatrzymuje podzadania, które przekroczą docelowy czas porcji powyżej tolerancji podanej poniżej",
+      "overrunTolerance": "Tolerancja przekroczenia",
+      "overrunToleranceHelper": "Okno tolerancji: zatrzymuje, gdy czas rzeczywisty przekroczy docelowy czas porcji o ten procent"
+    },
+    "buttons": {
+      "save": "Zapisz ustawienia"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się wczytać ustawień",
+      "outOfRange": "{{label}} musi być między {{min}} a {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Ustawienia wykonywania zadań zostały pomyślnie zaktualizowane",
+      "loadFailed": "Nie udało się wczytać ustawień wykonywania zadań",
+      "saveFailed": "Nie udało się zapisać ustawień"
+    },
+    "keyspaceBenchmark": {
+      "title": "Przestrzeń kluczy i test wydajności",
+      "caption": "Jak długo KrakenHashes może poświęcić na pomiar ataku. Pierwsze ustawienie ogranicza czas, w którym SERWER mierzy wordlistę podczas tworzenia zadania; ustawienia testu szybkości ograniczają czas, w którym AGENT mierzy własny hashrate. To różne etapy — zwiększenie jednego nie wpływa na drugie.",
+      "keyspaceTimeout": "Limit czasu obliczania przestrzeni kluczy",
+      "keyspaceTimeoutHelper": "Po stronie serwera. Czas dozwolony dla poleceń hashcat --keyspace / --total-candidates przy tworzeniu zadania. Działa w tle, więc zwiększenie tej wartości nie wydłuża tworzenia zadania. Po przekroczeniu limitu atak słownikowy wraca do liczby słów w wordliście i powiadamia użytkownika.",
+      "speedTestUncompressed": "Limit czasu testu szybkości agenta",
+      "speedTestUncompressedHelper": "Po stronie agenta. Limit czasu rzeczywistego dla testu wydajności agenta na nieskompresowanej wordliście.",
+      "speedTestCompressed": "Limit czasu testu szybkości agenta (skompresowane)",
+      "speedTestCompressedHelper": "Po stronie agenta. Dłuższy limit dla skompresowanych wordlist, które hashcat musi najpierw zdekompresować, aby zgłosić hashrate.",
+      "minStatusUpdates": "Minimalna liczba aktualizacji stanu",
+      "minStatusUpdatesHelper": "Ile raportów stanu hashcat musi wygenerować test szybkości, zanim jego wynik zostanie uznany za wiarygodny. Niskie wartości grożą zapisaniem hashrate zmierzonego, zanim GPU się rozkręciło.",
+      "cacheDuration": "Czas ważności pamięci podręcznej testów wydajności",
+      "cacheDurationHelper": "Jak długo zapisany test wydajności jest ważny, zanim agent zostanie poproszony o ponowny pomiar.",
+      "historyRetention": "Okres przechowywania historii testów wydajności",
+      "historyRetentionHelper": "Jak długo przechowywane są poszczególne rekordy testów wydajności do analizy trendów.",
+      "hours": "godzin",
+      "days": "dni"
+    },
+    "benchmarkReliability": {
+      "title": "Wiarygodność testów wydajności",
+      "caption": "Co się dzieje, gdy testy wydajności wielokrotnie zawodzą. Chroni to przed sytuacją, w której jeden niesprawny agent lub jedna błędna konfiguracja zadania pochłania całą flotę agentów, w kółko powtarzając test wydajności, który nie może się powieść.",
+      "failureThreshold": "Próg niepowodzeń",
+      "failureThresholdHelper": "Liczba kolejnych niepowodzeń testu wydajności dla jednej kombinacji agent/zadanie/atak, po której zostaje ona zablokowana.",
+      "hardFailureCap": "Twardy limit niepowodzeń",
+      "hardFailureCapHelper": "Bezwzględny limit liczby prób testu wydajności dla kombinacji, niezależnie od progu powyżej.",
+      "blocklistCooldown": "Czas odnowienia blokady",
+      "blocklistCooldownHelper": "Jak długo agent/zadanie/kombinacja ataku pozostaje zablokowany przed ponowną próbą.",
+      "stormThreshold": "Próg burzy testów wydajności",
+      "stormThresholdHelper": "Liczba awarii testu wydajności w oknie burzy, która wyzwala powiadomienie administratora.",
+      "stormWindow": "Okno burzy testów wydajności",
+      "stormWindowHelper": "Okres, w którym zliczane są awarie wliczane w próg burzy.",
+      "streakReset": "Resetowanie serii awarii",
+      "streakResetHelper": "Jak długo agent musi pracować bez awarii testu wydajności, zanim jego seria awarii zostanie zresetowana do zera.",
+      "quarantineStreak": "Seria awarii do kwarantanny",
+      "quarantineStreakHelper": "Kolejne awarie w dowolnej kombinacji, zanim sam agent zostanie poddany kwarantannie testowania wydajności.",
+      "quarantineDistinct": "Kwarantanna dla odrębnych kombinacji",
+      "quarantineDistinctHelper": "Ile RÓŻNYCH kombinacji ataku/typu hasza musi zawieść, zanim agent będzie traktowany jako uszkodzony zamiast zadania."
+    },
+    "scheduling": {
+      "title": "Planowanie i przydzielanie",
+      "overflowMode": "Tryb przydzielania nadmiarowych agentów",
+      "overflowModeHelper": "Jak rozprowadzani są agenci pozostali po osiągnięciu przez zadania ich limitu maks. agentów.",
+      "maxConcurrentJobs": "Maksymalna liczba równoczesnych zadań na agenta",
+      "maxConcurrentJobsHelper": "Ile zadań jeden agent może wykonywać jednocześnie.",
+      "agentScheduling": "Włącz harmonogramy agentów",
+      "agentSchedulingHelper": "Globalnie włącza harmonogramy godzin pracy dla każdego agenta. Po wyłączeniu harmonogramy agentów są ignorowane.",
+      "jobInterruption": "Zezwól na przerwanie zadania",
+      "jobInterruptionHelper": "Globalna brama do preempcji. Zadanie musi RÓWNIEŻ mieć własną flagę zastąpienia wysokiego priorytetu i niezerowy priorytet, zanim cokolwiek zostanie przerwane.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Round robin",
+        "enforceMaxAgents": "Wymuś maks. agentów",
+        "maxAgentsFifo": "Maks. agentów, następnie FIFO",
+        "maxAgentsRoundRobin": "Maks. agentów, następnie round robin"
+      }
+    },
+    "taskHealth": {
+      "title": "Zdrowie podzadań",
+      "caption": "Kiedy uruchomione podzadanie jest uważane za utracone i jak agresywnie praca jest odzyskiwana. Ustawienie ich zbyt sztywno powoduje wyrzucenie zdrowych podzadań; zbyt luźno, a martwe podzadanie przechowuje swoją przestrzeń kluczy przez godziny.",
+      "heartbeatTimeout": "Timeout heartbeatu podzadania",
+      "heartbeatTimeoutHelper": "Jak długo uruchomione podzadanie może pracować bez heartbeatu, zanim zostanie uznane za utracone i jego przestrzeń kluczy zostanie ponownie otwarta.",
+      "startupGrace": "Karencja uruchomienia podzadania",
+      "startupGraceHelper": "Dodatkowy czas dozwolony po przydzieleniu, zanim obowiązują reguły heartbeatu, obejmujący rozruch hashcata i ładowanie plików.",
+      "networkGrace": "Karencja sieciowa",
+      "networkGraceHelper": "Krótkie dopuszczenie dla przejściowych przerwań sieci, zanim brakujący heartbeat się liczy.",
+      "reconnectGrace": "Karencja ponownego połączenia",
+      "reconnectGraceHelper": "Jak długo rozłączony agent może się ponownie połączyć i odzyskać swoje uruchomione podzadanie.",
+      "offlineBuffer": "Bufor offline agenta",
+      "offlineBufferHelper": "Jak długo wiadomości dla krótko offline agenta są buforowane przed odrzuceniem.",
+      "maxRetryAttempts": "Maksymalna liczba prób ponowienia porcji",
+      "maxRetryAttemptsHelper": "Ile razy nieudana porcja jest ponawiana, zanim podzadanie nie powiedzie się. Ustaw na 0, aby wyłączyć ponowne próby.",
+      "progressInterval": "Interwał raportowania postępu",
+      "progressIntervalHelper": "Jak często agenci raportują postęp. Niższe wartości dają dokładniejszy postęp, ale większe obciążenie.",
+      "hashlistRetention": "Przechowywanie listy haszy agenta",
+      "hashlistRetentionHelper": "Jak długo agenci przechowują pobraną listę haszy po jej zakończeniu."
+    },
+    "loopback": {
+      "title": "Pętla zwrotna",
+      "maxRounds": "Maksymalna liczba rund pętli zwrotnej",
+      "maxRoundsHelper": "Limit bezpieczeństwa na temat tego, ile razy sesja pętli zwrotnej ponownie uruchamia atak na nowo złamane teksty jawne, zanim się zatrzyma, nawet jeśli wciąż znajduje nowo złamane hasła."
+    },
+    "jobNotifications": {
+      "title": "Powiadomienia dotyczące zadań",
+      "realtimeCracks": "Powiadomienia o złamaniach w czasie rzeczywistym",
+      "realtimeCracksHelper": "Powiadamiaj w miarę łamania haszy. Może dodać zauważalne obciążenie dla bardzo dużych zadań."
+    }
+  },
+  "monitoring": {
+    "title": "Ustawienia monitorowania",
+    "metricsRetention": {
+      "title": "📊 Okresy przechowywania metryk",
+      "description": "Skonfiguruj, jak długo przechowywać metryki na różnych poziomach szczegółowości. Dane kaskadowo przechodzą z szczegółowych na zagregowane w miarę upływu czasu.",
+      "realtimeData": "Przechowywanie danych w czasie rzeczywistym",
+      "realtimeDataHelper": "Dni przechowywania szczegółowych metryk niedawnej aktywności (np. 7 dni)",
+      "dailyAggregates": "Przechowywanie codziennych agregatów",
+      "dailyAggregatesHelper": "Dni przechowywania codziennych podsumowań po okresie czasu rzeczywistego (np. 30 dni)",
+      "weeklyAggregates": "Przechowywanie tygodniowych agregatów",
+      "weeklyAggregatesHelper": "Dni do zachowania trendów długoterminowych jako podsumowania tygodniowe (np. 365 dni)"
+    },
+    "aggregation": {
+      "title": "⚙️ Ustawienia agregacji",
+      "enableAggregation": "Włącz automatyczną agregację",
+      "enableAggregationDescription": "Automatycznie konsoliduj starsze metryki, aby oszczędzić miejsce do przechowywania, zachowując trendy",
+      "interval": "Interwał agregacji",
+      "intervalHelper": "Jak często uruchamiać proces agregacji",
+      "hourly": "Co godzinę",
+      "daily": "Codziennie",
+      "weekly": "Tygodniowo"
+    },
+    "cascading": {
+      "title": "Jak działa agregacja kaskadowa:",
+      "realtime": "Dane w czasie rzeczywistym dostarczają szczegółowych metryk dla niedawnej aktywności",
+      "daily": "Po okresie czasu rzeczywistego dane są agregowane do codziennych podsumowań",
+      "weekly": "Po okresie dziennym dane są dalej agregowane do podsumowań tygodniowych",
+      "benefit": "Podejście to zachowuje czytelność wykresów, zachowując trendy historyczne"
+    },
+    "buttons": {
+      "save": "Zapisz ustawienia",
+      "saving": "Zapisywanie..."
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować ustawień. Spróbuj ponownie.",
+      "saveFailed": "Nie udało się zapisać ustawień. Spróbuj ponownie."
+    },
+    "messages": {
+      "updateSuccess": "Ustawienia monitorowania zostały zapisane pomyślnie"
+    }
+  },
+  "agentDownloads": {
+    "title": "Ustawienia transferu plików agenta",
+    "description": "Skonfiguruj sposób pobierania plików przez agentów z backendu. Te ustawienia dotyczą wszystkich podłączonych agentów.",
+    "concurrentDownloads": {
+      "title": "Równoczesne pobieranie",
+      "description": "Maksymalna liczba plików, które można pobrać jednocześnie"
+    },
+    "downloadTimeout": {
+      "title": "Timeout pobierania",
+      "description": "Maksymalny czas dozwolony na pobieranie pojedynczego pliku",
+      "helper": "Od 1 minuty do 24 godzin (1440 minut)",
+      "unit": "minut"
+    },
+    "retryAttempts": {
+      "title": "Próby ponowienia",
+      "description": "Liczba razy, ile należy ponowić nieudane pobierania"
+    },
+    "progressInterval": {
+      "title": "Interwał raportowania postępu",
+      "description": "Jak często agenci raportują postęp pobierania",
+      "helper": "Od 1 sekundy do 5 minut (300 sekund)",
+      "unit": "sekund"
+    },
+    "chunkSize": {
+      "title": "Rozmiar porcji",
+      "description": "Rozmiar porcji pobierania dla przyszłej możliwości wznowienia",
+      "helper": "Od 1 MB do 100 MB",
+      "unit": "MB"
+    },
+    "applyNote": "Zmiany będą dotyczyć agentów przy ich następnym połączeniu. Aktualnie podłączeni agenci otrzymają aktualizacje automatycznie.",
+    "buttons": {
+      "save": "Zapisz ustawienia",
+      "saving": "Zapisywanie..."
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować ustawień pobierania agenta",
+      "saveFailed": "Nie udało się zaktualizować ustawień pobierania agenta"
+    },
+    "messages": {
+      "updateSuccess": "Ustawienia pobierania agenta zostały zaktualizowane pomyślnie"
+    }
+  },
+  "hashTypes": {
+    "title": "Zarządzanie typami haszy",
+    "description": "Zarządzaj obsługiwanymi typami haszy dla operacji łamania haseł",
+    "addHashType": "Dodaj typ hasza",
+    "searchPlaceholder": "Szukaj typów haszy...",
+    "hashTypesFound_few": "Znaleziono {{count}} typy haszy",
+    "hashTypesFound_many": "Znaleziono {{count}} typów haszy",
+    "hashTypesFound_one": "Znaleziono {{count}} typ hasza",
+    "hashTypesFound_other": "Znaleziono {{count}} typów haszy",
+    "table": {
+      "id": "ID",
+      "name": "Nazwa",
+      "description": "Opis",
+      "example": "Przykład",
+      "slow": "Wolne",
+      "salted": "Zasolone",
+      "actions": "Akcje",
+      "loading": "Ładowanie typów haszy...",
+      "noResults": "Nie znaleziono typów haszy"
+    },
+    "dialog": {
+      "addTitle": "Dodaj nowy typ hasza",
+      "editTitle": "Edytuj typ hasza",
+      "hashIdLabel": "ID hasza (numer trybu Hashcata)",
+      "hashIdHelper": "np. 1000 dla NTLM",
+      "nameLabel": "Nazwa",
+      "descriptionLabel": "Opis",
+      "exampleLabel": "Przykładowy hasz",
+      "exampleHelper": "Przykład tego formatu hasza",
+      "slowLabel": "Wolny algorytm hasza",
+      "saltedLabel": "Typ hasza zasolony (np. NTLMv2, bcrypt)",
+      "processingInfo": "Ten typ hasza wymaga specjalnego przetwarzania. Logika przetwarzania jest zarządzana programowo.",
+      "cancel": "Anuluj",
+      "save": "Zapisz",
+      "saving": "Zapisywanie..."
+    },
+    "validation": {
+      "hashIdRequired": "Identyfikator hasza jest wymagany i musi być dodatni",
+      "hashIdExists": "Ten identyfikator hasza już istnieje",
+      "nameRequired": "Nazwa jest wymagana"
+    },
+    "tooltips": {
+      "requiresProcessing": "Wymaga specjalnego przetwarzania",
+      "processing": "Przetwarzanie",
+      "slowAlgorithm": "Wolny algorytm hasza (kosztowny obliczeniowo)",
+      "salted": "Używa soli dla każdego hasza (wpływa na obliczenie przestrzeni kluczy)"
+    },
+    "confirmDelete": {
+      "title": "Potwierdź usunięcie",
+      "warning": "Ten typ hasza jest aktualnie włączony. Usunięcie go może wpłynąć na istniejącą funkcjonalność.",
+      "cancel": "Anuluj",
+      "delete": "Usuń",
+      "deleting": "Usuwanie..."
+    },
+    "messages": {
+      "createSuccess": "Typ hasza został pomyślnie utworzony",
+      "createFailed": "Nie udało się utworzyć typu hasza",
+      "updateSuccess": "Typ hasza został pomyślnie zaktualizowany",
+      "updateFailed": "Nie udało się zaktualizować typu hasza",
+      "deleteSuccess": "Typ hasza został pomyślnie usunięty",
+      "deleteFailed": "Nie udało się usunąć typu hasza",
+      "deleteInUse": "Nie można usunąć: Ten typ hasza jest używany przez istniejące listy haszy",
+      "loadFailed": "Nie udało się załadować typów haszy. Spróbuj odświeżyć stronę."
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "Inicjowanie GPU w chmurze",
+      "body": "Wynajmij instancje GPU na żądanie, gdy lokalna flota nie może nadążyć. Instancje dołączają do istniejącej sieci VPN, otrzymują tylko pliki potrzebne do ich zadania i są automatycznie likwidowane. Wydatek jest rezerwowany z budżetu danego klienta przed uruchomieniem instancji, więc limit jest rzeczywistym ograniczeniem, a nie pomiarem ex post.",
+      "fleetLink": "Wyświetl żywą flotę"
+    },
+    "sections": {
+      "providers": "Dostawcy",
+      "clients": "Budżety klientów",
+      "policy": "Polityka progu",
+      "rules": "Zasady inicjowania",
+      "system": "Limity i operacje"
+    },
+    "providers": {
+      "title": "Dostawcy chmury",
+      "description": "Skąd pochodzą wynajęte instancje i jak docierają do tego serwera.",
+      "add": "Dodaj dostawcę",
+      "addTitle": "Dodaj dostawcę chmury",
+      "editTitle": "Edytuj dostawcę chmury",
+      "edit": "Edytuj",
+      "delete": "Usuń",
+      "save": "Zapisz",
+      "saved": "Dostawca zapisany",
+      "saveFailed": "Nie udało się zapisać dostawcy",
+      "deleted": "Dostawca usunięty",
+      "deleteFailed": "Nie udało się usunąć dostawcy",
+      "deleteTitle": "Usunąć dostawcę?",
+      "deleteBody": "Usunąć \"{{name}}\"? To nie powiedzie się, gdy jakakolwiek wynajęta instancja wciąż się do niego odwołuje.",
+      "loadFailed": "Nie udało się załadować dostawców",
+      "empty": "Brak skonfigurowanych dostawców chmury. Nic nie będzie wynajęte.",
+      "enabled": "Włączony",
+      "disabled": "Wyłączony",
+      "noCredentials": "Brak poświadczeń",
+      "noVpn": "Brak VPN",
+      "credentialExpired": "Poświadczenie wygasło",
+      "credentialExpiresIn": "Wygasa za {{days}}d",
+      "limitsValue": "{{instances}} maks., limit {{rate}}/h",
+      "thirdPartyBadge": "Uruchamiane na maszynach trzeciej strony",
+      "preflight": "Preflight",
+      "preflightTitle": "Raport preflight",
+      "preflightOk": "Ten dostawca może uruchamiać instancje.",
+      "preflightFailed": "Żądanie preflight nie powiodło się",
+      "preflightFailedBody": "Ten dostawca nie może jeszcze uruchamiać instancji.",
+      "preflightIdentity": "Uwierzytelniony jako {{identity}}",
+      "preflightQuota": "Limit: {{used}} z {{limit}} w użyciu ({{source}})",
+      "preflightSections": {
+        "missing_permissions": "Brakujące uprawnienia",
+        "inconclusive": "Nie można było zweryfikować (traktowane jako błąd)",
+        "errors": "Błędy",
+        "warnings": "Ostrzeżenia"
+      },
+      "acknowledge": "Potwierdź",
+      "acknowledged": "Potwierdzenie zarejestrowane",
+      "ackFailed": "Nie udało się zarejestrować potwierdzenia",
+      "ackTitle": "Potwierdź ujawnienie danych trzeciej strony",
+      "ackBody": {
+        "vastai": "Vast.ai wynajmuje GPU na maszynach będących własnością poszczególnych osób, których operatorzy mają dostęp root do kontenera. Hasze, wordlisty i złamane teksty jawne umieszczone tam są widoczne dla strony trzeciej. Jest to kategorycznie różne od AWS lub RunPod Secure Cloud, gdzie instancje działają w ramach własnego konta użytkownika lub w centrach danych SOC 2.",
+        "runpod_community": "RunPod Community Cloud wynajmuje GPU na maszynach obsługiwanych przez równorzędne osoby, których właściciele mają dostęp root do kontenera. Hasze, wordlisty i złamane teksty jawne umieszczone tam są widoczne dla strony trzeciej. Zaświadczenia zgodności RunPod obejmują tylko Secure Cloud i nie rozciągają się na ten poziom."
+      },
+      "ackConfirm": "Czy akceptuje się to narażenie dla obciążeń wysłanych do tego dostawcy?",
+      "ackAccept": "Rozumiem i akceptuję",
+      "ephemeralKeyTitle": "Klucz szyfrowania jest efemeryczny",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY nie jest ustawiony, więc losowy klucz został wygenerowany przy starcie. Każde zapisane poświadczenie staje się nieczytelne po następnym ponownym uruchomieniu. Ustaw KH_ENCRYPTION_KEY przed zapisaniem poświadczeń dostawcy.",
+      "vpnSection": "Łączność VPN",
+      "vpnSectionHelp": "Ten serwer nigdy nie jest narażony na internet, więc wynajęte instancje dołączają do sieci VPN, która już działa. OpenVPN nie jest obsługiwany: wymaga /dev/net/tun i CAP_NET_ADMIN, które nieprivileged kontenery Vast.ai nie zapewniają.",
+      "reusableKeyWarning": {
+        "tailscale": "Klucz wielokrotnego użytku jest udostępniany każdej instancji i wygasa — Tailscale ogranicza klucze auth do 90 dni. Po jego wygaśnięciu, inicjowanie jest odrzucane zamiast uruchamiania instancji, które nie mogą się połączyć. Klient OAuth umożliwia KrakenHashes wygenerowanie jednorazowego, efemerycznego, otagowanego klucza na instancję zamiast tego.",
+        "netbird": "Klucz konfiguracji wielokrotnego użytku jest udostępniany każdej instancji, więc ta sama tajemnica dociera do każdego wynajętego hosta. Ustaw poniżej czas wygaśnięcia poświadczenia, jeśli klucz ma datę wygaśnięcia — inicjowanie jest wtedy odrzucane po wygaśnięciu zamiast uruchamiania instancji, które nie mogą się połączyć; pozostaw puste dla klucza, który nigdy nie wygasa. Tag lub grupa jest ignorowana dla tego typu poświadczenia: grupa i flaga efemeryczna pochodzą z własnej konfiguracji klucza w NetBird. Token dostępu umożliwia KrakenHashes wygenerowanie jednorazowego, efemerycznego klucza konfiguracji na instancję i ustawienie samej grupy."
+      },
+      "staticConfigWarning": "WireGuard używa statycznej konfiguracji peerów: nie ma poświadczenia dla pojedynczej instancji i brak automatycznego wyrejestrowania, gdy instancja umiera. Tailscale lub NetBird jest bezpieczniejszy.",
+      "kinds": {
+        "aws": "AWS EC2 (własne konto)",
+        "vastai": "Vast.ai (maszyny trzeciej strony)",
+        "mock": "Mock (lokalni agenci testowi, bez kosztów)",
+        "runpod": "RunPod Secure Cloud (centra danych SOC 2)",
+        "runpod_community": "RunPod Community Cloud (maszyny obsługiwane przez równorzędne osoby)"
+      },
+      "credentialKinds": {
+        "oauth": "Klient OAuth — generowanie jednorazowego, efemerycznego klucza na instancję (zalecane)",
+        "pat": "Token dostępu — generowanie jednorazowego, efemerycznego klucza na instancję (zalecane)",
+        "reusable_key": "Klucz wielokrotnego użytku — udostępniany każdej instancji",
+        "static_config": "Konfiguracja statyczna — brak poświadczenia dla pojedynczej instancji"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "Klient OAuth Tailscale jako client_id:client_secret. Wymaga zakresu auth_keys i wybranego tagu.",
+        "pat": "Token dostępu osobistego NetBird lub token użytkownika usługi.",
+        "reusable_key": "Wstępnie autoryzowany klucz, którego będzie używać każda instancja.",
+        "static_config": "Pełna konfiguracja peera WireGuard."
+      },
+      "columns": {
+        "name": "Nazwa",
+        "provider": "Dostawca",
+        "status": "Status",
+        "vpn": "VPN",
+        "limits": "Limity",
+        "actions": "Akcje"
+      },
+      "fields": {
+        "name": "Nazwa",
+        "provider": "Dostawca",
+        "credentials": "Poświadczenia dostawcy",
+        "credentialsHelp": "Poświadczenia API dla {{provider}}. Przechowywane zaszyfrowane i nigdy nie zwracane.",
+        "credentialsKeepHelp": "Pozostaw puste, aby zachować przechowywane poświadczenia bez zmian.",
+        "maxConcurrent": "Maksymalna liczba równoczesnych instancji",
+        "maxHourlyCents": "Maksymalna stawka godzinowa (centy)",
+        "maxHourlyHelp": "Oferty powyżej tej stawki nigdy nie są wynajmowane, niezależnie od tego, co pozwala budżet.",
+        "vpnProvider": "Dostawca VPN",
+        "credentialKind": "Typ poświadczeń",
+        "vpnCredential": "Poświadczenie VPN",
+        "credentialExpiry": "Data wygaśnięcia poświadczenia",
+        "credentialExpiryHelp": "Opcjonalnie — pozostaw puste, aby uzyskać klucz, który nigdy nie wygasa. Inicjowanie jest odrzucane po tym czasie, a ostrzeżenie pojawi się, gdy termin ten się zbliży.",
+        "vpnTag": "Tag lub grupa",
+        "vpnTagHelp": "np. tag:kraken-worker. Wymagane dla OAuth Tailscale; określa, dokąd mogą dotrzeć te węzły.",
+        "backendVpnHost": "Adres tego serwera w sieci VPN",
+        "backendVpnHostHelp": "Wartość KH_HOST używana przez agentów w chmurze. Certyfikat serwera musi ją pokrywać — dodaj ją na karcie Certyfikat serwera i kliknij Zastosuj i Wydaj ponownie, lub agenci nie przejdą weryfikacji nazwy hosta TLS.",
+        "enabled": "Włączone",
+        "awsAccessKeyId": "Identyfikator klucza dostępu AWS",
+        "awsAccessKeyIdHelp": "Klucz użytkownika lub roli IAM ograniczony do inicjowania EC2. Przechowywany zaszyfrowany i nigdy nie zwracany.",
+        "awsSecretAccessKey": "Tajny klucz dostępu AWS",
+        "awsRegion": "Region",
+        "awsRegionHelp": "np. us-east-2. Każde inne pole AWS poniżej musi być w tym regionie.",
+        "awsSubnet": "Identyfikator podsieci",
+        "awsSubnetHelp": "np. subnet-0abc123. Musi automatycznie przypisać publiczny adres IP, lub instancja nie będzie mogła dotrzeć do płaszczyzny kontrolnej sieci VPN.",
+        "awsSecurityGroups": "Identyfikatory grup bezpieczeństwa",
+        "awsSecurityGroupsHelp": "Oddzielone przecinkami, np. sg-0abc123. Wymaga dostępu tylko wychodzącego; nie jest wymagana żadna reguła przychodząca.",
+        "awsAmiSsm": "Parametr SSM AMI",
+        "awsAmiSsmHelp": "Rozwiązywane przy uruchomieniu, więc obraz nigdy się nie zestarzeje. np. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "Identyfikator AMI (zastępuje parametr SSM)",
+        "awsAmiIdHelp": "Zamiast tego przypnij określony obraz. Pozostaw puste, aby rozwiązać za pośrednictwem SSM. Wymagane jest jedno z nich.",
+        "awsInstanceProfile": "ARN profilu instancji IAM",
+        "awsInstanceProfileHelp": "Opcjonalnie. Wymagane tylko wtedy, gdy sam agent musi wywoływać API AWS.",
+        "awsRootVolume": "Wolumin główny (GB)",
+        "awsRootVolumeHelp": "Dolny limit; zestaw plików zadania może wymagać więcej. Musi wynosić co najmniej rozmiar migawki AMI, w przeciwnym razie uruchomienie zakończy się niepowodzeniem.",
+        "awsEbsRate": "Stawka EBS (centy/GB-miesiąc)",
+        "awsEbsRateHelp": "Cena magazynu gp3. Przy wartości 0 budżet nie rezerwuje nic na dysk.",
+        "awsUseSpot": "Użyj pojemności Spot",
+        "awsUseSpotHelp": "Żądania Spot są jednorazowe i kończą się w przypadku przerwania. Rabaty na GPU bieżącej generacji są często skromne, więc nie jest to automatycznie tańsze. Spot i na żądanie czerpią z oddzielnych limitów vCPU.",
+        "awsInstanceType": "Typ instancji",
+        "awsHourlyCents": "Centy/godzinę",
+        "awsGpuModel": "Model GPU",
+        "awsGpuCount": "GPU",
+        "awsVram": "VRAM/GPU",
+        "mockAgentBinary": "Ścieżka pliku binarnego agenta",
+        "mockAgentBinaryHelp": "Ścieżka do pliku binarnego agenta, który serwer może wykonać za pomocą --test-mode.",
+        "mockBackendHost": "Host zaplecza dla uruchomionych agentów",
+        "mockBackendHostHelp": "np. localhost:31337.",
+        "mockHourlyRate": "Symulowana stawka (centy/godzinę)",
+        "mockBootDelay": "Symulowane opóźnienie rozruchu (sekundy)",
+        "mockFailLaunch": "Błąd: niepowodzenie przy każdym uruchomieniu",
+        "mockDropLaunchResponse": "Błąd: odrzucenie odpowiedzi uruchomienia (instancja działa, ale jest zgłaszana jako nieudana)",
+        "mockNeverRegister": "Błąd: instancja nigdy się nie rejestruje",
+        "mockFailDestroy": "Błąd: niepowodzenie przy każdym usunięciu",
+        "vpnTagIgnoredHelp": "Ignorowany dla klucza wielokrotnego użytku NetBird: członkostwo w grupie i flaga efemeryczności pochodzą z własnej konfiguracji klucza konfiguracyjnego w NetBird. Używany tylko na ścieżce tokena dostępu jako auto_groups na każdym wygenerowanym kluczu.",
+        "vpnUrl": {
+          "netbird": "Adres URL zarządzania NetBird",
+          "tailscale": "Serwer logowania Tailscale (Headscale)"
+        },
+        "vpnUrlHelp": {
+          "netbird": "Samodzielnie hostowany serwer zarządzania NetBird, np. https://netbird.example.com. Używany zarówno do tworzenia kluczy konfiguracyjnych, jak i do uruchomienia klienta. Pozostaw puste dla usługi hostowanej NetBird.",
+          "tailscale": "Tylko dla samodzielnie hostowanego serwera sterującego. Uwaga: tworzenie tokena dostępu zawsze używa api.tailscale.com i nie obsługuje Headscale."
+        },
+        "vastCountries": "Kraje (rozdzielone przecinkami)",
+        "vastCountriesHelp": "Kody krajów Vast.ai, np. US, DE, SE. Puste oznacza wszędzie. Porównywany bez uwzględniania wielkości liter z raportowaną geolokalizacją, więc 'US' pasuje do 'US, Texas'. Służy również jako kontrola rezydencji danych.",
+        "vastGpuModels": "Dozwolone modele GPU (rozdzielone przecinkami)",
+        "vastGpuModelsHelp": "Puste oznacza dowolną kartę. Dopasowany na znormalizowanym kluczu, więc 'rtx_4090' pasuje zarówno do 'NVIDIA GeForce RTX 4090', jak i 'RTX 4090'. Poszerzenie tej listy jest najtańszym sposobem na zwiększenie dostępności.",
+        "vastDeniedGpuModels": "Zabronione modele GPU (rozdzielone przecinkami)",
+        "vastDeniedGpuModelsHelp": "Zawsze wygrywa z listą dozwolonych. To jest dźwignia awaryjna dla 'ta karta ciągle się nie powodzi, przestań ją wynajmować'.",
+        "vastMinReliability": "Minimalna niezawodność hosta (0-1)",
+        "vastMinReliabilityHelp": "Własny wynik niezawodności hosta Vast.ai. 0 wyłącza dolny limit. Hosty, które nie zgłaszają wyniku, są zachowywane. Wymienia trochę dostępności na mniej martwych wynajmów — host, który upuści instancję w środku porcji, został już zapłacony za jej uruchomienie.",
+        "vastAllowUnverified": "Zezwalaj na niezweryfikowane hosty (zwiększa dostępność; nieprzebadane maszyny)",
+        "vastAllowResidential": "Zezwalaj na hosty mieszkalne (zwiększa dostępność; maszyny domowe, nie centra danych)",
+        "runpodDataCenters": "Centra danych (rozdzielone przecinkami)",
+        "runpodDataCentersHelp": "Identyfikatory centrów danych RunPod, np. EU-RO-1, US-KS-2. PUSTE JEST NAJSZERSZYM USTAWIENIEM, a nie najwęższym — harmonogram RunPoda może wówczas umieścić pod gdziekolwiek. To jest przeciwieństwo stref AWS, gdzie pozostawienie go pustego nadal ogranicza wybór do jednej. Ustaw go w celu rezydencji danych lub aby pętla ponownego uruchomienia przeszła naprawdę niezależne pule.",
+        "runpodGpuTypes": "Dozwolone typy GPU (rozdzielone przecinkami)",
+        "runpodGpuTypesHelp": "Identyfikatory gpuType RunPoda dokładnie takie, jak pojawiają się w siatce dostępności, np. 'NVIDIA GeForce RTX 4090'. Puste oznacza każdą kartę, którą ma ta warstwa.",
+        "runpodDiskGb": "Dolny limit dysku kontenera (GB)",
+        "runpodDiskGbHelp": "Dolny limit, nie górny limit: zadanie, którego zestaw plików wymaga więcej, uzyska więcej. Dysk kontenera jest wymazywany po ponownym uruchomieniu poda, a wolumin sieciowy nigdy nie jest dołączany — przetrwałby pod i zatrzymał złamane teksty jawne po likwidacji.",
+        "runpodDiskRate": "Dysk kontenera (centy/GB-miesiąc)",
+        "runpodDiskRateHelp": "Zasila część magazynową rezerwacji budżetu. Zaokrąglana w górę, ponieważ rezerwacja, która niedoszacowuje magazynowania, pozwala klientowi przekroczyć limit, o którym powiedziano mu, że jest sztywny.",
+        "runpodSelfDestruct": "Zezwól podom usuwać się samodzielnie, jeśli sieć VPN umiera (tylko warstwa Secure)",
+        "runpodSelfDestructHelp": "Dodaje trzecią szynę likwidacyjną, aby pod mógł USUNĄĆ się, gdy straci kontakt, pasując do Vast.ai. RunPod nie ma poświadczenia ograniczonego do poda, więc umieszcza KLUCZ OGRANICZONY DO KONTA wewnątrz każdego poda — klucz, który może tworzyć i usuwać każdy inny pod na koncie. Dostarcz oddzielny, węższy klucz jako self_destruct_api_key w JSON poświadczeń zamiast ponownie używać klucza inicjowania. Nigdy niedostępne w warstwie Community."
+      },
+      "peerWarningTitle": "Sprzęt strony trzeciej",
+      "peerWarningBody": {
+        "vastai": "Instancje Vast.ai działają na indywidualnie posiadanych maszynach pozostających poza kontrolą administratora. Włącz go tylko dla klientów, których dane mogą być wystawione stronie trzeciej, i potwierdź to również dla każdego klienta.",
+        "runpod_community": "RunPod Community Cloud działa na maszynach obsługiwanych przez równorzędne osoby, których właściciele mają dostęp root do kontenera. Atestacje SOC 2, ISO 27001 i PCI DSS RunPoda obejmują tylko Secure Cloud, a nie tę warstwę. Włącz go tylko dla klientów, których dane mogą być wystawione stronie trzeciej, i potwierdź to również dla każdego klienta."
+      },
+      "awsSection": "Rozmieszczenie i ceny AWS",
+      "awsSectionHelp": "Gdzie uruchamiane są instancje i ile kosztują. EC2 nie ujawnia czytanego maszynowo modelu GPU ani stawki godzinowej dla tego kodu, dlatego oba są zadeklarowane tutaj.",
+      "awsInstanceTypes": "Oferowane typy instancji",
+      "awsInstanceTypesHelp": "Tylko wymienione tutaj typy można wynajmować. Zadeklaruj stawkę, po jakiej nastąpi rozliczenie — zaokrąglij w górę, ponieważ budżet rezerwuje się względem tej liczby, a nic nie sprawdza jej względem faktury. Zadeklarowanie modelu i liczby GPU umożliwia ranking kosztu na jednostkę pracy; bez tego ranking wraca do ceny za godzinę.",
+      "awsAddInstanceType": "Dodaj typ instancji",
+      "awsRemoveInstanceType": "Usuń",
+      "mockSection": "Zachowanie makiety i wstrzykiwanie błędów",
+      "mockSectionHelp": "Dostawca makiety tworzy lokalne procesy agent --test-mode. Przełączniki błędów ćwiczą gałęzie awarii bez ponownej kompilacji.",
+      "providerNotImplemented": "Ten dostawca nie ma jeszcze adaptera: zaplecze odrzuca go z \"nieobsługiwanym dostawcą chmury\" w momencie uruchomienia. Można go zapisać, ale nic nie można zainicjować z niego.",
+      "zones": {
+        "title": "Rozmieszczenia i sprzęt",
+        "help": "Zaznacz każde miejsce i każdy GPU, jaki może zostać wynajęty. Pojemność zwykle należy do pary (sprzęt, rozmieszczenie) raczej niż do każdego osobno, więc każda zaznaczona komórka to jedna niezależna szansa na uzyskanie maszyny — jedna zaznaczona komórka oznacza, że odmowa pojemności nie ma dokąd się wycofać. Pozostawienie wszystkich kart rzędu zaznaczonych oznacza \"dowolny sprzęt zatwierdzony przeze mnie\", w tym dowolny dodany później.",
+        "probe": "Sprawdź dostępność",
+        "probeHelp": "Odczytuje dane strefy, podsieci, oferty, ceny spot i wyniku rozmieszczenia z AWS. Tylko do odczytu: nie uruchamia nic i nic nie kosztuje.",
+        "probeIdle": "aby załadować aktualne strefy, podsieci i ceny spot dla tego dostawcy.",
+        "probeFailed": "Nie można odczytać pojemności z AWS.",
+        "saveFirst": "Najpierw zapisz dostawcę. Dostępność jest odczytywana przy użyciu zapisanych poświadczeń i regionu, więc niezapisany formularz nie ma czym wykonać zapytania.",
+        "selectAll": "Wybierz wszystkie użyteczne strefy",
+        "colZone": "Strefa",
+        "colSubnet": "Podsieć",
+        "notOffered": "EC2 nie oferuje tego typu instancji w tej strefie. To jest definitywne — uruchomienie tutaj zakończy się niepowodzeniem Nieobsługiwane.",
+        "unusable": "To rozmieszczenie nie może być uruchomione. Patrz notatkę obok jego nazwy.",
+        "freeIps_few": "{{count}} wolne adresy IP",
+        "freeIps_many": "{{count}} wolnych adresów IP",
+        "freeIps_one": "{{count}} wolny adres IP",
+        "freeIps_other": "{{count}} wolne adresy IP",
+        "scoreHelp": "Własna ocena AWS 1-10 dla TEJ karty w TEJ strefie i słabe dowody: każda strefa w tym regionie była oceniana 1/10 na tym koncie kilka minut przed uruchomieniem w jednej z nich, które powiodło się za pierwszym razem. Decyduje, która pula jest próbowana pierwsza. Nigdy nie usuwa puli z listy. Porównaj ją z oceną wszystkich typów obok nazwy strefy.",
+        "spotVsConfigured": "Spot podaje {{spot}}/godz. tutaj; skonfigurowana stawka dla tego typu to {{configured}}/godz. Rezerwacje używają wartości SKONFIGUROWANEJ, więc ceny poniżej aktualnej stawki niedostatecznie rezerwują względem limitu budżetu, który miał pozostać sztywny.",
+        "poolCount_few": "{{count}} wybrane pule pojemności",
+        "poolCount_many": "{{count}} wybranych pul pojemności",
+        "poolCount_one": "{{count}} wybrana pula pojemności",
+        "poolCount_other": "{{count}} wybrane pule pojemności",
+        "poolCountWarning": "Jedna pula to jedna szansa. Kiedy się wyczerpie, pętla ponownego uruchomienia nie ma dokąd się udać i inicjowanie po prostu się zatrzymuje, aż pojemność powróci. Zaznacz więcej stref, więcej typów instancji lub oba.",
+        "poolCountOk": "Odmowa pojemności w jednej puli przechodzi do następnej, w kolejności od najbardziej prawdopodobnej.",
+        "legacyOverridden": "Strefy są skonfigurowane, więc pojedynczy Identyfikator podsieci powyżej ({{subnet}}) jest ignorowany. Pozostaje jako opcja zapasowa, jeśli każda strefa jest odznaczona.",
+        "combinedScore": "wszystkie typy: {{score}}/10",
+        "combinedScoreHelp": "Wynik rozmieszczenia AWS liczony łącznie dla WSZYSTKICH typów instancji z ustaloną ceną w tej strefie — to inne pytanie niż wynik pojedynczej karty i zwykle dużo lepsza odpowiedź. Zmierzony w jednym regionie w ciągu jednej minuty: sam g6.xlarge uzyskał tu wynik 1/10, a g4dn + g5 + g6 razem uzyskały 9/10. Szerokość wyboru nie jest zabezpieczeniem przed niedoborem — to właśnie ona jest oceniana.",
+        "availableCount": "{{count}} dostępnych",
+        "availableCountHelp": "Aktualna liczba maszyn dostępnych do wynajęcia w tej chwili. To realny stan zapasów i najsilniejszy sygnał na tym ekranie — znacznie lepszy niż wynik rozmieszczenia, który jest tylko opinią.",
+        "livePriceHelp": "Opłata, którą dostawca pobiera za to w tej chwili.",
+        "trust": {
+          "definitive": "ostateczny",
+          "measured": "na żywo",
+          "advisory": "tylko informacyjnie"
+        },
+        "axesModeNote": "Ten dostawca przechowuje kraje i modele GPU jako dwie niezależne listy, więc zaznaczenie karty stosuje ją w każdym wybranym kraju. Liczby w poszczególnych komórkach i ceny poniżej pozostają rzeczywiste i specyficzne dla danego kraju."
+      },
+      "vastSection": "Zasady rozmieszczenia i sprzętu Vast.ai",
+      "vastSectionHelp": "Które kraje i które karty ten dostawca może wynająć. Pozostawienie listy pustej oznacza brak ograniczeń, co jest największą pulą i ustawieniem domyślnym.",
+      "vastTierWarningTitle": "Otwieranie niezweryfikowanej warstwy hostów",
+      "vastTierWarningBody": "To największy jednorazowy wzrost dostępności, jaki można uzyskać na Vast.ai, ale umieszcza hasze klienta, wordlisty, potfile i złamane teksty jawne na maszynach, których Vast.ai nie zweryfikował. Każdy host Vast ma już uprawnienia root nad kontenerem; te przełączniki usuwają jedyny filtr, który ogranicza go do hostów sprawdzonych przez Vast. To właśnie w niezweryfikowanej warstwie koncentrują się zgłoszenia typu „zawieszone połączenie” czy „zły sterownik”, więc część dodatkowej dostępności jest iluzoryczna — wynajęcie maszyny, która nigdy nie dotrze do użytecznej pracy, nadal kosztuje tyle, co jej uruchomienie.",
+      "runpodSection": "Zasady rozmieszczenia i sprzętu RunPod",
+      "runpodSectionHelp": "Które centra danych i typy GPU może wynajmować ten dostawca. Ceny w RunPod są ustalane na żywo, więc nie trzeba tu deklarować żadnych stawek — w przeciwieństwie do AWS.",
+      "runpodCommunityTeardownTitle": "Likwidacja Community zależy wyłącznie od reapera backendu",
+      "runpodCommunityTeardownBody": "RunPod nie wydaje danych uwierzytelniających ograniczonych do jednego poda, więc nie istnieje bezpieczny sposób, by pod Community usunął się samodzielnie: jedynym działającym kluczem byłby klucz w zakresie całego konta, a operator hosta Community ma root nad kontenerem i odczytałby go ze zmiennej środowiskowej. Wewnętrzny limit czasu w obrębie gościa wciąż zabija hashcat i kończy ekspozycję danych, ale NIE MOŻE zatrzymać rozliczania poda. Jeśli ten backend jest wyłączony lub zakleszczony, pod Community jest rozliczany, aż zostanie ręcznie zlikwidowany ze strony Cloud Fleet. Ustaw niski limit maksymalnego czasu życia instancji i mały limit budżetu dla każdego klienta, dla którego dozwolone jest korzystanie z tej warstwy.",
+      "experimentalChip": "Eksperymentalny",
+      "experimentalTooltip": "Eksperymentalny — jeszcze nie testowany. Ten adapter nigdy nie przeszedł pełnego testu na rzeczywistym dostawcy z wydaniem prawdziwych pieniędzy. Spodziewaj się błędów — monitoruj swoje zadania i zgłaszaj to, co znajdziesz.",
+      "experimentalTitle": "Eksperymentalny — jeszcze nie testowany",
+      "experimentalBody": "Ten dostawca nie przeszedł jeszcze pełnej weryfikacji z prawdziwymi pieniędzmi: rozruch, oddanie do użytku, łamanie, czyste zwolnienie zasobów i zwrot budżetu nie zostały wszystkie zaobserwowane działające razem poprawnie. Powinien działać, ale będzie miał błędy. Zacznij od niskiego limitu budżetu i niskiego limitu liczby instancji, i obserwuj stronę Cloud Fleet pod kątem instancji, które nie zostają zlikwidowane. Proszę zgłaszać wszystko, co pójdzie źle.",
+      "testedChip": "Testowany",
+      "testedTooltip": "Testowany — sprawdzony od początku do końca na rzeczywistym dostawcy z prawdziwymi pieniędzmi, obejmujący rozruch, łamanie, czyste zwolnienie zasobów i rozliczony zwrot budżetu.",
+      "reportIssueLink": "Zgłoś błąd na GitHubie",
+      "reportDiagnosticsLink": "Wyślij diagnostykę na Discordzie (nie w zgłoszeniu)"
+    },
+    "budgets": {
+      "title": "Budżety klientów",
+      "description": "Ile może wydać każdy klient i do których dostawców mogą trafiać jego dane. Klienci z pustymi polami stosują domyślne wartości serwera podane poniżej.",
+      "loadFailed": "Nie udało się załadować budżetów klientów",
+      "empty": "Klienci jeszcze nie istnieją. Najpierw utwórz klienta, a następnie go sfinansuj tutaj.",
+      "edit": "Edytuj",
+      "editTitle": "Ustawienia chmury — {{name}}",
+      "saved": "Ustawienia chmury klienta zapisane",
+      "saveFailed": "Nie udało się zapisać ustawień chmury klienta",
+      "enabled": "Włączone",
+      "disabled": "Wyłączone",
+      "unfunded": "Brak budżetu",
+      "noProviders": "Brak dozwolonych dostawców",
+      "ttlValue": "{{minutes}} min",
+      "spendSummary": "{{used}} z {{cap}} zarezerwowanych ({{pct}}%)",
+      "acknowledged": "Potwierdzenie zarejestrowane",
+      "acknowledgedChip": "Potwierdzone",
+      "ackFailed": "Nie udało się zarejestrować potwierdzenia",
+      "ackTitle": "Potwierdź ekspozycję na strony trzecie dla tego klienta",
+      "ackWarningTitle": "Dane tego klienta mogą wymknąć się spod kontroli",
+      "ackWarningBody": "Zezwolenie na Vast.ai dla {{name}} oznacza, że hasze tego klienta, wordlisty i złamane teksty jawne mogą być umieszczone na maszynach należących do osób trzecich, które mają dostęp root do kontenera.",
+      "ackConfirm": "Czy zaakceptować tę ekspozycję dla tego klienta?",
+      "ackAccept": "Rozumiem i akceptuję",
+      "actions": {
+        "none": "W ramach budżetu",
+        "notify": "Próg osiągnięty",
+        "stop_provisioning": "Inicjowanie zatrzymane",
+        "drain": "Opróżnianie",
+        "hard_stop": "Twarde zatrzymanie"
+      },
+      "columns": {
+        "client": "Klient",
+        "status": "Status",
+        "providers": "Dozwoleni dostawcy",
+        "spend": "Wydatki",
+        "ttl": "Maks. TTL",
+        "actions": "Akcje"
+      },
+      "fields": {
+        "budget": "Budżet",
+        "budgetHelp": "Limit wydatków na bieżący okres budżetowy. Pozostaw puste, aby dziedziczyć wartość domyślną serwera; klient zostaje niesfinansowany tylko wtedy, gdy również nie ustawiono wartości domyślnej.",
+        "ttl": "Maksymalny czas życia instancji (minuty)",
+        "ttlHelp": "Instancja jest niszczona po osiągnięciu tego czasu życia, niezależnie od postępu. Pozostaw puste, aby użyć wartości domyślnej systemu.",
+        "providers": "Dozwoleni dostawcy",
+        "providersHelp": "Puste oznacza, że nic nie może być wynajęte dla tego klienta. Zezwolenie na AWS przy zakazie Vast.ai to normalna konfiguracja.",
+        "enabled": "Cloud Burst",
+        "period": "Okres budżetowy",
+        "periodHelp": "Pozostaw puste, aby dziedziczyć wartość domyślną serwera."
+      },
+      "errors": {
+        "invalidBudget": "Budżet musi być liczbą, np. 25,00",
+        "negativeBudget": "Budżet nie może być ujemny",
+        "invalidTtl": "Maksymalny czas życia musi być dodatnią liczbą minut",
+        "enabledWithoutBudget": "Ustaw budżet przed włączeniem Cloud Burst — niesfinansowany klient nigdy nie będzie mógł niczego aprowizować.",
+        "enabledWithoutProvider": "Zezwól na co najmniej jednego dostawcę przed włączeniem Cloud Burst."
+      },
+      "peerTooltip": "Sprzęt obsługiwany przez użytkowników: dane tego klienta będą czytelne dla właściciela maszyny.",
+      "defaults": {
+        "title": "Domyślne wartości serwera",
+        "description": "Wartości, których klient używa, jeśli nie ustawił własnych. Pozostawienie pola klienta pustym oznacza, że stosuje wartości domyślne podane tutaj, więc zmiana tych wartości wpływa na każdego klienta, który wciąż dziedziczy.",
+        "summary": "{{amount}} za {{period}}",
+        "summaryUnset": "Nie ustawiono domyślnego budżetu — klienci, którzy dziedziczą, pozostają niesfinansowani",
+        "budget": "Domyślny budżet",
+        "budgetHelp": "Pozostaw puste, jeśli nie ma wartości domyślnej: klienci dziedziczący pozostają wtedy niesfinansowani i nie mogą korzystać z Cloud Burst.",
+        "period": "Domyślny okres budżetowy",
+        "enabled": "Klienci mogą domyślnie korzystać z Cloud Burst, by uzyskać płatną pojemność",
+        "providers": "Domyślni dostawcy",
+        "providersHelp": "Dotyczy każdego klienta, którego własna lista dostawców jest pusta.",
+        "peerAckNote": "Dostawcy obsługiwani przez użytkowników nadal wymagają potwierdzenia dla każdego klienta. Domyślne włączenie ich nie udziela tej zgody — każdy klient musi zostać potwierdzony indywidualnie, zanim jego dane będą mogły tam trafić.",
+        "appliesNow": "Cloud Burst jest domyślnie włączony i ustawiono domyślny budżet, więc każdy klient wciąż dziedziczący może teraz aprowizować płatną pojemność.",
+        "save": "Zapisz domyślne wartości",
+        "saved": "Domyślne wartości zapisane",
+        "saveFailed": "Nie udało się zapisać domyślnych wartości",
+        "fundedButDisabled": "Domyślny budżet jest ustawiony, ale Cloud Burst jest domyślnie wyłączony, więc żaden klient dziedziczący nie może niczego aprowizować. Zaznacz pole powyżej, aby budżet był użyteczny.",
+        "enabledWithoutProviders": "Cloud Burst jest domyślnie włączony, ale nie wybrano żadnych domyślnych dostawców, więc klienci dziedziczący wciąż nie mogą niczego wynająć. Wybierz powyżej co najmniej jednego dostawcę.",
+        "willEnableTitle_few": "To pozwoli {{count}} klientom wynająć płatną pojemność",
+        "willEnableTitle_many": "To pozwoli {{count}} klientom wynająć płatną pojemność",
+        "willEnableTitle_one": "To pozwoli {{count}} klientowi wynająć płatną pojemność",
+        "willEnableTitle_other": "To pozwoli {{count}} klientom wynająć płatną pojemność",
+        "willEnableBody": "Ci klienci nie mają własnych ustawień, więc korzystają z domyślnych wartości powyżej. Zapisanie pozwoli każdemu z nich aprowizować instancje w chmurze i wydawać w ramach tego budżetu. Aby wykluczyć klienta, ustaw jego własny Cloud Burst na Wyłączone.",
+        "andMore": "+{{count}} więcej",
+        "confirmTitle_few": "Włączyć wydatki w chmurze dla {{count}} klientów?",
+        "confirmTitle_many": "Włączyć wydatki w chmurze dla {{count}} klientów?",
+        "confirmTitle_one": "Włączyć wydatki w chmurze dla {{count}} klienta?",
+        "confirmTitle_other": "Włączyć wydatki w chmurze dla {{count}} klientów?",
+        "confirmBody_few": "{{count}} klientów aktualnie nie może wynająć nic. Zapisanie tych domyślnych wartości daje każdemu z nich limit {{amount}} na {{period}} i pozwolenie na wydanie. Budżet jest na klienta, a nie wspólny, więc jest to całkowita ekspozycja pomnożona przez liczbę wymienionych klientów.",
+        "confirmBody_many": "{{count}} klientów aktualnie nie może wynająć nic. Zapisanie tych domyślnych wartości daje każdemu z nich limit {{amount}} na {{period}} i pozwolenie na wydanie. Budżet jest na klienta, a nie wspólny, więc jest to całkowita ekspozycja pomnożona przez liczbę wymienionych klientów.",
+        "confirmBody_one": "{{count}} klient aktualnie nie może wynająć nic. Zapisanie tych domyślnych wartości daje mu limit {{amount}} na {{period}} i pozwolenie na wydanie. Budżet jest na klienta, a nie wspólny, więc jest to całkowita ekspozycja.",
+        "confirmBody_other": "{{count}} klientów aktualnie nie może wynająć nic. Zapisanie tych domyślnych wartości daje każdemu z nich limit {{amount}} na {{period}} i pozwolenie na wydanie. Budżet jest na klienta, a nie wspólny, więc jest to całkowita ekspozycja pomnożona przez liczbę wymienionych klientów.",
+        "confirmAlternative": "Aby włączać to pojedynczo: zrezygnuj z zapisu, pozostaw Cloud Burst domyślnie wyłączony, a Cloud Burst i budżet ustaw indywidualnie dla każdego klienta.",
+        "confirmAccept_few": "Włącz {{count}} klientów",
+        "confirmAccept_many": "Włącz {{count}} klientów",
+        "confirmAccept_one": "Włącz {{count}} klienta",
+        "confirmAccept_other": "Włącz {{count}} klientów"
+      },
+      "periods": {
+        "monthly": "miesiąc",
+        "quarterly": "kwartał",
+        "semiannual": "sześć miesięcy"
+      },
+      "inheritLabel": "Dziedzicz wartość domyślną ({{value}})",
+      "on": "Włączone",
+      "off": "Wyłączone",
+      "inheriting": "dziedziczące"
+    },
+    "policy": {
+      "title": "Polityka progów wydatków",
+      "description": "Co się dzieje, gdy klient zbliża się do swojego limitu. Te progi decydują o tym, jak łagodnie limit jest osiągany; to, co faktycznie zapobiega przekroczeniu, to fakt, że całkowity koszt czasu życia instancji jest zarezerwowany przed jej uruchomieniem.",
+      "loadFailed": "Nie udało się załadować polityki progów wydatków",
+      "saved": "Polityka progów wydatków zapisana",
+      "saveFailed": "Nie udało się zapisać polityki progów wydatków",
+      "overageWarning": "Przekroczenie jest dozwolone: rezerwacje mogą przekroczyć pozostały budżet. Limit staje się doradczy, a nie absolutny.",
+      "hardStopAboveCapNote": "Twarde zatrzymanie jest ustawione na {{pct}}%, ale przekroczenie jest wyłączone, więc rezerwacje wciąż nie mogą przekroczyć 100% budżetu. Włącz przekroczenie, jeśli zamierzasz zezwolić na wydatki powyżej limitu.",
+      "fields": {
+        "notifyEnabled": "Powiadom mnie, gdy wydatki zbliżają się do limitu",
+        "notifyPct": "Powiadom o (% budżetu)",
+        "notifyPctHelp": "Wysyła powiadomienie jeden raz. Wyłącz pole wyboru, aby nigdy nie powiadamiać.",
+        "stopProvisionPct": "Zatrzymaj inicjowanie o (%)",
+        "stopProvisionPctHelp": "Żadne nowe instancje nie są uruchamiane po przekroczeniu tego progu. Już działające instancje pracują dalej.",
+        "drainPct": "Zacznij opróżnianie o (%)",
+        "drainPctHelp": "Żadna nowa praca nie jest przydzielana; porcje będące w trakcie realizacji mogą zostać dokończone.",
+        "hardStopPct": "Twarde zatrzymanie o (%)",
+        "hardStopPctHelp": "Instancje są niszczone natychmiast, niezależnie od tego, czy się kończą.",
+        "drainTimeout": "Limit czasu opróżniania (sekundy)",
+        "drainTimeoutHelp": "Jak długo instancja może dokańczać swoją porcję, zanim zostanie i tak zniszczona.",
+        "allowOverage": "Zezwól na wydatki powyżej limitu",
+        "allowOverageHelp": "Wyłącz, aby limit był bezwzględny. Po wyłączeniu budżet 10 USD zatrzymuje się na 10 USD."
+      },
+      "errors": {
+        "notifyRange": "Próg powiadomienia musi być między 1% a progiem zatrzymania inicjowania.",
+        "stopBeforeDrain": "Próg zatrzymania inicjowania nie może przekraczać progu opróżniania.",
+        "drainBeforeHardStop": "Próg opróżniania nie może przekraczać progu twardego zatrzymania.",
+        "negativeTimeout": "Limit czasu opróżniania nie może być ujemny."
+      }
+    },
+    "fleet": {
+      "title": "Flota instancji w chmurze",
+      "description": "Każda wynajęta instancja, która może wciąż generować koszty.",
+      "loadFailed": "Nie udało się załadować floty",
+      "empty": "Brak uruchomionych instancji. Nic nie jest rozliczane.",
+      "summary_few": "{{count}} aktywne instancje, {{hourly}}/godz., zobowiązano {{reserved}}.",
+      "summary_many": "{{count}} aktywnych instancji, {{hourly}}/godz., zobowiązano {{reserved}}.",
+      "summary_one": "{{count}} aktywna instancja, {{hourly}}/godz., zobowiązano {{reserved}}.",
+      "summary_other": "{{count}} aktywnych instancji, {{hourly}}/godz., zobowiązano {{reserved}}.",
+      "destroy": "Zniszcz",
+      "destroyed": "Instancja zniszczona",
+      "destroyFailed": "Dostawca odmówił zniszczenia tej instancji — wciąż jest rozliczana",
+      "destroyTitle": "Zniszczyć instancję?",
+      "destroyBody": "Zniszczyć \"{{label}}\" teraz? Rozliczanie zatrzyma się zaraz po potwierdzeniu dostawcy.",
+      "destroyJobWarning": "Ta instancja realizuje zadanie. Jej porcja w trakcie zostanie utracona i będzie ponownie wysłana do innego miejsca.",
+      "teardownFailingTitle": "Likwidacja się nie powodzi",
+      "teardownFailingBody_few": "{{count}} instancje nie mogły zostać zniszczone i wciąż generują koszty. Sprawdź konsolę dostawcy.",
+      "teardownFailingBody_many": "{{count}} instancji nie mogło zostać zniszczonych i wciąż generują koszty. Sprawdź konsolę dostawcy.",
+      "teardownFailingBody_one": "{{count}} instancja nie mogła zostać zniszczona i wciąż generuje koszty. Sprawdź konsolę dostawcy.",
+      "teardownFailingBody_other": "{{count}} instancje nie mogły zostać zniszczone i wciąż generują koszty. Sprawdź konsolę dostawcy.",
+      "teardownFailingTooltip": "Likwidacja się nie powiodła; ta instancja wciąż jest rozliczana",
+      "estimated": "szac.",
+      "estimatedTooltip": "Szacowana na podstawie upływu czasu i stawki; własna liczba dostawcy pojawi się później.",
+      "perHour": "{{rate}}/godz.",
+      "ttlExpired": "Wygasło",
+      "states": {
+        "requested": "Zażądano",
+        "launching": "Uruchamianie",
+        "provisioning": "Inicjowanie",
+        "syncing": "Synchronizowanie plików",
+        "running": "Uruchomione",
+        "draining": "Opróżnianie",
+        "terminating": "Kończenie",
+        "terminated": "Zakończono",
+        "failed": "Nie powiodło się"
+      },
+      "columns": {
+        "label": "Instancja",
+        "state": "Stan",
+        "client": "Klient",
+        "gpu": "GPU",
+        "rate": "Stawka",
+        "spend": "Wydatki",
+        "ttl": "Pozostały TTL",
+        "disk": "Dysk",
+        "actions": "Akcje",
+        "agent": "Agent",
+        "job": "Zadanie"
+      },
+      "experimentalRunningTitle_few": "{{count}} instancje uruchomione na eksperymentalnym dostawcy",
+      "experimentalRunningTitle_many": "{{count}} instancji uruchomionych na eksperymentalnym dostawcy",
+      "experimentalRunningTitle_one": "{{count}} instancja uruchomiona na eksperymentalnym dostawcy",
+      "experimentalRunningTitle_other": "{{count}} instancje uruchomione na eksperymentalnym dostawcy",
+      "experimentalRunningBody": "{{providers}} nie zostały potwierdzone end-to-end z rzeczywistymi pieniędzmi. Obserwuj te instancje, aby osiągnęły 'Zakończono' zamiast zakładać, że to się stanie: ścieżka likwidacji jest najmniej testowaną częścią każdego nowego adaptera, a instancja, która się nigdy nie zwolni, jest rozliczana, dopóki nie zniszczysz jej tutaj. Proszę, zgłoś, co widzisz.",
+      "experimentalTooltip": "{{provider}} to eksperymentalny dostawca — jeszcze nie testowany. Spodziewaj się błędów; potwierdź, że ta instancja rzeczywiście się zwolni, gdy jej zadanie się skończy."
+    },
+    "rules": {
+      "title": "Kiedy system może wydawać",
+      "description": "Budżety regulują, ile można wydać. Te regulują, kiedy w ogóle coś może być wydane. Bez nich autoskalator wynajmuje po jednym głodnym takcie, dla każdego zadania, o każdej godzinie, bez limitu na zadanie.",
+      "inheritTitle": "To są domyślne ustawienia systemowe",
+      "inheritBody": "Klienci dziedziczą każde pole indywidualnie, więc zaostrzenie domyślnego tutaj dociera do każdego klienta, który nie zastąpił tego konkretnego pola. Zastąpienia na klienta edytuje się na ekranie klienta.",
+      "saved": "Reguły inicjowania zapisane",
+      "saveFailed": "Nie udało się zapisać reguł inicjowania",
+      "loadFailed": "Nie udało się załadować reguł inicjowania",
+      "save": "Zapisz reguły",
+      "fields": {
+        "minJobPriority": "Minimalny priorytet zadania",
+        "minStarvation": "Minimalny czas głodu (minuty)",
+        "skipIfFinishing": "Pomiń, jeśli kończy się w ciągu (minut)",
+        "maxSpendPerJob": "Maksymalne wydatki na zadanie",
+        "windowEnabled": "Ogranicz inicjowanie do przedziału czasowego",
+        "windowStart": "Okno otwiera się",
+        "windowEnd": "Okno zamyka się",
+        "windowTz": "Strefa czasowa"
+      },
+      "helperText": {
+        "minJobPriority": "Bezwzględny priorytet, a nie procent. Twój obecny limit to {{ceiling}}.",
+        "floorOff": "Brak dna: każde zadanie obsługujące burst chmury kwalifikuje się do automatycznego inicjowania.",
+        "minStarvation": "Jak długo zadanie musi nie robić żadnych postępów, zanim wynajęta zostanie płatna pojemność. 0 wynajmuje przy pierwszym głodnym takcie. Dotyczy tylko autoskalera.",
+        "skipIfFinishing": "Nie wynajmuj dla zadania, którego przewiduje się, że skończy się tak szybko na istniejącej pojemności — wynajęta instancja potrzebuje 5-10 minut na rozruch i synchronizację. 0 nigdy nie pomija.",
+        "maxSpendPerJob": "Dożywotni limit wydatków na chmurę dla jednego zadania, a nie w oknie miesięcznym. Puste oznacza brak limitu. Egzekwowany wszędzie, w tym w ręcznym inicjowaniu administratora.",
+        "windowEnabled": "Reguluje tylko starty. Instancje nigdy nie są likwidowane z powodu zamknięcia okna — za likwidację odpowiadają TTL i bezczynne opróżnianie.",
+        "windowTz": "Nazwa IANA, np. America/Chicago. Pozostaw puste dla UTC.",
+        "windowWrap": "Czas zamknięcia wcześniejszy niż czas otwarcia zawija się po północy, co jest normalnym sposobem na napisanie \"tylko wynajmij przez noc\". Ustawienie obu na tę samą wartość oznacza zawsze otwarte."
+      },
+      "bands": {
+        "minimal": "Minimalny",
+        "low": "Niski",
+        "normal": "Normalny",
+        "high": "Wysoki",
+        "critical": "Krytyczny"
+      }
+    },
+    "system": {
+      "ceilings": "Limity wydatków i współbieżności",
+      "ceilingsHelp": "Bezwzględne limity całego systemu, stosowane przed konsultacją budżetu dowolnego klienta.",
+      "work": "Rozmiar pracy i likwidacja",
+      "workHelp": "Ile pracy wynajęta instancja otrzymuje naraz i jak szybko bezczynna instancja jest zwalniana. Narzut na porcję jest rozliczany według stawek wynajmu, więc te ustawienia są kompromisem między przepustowością a marnotrawieniem.",
+      "reconciliation": "Uzgodnienie",
+      "reconciliationHelp": "Jak często baza danych jest sprawdzana w stosunku do tego, co dostawca rzeczywiście uruchamia i jak długo tolerowana jest niezidentyfikowana instancja przed jej zniszczeniem.",
+      "capDisabledWarning": "Inicjowanie chmury jest obecnie WYŁĄCZONE: globalny miesięczny limit wynosi 0. Dostawcy, budżety klientów i zadania obsługujące chmurę będą wszystkie skonfigurowane prawidłowo i nic nie będzie nigdy wynajęte. Ustaw niezerowy limit, aby go włączyć.",
+      "saved": "Ustawienie zapisane",
+      "saveFailed": "Nie udało się zapisać ustawienia",
+      "loadFailed": "Nie udało się załadować ustawień chmury",
+      "units": {
+        "seconds": "s",
+        "minutes": "min"
+      },
+      "fields": {
+        "monthlyCap": "Globalny miesięczny limit wydatków",
+        "monthlyCapHelp": "We wszystkich klientach i dostawcach. 0 wyłącza inicjowanie chmury całkowicie — to nie jest nieograniczone.",
+        "concurrentCap": "Globalny limit współbieżnych instancji",
+        "concurrentCapHelp": "Maksymalna liczba wynajętych instancji naraz, we wszystkich dostawcach i klientach. 0 oznacza nieograniczone, wciąż ograniczone budżetami i limitami dostawców.",
+        "defaultMaxInstancesPerJob": "Domyślna maksymalna liczba instancji na zadanie",
+        "defaultMaxInstancesPerJobHelp": "Maksymalna liczba wynajętych instancji dla zadania, które pozostawia swój własny limit pusty. Puste pole dawniej oznaczało brak limitu, co w wdrożeniu tylko chmurowym sprawiało, że budżet klienta był jedyną rzeczą powstrzymującą głodne zadanie przed wynajmowaniem raz na minutę. Wartość ustawiona dla zadania wciąż to nadpisuje. 0 przywraca brak limitu.",
+        "chunkDuration": "Minimalny czas trwania porcji chmury",
+        "chunkDurationHelp": "Minimalny czas trwania porcji dla agentów chmury. Wynajęte GPU jest rozliczane, gdy hashcat się uruchamia, autotunuje kernele i wczytuje wordlistę, więc porcje chmury nigdy nie są krótsze niż ta wartość, nawet gdy zadanie prosi o mniej. Zadanie proszące o WIĘCEJ utrzymuje swoją własną wartość. Zawsze ograniczone do pozostałego okresu życia instancji. Ustaw na 0, aby wyłączyć ten dolny limit.",
+        "teardownSlack": "Bufor czasu likwidacji",
+        "teardownSlackHelp": "Zarezerwowany na koniec okresu życia instancji dla opróżniania i zniszczenia, więc porcja nigdy nie jest planowana poza punktem, w którym instancja umiera.",
+        "idleDrain": "Bezczynne opróżnianie",
+        "idleDrainHelp": "Zniszcz wynajętą instancję po tym długo bez oczekujących prac. Ogranicza to, ile płacisz za GPU, które wyczerpało pracę.",
+        "commissioningGrace": "Okres karencji komisjonowania",
+        "commissioningGraceHelp": "Zniszcz wynajętą instancję, która nigdy nie otrzymała żadnego podzadania, mierząc od momentu, gdy jej agent się zarejestrował. Zimna instancja musi najpierw pobrać swoje pliki i uruchomić test wydajności, więc ustawienie tego poniżej około 20 minut niszczy zdrowe instancje w trakcie uruchamiania — a ponieważ zadanie wciąż czeka, inna jest wynajmowana natychmiast. 0 wyłącza.",
+        "reaperInterval": "Interwał żniwiarza",
+        "reaperIntervalHelp": "Jak często uzgadniać bazę danych w stosunku do inwentarza dostawcy i zniszczyć wszystko, co nie powinno istnieć.",
+        "orphanGrace": "Okres karencji dla osieroconych instancji",
+        "orphanGraceHelp": "Zniszcz instancje znalezione na koncie dostawcy bez pasującego wiersza w bazie danych po tym długo. To jedyny sposób na odzyskanie kontroli nad uruchomieniem, którego rekord nigdy nie wylądował w bazie.",
+        "agentImage": "Obraz agenta",
+        "agentImageHelp": "np. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Pozostaw puste, aby wrócić do KH_CLOUD_AGENT_IMAGE, a następnie do wbudowanej wartości domyślnej. Zauważ, że wbudowana wartość domyślna to :latest, która istnieje tylko raz, gdy wydanie zostało oznaczone tagiem — wdrożenia przed wydaniem muszą to ustawić.",
+        "defaultBurstEnabled": "Włącz burst chmury dla każdego zadania",
+        "defaultBurstEnabledHelp": "Traktuje każde zadanie jako obsługujące burst chmury, bez zaznaczania pola na każdym szablonie zadania, przepływie pracy i zadaniu. Przeznaczone dla wdrożeń bez lokalnych GPU, gdzie wynajęcie jest jedynym sposobem, w jaki praca kiedykolwiek się uruchamia. Budżety klientów i limity instancji wciąż się stosują. Zaczyna działać natychmiast, w tym dla zadań już w kolejce.",
+        "defaultClient": "Domyślny klient rozliczeniowy",
+        "defaultClientHelp": "Wydatki chmury dla listy haszy bez własnego klienta są rozliczane tutaj. Pozostaw jako Brak i nieprzydzielona praca nie może wynająć pojemności w ogóle. Budżety, limity instancji i drabina progów dotyczą wybranego klienta dokładnie normalnie — klient nazwany czymś w rodzaju \"Praca nieprzydzielona\" utrzymuje raport wydatków uczciwym.",
+        "defaultClientNone": "Brak — praca nieprzydzielona nie może korzystać z chmury",
+        "crackDrainGrace": "Karencja opróżniania złamanych haseł",
+        "crackDrainGraceHelp": "Przed zniszczeniem wynajętej instancji czekaj do tego długo na podzadanie, które wciąż posiada, aby skończyć przesyłanie złamanych haseł. Mierzone od ostatniego razu, gdy to podzadanie było zapisywane, a nie od momentu, w którym się zaczęło, więc działający agent nigdy nie jest niszczony, a na zawieszone podzadanie nie czeka się bez końca. Musi być dłuższe niż bezczynne opróżnianie i krótsze niż 30 minut. 0 niszczy natychmiast, co może trwale utracić złamania, które agent już znalazł — nie mogą być ponownie wysłane z maszyny, która już nie istnieje."
+      },
+      "agent": "Obraz agenta chmury",
+      "agentHelp": "Obraz kontenera, który wynajęte instancje pobierają i uruchamiają. Musi być tagiem, który istnieje w rejestrze: brakujący tag nie jest błędem uruchamiania — instancja się uruchamia, pobieranie się nie udaje, a host samoczynnie się wyłącza około minutę później, co wciąż jest rozliczane.",
+      "save": "Zapisz zmiany",
+      "discard": "Odrzuć",
+      "unsaved_few": "{{count}} niezapisane zmiany",
+      "unsaved_many": "{{count}} niezapisanych zmian",
+      "unsaved_one": "{{count}} niezapisana zmiana",
+      "unsaved_other": "{{count}} niezapisane zmiany",
+      "eligibility": "Wdrożenia tylko w chmurze",
+      "eligibilityHelp": "Czy zadania są w ogóle brane pod uwagę do wynajęcia. Wszystko powyżej ogranicza, ile może być wydane; to decyduje, czy cokolwiek jest."
+    }
+  },
+  "serverCertificate": {
+    "title": "Certyfikat serwera",
+    "description": "Zarządzaj adresami, które pokrywa certyfikat TLS serwera. Agenci mogą się łączyć tylko z adresem wymienionym tutaj.",
+    "apply": "Zastosuj i wydaj ponownie",
+    "warning": {
+      "title": "KrakenHashes to narzędzie wewnętrzne",
+      "body": "Nigdy nie powinno być dostępne z publicznego internetu. Obsługuje złamane poświadczenia, więc tylko adresy prywatne i VPN mogą być dodane do certyfikatu — publiczne adresy IP są odrzucane. Jeśli to wdrożenie jest widoczne publicznie, weź je offline przed kontynuacją."
+    },
+    "summary": {
+      "title": "Obecny certyfikat",
+      "unavailable": "Nie można odczytać certyfikatu serwera.",
+      "subject": "Podmiot",
+      "issuer": "Wydawca",
+      "validity": "Ważność",
+      "serial": "Numer seryjny",
+      "covers": "Ten certyfikat obejmuje",
+      "coversNothing": "Ten certyfikat nie zawiera żadnych adresów. Żaden agent nie może się połączyć.",
+      "daysRemaining_few": "{{count}} dni pozostały",
+      "daysRemaining_many": "{{count}} dni pozostało",
+      "daysRemaining_one": "{{count}} dzień pozostał",
+      "daysRemaining_other": "{{count}} dni pozostało",
+      "caSubject": "Urząd certyfikacji",
+      "caExpires": "Urząd certyfikacji wygasa",
+      "caFingerprint": "Odcisk CA (SHA-256)",
+      "pending_few": "{{count}} adresy zostały zapisane, ale nie znajdują się w certyfikacie. Kliknij Zastosuj i wystaw ponownie.",
+      "pending_many": "{{count}} adresów zostało zapisanych, ale nie znajduje się w certyfikacie. Kliknij Zastosuj i wystaw ponownie.",
+      "pending_one": "{{count}} adres został zapisany, ale nie znajduje się w certyfikacie. Kliknij Zastosuj i wystaw ponownie.",
+      "pending_other": "{{count}} adresów zostało zapisanych, ale nie znajduje się w certyfikacie. Kliknij Zastosuj i wystaw ponownie.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES lub KH_ADDITIONAL_DNS_NAMES jest nadal ustawiona w zmiennych środowiskowych. Nie jest już odczytywana — te ustawienia ją zastępują. Usuń zmienną, aby uniknąć zamieszania."
+    },
+    "sans": {
+      "title": "Adresy, które ten certyfikat powinien obejmować",
+      "add": "Dodaj",
+      "empty": "Nie skonfigurowano żadnych dodatkowych adresów.",
+      "unsaved": "Wprowadzono niezapisane zmiany. Kliknij Zastosuj i wystaw ponownie, aby umieścić je w certyfikacie.",
+      "lockedTooltip": "Zawsze włączone. Usunięcie go spowodowałoby przerwanie wewnętrznego proxy i kontroli stanu.",
+      "ip": {
+        "title": "Adresy IP",
+        "help": "Tylko adresy prywatne i VPN: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local i IPv6 ULA.",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "Nazwy DNS",
+        "help": "Nazwy hostów, które agenci i przeglądarki używają do nawiązania połączenia z tym serwerem.",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "\"{{address}}\" nie jest prawidłowym adresem.",
+      "public_ip": "{{address}} jest publicznym adresem IP i nie można go dodać. KrakenHashes jest narzędziem tylko do użytku wewnętrznego. Obsługuje złamane poświadczenia i nigdy nie powinno być dostępne z Internetu. Można dodawać tylko adresy prywatne (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local i IPv6 ULA). Jeśli jest to adres sieci VPN, sieć VPN używa przestrzeni adresowej należącej do kogoś innego w Internecie — zmień jej zakres sieciowy na prywatny lub CGNAT.",
+      "duplicate": "{{address}} jest już na liście.",
+      "bind_address": "{{address}} jest adresem wiązanym, a nie adresem osiągalnym. Żaden klient się do niego nie łączy.",
+      "multicast": "{{address}} jest adresem multicast i nie może identyfikować serwera.",
+      "wildcard_dns": "Nazwy wieloznaczne nie są obsługiwane.",
+      "has_port": "Wpisz tylko nazwę hosta bez portu.",
+      "is_ip": "To jest adres IP. Zamiast tego dodaj go do listy adresów IP.",
+      "too_long": "Ta nazwa jest dłuższa niż limit 253 znaków."
+    },
+    "discovered": {
+      "title": "Odkryte adresy",
+      "help": "Adresy, które nawiązały połączenie z tym serwerem, ale certyfikat ich nie obejmuje. Nic tutaj nie jest automatycznie stosowane.",
+      "empty": "Dotąd nie odkryto żadnych adresów. Uruchom agenta lub otwórz tę stronę z adresu, którego używają agenci, a pojawi się tutaj.",
+      "address": "Adres",
+      "source": "Źródło",
+      "reportedBy": "Zgłoszone przez",
+      "lastSeen": "Ostatnio widoczny",
+      "hits": "Trafienia",
+      "actions": "Akcje",
+      "add": "Dodaj",
+      "added": "{{address}} dodano. Kliknij Zastosuj i wystaw ponownie, aby umieścić go w certyfikacie.",
+      "dismiss": "Odrzuć",
+      "pending": "Oczekuje na ponowne wydanie",
+      "sources": {
+        "agent_tls_failure": "Błąd TLS agenta",
+        "host_header": "Przeglądarka / Nagłówek Host",
+        "tls_sni": "TLS SNI",
+        "manual": "Ręczne"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "Uwierzytelniany agent zgłosił, że nie może zweryfikować certyfikatu tego serwera dla tego adresu.",
+        "host_header": "Zaobserwowane w nagłówku Host żądania. Każdy, kto może nawiązać połączenie z tym serwerem, może wpłynąć na tę wartość — potwierdź ją przed dodaniem.",
+        "tls_sni": "Zaobserwowane jako nazwa serwera w uzgodnieniu TLS.",
+        "manual": "Dodane przez administratora."
+      }
+    },
+    "reissue": {
+      "doneTitle": "Certyfikat wystawiony ponownie",
+      "noChangeTitle": "Zmiana nie jest wymagana",
+      "noChangeBody": "Certyfikat już obejmuje każdy skonfigurowany adres i nie zbliża się do wygaśnięcia.",
+      "changes": "Zmiany",
+      "validUntil": "Nowy certyfikat jest ważny do {{date}}.",
+      "backendReloaded": "API na porcie 31337 już serwuje nowy certyfikat. Ponowne uruchomienie nie było konieczne.",
+      "nginxReloaded": "Interfejs internetowy na porcie 443 został przeładowany i serwuje nowy certyfikat.",
+      "nginxFailed": "Interfejs internetowy na porcie 443 nadal serwuje poprzedni certyfikat",
+      "backup": "Poprzedni materiał certyfikatu został zarchiwizowany w {{path}}.",
+      "agentsReconnect": "Agenci, którzy ulegali awarii, ponownie się połączą w ciągu 30 sekund. Ponowne uruchomienie agenta nie jest konieczne.",
+      "agentsRefetch": "Każdy agent musi ponownie pobrać urząd certyfikacji. Agenci robią to automatycznie przy następnym niepowodzeniu uzgodnienia, ale przeglądarki, które ufały staremu urzędowi certyfikacji, muszą ręcznie zainstalować nowy.",
+      "close": "Zamknij",
+      "nginxFailedBody": "API już serwuje nowy certyfikat, więc agenci nie są dotknięci. Interfejs internetowy na porcie 443 będzie nadal prezentować poprzedni, dopóki KrakenHashes nie zostanie ponownie uruchomiony."
+    },
+    "confirmRemoval": {
+      "title": "Usunąć adresy z certyfikatu?",
+      "body": "Następujące adresy znajdują się w aktualnym certyfikacie i zostaną usunięte: {{addresses}}. Każdy agent łączący się na jednym z nich nie będzie mógł się połączyć, dopóki nie zostanie dodany ponownie.",
+      "cancel": "Anuluj",
+      "confirm": "Usuń i wystaw ponownie"
+    },
+    "rotateCa": {
+      "section": "Zaawansowane",
+      "title": "Wymiana urzędu certyfikacji",
+      "warning": "Wymiana urzędu certyfikacji wydaje zupełnie nowy urząd certyfikacji i ponownie podpisuje certyfikaty serwera i agenta. Każdy agent musi ponownie pobrać urząd certyfikacji, zanim będzie mógł się ponownie połączyć, a każda przeglądarka, która ufała staremu urzędowi certyfikacji, będzie pokazywać ostrzeżenia, dopóki nie zostanie zainstalowany nowy plik ca.crt. Zrób to tylko wtedy, gdy klucz prywatny urzędu certyfikacji mógł zostać ujawniony.",
+      "instruction": "Wpisz {{phrase}}, aby potwierdzić.",
+      "action": "Wymień urząd certyfikacji"
+    },
+    "banner": {
+      "title_few": "{{count}} agenci nie mogą zweryfikować certyfikatu tego serwera",
+      "title_many": "{{count}} agentów nie może zweryfikować certyfikatu tego serwera",
+      "title_one": "{{count}} agent nie może zweryfikować certyfikatu tego serwera",
+      "title_other": "{{count}} agentów nie może zweryfikować certyfikatu tego serwera",
+      "body": "{{agents}} nawiązuje połączenie z {{address}}, które nie zostało wymienione w certyfikacie serwera. Będzie ciągle próbować i nie może wejść do trybu online, dopóki certyfikat nie zostanie wystawiony ponownie.",
+      "anAgent": "Agent",
+      "action": "Napraw w ustawieniach certyfikatu serwera"
+    }
+  },
+  "branding": {
+    "title": "Branding",
+    "description": "Prezentuj tę instancję pod nazwą, kolorami i logo swojej organizacji. Wszystko tutaj dotyczy interfejsu internetowego, karty przeglądarki, powiadomień e-mail (przez zmienną szablonu AppName), rejestracji nowych aplikacji uwierzytelniających i eksportów PDF raportów analitycznych.",
+    "attributionNote": "Atrybucja \"napędzane przez KrakenHashes\" jest zawsze wyświetlana obok nazwy niestandardowej i w eksportowanych plikach PDF. Jest dodawana przez serwer i nie można jej usunąć.",
+    "identity": "Tożsamość i kolory",
+    "appName": "Nazwa aplikacji",
+    "appNameHelper": "Wyświetlana w nagłówku, stronie logowania, wiadomościach e-mail i raportach. Pozostaw puste dla KrakenHashes.",
+    "pageTitle": "Tytuł strony przeglądarki",
+    "pageTitleHelper": "Efektywny tytuł: {{title}}",
+    "primaryColor": "Podstawowy kolor akcentu",
+    "secondaryColor": "Drugi kolor akcentu",
+    "colorHint": "Kolory szesnastkowe (#rrggbb). Ciemne tło pozostaje stałe; wybierz akcenty, które pozostają czytelne na powierzchniach blisko czarnych. Kolor podstawowy jest również używany dla linii i pasków w raportach PDF.",
+    "save": "Zapisz branding",
+    "logo": "Logo",
+    "logoHint": "PNG lub JPEG, do 2 MB i 2048×2048 px. Używane w nagłówku, stronie logowania i raportach PDF (obrazy RGB renderują się najlepiej).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG lub ICO, do 512 KB i 512×512 px. Przeglądarki agresywnie buforują ikony; może być konieczne jednorazowe twarde przeładowanie strony.",
+    "upload": "Prześlij",
+    "replace": "Zastąp",
+    "remove": "Usuń",
+    "messages": {
+      "saved": "Branding zapisany",
+      "uploaded": "Obraz przesłany",
+      "removed": "Obraz usunięty"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować ustawień brandingu",
+      "saveFailed": "Nie udało się zapisać ustawień brandingu",
+      "uploadFailed": "Nie udało się przesłać obrazu",
+      "removeFailed": "Nie udało się usunąć obrazu",
+      "invalidHex": "Wpisz kolor szesnastkowy jak #1e88e5",
+      "tooLarge": "Plik jest za duży (maks. {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Sekcje ustawień",
+    "groups": {
+      "general": "Ogólne",
+      "security": "Bezpieczeństwo",
+      "jobs": "Zadania",
+      "agents": "Agenci",
+      "integrations": "Integracje",
+      "cloud": "Chmura"
+    },
+    "sections": {
+      "branding": "Branding",
+      "brandingDesc": "Nazwa aplikacji, kolory, logo i favicon.",
+      "data": "Dane",
+      "dataDesc": "Domyślne okresy przechowywania i pozyskiwanie list haszy.",
+      "storage": "Magazyn",
+      "storageDesc": "Udział sieciowy do przechowywania wordlist i reguł.",
+      "certificate": "Certyfikat",
+      "certificateDesc": "Nazwy i adresy certyfikatu serwera.",
+      "authentication": "Uwierzytelnianie",
+      "authenticationDesc": "Polityka haseł, blokada i sesje.",
+      "mfa": "Wieloskładnikowe",
+      "mfaDesc": "Polityka MFA i relying party kluczy dostępu.",
+      "sso": "Logowanie jednokrotne",
+      "ssoDesc": "Dostawcy tożsamości i aprowizacja.",
+      "access": "Model dostępu",
+      "accessDesc": "Izolacja wielu zespołów.",
+      "execution": "Wykonanie",
+      "executionDesc": "Porcjowanie, przestrzeń kluczy i testy wydajności.",
+      "scheduling": "Planowanie",
+      "schedulingDesc": "Alokacja agentów i priorytet zadania.",
+      "potfile": "Potfile i pętla zwrotna",
+      "potfileDesc": "Zachowanie potfile i rundy pętli zwrotnej.",
+      "health": "Zdrowie",
+      "healthDesc": "Heartbeaty, okresy karencji i bufor offline.",
+      "downloads": "Pobieranie",
+      "downloadsDesc": "Jak agenci pobierają pliki z serwera.",
+      "updates": "Aktualizacje",
+      "updatesDesc": "Automatyczne aktualizacje binarne agenta.",
+      "monitoring": "Monitorowanie",
+      "monitoringDesc": "Przechowywanie i agregacja metryk.",
+      "email": "E-mail",
+      "emailDesc": "Konfiguracja dostawcy i szablony.",
+      "webhooks": "Webhooki",
+      "webhooksDesc": "Globalny webhook i webhooki użytkownika.",
+      "notifications": "Powiadomienia",
+      "notificationsDesc": "Które zdarzenia zadania powiadamiają.",
+      "providers": "Dostawcy",
+      "providersDesc": "Poświadczenia dostawców GPU w chmurze.",
+      "budgets": "Budżety klientów",
+      "budgetsDesc": "Limity miesięczne dla poszczególnych klientów.",
+      "policy": "Polityka progu",
+      "policyDesc": "Drabina progów wydatków.",
+      "rules": "Reguły inicjowania",
+      "rulesDesc": "Kiedy autoskalowanie może wydawać.",
+      "limits": "Limity",
+      "limitsDesc": "Limity systemowe i okresy."
+    }
+  },
+  "hub": {
+    "pageDescription": "Wszystko, co konfiguruje ten serwer, pogrupowane według tego, na co wpływa. Pola zapisują się, gdy je opuszczasz, chyba że sekcja mówi inaczej.",
+    "navLabel": "Przegląd",
+    "attentionTitle": "Wymaga uwagi",
+    "attentionSubtitle": "Problemy, które wpływają na sposób działania serwera.",
+    "allGood": "Wszystko wygląda dobrze",
+    "allGoodHint": "Nie wykryto żadnych problemów z konfiguracją.",
+    "loadFailed": "Nie udało się załadować stanu ustawień.",
+    "overviewTitle": "Status",
+    "attentionCount": "{{count}} do przejrzenia",
+    "browseTitle": "Wszystkie ustawienia",
+    "loading": "Sprawdzanie…",
+    "cards": {
+      "email": "E-mail",
+      "certificate": "Certyfikat",
+      "sso": "Logowanie jednokrotne",
+      "binaries": "Pliki binarne",
+      "cloud": "Chmura",
+      "storage": "Magazyn",
+      "webhook": "Globalny webhook"
+    },
+    "detail": {
+      "emailConfigured": "Skonfigurowany ({{provider}})",
+      "emailNotConfigured": "Brak skonfigurowanego dostawcy",
+      "certUnmanaged": "Zarządzany poza KrakenHashes ({{mode}})",
+      "certDays": "{{days}} dni pozostało",
+      "certPending": "Nie wystawiony jeszcze",
+      "ssoProviders_few": "{{count}} dostawcy włączeni",
+      "ssoProviders_many": "{{count}} dostawców włączonych",
+      "ssoProviders_one": "{{count}} dostawca włączony",
+      "ssoProviders_other": "{{count}} dostawców włączonych",
+      "binaries": "{{verified}} z {{total}} zweryfikowanych",
+      "cloudNoProviders": "Brak skonfigurowanych dostawców",
+      "cloudCap": "{{providers}} dostawcy, limit miesięczny {{cap}}",
+      "storageLocal": "Magazyn lokalny",
+      "storageReachable": "Udział zamontowany i osiągalny",
+      "storageUnreachable": "Udział nie jest osiągalny",
+      "webhookOff": "Wyłączony",
+      "webhookOn": "Włączony",
+      "webhookNoUrl": "Włączony bez adresu URL"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "Nie można było sprawdzić stanu",
+      "emailNotConfigured": "E-mail nie jest skonfigurowany; kody MFA i powiadomienia nie mogą być wysyłane.",
+      "certExpiring": "Certyfikat serwera wygasa za {{days}} dni.",
+      "ssoEphemeralKey": "SSO używa efemeralnego klucza podpisującego; sesje nie przetrwają ponownego uruchomienia.",
+      "noVerifiedBinary": "Brak dostępnego zweryfikowanego pliku binarnego hashcat; nie można uruchomić zadań.",
+      "cloudCapZero": "Dostawcy chmury są skonfigurowani, ale limit miesięczny wynosi 0, więc nic nie będzie inicjowane.",
+      "shareUnreachable": "Udział sieciowy jest włączony, ale nie jest osiągalny.",
+      "migration": "Migracja magazynu jest {{state}}.",
+      "webhookNoUrl": "Globalny webhook jest włączony, ale nie ma adresu URL."
+    },
+    "severity": {
+      "default": "Informacja",
+      "success": "OK",
+      "warning": "Ostrzeżenie",
+      "error": "Błąd"
+    }
+  },
+  "fieldState": {
+    "saving": "Zapisywanie…",
+    "saved": "Zapisane",
+    "error": "Niezapisane",
+    "minSelected": "Wybierz co najmniej {{count}}",
+    "autosaveHint": "Zapisuje się automatycznie",
+    "autosaveHintLong": "Każde pole zapisuje się automatycznie, gdy je opuścisz.",
+    "applyHint": "Wymaga zastosowania",
+    "applyHintLong": "Zmiany tutaj zaczną obowiązywać tylko po ich zastosowaniu."
+  },
+  "unsaved": {
+    "title": "Niezapisane zmiany",
+    "body": "Masz zmiany, które nie zostały zastosowane. Opuścić tę stronę i je odrzucić?",
+    "stay": "Zostań",
+    "leave": "Opuść"
+  },
+  "agentAutoUpdate": {
+    "title": "Automatyczne aktualizacje",
+    "description": "Pozwól serwerowi wysyłać nowe pliki binarne agentów do podłączonych agentów.",
+    "enable": "Włącz automatyczne aktualizacje agentów",
+    "maxConcurrent": "Jednoczesne aktualizacje",
+    "maxConcurrentHelper": "Ile agentów może aktualizować się jednocześnie.",
+    "maxAttempts": "Próby na agenta",
+    "maxAttemptsHelper": "Zrezygnować z agenta po tej liczbie nieudanych aktualizacji.",
+    "healthTimeout": "Limit czasu ponownego połączenia",
+    "healthTimeoutHelper": "Jak długo czekać na ponowne połączenie się zaktualizowanego agenta, zanim aktualizacja zostanie oznaczona jako nieudana.",
+    "applyNote": "Agenty pobierają te wartości przy następnym połączeniu z serwerem."
+  },
+  "networkShare": {
+    "intro": "Przechowuj wordlisty i reguły na udziale sieciowym, aby serwer nie potrzebował dużego dysku lokalnego. Operator montuje udział na hoście serwera (poprzez docker-compose, jako <code>KH_SHARE_DIR</code>) i na dowolnym hoście agenta sieciowego; KrakenHashes tylko odczytuje zamontowaną ścieżkę — nigdy nie łączy się z samym udziałem ani nie przechowuje jego poświadczeń. Agenty GPU w chmurze nie montują udziału: pobierają wordlisty/reguły z serwera przez VPN.",
+    "migrationLocked": "Migracja jest w toku ({{state}}). Konfiguracja jest zablokowana do czasu jej ukończenia.",
+    "server": {
+      "title": "Montaż pamięci masowej serwera",
+      "description": "Serwer odczytuje wordlisty i reguły z tej ścieżki zamontowanej przez operatora (ustawionej w docker-compose jako <code>KH_SHARE_DIR</code>). KrakenHashes nie łączy się z samym udziałem — montaż jest odpowiedzialnością operatora.",
+      "mountedPath": "Zamontowana ścieżka (tylko do odczytu)",
+      "shareDirNotSet": "KH_SHARE_DIR nie ustawiony — zamontuj udział w docker-compose",
+      "servingFromShare": "Serwowanie z: udziału sieciowego",
+      "servingFromLocal": "Serwowanie z: dysku lokalnego",
+      "shareReachable": "Udział dostępny",
+      "shareNotMounted": "Udział nie zamontowany",
+      "migrationChip": "Migracja: {{state}}",
+      "lastValidated": "Ostatnio zweryfikowany {{date}}",
+      "enable": "Włącz udział sieciowy",
+      "saving": "Zapisywanie…",
+      "save": "Zapisz konfigurację",
+      "validating": "Weryfikowanie…",
+      "validate": "Zweryfikuj montaż serwera",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "Ścieżka montażu: <code>{{path}}</code>",
+      "unset": "(nie ustawiono)",
+      "yes": "tak",
+      "no": "nie",
+      "summary": "Zamontowany: {{mounted}} · Zapisywalny: {{writable}} · Wolne: {{free}} · Zapis: {{write}} MB/s · Odczyt: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Migracja danych",
+      "descriptionToShare": "Kopiuje istniejące wordlisty i reguły na udział sieciowy i przełącza aktywny backend pamięci masowej. To jest operacja konserwacyjna: nowe zadania przestają być wysyłane podczas opróżniania floty, następnie przesyłanie wordlist/reguł jest zamrażane, a pliki są kopiowane i weryfikowane za pomocą sumy kontrolnej przed przełączeniem. W zależności od rozmiaru danych może to zająć wiele czasu, a serwer będzie niedostępny do przesyłania i nowych zadań w międzyczasie. Wordlisty klienta i asocjacyjne, pliki binarne, zestawy znaków i listy haszy zawsze pozostają lokalne.",
+      "descriptionToLocal": "Kopiuje istniejące wordlisty i reguły z powrotem na dysk lokalny i przełącza aktywny backend pamięci masowej. To jest operacja konserwacyjna: nowe zadania przestają być wysyłane podczas opróżniania floty, następnie przesyłanie wordlist/reguł jest zamrażane, a pliki są kopiowane i weryfikowane za pomocą sumy kontrolnej przed przełączeniem. W zależności od rozmiaru danych może to zająć wiele czasu, a serwer będzie niedostępny do przesyłania i nowych zadań w międzyczasie. Wordlisty klienta i asocjacyjne, pliki binarne, zestawy znaków i listy haszy zawsze pozostają lokalne.",
+      "phase": "Faza: {{phase}}",
+      "directionToShare": "lokalnie → udział",
+      "directionToLocal": "udział → lokalnie",
+      "waitingTasks_few": "Oczekiwanie na {{count}} podzadania do zakończenia",
+      "waitingTasks_many": "Oczekiwanie na {{count}} podzadań do zakończenia",
+      "waitingTasks_one": "Oczekiwanie na {{count}} podzadanie do zakończenia",
+      "waitingTasks_other": "Oczekiwanie na {{count}} podzadań do zakończenia",
+      "earliestLock": " — najwcześniejsza blokada {{time}}",
+      "filesProgress": "{{done}}/{{total}} pliki · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "Anulowanie…",
+      "abort": "Przerwij migrację",
+      "abortHelp": "Zatrzymuje migrację przy następnym punkcie kontrolnym (przydatne, jeśli udział jest powolny lub się zawiesił). Pamięć masowa zostaje na swoim bieżącym backendzie i wysyłka wznawia się; już skopiowane pliki pozostają i są ponownie używane w razie ponowienia próby.",
+      "complete": "Migracja zakończona.",
+      "failed": "Migracja nie powiodła się.",
+      "migrateToShare": "Migruj wordlisty i reguły na udział",
+      "migrateToLocal": "Migruj z powrotem na dysk lokalny",
+      "enableFirst": "Włącz udział i zweryfikuj go przed migracją."
+    },
+    "agent": {
+      "title": "Polecenie montażu agenta lokalnego (opcjonalnie)",
+      "description": "Te pola są używane <b>tylko</b> do generowania polecenia montażu dla agentów lokalnych ustawionych na warstwę <b>network_direct</b>. Serwer (powyżej) i agenty GPU w chmurze <b>nie</b> używają ich — agenty w chmurze pobierają dane przez VPN. Nie są tajne; poświadczenia nigdy nie są przechowywane ani wysyłane.",
+      "protocol": "Protokół",
+      "protocolHelp": "SMB jest najbardziej przenośny między agentami Windows/macOS/Linux; NFS działa dobrze przez VPN z eksportem tylko do odczytu.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Host udziału, z którego agenty montują (adres VPN)",
+      "hostHelp": "Adres udziału, tak jak agenty do niego docierają przez VPN — nie jest to ustawienie serwera (serwer używa swojej zamontowanej ścieżki powyżej).",
+      "exportPath": "Ścieżka eksportu",
+      "shareName": "Nazwa udziału",
+      "mountOptions": "Opcje montażu (jeden klucz=wartość na linię)",
+      "runThis": "Uruchom to na hoście agenta, następnie ustaw warstwę Pamięć masowa tego agenta na \"Sieciowy bezpośredni\" ze ścieżką montażu na jego stronie Agenta:",
+      "replaceSmb": "Zastąp <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> i <code>&lt;PASSWORD&gt;</code> przed uruchomieniem — polecenie nadal zawiera symbole zastępcze.",
+      "replaceNfs": "Zastąp <code>&lt;MOUNT_PATH&gt;</code> przed uruchomieniem — polecenie nadal zawiera symbole zastępcze.",
+      "softSmb": "Polecenie zawiera <code>soft</code>, aby montaż szybko się nie powiedzie, jeśli udział jest powolny lub się rozłączy, zamiast się zawieszać (domyślne ustawienie <code>hard</code> jądra). To współpracuje z mechanizmem fail-closed agenta do sprawdzania udziału, który przekierowuje pracę, gdy montaż nie jest czytelny. <b>network_direct</b> jest dla udziałów o niskim opóźnieniu/przylegających do sieci LAN — umieść zdalne lub udziały o wysokim opóźnieniu na warstwach pobierania <b>on_demand</b>/<b>full_cache</b>. Zastąp każdą opcję, ustawiając ją powyżej.",
+      "softNfs": "Polecenie zawiera <code>soft</code>, <code>timeo</code> i <code>retrans</code>, aby montaż szybko się nie powiedzie, jeśli udział jest powolny lub się rozłączy, zamiast się zawieszać (domyślne ustawienie <code>hard</code> jądra). To współpracuje z mechanizmem fail-closed agenta do sprawdzania udziału, który przekierowuje pracę, gdy montaż nie jest czytelny. <b>network_direct</b> jest dla udziałów o niskim opóźnieniu/przylegających do sieci LAN — umieść zdalne lub udziały o wysokim opóźnieniu na warstwach pobierania <b>on_demand</b>/<b>full_cache</b>. Zastąp każdą opcję, ustawiając ją powyżej.",
+      "otherOs": "macOS: użyj <code>mount_smbfs</code> (SMB) lub <code>mount -t nfs</code> (NFS). Windows: użyj <code>net use</code> wobec <code>{{uncPath}}</code>. Agent tylko odczytuje z montażu. Te pola są zapisywane za pomocą <b>Zapisz konfigurację</b> powyżej."
+    },
+    "confirm": {
+      "title": "Rozpocząć migrację danych?",
+      "intro": "To będzie:",
+      "step1": "Zatrzymać wysyłanie nowych zadań i poczekać na ukończenie uruchomionych podzadań (do ~12 minut na ponowne połączenie agentów, dłużej jeśli są uruchomione długie zadania).",
+      "step2": "Zamrozić przesyłanie wordlist/reguł i serwować stronę konserwacji podczas kopiowania i weryfikacji plików za pomocą sumy kontrolnej.",
+      "step3ToShare": "Przełączyć aktywny backend pamięci masowej na udział sieciowy po ukończeniu.",
+      "step3ToLocal": "Przełączyć aktywny backend pamięci masowej na dysk lokalny po ukończeniu.",
+      "outro": "Wstrzymane zadania są wznawiane automatycznie. Jeśli coś się nie powiedzie, pamięć masowa pozostaje bez zmian, a serwer pozostaje operacyjny.",
+      "cancel": "Anuluj",
+      "start": "Rozpocznij migrację"
+    },
+    "toast": {
+      "loadFailed": "Nie udało się załadować konfiguracji udziału sieciowego",
+      "migrationStarted": "Migracja rozpoczęta.",
+      "startFailed": "Nie udało się rozpocząć migracji",
+      "migrationCanceled": "Migracja anulowana — pamięć masowa pozostaje bez zmian.",
+      "cancelFailed": "Nie udało się anulować migracji",
+      "saved": "Konfiguracja udziału sieciowego zapisana.",
+      "saveFailed": "Nie udało się zapisać konfiguracji",
+      "validated": "Udział pomyślnie zweryfikowany.",
+      "validationProblems": "Weryfikacja udziału zgłosiła problemy.",
+      "validationFailed": "Weryfikacja nie mogła się uruchomić"
+    }
+  },
+  "jobAnalytics": {
+    "title": "Analityka wydajności zadań",
+    "description": "Analizuj wydajność wykonania zadań, hashrate i historię testów wydajności na swoich agentach.",
+    "loadFiltersFailed": "Nie udało się załadować opcji filtra",
+    "tabs": {
+      "jobPerformance": "Wydajność zadań",
+      "successRate": "Współczynnik sukcesu",
+      "benchmarkHistory": "Historia testów wydajności"
+    },
+    "summary": {
+      "totalJobs": "Razem zadań",
+      "totalJobsSubtitle": "{{completed}} ukończonych, {{failed}} nieudanych",
+      "totalCracks": "Razem łamań",
+      "totalCracksSubtitle": "We wszystkich filtrowanych zadaniach",
+      "avgSpeed": "Średnia szybkość",
+      "avgSpeedSubtitle": "Średni hashrate na zadanie",
+      "avgDuration": "Średni czas trwania",
+      "avgDurationSubtitle": "{{keys}} przetworzonych kluczy"
+    },
+    "hashRateChart": {
+      "title": "Hashrate w czasie",
+      "daily": "Dziennie",
+      "weekly": "Tygodniowo",
+      "empty": "Brak danych osi czasu dla wybranych filtrów",
+      "hashRate": "Hashrate",
+      "tooltipHashRate": "Hashrate: {{speed}}",
+      "tooltipJobs": "Zadania: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Trendy szybkości testów wydajności",
+      "agent": "Agent",
+      "selectAgent": "Wybierz agenta",
+      "hashType": "Typ hasza",
+      "attackMode": "Tryb ataku",
+      "all": "Wszystkie",
+      "range90d": "90d",
+      "range1y": "1r",
+      "rangeAll": "Wszystkie",
+      "selectAgentPrompt": "Wybierz agenta, aby wyświetlić trendy testów wydajności",
+      "empty": "Brak historii testów wydajności dla tego agenta",
+      "speed": "Szybkość",
+      "tooltipSpeed": "Szybkość: {{speed}}"
+    },
+    "filters": {
+      "title": "Filtry",
+      "active": "Aktywne",
+      "dateStart": "Data rozpoczęcia",
+      "dateEnd": "Data zakończenia",
+      "hashlist": "Lista haszy",
+      "status": "Status",
+      "minKeyspace": "Min przestrzeń kluczy",
+      "maxKeyspace": "Maks. przestrzeń kluczy",
+      "reset": "Resetuj",
+      "apply": "Zastosuj"
+    },
+    "attackModes": {
+      "straight": "Słownikowy",
+      "combination": "Kombinacja",
+      "bruteforce": "Brute force",
+      "hybridWlMask": "Hybrydowy WL+Maska",
+      "hybridMaskWl": "Hybrydowy Maska+WL",
+      "association": "Asocjacyjny",
+      "modeNumber": "Tryb {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Historia testów wydajności",
+      "empty": "Nie znaleziono historii testów wydajności",
+      "columns": {
+        "date": "Data",
+        "agentFallback": "Agent #{{id}}",
+        "status": "Status"
+      },
+      "success": "Sukces",
+      "failed": "Nieudane"
+    },
+    "successRate": {
+      "title": "Współczynnik sukcesu wg konfiguracji zadania",
+      "subtitle": "Pogrupowane według wordlisty, reguł, trybu ataku i typu hasza. Zadania oparte na szablonie obejmują pasujące zadania niestandardowe.",
+      "empty": "Brak danych współczynnika sukcesu dla wybranych filtrów",
+      "preset": "Szablon",
+      "columns": {
+        "configuration": "Konfiguracja",
+        "runs": "Uruchomienia",
+        "hashes": "Hasze",
+        "cracks": "Łamania",
+        "successRate": "Współczynnik sukcesu",
+        "avgDuration": "Średni czas trwania",
+        "totalCompute": "Całkowity czas obliczeń"
+      }
+    },
+    "jobExecution": {
+      "title": "Szczegóły wykonania zadania",
+      "empty": "Nie znaleziono zadań dla wybranych filtrów",
+      "noTaskData": "Brak dostępnych danych podzadania",
+      "taskBreakdown": "Rozkład podzadań ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_few": "{{count}} podzadania",
+      "taskCount_many": "{{count}} podzadań",
+      "taskCount_one": "{{count}} podzadanie",
+      "taskCount_other": "{{count}} podzadań",
+      "metricPointCount_few": "{{count}} punkty metryczne",
+      "metricPointCount_many": "{{count}} punktów metrycznych",
+      "metricPointCount_one": "{{count}} punkt metryczny",
+      "metricPointCount_other": "{{count}} punktów metrycznych",
+      "columns": {
+        "name": "Nazwa",
+        "attack": "Atak",
+        "duration": "Czas trwania",
+        "keyspace": "Przestrzeń kluczy",
+        "agents": "Agenty",
+        "progress": "Postęp",
+        "benchmark": "Test wydajności",
+        "started": "Rozpoczęty",
+        "completed": "Ukończony"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Zarządzanie wordlistą - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Wordlisty klienta ({{count}})",
+      "clientPotfile": "Potfile klienta",
+      "associationWordlists": "Wordlisty asocjacyjne ({{count}})"
+    },
+    "columns": {
+      "fileName": "Nazwa pliku",
+      "lineCount": "Liczba linii",
+      "fileSize": "Rozmiar pliku",
+      "uploaded": "Przesłano",
+      "hashlist": "Lista haszy",
+      "actions": "Akcje"
+    },
+    "hashlistFallback": "Lista haszy #{{id}}",
+    "clientTab": {
+      "info": "Wordlisty klienta są dostępne dla wszystkich list haszy tego klienta. Mogą być używane w dowolnym trybie ataku.",
+      "uploadWordlist": "Prześlij wordlistę",
+      "uploading": "Przesyłanie... {{progress}}%",
+      "noWordlists": "Nie przesłano jeszcze żadnych wordlist klienta."
+    },
+    "potfileTab": {
+      "noPotfile": "Potfile klienta jeszcze nie istnieje. Będzie automatycznie utworzony, gdy hasze tego klienta zostaną złamane.",
+      "autoGenerated": "Potfile klienta (Auto-generowany)",
+      "description": "Ten potfile zawiera wszystkie złamane hasła dla tego klienta. Jest automatycznie aktualizowany, gdy hasze są łamane.",
+      "passwordCount_few": "{{countDisplay}} hasła",
+      "passwordCount_many": "{{countDisplay}} haseł",
+      "passwordCount_one": "{{countDisplay}} hasło",
+      "passwordCount_other": "{{countDisplay}} haseł",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Zaktualizowany: {{date}}",
+      "downloadPotfile": "Pobierz potfile"
+    },
+    "associationTab": {
+      "info": "Wordlisty asocjacyjne są na poziomie listy haszy i mapują każdy hasz na hasło kandydujące 1:1 według numeru linii. Są przesyłane i zarządzane ze strony szczegółów listy haszy. Ten widok pokazuje wszystkie wordlisty asocjacyjne dla wszystkich list haszy tego klienta.",
+      "noWordlists": "Nie znaleziono żadnych wordlist asocjacyjnych dla list haszy tego klienta."
+    },
+    "messages": {
+      "wordlistDeleted": "Wordlista klienta usunięta",
+      "associationDeleted": "Wordlista asocjacyjna usunięta",
+      "deleteFailed": "Nie udało się usunąć wordlisty",
+      "uploadSuccess": "Wordlista klienta przesłana pomyślnie",
+      "uploadFailed": "Nie udało się przesłać wordlisty",
+      "downloaded": "Pobrano {{filename}}",
+      "downloadFailed": "Nie udało się pobrać pliku"
+    },
+    "deleteConfirm": {
+      "title": "Usuń wordlistę",
+      "message": "Usunąć \"{{fileName}}\"? Tej akcji nie można cofnąć."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Zarządzanie zespołem",
+      "titleMine": "Moje zespoły",
+      "description": "Zarządzaj wszystkimi zespołami w systemie",
+      "descriptionMine": "Zespoły, których jesteś członkiem",
+      "createTeam": "Utwórz zespół",
+      "bulkAssignHint": "Aby przypisać wielu klientów do zespołu naraz, użyj funkcji przypisania zbiorczego na stronie <link>Zarządzanie klientami</link>.",
+      "columns": {
+        "name": "Nazwa zespołu",
+        "description": "Opis",
+        "members": "Członkowie",
+        "clients": "Klienci",
+        "hashlists": "Listy haszy",
+        "agents": "Agenty",
+        "created": "Utworzono"
+      },
+      "rowActions": {
+        "manage": "Zarządzaj zespołem",
+        "edit": "Edytuj zespół",
+        "delete": "Usuń zespół"
+      },
+      "empty": "Nie znaleziono żadnych zespołów",
+      "emptyMine": "Użytkownik nie jest jeszcze członkiem żadnego zespołu.",
+      "viewDetails": "Wyświetl szczegóły",
+      "memberCount_few": "{{count}} członkowie",
+      "memberCount_many": "{{count}} członków",
+      "memberCount_one": "{{count}} członek",
+      "memberCount_other": "{{count}} członków",
+      "clientCount_few": "{{count}} klienci",
+      "clientCount_many": "{{count}} klientów",
+      "clientCount_one": "{{count}} klient",
+      "clientCount_other": "{{count}} klientów",
+      "hashlistCount_few": "{{count}} listy haszy",
+      "hashlistCount_many": "{{count}} list haszy",
+      "hashlistCount_one": "{{count}} lista haszy",
+      "hashlistCount_other": "{{count}} list haszy",
+      "agentCount_few": "{{count}} agenty",
+      "agentCount_many": "{{count}} agentów",
+      "agentCount_one": "{{count}} agent",
+      "agentCount_other": "{{count}} agentów",
+      "dialogs": {
+        "create": {
+          "title": "Utwórz nowy zespół",
+          "nameLabel": "Nazwa zespołu",
+          "descriptionLabel": "Opis",
+          "creatingButton": "Tworzenie..."
+        },
+        "delete": {
+          "title": "Usuń zespół",
+          "confirmation": "Czy na pewno usunąć zespół \"{{name}}\"? To usunie wszystkie członkostwa w zespole i przypisania klientów."
+        }
+      },
+      "messages": {
+        "createSuccess": "Zespół utworzony pomyślnie",
+        "deleteSuccess": "Zespół usunięty pomyślnie",
+        "updateSuccess": "Zespół zaktualizowany pomyślnie"
+      },
+      "errors": {
+        "loadFailed": "Nie udało się załadować zespołów",
+        "createFailed": "Nie udało się utworzyć zespołu",
+        "deleteFailed": "Nie udało się usunąć zespołu",
+        "updateFailed": "Nie udało się zaktualizować zespołu"
+      }
+    },
+    "detail": {
+      "notFound": "Nie znaleziono zespołu",
+      "noDescription": "Brak opisu",
+      "breadcrumb": "Zespoły",
+      "editTeam": "Edytuj zespół",
+      "confirmActionTitle": "Potwierdź akcję",
+      "tabs": {
+        "members": "Członkowie ({{count}})",
+        "clients": "Klienci ({{count}})",
+        "trustedTeams": "Zaufane zespoły ({{count}})",
+        "agents": "Agenty ({{count}})"
+      },
+      "addMember": "Dodaj członka",
+      "assignClient": "Przypisz klienta",
+      "addTrust": "Dodaj zaufanie",
+      "trustInfo": "Zaufanie innemu zespołowi pozwala jego agentom uruchamiać zadania tego zespołu. To jest relacja jednokierunkowa — zaufanie Zespołowi B nie daje agentom tego zespołu dostępu do zadań Zespołu B.",
+      "agentsInfo": "<strong>Bezpośrednie</strong> agenty są własnością członków tego zespołu. <strong>Zaufane</strong> agenty pochodzą od zespołów, z którymi nawiązano relacje zaufania.",
+      "systemOwner": "System",
+      "columns": {
+        "username": "Nazwa użytkownika",
+        "email": "Email",
+        "role": "Rola",
+        "joined": "Dołączono",
+        "clientName": "Nazwa klienta",
+        "description": "Opis",
+        "trustedTeam": "Zaufany zespół",
+        "trustedSince": "Zaufany od",
+        "agentName": "Nazwa agenta",
+        "status": "Status",
+        "version": "Wersja",
+        "owner": "Właściciel",
+        "source": "Źródło"
+      },
+      "roles": {
+        "member": "Członek",
+        "admin": "Administrator",
+        "adminManager": "Administrator (Kierownik zespołu)"
+      },
+      "source": {
+        "direct": "Bezpośredni",
+        "trusted": "Zaufany {{team}}",
+        "trustedBadge": "Zaufany",
+        "unknown": "Nieznany"
+      },
+      "rowActions": {
+        "removeMember": "Usuń członka",
+        "removeClientFromTeam": "Usuń klienta z zespołu",
+        "removeTrust": "Usuń zaufanie"
+      },
+      "empty": {
+        "noMembers": "Brak członków w tym zespole",
+        "noClients": "Brak klientów przypisanych do tego zespołu",
+        "noTrustedTeams": "Brak zaufanych zespołów. Tylko agenty systemu i własne agenty tego zespołu mogą uruchamiać zadania.",
+        "noAgents": "Brak agentów dostępnych dla tego zespołu",
+        "noAgentsHint": "Dodaj członków zespołu z agentami lub nawiąż relacje zaufania."
+      },
+      "confirm": {
+        "removeMember": "Czy na pewno usunąć tego członka?",
+        "removeClient": "Czy na pewno usunąć \"{{name}}\" z tego zespołu? Członkowie zespołu stracą dostęp do danych tego klienta.",
+        "removeTrust": "Usunąć tę relację zaufania? Agenty z tego zespołu nie będą już mogły uruchamiać zadań tego zespołu."
+      },
+      "messages": {
+        "memberAdded": "Członek dodany pomyślnie",
+        "memberRemoved": "Członek usunięty",
+        "roleUpdated": "Rola zaktualizowana",
+        "teamUpdated": "Zespół zaktualizowany pomyślnie",
+        "clientAssigned": "Klient przypisany do zespołu",
+        "clientRemoved": "Klient usunięty z zespołu",
+        "trustAdded": "Relacja zaufania dodana",
+        "trustRemoved": "Relacja zaufania usunięta"
+      },
+      "errors": {
+        "loadFailed": "Nie udało się załadować danych zespołu",
+        "addMemberFailed": "Nie udało się dodać członka",
+        "removeMemberFailed": "Nie udało się usunąć członka",
+        "updateRoleFailed": "Nie udało się zaktualizować roli",
+        "loadClientsFailed": "Nie udało się załadować klientów",
+        "assignClientFailed": "Nie udało się przypisać klienta",
+        "removeClientFailed": "Nie udało się usunąć klienta",
+        "updateTeamFailed": "Nie udało się zaktualizować zespołu",
+        "loadTeamNamesFailed": "Nie udało się załadować nazw zespołów",
+        "addTrustFailed": "Nie udało się dodać relacji zaufania",
+        "removeTrustFailed": "Nie udało się usunąć relacji zaufania"
+      },
+      "dialogs": {
+        "cancel": "Anuluj",
+        "editTeam": {
+          "title": "Edytuj zespół",
+          "nameLabel": "Nazwa zespołu",
+          "descriptionLabel": "Opis",
+          "saveButton": "Zapisz",
+          "savingButton": "Zapisywanie..."
+        },
+        "addMember": {
+          "title": "Dodaj członka zespołu",
+          "searchLabel": "Szukaj użytkowników",
+          "searchPlaceholder": "Wpisz co najmniej 2 znaki...",
+          "typeToSearch": "Wpisz, aby wyszukać...",
+          "noUsersFound": "Nie znaleziono użytkowników",
+          "roleLabel": "Rola",
+          "addButton": "Dodaj członka"
+        },
+        "addTrust": {
+          "title": "Dodaj zaufany zespół",
+          "info": "Agenty posiadane przez członków zaufanego zespołu będą mogły uruchamiać zadania tego zespołu.",
+          "selectLabel": "Wybierz zespół do zaufania",
+          "searchPlaceholder": "Szukaj zespołów...",
+          "noTeamsAvailable": "Brak dostępnych zespołów",
+          "optionLabel_few": "{{name}} ({{count}} agenty)",
+          "optionLabel_many": "{{name}} ({{count}} agentów)",
+          "optionLabel_one": "{{name}} ({{count}} agent)",
+          "optionLabel_other": "{{name}} ({{count}} agentów)"
+        },
+        "assignClient": {
+          "title": "Przypisz klienta do zespołu",
+          "info": "Przypisanie klienta daje wszystkim członkom zespołu dostęp do list haszy tego klienta, zadań i złamanych danych.",
+          "selectLabel": "Wybierz klienta",
+          "searchPlaceholder": "Szukaj klientów...",
+          "noClientsAvailable": "Brak dostępnych nieprzypisanych klientów"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Zarządzanie niestandardowymi zestawami znaków",
+    "description": "Zarządzaj globalnymi niestandardowymi zestawami znaków dostępnymi dla wszystkich szablonów zadań i użytkowników. Obsługuje zarówno definicje wbudowane, jak i binarne pliki zestawu znaków .hcchr.",
+    "createCharset": "Utwórz zestaw znaków",
+    "columns": {
+      "name": "Nazwa",
+      "type": "Typ",
+      "definition": "Definicja / Informacje",
+      "description": "Opis",
+      "created": "Utworzono"
+    },
+    "typeLabels": {
+      "file": "Plik",
+      "inline": "Wbudowane",
+      "hex": "Szesnastkowy"
+    },
+    "uniqueBytes_few": "{{count}} unikalne bajty",
+    "uniqueBytes_many": "{{count}} unikalnych bajtów",
+    "uniqueBytes_one": "{{count}} unikalny bajt",
+    "uniqueBytes_other": "{{count}} unikalne bajty",
+    "rowActions": {
+      "edit": "Edytuj",
+      "delete": "Usuń"
+    },
+    "empty": "Nie znaleziono niestandardowych zestawów znaków. Utwórz jeden, aby rozpocząć.",
+    "dialogs": {
+      "create": {
+        "title": "Utwórz niestandardowy zestaw znaków"
+      },
+      "edit": {
+        "title": "Edytuj niestandardowy zestaw znaków"
+      },
+      "delete": {
+        "title": "Usuń zestaw znaków",
+        "confirmation": "Czy na pewno chcesz usunąć zestaw znaków \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Definicja wbudowana",
+        "file": "Wgranie pliku (.hcchr)"
+      },
+      "fields": {
+        "name": "Nazwa",
+        "namePlaceholder": "np. DES Full Charset",
+        "definition": "Definicja",
+        "definitionPlaceholderHex": "np. 41424344 (pary bajtów szesnastkowych)",
+        "definitionPlaceholderPlain": "np. ?u?d lub abcdef0123456789",
+        "definitionHelperHex": "Pary bajtów szesnastkowych — każda para = jeden bajt zestawu znaków. {{bytes}}",
+        "definitionHelperHexBytes_few": "{{count}} bajty",
+        "definitionHelperHexBytes_many": "{{count}} bajtów",
+        "definitionHelperHexBytes_one": "{{count}} bajt",
+        "definitionHelperHexBytes_other": "{{count}} bajty",
+        "definitionHelperPlain": "Definicja zestawu znaków hashcat. Używaj ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H lub znaków dosłownych.",
+        "hexTooltip": "Jeśli włączone, definicja jest interpretowana jako pary bajtów szesnastkowych (np. 41424344 = bajty A, B, C, D). Zadania wykorzystujące ten zestaw znaków automatycznie wstrzykną --hex-charset.",
+        "hexLabel": "Definicja zakodowana szesnastkowo",
+        "selectFile": "Wybierz plik .hcchr",
+        "fileSizeBytes_few": "{{count}} bajty",
+        "fileSizeBytes_many": "{{count}} bajtów",
+        "fileSizeBytes_one": "{{count}} bajt",
+        "fileSizeBytes_other": "{{count}} bajty",
+        "fileHelperText": "Binarny plik zestawu znaków zawierający surowe wartości bajtów (maks. 1023 bajty, do 256 unikalnych bajtów). Używany do łamania DES, NTLMv1 i kodowań specyficznych dla języka.",
+        "fileCharsetInfo_few": "Zestaw znaków z pliku: {{count}} unikalne bajty. Można edytować tylko nazwę i opis.",
+        "fileCharsetInfo_many": "Zestaw znaków z pliku: {{count}} unikalnych bajtów. Można edytować tylko nazwę i opis.",
+        "fileCharsetInfo_one": "Zestaw znaków z pliku: {{count}} unikalny bajt. Można edytować tylko nazwę i opis.",
+        "fileCharsetInfo_other": "Zestaw znaków z pliku: {{count}} unikalne bajty. Można edytować tylko nazwę i opis.",
+        "description": "Opis",
+        "descriptionPlaceholder": "Opcjonalny opis przeznaczenia tego zestawu znaków"
+      },
+      "update": "Zaktualizuj",
+      "upload": "Wgraj"
+    },
+    "messages": {
+      "createSuccess": "Zestaw znaków został pomyślnie utworzony",
+      "uploadSuccess": "Plik zestawu znaków został pomyślnie wgrany",
+      "updateSuccess": "Zestaw znaków został pomyślnie zaktualizowany",
+      "deleteSuccess": "Zestaw znaków został pomyślnie usunięty"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Dozwolone są tylko pliki .hcchr",
+      "fileTooLarge": "Plik za duży (maks. 1023 bajty — limit bufora odczytu hashcat)",
+      "nameRequired": "Nazwa jest wymagana",
+      "definitionRequired": "Definicja jest wymagana",
+      "selectFile": "Wybierz plik .hcchr",
+      "loadFailed": "Nie udało się załadować zestawów znaków: {{message}}",
+      "deleteFailed": "Nie udało się usunąć zestawu znaków: {{message}}"
+    }
+  }
+}

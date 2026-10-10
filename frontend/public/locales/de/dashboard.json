@@ -14,7 +14,8 @@
   },
   "recentActivity": {
     "title": "Letzte Aktivitäten",
-    "noActivity": "Keine aktuellen Aktivitäten"
+    "noActivity": "Keine aktuellen Aktivitäten",
+    "viewAll": "Alle Benachrichtigungen"
   },
   "quickActions": {
     "title": "Schnellzugriff",
@@ -112,5 +113,52 @@
       "maxAgents": "Max. Agenten",
       "actions": "Aktionen"
     }
+  },
+  "kpi": {
+    "runningJobs": "Laufende Aufträge",
+    "queued": "{{count}} in Warteschlange",
+    "agentsOnline": "Agenten online",
+    "agentProblems": "{{count}} benötigen Aufmerksamkeit",
+    "hashRate": "Hash-Rate",
+    "cracks24h": "Geknackt (24h)",
+    "cracks7d": "{{count}} in 7 Tagen",
+    "crackRate": "Erfolgsquote",
+    "hashlistTotals": "{{cracked}} von {{total}} Hashes",
+    "failed24h": "Fehlgeschlagen (24h)",
+    "completed24h": "{{count}} abgeschlossen"
+  },
+  "agentHealth": {
+    "title": "Agentengesundheit",
+    "viewAll": "Alle Agenten",
+    "utilization": "GPU-Auslastung",
+    "temperature": "Heißeste GPU",
+    "lastSeen": "Zuletzt gesehen {{when}}",
+    "warnings": {
+      "error": "Fehler",
+      "offline": "Offline",
+      "update_failed": "Update fehlgeschlagen",
+      "stale_heartbeat": "Kein Heartbeat",
+      "gpu_hot": "GPU heiß"
+    }
+  },
+  "recentCracks": {
+    "title": "Letzte Knackungen",
+    "viewAll": "Alle geknackten Hashes",
+    "empty": "Noch nichts geknackt",
+    "copy": "Klartext kopieren",
+    "copied": "Kopiert"
+  },
+  "activeJobs": {
+    "title": "Aktive Aufträge",
+    "showing": "Zeige 10 von {{total}}",
+    "viewAll": "Alle Aufträge",
+    "empty": "Nichts läuft",
+    "emptyHint": "Starten Sie einen Auftrag aus einer Hashliste.",
+    "goHashlists": "Zu den Hashlisten"
+  },
+  "welcomeUser": "Willkommen zurück, {{name}}",
+  "autoRefresh": {
+    "on": "Live",
+    "off": "Pausiert"
   }
 }

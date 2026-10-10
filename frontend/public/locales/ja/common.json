@@ -1,0 +1,341 @@
+{
+  "buttons": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "create": "作成",
+    "submit": "送信",
+    "close": "閉じる",
+    "confirm": "確認",
+    "retry": "再試行",
+    "refresh": "更新",
+    "download": "ダウンロード",
+    "upload": "アップロード",
+    "copy": "コピー",
+    "search": "検索",
+    "filter": "フィルタ",
+    "clearFilters": "フィルタをクリア",
+    "loadAll": "すべて読み込む",
+    "signIn": "サインイン",
+    "logIn": "ログイン",
+    "logout": "ログアウト"
+  },
+  "labels": {
+    "loading": "読み込み中...",
+    "noData": "データがありません",
+    "error": "エラーが発生しました",
+    "success": "成功",
+    "warning": "警告",
+    "info": "情報",
+    "required": "必須",
+    "optional": "オプション",
+    "all": "すべて",
+    "none": "なし",
+    "yes": "はい",
+    "no": "いいえ",
+    "enabled": "有効",
+    "disabled": "無効",
+    "active": "アクティブ",
+    "inactive": "非アクティブ",
+    "updating": "更新中",
+    "pending": "保留中",
+    "completed": "完了",
+    "failed": "失敗",
+    "unknown": "不明"
+  },
+  "pagination": {
+    "rowsPerPage": "ページあたりの行数",
+    "page": "ページ {{current}} / {{total}}",
+    "showing": "{{from}}-{{to}} / {{total}} を表示中",
+    "first": "最初のページ",
+    "last": "最後のページ",
+    "next": "次のページ",
+    "previous": "前のページ"
+  },
+  "language": {
+    "selectLanguage": "言語を選択",
+    "currentLanguage": "現在の言語"
+  },
+  "clipboard": {
+    "copied": "クリップボードにコピーしました",
+    "copyFailed": "クリップボードへのコピーに失敗しました"
+  },
+  "errors": {
+    "networkError": "ネットワークエラーです。接続を確認してください。",
+    "serverError": "サーバーエラーです。しばらく後にもう一度試してください。",
+    "unknownError": "不明なエラーが発生しました",
+    "validationError": "入力を確認してもう一度試してください",
+    "permissionDenied": "アクセスが拒否されました",
+    "notFound": "見つかりません",
+    "sessionExpired": "セッションの有効期限が切れています。もう一度ログインしてください。"
+  },
+  "confirmations": {
+    "areYouSure": "よろしいですか？",
+    "cannotBeUndone": "この操作は元に戻せません。",
+    "confirmDelete": "削除を確認",
+    "confirmAction": "操作を確認",
+    "typeToConfirm": "{{text}}を入力して確認"
+  },
+  "time": {
+    "justNow": "たった今",
+    "minutesAgo_other": "{{count}}分前",
+    "hoursAgo_other": "{{count}}時間前",
+    "daysAgo_other": "{{count}}日前",
+    "never": "なし"
+  },
+  "fileUpload": {
+    "dragAndDrop": "ファイルをここにドラッグアンドドロップするか、クリックして選択",
+    "selectFile": "ファイルを選択",
+    "uploading": "アップロード中...",
+    "uploadSuccess": "ファイルが正常にアップロードされました",
+    "uploadFailed": "ファイルのアップロードに失敗しました",
+    "chooseFile": "ファイルを選択",
+    "description": "説明",
+    "loading": "読み込み中..."
+  },
+  "binaryVersionSelector": {
+    "label": "バイナリバージョン",
+    "helperText": "このジョブに使用するバイナリバージョンパターンを選択します",
+    "default": "デフォルト",
+    "majorVersion": "メジャーバージョン（最新マイナー）",
+    "minorVersion": "マイナーバージョン（最新パッチ）",
+    "exactVersion": "正確なバージョン",
+    "loading": "読み込み中...",
+    "loadingVersions": "バイナリバージョンを読み込み中...",
+    "loadError": "バイナリバージョンの読み込みに失敗しました"
+  },
+  "passwordValidation": {
+    "requirements": "パスワード要件:",
+    "minLength": "最低{{length}}文字",
+    "uppercase": "大文字を最低1文字",
+    "lowercase": "小文字を最低1文字",
+    "number": "数字を最低1文字",
+    "specialChar": "特殊文字を最低1文字"
+  },
+  "footer": {
+    "documentation": "ドキュメント",
+    "issues": "イシュー",
+    "loading": "読み込み中...",
+    "release": "リリース v{{version}}",
+    "versionUnavailable": "バージョン情報が利用できません"
+  },
+  "layout": {
+    "logoAlt": "KrakenHashesロゴ",
+    "logoAltBranded": "{{appName}}ロゴ"
+  },
+  "table": {
+    "clearSearch": "検索をクリア",
+    "clearSelection": "選択をクリア",
+    "selectedCount": "{{count}}選択済み",
+    "expandRow": "行を展開",
+    "collapseRow": "行を折りたたむ",
+    "showAll": "すべて表示",
+    "showFewer": "表示を減らす",
+    "showingOf": "{{shown}}/{{total}}を表示中",
+    "actions": "操作",
+    "noResults": "フィルタに一致する結果がありません",
+    "rowsPerPage": "ページあたりの行数"
+  },
+  "about": {
+    "title": "KrakenHashesについて",
+    "versionInfo": {
+      "title": "バージョン情報",
+      "release": "リリース",
+      "backend": "バックエンド",
+      "frontend": "フロントエンド",
+      "agent": "エージェントバージョン",
+      "api": "APIバージョン",
+      "database": "データベース",
+      "build": "ビルド"
+    },
+    "projectInfo": {
+      "title": "プロジェクト情報",
+      "description": "KrakenHashesは、複数のエージェント間でパスワードクラッキングタスクを調整および管理するように設計された分散パスワードクラッキング管理システムです。",
+      "license": "このプロジェクトはGNU Affero General Public License v3.0（AGPL-3.0）の下でライセンスされたオープンソースプロジェクトです。",
+      "githubLink": "GitHubリポジトリ"
+    },
+    "errors": {
+      "fetchFailed": "バージョン情報の取得に失敗しました"
+    },
+    "titleBranded": "{{appName}}について"
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "有効なテキストではありません。正確なパスワードは{{value}}です。表示されている文字は推測値（Windows-1252）であり、実際のパスワードではありません。",
+    "copyExact": "正確な値をコピー（hashcat用）",
+    "copyGuess": "推測値をコピー（正確ではありません）"
+  },
+  "empty": {
+    "noData": "ここにはまだ何もありません",
+    "noResults": "結果なし",
+    "noResultsHint": "検索またはフィルタを調整してみてください。"
+  },
+  "theme": {
+    "appearance": "外観",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム"
+  },
+  "status": {
+    "job": {
+      "preparing": "準備中",
+      "pending": "保留中",
+      "running": "実行中",
+      "paused": "一時停止中",
+      "processing": "処理中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み",
+      "archived": "アーカイブ済み"
+    },
+    "task": {
+      "pending": "保留中",
+      "assigned": "割り当て済み",
+      "reconnect_pending": "再接続中",
+      "running": "実行中",
+      "processing": "処理中",
+      "processing_error": "処理エラー",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み"
+    },
+    "agent": {
+      "pending": "保留中",
+      "active": "オンライン",
+      "inactive": "オフライン",
+      "error": "エラー",
+      "disabled": "無効",
+      "updating": "更新中",
+      "online": "オンライン",
+      "offline": "オフライン"
+    },
+    "hashlist": {
+      "uploading": "アップロード中",
+      "processing": "処理中",
+      "ready": "準備完了",
+      "error": "エラー",
+      "deleting": "削除中",
+      "ready_with_errors": "エラー付きで準備完了",
+      "awaiting_validation_decision": "レビュー待機中",
+      "cancelled": "キャンセル済み"
+    },
+    "verification": {
+      "pending": "保留中",
+      "verified": "検証済み",
+      "failed": "失敗",
+      "deleted": "削除済み"
+    },
+    "cloud": {
+      "requested": "リクエスト済み",
+      "launching": "起動中",
+      "provisioning": "プロビジョニング中",
+      "syncing": "同期中",
+      "running": "実行中",
+      "draining": "ドレイン中",
+      "terminating": "破棄中",
+      "terminated": "破棄済み",
+      "failed": "失敗"
+    },
+    "loopback": {
+      "waiting": "待機中",
+      "active": "アクティブ",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み"
+    },
+    "audit": {
+      "info": "情報",
+      "warning": "警告",
+      "critical": "重大"
+    },
+    "diagnostic": {
+      "info": "情報",
+      "warning": "警告",
+      "error": "エラー"
+    },
+    "sync": {
+      "pending": "保留中",
+      "in_progress": "進行中",
+      "completed": "完了",
+      "failed": "失敗"
+    },
+    "generic": {
+      "success": "成功",
+      "ok": "OK",
+      "healthy": "良好",
+      "enabled": "有効",
+      "active": "アクティブ",
+      "verified": "検証済み",
+      "warning": "警告",
+      "degraded": "低下",
+      "error": "エラー",
+      "failed": "失敗",
+      "critical": "重大",
+      "info": "情報",
+      "running": "実行中",
+      "pending": "保留中",
+      "queued": "キュー待ち",
+      "disabled": "無効",
+      "inactive": "非アクティブ",
+      "unknown": "不明"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "カスタム文字セット（オプション - マスク内で使用する ?1 から ?4 を定義）",
+    "hexTooltip": "有効にすると、インラインで定義された文字セットは16進バイトペアとして解釈されます（例: 41424344 = ABCD）。ファイル文字セットは影響を受けません。",
+    "hexEncodedLabel": "16進エンコード文字セット",
+    "charsetSlotLabel": "文字セット {{slot}} (-{{slot}})",
+    "fileValue_other": "[ファイル: {{name}} — {{count}} バイト]",
+    "fileHelperUsed_other": "{{count}} 個のユニークバイト",
+    "fileHelperUnused_other": "{{count}} 個のユニークバイト（マスク内で参照されていません）",
+    "placeholderHex": "例: 41424344（16進バイトペア）",
+    "placeholderPlain": "例: ?u?d または abcdef0123456789",
+    "inlineHelperBytes_other": "{{count}} バイト",
+    "inlineHelperBytesUnused_other": "{{count}} バイト（マスク内で参照されていません）",
+    "inlineHelperChars_other": "{{count}} 文字",
+    "inlineHelperCharsUnused_other": "{{count}} 文字（マスク内で参照されていません）",
+    "referencedNotDefined": "マスク内で参照されていますが定義されていません",
+    "savedLabel": "保存済み",
+    "typeLabels": {
+      "file": "ファイル",
+      "hex": "16進"
+    },
+    "optionUniqueBytes_other": "{{count}} 個のユニークバイト",
+    "optionBytesHex_other": "{{count}} バイト（16進）",
+    "willEnableHex": " — 16進モードが有効になります",
+    "willDisableHex": " — 16進モードが無効になります",
+    "estimatedKeyspace": "推定キースペース: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} バイト",
+    "slotSizeChars": "?{{slot}} = {{size}} 文字"
+  },
+  "teamFilter": {
+    "label": "チーム",
+    "allTeams": "すべてのチーム",
+    "adminBadge": "管理者"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "パスワードが必要です",
+    "currentPasswordLabel": "現在のパスワード"
+  },
+  "hashDetailModal": {
+    "title": "ハッシュの詳細",
+    "hashValue": "ハッシュ値",
+    "copied": "コピーしました！",
+    "copyHash": "ハッシュをコピー",
+    "copyPlaintext": "プレーンテキストをコピー",
+    "originalHash": "元のハッシュ（ファイルから）",
+    "status": "ステータス",
+    "cracked": "クラック済み",
+    "notCracked": "未クラック",
+    "hashType": "ハッシュタイプ",
+    "typeId": "タイプID: {{id}}",
+    "username": "ユーザー名",
+    "crackedText": "クラック済みテキスト",
+    "hashlist": "ハッシュリスト",
+    "lastUpdated": "最終更新",
+    "crackedAt": "クラック日時",
+    "hashCopied": "ハッシュをクリップボードにコピーしました",
+    "crackedTextCopied": "クラック済みテキストをクリップボードにコピーしました"
+  }
+}

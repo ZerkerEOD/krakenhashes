@@ -14,7 +14,8 @@
   },
   "recentActivity": {
     "title": "Последняя активность",
-    "noActivity": "Нет недавней активности"
+    "noActivity": "Нет недавней активности",
+    "viewAll": "Все уведомления"
   },
   "quickActions": {
     "title": "Быстрые действия",
@@ -112,5 +113,52 @@
       "maxAgents": "Макс. агентов",
       "actions": "Действия"
     }
+  },
+  "kpi": {
+    "runningJobs": "Выполняемые задания",
+    "queued": "{{count}} в очереди",
+    "agentsOnline": "Агенты в сети",
+    "agentProblems": "{{count}} требуют внимания",
+    "hashRate": "Скорость хеширования",
+    "cracks24h": "Взломано (24ч)",
+    "cracks7d": "{{count}} за 7 дней",
+    "crackRate": "Скорость взлома",
+    "hashlistTotals": "{{cracked}} из {{total}} хешей",
+    "failed24h": "Провалено (24ч)",
+    "completed24h": "{{count}} завершено"
+  },
+  "agentHealth": {
+    "title": "Здоровье агентов",
+    "viewAll": "Все агенты",
+    "utilization": "Использование GPU",
+    "temperature": "Самый горячий GPU",
+    "lastSeen": "Последняя активность: {{when}}",
+    "warnings": {
+      "error": "Ошибка",
+      "offline": "Не в сети",
+      "update_failed": "Обновление не удалось",
+      "stale_heartbeat": "Нет проверки соединения",
+      "gpu_hot": "GPU перегрет"
+    }
+  },
+  "recentCracks": {
+    "title": "Недавние взломы",
+    "viewAll": "Все взломанные хеши",
+    "empty": "Пока ничего не взломано",
+    "copy": "Скопировать открытый текст",
+    "copied": "Скопировано"
+  },
+  "activeJobs": {
+    "title": "Активные задания",
+    "showing": "Показано 10 из {{total}}",
+    "viewAll": "Все задания",
+    "empty": "Ничего не выполняется",
+    "emptyHint": "Запустите задание из списка хешей.",
+    "goHashlists": "Перейти к спискам хешей"
+  },
+  "welcomeUser": "С возвращением, {{name}}",
+  "autoRefresh": {
+    "on": "Активно",
+    "off": "Приостановлено"
   }
 }

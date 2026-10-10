@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Połączenie nie powiodło się. Sprawdź swoją sieć.",
+    "timeout": "Limit czasu żądania upłynął. Spróbuj ponownie.",
+    "serverUnavailable": "Serwer jest niedostępny. Spróbuj ponownie później."
+  },
+  "authentication": {
+    "unauthorized": "Brak uprawnień do wykonania tej akcji.",
+    "sessionExpired": "Sesja wygasła. Zaloguj się ponownie.",
+    "invalidToken": "Nieprawidłowy token uwierzytelniania.",
+    "loginRequired": "Zaloguj się, aby kontynuować."
+  },
+  "validation": {
+    "required": "To pole jest wymagane.",
+    "invalidEmail": "Wpisz prawidłowy adres e-mail.",
+    "invalidFormat": "Nieprawidłowy format.",
+    "tooShort": "Musi mieć co najmniej {{min}} znaków.",
+    "tooLong": "Nie może mieć więcej niż {{max}} znaków.",
+    "passwordRequirements": "Hasło musi zawierać co najmniej 8 znaków, w tym wielkie litery, małe litery, cyfrę i znak specjalny."
+  },
+  "api": {
+    "badRequest": "Nieprawidłowe żądanie. Sprawdź swoje dane wejściowe.",
+    "notFound": "Żądany zasób nie został znaleziony.",
+    "conflict": "Wystąpił konflikt. Zasób może już istnieć.",
+    "serverError": "Wystąpił wewnętrzny błąd serwera.",
+    "rateLimited": "Zbyt wiele żądań. Zaczekaj i spróbuj ponownie."
+  },
+  "file": {
+    "tooLarge": "Plik jest za duży. Maksymalny rozmiar to {{maxSize}}.",
+    "invalidType": "Nieprawidłowy typ pliku. Dozwolone typy: {{allowedTypes}}.",
+    "uploadFailed": "Przesłanie pliku nie powiodło się. Spróbuj ponownie."
+  },
+  "generic": {
+    "unknownError": "Wystąpił nieznany błąd.",
+    "tryAgain": "Spróbuj ponownie.",
+    "contactSupport": "Jeśli problem będzie się utrzymywać, skontaktuj się z pomocą techniczną."
+  }
+}

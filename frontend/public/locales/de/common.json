@@ -38,6 +38,7 @@
     "disabled": "Deaktiviert",
     "active": "Aktiv",
     "inactive": "Inaktiv",
+    "updating": "Wird aktualisiert",
     "pending": "Ausstehend",
     "completed": "Abgeschlossen",
     "failed": "Fehlgeschlagen",
@@ -73,16 +74,17 @@
     "areYouSure": "Sind Sie sicher?",
     "cannotBeUndone": "Diese Aktion kann nicht rückgängig gemacht werden.",
     "confirmDelete": "Löschen bestätigen",
-    "confirmAction": "Aktion bestätigen"
+    "confirmAction": "Aktion bestätigen",
+    "typeToConfirm": "{{text}} eingeben zur Bestätigung"
   },
   "time": {
     "justNow": "Gerade eben",
-    "minutesAgo": "vor {{count}} Minute",
-    "minutesAgo_plural": "vor {{count}} Minuten",
-    "hoursAgo": "vor {{count}} Stunde",
-    "hoursAgo_plural": "vor {{count}} Stunden",
-    "daysAgo": "vor {{count}} Tag",
-    "daysAgo_plural": "vor {{count}} Tagen",
+    "minutesAgo_one": "vor {{count}} Minute",
+    "minutesAgo_other": "vor {{count}} Minuten",
+    "hoursAgo_one": "vor {{count}} Stunde",
+    "hoursAgo_other": "vor {{count}} Stunden",
+    "daysAgo_one": "vor {{count}} Tag",
+    "daysAgo_other": "vor {{count}} Tagen",
     "never": "Nie"
   },
   "fileUpload": {
@@ -126,7 +128,17 @@
     "logoAltBranded": "{{appName}}-Logo"
   },
   "table": {
+    "clearSearch": "Suche löschen",
+    "clearSelection": "Auswahl löschen",
+    "selectedCount": "{{count}} ausgewählt",
+    "expandRow": "Zeile ausklappen",
+    "collapseRow": "Zeile einklappen",
+    "showAll": "Alle anzeigen",
+    "showFewer": "Weniger anzeigen",
+    "showingOf": "Zeige {{shown}} von {{total}}",
+    "actions": "Aktionen",
     "noResults": "Keine Ergebnisse gefunden",
+    "rowsPerPage": "Zeilen pro Seite",
     "loading": "Daten werden geladen...",
     "emptyState": "Keine Daten zum Anzeigen"
   },
@@ -139,7 +151,8 @@
       "frontend": "Frontend",
       "agent": "Agent-Version",
       "api": "API-Version",
-      "database": "Datenbank"
+      "database": "Datenbank",
+      "build": "Build"
     },
     "projectInfo": {
       "title": "Projektinformationen",
@@ -157,5 +170,186 @@
     "tooltip": "Kein gültiger Text. Das exakte Passwort ist {{value}}. Die angezeigten Zeichen sind eine Vermutung (Windows-1252), nicht das echte Passwort.",
     "copyExact": "Exakten Wert kopieren (für Hashcat)",
     "copyGuess": "Vermutung kopieren (nicht exakt)"
+  },
+  "empty": {
+    "noData": "Hier gibt es noch nichts",
+    "noResults": "Keine Ergebnisse",
+    "noResultsHint": "Versuchen Sie, Ihre Suche oder Filter anzupassen."
+  },
+  "theme": {
+    "appearance": "Erscheinungsbild",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
+  },
+  "status": {
+    "job": {
+      "preparing": "Wird vorbereitet",
+      "pending": "Ausstehend",
+      "running": "Läuft",
+      "paused": "Pausiert",
+      "processing": "Wird verarbeitet",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "archived": "Archiviert"
+    },
+    "task": {
+      "pending": "Ausstehend",
+      "assigned": "Zugewiesen",
+      "reconnect_pending": "Verbindung wird wiederhergestellt",
+      "running": "Läuft",
+      "processing": "Wird verarbeitet",
+      "processing_error": "Verarbeitungsfehler",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen"
+    },
+    "agent": {
+      "pending": "Ausstehend",
+      "active": "Online",
+      "inactive": "Offline",
+      "error": "Fehler",
+      "disabled": "Deaktiviert",
+      "updating": "Wird aktualisiert",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "hashlist": {
+      "uploading": "Wird hochgeladen",
+      "processing": "Wird verarbeitet",
+      "ready": "Bereit",
+      "error": "Fehler",
+      "deleting": "Wird gelöscht",
+      "ready_with_errors": "Bereit mit Fehlern",
+      "awaiting_validation_decision": "Überprüfung ausstehend",
+      "cancelled": "Abgebrochen"
+    },
+    "verification": {
+      "pending": "Ausstehend",
+      "verified": "Verifiziert",
+      "failed": "Fehlgeschlagen",
+      "deleted": "Gelöscht"
+    },
+    "cloud": {
+      "requested": "Angefordert",
+      "launching": "Wird gestartet",
+      "provisioning": "Wird bereitgestellt",
+      "syncing": "Wird synchronisiert",
+      "running": "Läuft",
+      "draining": "Wird entleert",
+      "terminating": "Wird beendet",
+      "terminated": "Beendet",
+      "failed": "Fehlgeschlagen"
+    },
+    "loopback": {
+      "waiting": "Wartet",
+      "active": "Aktiv",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen"
+    },
+    "audit": {
+      "info": "Info",
+      "warning": "Warnung",
+      "critical": "Kritisch"
+    },
+    "diagnostic": {
+      "info": "Info",
+      "warning": "Warnung",
+      "error": "Fehler"
+    },
+    "sync": {
+      "pending": "Ausstehend",
+      "in_progress": "In Bearbeitung",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen"
+    },
+    "generic": {
+      "success": "Erfolgreich",
+      "ok": "OK",
+      "healthy": "Gesund",
+      "enabled": "Aktiviert",
+      "active": "Aktiv",
+      "verified": "Verifiziert",
+      "warning": "Warnung",
+      "degraded": "Beeinträchtigt",
+      "error": "Fehler",
+      "failed": "Fehlgeschlagen",
+      "critical": "Kritisch",
+      "info": "Info",
+      "running": "Läuft",
+      "pending": "Ausstehend",
+      "queued": "In Warteschlange",
+      "disabled": "Deaktiviert",
+      "inactive": "Inaktiv",
+      "unknown": "Unbekannt"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Benutzerdefinierte Zeichensätze (optional - definieren Sie ?1 bis ?4 zur Verwendung in der Maske)",
+    "hexTooltip": "Wenn aktiviert, werden Zeichensatzdefinitionen inline als hexadezimale Bytepaare interpretiert (z.B. 41424344 = ABCD). Datei-Zeichensätze sind nicht betroffen.",
+    "hexEncodedLabel": "Hex-codierte Zeichensätze",
+    "charsetSlotLabel": "Zeichensatz {{slot}} (-{{slot}})",
+    "fileValue_one": "[Datei: {{name}} — {{count}} Byte]",
+    "fileValue_other": "[Datei: {{name}} — {{count}} Bytes]",
+    "fileHelperUsed_one": "{{count}} eindeutiges Byte",
+    "fileHelperUsed_other": "{{count}} eindeutige Bytes",
+    "fileHelperUnused_one": "{{count}} eindeutiges Byte (nicht in der Maske referenziert)",
+    "fileHelperUnused_other": "{{count}} eindeutige Bytes (nicht in der Maske referenziert)",
+    "placeholderHex": "z.B. 41424344 (hexadezimale Bytepaare)",
+    "placeholderPlain": "z.B. ?u?d oder abcdef0123456789",
+    "inlineHelperBytes_one": "{{count}} Byte",
+    "inlineHelperBytes_other": "{{count}} Bytes",
+    "inlineHelperBytesUnused_one": "{{count}} Byte (nicht in der Maske referenziert)",
+    "inlineHelperBytesUnused_other": "{{count}} Bytes (nicht in der Maske referenziert)",
+    "inlineHelperChars_one": "{{count}} Zeichen",
+    "inlineHelperChars_other": "{{count}} Zeichen",
+    "inlineHelperCharsUnused_one": "{{count}} Zeichen (nicht in der Maske referenziert)",
+    "inlineHelperCharsUnused_other": "{{count}} Zeichen (nicht in der Maske referenziert)",
+    "referencedNotDefined": "In der Maske referenziert, aber nicht definiert",
+    "savedLabel": "Gespeichert",
+    "typeLabels": {
+      "file": "Datei",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_one": "{{count}} eindeutiges Byte",
+    "optionUniqueBytes_other": "{{count}} eindeutige Bytes",
+    "optionBytesHex_one": "{{count}} Byte (hex)",
+    "optionBytesHex_other": "{{count}} Bytes (hex)",
+    "willEnableHex": " — aktiviert den Hex-Modus",
+    "willDisableHex": " — deaktiviert den Hex-Modus",
+    "estimatedKeyspace": "Geschätzter Keyspace: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} Bytes",
+    "slotSizeChars": "?{{slot}} = {{size}} Zeichen"
+  },
+  "teamFilter": {
+    "label": "Team",
+    "allTeams": "Alle Teams",
+    "adminBadge": "Admin"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Passwort erforderlich",
+    "currentPasswordLabel": "Aktuelles Passwort"
+  },
+  "hashDetailModal": {
+    "title": "Hash-Details",
+    "hashValue": "Hash-Wert",
+    "copied": "Kopiert!",
+    "copyHash": "Hash kopieren",
+    "copyPlaintext": "Klartext kopieren",
+    "originalHash": "Original-Hash (aus Datei)",
+    "status": "Status",
+    "cracked": "Geknackt",
+    "notCracked": "Nicht geknackt",
+    "hashType": "Hash-Typ",
+    "typeId": "Typ-ID: {{id}}",
+    "username": "Benutzername",
+    "crackedText": "Geknackter Text",
+    "hashlist": "Hashliste",
+    "lastUpdated": "Zuletzt aktualisiert",
+    "crackedAt": "Geknackt am",
+    "hashCopied": "Hash in die Zwischenablage kopiert",
+    "crackedTextCopied": "Geknackter Text in die Zwischenablage kopiert"
   }
 }

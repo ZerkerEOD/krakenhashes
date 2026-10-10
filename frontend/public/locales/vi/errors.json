@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Kết nối thất bại. Vui lòng kiểm tra kết nối mạng của bạn.",
+    "timeout": "Yêu cầu hết thời gian chờ. Vui lòng thử lại.",
+    "serverUnavailable": "Máy chủ không khả dụng. Vui lòng thử lại sau."
+  },
+  "authentication": {
+    "unauthorized": "Bạn không có quyền thực hiện hành động này.",
+    "sessionExpired": "Phiên của bạn đã hết hạn. Vui lòng đăng nhập lại.",
+    "invalidToken": "Token xác thực không hợp lệ.",
+    "loginRequired": "Vui lòng đăng nhập để tiếp tục."
+  },
+  "validation": {
+    "required": "Trường này là bắt buộc.",
+    "invalidEmail": "Vui lòng nhập một địa chỉ email hợp lệ.",
+    "invalidFormat": "Định dạng không hợp lệ.",
+    "tooShort": "Phải có ít nhất {{min}} ký tự.",
+    "tooLong": "Không được quá {{max}} ký tự.",
+    "passwordRequirements": "Mật khẩu phải chứa ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt."
+  },
+  "api": {
+    "badRequest": "Yêu cầu không hợp lệ. Vui lòng kiểm tra lại đầu vào của bạn.",
+    "notFound": "Không tìm thấy tài nguyên được yêu cầu.",
+    "conflict": "Xảy ra xung đột. Tài nguyên có thể đã tồn tại.",
+    "serverError": "Xảy ra lỗi máy chủ nội bộ.",
+    "rateLimited": "Quá nhiều yêu cầu. Vui lòng đợi và thử lại."
+  },
+  "file": {
+    "tooLarge": "Tệp quá lớn. Kích thước tối đa là {{maxSize}}.",
+    "invalidType": "Loại tệp không hợp lệ. Các loại được phép: {{allowedTypes}}.",
+    "uploadFailed": "Tải lên tệp thất bại. Vui lòng thử lại."
+  },
+  "generic": {
+    "unknownError": "Xảy ra lỗi không xác định.",
+    "tryAgain": "Vui lòng thử lại.",
+    "contactSupport": "Nếu vấn đề vẫn tiếp tục, vui lòng liên hệ bộ phận hỗ trợ."
+  }
+}

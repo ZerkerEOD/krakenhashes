@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Dashboard",
+    "jobs": "Job",
+    "agents": "Agent",
+    "hashlists": "Hashlist",
+    "crackedHashes": "Hash Tercrack",
+    "wordlists": "Wordlist",
+    "rules": "Rule",
+    "clientManagement": "Manajemen Klien",
+    "teams": "Tim",
+    "analytics": "Analitik",
+    "about": "Tentang",
+    "logout": "Keluar"
+  },
+  "admin": {
+    "title": "Admin",
+    "settings": "Pengaturan",
+    "userManagement": "Manajemen Pengguna",
+    "customCharsets": "Charset Khusus",
+    "presetJobs": "Preset Job",
+    "jobWorkflows": "Job Workflow",
+    "diagnostics": "Diagnostik",
+    "auditLog": "Log Audit",
+    "jobAnalytics": "Analitik Job",
+    "teamManagement": "Manajemen Tim",
+    "cloudFleet": "Armada Cloud",
+    "binaries": "Binary",
+    "hashTypes": "Tipe Hash",
+    "vouchers": "Voucher",
+    "clients": "Klien",
+    "teams": "Tim"
+  },
+  "userMenu": {
+    "userSettings": "Pengaturan Pengguna",
+    "savedCharsets": "Charset Tersimpan",
+    "logout": "Keluar",
+    "user": "Pengguna"
+  },
+  "aria": {
+    "toggleDrawer": "Buka/tutup panel samping",
+    "mainNavigation": "Navigasi utama",
+    "adminNavigation": "Navigasi admin",
+    "downloadCaCert": "Unduh sertifikat CA"
+  },
+  "groups": {
+    "resources": "Sumber Daya",
+    "peopleAccess": "Orang & Akses",
+    "operations": "Operasi"
+  }
+}

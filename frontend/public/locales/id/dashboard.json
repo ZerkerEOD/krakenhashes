@@ -1,0 +1,164 @@
+{
+  "title": "Dashboard",
+  "welcome": "Selamat Datang di KrakenHashes",
+  "stats": {
+    "title": "Ringkasan",
+    "totalJobs": "Total Job",
+    "activeJobs": "Job Aktif",
+    "completedJobs": "Job Selesai",
+    "totalHashes": "Total Hash",
+    "crackedHashes": "Hash Tercrack",
+    "crackRate": "Tingkat Crack",
+    "activeAgents": "Agent Aktif",
+    "totalAgents": "Total Agent"
+  },
+  "recentActivity": {
+    "title": "Aktivitas Terbaru",
+    "noActivity": "Tidak ada aktivitas terbaru",
+    "viewAll": "Semua notifikasi"
+  },
+  "quickActions": {
+    "title": "Tindakan Cepat",
+    "createJob": "Buat Job",
+    "uploadHashlist": "Unggah Hashlist",
+    "viewAgents": "Lihat Agent"
+  },
+  "agents": {
+    "title": "Agent Anda",
+    "loadError": "Gagal memuat agent: {{message}}",
+    "noAgents": "Tidak ada agent terdaftar",
+    "hashRate": "Hash Rate",
+    "notAvailable": "N/A",
+    "job": "Job",
+    "unnamedJob": "Job Tanpa Nama",
+    "noActiveTask": "Tidak ada task aktif"
+  },
+  "pagination": {
+    "previous": "Sebelumnya",
+    "next": "Selanjutnya",
+    "pageOf": "Halaman {{current}} dari {{total}}"
+  },
+  "jobs": {
+    "title": "Job Anda",
+    "total": "Total",
+    "autoRefreshOn": "Otomatis",
+    "autoRefreshOff": "Nonaktif",
+    "lastUpdated": "Diperbarui terakhir: {{time}}",
+    "loadError": "Gagal memuat job: {{message}}",
+    "noJobs": "Tidak ada job ditemukan. Buat job baru untuk memulai."
+  },
+  "buttons": {
+    "refresh": "Segarkan",
+    "deleteFinished": "Hapus yang Selesai"
+  },
+  "filters": {
+    "status": "Status",
+    "priority": "Prioritas",
+    "all": "Semua",
+    "searchPlaceholder": "Cari job...",
+    "clear": "Hapus Filter"
+  },
+  "status": {
+    "pending": "Tertunda",
+    "running": "Berjalan",
+    "paused": "Dijeda",
+    "completed": "Selesai",
+    "failed": "Gagal",
+    "cancelled": "Dibatalkan"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Hapus Job yang Selesai",
+      "message": "Apakah Anda yakin ingin menghapus semua job yang selesai? Tindakan ini tidak dapat dibatalkan."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Gagal menghapus job yang selesai",
+    "deleteJobFailed": "Gagal menghapus job",
+    "retryJobFailed": "Gagal mencoba ulang job",
+    "updateJobFailed": "Gagal memperbarui job"
+  },
+  "hashlistOverview": {
+    "title": "Ringkasan Hashlist",
+    "loadError": "Gagal memuat hashlist",
+    "noHashlists": "Tidak ada hashlist ditemukan",
+    "columns": {
+      "name": "Nama",
+      "client": "Klien",
+      "status": "Status",
+      "total": "Total",
+      "cracked": "Tercrack",
+      "progress": "Progres"
+    },
+    "status": {
+      "ready": "Siap",
+      "error": "Error",
+      "uploading": "Mengunggah",
+      "processing": "Memproses"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Tidak ada job ditemukan",
+    "noJobsHint": "Buat job baru dari halaman Hashlist untuk memulai.",
+    "completedJobs": "Job Selesai",
+    "columns": {
+      "jobName": "Nama Job",
+      "hashlist": "Hashlist / Preset",
+      "createdBy": "Dibuat Oleh",
+      "progress": "Progres",
+      "keyspace": "Keyspace",
+      "cracked": "Tercrack",
+      "agents": "Agent",
+      "priority": "Prioritas",
+      "maxAgents": "Max Agents",
+      "actions": "Tindakan"
+    }
+  },
+  "kpi": {
+    "runningJobs": "Job berjalan",
+    "queued": "{{count}} antrian",
+    "agentsOnline": "Agent online",
+    "agentProblems": "{{count}} memerlukan perhatian",
+    "hashRate": "Hash rate",
+    "cracks24h": "Tercrack (24j)",
+    "cracks7d": "{{count}} dalam 7 hari",
+    "crackRate": "Tingkat crack",
+    "hashlistTotals": "{{cracked}} dari {{total}} hash",
+    "failed24h": "Gagal (24j)",
+    "completed24h": "{{count}} selesai"
+  },
+  "agentHealth": {
+    "title": "Kesehatan agent",
+    "viewAll": "Semua agent",
+    "utilization": "Penggunaan GPU",
+    "temperature": "GPU Terpanas",
+    "lastSeen": "Terakhir dilihat {{when}}",
+    "warnings": {
+      "error": "Error",
+      "offline": "Offline",
+      "update_failed": "Pembaruan gagal",
+      "stale_heartbeat": "Tidak ada heartbeat",
+      "gpu_hot": "GPU panas"
+    }
+  },
+  "recentCracks": {
+    "title": "Crack terbaru",
+    "viewAll": "Semua hash tercrack",
+    "empty": "Belum ada yang tercrack",
+    "copy": "Salin plaintext",
+    "copied": "Tersalin"
+  },
+  "activeJobs": {
+    "title": "Job aktif",
+    "showing": "Menampilkan 10 dari {{total}}",
+    "viewAll": "Semua job",
+    "empty": "Tidak ada yang berjalan",
+    "emptyHint": "Mulai job dari hashlist.",
+    "goHashlists": "Buka hashlist"
+  },
+  "welcomeUser": "Selamat datang kembali, {{name}}",
+  "autoRefresh": {
+    "on": "Langsung",
+    "off": "Dijeda"
+  }
+}

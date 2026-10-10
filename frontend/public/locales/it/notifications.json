@@ -1,0 +1,204 @@
+{
+  "title": "Notifiche",
+  "connected": "Notifiche",
+  "disconnected": "Riconnessione in corso...",
+  "empty": "Nessuna notifica",
+  "markAllRead": "Segna tutte come lette",
+  "markRead": "Segna come letta",
+  "viewAll": "Visualizza tutte le notifiche",
+  "deleteSelected": "Elimina {{count}} elementi selezionati",
+  "selectAll": "Seleziona tutto",
+  "aria": {
+    "bellButton": "Mostra notifiche"
+  },
+  "center": {
+    "title": "Centro notifiche",
+    "description": "Visualizza e gestisci le Sue notifiche"
+  },
+  "filters": {
+    "category": "Categoria",
+    "status": "Stato",
+    "allCategories": "Tutte le categorie",
+    "all": "Tutto",
+    "unread": "Non lette",
+    "read": "Lette"
+  },
+  "categories": {
+    "job": "Job",
+    "agent": "Agent",
+    "security": "Sicurezza",
+    "system": "Sistema"
+  },
+  "types": {
+    "header": "Tipo di notifica",
+    "job_started": "Job iniziato",
+    "job_completed": "Job completato",
+    "job_failed": "Job non riuscito",
+    "first_crack": "Primo hash craccato",
+    "task_completed_with_cracks": "Rapporto di completamento task",
+    "agent_offline": "Agent offline",
+    "agent_error": "Errore agent",
+    "security_suspicious_login": "Login sospetto",
+    "security_mfa_disabled": "MFA disabilitata",
+    "security_password_changed": "Password modificata",
+    "webhook_failure": "Errore webhook"
+  },
+  "typeDescriptions": {
+    "job_started": "Quando un job inizia l'esecuzione",
+    "job_completed": "Quando un job è completato con successo",
+    "job_failed": "Quando un job non riesce",
+    "first_crack": "Quando il primo hash è craccato (notifica immediata)",
+    "task_completed_with_cracks": "Quando un task è completato",
+    "agent_offline": "Quando un agent va offline (dopo il periodo di tolleranza)",
+    "agent_error": "Quando un agent segnala un errore critico",
+    "security_suspicious_login": "Login da una nuova posizione o dispositivo",
+    "security_mfa_disabled": "Quando MFA è disabilitata (obbligatorio)",
+    "security_password_changed": "Quando la password è modificata (obbligatorio)",
+    "webhook_failure": "Quando la consegna di un webhook non riesce"
+  },
+  "channels": {
+    "inApp": "In-app",
+    "email": "Email",
+    "webhook": "Webhook"
+  },
+  "settings": {
+    "title": "Impostazioni notifiche",
+    "description": "Configura come e quando riceve le notifiche",
+    "enabledChannels": "Canali abilitati",
+    "taskReportMode": "Quando notificare",
+    "taskReportModeOnlyIfCracks": "Solo se craccati",
+    "taskReportModeAlways": "Notifica sempre",
+    "modeUpdated": "Modalità di rapporto task aggiornata",
+    "onlyIfCracks": "Solo se craccati",
+    "always": "Notifica sempre",
+    "mandatory": "Obbligatorio",
+    "mandatoryDescription": "Questa notifica non può essere disabilitata",
+    "emailNotConfigured": "Gateway email non configurato",
+    "emailNotConfiguredWarning": "Gateway email non configurato. Le notifiche email non sono attualmente disponibili.",
+    "noWebhooksConfigured": "Nessun webhook attivo configurato",
+    "toggleAll": "Attiva/disattiva tutto"
+  },
+  "webhooks": {
+    "title": "Configurazione webhook",
+    "description": "Gestisci le Sue integrazioni webhook",
+    "name": "Nome",
+    "url": "URL",
+    "secret": "Segreto",
+    "secretPlaceholder": "Segreto webhook opzionale",
+    "isActive": "Attivo",
+    "notificationTypes": "Tipi di notifica",
+    "allTypes": "Tutti i tipi",
+    "retryCount": "Numero di tentativi",
+    "timeout": "Timeout (secondi)",
+    "lastTriggered": "Ultima attivazione",
+    "lastSuccess": "Ultimo successo",
+    "lastError": "Ultimo errore",
+    "totalSent": "Totale inviati",
+    "totalFailed": "Totale non riusciti",
+    "create": "Crea webhook",
+    "edit": "Modifica webhook",
+    "delete": "Elimina webhook",
+    "deleteConfirm": "È sicuro di voler eliminare questo webhook?",
+    "test": "Testa webhook",
+    "testUrl": "URL test",
+    "testSuccess": "Test webhook riuscito",
+    "testFailed": "Test webhook non riuscito",
+    "secretExists": "Il segreto è impostato. Lasciare vuoto per mantenerlo, o inserire un nuovo valore per sostituirlo.",
+    "invalidJson": "Formato JSON non valido",
+    "noWebhooks": "Nessun webhook configurato. Creane uno per ricevere notifiche tramite webhook.",
+    "updated": "Webhook aggiornato",
+    "created": "Webhook creato",
+    "deleted": "Webhook eliminato",
+    "secretEditHelp": "Lasciare vuoto per mantenere il segreto esistente",
+    "validation": {
+      "nameAndUrl": "Nome e URL sono obbligatori"
+    }
+  },
+  "admin": {
+    "title": "Impostazioni notifiche",
+    "globalWebhook": {
+      "title": "Webhook globale",
+      "description": "Configura un webhook a livello di sistema per tutte le notifiche",
+      "enabled": "Abilita webhook globale",
+      "url": "URL webhook",
+      "secret": "Segreto webhook",
+      "customHeaders": "Intestazioni personalizzate (JSON)",
+      "test": "Testa webhook globale",
+      "saved": "Impostazioni webhook globale salvate"
+    },
+    "agentOffline": {
+      "title": "Periodo di tolleranza per gli agent offline",
+      "description": "Configura quanto tempo aspettare prima di inviare notifiche di agent offline",
+      "bufferMinutes": "Minuti di tolleranza",
+      "bufferHelp": "Attendere questo numero di minuti prima di notificare gli agent offline",
+      "saved": "Impostazioni agent offline salvate"
+    },
+    "userWebhooks": {
+      "title": "Webhook utente",
+      "description": "Visualizza tutti i webhook configurati dagli utenti",
+      "username": "Nome utente",
+      "email": "Email",
+      "empty": "Nessun webhook utente configurato"
+    }
+  },
+  "auditLog": {
+    "title": "Registro di audit",
+    "description": "Eventi di sicurezza e critici su tutti gli utenti",
+    "noData": "Nessuna voce di registro di audit trovata",
+    "columns": {
+      "time": "Ora",
+      "severity": "Gravità",
+      "eventType": "Tipo di evento",
+      "user": "Utente",
+      "title": "Titolo",
+      "ip": "Indirizzo IP"
+    },
+    "filters": {
+      "eventType": "Tipo di evento",
+      "severity": "Gravità",
+      "startDate": "Data inizio",
+      "endDate": "Data fine",
+      "all": "Tutto",
+      "clear": "Cancella filtri"
+    },
+    "severity": {
+      "critical": "Critico",
+      "warning": "Avvertimento",
+      "info": "Informazioni"
+    },
+    "details": {
+      "message": "Messaggio",
+      "ipAddress": "Indirizzo IP",
+      "userAgent": "User Agent",
+      "source": "Fonte",
+      "data": "Dati aggiuntivi"
+    },
+    "errors": {
+      "loadFailed": "Impossibile caricare i registri di audit"
+    },
+    "system": "Sistema"
+  },
+  "systemAlert": {
+    "title": "Avviso di sistema",
+    "dismiss": "Chiudi",
+    "dismissAll": "Chiudi tutto"
+  },
+  "errors": {
+    "fetchFailed": "Impossibile caricare le notifiche",
+    "markReadFailed": "Impossibile segnare la notifica come letta",
+    "deleteFailed": "Impossibile eliminare le notifiche",
+    "saveFailed": "Impossibile salvare le impostazioni",
+    "webhookCreateFailed": "Impossibile creare il webhook",
+    "webhookUpdateFailed": "Impossibile aggiornare il webhook",
+    "webhookDeleteFailed": "Impossibile eliminare il webhook",
+    "webhookSaveFailed": "Impossibile salvare il webhook"
+  },
+  "common": {
+    "actions": "Azioni",
+    "active": "Attivo",
+    "inactive": "Inattivo",
+    "cancel": "Annulla",
+    "save": "Salva",
+    "delete": "Elimina"
+  }
+}

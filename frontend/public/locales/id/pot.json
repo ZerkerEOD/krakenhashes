@@ -1,0 +1,95 @@
+{
+  "title": "Hash Tercrack",
+  "page": {
+    "title": "Hash Tercrack (Pot)",
+    "description": "Lihat semua hash kata sandi yang berhasil tercrack di seluruh hashlist dan klien.",
+    "filterByHashlist": "Lompat ke Hashlist",
+    "hashlistPlaceholder": "Pilih hashlist..."
+  },
+  "table": {
+    "allCrackedHashes": "Semua Hash Tercrack"
+  },
+  "navigation": {
+    "backToAll": "Kembali ke Semua Hash Tercrack",
+    "backToSource": "Kembali"
+  },
+  "client": {
+    "title": "Hash Tercrack - Tampilan Klien",
+    "description": "Melihat hash tercrack untuk klien: {{clientName}}",
+    "tableTitle": "Hash Tercrack untuk \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Hash Tercrack - Tampilan Hashlist",
+    "description": "Melihat hash tercrack untuk hashlist: {{hashlistName}}",
+    "tableTitle": "Hash Tercrack untuk \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Hash Tercrack untuk Job: {{jobName}}",
+    "description": "Lihat semua hash kata sandi yang berhasil tercrack dari eksekusi job ini.",
+    "tableTitle": "Hash Tercrack - {{jobName}}",
+    "defaultName": "Job {{id}}"
+  },
+  "columns": {
+    "originalHash": "Hash Asli",
+    "domain": "Domain",
+    "username": "Username",
+    "password": "Kata Sandi",
+    "hashType": "Tipe Hash",
+    "actions": "Tindakan"
+  },
+  "search": {
+    "placeholder": "Cari database...",
+    "filterPlaceholder": "Filter halaman ini...",
+    "button": "Cari",
+    "resultsFound_other": "Ditemukan {{count}} hasil",
+    "noResults": "Tidak ada hasil yang ditemukan",
+    "searching": "Mencari..."
+  },
+  "export": {
+    "hashPass": "Hash:Kata Sandi",
+    "userPass": "User:Kata Sandi",
+    "username": "Username",
+    "password": "Kata Sandi",
+    "domainUser": "Domain\\User",
+    "domainUserPass": "Domain\\User:Kata Sandi",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "Ekspor hasil yang terlihat",
+    "downloaded": "Diunduh {{filename}}",
+    "downloadFailed": "Gagal mengunduh file"
+  },
+  "tooltips": {
+    "copyHash": "Salin hash:kata sandi",
+    "copyDomain": "Klik untuk menyalin domain",
+    "copyUsername": "Klik untuk menyalin username",
+    "copyPassword": "Klik untuk menyalin kata sandi"
+  },
+  "dialogs": {
+    "loadAllTitle": "Muat Semua Hasil?",
+    "loadAllMessage": "Memuat semua {{value}} hasil mungkin memakan waktu yang signifikan dan dapat mempengaruhi kinerja. Apakah Anda yakin ingin melanjutkan?",
+    "loadingAll": "Memuat semua hasil. Ini mungkin memakan waktu...",
+    "cancel": "Batal",
+    "loadAll": "Muat Semua"
+  },
+  "pagination": {
+    "all": "Semua"
+  },
+  "notifications": {
+    "copiedToClipboard": "Disalin ke clipboard",
+    "exported": "Hash tercrack telah diekspor"
+  },
+  "errors": {
+    "loadFailed": "Gagal memuat hash tercrack",
+    "loadClientFailed": "Gagal memuat informasi klien",
+    "loadHashlistFailed": "Gagal memuat informasi hashlist",
+    "loadJobFailed": "Gagal memuat informasi job"
+  },
+  "filter": {
+    "filteredBy": "Disaring oleh {{param}}: {{value}}"
+  },
+  "breadcrumb": "Hash tercrack",
+  "sourceLabel": {
+    "job": "Job",
+    "client": "Klien",
+    "hashlist": "Hashlist"
+  }
+}

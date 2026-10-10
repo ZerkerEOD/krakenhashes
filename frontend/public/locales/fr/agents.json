@@ -16,7 +16,14 @@
     "idle": "Inactif",
     "error": "Erreur",
     "enabled": "Activé",
-    "disabled": "Désactivé"
+    "disabled": "Désactivé",
+    "updatePending": "Mise à jour en attente",
+    "updateFailed": "Mise à jour échouée",
+    "updating": "Mise à jour en cours",
+    "updateStatus": "Statut de mise à jour",
+    "currentVersion": "Version actuelle",
+    "targetVersion": "Mise à jour vers",
+    "standaloneNotice": "Ceci est un agent autonome et ne se met pas à jour automatiquement."
   },
   "details": {
     "title": "Détails de l'agent",
@@ -24,7 +31,7 @@
     "hardware": "Matériel",
     "metrics": "Métriques",
     "tasks": "Tâches",
-    "logs": "Logs"
+    "logs": "Journaux"
   },
   "hardware": {
     "gpuName": "Nom du GPU",
@@ -36,7 +43,8 @@
     "type": "Type",
     "name": "Nom",
     "runtime": "Runtime",
-    "specs": "Caractéristiques"
+    "specs": "Caractéristiques",
+    "defaultDeviceType": "GPU"
   },
   "actions": {
     "viewDetails": "Voir les détails",
@@ -44,7 +52,8 @@
     "restart": "Redémarrer",
     "deactivateVoucher": "Désactiver le voucher",
     "removeAgent": "Supprimer l'agent",
-    "clearBusyStatus": "Effacer le statut occupé"
+    "clearBusyStatus": "Effacer le statut occupé",
+    "retry": "Réessayer"
   },
   "vouchers": {
     "title": "Vouchers",
@@ -56,15 +65,53 @@
     "available": "Disponible",
     "claimed": "Réclamé",
     "continuous": "Réutilisable",
-    "singleUse": "Usage unique"
+    "singleUse": "Usage unique",
+    "pageTitle": "Gestion des vouchers",
+    "pageDescription": "Codes d'enrôlement que les agents utilisent pour s'enregistrer auprès de ce serveur.",
+    "generate": "Générer un voucher",
+    "includeInactive": "Inclure les inactifs",
+    "active": "Actifs",
+    "inactive": "Inactifs",
+    "systemLabel": "Système",
+    "manage": "Gérer les vouchers"
   },
   "downloads": {
+    "expectedVersion": "Prévu : v{{version}}",
     "title": "Téléchargements de l'agent",
     "selectPlatform": "Sélectionner une plateforme",
     "downloadAgent": "Télécharger l'agent",
     "version": "Version {{version}}",
     "download": "Télécharger",
     "copyUrl": "Copier l'URL",
+    "copied": "Copié !"
+  },
+  "version": {
+    "updateAvailable": "Mise à jour disponible",
+    "upToDate": "À jour"
+  },
+  "install": {
+    "sectionTitle": "Installer un agent",
+    "sectionBlurb": "Choisissez votre système d'exploitation pour obtenir les commandes d'installation exactes. Le lanceur à mise à jour automatique maintient votre agent à la dernière version ; le binaire autonome est géré manuellement.",
+    "dialogTitle": "Installer l'agent sur {{os}}",
+    "mode": "Mode",
+    "modeAutoUpdate": "Mise à jour automatique (recommandé)",
+    "modeStandalone": "Autonome",
+    "architecture": "Architecture",
+    "key": "Code d'enrôlement (clé)",
+    "registerLater": "Enregistrer plus tard (sans code)",
+    "registerLaterNote": "Aucun code d'enrôlement sélectionné — l'agent aura besoin d'un code pour s'enregistrer. Générez-en un ci-dessus ou enregistrez-le plus tard.",
+    "generateCode": "Générer un nouveau code",
+    "serverUrl": "URL du serveur",
+    "noBinaries": "Aucun binaire n'est disponible pour cette plateforme pour le moment.",
+    "serviceTitle": "Installer en tant que service (démarre à la connexion)",
+    "serviceRootUnix": "S'exécute en tant qu'utilisateur à partir de ce dossier et démarre à la connexion — aucun accès root nécessaire. Pour un service à l'échelle du système qui démarre avant la connexion, ajoutez --system (nécessite sudo).",
+    "serviceRootWindows": "S'exécute en tant qu'utilisateur à la connexion via une tâche planifiée — aucun administrateur nécessaire. Pour un service système, ajoutez --system dans une PowerShell élevée.",
+    "runTitle": "Exécuter dans un terminal",
+    "downloadTitle": "Télécharger directement",
+    "downloadButton": "Télécharger",
+    "launcherBlurb": "Le lanceur supervise l'agent et met à jour automatiquement son binaire lorsqu'une nouvelle version est publiée.",
+    "standaloneBlurb": "L'agent autonome ne se met pas à jour automatiquement — re-téléchargez pour mettre à niveau.",
+    "copy": "Copier",
     "copied": "Copié !"
   },
   "errors": {
@@ -140,7 +187,8 @@
       "continuousLabel": "Réutilisable (le code peut être réutilisé)",
       "claimCodeLabel": "Votre code d'enrôlement :",
       "continuousDescription": "Ce code peut être utilisé plusieurs fois pour enregistrer des agents.",
-      "singleUseDescription": "Ce code ne peut être utilisé qu'une seule fois."
+      "singleUseDescription": "Ce code ne peut être utilisé qu'une seule fois.",
+      "systemLabel": "Agent système (pour toutes les équipes)"
     },
     "clearStatus": {
       "title": "Effacer le statut occupé",
@@ -183,7 +231,9 @@
     "owner": "Propriétaire",
     "machineName": "Nom de la machine",
     "operatingSystem": "Système d'exploitation",
-    "agentVersion": "Version de l'agent"
+    "agentVersion": "Version de l'agent",
+    "systemOwner": "Système",
+    "registeredBy": "Enregistré par {{name}}"
   },
   "common": {
     "unknown": "Inconnu",
@@ -201,7 +251,7 @@
     "fileLogging": "Logs fichier",
     "active": "Actif",
     "inactive": "Inactif",
-    "buffer": "Buffer",
+    "buffer": "Tampon",
     "logFileSize": "Taille du fichier de log",
     "lastUpdated": "Dernière mise à jour"
   },
@@ -215,7 +265,10 @@
     "temperature": "Température",
     "utilization": "Utilisation",
     "fanSpeed": "Vitesse du ventilateur",
-    "hashRate": "Hash Rate"
+    "hashRate": "Hash Rate",
+    "noDataAvailable": "Aucune donnée disponible",
+    "deviceFallback": "Appareil {{id}}",
+    "allDevices": "Tous les appareils"
   },
   "placeholders": {
     "enterHashcatParameters": "Saisir les paramètres hashcat..."
@@ -261,6 +314,60 @@
       "24Hours": "24 heures",
       "24HoursDesc1": "Tous les jours : 00:00 - 23:59",
       "24HoursDesc2": "L'agent fonctionne en continu"
+    }
+  },
+  "diagReasons": {
+    "noCompatibleJob": "Aucun Job compatible",
+    "blocklisted": "Benchmark bloqué",
+    "benchmarking": "Exécution d'un benchmark",
+    "outsideSchedule": "En dehors des heures programmées",
+    "agentDisabled": "Agent désactivé",
+    "shuttingDown": "Arrêt en cours",
+    "rejectionCooldown": "Cooldown de rejet de tâche",
+    "noSchedulableWork": "Aucun Job n'a de travail à distribuer",
+    "atCapacity": "Jobs compatibles à pleine capacité"
+  },
+  "activity": {
+    "currentWork": "Travail en cours",
+    "job": "Job",
+    "taskStatus": "Statut de la tâche",
+    "jobProgress": "Progression du Job",
+    "taskProgress": "Progression de la tâche",
+    "keyspaceRange": "Plage de Keyspace",
+    "started": "Démarré",
+    "lastCheckpoint": "Dernier point de contrôle",
+    "whyNotWorking": "Pourquoi cet agent ne fonctionne pas",
+    "recentFailuresAlert_many": "Les tâches récentes échouent ({{count}} au cours des dernières minutes)",
+    "recentFailuresAlert_one": "La tâche récente échoue ({{count}} au cours des dernières minutes)",
+    "recentFailuresAlert_other": "Les tâches récentes échouent ({{count}} au cours des dernières minutes)",
+    "lastFailedJob": "Dernier Job échoué :",
+    "lastFailureTime": "dernier échec {{time}}",
+    "lastSeenTime": "vu pour la dernière fois {{time}}",
+    "occurrencesSuffix_many": " · {{countDisplay}} occurrences",
+    "occurrencesSuffix_one": " · {{countDisplay}} occurrence",
+    "occurrencesSuffix_other": " · {{countDisplay}} occurrences",
+    "idleNoDiagnostics": "Cet agent est inactif. Aucun diagnostic de planification au cours des dernières minutes — il peut être hors ligne, désactivé ou simplement en attente de travail."
+  },
+  "storage": {
+    "title": "Niveau de stockage",
+    "tiers": {
+      "fullCache": "Cache complet — conserver toutes les listes",
+      "onDemand": "À la demande — télécharger + éviction LRU",
+      "networkDirect": "Réseau direct — lire depuis le partage réseau monté"
+    },
+    "helperText": {
+      "fullCache": "Télécharge et conserve toutes les Wordlists/règles localement (démarrage le plus rapide).",
+      "onDemand": "Télécharge par tâche via HTTP et évince les listes les moins récemment utilisées en cas de manque d'espace disque.",
+      "networkDirect": "Lit les Wordlists/règles directement à partir d'un partage réseau monté sur cet hôte agent (pas de copie locale)."
+    },
+    "mountPathLabel": "Chemin de montage du partage réseau (lecture seule, sur l'hôte agent)",
+    "mountPathHelper": "L'opérateur monte le partage ici sur l'hôte de cet agent ; l'agent se contente de le lire. Les identifiants sont saisis par l'opérateur, jamais envoyés par le serveur.",
+    "messages": {
+      "enterMountPathHint": "Entrez le chemin de montage en lecture seule sur cet hôte agent, il s'enregistre alors automatiquement.",
+      "tierUpdated": "Niveau de stockage mis à jour",
+      "tierUpdateFailed": "Impossible de mettre à jour le niveau de stockage",
+      "mountPathUpdated": "Chemin de montage mis à jour",
+      "mountPathUpdateFailed": "Impossible de mettre à jour le chemin de montage"
     }
   }
 }

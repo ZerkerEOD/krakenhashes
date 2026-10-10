@@ -1,0 +1,397 @@
+{
+  "language": "zh",
+  "formality": "Formal/polite register: address the user as 您, never 你 — this is used without a single exception across every existing zh locale file (37/37 occurrences of the second-person pronoun are 您). Confirmations are phrased as polite questions (确定要…吗？) rather than imperative warnings. No T-V-style casual mode exists in this product's Chinese; do not introduce 你 anywhere.",
+  "styleNotes": "1) One canonical rendering per English term across every surface (menus, table columns, tooltips, dialogs, PDF exports) — the existing locale is strict about this (哈希列表 never 哈希集, 已破解哈希 never a mix of synonyms); a term may drop a disambiguating suffix (文件/子/值) in a short column header only when the surrounding section already supplies that context, never invent a new synonym. 2) Buttons and short labels are terse 2-4 character verbs/nouns with no politeness marker (保存, 取消, 删除, 刷新, 筛选); full sentences in descriptions, helper text and confirmation dialogs end with 。 and use 您. 3) Use full-width Chinese punctuation (，。：；？！) in running text; keep ASCII for numbers, units, {{placeholders}}, and every doNotTranslate token (API, GPU, NTLM, --force, .hcmask, etc.) exactly as given, in Latin script. 4) A handful of untranslated English strings still exist in the shipped zh locale (e.g. the Cloud Fleet nav/page title, most of the cloud-provisioning rules panel) — these are pre-existing gaps, not evidence that those concepts should stay in English; translate them using this glossary when touched.",
+  "terms": {
+    "hash": {
+      "translation": "哈希",
+      "keepEnglish": false,
+      "note": "Matches existing UI everywhere (哈希列表, 哈希类型, 原始哈希); used without modification, as in hashcat's own Chinese docs"
+    },
+    "hashlist": {
+      "translation": "哈希列表",
+      "keepEnglish": false,
+      "note": "KrakenHashes product concept; matches the shipped Hashlist Management page and nav menu exactly"
+    },
+    "hash type": {
+      "translation": "哈希类型",
+      "keepEnglish": false,
+      "note": "Matches existing column headers in jobs/hashlists/pot tables"
+    },
+    "crack": {
+      "translation": "破解",
+      "keepEnglish": false,
+      "note": "Standard verb for password recovery; matches 破解任务/破解速率/已破解 family"
+    },
+    "cracked": {
+      "translation": "已破解",
+      "keepEnglish": false,
+      "note": "Matches status label used throughout (已破解哈希, 已破解的密码)"
+    },
+    "cracked hashes": {
+      "translation": "已破解哈希",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '已破解的哈希': the shipped nav menu item and the entire pot.json page (titles, table headers, errors) consistently use 已破解哈希 with no 的 — dropping it matches the existing, heavily-used feature name exactly"
+    },
+    "plaintext": {
+      "translation": "明文",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (明文密码, 明文未知, apiKeySecurityNote's 明文密钥). Note: when the UI labels the recovered value as a field (not the abstract concept), it calls that field 密码 ('Password') instead — that is a different English source string ('Password'), not this term, so there is no conflict"
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "hashcat-specific term; matches the shipped export option label 'Potfile (Hashcat)', left untransliterated"
+    },
+    "client potfile": {
+      "translation": "客户 potfile",
+      "keepEnglish": true,
+      "note": "Fixed from draft's '客户端 potfile': this feature has no existing zh translation yet, but 'client' elsewhere in this product is always 客户 (customer/engagement), never 客户端 — 客户端 is reserved in this same codebase for a software/OAuth client (clientId → 客户端 ID, clientSecret → 客户端密钥). Using 客户端 here would misname whose potfile it is"
+    },
+    "wordlist": {
+      "translation": "字典",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '字典文件': the overwhelming majority of existing strings use bare 字典 (字典管理, 选择第一个字典, 字典选择, nav menu). '字典文件' appears only in the two upload-dialog strings that are specifically about the file object being uploaded (上传字典文件), mirroring the same file-suffix pattern used for rules and binaries — the base glossary term should match the dominant bare form"
+    },
+    "rule": {
+      "translation": "规则",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (规则管理, 规则拆分, nav menu)"
+    },
+    "rule file": {
+      "translation": "规则文件",
+      "keepEnglish": false,
+      "note": "Matches existing upload-dialog string '上传规则文件' exactly"
+    },
+    "mask": {
+      "translation": "掩码",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (掩码模式, 掩码（后缀）)"
+    },
+    "charset": {
+      "translation": "字符集",
+      "keepEnglish": false,
+      "note": "No existing zh translation yet (Saved Charsets feature is still English-only in the zh locale file); 字符集 is the standard term"
+    },
+    "attack mode": {
+      "translation": "攻击模式",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (此攻击模式不使用字典/规则)"
+    },
+    "brute force": {
+      "translation": "暴力破解",
+      "keepEnglish": false,
+      "note": "Matches the user-facing attack-mode label (jobs table) exactly; one admin validation string instead says 暴力攻击, but 暴力破解 is the more visible, more frequent rendering and the standard term in Chinese security writing"
+    },
+    "dictionary attack": {
+      "translation": "字典攻击",
+      "keepEnglish": false,
+      "note": "No direct existing precedent for this exact phrase (it is still English-only where it appears). Keep distinct from hashcat's 'Straight' mode, which this codebase already renders as 直接攻击 in validation strings — 字典攻击 is the standard, more descriptive Chinese security term and is what this key's English source ('Dictionary Attack', a friendlier label than the raw mode name) is going for"
+    },
+    "hybrid attack": {
+      "translation": "混合攻击",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (混合攻击模式需要掩码)"
+    },
+    "association attack": {
+      "translation": "关联攻击",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (关联攻击模式尚未实现)"
+    },
+    "keyspace": {
+      "translation": "密钥空间",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '搜索空间': 密钥空间 is already used pervasively and exclusively across jobs.json and admin.json (密钥空间, 密钥空间范围, 计算密钥空间, keyspaceTimeout) — there is no existing instance of 搜索空间 anywhere in the shipped locale, so switching now would fork an already-consistent, heavily-used term"
+    },
+    "effective keyspace": {
+      "translation": "有效密钥空间",
+      "keepEnglish": false,
+      "note": "Matches the shipped string exactly (jobs.json effectiveKeyspace); follows from the keyspace fix above"
+    },
+    "chunk": {
+      "translation": "分块",
+      "keepEnglish": false,
+      "note": "Matches existing usage (分块大小, 更新分块大小失败); one admin string instead says 工作块, but 分块 is the dominant, more frequent form"
+    },
+    "task": {
+      "translation": "子任务",
+      "keepEnglish": false,
+      "note": "Picked to disambiguate from 'job', which already occupies bare 任务 in this product (Jobs page title/menu = 任务). The one place the UI needs both concepts side by side — the Job Details page's 'Tasks' tab — already resolves this by calling it 子任务. Elsewhere (layerTable, activeTasksTable, failedTasksTable, completedTasksTable column headers), the existing locale drops the 子 and just says 任务/任务 ID, because those tables are already scoped to tasks and the surrounding context removes the ambiguity — keep using that shorthand in a table that is already clearly task-scoped, but default to 子任务 wherever a job and its tasks might otherwise be confused"
+    },
+    "job": {
+      "translation": "任务",
+      "keepEnglish": false,
+      "note": "Matches the shipped Jobs page title, nav menu item and every job-related string exactly"
+    },
+    "preset job": {
+      "translation": "预设任务",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (预设任务管理, 创建预设任务)"
+    },
+    "workflow": {
+      "translation": "工作流",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (任务工作流管理, 创建工作流)"
+    },
+    "loopback": {
+      "translation": "回环",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '循环攻击': the shipped Loopback feature (GH #64) already has an extensive, consistent zh translation using 回环 throughout — the workflow column header, the master toggle, its helper text and every tooltip (回环, 为所有符合条件的步骤启用回环, 工作流级别的回环已启用...). 回环 is also the standard Chinese networking term for 'loopback' and reads naturally here; there is no reason to replace an already-shipped, consistent term"
+    },
+    "priority": {
+      "translation": "优先级",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly, everywhere (优先级, 优先级设置, 高优先级覆盖)"
+    },
+    "max agents": {
+      "translation": "最大代理数",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (最大代理数（0 = 无限制）)"
+    },
+    "overflow": {
+      "translation": "溢出",
+      "keepEnglish": false,
+      "note": "Matches existing compound usage exactly (代理溢出分配, 代理溢出分配模式已更新)"
+    },
+    "benchmark": {
+      "translation": "基准测试",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (benchmarkCacheHelper → 缓存代理基准测试的时长)"
+    },
+    "hash rate": {
+      "translation": "哈希速率",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (agents.json hashRate column and monitoring section)"
+    },
+    "progress": {
+      "translation": "进度",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly, everywhere"
+    },
+    "agent": {
+      "translation": "代理",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly, everywhere (代理管理, 代理下载, nav menu)"
+    },
+    "device": {
+      "translation": "设备",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (设备 ID, 设备监控, 暂无设备)"
+    },
+    "claim code": {
+      "translation": "注册码",
+      "keepEnglish": false,
+      "note": "Agent registration code; not a credential (凭证)"
+    },
+    "voucher": {
+      "translation": "注册码",
+      "keepEnglish": false,
+      "note": "Agent registration code; not a credential (凭证)"
+    },
+    "heartbeat": {
+      "translation": "心跳",
+      "keepEnglish": false,
+      "note": "No existing zh translation yet (heartbeat-timeout settings are still English-only in the zh locale); 心跳 is the standard technical term"
+    },
+    "offline buffer": {
+      "translation": "离线缓冲",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (notifications.json '代理离线缓冲' dialog title)"
+    },
+    "auto-update": {
+      "translation": "自动更新",
+      "keepEnglish": false,
+      "note": "No existing UI string yet to confirm against; 自动更新 is the standard, unambiguous term"
+    },
+    "binary": {
+      "translation": "二进制",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '二进制文件': the dominant existing form is bare 二进制 (二进制管理, 二进制版本, 添加二进制, 二进制：{{name}}) — 文件 is appended only in the handful of strings specifically about the binary as a downloadable file (Hashcat 二进制文件), the same pattern as wordlist/rule file"
+    },
+    "client": {
+      "translation": "客户",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly and extensively (客户管理, 客户设置, 客户名称). This codebase deliberately keeps 客户端 for a different concept — a software/OAuth client (clientId → 客户端 ID) — so 客户 must stay reserved for the customer/engagement meaning to avoid colliding with that other term"
+    },
+    "team": {
+      "translation": "团队",
+      "keepEnglish": false,
+      "note": "Multi-Team feature is still unimplemented in the frontend, so there is no existing zh string to confirm against; 团队 is the standard, unambiguous term and matches the untranslated English scaffolding (Team, Team Management) in intent"
+    },
+    "member": {
+      "translation": "成员",
+      "keepEnglish": false,
+      "note": "Same as 'team' — no existing precedent yet; 成员 is standard"
+    },
+    "owner": {
+      "translation": "所有者",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (agents.json 所有者 column, 代理所有者已更新)"
+    },
+    "retention": {
+      "translation": "保留期",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '保留期限': every existing instance uses the shorter 保留期 (保留期（月）, 数据保留期（月）, 默认数据保留期（月）, 哈希列表保留期) — there is no existing instance of 保留期限 anywhere in the locale"
+    },
+    "archive": {
+      "translation": "归档",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (归档, 取消归档, 已归档) in both jobs.json and hashlists.json"
+    },
+    "analytics report": {
+      "translation": "分析报告",
+      "keepEnglish": false,
+      "note": "Matches existing usage (analytics.json description: 全面的密码分析报告)"
+    },
+    "password reuse": {
+      "translation": "密码重用",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (analytics.json passwordReuse section title)"
+    },
+    "hash reuse": {
+      "translation": "哈希重用",
+      "keepEnglish": false,
+      "note": "Matches the short-form existing usage exactly (noHashReuse → 未检测到哈希重用); the section title instead spells out 基于哈希的密码重用 ('hash-based password reuse') for the fuller English heading 'Hash-Based Password Reuse' — use that longer phrase when translating that specific heading, and 哈希重用 as the bare glossary term elsewhere"
+    },
+    "complexity": {
+      "translation": "复杂度",
+      "keepEnglish": false,
+      "note": "Matches existing usage (字符复杂度分析 section title)"
+    },
+    "entropy": {
+      "translation": "熵",
+      "keepEnglish": false,
+      "note": "Existing UI consistently appends 值 in compounds (熵值分布, 熵值级别) rather than using bare 熵 — keep 熵 as the glossary root and append 值 the same way the shipped strings do when forming a compound label"
+    },
+    "domain": {
+      "translation": "域",
+      "keepEnglish": false,
+      "note": "Matches the more common existing rendering (pot.json's Domain column → 域, domainUser → 域\\\\用户, analytics.json's 'filter by domain' → 按域筛选). One outlier exists: analytics.json's Domain column header and its 'Domain Breakdown' section title instead use 域名 — that is a minor existing inconsistency, not necessarily wrong, but 域 is both the more frequent choice and the more standard term for a Windows/AD domain among Chinese security professionals (域账户, 域控, 域渗透), so it is the better default for new strings"
+    },
+    "username": {
+      "translation": "用户名",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly, everywhere"
+    },
+    "audit log": {
+      "translation": "审计日志",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (notifications.json 审计日志 page)"
+    },
+    "dashboard": {
+      "translation": "仪表盘",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '仪表板': both the nav menu and the dashboard page's own title use 仪表盘 — there is no existing instance of 仪表板 anywhere in the locale"
+    },
+    "settings": {
+      "translation": "设置",
+      "keepEnglish": false,
+      "note": "Matches existing usage as a compound (用户设置, 管理设置); rarely stands completely alone"
+    },
+    "autosave": {
+      "translation": "自动保存",
+      "keepEnglish": false,
+      "note": "No existing UI string yet; 自动保存 is the standard, unambiguous term"
+    },
+    "apply": {
+      "translation": "应用",
+      "keepEnglish": false,
+      "note": "Matches existing usage (应用更改, 应用于所选客户). Dropped the draft's 'keep lowercase in UI' instruction — Chinese has no letter case, so it does not apply; there is no formality distinction to make on a button label either"
+    },
+    "certificate": {
+      "translation": "证书",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly, everywhere (证书验证, IdP 证书, CA 证书)"
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "No existing zh string yet for the certificate-SAN-management feature; keeping the acronym matches how every other protocol/standard acronym in doNotTranslate is handled"
+    },
+    "network share": {
+      "translation": "网络共享",
+      "keepEnglish": false,
+      "note": "Network-share storage feature is still in progress with no existing zh translation; 网络共享 is the standard term for SMB/NFS shares"
+    },
+    "mount": {
+      "translation": "挂载",
+      "keepEnglish": false,
+      "note": "No existing precedent yet; 挂载 is the standard Linux/Windows term"
+    },
+    "cloud fleet": {
+      "translation": "云机群",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '云 GPU 实例集群': an existing admin.json help string already names this exact page 「云机群」, so that is the term to converge on. Note that the nav-menu item and the page's own title are currently still left as untranslated English ('Cloud Fleet') — that is a pre-existing gap in the shipped locale, not a deliberate decision to keep this term in English, and should be corrected to 云机群 to match the help text that already refers to it by that name"
+    },
+    "provisioning": {
+      "translation": "部署",
+      "keepEnglish": false,
+      "note": "No string translates this exact word in isolation yet; the closest existing precedent treats cloud instance provisioning as 'cloud deployment' (纯云端部署, 没有本地 GPU 的部署). 部署 matches that register. If a future string needs to distinguish 'provisioning' sharply from the general 'deployment' concept, 预置 is the more literal alternative, but no existing text forces that distinction yet"
+    },
+    "budget": {
+      "translation": "预算",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (预算, 预算上限, 云预算上限)"
+    },
+    "threshold": {
+      "translation": "阈值",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (规则拆分阈值)"
+    },
+    "drain": {
+      "translation": "排空",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '停止接收': the cloud-rules panel that uses this word ('Draining', 'Drain timeout') is itself still mostly untranslated English in the shipped zh locale, so there is no existing Chinese precedent to preserve. 排空 is the standard, idiomatic term for this exact concept in Chinese DevOps/infrastructure writing (cf. Kubernetes 'kubectl drain' → 节点排空: stop accepting new work, let what's running finish) and is more natural than the longer, more awkward '停止接收'"
+    },
+    "teardown": {
+      "translation": "销毁",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (被销毁, 干净释放, teardownSlackHelp context)"
+    },
+    "webhook": {
+      "translation": "webhook",
+      "keepEnglish": true,
+      "note": "Matches existing usage exactly — every existing string keeps it in Latin script embedded in the Chinese sentence (Webhook失败, 全局Webhook设置已保存, 未配置活动的webhook), never transliterated"
+    },
+    "notification": {
+      "translation": "通知",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly, everywhere"
+    },
+    "two-factor authentication": {
+      "translation": "双因素身份验证",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (settings.json 双因素身份验证 section title)"
+    },
+    "backup codes": {
+      "translation": "备份代码",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (settings.json backupCodes → 备份代码)"
+    },
+    "authenticator app": {
+      "translation": "身份验证器应用",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (身份验证器应用 (TOTP), 使用身份验证器应用扫描此二维码)"
+    },
+    "session": {
+      "translation": "会话",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (您的会话已过期，请重新登录)"
+    },
+    "API key": {
+      "translation": "API 密钥",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly, everywhere (settings.json API 密钥 section)"
+    },
+    "branding": {
+      "translation": "品牌",
+      "keepEnglish": false,
+      "note": "Fixed from draft's '品牌设置': the shipped Branding settings panel's own title is literally 品牌 (admin.json branding.title), not 品牌设置 — match the page's real title"
+    },
+    "diagnostics": {
+      "translation": "诊断",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (nav menu admin.diagnostics → 诊断)"
+    }
+  }
+}

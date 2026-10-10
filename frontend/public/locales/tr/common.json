@@ -1,0 +1,353 @@
+{
+  "buttons": {
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "create": "Oluştur",
+    "submit": "Gönder",
+    "close": "Kapat",
+    "confirm": "Onayla",
+    "retry": "Yeniden Dene",
+    "refresh": "Yenile",
+    "download": "İndir",
+    "upload": "Yükle",
+    "copy": "Kopyala",
+    "search": "Ara",
+    "filter": "Filtrele",
+    "clearFilters": "Filtreleri Temizle",
+    "loadAll": "Tümünü Yükle",
+    "signIn": "Oturum Aç",
+    "logIn": "Giriş Yap",
+    "logout": "Çıkış Yap"
+  },
+  "labels": {
+    "loading": "Yükleniyor...",
+    "noData": "Veri yok",
+    "error": "Hata oluştu",
+    "success": "Başarılı",
+    "warning": "Uyarı",
+    "info": "Bilgi",
+    "required": "Zorunlu",
+    "optional": "İsteğe Bağlı",
+    "all": "Tümü",
+    "none": "Hiçbiri",
+    "yes": "Evet",
+    "no": "Hayır",
+    "enabled": "Etkin",
+    "disabled": "Devre Dışı",
+    "active": "Etkin",
+    "inactive": "Pasif",
+    "updating": "Güncelleniyor",
+    "pending": "Beklemede",
+    "completed": "Tamamlandı",
+    "failed": "Başarısız",
+    "unknown": "Bilinmeyen"
+  },
+  "pagination": {
+    "rowsPerPage": "Sayfa başına satırlar",
+    "page": "Sayfa {{current}} / {{total}}",
+    "showing": "Toplam {{total}} kayıttan {{from}}-{{to}} gösteriliyor",
+    "first": "İlk sayfa",
+    "last": "Son sayfa",
+    "next": "Sonraki sayfa",
+    "previous": "Önceki sayfa"
+  },
+  "language": {
+    "selectLanguage": "Dil Seç",
+    "currentLanguage": "Geçerli dil"
+  },
+  "clipboard": {
+    "copied": "Panoya kopyalandı",
+    "copyFailed": "Panoya kopyalama başarısız"
+  },
+  "errors": {
+    "networkError": "Ağ hatası. Lütfen bağlantınızı kontrol edin.",
+    "serverError": "Sunucu hatası. Lütfen daha sonra tekrar deneyin.",
+    "unknownError": "Bilinmeyen bir hata oluştu",
+    "validationError": "Lütfen girişinizi kontrol edin ve tekrar deneyin",
+    "permissionDenied": "İzin reddedildi",
+    "notFound": "Bulunamadı",
+    "sessionExpired": "Oturumunuzun süresi doldu. Lütfen yeniden giriş yapın."
+  },
+  "confirmations": {
+    "areYouSure": "Emin misiniz?",
+    "cannotBeUndone": "Bu işlem geri alınamaz.",
+    "confirmDelete": "Silmeyi Onayla",
+    "confirmAction": "İşlemi Onayla",
+    "typeToConfirm": "Onaylamak için {{text}} yazın"
+  },
+  "time": {
+    "justNow": "Az önce",
+    "minutesAgo_one": "{{count}} dakika önce",
+    "minutesAgo_other": "{{count}} dakika önce",
+    "hoursAgo_one": "{{count}} saat önce",
+    "hoursAgo_other": "{{count}} saat önce",
+    "daysAgo_one": "{{count}} gün önce",
+    "daysAgo_other": "{{count}} gün önce",
+    "never": "Asla"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Buraya bir dosya sürükleyin veya seçmek için tıklayın",
+    "selectFile": "Dosya Seç",
+    "uploading": "Yükleniyor...",
+    "uploadSuccess": "Dosya başarıyla yüklendi",
+    "uploadFailed": "Dosya yüklemesi başarısız",
+    "chooseFile": "Dosya Seç",
+    "description": "Açıklama",
+    "loading": "Yükleniyor..."
+  },
+  "binaryVersionSelector": {
+    "label": "İkili Dosya Sürümü",
+    "helperText": "Bu iş için ikili dosya sürümü kalıbını seçin",
+    "default": "Varsayılan",
+    "majorVersion": "Ana Sürüm (En Son Küçük Sürüm)",
+    "minorVersion": "Küçük Sürüm (En Son Yama)",
+    "exactVersion": "Tam Sürüm",
+    "loading": "Yükleniyor...",
+    "loadingVersions": "İkili dosya sürümleri yükleniyor...",
+    "loadError": "İkili dosya sürümleri yüklenemedi"
+  },
+  "passwordValidation": {
+    "requirements": "Parola Gereksinimleri:",
+    "minLength": "En az {{length}} karakter",
+    "uppercase": "En az bir büyük harf",
+    "lowercase": "En az bir küçük harf",
+    "number": "En az bir rakam",
+    "specialChar": "En az bir özel karakter"
+  },
+  "footer": {
+    "documentation": "Belgeler",
+    "issues": "Sorunlar",
+    "loading": "Yükleniyor...",
+    "release": "Sürüm v{{version}}",
+    "versionUnavailable": "Sürüm kullanılamıyor"
+  },
+  "layout": {
+    "logoAlt": "KrakenHashes Logosu",
+    "logoAltBranded": "{{appName}} logosu"
+  },
+  "table": {
+    "clearSearch": "Aramayı temizle",
+    "clearSelection": "Seçimi temizle",
+    "selectedCount": "{{count}} seçildi",
+    "expandRow": "Satırı genişlet",
+    "collapseRow": "Satırı daralt",
+    "showAll": "Tümünü göster",
+    "showFewer": "Daha azını göster",
+    "showingOf": "Toplam {{total}} içinden {{shown}} gösteriliyor",
+    "actions": "İşlemler",
+    "noResults": "Filtrelerinizle eşleşen sonuç yok",
+    "rowsPerPage": "Sayfa başına satırlar"
+  },
+  "about": {
+    "title": "KrakenHashes Hakkında",
+    "versionInfo": {
+      "title": "Sürüm Bilgileri",
+      "release": "Sürüm",
+      "backend": "Arka Uç",
+      "frontend": "Ön Uç",
+      "agent": "Ajan Sürümü",
+      "api": "API Sürümü",
+      "database": "Veritabanı",
+      "build": "Build"
+    },
+    "projectInfo": {
+      "title": "Proje Bilgileri",
+      "description": "KrakenHashes, birden çok ajan arasında parola kırma görevlerini koordine etmek ve yönetmek için tasarlanmış dağıtık bir parola kırma yönetim sistemidir.",
+      "license": "Bu, GNU Affero Genel Kamu Lisansı v3.0 (AGPL-3.0) altında lisanslanmış açık kaynaklı bir projedir.",
+      "githubLink": "GitHub Deposu"
+    },
+    "errors": {
+      "fetchFailed": "Sürüm bilgileri alınamadı"
+    },
+    "titleBranded": "{{appName}} Hakkında"
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Geçerli metin değil. Tam parola {{value}}. Gösterilen karakterler en iyi tahmindir (Windows-1252), gerçek parola değildir.",
+    "copyExact": "Tam değeri kopyala (hashcat için)",
+    "copyGuess": "En iyi tahmini kopyala (tam değil)"
+  },
+  "empty": {
+    "noData": "Henüz burası boş",
+    "noResults": "Sonuç yok",
+    "noResultsHint": "Aramanızı veya filtrelerinizi ayarlamayı deneyin."
+  },
+  "theme": {
+    "appearance": "Görünüm",
+    "light": "Açık",
+    "dark": "Koyu",
+    "system": "Sistem"
+  },
+  "status": {
+    "job": {
+      "preparing": "Hazırlanıyor",
+      "pending": "Beklemede",
+      "running": "Çalışıyor",
+      "paused": "Duraklatıldı",
+      "processing": "İşleniyor",
+      "completed": "Tamamlandı",
+      "failed": "Başarısız",
+      "cancelled": "İptal Edildi",
+      "archived": "Arşivlenmiş"
+    },
+    "task": {
+      "pending": "Beklemede",
+      "assigned": "Atandı",
+      "reconnect_pending": "Yeniden Bağlanıyor",
+      "running": "Çalışıyor",
+      "processing": "İşleniyor",
+      "processing_error": "İşleme hatası",
+      "completed": "Tamamlandı",
+      "failed": "Başarısız",
+      "cancelled": "İptal Edildi"
+    },
+    "agent": {
+      "pending": "Beklemede",
+      "active": "Çevrimiçi",
+      "inactive": "Çevrimdışı",
+      "error": "Hata",
+      "disabled": "Devre Dışı",
+      "updating": "Güncelleniyor",
+      "online": "Çevrimiçi",
+      "offline": "Çevrimdışı"
+    },
+    "hashlist": {
+      "uploading": "Yükleniyor",
+      "processing": "İşleniyor",
+      "ready": "Hazır",
+      "error": "Hata",
+      "deleting": "Siliniyor",
+      "ready_with_errors": "Hatalarla Hazır",
+      "awaiting_validation_decision": "İnceleme Bekleniyor",
+      "cancelled": "İptal Edildi"
+    },
+    "verification": {
+      "pending": "Beklemede",
+      "verified": "Doğrulandı",
+      "failed": "Başarısız",
+      "deleted": "Silindi"
+    },
+    "cloud": {
+      "requested": "İstendi",
+      "launching": "Başlatılıyor",
+      "provisioning": "Provisioning Yapılıyor",
+      "syncing": "Senkronize Ediliyor",
+      "running": "Çalışıyor",
+      "draining": "Drain Yapılıyor",
+      "terminating": "Sonlandırılıyor",
+      "terminated": "Sonlandırıldı",
+      "failed": "Başarısız"
+    },
+    "loopback": {
+      "waiting": "Bekleniyor",
+      "active": "Çalışıyor",
+      "completed": "Tamamlandı",
+      "failed": "Başarısız",
+      "cancelled": "İptal Edildi"
+    },
+    "audit": {
+      "info": "Bilgi",
+      "warning": "Uyarı",
+      "critical": "Kritik"
+    },
+    "diagnostic": {
+      "info": "Bilgi",
+      "warning": "Uyarı",
+      "error": "Hata"
+    },
+    "sync": {
+      "pending": "Beklemede",
+      "in_progress": "Devam Ediyor",
+      "completed": "Tamamlandı",
+      "failed": "Başarısız"
+    },
+    "generic": {
+      "success": "Başarılı",
+      "ok": "Tamam",
+      "healthy": "Sağlıklı",
+      "enabled": "Etkin",
+      "active": "Etkin",
+      "verified": "Doğrulandı",
+      "warning": "Uyarı",
+      "degraded": "Bozulmuş",
+      "error": "Hata",
+      "failed": "Başarısız",
+      "critical": "Kritik",
+      "info": "Bilgi",
+      "running": "Çalışıyor",
+      "pending": "Beklemede",
+      "queued": "Kuyruğa Alındı",
+      "disabled": "Devre Dışı",
+      "inactive": "Pasif",
+      "unknown": "Bilinmeyen"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Özel Karakter Setleri (isteğe bağlı - maske içinde kullanmak için ?1 ile ?4 arasını tanımlayın)",
+    "hexTooltip": "Etkinleştirildiğinde, satır içi karakter seti tanımları onaltılık bayt çiftleri olarak yorumlanır (örn., 41424344 = ABCD). Dosya karakter setleri etkilenmez.",
+    "hexEncodedLabel": "Onaltılık kodlu karakter setleri",
+    "charsetSlotLabel": "Karakter Seti {{slot}} (-{{slot}})",
+    "fileValue_one": "[Dosya: {{name}} — {{count}} bayt]",
+    "fileValue_other": "[Dosya: {{name}} — {{count}} bayt]",
+    "fileHelperUsed_one": "{{count}} benzersiz bayt",
+    "fileHelperUsed_other": "{{count}} benzersiz bayt",
+    "fileHelperUnused_one": "{{count}} benzersiz bayt (maskede referans verilmemiş)",
+    "fileHelperUnused_other": "{{count}} benzersiz bayt (maskede referans verilmemiş)",
+    "placeholderHex": "örn., 41424344 (onaltılık bayt çiftleri)",
+    "placeholderPlain": "örn., ?u?d veya abcdef0123456789",
+    "inlineHelperBytes_one": "{{count}} bayt",
+    "inlineHelperBytes_other": "{{count}} bayt",
+    "inlineHelperBytesUnused_one": "{{count}} bayt (maskede referans verilmemiş)",
+    "inlineHelperBytesUnused_other": "{{count}} bayt (maskede referans verilmemiş)",
+    "inlineHelperChars_one": "{{count}} karakter",
+    "inlineHelperChars_other": "{{count}} karakter",
+    "inlineHelperCharsUnused_one": "{{count}} karakter (maskede referans verilmemiş)",
+    "inlineHelperCharsUnused_other": "{{count}} karakter (maskede referans verilmemiş)",
+    "referencedNotDefined": "Maskede referans verilmiş ancak tanımlanmamış",
+    "savedLabel": "Kaydedildi",
+    "typeLabels": {
+      "file": "Dosya",
+      "hex": "Onaltılık"
+    },
+    "optionUniqueBytes_one": "{{count}} benzersiz bayt",
+    "optionUniqueBytes_other": "{{count}} benzersiz bayt",
+    "optionBytesHex_one": "{{count}} bayt (onaltılık)",
+    "optionBytesHex_other": "{{count}} bayt (onaltılık)",
+    "willEnableHex": " — onaltılık modu etkinleştirecektir",
+    "willDisableHex": " — onaltılık modu devre dışı bırakacaktır",
+    "estimatedKeyspace": "Tahmini keyspace: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} bayt",
+    "slotSizeChars": "?{{slot}} = {{size}} karakter"
+  },
+  "teamFilter": {
+    "label": "Takım",
+    "allTeams": "Tüm Takımlar",
+    "adminBadge": "Yönetici"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Parola gereklidir",
+    "currentPasswordLabel": "Mevcut Parola"
+  },
+  "hashDetailModal": {
+    "title": "Hash Detayları",
+    "hashValue": "Hash Değeri",
+    "copied": "Kopyalandı!",
+    "copyHash": "Hash'ı kopyala",
+    "copyPlaintext": "Düz metni kopyala",
+    "originalHash": "Orijinal Hash (dosyadan)",
+    "status": "Durum",
+    "cracked": "Kırılmış",
+    "notCracked": "Kırılmamış",
+    "hashType": "Hash Türü",
+    "typeId": "Tür Kimliği: {{id}}",
+    "username": "Kullanıcı Adı",
+    "crackedText": "Kırılmış Metin",
+    "hashlist": "Hash Listesi",
+    "lastUpdated": "Son Güncelleme",
+    "crackedAt": "Kırılma Tarihi",
+    "hashCopied": "Hash panoya kopyalandı",
+    "crackedTextCopied": "Kırılmış metin panoya kopyalandı"
+  }
+}

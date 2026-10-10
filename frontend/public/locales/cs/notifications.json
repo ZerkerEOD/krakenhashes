@@ -1,0 +1,204 @@
+{
+  "title": "Oznámení",
+  "connected": "Oznámení",
+  "disconnected": "Opětovné připojování...",
+  "empty": "Žádná oznámení",
+  "markAllRead": "Označit vše jako přečtené",
+  "markRead": "Označit jako přečtené",
+  "viewAll": "Zobrazit všechna oznámení",
+  "deleteSelected": "Smazat {{count}} vybraných",
+  "selectAll": "Vybrat vše",
+  "aria": {
+    "bellButton": "Zobrazit oznámení"
+  },
+  "center": {
+    "title": "Centrum oznámení",
+    "description": "Zobrazit a spravovat vaše oznámení"
+  },
+  "filters": {
+    "category": "Kategorie",
+    "status": "Stav",
+    "allCategories": "Všechny kategorie",
+    "all": "Všechny",
+    "unread": "Nepřečteno",
+    "read": "Přečteno"
+  },
+  "categories": {
+    "job": "Úloha",
+    "agent": "Agent",
+    "security": "Bezpečnost",
+    "system": "Systém"
+  },
+  "types": {
+    "header": "Typ oznámení",
+    "job_started": "Úloha spuštěna",
+    "job_completed": "Úloha dokončena",
+    "job_failed": "Úloha selhala",
+    "first_crack": "První prolomení",
+    "task_completed_with_cracks": "Zpráva o dokončení úkolu",
+    "agent_offline": "Agent offline",
+    "agent_error": "Chyba agenta",
+    "security_suspicious_login": "Podezřelé přihlášení",
+    "security_mfa_disabled": "Dvoufaktorová autentizace zakázána",
+    "security_password_changed": "Heslo změněno",
+    "webhook_failure": "Selhání webhooku"
+  },
+  "typeDescriptions": {
+    "job_started": "Když se úloha začne vykonávat",
+    "job_completed": "Když se úloha úspěšně dokončí",
+    "job_failed": "Když úloha selže",
+    "first_crack": "Když se prolomí první hash (okamžité oznámení)",
+    "task_completed_with_cracks": "Když se úkol dokončí",
+    "agent_offline": "Když agent přejde do režimu offline (po ochranné lhůtě)",
+    "agent_error": "Když agent hlásí kritickou chybu",
+    "security_suspicious_login": "Přihlášení z nového místa nebo zařízení",
+    "security_mfa_disabled": "Když je dvoufaktorová autentizace vypnuta (povinné)",
+    "security_password_changed": "Když je heslo změněno (povinné)",
+    "webhook_failure": "Když se nezdaří doručení webhooku"
+  },
+  "channels": {
+    "inApp": "V aplikaci",
+    "email": "E-mail",
+    "webhook": "Webhook"
+  },
+  "settings": {
+    "title": "Nastavení oznámení",
+    "description": "Nakonfigurujte, jak a kdy dostáváte oznámení",
+    "enabledChannels": "Povolené kanály",
+    "taskReportMode": "Kdy upozorňovat",
+    "taskReportModeOnlyIfCracks": "Pouze pokud jsou nalezena prolomení",
+    "taskReportModeAlways": "Vždy upozornit",
+    "modeUpdated": "Režim hlášení úkolu aktualizován",
+    "onlyIfCracks": "Pouze pokud jsou nalezena prolomení",
+    "always": "Vždy upozornit",
+    "mandatory": "Povinné",
+    "mandatoryDescription": "Toto oznámení nelze zakázat",
+    "emailNotConfigured": "Brána e-mailu není nakonfigurována",
+    "emailNotConfiguredWarning": "Brána e-mailu není nakonfigurována. Oznámení e-mailem nejsou momentálně dostupná.",
+    "noWebhooksConfigured": "Žádné aktivní webhooky nejsou nakonfigurované",
+    "toggleAll": "Přepnout vše"
+  },
+  "webhooks": {
+    "title": "Konfigurace webhooku",
+    "description": "Spravujte integrace svých webhooků",
+    "name": "Název",
+    "url": "URL",
+    "secret": "Tajný klíč",
+    "secretPlaceholder": "Volitelný tajný klíč webhooku",
+    "isActive": "Aktivní",
+    "notificationTypes": "Typy oznámení",
+    "allTypes": "Všechny typy",
+    "retryCount": "Počet pokusů",
+    "timeout": "Časový limit (sekundy)",
+    "lastTriggered": "Poslední spuštění",
+    "lastSuccess": "Poslední úspěch",
+    "lastError": "Poslední chyba",
+    "totalSent": "Celkem odesláno",
+    "totalFailed": "Celkem selhalo",
+    "create": "Vytvořit webhook",
+    "edit": "Upravit webhook",
+    "delete": "Smazat webhook",
+    "deleteConfirm": "Opravdu chcete smazat tento webhook?",
+    "test": "Testovat webhook",
+    "testUrl": "Testovat URL",
+    "testSuccess": "Test webhooku byl úspěšný",
+    "testFailed": "Test webhooku selhal",
+    "secretExists": "Tajný klíč je nastaven. Nechte prázdné, abyste si zachovali současný, nebo zadejte novou hodnotu pro jeho nahrazení.",
+    "invalidJson": "Neplatný formát JSON",
+    "noWebhooks": "Žádné webhooky nejsou nakonfigurované. Vytvořte jeden, abyste dostávali oznámení prostřednictvím webhooku.",
+    "updated": "Webhook aktualizován",
+    "created": "Webhook vytvořen",
+    "deleted": "Webhook smazán",
+    "secretEditHelp": "Nechte prázdné, abyste si zachovali existující tajný klíč",
+    "validation": {
+      "nameAndUrl": "Název a URL jsou povinné"
+    }
+  },
+  "admin": {
+    "title": "Nastavení oznámení",
+    "globalWebhook": {
+      "title": "Globální webhook",
+      "description": "Nakonfigurujte webhook na úrovni systému pro všechna oznámení",
+      "enabled": "Povolit globální webhook",
+      "url": "URL webhooku",
+      "secret": "Tajný klíč webhooku",
+      "customHeaders": "Vlastní záhlaví (JSON)",
+      "test": "Testovat globální webhook",
+      "saved": "Nastavení globálního webhooku uloženo"
+    },
+    "agentOffline": {
+      "title": "Ochranná lhůta agenta offline",
+      "description": "Nakonfigurujte, jak dlouho čekat, než budete odesílat oznámení o agentovi offline",
+      "bufferMinutes": "Ochranná lhůta (minuty)",
+      "bufferHelp": "Počkejte tolik minut, než upozorníte na offline agenty",
+      "saved": "Nastavení agenta offline uloženo"
+    },
+    "userWebhooks": {
+      "title": "Uživatelské webhooky",
+      "description": "Zobrazit všechny webhooky nakonfigurované uživateli",
+      "username": "Uživatelské jméno",
+      "email": "E-mail",
+      "empty": "Žádné uživatelské webhooky nejsou nakonfigurované"
+    }
+  },
+  "auditLog": {
+    "title": "Auditní log",
+    "description": "Bezpečnostní a kritické události u všech uživatelů",
+    "noData": "Nenalezeny žádné položky auditního logu",
+    "columns": {
+      "time": "Čas",
+      "severity": "Závažnost",
+      "eventType": "Typ události",
+      "user": "Uživatel",
+      "title": "Název",
+      "ip": "IP adresa"
+    },
+    "filters": {
+      "eventType": "Typ události",
+      "severity": "Závažnost",
+      "startDate": "Počáteční datum",
+      "endDate": "Koncové datum",
+      "all": "Všechny",
+      "clear": "Vymazat filtry"
+    },
+    "severity": {
+      "critical": "Kritické",
+      "warning": "Upozornění",
+      "info": "Informace"
+    },
+    "details": {
+      "message": "Zpráva",
+      "ipAddress": "IP adresa",
+      "userAgent": "User Agent",
+      "source": "Zdroj",
+      "data": "Dodatečná data"
+    },
+    "errors": {
+      "loadFailed": "Nepodařilo se načíst auditní logy"
+    },
+    "system": "Systém"
+  },
+  "systemAlert": {
+    "title": "Systémové upozornění",
+    "dismiss": "Zavřít",
+    "dismissAll": "Zavřít vše"
+  },
+  "errors": {
+    "fetchFailed": "Nepodařilo se načíst oznámení",
+    "markReadFailed": "Nepodařilo se označit oznámení jako přečtené",
+    "deleteFailed": "Nepodařilo se smazat oznámení",
+    "saveFailed": "Nepodařilo se uložit nastavení",
+    "webhookCreateFailed": "Nepodařilo se vytvořit webhook",
+    "webhookUpdateFailed": "Nepodařilo se aktualizovat webhook",
+    "webhookDeleteFailed": "Nepodařilo se smazat webhook",
+    "webhookSaveFailed": "Nepodařilo se uložit webhook"
+  },
+  "common": {
+    "actions": "Akce",
+    "active": "Aktivní",
+    "inactive": "Neaktivní",
+    "cancel": "Zrušit",
+    "save": "Uložit",
+    "delete": "Smazat"
+  }
+}

@@ -1,0 +1,377 @@
+{
+  "title": "사용자 설정",
+  "profileSettings": {
+    "title": "프로필 설정"
+  },
+  "profile": {
+    "title": "프로필",
+    "username": "사용자명",
+    "email": "이메일",
+    "changePassword": "비밀번호 변경",
+    "currentPassword": "현재 비밀번호",
+    "newPassword": "새 비밀번호",
+    "confirmPassword": "새 비밀번호 확인",
+    "updateProfile": "프로필 업데이트",
+    "profileUpdated": "프로필이 성공적으로 업데이트되었습니다."
+  },
+  "account": {
+    "title": "계정 정보",
+    "username": "사용자명",
+    "email": "이메일",
+    "usernameCannotChange": "사용자명은 변경할 수 없습니다.",
+    "saving": "저장 중...",
+    "saveEmail": "이메일 저장",
+    "confirmEmailUpdate": {
+      "title": "이메일 업데이트 확인",
+      "message": "이메일 주소를 업데이트하려면 현재 비밀번호를 입력하십시오."
+    },
+    "errors": {
+      "noChanges": "저장할 변경 사항이 없습니다.",
+      "invalidEmail": "잘못된 이메일 주소입니다.",
+      "updateFailed": "이메일 업데이트 실패",
+      "incorrectPassword": "잘못된 비밀번호입니다."
+    },
+    "success": {
+      "emailUpdated": "이메일이 성공적으로 업데이트되었습니다."
+    }
+  },
+  "password": {
+    "title": "비밀번호 변경",
+    "currentPassword": "현재 비밀번호",
+    "newPassword": "새 비밀번호",
+    "confirmNewPassword": "새 비밀번호 확인",
+    "enterCurrentFirst": "먼저 현재 비밀번호를 입력하십시오.",
+    "passwordsMatch": "비밀번호가 일치합니다.",
+    "changePassword": "비밀번호 변경",
+    "changing": "비밀번호 변경 중...",
+    "errors": {
+      "currentRequired": "현재 비밀번호가 필요합니다.",
+      "newRequired": "새 비밀번호가 필요합니다.",
+      "mismatch": "비밀번호가 일치하지 않습니다.",
+      "requirements": "새 비밀번호가 요구 사항을 충족하지 않습니다.",
+      "updateFailed": "비밀번호 업데이트 실패"
+    },
+    "success": {
+      "changed": "비밀번호가 성공적으로 변경되었습니다."
+    }
+  },
+  "apiKey": {
+    "title": "API 키",
+    "status": "API 키 상태",
+    "active": "활성",
+    "noKeyGenerated": "생성된 API 키 없음",
+    "created": "생성됨",
+    "lastUsed": "마지막 사용",
+    "generate": "API 키 생성",
+    "regenerate": "API 키 재생성",
+    "revoke": "API 키 폐기",
+    "viewDocs": "API 문서 보기",
+    "dialog": {
+      "title": "API 키",
+      "saveNow": "이 키를 지금 저장하십시오!",
+      "cantSeeAgain": "다시 볼 수 없습니다.",
+      "instructions": "이 API 키는 HTTP 요청의 X-API-Key 헤더에 포함하여 사용하십시오.",
+      "saved": "저장했습니다."
+    },
+    "confirmRegenerate": {
+      "title": "API 키를 재생성하시겠습니까?",
+      "warning": "기존 API 키가 무효화됩니다. 현재 키를 사용 중인 모든 애플리케이션이 작동을 멈춥니다.",
+      "confirm": "계속하시겠습니까?"
+    },
+    "confirmRevoke": {
+      "title": "API 키를 폐기하시겠습니까?",
+      "warning": "API 액세스가 즉시 비활성화됩니다. 이 키를 사용 중인 모든 애플리케이션이 작동을 멈춥니다.",
+      "confirm": "API 키를 폐기하시겠습니까?"
+    },
+    "errors": {
+      "generateFailed": "API 키 생성 실패",
+      "revokeFailed": "API 키 폐기 실패"
+    },
+    "success": {
+      "revoked": "API 키가 성공적으로 폐기되었습니다.",
+      "copied": "API 키가 클립보드에 복사되었습니다."
+    }
+  },
+  "security": {
+    "title": "보안",
+    "caCertificate": {
+      "title": "CA 인증서",
+      "description": "자체 서명 인증서를 사용하는 경우, 이 서버를 신뢰하려면 CA 인증서를 다운로드하여 설치하십시오.",
+      "download": "CA 인증서 다운로드",
+      "docsLink": "SSL/TLS 문서 보기"
+    }
+  },
+  "common": {
+    "cancel": "취소",
+    "never": "없음",
+    "invalidDate": "잘못된 날짜",
+    "create": "생성",
+    "delete": "삭제"
+  },
+  "mfa": {
+    "title": "이중 인증",
+    "status": "이중 인증 상태",
+    "enabled": "활성",
+    "disabled": "비활성",
+    "enable": "이중 인증 활성화",
+    "disable": "이중 인증 비활성화",
+    "methods": {
+      "title": "인증 방법",
+      "totp": "인증 앱",
+      "email": "이메일",
+      "backupCodes": "백업 코드",
+      "passkey": "패스키"
+    },
+    "setup": {
+      "scanQR": "인증 앱으로 이 QR 코드를 스캔하십시오.",
+      "enterCode": "앱의 코드를 입력하여 확인하십시오.",
+      "backupCodesGenerated": "이 백업 코드를 안전한 장소에 저장하십시오."
+    },
+    "methodSelection": {
+      "title": "다중 요소 인증 방법 선택",
+      "description": "로그인할 때 신원을 확인할 방법을 선택하십시오.",
+      "authenticatorDescription": "Google Authenticator, Authy 또는 1Password 같은 인증 앱의 시간 기반 코드를 사용하십시오.",
+      "passkeyDescription": "보안 키, 지문, 얼굴 인식 또는 장치 PIN을 사용하여 빠르고 안전한 인증을 하십시오."
+    },
+    "card": {
+      "title": "다중 요소 인증",
+      "requiredByPolicy": "조직의 보안 정책에 따라 다중 요소 인증이 필요합니다.",
+      "enableLabel": "다중 요소 인증 활성화",
+      "preferredMethod": "선호하는 다중 요소 인증 방법",
+      "preferredMethodNames": {
+        "authenticator": "인증 앱",
+        "email": "이메일",
+        "passkey": "패스키"
+      },
+      "emailAuth": "이메일 인증",
+      "emailRequired": "계정 보안에 필요합니다.",
+      "optional": "선택",
+      "required": "필수",
+      "configured": "구성됨",
+      "notConfigured": "구성되지 않음",
+      "disable": "비활성화",
+      "setup": "설정",
+      "passkeys": "패스키",
+      "passkeysRegistered_other": "{{count}}개의 패스키 등록됨",
+      "addPasskey": "패스키 추가",
+      "passkeyAdded": "추가됨: {{date}}",
+      "passkeyLastUsed": " | 마지막 사용: {{date}}",
+      "rename": "이름 바꾸기",
+      "delete": "삭제",
+      "passkeysUnsupported": "이 브라우저에서는 패스키가 지원되지 않습니다. 최신 브라우저를 사용하여 패스키 인증을 활성화하십시오.",
+      "backupCodesRemaining_other": "{{count}}개의 백업 코드 남음",
+      "noBackupCodes": "사용 가능한 백업 코드 없음",
+      "regenerate": "재생성",
+      "generate": "생성"
+    },
+    "dialogs": {
+      "cancel": "취소",
+      "close": "닫기",
+      "warning": "경고",
+      "setupAuthenticatorTitle": "인증 앱 설정",
+      "qrAlt": "QR 코드",
+      "manualEntry": "QR 코드를 스캔할 수 없으면 이 코드를 수동으로 입력하십시오: <strong>{{secret}}</strong>",
+      "scanInstructions": "인증 앱(예: Google Authenticator, Authy)으로 이 QR 코드를 스캔하십시오.",
+      "verificationCode": "확인 코드",
+      "verificationPlaceholder": "6자리 코드를 입력하십시오.",
+      "verify": "확인",
+      "backupCodesTitle": "백업 코드",
+      "generateBackupPrompt": "기본 인증 방법에 액세스할 수 없을 때 사용할 백업 코드를 생성하십시오.",
+      "generateBackupCodes": "백업 코드 생성",
+      "saveCodesWarning": "이 코드를 안전한 위치에 저장하십시오. 다시 표시되지 않습니다!",
+      "copied": "복사됨!",
+      "copyAll": "모든 코드 복사",
+      "regenerateWarning": "기존 백업 코드가 모두 무효화됩니다. 새로운 코드를 생성하시겠습니까?",
+      "generateNewCodes": "새 코드 생성",
+      "disableAuthWarning": "인증 앱을 비활성화하시겠습니까? 이로 인해 계정에서 제거되며 나중에 사용하려면 다시 설정해야 합니다.",
+      "disableAuthenticator": "인증 앱 비활성화",
+      "addPasskeyTitle": "패스키 추가",
+      "addPasskeyDescription": "이중 인증용 새로운 패스키(보안 키, 지문 또는 장치)를 등록하십시오.",
+      "passkeyName": "패스키 이름",
+      "passkeyNamePlaceholder": "예: YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "이 브라우저에서는 WebAuthn이 지원되지 않습니다. 최신 브라우저를 사용하십시오.",
+      "webauthnUnsupportedBrowsers": "이 브라우저에서는 WebAuthn이 지원되지 않습니다. Chrome, Firefox, Safari 또는 Edge 같은 최신 브라우저를 사용하십시오.",
+      "registering": "등록 중...",
+      "registerPasskey": "패스키 등록",
+      "renamePasskeyTitle": "패스키 이름 바꾸기",
+      "saving": "저장 중...",
+      "save": "저장",
+      "deletePasskeyTitle": "패스키 삭제",
+      "deletePasskeyConfirm": "\"{{name}}\" 패스키를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.",
+      "deleting": "삭제 중...",
+      "delete": "삭제",
+      "setupPasskeyTitle": "다중 요소 인증을 위한 패스키 설정",
+      "setupPasskeyDescription": "다중 요소 인증을 활성화하려면 패스키를 등록하십시오. 보안 키, 지문, 얼굴 인식 또는 장치 PIN을 사용하십시오.",
+      "registerAndEnable": "등록 및 다중 요소 인증 활성화"
+    },
+    "messages": {
+      "loadFailed": "다중 요소 인증 설정을 로드할 수 없습니다.",
+      "disabled": "다중 요소 인증이 성공적으로 비활성화되었습니다.",
+      "passkeyBrowserRequired": "패스키 인증이 필요하지만 브라우저에서 WebAuthn을 지원하지 않습니다. Chrome, Firefox, Safari 또는 Edge 같은 최신 브라우저를 사용하여 다중 요소 인증을 활성화하십시오.",
+      "enabledEmail": "이메일 인증으로 다중 요소 인증이 활성화되었습니다.",
+      "noMethods": "사용 가능한 다중 요소 인증 방법이 없습니다. 관리자에게 문의하십시오.",
+      "toggleFailed": "다중 요소 인증 전환 실패",
+      "passkeyNameRequired": "패스키의 이름을 입력하십시오.",
+      "passkeyRegisteredSaveCodes": "패스키가 성공적으로 등록되었습니다! 백업 코드를 저장하십시오.",
+      "passkeyRegisteredNoCodes": "패스키가 성공적으로 등록되었습니다. 다중 요소 인증 설정에서 백업 코드를 생성할 수 있습니다.",
+      "authenticatorSetupFailed": "인증 앱 설정 실패",
+      "authenticatorSetup": "인증 앱이 성공적으로 설정되었습니다.",
+      "verifyFailed": "코드 확인 실패",
+      "backupCodesGenerated": "새로운 백업 코드가 생성되었습니다.",
+      "backupCodesFailed": "백업 코드 생성 실패",
+      "preferredUpdated": "선호하는 다중 요소 인증 방법이 성공적으로 업데이트되었습니다.",
+      "preferredFailed": "선호하는 다중 요소 인증 방법 업데이트 실패",
+      "disableAuthFailed": "인증 앱 비활성화 실패",
+      "authenticatorDisabled": "인증 앱이 성공적으로 비활성화되었습니다.",
+      "newBackupCodesFailed": "새로운 백업 코드 생성 실패",
+      "newBackupCodesGenerated": "새로운 백업 코드가 성공적으로 생성되었습니다.",
+      "invalidResponse": "서버의 잘못된 응답 형식",
+      "passkeyRegistered": "패스키가 성공적으로 등록되었습니다.",
+      "passkeyDeleted": "패스키가 성공적으로 삭제되었습니다.",
+      "passkeyDeleteFailed": "패스키 삭제 실패",
+      "passkeyRenamed": "패스키의 이름이 성공적으로 변경되었습니다.",
+      "passkeyRenameFailed": "패스키 이름 변경 실패"
+    }
+  },
+  "linkedAccounts": {
+    "title": "연결된 계정",
+    "noAccounts": "연결된 계정 없음",
+    "link": "계정 연결",
+    "unlink": "연결 해제",
+    "description": "계정에 연결된 외부 인증 제공자",
+    "noAccountsMessage": "프로필에 연결된 외부 계정이 없습니다. SSO 제공자를 통해 로그인하여 계정을 연결할 수 있습니다.",
+    "emailLabel": "이메일: {{email}}",
+    "usernameLabel": "사용자명: {{username}}",
+    "lastLoginLinked": "마지막 로그인: {{lastLogin}} | 연결됨: {{linked}}",
+    "unlinkTooltip": "계정 연결 해제",
+    "errors": {
+      "loadFailed": "연결된 계정을 로드하지 못했습니다",
+      "unlinkFailed": "계정 연결을 해제하지 못했습니다"
+    },
+    "unlinkDialog": {
+      "title": "계정 연결 해제",
+      "warning": "이 제공자를 사용하여 로그인할 수 없게 됩니다.",
+      "confirmation": "{{provider}} 계정의 연결을 해제하시겠습니까?"
+    }
+  },
+  "notifications": {
+    "title": "알림",
+    "emailNotifications": "이메일 알림",
+    "jobCompleted": "작업 완료",
+    "agentOffline": "에이전트 오프라인",
+    "securityAlerts": "보안 알림"
+  },
+  "preferences": {
+    "title": "환경 설정",
+    "language": "언어",
+    "timezone": "시간대",
+    "dateFormat": "날짜 형식",
+    "theme": "테마",
+    "themes": {
+      "light": "라이트",
+      "dark": "다크",
+      "system": "시스템"
+    },
+    "languageHelper": "이 브라우저에만 적용됩니다.",
+    "themeHelper": "시스템은 운영 체제 설정을 따릅니다."
+  },
+  "errors": {
+    "updateFailed": "설정을 업데이트하지 못했습니다",
+    "passwordMismatch": "비밀번호가 일치하지 않습니다",
+    "invalidPassword": "현재 비밀번호가 올바르지 않습니다"
+  },
+  "nav": {
+    "description": "계정, 보안 및 환경 설정입니다.",
+    "groupAccount": "계정",
+    "profile": "프로필",
+    "profileDesc": "이메일 주소, 언어 및 모양입니다.",
+    "security": "보안",
+    "securityDesc": "비밀번호, 이중 인증, 연결된 계정 및 CA 인증서입니다.",
+    "notifications": "알림",
+    "notificationsDesc": "어떤 이벤트가 어떻게 전달되는지입니다.",
+    "api": "API 키",
+    "apiDesc": "HTTP API용 개인 키입니다.",
+    "charsets": "저장된 문자 집합",
+    "charsetsDesc": "마스크 공격용 사용자 정의 문자 집합입니다."
+  },
+  "savedCharsets": {
+    "title": "저장된 문자 집합",
+    "description": "마스크 기반 공격에서 사용할 개인 사용자 정의 문자 집합을 관리합니다. 인라인 정의 및 바이너리 .hcchr 문자 집합 파일을 지원합니다.",
+    "createCharset": "문자 집합 생성",
+    "sections": {
+      "mine": "내 문자 집합",
+      "team": "팀 문자 집합",
+      "global": "전역 문자 집합",
+      "globalSubtitle": "이 문자 집합은 관리자가 관리하며 모두가 사용할 수 있습니다."
+    },
+    "columns": {
+      "name": "이름",
+      "team": "팀",
+      "definition": "정의 / 정보",
+      "description": "설명",
+      "created": "생성일"
+    },
+    "typeLabels": {
+      "file": "파일",
+      "hex": "16진수"
+    },
+    "uniqueBytes_other": "{{count}}개의 고유 바이트",
+    "hexBytes_other": "{{count}}개의 바이트",
+    "rowActions": {
+      "edit": "편집",
+      "delete": "삭제"
+    },
+    "empty": "이 범주에 문자 집합이 없습니다.",
+    "dialogs": {
+      "create": {
+        "title": "개인 문자 집합 생성"
+      },
+      "edit": {
+        "title": "문자 집합 편집"
+      },
+      "delete": {
+        "title": "문자 집합 삭제",
+        "confirmation": "\"{{name}}\" 문자 집합을 삭제하시겠습니까?"
+      },
+      "modeToggle": {
+        "inline": "인라인 정의",
+        "file": "파일 업로드 (.hcchr)"
+      },
+      "fields": {
+        "name": "이름",
+        "namePlaceholder": "예: DES Full Charset",
+        "definition": "정의",
+        "definitionPlaceholderHex": "예: 41424344 (16진수 바이트 쌍)",
+        "definitionPlaceholderPlain": "예: ?u?d 또는 abcdef0123456789",
+        "definitionHelperHex": "16진수 바이트 쌍 — 각 쌍 = 하나의 문자 집합 바이트입니다. {{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}}개의 바이트",
+        "definitionHelperPlain": "Hashcat 문자 집합 정의입니다. ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H 또는 리터럴 문자를 사용합니다.",
+        "hexTooltip": "활성화되면 정의가 16진수 바이트 쌍으로 해석됩니다(예: 41424344 = 바이트 A, B, C, D). 이 문자 집합을 사용하는 작업은 --hex-charset을 자동으로 주입합니다.",
+        "hexLabel": "16진수 인코딩된 정의",
+        "selectFile": ".hcchr 파일 선택",
+        "fileSizeBytes_other": "{{count}}개의 바이트",
+        "fileHelperText": "원시 바이트 값을 포함하는 바이너리 문자 집합 파일입니다(최대 1023바이트, 최대 256개의 고유 바이트).",
+        "fileCharsetInfo_other": "파일 문자 집합: {{count}}개의 고유 바이트입니다. 이름과 설명만 편집할 수 있습니다.",
+        "description": "설명",
+        "descriptionPlaceholder": "이 문자 집합이 사용되는 용도에 대한 선택적 설명"
+      },
+      "update": "업데이트",
+      "upload": "업로드"
+    },
+    "messages": {
+      "createSuccess": "문자 집합이 성공적으로 생성되었습니다",
+      "uploadSuccess": "파일 문자 집합이 성공적으로 업로드되었습니다",
+      "updateSuccess": "문자 집합이 성공적으로 업데이트되었습니다",
+      "deleteSuccess": "문자 집합이 성공적으로 삭제되었습니다"
+    },
+    "errors": {
+      "onlyHcchrAllowed": ".hcchr 파일만 허용됩니다",
+      "fileTooLarge": "파일이 너무 큽니다(최대 1023바이트 — hashcat 읽기 버퍼 제한)",
+      "nameRequired": "이름은 필수입니다",
+      "definitionRequired": "정의는 필수입니다",
+      "selectFile": ".hcchr 파일을 선택하십시오",
+      "deleteFailed": "문자 집합을 삭제하지 못했습니다: {{message}}",
+      "globalDeleteForbidden": "전역 문자 집합은 관리 패널에서 관리자만 삭제할 수 있습니다"
+    }
+  }
+}

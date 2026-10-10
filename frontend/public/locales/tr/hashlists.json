@@ -1,0 +1,517 @@
+{
+  "title": "Hash Listeleri",
+  "uploadButton": "Hash Listesi Yükle",
+  "page": {
+    "title": "Hash Listesi Yönetimi",
+    "description": "Parola hash listelerini kırma işlemleri için yükleyin ve yönetin"
+  },
+  "columns": {
+    "name": "Ad",
+    "hashType": "Hash Türü",
+    "totalHashes": "Toplam Hashler",
+    "crackedHashes": "Kırılmış",
+    "progress": "Kırılmış (%)",
+    "client": "Müşteri",
+    "status": "Durum",
+    "createdAt": "Oluşturuldu",
+    "actions": "İşlemler"
+  },
+  "filters": {
+    "filterByName": "Ada Göre Filtrele",
+    "status": "Durum",
+    "all": "Tümü"
+  },
+  "status": {
+    "uploading": "Yükleniyor",
+    "processing": "İşleniyor",
+    "ready": "Hazır",
+    "error": "Hata"
+  },
+  "table": {
+    "noHashlists": "Hash listesi bulunamadı."
+  },
+  "details": {
+    "title": "Hash Listesi Ayrıntıları",
+    "overview": "Genel Bakış",
+    "hashes": "Hashler",
+    "jobs": "İşler",
+    "stats": "İstatistikler"
+  },
+  "upload": {
+    "title": "Yeni Hash Listesi Yükle",
+    "name": "Hash Listesi Adı",
+    "hashType": "Hash Türü",
+    "client": "Müşteri (İsteğe Bağlı)",
+    "file": "Hash Dosyası",
+    "selectFile": "Dosya Seç",
+    "uploading": "Yükleniyor...",
+    "cancel": "İptal",
+    "executableBlocked": "Bu dosya çalıştırılabilir bir ikili dosya gibi görünüyor ve hash listesi olarak yüklenemez.",
+    "description": "Açıklama",
+    "methodLabel": "Yükleme Yöntemi",
+    "methodAriaLabel": "yükleme modu",
+    "fileAriaLabel": "dosya yükleme",
+    "pasteAriaLabel": "hashları yapıştır",
+    "uploadFile": "Dosya Yükle",
+    "pasteHashes": "Hashları Yapıştır",
+    "dropHere": "Hash listesi dosyasını buraya bırakın...",
+    "dragAndDrop": "Bir hash listesi dosyasını sürükleyip bırakın veya seçmek için tıklayın",
+    "allFileTypesExceptExecutables": "Çalıştırılabilir dosyalar hariç tüm dosya türleri kabul edilir",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "Temizle",
+    "hashCount_one": "{{count}} hash",
+    "hashCount_other": "{{count}} hash",
+    "hashCountDetected_one": "{{count}} hash tespit edildi",
+    "hashCountDetected_other": "{{count}} hash tespit edildi",
+    "pasteHashesLabel": "Hashları buraya yapıştırın (satır başına bir)",
+    "pasteHashesPlaceholder": "Hashları satır başına bir tane olacak şekilde girin...&#10;&#10;Örnek:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Hashlarınızı yukarıya yapıştırın, satır başına bir tane",
+    "excludeFromGlobalPotfile": "Global potfile'dan hariç tut",
+    "excludeFromGlobalPotfileHelper": "Bu hash listesinden kırılan parolalar global potfile'a kaydedilmeyecek",
+    "globalPotfileDisabledNotice": "Not: Global potfile şu anda yönetici ayarları tarafından devre dışı bırakılmıştır.",
+    "excludeFromClientPotfile": "Müşteri potfile'ından hariç tut",
+    "excludeFromClientPotfileHelper": "Bu hash listesinden kırılan parolalar müşteriye özel potfile'a kaydedilmeyecek",
+    "clientPotfilesDisabledNotice": "Not: Müşteri potfile'ları yönetici ayarları tarafından devre dışı bırakılmıştır.",
+    "uploadButtonLabel": "Hash Listesi Yükle",
+    "selectTeamForNewClient": "Lütfen yeni müşteri için bir takım seçin.",
+    "validationCancelled": "Yükleme iptal edildi. Dosyayı düzeltin ve tekrar deneyin.",
+    "errors": {
+      "nameRequired": "Ad gereklidir",
+      "hashTypeRequired": "Hash türü gereklidir",
+      "clientRequired": "Müşteri gereklidir",
+      "noHashesToUpload": "Yüklenecek hash yok",
+      "uploadFailedWithStatus": "Yükleme başarısız oldu (HTTP {{status}})",
+      "uploadFailedWithMessage": "Yükleme başarısız oldu: {{message}}",
+      "uploadFailedUnknown": "Yükleme başarısız oldu (bilinmeyen hata)",
+      "uploadErrorPrefix": "Hash listesi yüklenirken hata: {{message}}",
+      "unknownError": "Bilinmeyen bir hata oluştu"
+    },
+    "linkDialog": {
+      "title": "LM/NTLM Hashları Tespit Edildi",
+      "detected": "Tespit edilen pwdump biçimi dosyası:",
+      "lmCount_one": "{{count}} LM hash (boş olmayan)",
+      "lmCount_other": "{{count}} LM hash (boş olmayan)",
+      "ntlmCount_one": "{{count}} NTLM hash",
+      "ntlmCount_other": "{{count}} NTLM hash",
+      "blankLmCount_one": "{{count}} boş LM hash (boş parola - atlanacak)",
+      "blankLmCount_other": "{{count}} boş LM hash (boş parola - atlanacak)",
+      "question": "Ayrı kırma iş akışları için iki bağlantılı hash listesi oluşturmak ister misiniz?",
+      "explanation": "Bu, \"{{lmName}}\" ve \"{{ntlmName}}\" hash listelerini birbirine bağlanmış şekilde oluşturacaktır.",
+      "uploadSingle": "Tek Liste Olarak Yükle",
+      "createLinked": "Bağlantılı Listeler Oluştur"
+    }
+  },
+  "actions": {
+    "viewDetails": "Ayrıntıları Görüntüle",
+    "createJob": "İş Oluştur",
+    "download": "İndir",
+    "delete": "Sil"
+  },
+  "createJob": {
+    "additionalArgs": "Ek Hashcat Argümanları (İsteğe Bağlı)",
+    "additionalArgsHelper": "Bu iş için ek hashcat bayrakları. Çakışmalar durumunda ajan düzeyindeki bayraklar öncelik alır.",
+    "title": "\"{{name}}\" için İş Oluştur",
+    "successRedirect": "İş/işler başarıyla oluşturuldu! İşler sayfasına yönlendiriliyor...",
+    "successDefault": "İş başarıyla oluşturuldu!",
+    "loadingDefault": "Oluşturuluyor...",
+    "loadingCreating": "İş oluşturuluyor...",
+    "loadingKeyspace": "Keyspace hesaplanıyor...",
+    "cancel": "İptal",
+    "submit": "İş/İşler Oluştur",
+    "canInterrupt": "Kesintiye Uğrayabilir",
+    "tabs": {
+      "workflows": "İş Akışları",
+      "presetJobs": "Ön Tanımlı İşler",
+      "customJob": "Özel İş"
+    },
+    "attackModes": {
+      "dictionary": "Sözlük",
+      "combination": "Kombinasyon",
+      "bruteforce": "Kaba Kuvvet",
+      "hybridWordlistMask": "Hibrit Wordlist + Maske",
+      "hybridMaskWordlist": "Hibrit Maske + Wordlist",
+      "association": "İlişkilendirme",
+      "modeFallback": "Mod {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Lütfen en az bir iş akışı seçin",
+      "selectPresetJob": "Lütfen en az bir ön tanımlı iş seçin",
+      "wordlistRequired": "Seçili saldırı modu en az bir wordlist gerektirir",
+      "combinationRequiresTwo": "Kombinasyon saldırısı her iki wordlist'in de seçilmesini gerektirir",
+      "maskRequired": "Seçili saldırı modu bir maske gerektirir",
+      "associationMixedWorkFactors": "İlişkilendirme saldırıları karışık iş faktörlerine sahip hash listelerinde çalıştırılamaz",
+      "associationWordlistRequired": "İlişkilendirme saldırısı bir ilişkilendirme wordlist'i gerektirir",
+      "chunkDurationMin": "Parça süresi en az 5 saniye olmalıdır",
+      "chunkDurationMax": "Parça süresi 24 saati (86400 saniye) aşamaz",
+      "partialFailure": "{{message}}. Oluşturulmadı: {{details}}",
+      "unnamedItem": "öğe",
+      "createFailed": "İş oluşturulamadı",
+      "loadFailed": "Kullanılabilir işler yüklenemedi"
+    },
+    "workflows": {
+      "empty": "Kullanılabilir iş akışı yok. Lütfen önce yönetici panelinde iş akışları oluşturun.",
+      "jobNameHelper": "Adınız her iş akışı adıyla eklenir",
+      "description": "Çalıştırılacak bir veya daha fazla iş akışı seçin. Birden çok iş akışı seçebilirsiniz - her biri kendi iş yürütme dizisini oluşturacaktır. Loopback ayarları iş akışının kendisinde yapılandırılır — \"Loopback\" ile etiketlenen bir iş akışı, uygun adımlarını otomatik olarak yeni kırılan parolalara karşı yeniden çalıştıracaktır.",
+      "jobsCount_one": "{{count}} iş",
+      "jobsCount_other": "{{count}} iş",
+      "loopbackAllEligible": "Loopback: tümü uygun",
+      "loopbackSteps_one": "Loopback: {{count}} adım",
+      "loopbackSteps_other": "Loopback: {{count}} adım",
+      "jobsList": "İşler: {{names}}",
+      "selectedCount_one": "{{count}} iş akışı seçildi",
+      "selectedCount_other": "{{count}} iş akışı seçildi"
+    },
+    "presetJobs": {
+      "empty": "Kullanılabilir ön tanımlı iş yok. Lütfen önce yönetici panelinde ön tanımlı işler oluşturun.",
+      "jobNameHelper": "Adınız her iş türüyle eklenir (örneğin, 'Benim Adım - Potfile Çalışması')",
+      "description": "Çalıştırılacak bir veya daha fazla ön tanımlı iş seçin. Birden çok iş seçebilirsiniz - ayrı iş yürütmeleri olarak oluşturulacaklar.",
+      "priorityLabel": "Öncelik: {{priority}}",
+      "selectedCount_one": "{{count}} iş seçildi",
+      "selectedCount_other": "{{count}} iş seçildi"
+    },
+    "loopback": {
+      "label": "Dry olana kadar loopback",
+      "helperEligible": "Seçili işleri çalıştırır, ardından değiştirilebilir olanları (düz + kurallar veya hibrit saldırı) yalnızca yeni kırılan parolalara karşı yeniden çalıştırır — yeni parola bulunmadığında sona erer.",
+      "helperSelectEligible": "Loopback'i etkinleştirmek için aşağıda uygun bir ön tanımlı iş (düz + kurallar veya hibrit saldırı) seçin.",
+      "helperNoneEligible": "Seçili işlerin hiçbirinin loopback için bir mutasyonu yoktur (bunlar yalnızca wordlist, kaba kuvvet veya ilişkilendirmedir).",
+      "helperFilterConflict": "Bu iş için ön filtreleme etkinken loopback kullanılamaz.",
+      "helperCustom": "Bu saldırıyı çalıştırır, ardından mutasyonunu (kurallar veya maske) yalnızca yeni kırılan parolalara karşı yeniden çalıştırır — yeni parola bulunmadığında sona erer."
+    },
+    "filter": {
+      "enableLabel": "Bu iş için seçili wordlist'leri ön filtrele",
+      "ephemeralNotice": "Bu filtrelenmiş liste kısa ömürlüdür ve yalnızca bu iş için kullanılır. Yeniden kullanılabilir filtrelenmiş bir wordlist oluşturmak için Wordlist Yönetimini kullanın. Oluşturma arka planda çalışır; tamamlandığında iş otomatik olarak başlar."
+    },
+    "association": {
+      "explainer": "İlişkilendirme saldırısı her hashi karşılık gelen wordlist satırıyla 1:1 eşler. Wordlist satırı sayısı toplam hash sayısıyla ({{hashCount}}) eşleşmelidir.",
+      "falsePositiveWarning": "<strong>Not:</strong> İlişkilendirme saldırıları yanlış pozitifler üretebilir. Sonuçları kırılmış hashleri indirerek, hash listesini silerek, yeniden yükleyerek ve bir sözlük saldırısıyla doğrulayarak doğrulamanız önerilir.",
+      "wordlistLabel": "İlişkilendirme Wordlist'i",
+      "selectWordlist": "İlişkilendirme wordlist'ini seçin",
+      "wordlistOptionLabel": "{{name}} ({{lines}} satır, {{size}} KB)",
+      "wordlistHelper": "İlişkilendirme Wordlist'lerini Hash Listesinin İlişkilendirme Wordlist'leri bölümü aracılığıyla yükleyin"
+    },
+    "cloud": {
+      "allowBurst": "Bulut Patlamasına İzin Ver",
+      "allowBurstHelper": "Şirket içi filo yetişemediğinde GPU örnekleri kiralayın. Müşterinin finanse edilmiş ve bir sağlayıcıya katılmış olması gerekir.",
+      "allowPeerHosts": "Eş Tarafından İşletilen Ana Bilgisayarlara İzin Ver (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "Bunlar başka birinin makineleridir. Ana bilgisayar sahibinin konteynır üzerinde kök erişimi vardır, bu nedenle bu müşterinin hashleri, wordlist'leri ve kırılmış düz metinleri üçüncü bir taraf tarafından okunabilir ve <strong>ana bilgisayarda dinlenirken şifrelenmemiştir</strong>. Üretim veya müşteri katılım verileri için önerilmez. Bunu kapalı bırakın ve iş, müşteri izin verirse yine de güvenli kapasiteyi (AWS, RunPod Secure Cloud) kullanacaktır.",
+      "maxInstances": "Maksimum Bulut Örnekleri",
+      "maxInstancesHelper": "Şirket içi havuzunu yöneten Maksimum Ajan Sayısından ayrı. Boş bırakmak bütçenin karar vermesine izin verir."
+    },
+    "form": {
+      "jobName": "İş Adı (İsteğe Bağlı)",
+      "jobNamePlaceholder": "Otomatik oluşturulan ad için boş bırakın",
+      "jobNameHelper": "Saldırı yapılandırmasına dayalı otomatik oluşturulan ad için boş bırakın",
+      "attackModeLabel": "Saldırı Modu",
+      "attackModeDictionary": "Sözlük Saldırısı",
+      "attackModeCombination": "Kombinasyon Saldırısı",
+      "attackModeBruteforce": "Kaba Kuvvet Saldırısı",
+      "attackModeHybridWordlistMask": "Hibrit Wordlist + Maske",
+      "attackModeHybridMaskWordlist": "Hibrit Maske + Wordlist",
+      "attackModeAssociation": "İlişkilendirme Saldırısı",
+      "associationBlockedMixed": " (Bloklanmış: Karışık iş faktörleri)",
+      "associationNoWordlists": " (Yüklenen wordlist yok)",
+      "binaryVersionHelper": "İkili dosya sürüm deseni seçin",
+      "wordlists": "Wordlist'ler",
+      "selectWordlists": "Wordlist'leri seçin",
+      "ruleOptional": "Kural (İsteğe Bağlı)",
+      "ruleOptionLabel_one": "{{name}} ({{count}} kural)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} kural)",
+      "selectRule": "Bir kural seçin",
+      "firstWordlist": "İlk Wordlist",
+      "secondWordlist": "İkinci Wordlist",
+      "selectFirstWordlist": "İlk wordlist'i seçin",
+      "selectSecondWordlist": "İkinci wordlist'i seçin",
+      "categoryClientSpecific": "Müşteriye Özgü",
+      "categoryGlobal": "Küresel",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} satır)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} MB)",
+      "clientPotfileName_one": "Müşteri Potfile'ı ({{count, number}} parola)",
+      "clientPotfileName_other": "Müşteri Potfile'ı ({{count, number}} parola)",
+      "mask": "Maske",
+      "maskPlaceholder": "örneğin, ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = küçük harf, ?u = büyük harf, ?d = rakam, ?s = özel, ?1-?4 = tanımlı",
+      "incrementModeLabel": "Artış Modu",
+      "incrementModeOff": "Kapalı",
+      "incrementModeForward": "Artış (L→R)",
+      "incrementModeInverse": "Ters Artış (R→L)",
+      "incrementModeHelper": "Artış önce daha kısa maskeleri dener, kademeli olarak büyür",
+      "minLength": "Minimum Uzunluk",
+      "maxLength": "Maksimum Uzunluk",
+      "priority": "Öncelik",
+      "priorityHelper": "Daha yüksek öncelikli işler önce yürütülür (1-1000)",
+      "chunkDuration": "Parça Süresi (saniye)",
+      "chunkDurationHelper": "Her parça için saniye cinsinden süre (5-86400 saniye)",
+      "maxAgents": "Maksimum Ajan Sayısı",
+      "maxAgentsHelper": "Maksimum ajan sayısı (0 = sınırsız)",
+      "allowHighPriorityOverride": "Yüksek Öncelik Geçersiz Kılmaya İzin Ver",
+      "additionalArgsPlaceholder": "örneğin, -w 4 -O --force"
+    }
+  },
+  "confirmDelete": {
+    "title": "Silme İşlemini Onayla",
+    "message": "\"{{name}}\" hash listesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+    "cancel": "İptal",
+    "delete": "Sil",
+    "deleting": "Siliniyor...",
+    "removeFromGlobalPotfile": "Kırılmış parolaları genel potfile'dan kaldır",
+    "removeFromClientPotfile": "Kırılmış parolaları müşteri potfile'ından kaldır"
+  },
+  "deletionProgress": {
+    "title": "Hash Listesi Siliniyor",
+    "successTitle": "Hash Listesi Başarıyla Silindi",
+    "complete": "Silme Tamamlandı!",
+    "failed": "Silme Başarısız",
+    "summary": "Özet:",
+    "totalProcessed": "İşlenen toplam hash: {{value}}",
+    "orphansDeleted": "Silinen yetim hashler: {{value}}",
+    "sharedPreserved": "Korunan paylaşılan hashler: {{value}}",
+    "jobsDeleted": "Silinen işler: {{value}}",
+    "duration": "Süre: {{duration}}",
+    "phase": "Aşama {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Hazırlanıyor...",
+      "removingHashes": "Hashler kaldırılıyor",
+      "clearingReferences": "Görev referansları temizleniyor",
+      "cleaningOrphans": "Yetim hashler temizleniyor",
+      "finalizing": "Silme sonlandırılıyor"
+    },
+    "units": {
+      "hashes": "hashler",
+      "references": "referanslar"
+    },
+    "error": "Hata: {{error}}",
+    "done": "Bitti",
+    "close": "Kapat"
+  },
+  "notifications": {
+    "deleteSuccess": "Hash listesi başarıyla silindi",
+    "uploadSuccess": "Hash listesi başarıyla yüklendi",
+    "downloaded": "{{filename}} indirildi",
+    "archiveSuccess": "Hash listesi başarıyla arşivlendi",
+    "unarchiveSuccess": "Hash listesi başarıyla arşivden çıkarıldı",
+    "bulkArchiveSuccess_one": "{{count}} hash listesi başarıyla arşivlendi",
+    "bulkArchiveSuccess_other": "{{count}} hash listesi başarıyla arşivlendi",
+    "bulkUnarchiveSuccess_one": "{{count}} hash listesi başarıyla arşivden çıkarıldı",
+    "bulkUnarchiveSuccess_other": "{{count}} hash listesi başarıyla arşivden çıkarıldı"
+  },
+  "errors": {
+    "loadFailed": "Hash listeleri getirilirken hata oluştu.",
+    "uploadFailed": "Hash listesi yüklenmesi başarısız oldu",
+    "deleteFailed": "Silme başarısız oldu: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Arşivlenmiş Olanları Göster",
+    "archive": "Arşivle",
+    "unarchive": "Arşivden Çıkar",
+    "archived": "Arşivlenmiş",
+    "selectedCount": "{{count}} seçildi",
+    "archiveSelected": "Seçilenleri Arşivle",
+    "unarchiveSelected": "Seçilenleri Arşivden Çıkar",
+    "deleteSelected": "Seçilenleri Sil",
+    "confirmBulkDelete": {
+      "title": "Toplu Silme İşlemini Onayla",
+      "message_one": "{{count}} hash listesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "message_other": "{{count}} hash listesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "warning": "Bu, seçilen hash listelerini ve ilişkili tüm verileri kalıcı olarak silecektir."
+    },
+    "bulkDeleteSuccess_one": "{{count}} hash listesi başarıyla silindi",
+    "bulkDeleteSuccess_other": "{{count}} hash listesi başarıyla silindi"
+  },
+  "hashDetails": {
+    "title": "Hash Ayrıntıları",
+    "originalHash": "Orijinal Hash",
+    "password": "Parola",
+    "cracked": "Kırılmış",
+    "crackedAt": "Kırıldığı Zaman"
+  },
+  "detail": {
+    "backToHashlists": "Hash Listelerine Geri Dön",
+    "viewCrackedHashes": "Kırılmış Hashleri Görüntüle",
+    "noDescription": "Açıklama yok",
+    "statusLabel": "Durum:",
+    "hashType": "Hash Türü: {{name}}",
+    "clientLabel": "Müşteri:",
+    "noClient": "Yok",
+    "editClient": "Müşteriyi Düzenle",
+    "created": "Oluşturma Tarihi: {{date}}",
+    "crackProgress": "Kırma İlerlemesi ({{cracked}} / {{total}})",
+    "fallbackHashlistName": "Hash Listesi",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} satır",
+      "rate": "({{rate}}/sn)",
+      "eta": "• Tahmini Zaman: {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Bu hash listesi siliniyor — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Yükleniyor…",
+      "resumeReview": "İncelemeye Devam Et",
+      "title": "Bu hash listesi bir doğrulama kararı beklemede duraklatılmıştır.",
+      "message": "Hash doğrulaması <strong>{{invalidCount}}</strong> / <strong>{{totalLines}}</strong> satırını hatalı olarak işaretledi. Geçerli hashlerle devam etmek, hash türünü değiştirmek veya yüklemeyi iptal etmek için inceleme iletişim kutusunu açın."
+    },
+    "jobsRun": {
+      "title": "Çalıştırılan İşler",
+      "subtitle": "Bu hash listesine karşı çalıştırılan işler, arşivlenenler de dahil olmak üzere.",
+      "empty": "Bu hash listesine karşı henüz hiçbir iş çalıştırılmamıştır"
+    },
+    "editClientDialog": {
+      "title": "Müşteri Atamasını Düzenle",
+      "description": "Bu hash listesi için bir müşteri seçin veya müşteri atamasını kaldırmak için boş bırakın.",
+      "save": "Kaydet",
+      "saving": "Kaydediliyor..."
+    },
+    "notifications": {
+      "clientUpdated": "Müşteri başarıyla güncellendi",
+      "processingResumed": "İşlem devam ettirildi.",
+      "uploadCancelled": "Yükleme iptal edildi."
+    },
+    "errors": {
+      "deleteFailed": "Hash listesi silinmesi başarısız oldu",
+      "clientUpdateFailed": "Müşteri güncellemesi başarısız oldu",
+      "clientNotFound": "Müşteri bulunamadı",
+      "clientLookupFailed": "Müşteri arama başarısız oldu",
+      "downloadFailed": "Dosya indirilmesi başarısız oldu",
+      "downloadHashlistFailed": "Hash listesi indirilmesi başarısız oldu",
+      "serverError": "Sunucu hatası ({{status}})",
+      "loadInvalidHashesFailed": "Geçersiz hashler yüklenemedi"
+    }
+  },
+  "associationWordlists": {
+    "header": "Müşteriye Özel Wordlistler",
+    "blocked": "Engellendi",
+    "blockedTooltip": "Hash listesinde karışık çalışma faktörleri nedeniyle ilişkilendirme saldırıları engellendi",
+    "delete": "Sil",
+    "uploadAssociation": "İlişkilendirme Wordlistini Yükle",
+    "uploadClient": "Müşteri Wordlistini Yükle",
+    "uploadingPercent": "Yükleniyor... {{percent}}%",
+    "emptyAssociation": "Henüz ilişkilendirme wordlisti yüklenmedi.",
+    "emptyClient": "Henüz müşteri wordlisti yüklenmedi.",
+    "mixedWorkFactorsWarning": "Bu hash listesinde karışık çalışma faktörleri vardır. İlişkilendirme saldırıları, farklı bcrypt maliyetlerine veya benzer değişken çalışma faktörlerine sahip hash listelerinde çalıştırılamaz. Yine de wordlist yükleyebilirsiniz, ancak ilişkilendirme saldırısı işleri oluşturulamaz.",
+    "explainer": "İlişkilendirme wordlistleri her hashi 1:1 satır numarasına göre bir parola adayına eşler. Wordlist bu hash listesinin hash sayısıyla eşleşmesi için tam olarak <strong>{{lines}}</strong> satıra sahip olmalıdır.",
+    "tabs": {
+      "associationAttack": "İlişkilendirme Saldırısı",
+      "clientWordlists": "Müşteri Wordlistleri"
+    },
+    "columns": {
+      "fileName": "Dosya Adı",
+      "lineCount": "Satır Sayısı",
+      "fileSize": "Dosya Boyutu",
+      "status": "Durum",
+      "uploaded": "Yüklenme Tarihi",
+      "actions": "İşlemler"
+    },
+    "status": {
+      "ready": "Hazır",
+      "lineCountMismatch": "Satır sayısı uyuşmazlığı",
+      "lineCountMismatchTooltip": "{{expected}} satır beklendi, {{actual}} satır alındı"
+    },
+    "deleteConfirm": {
+      "title": "Wordlist'i Sil",
+      "message": "\"{{fileName}}\" silinsin mi? Bu geri alınamaz."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Müşteri wordlistleri yalnızca bir müşteriyle ilişkili hash listeleri için kullanılabilir.",
+      "description": "Müşteri wordlistleri bu müşteri için tüm hash listeleri arasında kullanılabilir. Bunlar herhangi bir saldırı moduyla kullanılabilir, yalnızca ilişkilendirme saldırılarıyla değil."
+    },
+    "clientPotfile": {
+      "title": "Müşteri Potfile'ı (Otomatik Oluşturulan)",
+      "description": "Bu potfile bu müşteri için tüm kırılmış parolaları içerir. Hashler kırıldığında otomatik olarak güncellenir.",
+      "passwordCount_one": "{{count}} parola",
+      "passwordCount_other": "{{count}} parola",
+      "updated": "Güncelleme Tarihi: {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "İlişkilendirme wordlisti silindi",
+      "clientDeleted": "Müşteri wordlisti silindi",
+      "associationUploaded": "İlişkilendirme wordlisti başarıyla yüklendi",
+      "clientUploaded": "Müşteri wordlisti başarıyla yüklendi"
+    },
+    "errors": {
+      "deleteFailed": "Wordlist silme başarısız oldu",
+      "uploadFailed": "Wordlist yükleme başarısız oldu",
+      "loadAssociationFailed": "İlişkilendirme wordlistlerini yükleme başarısız oldu",
+      "loadClientFailed": "Müşteri wordlistlerini yükleme başarısız oldu",
+      "lineCountMismatch": "Wordlist {{wordlistLines}} satıra sahip, ancak hash listesinin {{hashlistLines}} geçerli hashi vardır."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Müşteri",
+    "placeholder": "Bir müşteri seçin...",
+    "createNewClient": "Yeni Müşteri Oluştur",
+    "newClientDetails": "Yeni Müşteri Ayrıntıları",
+    "team": "Takım",
+    "teamHelper": "Yeni müşteri bu takıma atanacaktır.",
+    "clientName": "Müşteri Adı",
+    "description": "Açıklama",
+    "contactInfo": "İletişim Bilgisi",
+    "dataRetention": "Veri Saklama (ay)",
+    "dataRetentionPlaceholderDefault": "Sistem varsayılanı: {{months}}",
+    "dataRetentionPlaceholderUnset": "Ayarlanmadı (süresiz saklanır)",
+    "dataRetentionHelperDefault": "Sistem varsayılanını kullanmak için boş bırakın ({{months}} ay). Süresiz saklamak için 0 olarak ayarlayın.",
+    "dataRetentionHelperUnset": "Sistem varsayılanını kullanmak için boş bırakın. Süresiz saklamak için 0 olarak ayarlayın.",
+    "excludeFromGlobalPotfile": "Genel potfile'dan dışla",
+    "excludeFromGlobalPotfileHelper": "Bu müşteriden kırılmış parolalar genel potfile'a eklenmeyecektir.",
+    "excludeFromClientPotfile": "Müşteri potfile'ından dışla",
+    "excludeFromClientPotfileHelper": "Bu müşteriden kırılmış parolalar müşteriye özel potfile'ına eklenmeyecektir.",
+    "errors": {
+      "fetchFailed": "Müşterileri getirme başarısız oldu"
+    }
+  },
+  "hashesTable": {
+    "title": "Hashler",
+    "subtitle": "{{total}}'dan {{cracked}} kırılmış ({{pct}}%)",
+    "searchPlaceholder": "Hashleri ara...",
+    "ariaLabel": "hash listesi hashleri tablosu",
+    "copiedToClipboard": "Panoya kopyalandı",
+    "copyPassword": "Parolayı Kopyala",
+    "copyHash": "Hashi Kopyala",
+    "loadFailed": "Hashleri yükleme başarısız oldu",
+    "columns": {
+      "originalHash": "Orijinal Hash",
+      "username": "Kullanıcı Adı",
+      "domain": "Etki Alanı",
+      "password": "Parola",
+      "status": "Durum"
+    },
+    "status": {
+      "cracked": "Kırılmış",
+      "partial": "Kısmi",
+      "pending": "Beklemede"
+    }
+  },
+  "validationPreview": {
+    "title": "Hash doğrulaması: hatalı satırları gözden geçir",
+    "modeFallback": "mod {{id}}",
+    "truncatedNotice": "İlk 10.000 geçersiz satır inceleme için kaydedilir; dosyada ek geçersiz satırlar vardır ancak burada listelenmez.",
+    "hashTypeLabel": "Hash türü",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Yeniden doğrulanıyor…",
+    "revalidateButton": "Yeniden Doğrula",
+    "cancelAndFix": "İptal Et ve Düzelt",
+    "cancelling": "İptal Ediliyor…",
+    "starting": "Başlatılıyor…",
+    "proceedButton": "{{validCount}} geçerli hash ile devam et",
+    "noInvalidLines": "Görüntülenecek geçersiz satır yok.",
+    "allInvalid": {
+      "body1": "<em>{{hashlistName}}</em> dosyasındaki {{totalLines}} satırın <strong>hiçbiri</strong> <strong>{{hashTypeName}}</strong> ile eşleşmez. Hash türü seçimi muhtemelen yanlış.",
+      "body2": "Aşağıdan doğru türü seçin ve <strong>Yeniden Doğrula</strong>'yı tıklayın — dosya yüklü kalır, bu nedenle baştan başlamaya gerek yoktur."
+    },
+    "notAllInvalid": {
+      "body": "<em>{{hashlistName}}</em> dosyasındaki <strong>{{totalLines}}</strong> satırdan <strong>{{invalidCount}}</strong>'i doğrulama başarısız oldu ve devam ederseniz atlanacak. <strong>{{validCount}}</strong> geçerli hash içe aktarılacak."
+    },
+    "chooseActionText": "{{validCount}} geçerli hashi içe aktarmak için <strong>Geçerli olanlarla devam et</strong>'i seçin (listelenen hatalı satırlar yoksayılacak) veya kaynak dosyayı düzeltmek ve tekrar deneyebilmek için bu yüklemeyi silmek amacıyla <strong>İptal et ve Düzelt</strong>'i seçin.",
+    "columns": {
+      "line": "Satır",
+      "hashTruncated": "Hash (Kısaltılmış)",
+      "reason": "Neden"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "Geçersiz hashler yüklenemedi",
+      "proceedFailed": "Devam etme başarısız oldu",
+      "cancelFailed": "İptal başarısız oldu",
+      "revalidationFailed": "Yeniden doğrulama başarısız oldu"
+    }
+  }
+}

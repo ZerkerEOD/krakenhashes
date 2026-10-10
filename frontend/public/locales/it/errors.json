@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Connessione fallita. Verificare la connessione di rete.",
+    "timeout": "Timeout della richiesta. Riprovare.",
+    "serverUnavailable": "Il server non è disponibile. Riprovare più tardi."
+  },
+  "authentication": {
+    "unauthorized": "Non è autorizzato a eseguire questa azione.",
+    "sessionExpired": "La sessione è scaduta. Accedere di nuovo.",
+    "invalidToken": "Token di autenticazione non valido.",
+    "loginRequired": "Accedere per continuare."
+  },
+  "validation": {
+    "required": "Questo campo è obbligatorio.",
+    "invalidEmail": "Inserire un indirizzo email valido.",
+    "invalidFormat": "Formato non valido.",
+    "tooShort": "Deve contenere almeno {{min}} caratteri.",
+    "tooLong": "Deve contenere al massimo {{max}} caratteri.",
+    "passwordRequirements": "La password deve contenere almeno 8 caratteri, inclusi maiuscole, minuscole, numeri e caratteri speciali."
+  },
+  "api": {
+    "badRequest": "Richiesta non valida. Verificare l'input.",
+    "notFound": "La risorsa richiesta non è stata trovata.",
+    "conflict": "Si è verificato un conflitto. La risorsa potrebbe già esistere.",
+    "serverError": "Si è verificato un errore interno del server.",
+    "rateLimited": "Troppe richieste. Attendere e riprovare."
+  },
+  "file": {
+    "tooLarge": "Il file è troppo grande. La dimensione massima è {{maxSize}}.",
+    "invalidType": "Tipo di file non valido. Tipi consentiti: {{allowedTypes}}.",
+    "uploadFailed": "Caricamento del file fallito. Riprovare."
+  },
+  "generic": {
+    "unknownError": "Si è verificato un errore sconosciuto.",
+    "tryAgain": "Riprovare.",
+    "contactSupport": "Se il problema persiste, contattare il supporto."
+  }
+}

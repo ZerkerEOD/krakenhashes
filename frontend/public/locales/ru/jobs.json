@@ -16,9 +16,11 @@
     "maxAgents": "Макс. агентов",
     "actions": "Действия",
     "status": "Статус",
-    "createdAt": "Дата создания"
+    "createdAt": "Дата создания",
+    "client": "Клиент"
   },
   "status": {
+    "preparing": "Подготовка",
     "pending": "В очереди",
     "running": "Выполняется",
     "completed": "Завершено",
@@ -49,7 +51,8 @@
     "completed": "Завершено:",
     "unknown": "Неизвестно",
     "error": "Ошибка:",
-    "rulesLabel": "(правила)"
+    "rulesLabel": "(правила)",
+    "custom": "Пользовательская атака"
   },
   "tooltips": {
     "combinedHashRate": "Общая скорость хеширования",
@@ -199,6 +202,7 @@
       "cracks": "Взломы",
       "cracksFound": "Найдено взломов"
     },
+    "additionalArgs": "Дополнительные аргументы",
     "attackModes": {
       "dictionary": "Словарная атака",
       "combination": "Комбинированная атака",
@@ -215,8 +219,19 @@
       "cloud_no_capacity": "Нет доступных облачных мощностей",
       "cloud_dead_on_arrival": "Арендованные экземпляры не смогли подключиться",
       "cloud_launch_failed": "Не удалось арендовать облачный экземпляр",
-      "seenTimes": "Замечено {{count}} раз"
-    }
+      "seenTimes_few": "Встречалось {{count}} раза",
+      "seenTimes_many": "Встречалось {{count}} раз",
+      "seenTimes_one": "Встречалось {{count}} раз",
+      "seenTimes_other": "Встречалось {{count}} раз",
+      "cloud_rental_too_short": "Аренда была бы слишком короткой, чтобы быть полезной",
+      "cloud_cracks_lost": "Взломанные пароли могли быть потеряны",
+      "cloud_draining": "Облачный экземпляр выводится из работы (новая работа не принимается)"
+    },
+    "client": "Клиент",
+    "presetJob": "Шаблон задания",
+    "workflow": "Рабочий процесс",
+    "createdBy": "Автор",
+    "system": "Система"
   },
   "common": {
     "id": "ID",
@@ -323,45 +338,133 @@
     "selectedCount": "Выбрано: {{count}}",
     "confirmBulkDelete": {
       "title": "Подтвердите массовое удаление",
-      "message": "Вы уверены, что хотите удалить {{count}} задание(й)? Это действие нельзя отменить.",
+      "message_few": "Вы уверены, что хотите удалить {{count}} задания? Это действие нельзя отменить.",
+      "message_many": "Вы уверены, что хотите удалить {{count}} заданий? Это действие нельзя отменить.",
+      "message_one": "Вы уверены, что хотите удалить {{count}} задание? Это действие нельзя отменить.",
+      "message_other": "Вы уверены, что хотите удалить {{count}} заданий? Это действие нельзя отменить.",
       "warning": "Это навсегда удалит выбранные задания и все связанные данные.",
       "cancel": "Отмена",
       "delete": "Удалить",
       "deleting": "Удаление..."
     },
-    "bulkArchiveSuccess": "{{count}} задание(й) успешно архивировано",
-    "bulkUnarchiveSuccess": "{{count}} задание(й) успешно разархивировано",
-    "bulkDeleteSuccess": "{{count}} задание(й) успешно удалено"
+    "bulkArchiveSuccess_few": "{{count}} задания успешно архивировано",
+    "bulkArchiveSuccess_many": "{{count}} заданий успешно архивировано",
+    "bulkArchiveSuccess_one": "{{count}} задание успешно архивировано",
+    "bulkArchiveSuccess_other": "{{count}} заданий успешно архивировано",
+    "bulkUnarchiveSuccess_few": "{{count}} задания успешно разархивировано",
+    "bulkUnarchiveSuccess_many": "{{count}} заданий успешно разархивировано",
+    "bulkUnarchiveSuccess_one": "{{count}} задание успешно разархивировано",
+    "bulkUnarchiveSuccess_other": "{{count}} заданий успешно разархивировано",
+    "bulkDeleteSuccess_few": "{{count}} задания успешно удалено",
+    "bulkDeleteSuccess_many": "{{count}} заданий успешно удалено",
+    "bulkDeleteSuccess_one": "{{count}} задание успешно удалено",
+    "bulkDeleteSuccess_other": "{{count}} заданий успешно удалено"
   },
   "cloud": {
     "projection": {
-      "title": "Will this finish within budget?",
-      "loadFailed": "Failed to project this job",
-      "coverageLabel": "Budget coverage",
-      "coverageValue": "{{pct}}% of the remaining work is funded",
-      "timeToFinish": "Projected time to finish",
-      "projectedCost": "Projected cloud cost",
-      "availableBudget": "Available budget",
-      "onpremSpeed": "On-prem speed",
-      "cloudSpeed": "Cloud speed",
-      "unknown": "Unknown",
-      "confirm": "Launch",
-      "pessimistic": "This is a salted hash type, so real throughput will exceed this estimate as salts crack. Treat the projection as a worst case.",
-      "shortfallTitle": "The budget runs out before the work does",
-      "shortfallBody": "At the projected rate, the budget covers {{pct}}% of the remaining keyspace. The job will stop partway through. Partial progress may still be worth buying — but it should be a deliberate choice.",
-      "shortfallAcknowledge": "I understand this job will not finish within budget"
+      "title": "Завершится ли это в пределах бюджета?",
+      "loadFailed": "Не удалось построить прогноз для этого задания",
+      "coverageLabel": "Покрытие бюджета",
+      "coverageValue": "{{pct}}% оставшейся работы финансируется",
+      "timeToFinish": "Прогнозируемое время завершения",
+      "projectedCost": "Прогнозируемая стоимость облачных вычислений",
+      "availableBudget": "Доступный бюджет",
+      "onpremSpeed": "Скорость локальной инфраструктуры",
+      "cloudSpeed": "Скорость облачной инфраструктуры",
+      "unknown": "Неизвестно",
+      "confirm": "Запустить",
+      "pessimistic": "Это тип хеша с солью, поэтому реальная пропускная способность превысит эту оценку по мере взлома солей. Прогноз следует считать наихудшим сценарием.",
+      "shortfallTitle": "Бюджет заканчивается раньше, чем работа",
+      "shortfallBody": "При прогнозируемой скорости бюджет покрывает {{pct}}% оставшегося пространства ключей. Задание остановится на полпути. Частичный прогресс всё же может стоить того, чтобы его оплатить — но это должен быть осознанный выбор.",
+      "shortfallAcknowledge": "Я понимаю, что это задание не завершится в пределах бюджета",
+      "metric": "Метрика",
+      "value": "Значение"
     },
     "cloudBurst": {
-      "label": "Allow cloud burst for this job",
-      "help": "Rent GPU instances when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider. Nothing is rented without this.",
-      "maxInstances": "Maximum rented instances",
-      "maxInstancesHelp": "Separate from max agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
-      "badge": "Cloud burst",
-      "thirdPartyBadge": "Third-party host",
-      "provisionNow": "Provision now",
-      "provisionConfirm": "Rent one cloud instance for this job now?\n\nThis bypasses the autoscaler's starvation and finishing-soon rules, and will spend money against this client's budget. The budget, spend window, per-job cap and provider consent still apply.",
-      "provisionRequested": "Cloud instance requested",
-      "provisionFailed": "Could not provision a cloud instance"
+      "label": "Разрешить облачный всплеск для этого задания",
+      "help": "Арендовать GPU-экземпляры, когда локальный парк не может справиться. Требует финансирования клиента и согласия с поставщиком. Ничего не арендуется без этого.",
+      "maxInstances": "Максимальное количество арендованных экземпляров",
+      "maxInstancesHelp": "Отдельно от макс. агентов, который управляет общим локальным пулом. Оставьте пустым, чтобы позволить оставшемуся бюджету решить.",
+      "badge": "Облачный всплеск",
+      "thirdPartyBadge": "Сторонний хост",
+      "provisionNow": "Ввести в работу сейчас",
+      "provisionConfirm": "Арендовать один облачный экземпляр для этого задания сейчас?\n\nЭто обходит правила автомасштабирования о голодании задач и скором завершении, и потратит деньги из бюджета этого клиента. Бюджет, временное окно трат, лимит на задание и согласие поставщика всё ещё действуют.",
+      "provisionRequested": "Облачный экземпляр запрошен",
+      "provisionFailed": "Не удалось ввести в работу облачный экземпляр"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Общий прогресс: {{percent}}%",
+    "noTasks": "Задачи ещё не назначены",
+    "notAvailable": "Н/Д",
+    "tooltip": {
+      "taskId": "ID задачи: {{id}}",
+      "status": "Статус: {{status}}",
+      "keyspace": "Пространство ключей: {{start}} - {{end}}",
+      "progress": "Прогресс: {{percent}}%",
+      "speed": "Скорость: {{speed}}",
+      "cracksFound": "Найдено взломов: {{count}}",
+      "agentId": "ID агента: {{id}}"
+    },
+    "legend": {
+      "pending": "Ожидание",
+      "running": "Выполняется",
+      "processing": "Обработка",
+      "completed": "Завершено",
+      "processingError": "Ошибка обработки",
+      "failed": "Ошибка",
+      "crackFound": "Взлом найден"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Задержки бенчмарка",
+    "subtitle": "Агенты, внесённые в чёрный список бенчмарка для этого задания из-за повторных ошибок. Очистите запись, чтобы повторить попытку в следующем цикле планирования.",
+    "loadFailed": "Не удалось загрузить чёрный список",
+    "clearSuccess": "Запись из чёрного списка очищена — планировщик повторит попытку в следующем цикле",
+    "clearFailedPrefix": "Не удалось очистить: {{error}}",
+    "clearFailedDefault": "Не удалось очистить запись",
+    "expired": "истекло",
+    "retryNow": "Повторить сейчас",
+    "scope": {
+      "thisJob": "это задание",
+      "global": "глобально"
+    },
+    "columns": {
+      "agent": "Агент",
+      "scope": "Область",
+      "hashMode": "Хеш / Режим",
+      "failures": "Ошибки",
+      "reason": "Причина",
+      "expires": "Истекает",
+      "action": "Действие"
+    }
+  },
+  "loopback": {
+    "title": "Loopback",
+    "subtitle": "Каждый loopback повторно запускает мутацию атаки только против вновь взломанных паролей, повторяясь до тех пор, пока не будет найден ни один новый взлом.",
+    "runningCount": "{{count}} выполняется",
+    "statusLabel": {
+      "waiting": "Ожидание завершения раунда",
+      "active": "Циклирование",
+      "completed": "Завершено",
+      "failed": "Ошибка",
+      "cancelled": "Отменено"
+    },
+    "roundLabel": "Раунд {{current}} / {{max}}",
+    "hashlistFallback": "Список хешей #{{id}}",
+    "jobCount_few": "{{count}} задания",
+    "jobCount_many": "{{count}} заданий",
+    "jobCount_one": "{{count}} задание",
+    "jobCount_other": "{{count}} заданий",
+    "noJobsYet": "Пока заданий не записано.",
+    "loopsBackYes": "Да",
+    "loopsBackFeedsDelta": "Подаёт дельту",
+    "columns": {
+      "round": "Раунд",
+      "original": "Оригинал",
+      "job": "Задание",
+      "role": "Роль",
+      "loopsBack": "Циклируется обратно"
     }
   }
 }

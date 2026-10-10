@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Pano",
+    "jobs": "İşler",
+    "agents": "Ajanlar",
+    "hashlists": "Hash listeleri",
+    "crackedHashes": "Kırılmış hashler",
+    "wordlists": "Wordlist'ler",
+    "rules": "Kurallar",
+    "clientManagement": "Müşteri yönetimi",
+    "teams": "Takımlar",
+    "analytics": "Analitik",
+    "about": "Hakkında",
+    "logout": "Çıkış yap"
+  },
+  "admin": {
+    "title": "Yönetici",
+    "settings": "Ayarlar",
+    "userManagement": "Kullanıcı Yönetimi",
+    "customCharsets": "Özel Karakter Setleri",
+    "presetJobs": "Ön Tanımlı İşler",
+    "jobWorkflows": "İş Akışları",
+    "diagnostics": "Tanılama",
+    "auditLog": "Denetim Günlüğü",
+    "jobAnalytics": "İş Analitiği",
+    "teamManagement": "Takım Yönetimi",
+    "cloudFleet": "Bulut Filosu",
+    "binaries": "İkili Dosyalar",
+    "hashTypes": "Hash Türleri",
+    "vouchers": "Kayıt Kodları",
+    "clients": "Müşteriler",
+    "teams": "Takımlar"
+  },
+  "userMenu": {
+    "userSettings": "Kullanıcı Ayarları",
+    "savedCharsets": "Kaydedilmiş Karakter Setleri",
+    "logout": "Çıkış Yap",
+    "user": "Kullanıcı"
+  },
+  "aria": {
+    "toggleDrawer": "Menüyü aç/kapat",
+    "mainNavigation": "Ana navigasyon",
+    "adminNavigation": "Yönetici navigasyonu",
+    "downloadCaCert": "CA sertifikasını indir"
+  },
+  "groups": {
+    "resources": "Kaynaklar",
+    "peopleAccess": "Kişiler & Erişim",
+    "operations": "İşlemler"
+  }
+}

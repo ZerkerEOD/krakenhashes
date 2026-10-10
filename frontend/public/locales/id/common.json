@@ -1,0 +1,341 @@
+{
+  "buttons": {
+    "save": "Simpan",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "edit": "Sunting",
+    "create": "Buat",
+    "submit": "Kirimkan",
+    "close": "Tutup",
+    "confirm": "Konfirmasi",
+    "retry": "Coba Ulang",
+    "refresh": "Segarkan",
+    "download": "Unduh",
+    "upload": "Unggah",
+    "copy": "Salin",
+    "search": "Cari",
+    "filter": "Filter",
+    "clearFilters": "Hapus Filter",
+    "loadAll": "Muat Semua",
+    "signIn": "Masuk",
+    "logIn": "Masuk",
+    "logout": "Keluar"
+  },
+  "labels": {
+    "loading": "Memuat...",
+    "noData": "Tidak ada data",
+    "error": "Terjadi kesalahan",
+    "success": "Berhasil",
+    "warning": "Peringatan",
+    "info": "Informasi",
+    "required": "Diperlukan",
+    "optional": "Opsional",
+    "all": "Semua",
+    "none": "Tidak ada",
+    "yes": "Ya",
+    "no": "Tidak",
+    "enabled": "Diaktifkan",
+    "disabled": "Dinonaktifkan",
+    "active": "Aktif",
+    "inactive": "Tidak Aktif",
+    "updating": "Memperbarui",
+    "pending": "Tertunda",
+    "completed": "Selesai",
+    "failed": "Gagal",
+    "unknown": "Tidak diketahui"
+  },
+  "pagination": {
+    "rowsPerPage": "Baris per halaman",
+    "page": "Halaman {{current}} dari {{total}}",
+    "showing": "Menampilkan {{from}}-{{to}} dari {{total}}",
+    "first": "Halaman pertama",
+    "last": "Halaman terakhir",
+    "next": "Halaman berikutnya",
+    "previous": "Halaman sebelumnya"
+  },
+  "language": {
+    "selectLanguage": "Pilih Bahasa",
+    "currentLanguage": "Bahasa saat ini"
+  },
+  "clipboard": {
+    "copied": "Disalin ke papan klip",
+    "copyFailed": "Gagal menyalin ke papan klip"
+  },
+  "errors": {
+    "networkError": "Kesalahan jaringan. Periksa koneksi Anda.",
+    "serverError": "Kesalahan server. Coba lagi nanti.",
+    "unknownError": "Terjadi kesalahan yang tidak diketahui",
+    "validationError": "Periksa masukan Anda dan coba lagi",
+    "permissionDenied": "Akses ditolak",
+    "notFound": "Tidak ditemukan",
+    "sessionExpired": "Sesi Anda telah berakhir. Masuk lagi."
+  },
+  "confirmations": {
+    "areYouSure": "Apakah Anda yakin?",
+    "cannotBeUndone": "Tindakan ini tidak dapat dibatalkan.",
+    "confirmDelete": "Konfirmasi Penghapusan",
+    "confirmAction": "Konfirmasi Tindakan",
+    "typeToConfirm": "Ketik {{text}} untuk mengonfirmasi"
+  },
+  "time": {
+    "justNow": "Baru saja",
+    "minutesAgo_other": "{{count}} menit yang lalu",
+    "hoursAgo_other": "{{count}} jam yang lalu",
+    "daysAgo_other": "{{count}} hari yang lalu",
+    "never": "Tidak pernah"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Seret dan lepas file di sini, atau klik untuk memilih",
+    "selectFile": "Pilih File",
+    "uploading": "Mengunggah...",
+    "uploadSuccess": "File berhasil diunggah",
+    "uploadFailed": "Pengunggahan file gagal",
+    "chooseFile": "Pilih File",
+    "description": "Deskripsi",
+    "loading": "Memuat..."
+  },
+  "binaryVersionSelector": {
+    "label": "Versi Binary",
+    "helperText": "Pilih pola versi binary untuk job ini",
+    "default": "Bawaan",
+    "majorVersion": "Versi Major (Minor Terbaru)",
+    "minorVersion": "Versi Minor (Patch Terbaru)",
+    "exactVersion": "Versi Tepat",
+    "loading": "Memuat...",
+    "loadingVersions": "Memuat versi binary...",
+    "loadError": "Gagal memuat versi binary"
+  },
+  "passwordValidation": {
+    "requirements": "Persyaratan Kata Sandi:",
+    "minLength": "Minimal {{length}} karakter",
+    "uppercase": "Minimal satu huruf besar",
+    "lowercase": "Minimal satu huruf kecil",
+    "number": "Minimal satu angka",
+    "specialChar": "Minimal satu karakter khusus"
+  },
+  "footer": {
+    "documentation": "Dokumentasi",
+    "issues": "Masalah",
+    "loading": "Memuat...",
+    "release": "Rilis v{{version}}",
+    "versionUnavailable": "Versi tidak tersedia"
+  },
+  "layout": {
+    "logoAlt": "Logo KrakenHashes",
+    "logoAltBranded": "Logo {{appName}}"
+  },
+  "table": {
+    "clearSearch": "Hapus pencarian",
+    "clearSelection": "Hapus pilihan",
+    "selectedCount": "{{count}} terpilih",
+    "expandRow": "Perluas baris",
+    "collapseRow": "Lipat baris",
+    "showAll": "Tampilkan semua",
+    "showFewer": "Tampilkan lebih sedikit",
+    "showingOf": "Menampilkan {{shown}} dari {{total}}",
+    "actions": "Tindakan",
+    "noResults": "Tidak ada hasil yang sesuai dengan filter Anda",
+    "rowsPerPage": "Baris per halaman"
+  },
+  "about": {
+    "title": "Tentang KrakenHashes",
+    "versionInfo": {
+      "title": "Informasi Versi",
+      "release": "Rilis",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Versi Agent",
+      "api": "Versi API",
+      "database": "Database",
+      "build": "Build"
+    },
+    "projectInfo": {
+      "title": "Informasi Proyek",
+      "description": "KrakenHashes adalah sistem manajemen crack kata sandi terdistribusi yang dirancang untuk mengoordinasikan dan mengelola tugas crack kata sandi di berbagai agent.",
+      "license": "Ini adalah proyek sumber terbuka yang dilisensikan di bawah GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "Repository GitHub"
+    },
+    "errors": {
+      "fetchFailed": "Gagal mengambil informasi versi"
+    },
+    "titleBranded": "Tentang {{appName}}"
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Bukan teks yang valid. Kata sandi tepatnya adalah {{value}}. Karakter yang ditampilkan adalah tebakan terbaik (Windows-1252), bukan kata sandi yang sebenarnya.",
+    "copyExact": "Salin nilai tepat (untuk hashcat)",
+    "copyGuess": "Salin tebakan terbaik (tidak tepat)"
+  },
+  "empty": {
+    "noData": "Belum ada apa-apa di sini",
+    "noResults": "Tidak ada hasil",
+    "noResultsHint": "Coba sesuaikan pencarian atau filter Anda."
+  },
+  "theme": {
+    "appearance": "Tampilan",
+    "light": "Terang",
+    "dark": "Gelap",
+    "system": "Sistem"
+  },
+  "status": {
+    "job": {
+      "preparing": "Menyiapkan",
+      "pending": "Tertunda",
+      "running": "Berjalan",
+      "paused": "Dijeda",
+      "processing": "Memproses",
+      "completed": "Selesai",
+      "failed": "Gagal",
+      "cancelled": "Dibatalkan",
+      "archived": "Diarsipkan"
+    },
+    "task": {
+      "pending": "Tertunda",
+      "assigned": "Ditetapkan",
+      "reconnect_pending": "Menyambung kembali",
+      "running": "Berjalan",
+      "processing": "Memproses",
+      "processing_error": "Kesalahan pemrosesan",
+      "completed": "Selesai",
+      "failed": "Gagal",
+      "cancelled": "Dibatalkan"
+    },
+    "agent": {
+      "pending": "Tertunda",
+      "active": "Daring",
+      "inactive": "Luring",
+      "error": "Kesalahan",
+      "disabled": "Dinonaktifkan",
+      "updating": "Memperbarui",
+      "online": "Daring",
+      "offline": "Luring"
+    },
+    "hashlist": {
+      "uploading": "Mengunggah",
+      "processing": "Memproses",
+      "ready": "Siap",
+      "error": "Kesalahan",
+      "deleting": "Menghapus",
+      "ready_with_errors": "Siap dengan kesalahan",
+      "awaiting_validation_decision": "Menunggu tinjauan",
+      "cancelled": "Dibatalkan"
+    },
+    "verification": {
+      "pending": "Tertunda",
+      "verified": "Terverifikasi",
+      "failed": "Gagal",
+      "deleted": "Dihapus"
+    },
+    "cloud": {
+      "requested": "Diminta",
+      "launching": "Meluncur",
+      "provisioning": "Menyediakan",
+      "syncing": "Menyinkronkan",
+      "running": "Berjalan",
+      "draining": "Didrain",
+      "terminating": "Menghentikan",
+      "terminated": "Dihentikan",
+      "failed": "Gagal"
+    },
+    "loopback": {
+      "waiting": "Menunggu",
+      "active": "Aktif",
+      "completed": "Selesai",
+      "failed": "Gagal",
+      "cancelled": "Dibatalkan"
+    },
+    "audit": {
+      "info": "Info",
+      "warning": "Peringatan",
+      "critical": "Kritis"
+    },
+    "diagnostic": {
+      "info": "Info",
+      "warning": "Peringatan",
+      "error": "Kesalahan"
+    },
+    "sync": {
+      "pending": "Tertunda",
+      "in_progress": "Sedang berlangsung",
+      "completed": "Selesai",
+      "failed": "Gagal"
+    },
+    "generic": {
+      "success": "Berhasil",
+      "ok": "OK",
+      "healthy": "Sehat",
+      "enabled": "Diaktifkan",
+      "active": "Aktif",
+      "verified": "Terverifikasi",
+      "warning": "Peringatan",
+      "degraded": "Terdegradasi",
+      "error": "Kesalahan",
+      "failed": "Gagal",
+      "critical": "Kritis",
+      "info": "Info",
+      "running": "Berjalan",
+      "pending": "Tertunda",
+      "queued": "Antre",
+      "disabled": "Dinonaktifkan",
+      "inactive": "Tidak Aktif",
+      "unknown": "Tidak diketahui"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Charset Khusus (opsional - tentukan ?1 hingga ?4 untuk digunakan dalam mask)",
+    "hexTooltip": "Saat diaktifkan, definisi charset inline diinterpretasikan sebagai pasangan byte hex (mis., 41424344 = ABCD). File charset tidak terpengaruh.",
+    "hexEncodedLabel": "Charset berkode hex",
+    "charsetSlotLabel": "Charset {{slot}} (-{{slot}})",
+    "fileValue_other": "[File: {{name}} — {{count}} byte]",
+    "fileHelperUsed_other": "{{count}} byte unik",
+    "fileHelperUnused_other": "{{count}} byte unik (tidak direferensikan dalam mask)",
+    "placeholderHex": "mis., 41424344 (pasangan byte hex)",
+    "placeholderPlain": "mis., ?u?d atau abcdef0123456789",
+    "inlineHelperBytes_other": "{{count}} byte",
+    "inlineHelperBytesUnused_other": "{{count}} byte (tidak direferensikan dalam mask)",
+    "inlineHelperChars_other": "{{count}} karakter",
+    "inlineHelperCharsUnused_other": "{{count}} karakter (tidak direferensikan dalam mask)",
+    "referencedNotDefined": "Direferensikan dalam mask tetapi tidak didefinisikan",
+    "savedLabel": "Tersimpan",
+    "typeLabels": {
+      "file": "File",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_other": "{{count}} byte unik",
+    "optionBytesHex_other": "{{count}} byte (hex)",
+    "willEnableHex": " — akan mengaktifkan mode hex",
+    "willDisableHex": " — akan menonaktifkan mode hex",
+    "estimatedKeyspace": "Keyspace estimasi: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} byte",
+    "slotSizeChars": "?{{slot}} = {{size}} karakter"
+  },
+  "teamFilter": {
+    "label": "Tim",
+    "allTeams": "Semua Tim",
+    "adminBadge": "Admin"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Kata sandi diperlukan",
+    "currentPasswordLabel": "Kata Sandi Saat Ini"
+  },
+  "hashDetailModal": {
+    "title": "Detail Hash",
+    "hashValue": "Nilai Hash",
+    "copied": "Tersalin!",
+    "copyHash": "Salin hash",
+    "copyPlaintext": "Salin plaintext",
+    "originalHash": "Hash Asli (dari file)",
+    "status": "Status",
+    "cracked": "Tercrack",
+    "notCracked": "Belum Tercrack",
+    "hashType": "Tipe Hash",
+    "typeId": "ID Tipe: {{id}}",
+    "username": "Username",
+    "crackedText": "Teks Tercrack",
+    "hashlist": "Hashlist",
+    "lastUpdated": "Diperbarui Terakhir",
+    "crackedAt": "Tercrack Pada",
+    "hashCopied": "Hash disalin ke clipboard",
+    "crackedTextCopied": "Teks tercrack disalin ke clipboard"
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "title": "Pano",
+  "welcome": "KrakenHashes'e Hoş Geldiniz",
+  "stats": {
+    "title": "Özet",
+    "totalJobs": "Toplam İş",
+    "activeJobs": "Aktif İş",
+    "completedJobs": "Tamamlanan İş",
+    "totalHashes": "Toplam Hash",
+    "crackedHashes": "Kırılmış Hashler",
+    "crackRate": "Kırılma Oranı",
+    "activeAgents": "Aktif Ajan",
+    "totalAgents": "Toplam Ajan"
+  },
+  "recentActivity": {
+    "title": "Son Etkinlik",
+    "noActivity": "Son etkinlik yok",
+    "viewAll": "Tüm bildirimler"
+  },
+  "quickActions": {
+    "title": "Hızlı İşlemler",
+    "createJob": "İş Oluştur",
+    "uploadHashlist": "Hash Listesi Yükle",
+    "viewAgents": "Ajanları Görüntüle"
+  },
+  "agents": {
+    "title": "Ajanlarım",
+    "loadError": "Ajanlar yüklenemedi: {{message}}",
+    "noAgents": "Kayıtlı ajan yok",
+    "hashRate": "Hash Hızı",
+    "notAvailable": "Kullanılamıyor",
+    "job": "İş",
+    "unnamedJob": "Adlandırılmamış İş",
+    "noActiveTask": "Aktif görev yok"
+  },
+  "pagination": {
+    "previous": "Önceki",
+    "next": "Sonraki",
+    "pageOf": "Sayfa {{current}}/{{total}}"
+  },
+  "jobs": {
+    "title": "İşlerim",
+    "total": "Toplam",
+    "autoRefreshOn": "Otomatik",
+    "autoRefreshOff": "Kapalı",
+    "lastUpdated": "Son güncelleme: {{time}}",
+    "loadError": "İşler yüklenemedi: {{message}}",
+    "noJobs": "İş bulunamadı. Başlamak için yeni bir iş oluşturun."
+  },
+  "buttons": {
+    "refresh": "Yenile",
+    "deleteFinished": "Tamamlanmışları Sil"
+  },
+  "filters": {
+    "status": "Durum",
+    "priority": "Öncelik",
+    "all": "Tümü",
+    "searchPlaceholder": "İşleri ara...",
+    "clear": "Filtreleri Temizle"
+  },
+  "status": {
+    "pending": "Beklemede",
+    "running": "Çalışıyor",
+    "paused": "Duraklatılmış",
+    "completed": "Tamamlandı",
+    "failed": "Başarısız",
+    "cancelled": "İptal Edildi"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Tamamlanmış İşleri Sil",
+      "message": "Tüm tamamlanmış işleri silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Tamamlanmış işler silinemedi",
+    "deleteJobFailed": "İş silinemedi",
+    "retryJobFailed": "İş yeniden denenemedi",
+    "updateJobFailed": "İş güncellenemedi"
+  },
+  "hashlistOverview": {
+    "title": "Hash Listesi Özeti",
+    "loadError": "Hash listeleri yüklenemedi",
+    "noHashlists": "Hash listesi bulunamadı",
+    "columns": {
+      "name": "Ad",
+      "client": "Müşteri",
+      "status": "Durum",
+      "total": "Toplam",
+      "cracked": "Kırılmış",
+      "progress": "İlerleme"
+    },
+    "status": {
+      "ready": "Hazır",
+      "error": "Hata",
+      "uploading": "Yükleniyor",
+      "processing": "İşleniyor"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "İş bulunamadı",
+    "noJobsHint": "Başlamak için Hash Listeleri sayfasından yeni bir iş oluşturun.",
+    "completedJobs": "Tamamlanan İşler",
+    "columns": {
+      "jobName": "İş Adı",
+      "hashlist": "Hash Listesi / Ön Tanım",
+      "createdBy": "Oluşturan",
+      "progress": "İlerleme",
+      "keyspace": "Keyspace",
+      "cracked": "Kırılmış",
+      "agents": "Ajanlar",
+      "priority": "Öncelik",
+      "maxAgents": "Maksimum Ajan Sayısı",
+      "actions": "İşlemler"
+    }
+  },
+  "kpi": {
+    "runningJobs": "Çalışan işler",
+    "queued": "{{count}} sıraya alındı",
+    "agentsOnline": "Çevrimiçi ajanlar",
+    "agentProblems": "{{count}} dikkat gerekli",
+    "hashRate": "Hash hızı",
+    "cracks24h": "Kırılmış (24s)",
+    "cracks7d": "{{count}} 7 günde",
+    "crackRate": "Kırılma oranı",
+    "hashlistTotals": "{{cracked}}/{{total}} hash",
+    "failed24h": "Başarısız (24s)",
+    "completed24h": "{{count}} tamamlandı"
+  },
+  "agentHealth": {
+    "title": "Ajan Sağlığı",
+    "viewAll": "Tüm ajanlar",
+    "utilization": "GPU Kullanımı",
+    "temperature": "En Sıcak GPU",
+    "lastSeen": "Son görülme {{when}}",
+    "warnings": {
+      "error": "Hata",
+      "offline": "Çevrimdışı",
+      "update_failed": "Güncelleme başarısız",
+      "stale_heartbeat": "Nabız sinyali yok",
+      "gpu_hot": "GPU Sıcak"
+    }
+  },
+  "recentCracks": {
+    "title": "Son Kırılanlar",
+    "viewAll": "Tüm kırılmış hashler",
+    "empty": "Henüz hiçbir şey kırılmadı",
+    "copy": "Düz metni kopyala",
+    "copied": "Kopyalandı"
+  },
+  "activeJobs": {
+    "title": "Aktif İşler",
+    "showing": "10 / {{total}} gösteriliyor",
+    "viewAll": "Tüm işler",
+    "empty": "Hiçbir şey çalışmıyor",
+    "emptyHint": "Hash listesinden bir iş başlatın.",
+    "goHashlists": "Hash listelerine git"
+  },
+  "welcomeUser": "Tekrar hoş geldiniz, {{name}}",
+  "autoRefresh": {
+    "on": "Canlı",
+    "off": "Duraklatılmış"
+  }
+}

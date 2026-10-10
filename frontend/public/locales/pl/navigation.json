@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Pulpit nawigacyjny",
+    "jobs": "Zadania",
+    "agents": "Agenci",
+    "hashlists": "Listy haszy",
+    "crackedHashes": "Złamane hasze",
+    "wordlists": "Wordlisty",
+    "rules": "Reguły",
+    "clientManagement": "Zarządzanie klientami",
+    "teams": "Zespoły",
+    "analytics": "Analityka",
+    "about": "O aplikacji",
+    "logout": "Wyloguj się"
+  },
+  "admin": {
+    "title": "Administracja",
+    "settings": "Ustawienia",
+    "userManagement": "Zarządzanie użytkownikami",
+    "customCharsets": "Niestandardowe zestawy znaków",
+    "presetJobs": "Szablony zadań",
+    "jobWorkflows": "Przepływy pracy zadań",
+    "diagnostics": "Diagnostyka",
+    "auditLog": "Dziennik audytu",
+    "jobAnalytics": "Analityka zadań",
+    "teamManagement": "Zarządzanie zespołami",
+    "cloudFleet": "Flota instancji w chmurze",
+    "binaries": "Pliki binarne",
+    "hashTypes": "Typy haszy",
+    "vouchers": "Kody rejestracyjne",
+    "clients": "Klienci",
+    "teams": "Zespoły"
+  },
+  "userMenu": {
+    "userSettings": "Ustawienia użytkownika",
+    "savedCharsets": "Zapisane zestawy znaków",
+    "logout": "Wyloguj się",
+    "user": "Użytkownik"
+  },
+  "aria": {
+    "toggleDrawer": "Przełącz nawigację",
+    "mainNavigation": "Główna nawigacja",
+    "adminNavigation": "Nawigacja administracyjna",
+    "downloadCaCert": "Pobierz certyfikat CA"
+  },
+  "groups": {
+    "resources": "Zasoby",
+    "peopleAccess": "Użytkownicy i dostęp",
+    "operations": "Operacje"
+  }
+}

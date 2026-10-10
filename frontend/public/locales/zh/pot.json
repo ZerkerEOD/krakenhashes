@@ -10,7 +10,8 @@
     "allCrackedHashes": "所有已破解哈希"
   },
   "navigation": {
-    "backToAll": "返回所有已破解哈希"
+    "backToAll": "返回所有已破解哈希",
+    "backToSource": "返回"
   },
   "client": {
     "title": "已破解哈希 - 客户视图",
@@ -40,10 +41,10 @@
     "placeholder": "搜索数据库...",
     "filterPlaceholder": "筛选当前页...",
     "button": "搜索",
-    "resultsFound": "找到 {{count}} 条结果",
-    "resultsFound_plural": "找到 {{count}} 条结果",
+    "resultsFound_other": "找到 {{count}} 条结果",
     "noResults": "未找到结果",
-    "searching": "搜索中..."
+    "searching": "搜索中...",
+    "resultsFound_one": "找到 {{count}} 条结果"
   },
   "export": {
     "hashPass": "哈希:密码",
@@ -85,5 +86,11 @@
   },
   "filter": {
     "filteredBy": "按 {{param}} 筛选：{{value}}"
+  },
+  "breadcrumb": "已破解哈希",
+  "sourceLabel": {
+    "job": "任务",
+    "client": "客户",
+    "hashlist": "哈希列表"
   }
 }

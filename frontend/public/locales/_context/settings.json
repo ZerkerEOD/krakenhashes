@@ -1,0 +1,24 @@
+{
+  "mfa": {
+    "card": {
+      "emailRequired": "Email MFA is kept as the mandatory fallback method so an account can't be permanently locked out.",
+      "configured": "Shown next to an MFA method to say it's been set up and usable — not that it's the active/preferred one.",
+      "required": "Indicates this specific MFA method is mandated by admin policy, not that MFA overall is required."
+    }
+  },
+  "notifications": {
+    "agentOffline": "Toggle for whether you're notified when one of your agents goes offline."
+  },
+  "preferences": {
+    "languageHelper": "Clarifies that this language choice is stored per-browser, and won't follow the user to another device."
+  },
+  "savedCharsets": {
+    "columns": {
+      "definition": "Shows the charset's defined characters, or file info (size/byte count) for an uploaded binary charset."
+    },
+    "typeLabels": {
+      "file": "Indicates this charset was uploaded as a binary .hcchr file rather than typed in.",
+      "hex": "Indicates this charset's definition is stored as hex byte pairs rather than literal characters."
+    }
+  }
+}

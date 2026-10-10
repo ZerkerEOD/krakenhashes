@@ -10,7 +10,8 @@
     "allCrackedHashes": "Alle gekraakte hashes"
   },
   "navigation": {
-    "backToAll": "Terug naar alle gekraakte hashes"
+    "backToAll": "Terug naar alle gekraakte hashes",
+    "backToSource": "Terug"
   },
   "client": {
     "title": "Gekraakte hashes - Klantweergave",
@@ -40,8 +41,8 @@
     "placeholder": "Database doorzoeken...",
     "filterPlaceholder": "Deze pagina filteren...",
     "button": "Zoeken",
-    "resultsFound": "{{count}} resultaat gevonden",
-    "resultsFound_plural": "{{count}} resultaten gevonden",
+    "resultsFound_one": "{{count}} resultaat gevonden",
+    "resultsFound_other": "{{count}} resultaten gevonden",
     "noResults": "Geen resultaten gevonden",
     "searching": "Zoeken..."
   },
@@ -85,5 +86,11 @@
   },
   "filter": {
     "filteredBy": "Gefilterd op {{param}}: {{value}}"
+  },
+  "breadcrumb": "Gekraakte hashes",
+  "sourceLabel": {
+    "job": "Taak",
+    "client": "Klant",
+    "hashlist": "Hashlijst"
   }
 }

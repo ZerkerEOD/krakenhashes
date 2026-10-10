@@ -46,7 +46,60 @@
     "selectFile": "Datei auswählen",
     "uploading": "Wird hochgeladen...",
     "cancel": "Abbrechen",
-    "executableBlocked": "Diese Datei scheint eine ausführbare Binärdatei zu sein und kann nicht als Hashliste hochgeladen werden."
+    "executableBlocked": "Diese Datei scheint eine ausführbare Binärdatei zu sein und kann nicht als Hashliste hochgeladen werden.",
+    "description": "Beschreibung",
+    "methodLabel": "Upload-Methode",
+    "methodAriaLabel": "Upload-Modus",
+    "fileAriaLabel": "Datei-Upload",
+    "pasteAriaLabel": "Hashes einfügen",
+    "uploadFile": "Datei hochladen",
+    "pasteHashes": "Hashes einfügen",
+    "dropHere": "Hashlistendatei hier ablegen...",
+    "dragAndDrop": "Hashlistendatei hierher ziehen oder klicken zum Auswählen",
+    "allFileTypesExceptExecutables": "Alle Dateitypen außer ausführbaren Dateien akzeptiert",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "Löschen",
+    "hashCount_one": "{{count}} Hash",
+    "hashCount_other": "{{count}} Hashes",
+    "hashCountDetected_one": "{{count}} Hash erkannt",
+    "hashCountDetected_other": "{{count}} Hashes erkannt",
+    "pasteHashesLabel": "Fügen Sie Hashes hier ein (einen pro Zeile)",
+    "pasteHashesPlaceholder": "Geben Sie Hashes ein, einen pro Zeile...&#10;&#10;Beispiel:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Fügen Sie Ihre Hashes oben ein, einen pro Zeile",
+    "excludeFromGlobalPotfile": "Aus globalem Potfile ausschließen",
+    "excludeFromGlobalPotfileHelper": "Geknackte Passwörter aus dieser Hashliste werden nicht im globalen Potfile gespeichert",
+    "globalPotfileDisabledNotice": "Hinweis: Das globale Potfile ist derzeit durch Admin-Einstellungen deaktiviert.",
+    "excludeFromClientPotfile": "Aus Kunden-Potfile ausschließen",
+    "excludeFromClientPotfileHelper": "Geknackte Passwörter aus dieser Hashliste werden nicht im kundenspezifischen Potfile gespeichert",
+    "clientPotfilesDisabledNotice": "Hinweis: Kunden-Potfiles sind durch Admin-Einstellungen deaktiviert.",
+    "uploadButtonLabel": "Hashliste hochladen",
+    "selectTeamForNewClient": "Bitte wählen Sie ein Team für den neuen Kunden aus.",
+    "validationCancelled": "Upload abgebrochen. Beheben Sie die Datei und versuchen Sie es erneut.",
+    "errors": {
+      "nameRequired": "Name erforderlich",
+      "hashTypeRequired": "Hash-Typ erforderlich",
+      "clientRequired": "Kunde erforderlich",
+      "noHashesToUpload": "Keine Hashes zum Hochladen",
+      "uploadFailedWithStatus": "Upload fehlgeschlagen (HTTP {{status}})",
+      "uploadFailedWithMessage": "Upload fehlgeschlagen: {{message}}",
+      "uploadFailedUnknown": "Upload fehlgeschlagen (unbekannter Fehler)",
+      "uploadErrorPrefix": "Fehler beim Hochladen der Hashliste: {{message}}",
+      "unknownError": "Ein unbekannter Fehler ist aufgetreten"
+    },
+    "linkDialog": {
+      "title": "LM/NTLM-Hashes erkannt",
+      "detected": "Erkannte pwdump-Format-Datei mit:",
+      "lmCount_one": "{{count}} LM-Hash (nicht leer)",
+      "lmCount_other": "{{count}} LM-Hashes (nicht leer)",
+      "ntlmCount_one": "{{count}} NTLM-Hash",
+      "ntlmCount_other": "{{count}} NTLM-Hashes",
+      "blankLmCount_one": "{{count}} leerer LM-Hash (leeres Passwort - wird übersprungen)",
+      "blankLmCount_other": "{{count}} leere LM-Hashes (leeres Passwort - werden übersprungen)",
+      "question": "Möchten Sie zwei verknüpfte Hashlisten für separate Knack-Workflows erstellen?",
+      "explanation": "Dies erstellt \"{{lmName}}\" und \"{{ntlmName}}\" Hashlisten, die zusammen verknüpft sind.",
+      "uploadSingle": "Als einzelne Liste hochladen",
+      "createLinked": "Verknüpfte Listen erstellen"
+    }
   },
   "actions": {
     "viewDetails": "Details anzeigen",
@@ -54,12 +107,154 @@
     "download": "Herunterladen",
     "delete": "Löschen"
   },
+  "createJob": {
+    "additionalArgs": "Zusätzliche Hashcat-Argumente (Optional)",
+    "additionalArgsHelper": "Extra Hashcat-Flags für diesen Auftrag. Agent-Level-Flags haben Vorrang bei Konflikten.",
+    "title": "Auftrag erstellen für \"{{name}}\"",
+    "successRedirect": "Auftrag(e) erfolgreich erstellt! Weiterleitung zur Auftragsseite...",
+    "successDefault": "Auftrag erfolgreich erstellt!",
+    "loadingDefault": "Wird erstellt...",
+    "loadingCreating": "Auftrag wird erstellt...",
+    "loadingKeyspace": "Keyspace wird berechnet...",
+    "cancel": "Abbrechen",
+    "submit": "Auftrag(e) erstellen",
+    "canInterrupt": "Kann unterbrochen werden",
+    "tabs": {
+      "workflows": "Workflows",
+      "presetJobs": "Vorlagen-Aufträge",
+      "customJob": "Benutzerdefinierter Auftrag"
+    },
+    "attackModes": {
+      "dictionary": "Wörterbuch",
+      "combination": "Kombination",
+      "bruteforce": "Brute-Force",
+      "hybridWordlistMask": "Hybrid Wortliste + Maske",
+      "hybridMaskWordlist": "Hybrid Maske + Wortliste",
+      "association": "Assoziation",
+      "modeFallback": "Modus {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Bitte wählen Sie mindestens einen Workflow aus",
+      "selectPresetJob": "Bitte wählen Sie mindestens einen Vorlagen-Auftrag aus",
+      "wordlistRequired": "Der ausgewählte Angriffsmodus erfordert mindestens eine Wortliste",
+      "combinationRequiresTwo": "Kombinationsangriff erfordert, dass beide Wortlisten ausgewählt sind",
+      "maskRequired": "Der ausgewählte Angriffsmodus erfordert eine Maske",
+      "associationMixedWorkFactors": "Assoziationsangriffe können nicht auf Hashlisten mit gemischten Work Factors ausgeführt werden",
+      "associationWordlistRequired": "Assoziationsangriff erfordert eine Assoziations-Wortliste",
+      "chunkDurationMin": "Chunk-Dauer muss mindestens 5 Sekunden betragen",
+      "chunkDurationMax": "Chunk-Dauer darf 24 Stunden nicht überschreiten (86400 Sekunden)",
+      "partialFailure": "{{message}}. Nicht erstellt: {{details}}",
+      "unnamedItem": "Element",
+      "createFailed": "Fehler beim Erstellen des Auftrags",
+      "loadFailed": "Fehler beim Laden verfügbarer Aufträge"
+    },
+    "workflows": {
+      "empty": "Keine Workflows verfügbar. Bitte erstellen Sie zunächst Workflows im Admin-Panel.",
+      "jobNameHelper": "Ihr Name wird an jeden Workflow-Namen angehängt",
+      "description": "Wählen Sie einen oder mehrere Workflows aus, um sie auszuführen. Sie können mehrere Workflows auswählen - jeder erstellt seine eigene Abfolge von Auftragsausführungen. Loopback-Einstellungen sind im Workflow selbst konfiguriert — ein als „Loopback“ markierter Workflow führt seine geeigneten Schritte automatisch erneut gegen neu geknackte Passwörter aus.",
+      "jobsCount_one": "{{count}} Auftrag",
+      "jobsCount_other": "{{count}} Aufträge",
+      "loopbackAllEligible": "Loopback: alle geeigneten",
+      "loopbackSteps_one": "Loopback: {{count}} Schritt",
+      "loopbackSteps_other": "Loopback: {{count}} Schritte",
+      "jobsList": "Aufträge: {{names}}",
+      "selectedCount_one": "{{count}} Workflow ausgewählt",
+      "selectedCount_other": "{{count}} Workflows ausgewählt"
+    },
+    "presetJobs": {
+      "empty": "Keine Vorlagen-Aufträge verfügbar. Bitte erstellen Sie zunächst Vorlagen-Aufträge im Admin-Panel.",
+      "jobNameHelper": "Ihr Name wird an jeden Auftragstyp angehängt (z.B. \"Mein Name - Potfile-Lauf\")",
+      "description": "Wählen Sie einen oder mehrere Vorlagen-Aufträge aus, um sie auszuführen. Sie können mehrere Aufträge auswählen - sie werden als separate Auftragsausführungen erstellt.",
+      "priorityLabel": "Priorität: {{priority}}",
+      "selectedCount_one": "{{count}} Auftrag ausgewählt",
+      "selectedCount_other": "{{count}} Aufträge ausgewählt"
+    },
+    "loopback": {
+      "label": "Loopback bis zur Erschöpfung",
+      "helperEligible": "Führt die ausgewählten Aufträge aus, führt dann die veränderbaren erneut aus (Straight + Regeln oder Hybrid-Angriff) nur gegen die neu geknackten Passwörter aus — Wiederholung, bis keine neuen Knackungen gefunden werden.",
+      "helperSelectEligible": "Wählen Sie unten eine geeignete Vorlage (Straight + Regeln oder Hybrid-Angriff) aus, um Loopback zu aktivieren.",
+      "helperNoneEligible": "Keiner der ausgewählten Aufträge hat eine für Loopback geeignete Mutation (sie sind nur Wortliste, Brute-Force oder Assoziation).",
+      "helperFilterConflict": "Loopback ist nicht verfügbar, während Vorfilterung für diesen Auftrag aktiviert ist.",
+      "helperCustom": "Führt diesen Angriff aus, führt dann seine Mutation (Regeln oder Maske) erneut nur gegen die neu geknackten Passwörter aus — Wiederholung, bis keine neuen Knackungen gefunden werden."
+    },
+    "filter": {
+      "enableLabel": "Filtern Sie die ausgewählte(n) Wortliste(n) für diesen Auftrag vor",
+      "ephemeralNotice": "Diese gefilterte Liste ist kurzlebig und wird nur für diesen Auftrag verwendet. Um eine wiederverwendbare gefilterte Wortliste zu erstellen, verwenden Sie die Wortlistenverwaltung. Die Generierung läuft im Hintergrund; der Auftrag startet automatisch, sobald er bereit ist."
+    },
+    "association": {
+      "explainer": "Assoziationsangriff ordnet jeden Hash einer entsprechenden Wortlistenzeile 1:1 zu. Die Anzahl der Wortlistenzeilen muss der Gesamtanzahl der Hashes entsprechen ({{hashCount}}).",
+      "falsePositiveWarning": "<strong>Hinweis:</strong> Assoziationsangriffe können falsch-positive Ergebnisse erzeugen. Es wird empfohlen, die Ergebnisse zu überprüfen, indem Sie geknackte Hashes herunterladen, die Hashliste löschen, erneut hochladen und mit einem Wörterbuch-Angriff bestätigen.",
+      "wordlistLabel": "Assoziations-Wortliste",
+      "selectWordlist": "Wählen Sie eine Assoziations-Wortliste",
+      "wordlistOptionLabel": "{{name}} ({{lines}} Zeilen, {{size}} KB)",
+      "wordlistHelper": "Laden Sie Assoziations-Wortlisten über den Bereich „Assoziations-Wortlisten“ der Hashliste hoch"
+    },
+    "cloud": {
+      "allowBurst": "Cloud-Burst erlauben",
+      "allowBurstHelper": "Mieten Sie GPU-Instanzen, wenn die On-Prem-Flotte nicht mithalten kann. Erfordert, dass der Kunde finanziert ist und sich bei einem Anbieter angemeldet hat.",
+      "allowPeerHosts": "Peer-betriebene Hosts zulassen (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "Das sind fremde Rechner. Deren Besitzer haben Root-Zugriff auf den Container, sodass die Hashes, Wortlisten und geknackten Klartexte dieses Kunden für Dritte lesbar und <strong>auf dem Host nicht verschlüsselt gespeichert sind</strong>. Für Produktions- oder Kundendaten nicht empfohlen. Bleibt dies aus, nutzt der Auftrag weiterhin sichere Kapazität (AWS, RunPod Secure Cloud), sofern der Kunde dies erlaubt.",
+      "maxInstances": "Max. Cloud-Instanzen",
+      "maxInstancesHelper": "Getrennt von Max. Agenten, was den On-Prem-Pool regelt. Leer lässt das Budget entscheiden."
+    },
+    "form": {
+      "jobName": "Auftragsname (Optional)",
+      "jobNamePlaceholder": "Leer lassen für automatisch generierten Namen",
+      "jobNameHelper": "Leer lassen für einen automatisch generierten Namen basierend auf der Angriffskonfiguration",
+      "attackModeLabel": "Angriffsmodus",
+      "attackModeDictionary": "Wörterbuch-Angriff",
+      "attackModeCombination": "Kombinationsangriff",
+      "attackModeBruteforce": "Brute-Force-Angriff",
+      "attackModeHybridWordlistMask": "Hybrid Wortliste + Maske",
+      "attackModeHybridMaskWordlist": "Hybrid Maske + Wortliste",
+      "attackModeAssociation": "Assoziations-Angriff",
+      "associationBlockedMixed": " (Blockiert: Gemischte Work Factors)",
+      "associationNoWordlists": " (Keine Wortlisten hochgeladen)",
+      "binaryVersionHelper": "Binär-Versionsmuster auswählen",
+      "wordlists": "Wortlisten",
+      "selectWordlists": "Wortlisten auswählen",
+      "ruleOptional": "Regel (Optional)",
+      "ruleOptionLabel_one": "{{name}} ({{count}} Regel)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} Regeln)",
+      "selectRule": "Wählen Sie eine Regel",
+      "firstWordlist": "Erste Wortliste",
+      "secondWordlist": "Zweite Wortliste",
+      "selectFirstWordlist": "Wählen Sie die erste Wortliste",
+      "selectSecondWordlist": "Wählen Sie die zweite Wortliste",
+      "categoryClientSpecific": "Kundenspezifisch",
+      "categoryGlobal": "Global",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} Zeilen)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} MB)",
+      "clientPotfileName_one": "Kunden-Potfile ({{count, number}} Passwort)",
+      "clientPotfileName_other": "Kunden-Potfile ({{count, number}} Passwörter)",
+      "mask": "Maske",
+      "maskPlaceholder": "z.B. ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = Kleinbuchstabe, ?u = Großbuchstabe, ?d = Ziffer, ?s = Sonderzeichen, ?1-?4 = benutzerdefiniert",
+      "incrementModeLabel": "Inkrementmodus",
+      "incrementModeOff": "Aus",
+      "incrementModeForward": "Inkrementierung (L→R)",
+      "incrementModeInverse": "Umgekehrte Inkrementierung (R→L)",
+      "incrementModeHelper": "Inkrementierung versucht zunächst kürzere Masken und wächst progressiv",
+      "minLength": "Min. Länge",
+      "maxLength": "Max. Länge",
+      "priority": "Priorität",
+      "priorityHelper": "Aufträge mit höherer Priorität werden zuerst ausgeführt (1-1000)",
+      "chunkDuration": "Chunk-Dauer (Sekunden)",
+      "chunkDurationHelper": "Zeit in Sekunden für jeden Chunk (5-86400 Sekunden)",
+      "maxAgents": "Max. Agenten",
+      "maxAgentsHelper": "Maximale Anzahl von Agenten (0 = unbegrenzt)",
+      "allowHighPriorityOverride": "Hohe Priorität Override erlauben",
+      "additionalArgsPlaceholder": "z.B. -w 4 -O --force"
+    }
+  },
   "confirmDelete": {
     "title": "Löschen bestätigen",
     "message": "Sind Sie sicher, dass Sie die Hashliste \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
     "cancel": "Abbrechen",
     "delete": "Löschen",
-    "deleting": "Wird gelöscht..."
+    "deleting": "Wird gelöscht...",
+    "removeFromGlobalPotfile": "Geknackte Passwörter aus globaler Potfile entfernen",
+    "removeFromClientPotfile": "Geknackte Passwörter aus Kunden-Potfile entfernen"
   },
   "deletionProgress": {
     "title": "Hashliste wird gelöscht",
@@ -94,8 +289,10 @@
     "downloaded": "{{filename}} heruntergeladen",
     "archiveSuccess": "Hashliste erfolgreich archiviert",
     "unarchiveSuccess": "Hashliste erfolgreich wiederhergestellt",
-    "bulkArchiveSuccess": "{{count}} Hashliste(n) erfolgreich archiviert",
-    "bulkUnarchiveSuccess": "{{count}} Hashliste(n) erfolgreich wiederhergestellt"
+    "bulkArchiveSuccess_one": "{{count}} Hashliste erfolgreich archiviert",
+    "bulkArchiveSuccess_other": "{{count}} Hashlisten erfolgreich archiviert",
+    "bulkUnarchiveSuccess_one": "{{count}} Hashliste erfolgreich wiederhergestellt",
+    "bulkUnarchiveSuccess_other": "{{count}} Hashlisten erfolgreich wiederhergestellt"
   },
   "errors": {
     "loadFailed": "Fehler beim Abrufen der Hashlisten.",
@@ -113,10 +310,12 @@
     "deleteSelected": "Ausgewählte löschen",
     "confirmBulkDelete": {
       "title": "Massenlöschung bestätigen",
-      "message": "Sind Sie sicher, dass Sie {{count}} Hashliste(n) löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "message_one": "Sind Sie sicher, dass Sie {{count}} Hashliste löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "message_other": "Sind Sie sicher, dass Sie {{count}} Hashlisten löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
       "warning": "Dies löscht die ausgewählten Hashlisten und alle zugehörigen Daten dauerhaft."
     },
-    "bulkDeleteSuccess": "{{count}} Hashliste(n) erfolgreich gelöscht"
+    "bulkDeleteSuccess_one": "{{count}} Hashliste erfolgreich gelöscht",
+    "bulkDeleteSuccess_other": "{{count}} Hashlisten erfolgreich gelöscht"
   },
   "hashDetails": {
     "title": "Hash-Details",
@@ -124,5 +323,195 @@
     "password": "Passwort",
     "cracked": "Geknackt",
     "crackedAt": "Geknackt am"
+  },
+  "detail": {
+    "backToHashlists": "Zurück zu Hashlisten",
+    "viewCrackedHashes": "Geknackte Hashes anzeigen",
+    "noDescription": "Keine Beschreibung",
+    "statusLabel": "Status:",
+    "hashType": "Hash-Typ: {{name}}",
+    "clientLabel": "Kunde:",
+    "noClient": "Keine",
+    "editClient": "Kunde bearbeiten",
+    "created": "Erstellt: {{date}}",
+    "crackProgress": "Knackfortschritt ({{cracked}} von {{total}})",
+    "fallbackHashlistName": "Hashliste",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} Zeilen",
+      "rate": "({{rate}}/sec)",
+      "eta": "• ETA: {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Diese Hashliste wird gelöscht — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Wird geladen...",
+      "resumeReview": "Überprüfung fortsetzen",
+      "title": "Diese Hashliste ist pausiert und wartet auf eine Validierungsentscheidung.",
+      "message": "Die Hash-Validierung hat <strong>{{invalidCount}}</strong> von <strong>{{totalLines}}</strong> Zeilen als fehlerhaft markiert. Öffnen Sie den Überprüfungsdialog, um mit den gültigen Hashes fortzufahren, den Hash-Typ zu ändern oder den Upload abzubrechen."
+    },
+    "jobsRun": {
+      "title": "Ausgeführte Aufträge",
+      "subtitle": "Aufträge, die für diese Hashliste ausgeführt wurden, einschließlich archivierter Aufträge.",
+      "empty": "Für diese Hashliste wurden noch keine Aufträge ausgeführt"
+    },
+    "editClientDialog": {
+      "title": "Kundenzuordnung bearbeiten",
+      "description": "Wählen Sie einen Kunden für diese Hashliste aus, oder lassen Sie das Feld leer, um die Kundenzuordnung zu entfernen.",
+      "save": "Speichern",
+      "saving": "Wird gespeichert..."
+    },
+    "notifications": {
+      "clientUpdated": "Kunde erfolgreich aktualisiert",
+      "processingResumed": "Verarbeitung fortgesetzt.",
+      "uploadCancelled": "Upload abgebrochen."
+    },
+    "errors": {
+      "deleteFailed": "Fehler beim Löschen der Hashliste",
+      "clientUpdateFailed": "Fehler beim Aktualisieren des Kunden",
+      "clientNotFound": "Kunde nicht gefunden",
+      "clientLookupFailed": "Fehler beim Nachschlagen des Kunden",
+      "downloadFailed": "Fehler beim Herunterladen der Datei",
+      "downloadHashlistFailed": "Fehler beim Herunterladen der Hashliste",
+      "serverError": "Serverfehler ({{status}})",
+      "loadInvalidHashesFailed": "Fehler beim Laden ungültiger Hashes"
+    }
+  },
+  "associationWordlists": {
+    "header": "Kundenspezifische Wortlisten",
+    "blocked": "Blockiert",
+    "blockedTooltip": "Assoziations-Angriffe sind aufgrund gemischter Arbeitsfaktoren in der Hashliste blockiert",
+    "delete": "Löschen",
+    "uploadAssociation": "Assoziations-Wortliste hochladen",
+    "uploadClient": "Kunden-Wortliste hochladen",
+    "uploadingPercent": "Wird hochgeladen... {{percent}}%",
+    "emptyAssociation": "Noch keine Assoziations-Wortlisten hochgeladen.",
+    "emptyClient": "Noch keine Kunden-Wortlisten hochgeladen.",
+    "mixedWorkFactorsWarning": "Diese Hashliste hat gemischte Arbeitsfaktoren. Assoziations-Angriffe können nicht auf Hashlisten mit unterschiedlichen bcrypt-Kosten oder ähnlichen variablen Arbeitsfaktoren ausgeführt werden. Sie können weiterhin Wortlisten hochladen, aber das Erstellen von Assoziations-Angriffs-Aufträgen wird blockiert.",
+    "explainer": "Assoziations-Wortlisten ordnen jeden Hash einem Passwort-Kandidaten 1:1 nach Zeilennummer zu. Die Wortliste muss genau <strong>{{lines}}</strong> Zeilen haben, um der Hash-Anzahl dieser Hashliste zu entsprechen.",
+    "tabs": {
+      "associationAttack": "Assoziations-Angriff",
+      "clientWordlists": "Kunden-Wortlisten"
+    },
+    "columns": {
+      "fileName": "Dateiname",
+      "lineCount": "Zeilenanzahl",
+      "fileSize": "Dateigröße",
+      "status": "Status",
+      "uploaded": "Hochgeladen",
+      "actions": "Aktionen"
+    },
+    "status": {
+      "ready": "Bereit",
+      "lineCountMismatch": "Abweichende Zeilenanzahl",
+      "lineCountMismatchTooltip": "Erwartet {{expected}} Zeilen, erhalten {{actual}}"
+    },
+    "deleteConfirm": {
+      "title": "Wortliste löschen",
+      "message": "\"{{fileName}}\" löschen? Dies kann nicht rückgängig gemacht werden."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Kunden-Wortlisten sind nur für Hashlisten verfügbar, die einem Kunden zugeordnet sind.",
+      "description": "Kunden-Wortlisten sind über alle Hashlisten für diesen Kunden verfügbar. Diese können mit jedem Angriffsmodus verwendet werden, nicht nur mit Assoziations-Angriffen."
+    },
+    "clientPotfile": {
+      "title": "Kunden-Potfile (Automatisch generiert)",
+      "description": "Diese Potfile enthält alle geknackten Passwörter für diesen Kunden. Sie wird automatisch aktualisiert, wenn Hashes geknackt werden.",
+      "passwordCount_one": "{{count}} Passwort",
+      "passwordCount_other": "{{count}} Passwörter",
+      "updated": "Aktualisiert: {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "Assoziations-Wortliste gelöscht",
+      "clientDeleted": "Kunden-Wortliste gelöscht",
+      "associationUploaded": "Assoziations-Wortliste erfolgreich hochgeladen",
+      "clientUploaded": "Kunden-Wortliste erfolgreich hochgeladen"
+    },
+    "errors": {
+      "deleteFailed": "Fehler beim Löschen der Wortliste",
+      "uploadFailed": "Fehler beim Hochladen der Wortliste",
+      "loadAssociationFailed": "Fehler beim Laden von Assoziations-Wortlisten",
+      "loadClientFailed": "Fehler beim Laden von Kunden-Wortlisten",
+      "lineCountMismatch": "Die Wortliste hat {{wordlistLines}} Zeilen, aber die Hashliste hat {{hashlistLines}} gültige Hashes."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Kunde",
+    "placeholder": "Wählen Sie einen Kunden...",
+    "createNewClient": "Neuen Kunden erstellen",
+    "newClientDetails": "Neue Kundendetails",
+    "team": "Team",
+    "teamHelper": "Der neue Kunde wird diesem Team zugewiesen.",
+    "clientName": "Kundenname",
+    "description": "Beschreibung",
+    "contactInfo": "Kontaktinformationen",
+    "dataRetention": "Datenaufbewahrung (Monate)",
+    "dataRetentionPlaceholderDefault": "Systemstandard: {{months}}",
+    "dataRetentionPlaceholderUnset": "Nicht gesetzt (unbegrenzt behalten)",
+    "dataRetentionHelperDefault": "Leer lassen, um den Systemstandard zu verwenden ({{months}} Monate). Auf 0 setzen, um unbegrenzt zu behalten.",
+    "dataRetentionHelperUnset": "Leer lassen, um den Systemstandard zu verwenden. Auf 0 setzen, um unbegrenzt zu behalten.",
+    "excludeFromGlobalPotfile": "Von globaler Potfile ausschließen",
+    "excludeFromGlobalPotfileHelper": "Geknackte Passwörter von diesem Kunden werden nicht zur globalen Potfile hinzugefügt.",
+    "excludeFromClientPotfile": "Von Kunden-Potfile ausschließen",
+    "excludeFromClientPotfileHelper": "Geknackte Passwörter von diesem Kunden werden nicht zu seiner kundenspezifischen Potfile hinzugefügt.",
+    "errors": {
+      "fetchFailed": "Fehler beim Abrufen von Kunden"
+    }
+  },
+  "hashesTable": {
+    "title": "Hashes",
+    "subtitle": "{{cracked}} von {{total}} geknackt ({{pct}}%)",
+    "searchPlaceholder": "Hashes durchsuchen...",
+    "ariaLabel": "Hashlisten-Hashes-Tabelle",
+    "copiedToClipboard": "In die Zwischenablage kopiert",
+    "copyPassword": "Passwort kopieren",
+    "copyHash": "Hash kopieren",
+    "loadFailed": "Fehler beim Laden von Hashes",
+    "columns": {
+      "originalHash": "Original-Hash",
+      "username": "Benutzername",
+      "domain": "Domäne",
+      "password": "Passwort",
+      "status": "Status"
+    },
+    "status": {
+      "cracked": "Geknackt",
+      "partial": "Teilweise",
+      "pending": "Ausstehend"
+    }
+  },
+  "validationPreview": {
+    "title": "Hash-Validierung: Überprüfung fehlerhafter Zeilen",
+    "modeFallback": "Modus {{id}}",
+    "truncatedNotice": "Die ersten 10.000 ungültigen Zeilen werden zur Überprüfung aufgezeichnet; zusätzliche ungültige Zeilen existieren in der Datei, sind aber hier nicht aufgeführt.",
+    "hashTypeLabel": "Hash-Typ",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Wird erneut validiert...",
+    "revalidateButton": "Erneut validieren",
+    "cancelAndFix": "Abbrechen und beheben",
+    "cancelling": "Wird abgebrochen...",
+    "starting": "Wird gestartet...",
+    "proceedButton": "Mit {{validCount}} gültigen Hashes fortfahren",
+    "noInvalidLines": "Keine ungültigen Zeilen zum Anzeigen.",
+    "allInvalid": {
+      "body1": "<strong>Keine</strong> der {{totalLines}} Zeilen in <em>{{hashlistName}}</em> entsprechen <strong>{{hashTypeName}}</strong>. Die Hash-Typ-Auswahl ist wahrscheinlich falsch.",
+      "body2": "Wählen Sie den korrekten Typ unten aus und klicken Sie auf <strong>Erneut validieren</strong> — die Datei bleibt hochgeladen, sodass Sie nicht von vorne anfangen müssen."
+    },
+    "notAllInvalid": {
+      "body": "<strong>{{invalidCount}}</strong> von <strong>{{totalLines}}</strong> Zeilen in <em>{{hashlistName}}</em> haben die Validierung nicht bestanden und werden übersprungen, wenn Sie fortfahren. <strong>{{validCount}}</strong> gültige Hashes werden importiert."
+    },
+    "chooseActionText": "Wählen Sie <strong>Mit gültigen Hashes fortfahren</strong>, um die {{validCount}} gültigen Hashes zu importieren (aufgeführte ungültige Zeilen werden ignoriert), oder <strong>Abbrechen und beheben</strong>, um diesen Upload zu löschen, damit Sie die Quelldatei korrigieren und erneut versuchen können.",
+    "columns": {
+      "line": "Zeile",
+      "hashTruncated": "Hash (gekürzt)",
+      "reason": "Grund"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "Fehler beim Laden ungültiger Hashes",
+      "proceedFailed": "Fehler beim Fortfahren",
+      "cancelFailed": "Fehler beim Abbrechen",
+      "revalidationFailed": "Erneute Validierung fehlgeschlagen"
+    }
   }
 }

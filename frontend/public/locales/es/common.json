@@ -38,6 +38,7 @@
     "disabled": "Deshabilitado",
     "active": "Activo",
     "inactive": "Inactivo",
+    "updating": "Actualizando",
     "pending": "Pendiente",
     "completed": "Completado",
     "failed": "Fallido",
@@ -73,16 +74,20 @@
     "areYouSure": "Estas seguro?",
     "cannotBeUndone": "Esta accion no se puede deshacer.",
     "confirmDelete": "Confirmar eliminacion",
-    "confirmAction": "Confirmar accion"
+    "confirmAction": "Confirmar accion",
+    "typeToConfirm": "Escribe {{text}} para confirmar"
   },
   "time": {
     "justNow": "Ahora mismo",
-    "minutesAgo": "Hace {{count}} minuto",
-    "minutesAgo_plural": "Hace {{count}} minutos",
-    "hoursAgo": "Hace {{count}} hora",
-    "hoursAgo_plural": "Hace {{count}} horas",
-    "daysAgo": "Hace {{count}} dia",
-    "daysAgo_plural": "Hace {{count}} dias",
+    "minutesAgo_many": "Hace {{count}} minutos",
+    "minutesAgo_one": "Hace {{count}} minuto",
+    "minutesAgo_other": "Hace {{count}} minutos",
+    "hoursAgo_many": "Hace {{count}} horas",
+    "hoursAgo_one": "Hace {{count}} hora",
+    "hoursAgo_other": "Hace {{count}} horas",
+    "daysAgo_many": "Hace {{count}} días",
+    "daysAgo_one": "Hace {{count}} dia",
+    "daysAgo_other": "Hace {{count}} dias",
     "never": "Nunca"
   },
   "fileUpload": {
@@ -126,7 +131,17 @@
     "logoAltBranded": "Logo de {{appName}}"
   },
   "table": {
+    "clearSearch": "Limpiar búsqueda",
+    "clearSelection": "Limpiar selección",
+    "selectedCount": "{{count}} seleccionados",
+    "expandRow": "Expandir fila",
+    "collapseRow": "Contraer fila",
+    "showAll": "Mostrar todo",
+    "showFewer": "Mostrar menos",
+    "showingOf": "Mostrando {{shown}} de {{total}}",
+    "actions": "Acciones",
     "noResults": "No se encontraron resultados",
+    "rowsPerPage": "Filas por página",
     "loading": "Cargando datos...",
     "emptyState": "No hay datos para mostrar"
   },
@@ -139,7 +154,8 @@
       "frontend": "Frontend",
       "agent": "Version del agente",
       "api": "Version de API",
-      "database": "Base de datos"
+      "database": "Base de datos",
+      "build": "Compilación"
     },
     "projectInfo": {
       "title": "Informacion del proyecto",
@@ -157,5 +173,195 @@
     "tooltip": "No es texto válido. La contraseña exacta es {{value}}. Los caracteres mostrados son una estimación (Windows-1252), no la contraseña real.",
     "copyExact": "Copiar valor exacto (para hashcat)",
     "copyGuess": "Copiar estimación (no exacta)"
+  },
+  "empty": {
+    "noData": "Aquí no hay nada aún",
+    "noResults": "Sin resultados",
+    "noResultsHint": "Intenta ajustar tu búsqueda o filtros."
+  },
+  "theme": {
+    "appearance": "Apariencia",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema"
+  },
+  "status": {
+    "job": {
+      "preparing": "Preparando",
+      "pending": "Pendiente",
+      "running": "En ejecución",
+      "paused": "Pausado",
+      "processing": "Procesando",
+      "completed": "Completado",
+      "failed": "Fallido",
+      "cancelled": "Cancelado",
+      "archived": "Archivado"
+    },
+    "task": {
+      "pending": "Pendiente",
+      "assigned": "Asignado",
+      "reconnect_pending": "Reconectando",
+      "running": "En ejecución",
+      "processing": "Procesando",
+      "processing_error": "Error de procesamiento",
+      "completed": "Completado",
+      "failed": "Fallido",
+      "cancelled": "Cancelado"
+    },
+    "agent": {
+      "pending": "Pendiente",
+      "active": "En línea",
+      "inactive": "Desconectado",
+      "error": "Error",
+      "disabled": "Deshabilitado",
+      "updating": "Actualizando",
+      "online": "En línea",
+      "offline": "Desconectado"
+    },
+    "hashlist": {
+      "uploading": "Cargando",
+      "processing": "Procesando",
+      "ready": "Listo",
+      "error": "Error",
+      "deleting": "Eliminando",
+      "ready_with_errors": "Listo con errores",
+      "awaiting_validation_decision": "Esperando revisión",
+      "cancelled": "Cancelado"
+    },
+    "verification": {
+      "pending": "Pendiente",
+      "verified": "Verificado",
+      "failed": "Fallido",
+      "deleted": "Eliminado"
+    },
+    "cloud": {
+      "requested": "Solicitado",
+      "launching": "Iniciando",
+      "provisioning": "Aprovisionando",
+      "syncing": "Sincronizando",
+      "running": "En ejecución",
+      "draining": "Drenando",
+      "terminating": "Terminando",
+      "terminated": "Terminado",
+      "failed": "Fallido"
+    },
+    "loopback": {
+      "waiting": "Esperando",
+      "active": "Activo",
+      "completed": "Completado",
+      "failed": "Fallido",
+      "cancelled": "Cancelado"
+    },
+    "audit": {
+      "info": "Información",
+      "warning": "Advertencia",
+      "critical": "Crítico"
+    },
+    "diagnostic": {
+      "info": "Información",
+      "warning": "Advertencia",
+      "error": "Error"
+    },
+    "sync": {
+      "pending": "Pendiente",
+      "in_progress": "En progreso",
+      "completed": "Completado",
+      "failed": "Fallido"
+    },
+    "generic": {
+      "success": "Éxito",
+      "ok": "OK",
+      "healthy": "Saludable",
+      "enabled": "Habilitado",
+      "active": "Activo",
+      "verified": "Verificado",
+      "warning": "Advertencia",
+      "degraded": "Degradado",
+      "error": "Error",
+      "failed": "Fallido",
+      "critical": "Crítico",
+      "info": "Información",
+      "running": "En ejecución",
+      "pending": "Pendiente",
+      "queued": "En cola",
+      "disabled": "Deshabilitado",
+      "inactive": "Inactivo",
+      "unknown": "Desconocido"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Conjuntos de caracteres personalizados (opcional: define ?1 a ?4 para usar en máscara)",
+    "hexTooltip": "Cuando se habilita, las definiciones de conjuntos de caracteres en línea se interpretan como pares de bytes hexadecimales (p. ej., 41424344 = ABCD). Los conjuntos de caracteres de archivo no se ven afectados.",
+    "hexEncodedLabel": "Conjuntos de caracteres codificados en hexadecimal",
+    "charsetSlotLabel": "Conjunto de caracteres {{slot}} (-{{slot}})",
+    "fileValue_many": "[Archivo: {{name}} — {{count}} bytes]",
+    "fileValue_one": "[Archivo: {{name}} — {{count}} byte]",
+    "fileValue_other": "[Archivo: {{name}} — {{count}} bytes]",
+    "fileHelperUsed_many": "{{count}} bytes únicos",
+    "fileHelperUsed_one": "{{count}} byte único",
+    "fileHelperUsed_other": "{{count}} bytes únicos",
+    "fileHelperUnused_many": "{{count}} bytes únicos (no referenciados en máscara)",
+    "fileHelperUnused_one": "{{count}} byte único (no referenciado en máscara)",
+    "fileHelperUnused_other": "{{count}} bytes únicos (no referenciados en máscara)",
+    "placeholderHex": "p. ej., 41424344 (pares de bytes hexadecimales)",
+    "placeholderPlain": "p. ej., ?u?d o abcdef0123456789",
+    "inlineHelperBytes_many": "{{count}} bytes",
+    "inlineHelperBytes_one": "{{count}} byte",
+    "inlineHelperBytes_other": "{{count}} bytes",
+    "inlineHelperBytesUnused_many": "{{count}} bytes (no referenciados en máscara)",
+    "inlineHelperBytesUnused_one": "{{count}} byte (no referenciado en máscara)",
+    "inlineHelperBytesUnused_other": "{{count}} bytes (no referenciados en máscara)",
+    "inlineHelperChars_many": "{{count}} caracteres",
+    "inlineHelperChars_one": "{{count}} carácter",
+    "inlineHelperChars_other": "{{count}} caracteres",
+    "inlineHelperCharsUnused_many": "{{count}} caracteres (no referenciados en máscara)",
+    "inlineHelperCharsUnused_one": "{{count}} carácter (no referenciado en máscara)",
+    "inlineHelperCharsUnused_other": "{{count}} caracteres (no referenciados en máscara)",
+    "referencedNotDefined": "Referenciado en máscara pero no definido",
+    "savedLabel": "Guardado",
+    "typeLabels": {
+      "file": "Archivo",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_many": "{{count}} bytes únicos",
+    "optionUniqueBytes_one": "{{count}} byte único",
+    "optionUniqueBytes_other": "{{count}} bytes únicos",
+    "optionBytesHex_many": "{{count}} bytes (hex)",
+    "optionBytesHex_one": "{{count}} byte (hex)",
+    "optionBytesHex_other": "{{count}} bytes (hex)",
+    "willEnableHex": " — habilitará el modo hexadecimal",
+    "willDisableHex": " — deshabilitará el modo hexadecimal",
+    "estimatedKeyspace": "Espacio de claves estimado: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} bytes",
+    "slotSizeChars": "?{{slot}} = {{size}} caracteres"
+  },
+  "teamFilter": {
+    "label": "Equipo",
+    "allTeams": "Todos los equipos",
+    "adminBadge": "Admin"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Se requiere contraseña",
+    "currentPasswordLabel": "Contraseña actual"
+  },
+  "hashDetailModal": {
+    "title": "Detalles del hash",
+    "hashValue": "Valor del hash",
+    "copied": "¡Copiado!",
+    "copyHash": "Copiar hash",
+    "copyPlaintext": "Copiar contraseña",
+    "originalHash": "Hash original (del archivo)",
+    "status": "Estado",
+    "cracked": "Descifrado",
+    "notCracked": "No descifrado",
+    "hashType": "Tipo de hash",
+    "typeId": "ID de tipo: {{id}}",
+    "username": "Nombre de usuario",
+    "crackedText": "Contraseña descifrada",
+    "hashlist": "Lista de hashes",
+    "lastUpdated": "Última actualización",
+    "crackedAt": "Descifrado en",
+    "hashCopied": "Hash copiado al portapapeles",
+    "crackedTextCopied": "Contraseña descifrada copiada al portapapeles"
   }
 }

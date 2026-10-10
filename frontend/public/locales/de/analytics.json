@@ -19,7 +19,18 @@
     "endDate": "Enddatum",
     "customPatterns": "Benutzerdefinierte Muster (kommagetrennt)",
     "customPatternsPlaceholder": "z.B. goog, ggl, micro, soft",
-    "customPatternsHelper": "Benutzerdefinierte Organisationsnamens-Variationen zur Überprüfung hinzufügen"
+    "customPatternsHelper": "Benutzerdefinierte Organisationsnamens-Variationen zur Überprüfung hinzufügen",
+    "quickSelect": "Schnellauswahl",
+    "datePresets": {
+      "lastMonth": "Letzter Monat",
+      "lastQuarter": "Letztes Quartal",
+      "last6Months": "Letzte 6 Monate",
+      "lastYear": "Letztes Jahr",
+      "priorMonth": "Vorheriger Monat",
+      "priorQuarter": "Vorheriges Quartal",
+      "prior6Months": "Vorherige 6 Monate",
+      "priorYear": "Vorheriges Jahr"
+    }
   },
   "hashlistSelection": {
     "title": "Hashlisten",
@@ -32,7 +43,8 @@
     "cracked": "Geknackt",
     "status": "Status",
     "active": "Aktiv",
-    "archived": "Archiviert"
+    "archived": "Archiviert",
+    "titleWithCount": "{{title}} ({{selected}}/{{total}})"
   },
   "table": {
     "dateRange": "Datumsbereich",
@@ -58,7 +70,16 @@
     "retry": "Wiederholen",
     "delete": "Löschen",
     "exportHcmask": ".hcmask exportieren",
-    "exportTxt": ".txt exportieren"
+    "exportTxt": ".txt exportieren",
+    "exportInternalPdf": "Internes PDF",
+    "exportExternalPdf": "Externes PDF"
+  },
+  "pdfExport": {
+    "internalConfirmTitle": "Internen Bericht exportieren?",
+    "internalConfirmBody": "Das interne PDF enthält wiederhergestellte Passwörter im Klartext, Benutzernamen und Hash-Werte. Handhaben und speichern Sie es nur über genehmigte sichere Kanäle. Dieser Export wird im Audit-Protokoll aufgezeichnet.",
+    "confirm": "Internes PDF herunterladen",
+    "cancel": "Abbrechen",
+    "error": "PDF konnte nicht generiert werden. Bitte versuchen Sie es erneut."
   },
   "messages": {
     "selectClient": "Bitte wählen Sie einen Kunden",
@@ -80,7 +101,8 @@
     "copiedSuccess": "Benutzernamen in die Zwischenablage kopiert!",
     "noRecommendations": "Derzeit keine spezifischen Empfehlungen. Die Passwortrichtlinien erscheinen angemessen.",
     "top50Hashes": "Zeige die 50 am häufigsten wiederverwendeten Hashes",
-    "top50PartialCracks": "Zeige die 50 häufigsten Teilknackungen"
+    "top50PartialCracks": "Zeige die 50 häufigsten Teilknackungen",
+    "confirmDeleteReport": "Diesen Analysebericht löschen? Dies kann nicht rückgängig gemacht werden."
   },
   "sections": {
     "lengthDistribution": "Passwortlängen-Verteilung",
@@ -117,7 +139,8 @@
     "kerberos": "Kerberos",
     "encryptionTypes": "Verschlüsselungstypen",
     "linkedHashCorrelation": "LM/NTLM-Verknüpfte-Hash-Korrelation",
-    "reusedPasswords": "Wiederverwendete Passwörter nach Vorkommen"
+    "reusedPasswords": "Wiederverwendete Passwörter nach Vorkommen",
+    "overviewWithDomain": "{{base}} - {{domain}}"
   },
   "charts": {
     "count": "Anzahl",
@@ -197,7 +220,8 @@
     "totalEstimatedKeyspace": "Geschätzter Keyspace gesamt",
     "underOrEqual7Chars": "<=7 Zeichen:",
     "8To14Chars": "8-14 Zeichen:",
-    "partiallyCracked": "Teilweise geknackt:"
+    "partiallyCracked": "Teilweise geknackt:",
+    "domainFilterTabs": "Domänenfilter-Tabs"
   },
   "cards": {
     "totalHashes": "Hashes gesamt",
@@ -334,11 +358,13 @@
     "chars": "Zeichen"
   },
   "pagination": {
-    "masks": "{{from}}-{{to}} von {{count}} Masken"
+    "masks_one": "{{from}}-{{to}} von {{count}} Maske",
+    "masks_other": "{{from}}-{{to}} von {{count}} Masken"
   },
   "export": {
     "header": "# LM-zu-NTLM Hashcat-Masken",
-    "generatedFrom": "# Generiert aus {{count}} geknackten LM-Passwörtern",
+    "generatedFrom_one": "# Generiert aus {{count}} geknacktem LM-Passwort",
+    "generatedFrom_other": "# Generiert aus {{count}} geknackten LM-Passwörtern",
     "totalMasks": "# Masken gesamt: {{count}}",
     "totalKeyspace": "# Geschätzter Keyspace gesamt: {{keyspace}}",
     "format": "# Format: Maske | Muster | Anzahl | Übereinstimmung% | Keyspace | Beispiel"
@@ -394,5 +420,12 @@
     "largestSingleReach": "Größte Einzelkonto-Reichweite",
     "computers": "Computer",
     "notApplicable": "k. A."
+  },
+  "bloodhoundUpload": {
+    "attachButton": "BloodHound-Dump anhängen (optional)",
+    "filesSelected_one": "{{count}} Datei ausgewählt",
+    "filesSelected_other": "{{count}} Dateien ausgewählt",
+    "clear": "Löschen",
+    "helperText": "Laden Sie eine SharpHound-.zip-Datei (oder BloodHound-.json-Dateien) hoch, um den Bericht um eine AD-Privilegien-Analyse zu erweitern. Der Dump wird nur im Arbeitsspeicher verarbeitet und nie gespeichert – zur erneuten Analyse erneut hochladen."
   }
 }

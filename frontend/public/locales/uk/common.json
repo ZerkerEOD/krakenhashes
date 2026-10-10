@@ -1,0 +1,377 @@
+{
+  "buttons": {
+    "save": "Зберегти",
+    "cancel": "Скасувати",
+    "delete": "Видалити",
+    "edit": "Редагувати",
+    "create": "Створити",
+    "submit": "Надіслати",
+    "close": "Закрити",
+    "confirm": "Підтвердити",
+    "retry": "Повторити",
+    "refresh": "Оновити",
+    "download": "Завантажити",
+    "upload": "Вивантажити",
+    "copy": "Копіювати",
+    "search": "Шукати",
+    "filter": "Фільтрувати",
+    "clearFilters": "Очистити фільтри",
+    "loadAll": "Завантажити все",
+    "signIn": "Увійти",
+    "logIn": "Увійти",
+    "logout": "Вийти"
+  },
+  "labels": {
+    "loading": "Завантаження...",
+    "noData": "Немає доступних даних",
+    "error": "Сталася помилка",
+    "success": "Успіх",
+    "warning": "Попередження",
+    "info": "Інформація",
+    "required": "Обов'язково",
+    "optional": "Необов'язково",
+    "all": "Усі",
+    "none": "Жодного",
+    "yes": "Так",
+    "no": "Ні",
+    "enabled": "Увімкнено",
+    "disabled": "Вимкнено",
+    "active": "Активне",
+    "inactive": "Неактивне",
+    "updating": "Оновлення",
+    "pending": "Очікування",
+    "completed": "Завершено",
+    "failed": "Помилка",
+    "unknown": "Невідоме"
+  },
+  "pagination": {
+    "rowsPerPage": "Рядків на сторінці",
+    "page": "Сторінка {{current}} з {{total}}",
+    "showing": "Показано {{from}}-{{to}} з {{total}}",
+    "first": "Перша сторінка",
+    "last": "Остання сторінка",
+    "next": "Наступна сторінка",
+    "previous": "Попередня сторінка"
+  },
+  "language": {
+    "selectLanguage": "Виберіть мову",
+    "currentLanguage": "Поточна мова"
+  },
+  "clipboard": {
+    "copied": "Скопійовано в буфер обміну",
+    "copyFailed": "Не вдалося скопіювати в буфер обміну"
+  },
+  "errors": {
+    "networkError": "Помилка мережі. Будь ласка, перевірте ваше з'єднання.",
+    "serverError": "Помилка сервера. Будь ласка, спробуйте пізніше.",
+    "unknownError": "Сталася невідома помилка",
+    "validationError": "Будь ласка, перевірте ваше введення та спробуйте ще раз",
+    "permissionDenied": "Доступ заборонено",
+    "notFound": "Не знайдено",
+    "sessionExpired": "Ваш сеанс закінчився. Будь ласка, увійдіть ще раз."
+  },
+  "confirmations": {
+    "areYouSure": "Ви впевнені?",
+    "cannotBeUndone": "Цю дію неможливо скасувати.",
+    "confirmDelete": "Підтвердити видалення",
+    "confirmAction": "Підтвердити дію",
+    "typeToConfirm": "Введіть {{text}} для підтвердження"
+  },
+  "time": {
+    "justNow": "Щойно",
+    "minutesAgo_few": "{{count}} хвилини тому",
+    "minutesAgo_many": "{{count}} хвилин тому",
+    "minutesAgo_one": "{{count}} хвилину тому",
+    "minutesAgo_other": "{{count}} хвилин тому",
+    "hoursAgo_few": "{{count}} години тому",
+    "hoursAgo_many": "{{count}} годин тому",
+    "hoursAgo_one": "{{count}} годину тому",
+    "hoursAgo_other": "{{count}} годин тому",
+    "daysAgo_few": "{{count}} дні тому",
+    "daysAgo_many": "{{count}} днів тому",
+    "daysAgo_one": "{{count}} день тому",
+    "daysAgo_other": "{{count}} днів тому",
+    "never": "Ніколи"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Перетягніть файл сюди або натисніть для вибору",
+    "selectFile": "Вибрати файл",
+    "uploading": "Вивантаження...",
+    "uploadSuccess": "Файл успішно вивантажено",
+    "uploadFailed": "Помилка вивантаження файлу",
+    "chooseFile": "Обрати файл",
+    "description": "Опис",
+    "loading": "Завантаження..."
+  },
+  "binaryVersionSelector": {
+    "label": "Версія виконуваного файлу",
+    "helperText": "Виберіть шаблон версії виконуваного файлу для цього завдання",
+    "default": "За замовчуванням",
+    "majorVersion": "Мажорна версія (остання мінорна)",
+    "minorVersion": "Мінорна версія (останнє виправлення)",
+    "exactVersion": "Точна версія",
+    "loading": "Завантаження...",
+    "loadingVersions": "Завантаження версій виконуваних файлів...",
+    "loadError": "Не вдалося завантажити версії виконуваних файлів"
+  },
+  "passwordValidation": {
+    "requirements": "Вимоги до пароля:",
+    "minLength": "Принаймні {{length}} символів",
+    "uppercase": "Принаймні одна велика літера",
+    "lowercase": "Принаймні одна мала літера",
+    "number": "Принаймні одна цифра",
+    "specialChar": "Принаймні один спеціальний символ"
+  },
+  "footer": {
+    "documentation": "Документація",
+    "issues": "Проблеми",
+    "loading": "Завантаження...",
+    "release": "Випуск v{{version}}",
+    "versionUnavailable": "Версія недоступна"
+  },
+  "layout": {
+    "logoAlt": "Логотип KrakenHashes",
+    "logoAltBranded": "Логотип {{appName}}"
+  },
+  "table": {
+    "clearSearch": "Очистити пошук",
+    "clearSelection": "Очистити вибір",
+    "selectedCount": "{{count}} вибрано",
+    "expandRow": "Розгорнути рядок",
+    "collapseRow": "Згорнути рядок",
+    "showAll": "Показати все",
+    "showFewer": "Показати менше",
+    "showingOf": "Показано {{shown}} з {{total}}",
+    "actions": "Дії",
+    "noResults": "Немає результатів, які відповідають вашим фільтрам",
+    "rowsPerPage": "Рядків на сторінці"
+  },
+  "about": {
+    "title": "Про KrakenHashes",
+    "versionInfo": {
+      "title": "Інформація про версію",
+      "release": "Випуск",
+      "backend": "Бекенд",
+      "frontend": "Фронтенд",
+      "agent": "Версія агента",
+      "api": "Версія API",
+      "database": "База даних",
+      "build": "Збірка"
+    },
+    "projectInfo": {
+      "title": "Інформація про проект",
+      "description": "KrakenHashes — це розподілена система управління зламом паролів, яка координує роботу кількох агентів і розподіляє між ними задачі зі зламу паролів.",
+      "license": "Цей проект з відкритим вихідним кодом ліцензований на умовах GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "Репозиторій GitHub"
+    },
+    "errors": {
+      "fetchFailed": "Не вдалося отримати інформацію про версію"
+    },
+    "titleBranded": "Про {{appName}}"
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Недійсний текст. Точний пароль: {{value}}. Показані символи — найкраще припущення (Windows-1252), а не справжній пароль.",
+    "copyExact": "Копіювати точне значення (для hashcat)",
+    "copyGuess": "Копіювати найкраще припущення (не точне)"
+  },
+  "empty": {
+    "noData": "Тут поки нічого немає",
+    "noResults": "Немає результатів",
+    "noResultsHint": "Спробуйте змінити пошук або фільтри."
+  },
+  "theme": {
+    "appearance": "Зовнішній вигляд",
+    "light": "Світла",
+    "dark": "Темна",
+    "system": "Система"
+  },
+  "status": {
+    "job": {
+      "preparing": "Підготовка",
+      "pending": "Очікування",
+      "running": "Запущено",
+      "paused": "Призупинено",
+      "processing": "Обробка",
+      "completed": "Завершено",
+      "failed": "Збій",
+      "cancelled": "Скасовано",
+      "archived": "Архівовано"
+    },
+    "task": {
+      "pending": "Очікування",
+      "assigned": "Призначено",
+      "reconnect_pending": "Перепідключення",
+      "running": "Запущено",
+      "processing": "Обробка",
+      "processing_error": "Помилка обробки",
+      "completed": "Завершено",
+      "failed": "Збій",
+      "cancelled": "Скасовано"
+    },
+    "agent": {
+      "pending": "Очікування",
+      "active": "В мережі",
+      "inactive": "Офлайн",
+      "error": "Помилка",
+      "disabled": "Вимкнено",
+      "updating": "Оновлення",
+      "online": "В мережі",
+      "offline": "Офлайн"
+    },
+    "hashlist": {
+      "uploading": "Завантаження",
+      "processing": "Обробка",
+      "ready": "Готово",
+      "error": "Помилка",
+      "deleting": "Видалення",
+      "ready_with_errors": "Готово з помилками",
+      "awaiting_validation_decision": "Очікування перевірки",
+      "cancelled": "Скасовано"
+    },
+    "verification": {
+      "pending": "Очікування",
+      "verified": "Перевірено",
+      "failed": "Збій",
+      "deleted": "Видалено"
+    },
+    "cloud": {
+      "requested": "Запитано",
+      "launching": "Запуск",
+      "provisioning": "Виділення ресурсів",
+      "syncing": "Синхронізація",
+      "running": "Запущено",
+      "draining": "Виведення з роботи",
+      "terminating": "Знищення",
+      "terminated": "Знищено",
+      "failed": "Збій"
+    },
+    "loopback": {
+      "waiting": "Очікування",
+      "active": "Активно",
+      "completed": "Завершено",
+      "failed": "Збій",
+      "cancelled": "Скасовано"
+    },
+    "audit": {
+      "info": "Інформація",
+      "warning": "Попередження",
+      "critical": "Критичне"
+    },
+    "diagnostic": {
+      "info": "Інформація",
+      "warning": "Попередження",
+      "error": "Помилка"
+    },
+    "sync": {
+      "pending": "Очікування",
+      "in_progress": "В процесі",
+      "completed": "Завершено",
+      "failed": "Збій"
+    },
+    "generic": {
+      "success": "Успіх",
+      "ok": "OK",
+      "healthy": "Здоровий",
+      "enabled": "Увімкнено",
+      "active": "Активно",
+      "verified": "Перевірено",
+      "warning": "Попередження",
+      "degraded": "Погіршено",
+      "error": "Помилка",
+      "failed": "Збій",
+      "critical": "Критичне",
+      "info": "Інформація",
+      "running": "Запущено",
+      "pending": "Очікування",
+      "queued": "У черзі",
+      "disabled": "Вимкнено",
+      "inactive": "Неактивно",
+      "unknown": "Невідомо"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Користувацькі набори символів (опціонально — визначте від ?1 до ?4 для використання в масці)",
+    "hexTooltip": "Коли увімкнено, вбудовані визначення наборів символів інтерпретуються як шістнадцяткові пари байтів (наприклад, 41424344 = ABCD). Файлові набори символів не змінюються.",
+    "hexEncodedLabel": "Шістнадцяткове кодування наборів символів",
+    "charsetSlotLabel": "Набір символів {{slot}} (-{{slot}})",
+    "fileValue_few": "[Файл: {{name}} — {{count}} байти]",
+    "fileValue_many": "[Файл: {{name}} — {{count}} байтів]",
+    "fileValue_one": "[Файл: {{name}} — {{count}} байт]",
+    "fileValue_other": "[Файл: {{name}} — {{count}} байта]",
+    "fileHelperUsed_few": "{{count}} унікальні байти",
+    "fileHelperUsed_many": "{{count}} унікальних байтів",
+    "fileHelperUsed_one": "{{count}} унікальний байт",
+    "fileHelperUsed_other": "{{count}} унікального байта",
+    "fileHelperUnused_few": "{{count}} унікальні байти (не використовуються в масці)",
+    "fileHelperUnused_many": "{{count}} унікальних байтів (не використовуються в масці)",
+    "fileHelperUnused_one": "{{count}} унікальний байт (не використовується в масці)",
+    "fileHelperUnused_other": "{{count}} унікального байта (не використовується в масці)",
+    "placeholderHex": "наприклад, 41424344 (шістнадцяткові пари байтів)",
+    "placeholderPlain": "наприклад, ?u?d або abcdef0123456789",
+    "inlineHelperBytes_few": "{{count}} байти",
+    "inlineHelperBytes_many": "{{count}} байтів",
+    "inlineHelperBytes_one": "{{count}} байт",
+    "inlineHelperBytes_other": "{{count}} байта",
+    "inlineHelperBytesUnused_few": "{{count}} байти (не використовуються в масці)",
+    "inlineHelperBytesUnused_many": "{{count}} байтів (не використовуються в масці)",
+    "inlineHelperBytesUnused_one": "{{count}} байт (не використовується в масці)",
+    "inlineHelperBytesUnused_other": "{{count}} байта (не використовується в масці)",
+    "inlineHelperChars_few": "{{count}} символи",
+    "inlineHelperChars_many": "{{count}} символів",
+    "inlineHelperChars_one": "{{count}} символ",
+    "inlineHelperChars_other": "{{count}} символа",
+    "inlineHelperCharsUnused_few": "{{count}} символи (не використовуються в масці)",
+    "inlineHelperCharsUnused_many": "{{count}} символів (не використовуються в масці)",
+    "inlineHelperCharsUnused_one": "{{count}} символ (не використовується в масці)",
+    "inlineHelperCharsUnused_other": "{{count}} символа (не використовується в масці)",
+    "referencedNotDefined": "Використовується в масці, але не визначено",
+    "savedLabel": "Збережено",
+    "typeLabels": {
+      "file": "Файл",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_few": "{{count}} унікальні байти",
+    "optionUniqueBytes_many": "{{count}} унікальних байтів",
+    "optionUniqueBytes_one": "{{count}} унікальний байт",
+    "optionUniqueBytes_other": "{{count}} унікального байта",
+    "optionBytesHex_few": "{{count}} байти (шістнадцяткові)",
+    "optionBytesHex_many": "{{count}} байтів (шістнадцяткові)",
+    "optionBytesHex_one": "{{count}} байт (шістнадцяткові)",
+    "optionBytesHex_other": "{{count}} байта (шістнадцяткові)",
+    "willEnableHex": " — ввімкне режим шістнадцяткового кодування",
+    "willDisableHex": " — вимкне режим шістнадцяткового кодування",
+    "estimatedKeyspace": "Орієнтовний простір ключів: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} байт",
+    "slotSizeChars": "?{{slot}} = {{size}} символів"
+  },
+  "teamFilter": {
+    "label": "Команда",
+    "allTeams": "Усі команди",
+    "adminBadge": "Адміністратор"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Пароль обов'язковий",
+    "currentPasswordLabel": "Поточний пароль"
+  },
+  "hashDetailModal": {
+    "title": "Деталі хешу",
+    "hashValue": "Значення хешу",
+    "copied": "Скопійовано!",
+    "copyHash": "Скопіювати хеш",
+    "copyPlaintext": "Скопіювати відкритий текст",
+    "originalHash": "Оригінальний хеш (з файлу)",
+    "status": "Статус",
+    "cracked": "Зламаний",
+    "notCracked": "Не зламаний",
+    "hashType": "Тип хешу",
+    "typeId": "ID типу: {{id}}",
+    "username": "Ім'я користувача",
+    "crackedText": "Відкритий текст",
+    "hashlist": "Список хешів",
+    "lastUpdated": "Останнє оновлення",
+    "crackedAt": "Зламано в",
+    "hashCopied": "Хеш скопійовано в буфер обміну",
+    "crackedTextCopied": "Відкритий текст скопійовано в буфер обміну"
+  }
+}

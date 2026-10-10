@@ -1,0 +1,397 @@
+{
+  "language": "de",
+  "formality": "Formal register (\"Sie\"), never \"du\" — confirmed throughout the existing UI (\"Sind Sie sicher?\", \"Bitte überprüfen Sie Ihre Verbindung\", \"Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.\").",
+  "styleNotes": "1) When a term already has an established rendering elsewhere in the shipped German UI, reuse that rendering exactly rather than a fresh literal translation — several drafted terms had drifted from the live app and are corrected here (job→Auftrag not Job, wordlist→Wortliste not Wörterbuch, client→Kunde not Client, chunk→Chunk not Segment, workflow→Workflow not Arbeitsablauf, binary→Binär not Binary). 2) Keep hashcat/infra jargon in English when that is what the app already does, usually as a German-style hyphenated compound with the English root first (\"Chunk-Größe\", \"Claim-Code\", \"Teardown-Pfad\", \"Leerlauf-Drain\") rather than translating the root — but translate everyday product nouns normally (Auftrag, Kunde, Wortliste, Hashliste, Gutschein, Einstellungen). 3) Capitalize all nouns per German orthography, including the German half of English-German compounds. 4) 'Wörterbuch' is reserved for the dictionary ATTACK MODE label only; the wordlist FILE noun is always 'Wortliste' — keep these two distinct even though both translate the English word \"dictionary/wordlist\" loosely.",
+  "terms": {
+    "hash": {
+      "translation": "Hash",
+      "keepEnglish": true,
+      "note": "Standard term in German security context; plural uses English convention (Hashes) — confirmed by analytics.json/hashlists.json ('Hashes')."
+    },
+    "hashlist": {
+      "translation": "Hashliste",
+      "keepEnglish": false,
+      "note": "One word, no hyphen — confirmed by 50+ occurrences across every locale file (hashlists.json, jobs.json, analytics.json, pot.json, dashboard.json). Draft's hyphenated 'Hash-Liste' never appears anywhere in the app; fixed to match."
+    },
+    "hash type": {
+      "translation": "Hash-Typ",
+      "keepEnglish": false,
+      "note": "Matches existing usage exactly (jobs.json, hashlists.json, pot.json)."
+    },
+    "crack": {
+      "translation": "knacken",
+      "keepEnglish": false,
+      "note": "Verb; use 'geknackt' for past participle. Confirmed by jobs.json 'crackingCompletedAt': 'Knacken abgeschlossen am'."
+    },
+    "cracked": {
+      "translation": "geknackt",
+      "keepEnglish": false,
+      "note": "Adjective form of crack; matches hashlists.json/pot.json usage throughout."
+    },
+    "cracked hashes": {
+      "translation": "geknackte Hashes",
+      "keepEnglish": false,
+      "note": "Exact phrase used throughout pot.json, dashboard.json, navigation.json."
+    },
+    "plaintext": {
+      "translation": "Klartext",
+      "keepEnglish": false,
+      "note": "Standard German term for recovered password; confirmed by analytics.json/admin.json ('Klartext-Passwörter', 'Klartext-Schlüssel')."
+    },
+    "potfile": {
+      "translation": "Potfile",
+      "keepEnglish": true,
+      "note": "hashcat tool term, kept in English — confirmed throughout pot.json/admin.json ('Potfile (Hashcat)', 'Potfile-Einstellungen')."
+    },
+    "client potfile": {
+      "translation": "Kunden-Potfile",
+      "keepEnglish": true,
+      "note": "Changed from draft's 'Client-Potfile': since 'client' renders as 'Kunde' everywhere in this app (see the 'client' entry below), this compound follows that choice instead of the English 'Client'. No exact phrase exists yet in the shipped UI, so this follows the established Kunde-/Potfile- patterns used elsewhere."
+    },
+    "wordlist": {
+      "translation": "Wortliste",
+      "keepEnglish": false,
+      "note": "Changed from draft's 'Wörterbuch': the app uses 'Wortliste'/'Wortlisten' for the file noun everywhere (navigation.json, jobs.json, admin.json — 'Wortlistenverwaltung', 'Wortliste hochladen', 'Erste Wortliste'). 'Wörterbuch' is reserved specifically for the dictionary ATTACK MODE label (jobs.json attackModes.dictionary = 'Wörterbuch'), a related but distinct concept — see 'dictionary attack' below."
+    },
+    "rule": {
+      "translation": "Regel",
+      "keepEnglish": false,
+      "note": "hashcat rule for password mangling; matches jobs.json/admin.json/navigation.json exactly."
+    },
+    "rule file": {
+      "translation": "Regeldatei",
+      "keepEnglish": false,
+      "note": "Follows the established 'Regel-' compound pattern (Regeltyp, Regelanzahl); no exact literal match in current strings but consistent with it."
+    },
+    "mask": {
+      "translation": "Maske",
+      "keepEnglish": false,
+      "note": "hashcat mask pattern such as ?u?l?l?d; matches jobs.json/analytics.json exactly."
+    },
+    "charset": {
+      "translation": "Zeichensatz",
+      "keepEnglish": false,
+      "note": "Standard German computing term for a custom character set; not yet present in the locale files, no conflicting usage found."
+    },
+    "attack mode": {
+      "translation": "Angriffsmodus",
+      "keepEnglish": false,
+      "note": "Matches jobs.json/admin.json exactly throughout."
+    },
+    "brute force": {
+      "translation": "Brute-Force",
+      "keepEnglish": true,
+      "note": "Kept in English in German technical context; matches jobs.json ('Brute-Force') and admin.json ('Brute-Force-Angriffsmodus')."
+    },
+    "dictionary attack": {
+      "translation": "Wörterbuch-Angriff",
+      "keepEnglish": false,
+      "note": "Matches the attack-mode label jobs.json attackModes.dictionary = 'Wörterbuch', extended with the '-Angriff' suffix pattern seen elsewhere ('Hybrid-Angriff'). Distinct from the 'wordlist' file noun, which is always 'Wortliste' — see that entry."
+    },
+    "hybrid attack": {
+      "translation": "Hybrid-Angriff",
+      "keepEnglish": false,
+      "note": "Exact phrase confirmed in admin.json ('ein Hybrid-Angriff Wortliste ± Maske')."
+    },
+    "association attack": {
+      "translation": "Assoziations-Angriff",
+      "keepEnglish": false,
+      "note": "Consistent with admin.json's 'Assoziations-Angriffsmodus' and jobs.json's attack-mode label 'Assoziation'."
+    },
+    "keyspace": {
+      "translation": "Keyspace",
+      "keepEnglish": true,
+      "note": "Technical hashcat term; confirmed throughout jobs.json/analytics.json."
+    },
+    "effective keyspace": {
+      "translation": "Effektiver Keyspace",
+      "keepEnglish": false,
+      "note": "Exact match in jobs.json common.effectiveKeyspace and layerTable.effectiveKeyspace."
+    },
+    "chunk": {
+      "translation": "Chunk",
+      "keepEnglish": true,
+      "note": "Changed from draft's 'Segment': the app keeps 'Chunk' in English everywhere, combined with German suffixes — 'Chunk-Größe', 'Chunk-Dauer', 'Chunk-Schwankungsprozentsatz', 'Regel-Chunk-Verzeichnis' (jobs.json, admin.json). 'Segment' never appears anywhere and would break that established compound pattern."
+    },
+    "task": {
+      "translation": "Aufgabe",
+      "keepEnglish": false,
+      "note": "Task assignment on an agent; matches jobs.json ('Aufgaben', 'Aufgaben-ID') exactly."
+    },
+    "job": {
+      "translation": "Auftrag",
+      "keepEnglish": false,
+      "note": "Changed from draft's 'Job' (keepEnglish: true): jobs.json uses 'Auftrag'/'Aufträge' exclusively for every job-related string (page title, columns, status, actions, dialogs), and navigation.json has 'Auftrags-Workflows'. 'Job' appears only in a handful of apparently-drifted admin.json strings (e.g. 'jeden Job als Cloud-Burst-fähig', 'bereits eingereihte Jobs') — those read as inconsistencies against the dominant convention, not a reason to follow 'Job'."
+    },
+    "preset job": {
+      "translation": "Vorlagen-Auftrag",
+      "keepEnglish": false,
+      "note": "Changed from draft's 'Job-Voreinstellung': confirmed exact usage in navigation.json ('Vorlagen-Aufträge') and admin.json ('Mindestens ein Vorlagen-Auftrag ist erforderlich', 'Vorlagen-Aufträge verfügbar')."
+    },
+    "workflow": {
+      "translation": "Workflow",
+      "keepEnglish": true,
+      "note": "Changed from draft's 'Arbeitsablauf' (keepEnglish: false): admin.json keeps 'Workflow' in English throughout its entire workflow-management UI ('Workflow erstellen', 'Workflow-Schritte', 'Workflow-Name', 'Auftrags-Workflow-Verwaltung', 'Workflow-Ebene'). 'Arbeitsablauf' never appears."
+    },
+    "loopback": {
+      "translation": "Loopback",
+      "keepEnglish": true,
+      "note": "Technical term; matches admin.json's loopback UI strings used as-is (e.g. 'Loopback ist auf Workflow-Ebene aktiviert')."
+    },
+    "priority": {
+      "translation": "Priorität",
+      "keepEnglish": false,
+      "note": "Scheduling priority of a job; matches jobs.json exactly."
+    },
+    "max agents": {
+      "translation": "Max. Agenten",
+      "keepEnglish": false,
+      "note": "Use 'Max.' abbreviation in UI; exact match in jobs.json columns.maxAgents and common.maxAgents."
+    },
+    "overflow": {
+      "translation": "Überlauf",
+      "keepEnglish": false,
+      "note": "Extra agents given to a job beyond its limit; exact match in admin.json ('Agenten-Überlauf-Zuweisung', 'Überlauf-Zuweisungsmodus')."
+    },
+    "benchmark": {
+      "translation": "Benchmark",
+      "keepEnglish": true,
+      "note": "Common term in German for speed testing; matches admin.json ('Benchmark-Cache-Dauer', 'Benchmark-Verlauf Aufbewahrung')."
+    },
+    "hash rate": {
+      "translation": "Hash-Rate",
+      "keepEnglish": false,
+      "note": "Dominant hyphenated form (agents.json, common.json binaryVersionSelector context, monitoring section); one spot in jobs.json tooltips uses 'Hashrate' without the hyphen — a pre-existing minor inconsistency that should converge on the hyphenated form, not something to replicate."
+    },
+    "progress": {
+      "translation": "Fortschritt",
+      "keepEnglish": false,
+      "note": "How much of the keyspace is done; matches jobs.json/hashlists.json exactly."
+    },
+    "agent": {
+      "translation": "Agent",
+      "keepEnglish": true,
+      "note": "Common in German IT/security context; matches agents.json throughout."
+    },
+    "device": {
+      "translation": "Gerät",
+      "keepEnglish": false,
+      "note": "GPU/CPU device on an agent; matches agents.json ('Geräte-ID', 'Geräteüberwachung', 'Gerätestatus')."
+    },
+    "claim code": {
+      "translation": "Registrierungscode",
+      "keepEnglish": false,
+      "note": "Agent registration code; not a gift voucher (Gutschein)"
+    },
+    "voucher": {
+      "translation": "Registrierungscode",
+      "keepEnglish": false,
+      "note": "Agent registration code; not a gift voucher (Gutschein)"
+    },
+    "heartbeat": {
+      "translation": "Heartbeat",
+      "keepEnglish": true,
+      "note": "Technical term for periodic check-in; not yet present in locale files, kept English as the standard infra term, consistent with Chunk/Drain/Teardown/Benchmark."
+    },
+    "offline buffer": {
+      "translation": "Offline-Puffer",
+      "keepEnglish": false,
+      "note": "Grace period before an agent is reported offline; exact match in notifications.json ('Agent-Offline-Puffer')."
+    },
+    "auto-update": {
+      "translation": "Automatische Aktualisierung",
+      "keepEnglish": false,
+      "note": "Automatic agent binary update; not yet present in locale files (feature lives on its own branch per project notes), but consistent with the app's pervasive 'Aktualisierung' convention for 'update' (refresh buttons, 'erfolgreich aktualisiert' messages everywhere)."
+    },
+    "binary": {
+      "translation": "Binär",
+      "keepEnglish": false,
+      "note": "Changed from draft's 'Binary' (keepEnglish: true): the app renders this as the German combining form 'Binär' throughout — 'Binär-Version' (common.json), 'Agent-Binär', 'Hashcat-Binär', 'Binärkonfiguration', 'Agent-Binärdateien' (agents.json). The bare English noun 'Binary' never appears standalone."
+    },
+    "client": {
+      "translation": "Kunde",
+      "keepEnglish": false,
+      "note": "Changed from draft's 'Client' (keepEnglish: true): the app translates this as 'Kunde' (customer) throughout — 'Kundenname', 'Kundenverwaltung', 'Kundeneinstellungen' (admin.json), and hashlists.json/dashboard.json both map the literal key 'client' to 'Kunde'. This is a customer/engagement concept, not a software client, so keeping the English word would misread as the technical sense."
+    },
+    "team": {
+      "translation": "Team",
+      "keepEnglish": true,
+      "note": "Common term in German; the multi-team feature is not yet shipped/localized, so there is no existing usage to confirm against, but 'Team' is a near-universal loanword in German IT."
+    },
+    "member": {
+      "translation": "Mitglied",
+      "keepEnglish": false,
+      "note": "Team member; not yet present in locale files (teams feature planned), standard German term."
+    },
+    "owner": {
+      "translation": "Besitzer",
+      "keepEnglish": false,
+      "note": "The user an agent or resource belongs to; matches agents.json exactly ('Agentenbesitzer', 'Besitzer')."
+    },
+    "retention": {
+      "translation": "Aufbewahrung",
+      "keepEnglish": false,
+      "note": "Data retention period; matches admin.json throughout ('Datenaufbewahrung', 'Aufbewahrungszeitraum', 'Hashlisten-Aufbewahrung')."
+    },
+    "archive": {
+      "translation": "Archivieren",
+      "keepEnglish": false,
+      "note": "Changed from draft's noun 'Archiv': the app's own i18n key 'archive' maps directly to 'Archivieren' in both jobs.json and hashlists.json archive sections, with 'archived' → 'Archiviert'. Following the live key-to-value mapping (a UI button/action) rather than a generic noun; use 'Archiviert' for the status/adjective form."
+    },
+    "analytics report": {
+      "translation": "Analysebericht",
+      "keepEnglish": false,
+      "note": "Password-analysis report for cracked hashes; matches the plural used in analytics.json's description ('Passwort-Analyseberichte')."
+    },
+    "password reuse": {
+      "translation": "Passwort-Wiederverwendung",
+      "keepEnglish": false,
+      "note": "Exact match in analytics.json throughout."
+    },
+    "hash reuse": {
+      "translation": "Hash-Wiederverwendung",
+      "keepEnglish": false,
+      "note": "Exact match in analytics.json ('Keine Hash-Wiederverwendung erkannt', 'Hash-basierte Passwort-Wiederverwendung')."
+    },
+    "complexity": {
+      "translation": "Komplexität",
+      "keepEnglish": false,
+      "note": "Password character-class complexity; consistent with analytics.json's 'Zeichenkomplexitätsanalyse'."
+    },
+    "entropy": {
+      "translation": "Entropie",
+      "keepEnglish": false,
+      "note": "Password entropy (bits); exact match in analytics.json ('Entropie-Verteilung', 'Entropie-Level', 'Shannon-Entropie')."
+    },
+    "domain": {
+      "translation": "Domäne",
+      "keepEnglish": false,
+      "note": "Windows/AD domain of an account; exact match in analytics.json throughout."
+    },
+    "username": {
+      "translation": "Benutzername",
+      "keepEnglish": false,
+      "note": "Exact match in auth.json/admin.json/pot.json."
+    },
+    "audit log": {
+      "translation": "Audit-Protokoll",
+      "keepEnglish": false,
+      "note": "Security event log; exact match in navigation.json/notifications.json."
+    },
+    "dashboard": {
+      "translation": "Dashboard",
+      "keepEnglish": true,
+      "note": "Common in German; home overview page — exact match in navigation.json/dashboard.json."
+    },
+    "settings": {
+      "translation": "Einstellungen",
+      "keepEnglish": false,
+      "note": "Base term for configuration pages; matches the many compounds in use ('Admin-Einstellungen', 'Benutzereinstellungen', 'Benachrichtigungseinstellungen')."
+    },
+    "autosave": {
+      "translation": "Automatisches Speichern",
+      "keepEnglish": false,
+      "note": "Saved when leaving a field; not yet present in locale files, consistent with the app's general preference for spelling out 'automatic X' (see auto-update)."
+    },
+    "apply": {
+      "translation": "Anwenden",
+      "keepEnglish": false,
+      "note": "Button: put pending changes into effect; confirmed in admin.json ('nach dem Anwenden der Änderungen')."
+    },
+    "certificate": {
+      "translation": "Zertifikat",
+      "keepEnglish": false,
+      "note": "Server TLS certificate; matches settings.json ('CA-Zertifikat') and the translated parts of admin.json ('IdP-Zertifikat', 'Zertifikat erfolgreich heruntergeladen'). The newer 'Server Certificate' admin section is currently still entirely untranslated (English) in this locale file — a localization gap to flag separately, not a conflicting convention."
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "Subject Alternative Name acronym; no existing German usage to check against (that whole section is still untranslated English), kept as the standard technical acronym."
+    },
+    "network share": {
+      "translation": "Netzwerkfreigabe",
+      "keepEnglish": false,
+      "note": "SMB/NFS share used for wordlist storage; standard German term (as used for Windows/Samba shares). Feature is still in progress per project notes, so no existing locale usage to confirm against."
+    },
+    "mount": {
+      "translation": "einbinden",
+      "keepEnglish": false,
+      "note": "Attach a network share to a path; standard German verb for mounting a drive/share (e.g. 'ein Netzlaufwerk einbinden')."
+    },
+    "cloud fleet": {
+      "translation": "Cloud-Flotte",
+      "keepEnglish": false,
+      "note": "Rented cloud GPU instances; exact match confirmed in admin.json ('achten Sie auf der Seite „Cloud-Flotte“ auf Instanzen, die nicht freigegeben werden')."
+    },
+    "provisioning": {
+      "translation": "Bereitstellung",
+      "keepEnglish": false,
+      "note": "Starting cloud instances automatically; matches the translated parts of admin.json exactly ('Benutzerbereitstellung', 'Bereitstellungsregeln', 'Reine Cloud-Bereitstellungen'). Several newer cloud-provisioning strings in admin.json are still untranslated English ('Cloud GPU provisioning', 'Provisioning stopped') — a localization gap to flag separately, not a conflicting convention."
+    },
+    "budget": {
+      "translation": "Budget",
+      "keepEnglish": true,
+      "note": "Monthly cloud spending limit; kept English, confirmed throughout admin.json ('Client-Budgets', 'Budgetlimit', 'Budget-Rückerstattung')."
+    },
+    "threshold": {
+      "translation": "Schwellenwert",
+      "keepEnglish": false,
+      "note": "Percentage of budget that triggers an action; standard German term. This section of admin.json is still untranslated English, so there is no existing usage to confirm against yet."
+    },
+    "drain": {
+      "translation": "Drain",
+      "keepEnglish": true,
+      "note": "Changed from draft's 'Entleerung' (keepEnglish: false): the one sentence in admin.json that IS translated for this concept keeps it English as a compound — 'Leerlauf-Drain' ('idle drain', in 'windowEnabled'), confirming the German convention follows the Kubernetes-style infra usage rather than translating it. Most of this section is still untranslated English, but that one data point is decisive."
+    },
+    "teardown": {
+      "translation": "Teardown",
+      "keepEnglish": true,
+      "note": "Changed from draft's 'Beendigung' (keepEnglish: false): the one translated sentence that uses this concept keeps it English as a compound — 'Teardown-Pfad' ('teardown path', admin.json 'experimentalRunningBody'), confirming the same English-infra-jargon convention as 'Drain' and 'Chunk'."
+    },
+    "webhook": {
+      "translation": "Webhook",
+      "keepEnglish": true,
+      "note": "HTTP callback for notifications; technical term kept in English — matches notifications.json throughout."
+    },
+    "notification": {
+      "translation": "Benachrichtigung",
+      "keepEnglish": false,
+      "note": "In-app/email/webhook message; matches notifications.json/settings.json exactly."
+    },
+    "two-factor authentication": {
+      "translation": "Zwei-Faktor-Authentifizierung",
+      "keepEnglish": false,
+      "note": "MFA; exact match in auth.json/settings.json. The abbreviation 'MFA' is also used untranslated for compact admin labels ('MFA-Status', 'MFA-Code', 'MFA deaktivieren') — both forms coexist by design: spelled out for section titles, 'MFA' for short labels."
+    },
+    "backup codes": {
+      "translation": "Backup-Codes",
+      "keepEnglish": true,
+      "note": "Changed from draft's 'Sicherungscodes' (keepEnglish: false), which appears nowhere in the app. settings.json/admin.json/auth.json consistently use 'Backup-Codes'/'Backup-Code' ('Anzahl Backup-Codes', 'Speichern Sie diese Backup-Codes an einem sicheren Ort')."
+    },
+    "authenticator app": {
+      "translation": "Authentifizierungs-App",
+      "keepEnglish": false,
+      "note": "TOTP app; exact match in auth.json/settings.json/admin.json ('Authentifizierungs-App (TOTP)')."
+    },
+    "session": {
+      "translation": "Sitzung",
+      "keepEnglish": false,
+      "note": "A logged-in browser session; matches errors.json/auth.json/admin.json exactly ('Sitzung beenden', 'Ihre Sitzung ist abgelaufen')."
+    },
+    "API key": {
+      "translation": "API-Schlüssel",
+      "keepEnglish": false,
+      "note": "Personal key for the HTTP API; exact match in settings.json/admin.json throughout."
+    },
+    "branding": {
+      "translation": "Branding",
+      "keepEnglish": true,
+      "note": "Custom app name, colours and logo; kept English, matches admin.json ('Branding', 'Branding speichern')."
+    },
+    "diagnostics": {
+      "translation": "Diagnose",
+      "keepEnglish": false,
+      "note": "Troubleshooting/debug tools page; singular, matching navigation.json ('Diagnose') and the project convention (noted in CLAUDE.md) that this page title stays singular."
+    }
+  }
+}

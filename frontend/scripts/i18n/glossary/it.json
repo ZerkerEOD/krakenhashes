@@ -1,0 +1,397 @@
+{
+  "language": "it",
+  "formality": "Formal register (\"Lei\") for any sentence addressing the user directly — error messages, help text, emails (e.g. \"Lei\", never \"tu\"). Button and menu-action labels use the Italian imperative 2nd-person-singular form (\"Applica\", \"Monta\", \"Archivia\", \"Smantella\"), which is formality-neutral and is the standard convention in Italian desktop/web software (Microsoft/Adobe style), so it does not conflict with the Lei register used elsewhere.",
+  "styleNotes": "1) Keep hashcat/scheduler jargon in English when that is what Italian pentesters already use in writing (wordlist, mask, charset, chunk, keyspace, benchmark, hash rate, dashboard, potfile) — do not force an unfamiliar literal translation for an audience of security professionals. 2) Action buttons use the Italian imperative (\"Applica\", \"Monta\", \"Archivia\", \"Svuota\", \"Smantella\"); the corresponding noun forms (\"archivio\", \"montaggio\", \"svuotamento\", \"smantellamento\") are for status/section labels, not buttons. 3) Never use 'decifrare' (decrypt) for 'crack' — hashcat hashes are one-way and are not decrypted, so cracking must use 'craccare'/'craccato' (recovering the plaintext), not decryption vocabulary. 4) Match adjective gender/number to the Italian noun, not the English one (e.g. masculine 'tipo di hash', 'keyspace effettivo'; feminine 'soglia', 'condivisione di rete') — each term's note records the agreement to apply consistently across the UI.",
+  "terms": {
+    "hash": {
+      "translation": "hash",
+      "keepEnglish": true,
+      "note": "Technical term kept in Italian security and HashCat documentation"
+    },
+    "hashlist": {
+      "translation": "hashlist",
+      "keepEnglish": true,
+      "note": "Product concept, kept as KrakenHashes product term"
+    },
+    "hash type": {
+      "translation": "tipo di hash",
+      "keepEnglish": false,
+      "note": "Masculine: il tipo di hash (the hashcat hash mode, e.g. NTLM/mode 1000) — 'tipo' is masculine, so modifying adjectives agree masculine, not feminine."
+    },
+    "crack": {
+      "translation": "craccare",
+      "keepEnglish": false,
+      "note": "Standard Italian security-community verb for recovering a hash's plaintext. Do NOT use 'decifrare' (= decrypt): hashcat hashes are one-way functions and are never decrypted, only guessed/recovered, so decryption vocabulary is technically wrong here. 'Recuperare la password' is an acceptable paraphrase."
+    },
+    "cracked": {
+      "translation": "craccato/craccata",
+      "keepEnglish": false,
+      "note": "Agrees with noun gender: m. craccato, f. craccata; plural: craccati/craccate. Pairs with the verb 'craccare' (see 'crack'); avoid 'decifrato' for the same one-way-hash reason."
+    },
+    "cracked hashes": {
+      "translation": "hash craccati",
+      "keepEnglish": false,
+      "note": "Plural masculine ('hash' is invariable and treated as masculine); 'password craccate' if the context means the recovered passwords rather than the hash objects."
+    },
+    "plaintext": {
+      "translation": "testo in chiaro",
+      "keepEnglish": false,
+      "note": "Used in Italian cryptography literature; singular/plural same form"
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "HashCat's internal term, kept unchanged"
+    },
+    "client potfile": {
+      "translation": "potfile del cliente",
+      "keepEnglish": false,
+      "note": "'cliente' = customer/engagement here (see 'client'), not a network client; 'del cliente' is more natural Italian than stacking the two nouns as 'potfile client'."
+    },
+    "wordlist": {
+      "translation": "wordlist",
+      "keepEnglish": true,
+      "note": "Standard term in Italian HashCat documentation"
+    },
+    "rule": {
+      "translation": "regola",
+      "keepEnglish": false,
+      "note": "Standard Italian term for HashCat rule"
+    },
+    "rule file": {
+      "translation": "file di regole",
+      "keepEnglish": false,
+      "note": "Feminine plural: regole; also 'file regole' acceptable"
+    },
+    "mask": {
+      "translation": "mask",
+      "keepEnglish": true,
+      "note": "HashCat technical term, used unchanged in Italian documentation"
+    },
+    "charset": {
+      "translation": "charset",
+      "keepEnglish": true,
+      "note": "Technical term from HashCat; 'set di caratteri' is the translation but charset is standard"
+    },
+    "attack mode": {
+      "translation": "modalità di attacco",
+      "keepEnglish": false,
+      "note": "Standard Italian terminology for attack modes"
+    },
+    "brute force": {
+      "translation": "attacco a forza bruta",
+      "keepEnglish": false,
+      "note": "Also 'forza bruta' alone in casual UI; full form preferred for clarity"
+    },
+    "dictionary attack": {
+      "translation": "attacco a dizionario",
+      "keepEnglish": false,
+      "note": "Preferred form (preposition 'a'), matching 'attacco a forza bruta' for style consistency; the shorter 'attacco dizionario' is an acceptable colloquial variant."
+    },
+    "hybrid attack": {
+      "translation": "attacco ibrido",
+      "keepEnglish": false,
+      "note": "Masculine: ibrido; feminine would be 'ibrida'"
+    },
+    "association attack": {
+      "translation": "attacco associativo",
+      "keepEnglish": false,
+      "note": "HashCat mode 9; associativo agrees with attacco (masculine)"
+    },
+    "keyspace": {
+      "translation": "keyspace",
+      "keepEnglish": true,
+      "note": "Technical term from HashCat scheduling and benchmarking"
+    },
+    "effective keyspace": {
+      "translation": "keyspace effettivo",
+      "keepEnglish": false,
+      "note": "effettivo agrees with keyspace (masculine singular)"
+    },
+    "chunk": {
+      "translation": "chunk",
+      "keepEnglish": true,
+      "note": "KrakenHashes scheduler term; 'segmento' is translation but chunk is standard"
+    },
+    "task": {
+      "translation": "task",
+      "keepEnglish": true,
+      "note": "Job execution terminology; 'attività' is acceptable translation"
+    },
+    "job": {
+      "translation": "job",
+      "keepEnglish": true,
+      "note": "Core KrakenHashes term; 'lavoro' or 'processo' are translations"
+    },
+    "preset job": {
+      "translation": "job predefinito",
+      "keepEnglish": false,
+      "note": "predefinito agrees with job (masculine singular)"
+    },
+    "workflow": {
+      "translation": "workflow",
+      "keepEnglish": true,
+      "note": "KrakenHashes feature term, kept unchanged"
+    },
+    "loopback": {
+      "translation": "loopback",
+      "keepEnglish": true,
+      "note": "KrakenHashes attack continuation feature; ciclo di retroazione is translation"
+    },
+    "priority": {
+      "translation": "priorità",
+      "keepEnglish": false,
+      "note": "Standard Italian term; feminine singular/plural same form"
+    },
+    "max agents": {
+      "translation": "agenti massimi",
+      "keepEnglish": false,
+      "note": "Plural masculine; or 'massimo di agenti' as alternative"
+    },
+    "overflow": {
+      "translation": "overflow",
+      "keepEnglish": true,
+      "note": "KrakenHashes scheduler technical term; 'eccesso' is translation but overflow standard"
+    },
+    "benchmark": {
+      "translation": "benchmark",
+      "keepEnglish": true,
+      "note": "HashCat term; 'prova di velocità' or 'misurazione' are translations"
+    },
+    "hash rate": {
+      "translation": "hash rate",
+      "keepEnglish": true,
+      "note": "Standard in Italian HashCat output; also '(H/s)' in UI; 'velocità di hash' is translation"
+    },
+    "progress": {
+      "translation": "avanzamento",
+      "keepEnglish": false,
+      "note": "Standard Italian software term for percent-complete (e.g. 'barra di avanzamento', 'stato di avanzamento'); 'progresso' is understood but reads as general advancement rather than a job's completion state."
+    },
+    "agent": {
+      "translation": "agent",
+      "keepEnglish": true,
+      "note": "KrakenHashes component term; 'agente' is translation"
+    },
+    "device": {
+      "translation": "dispositivo",
+      "keepEnglish": false,
+      "note": "Standard for GPU/CPU; also 'device' acceptable in technical context"
+    },
+    "claim code": {
+      "translation": "codice voucher",
+      "keepEnglish": false,
+      "note": "Aligned with 'voucher' below since terms.json defines them as the same concept (the code used to register an agent) — using the same wording for both avoids presenting users with two different terms for one feature."
+    },
+    "voucher": {
+      "translation": "voucher",
+      "keepEnglish": true,
+      "note": "Registration credential; 'voucher' is standard in Italian business Italian"
+    },
+    "heartbeat": {
+      "translation": "heartbeat",
+      "keepEnglish": true,
+      "note": "Agent communication term; 'battito cardiaco' or 'segnale di vita' are translations"
+    },
+    "offline buffer": {
+      "translation": "periodo di tolleranza offline",
+      "keepEnglish": false,
+      "note": "Conveys the real meaning (grace period before an agent is marked offline) better than literal 'buffer offline', which reads as a memory/data buffer rather than a time window."
+    },
+    "auto-update": {
+      "translation": "aggiornamento automatico",
+      "keepEnglish": false,
+      "note": "Standard Italian UI term; also 'auto-aggiornamento' acceptable"
+    },
+    "binary": {
+      "translation": "binario",
+      "keepEnglish": false,
+      "note": "Masculine singular; refers to HashCat binary version"
+    },
+    "client": {
+      "translation": "cliente",
+      "keepEnglish": false,
+      "note": "Refers to the customer/engagement the hashlists belong to (pentest-report sense), not a network client — Italian pentest reports standardly call this 'il cliente'. Keeping 'client' in English risks confusion with client-server terminology."
+    },
+    "team": {
+      "translation": "team",
+      "keepEnglish": true,
+      "note": "User group feature; 'team' or 'gruppo' are options"
+    },
+    "member": {
+      "translation": "membro",
+      "keepEnglish": false,
+      "note": "Masculine singular; 'i membri' plural; also 'utente' (user) acceptable"
+    },
+    "owner": {
+      "translation": "proprietario",
+      "keepEnglish": false,
+      "note": "Masculine singular; feminine: proprietaria"
+    },
+    "retention": {
+      "translation": "conservazione",
+      "keepEnglish": false,
+      "note": "Feminine singular; or 'periodo di conservazione'"
+    },
+    "archive": {
+      "translation": "archivia",
+      "keepEnglish": false,
+      "note": "Imperative button label (2nd person singular), matching the 'apply'→'applica' convention for action buttons; infinitive 'archiviare', noun 'archivio' for the archived-items area/section label."
+    },
+    "analytics report": {
+      "translation": "rapporto di analisi",
+      "keepEnglish": false,
+      "note": "Or 'rapporto analitico'; both masculine"
+    },
+    "password reuse": {
+      "translation": "riutilizzo di password",
+      "keepEnglish": false,
+      "note": "Masculine singular. Do not use 'password condivisa' (= a password shared between people) as an alternative — that is a different scenario from the same password recurring across several accounts."
+    },
+    "hash reuse": {
+      "translation": "riutilizzo di hash",
+      "keepEnglish": false,
+      "note": "Masculine singular; analytics/detection context"
+    },
+    "complexity": {
+      "translation": "complessità",
+      "keepEnglish": false,
+      "note": "Feminine singular/plural same form; password attribute"
+    },
+    "entropy": {
+      "translation": "entropia",
+      "keepEnglish": false,
+      "note": "Feminine singular; standard cryptographic term"
+    },
+    "domain": {
+      "translation": "dominio",
+      "keepEnglish": false,
+      "note": "Masculine singular; Windows/AD context; 'do not translate' list includes Active Directory"
+    },
+    "username": {
+      "translation": "nome utente",
+      "keepEnglish": false,
+      "note": "Masculine singular; standard UI term in Italian"
+    },
+    "audit log": {
+      "translation": "registro di audit",
+      "keepEnglish": false,
+      "note": "Masculine singular; 'log di audit' or 'registro di controllo' acceptable"
+    },
+    "dashboard": {
+      "translation": "dashboard",
+      "keepEnglish": true,
+      "note": "Standard term; 'pannello' or 'pannello di controllo' are translations"
+    },
+    "settings": {
+      "translation": "impostazioni",
+      "keepEnglish": false,
+      "note": "Feminine plural; standard Italian UI term"
+    },
+    "autosave": {
+      "translation": "salvataggio automatico",
+      "keepEnglish": false,
+      "note": "Masculine singular; or 'auto-salvataggio'"
+    },
+    "apply": {
+      "translation": "applica",
+      "keepEnglish": false,
+      "note": "Imperative button label (2nd person singular); infinitive: 'applicare'"
+    },
+    "certificate": {
+      "translation": "certificato",
+      "keepEnglish": false,
+      "note": "Masculine singular; TLS/SSL context"
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "Abbreviation universally kept in Italian certificate/TLS documentation (it is not actually itself listed in terms.json's doNotTranslate array, but it follows the same logic as SSL/TLS/DNS there). The literal translation 'Nome alternativo del soggetto' is never used in practice."
+    },
+    "network share": {
+      "translation": "condivisione di rete",
+      "keepEnglish": false,
+      "note": "Feminine singular; SMB/NFS context"
+    },
+    "mount": {
+      "translation": "monta",
+      "keepEnglish": false,
+      "note": "Imperative button label for the mount action, matching 'apply'→'applica'; infinitive 'montare', noun 'montaggio' (cf. 'punto di montaggio' = mount point) for status/section labels."
+    },
+    "cloud fleet": {
+      "translation": "flotta cloud",
+      "keepEnglish": false,
+      "note": "Feminine singular; rented GPU instances"
+    },
+    "provisioning": {
+      "translation": "provisioning",
+      "keepEnglish": true,
+      "note": "Cloud infrastructure term; 'provisioning' is standard; 'allocazione' translation available"
+    },
+    "budget": {
+      "translation": "budget",
+      "keepEnglish": true,
+      "note": "Cloud spending context; 'budget' adopted in Italian business; 'bilancio' is translation"
+    },
+    "threshold": {
+      "translation": "soglia",
+      "keepEnglish": false,
+      "note": "Feminine singular; percentage/trigger context"
+    },
+    "drain": {
+      "translation": "svuota",
+      "keepEnglish": false,
+      "note": "Imperative button label matching 'apply'→'applica'; infinitive 'svuotare', noun 'svuotamento' for a status label (e.g. 'In svuotamento'). Allow-finish-no-new-work semantic, not literal emptying."
+    },
+    "teardown": {
+      "translation": "smantella",
+      "keepEnglish": false,
+      "note": "Imperative button label matching 'apply'→'applica' (cloud instance destruction); infinitive 'smantellare', noun 'smantellamento' (or 'dismissione') for a status/log label."
+    },
+    "webhook": {
+      "translation": "webhook",
+      "keepEnglish": true,
+      "note": "HTTP callback term; kept in Italian technical documentation"
+    },
+    "notification": {
+      "translation": "notifica",
+      "keepEnglish": false,
+      "note": "Feminine singular; in-app/email/webhook context"
+    },
+    "two-factor authentication": {
+      "translation": "autenticazione a due fattori",
+      "keepEnglish": false,
+      "note": "Feminine singular; also MFA or 2FA abbreviations used"
+    },
+    "backup codes": {
+      "translation": "codici di backup",
+      "keepEnglish": false,
+      "note": "Plural masculine; MFA recovery context"
+    },
+    "authenticator app": {
+      "translation": "app di autenticazione",
+      "keepEnglish": false,
+      "note": "Describes the generic class of TOTP app; more natural Italian than anglicized 'app authenticator'. Users will still recognize specific apps (Google/Microsoft Authenticator) by their own product names."
+    },
+    "session": {
+      "translation": "sessione",
+      "keepEnglish": false,
+      "note": "Feminine singular; logged-in browser context"
+    },
+    "API key": {
+      "translation": "chiave API",
+      "keepEnglish": false,
+      "note": "Feminine singular; personal HTTP API authentication"
+    },
+    "branding": {
+      "translation": "branding",
+      "keepEnglish": true,
+      "note": "Custom app identity; 'personalizzazione' is translation"
+    },
+    "diagnostics": {
+      "translation": "diagnostica",
+      "keepEnglish": false,
+      "note": "Feminine singular; troubleshooting/debug tools page"
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Painel",
+    "jobs": "Jobs",
+    "agents": "Agentes",
+    "hashlists": "Hashlists",
+    "crackedHashes": "Hashes Quebrados",
+    "wordlists": "Wordlists",
+    "rules": "Regras",
+    "clientManagement": "Gerenciamento de Clientes",
+    "teams": "Equipes",
+    "analytics": "Análise",
+    "about": "Sobre",
+    "logout": "Sair"
+  },
+  "admin": {
+    "title": "Administração",
+    "settings": "Configurações",
+    "userManagement": "Gerenciamento de Usuários",
+    "customCharsets": "Charsets Personalizados",
+    "presetJobs": "Jobs Predefinidos",
+    "jobWorkflows": "Fluxos de Trabalho de Jobs",
+    "diagnostics": "Diagnósticos",
+    "auditLog": "Registro de Auditoria",
+    "jobAnalytics": "Análise de Jobs",
+    "teamManagement": "Gerenciamento de Equipes",
+    "cloudFleet": "Frota em Nuvem",
+    "binaries": "Binários",
+    "hashTypes": "Tipos de Hash",
+    "vouchers": "Vouchers",
+    "clients": "Clientes",
+    "teams": "Equipes"
+  },
+  "userMenu": {
+    "userSettings": "Configurações do Usuário",
+    "savedCharsets": "Charsets Salvos",
+    "logout": "Sair",
+    "user": "Usuário"
+  },
+  "aria": {
+    "toggleDrawer": "Alternar menu",
+    "mainNavigation": "Navegação principal",
+    "adminNavigation": "Navegação de administração",
+    "downloadCaCert": "Baixar certificado de CA"
+  },
+  "groups": {
+    "resources": "Recursos",
+    "peopleAccess": "Pessoas e Acesso",
+    "operations": "Operações"
+  }
+}

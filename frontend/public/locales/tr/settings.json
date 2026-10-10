@@ -1,0 +1,384 @@
+{
+  "title": "Kullanıcı Ayarları",
+  "profileSettings": {
+    "title": "Profil Ayarları"
+  },
+  "profile": {
+    "title": "Profil",
+    "username": "Kullanıcı Adı",
+    "email": "E-Posta",
+    "changePassword": "Parolayı Değiştir",
+    "currentPassword": "Geçerli Parola",
+    "newPassword": "Yeni Parola",
+    "confirmPassword": "Yeni Parolayı Onayla",
+    "updateProfile": "Profili Güncelle",
+    "profileUpdated": "Profil başarıyla güncellendi"
+  },
+  "account": {
+    "title": "Hesap Bilgisi",
+    "username": "Kullanıcı Adı",
+    "email": "E-Posta",
+    "usernameCannotChange": "Kullanıcı adı değiştirilemez",
+    "saving": "Kaydediliyor...",
+    "saveEmail": "E-Postayı Kaydet",
+    "confirmEmailUpdate": {
+      "title": "E-Posta Güncellemeyi Onayla",
+      "message": "E-Posta adresinizi güncellemek için lütfen geçerli parolanızı girin."
+    },
+    "errors": {
+      "noChanges": "Kaydedilecek değişiklik yok",
+      "invalidEmail": "Geçersiz e-posta adresi",
+      "updateFailed": "E-Postayı güncelleme başarısız oldu",
+      "incorrectPassword": "Yanlış parola"
+    },
+    "success": {
+      "emailUpdated": "E-Posta başarıyla güncellendi"
+    }
+  },
+  "password": {
+    "title": "Parolayı Değiştir",
+    "currentPassword": "Geçerli Parola",
+    "newPassword": "Yeni Parola",
+    "confirmNewPassword": "Yeni Parolayı Onayla",
+    "enterCurrentFirst": "Önce geçerli parolayı girin",
+    "passwordsMatch": "Parolalar eşleşiyor",
+    "changePassword": "Parolayı Değiştir",
+    "changing": "Parola Değiştiriliyor...",
+    "errors": {
+      "currentRequired": "Geçerli parola gerekli",
+      "newRequired": "Yeni parola gerekli",
+      "mismatch": "Parolalar eşleşmiyor",
+      "requirements": "Yeni parola gereksinimleri karşılamıyor",
+      "updateFailed": "Parolanızı güncelleme başarısız oldu"
+    },
+    "success": {
+      "changed": "Parola başarıyla değiştirildi"
+    }
+  },
+  "apiKey": {
+    "title": "API Anahtarları",
+    "status": "API Anahtarı Durumu",
+    "active": "Etkin",
+    "noKeyGenerated": "API Anahtarı Oluşturulmadı",
+    "created": "Oluşturuldu",
+    "lastUsed": "Son Kullanım",
+    "generate": "API Anahtarı Oluştur",
+    "regenerate": "API Anahtarını Yeniden Oluştur",
+    "revoke": "API Anahtarını İptal Et",
+    "viewDocs": "API Belgelerini Görüntüle",
+    "dialog": {
+      "title": "API Anahtarınız",
+      "saveNow": "Bu anahtarı şimdi kaydedin!",
+      "cantSeeAgain": "Bir daha görmeyeceksiniz.",
+      "instructions": "Bu API anahtarını X-API-Key başlığına ekleyerek HTTP isteklerinizde kullanın.",
+      "saved": "Kaydettim"
+    },
+    "confirmRegenerate": {
+      "title": "API Anahtarını Yeniden Oluştur?",
+      "warning": "Bu, mevcut API anahtarınızı geçersiz kılacaktır. Geçerli anahtarı kullanan tüm uygulamalar çalışmayı durduracaktır.",
+      "confirm": "Devam etmek istediğinizden emin misiniz?"
+    },
+    "confirmRevoke": {
+      "title": "API Anahtarını İptal Et?",
+      "warning": "Bu, API erişimini hemen devre dışı bırakacaktır. Bu anahtarı kullanan tüm uygulamalar çalışmayı durduracaktır.",
+      "confirm": "API anahtarınızı iptal etmek istediğinizden emin misiniz?"
+    },
+    "errors": {
+      "generateFailed": "API anahtarı oluşturma başarısız oldu",
+      "revokeFailed": "API anahtarını iptal etme başarısız oldu"
+    },
+    "success": {
+      "revoked": "API anahtarı başarıyla iptal edildi",
+      "copied": "API anahtarı panoya kopyalandı"
+    }
+  },
+  "security": {
+    "title": "Güvenlik",
+    "caCertificate": {
+      "title": "CA Sertifikası",
+      "description": "Kendi imzalı sertifikalar kullanıyorsanız, bu sunucuya güvenmek için CA sertifikasını indirip yükleyin.",
+      "download": "CA Sertifikasını İndir",
+      "docsLink": "SSL/TLS Belgelerini Görüntüle"
+    }
+  },
+  "common": {
+    "cancel": "İptal Et",
+    "never": "Hiçbir Zaman",
+    "invalidDate": "Geçersiz tarih",
+    "create": "Oluştur",
+    "delete": "Sil"
+  },
+  "mfa": {
+    "title": "İki Faktörlü Kimlik Doğrulama",
+    "status": "2FA Durumu",
+    "enabled": "Etkin",
+    "disabled": "Devre Dışı",
+    "enable": "2FA'yı Etkinleştir",
+    "disable": "2FA'yı Devre Dışı Bırak",
+    "methods": {
+      "title": "Kimlik Doğrulama Yöntemleri",
+      "totp": "Kimlik Doğrulayıcı Uygulaması",
+      "email": "E-Posta",
+      "backupCodes": "Yedek Kodlar",
+      "passkey": "Passkey"
+    },
+    "setup": {
+      "scanQR": "Bu QR kodunu kimlik doğrulayıcı uygulamanızla tarayın",
+      "enterCode": "Doğrulamak için uygulamanızdan kodu girin",
+      "backupCodesGenerated": "Bu yedek kodları güvenli bir yere kaydedin"
+    },
+    "methodSelection": {
+      "title": "MFA Yöntemi Seçin",
+      "description": "Oturum açarken kimliğinizi nasıl doğrulamak istediğinizi seçin.",
+      "authenticatorDescription": "Google Authenticator, Authy veya 1Password gibi kimlik doğrulayıcı uygulamalarından zaman tabanlı bir kod kullanın.",
+      "passkeyDescription": "Hızlı ve güvenli kimlik doğrulama için bir güvenlik anahtarı, parmak izi, yüz tanıma veya cihaz PIN'i kullanın."
+    },
+    "card": {
+      "title": "Çok Faktörlü Kimlik Doğrulama",
+      "requiredByPolicy": "MFA, kuruluşunuzun güvenlik politikası tarafından gereklidir",
+      "enableLabel": "Çok Faktörlü Kimlik Doğrulamayı Etkinleştir",
+      "preferredMethod": "Tercih Edilen MFA Yöntemi",
+      "preferredMethodNames": {
+        "authenticator": "Kimlik Doğrulayıcı",
+        "email": "E-Posta",
+        "passkey": "Passkey"
+      },
+      "emailAuth": "E-Posta Kimlik Doğrulaması",
+      "emailRequired": "Hesap güvenliği için gerekli",
+      "optional": "İsteğe Bağlı",
+      "required": "Gerekli",
+      "configured": "Yapılandırılmış",
+      "notConfigured": "Yapılandırılmamış",
+      "disable": "Devre Dışı Bırak",
+      "setup": "Kur",
+      "passkeys": "Passkey'ler",
+      "passkeysRegistered_one": "{{count}} passkey kayıtlı",
+      "passkeysRegistered_other": "{{count}} passkey kayıtlı",
+      "addPasskey": "Passkey Ekle",
+      "passkeyAdded": "Eklendi: {{date}}",
+      "passkeyLastUsed": " | Son kullanım: {{date}}",
+      "rename": "Yeniden Adlandır",
+      "delete": "Sil",
+      "passkeysUnsupported": "Passkey'ler bu tarayıcıda desteklenmiyor. Passkey kimlik doğrulamasını etkinleştirmek için lütfen modern bir tarayıcı kullanın.",
+      "backupCodesRemaining_one": "{{count}} yedek kod kaldı",
+      "backupCodesRemaining_other": "{{count}} yedek kod kaldı",
+      "noBackupCodes": "Kullanılabilir yedek kod yok",
+      "regenerate": "Yeniden Oluştur",
+      "generate": "Oluştur"
+    },
+    "dialogs": {
+      "cancel": "İptal Et",
+      "close": "Kapat",
+      "warning": "Uyarı",
+      "setupAuthenticatorTitle": "Kimlik Doğrulayıcı Uygulamasını Kur",
+      "qrAlt": "QR Kodu",
+      "manualEntry": "QR kodunu tarayamıyorsanız, bu kodu el ile girin: <strong>{{secret}}</strong>",
+      "scanInstructions": "Bu QR kodunu kimlik doğrulayıcı uygulamanızla tarayın (örn. Google Authenticator, Authy)",
+      "verificationCode": "Doğrulama Kodu",
+      "verificationPlaceholder": "6 haneli kodu girin",
+      "verify": "Doğrula",
+      "backupCodesTitle": "Yedek Kodlar",
+      "generateBackupPrompt": "Birincil kimlik doğrulama yönteminize erişemediğinizde kullanmak için yedek kodlar oluşturun",
+      "generateBackupCodes": "Yedek Kodlar Oluştur",
+      "saveCodesWarning": "Bu kodları güvenli bir yere kaydedin. Bir daha gösterilmeyecekler!",
+      "copied": "Kopyalandı!",
+      "copyAll": "TÜM KODLARI KOPYALA",
+      "regenerateWarning": "Bu, mevcut tüm yedek kodlarınızı geçersiz kılacaktır. Yeni olanlar oluşturmak istediğinizden emin misiniz?",
+      "generateNewCodes": "Yeni Kodlar Oluştur",
+      "disableAuthWarning": "Kimlik doğrulayıcıyı devre dışı bırakmak istediğinizden emin misiniz? Bu, hesabınızdan kaldıracak ve gelecekte kullanmak istediğinizde yeniden kurmanız gerekecektir.",
+      "disableAuthenticator": "Kimlik Doğrulayıcıyı Devre Dışı Bırak",
+      "addPasskeyTitle": "Passkey Ekle",
+      "addPasskeyDescription": "İki faktörlü kimlik doğrulama için yeni bir passkey'i (güvenlik anahtarı, parmak izi veya cihaz) kaydedin.",
+      "passkeyName": "Passkey Adı",
+      "passkeyNamePlaceholder": "örn., YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn bu tarayıcıda desteklenmiyor. Lütfen modern bir tarayıcı kullanın.",
+      "webauthnUnsupportedBrowsers": "WebAuthn bu tarayıcıda desteklenmiyor. Lütfen Chrome, Firefox, Safari veya Edge gibi modern bir tarayıcı kullanın.",
+      "registering": "Kaydediliyor...",
+      "registerPasskey": "Passkey'i Kaydet",
+      "renamePasskeyTitle": "Passkey'i Yeniden Adlandır",
+      "saving": "Kaydediliyor...",
+      "save": "Kaydet",
+      "deletePasskeyTitle": "Passkey'i Sil",
+      "deletePasskeyConfirm": "\"{{name}}\" passkey'sini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "deleting": "Siliniyor...",
+      "delete": "Sil",
+      "setupPasskeyTitle": "MFA için Passkey Kur",
+      "setupPasskeyDescription": "Çok faktörlü kimlik doğrulamayı etkinleştirmek için passkey'i kaydedin. Güvenlik anahtarı, parmak izi, yüz tanıma veya cihaz PIN'i kullanın.",
+      "registerAndEnable": "Kaydet & MFA'yı Etkinleştir"
+    },
+    "messages": {
+      "loadFailed": "MFA ayarları yükleme başarısız oldu",
+      "disabled": "MFA başarıyla devre dışı bırakıldı",
+      "passkeyBrowserRequired": "Passkey kimlik doğrulaması gereklidir ancak tarayıcınız WebAuthn'i desteklemez. MFA'yı etkinleştirmek için lütfen Chrome, Firefox, Safari veya Edge gibi modern bir tarayıcı kullanın.",
+      "enabledEmail": "MFA e-posta kimlik doğrulaması ile etkinleştirildi",
+      "noMethods": "Kullanılabilir MFA yöntemi yok. Lütfen yöneticinize başvurun.",
+      "toggleFailed": "MFA'yı değiştirme başarısız oldu",
+      "passkeyNameRequired": "Lütfen passkey için bir ad girin",
+      "passkeyRegisteredSaveCodes": "Passkey başarıyla kaydedildi! Lütfen yedek kodlarınızı kaydedin.",
+      "passkeyRegisteredNoCodes": "Passkey başarıyla kaydedildi. MFA ayarlarından yedek kodlar oluşturabilirsiniz.",
+      "authenticatorSetupFailed": "Kimlik doğrulayıcı kurulumu başarısız oldu",
+      "authenticatorSetup": "Kimlik doğrulayıcı uygulaması başarıyla kuruldu",
+      "verifyFailed": "Kodu doğrulama başarısız oldu",
+      "backupCodesGenerated": "Yeni yedek kodlar oluşturuldu",
+      "backupCodesFailed": "Yedek kodlar oluşturma başarısız oldu",
+      "preferredUpdated": "Tercih edilen MFA yöntemi başarıyla güncellendi",
+      "preferredFailed": "Tercih edilen MFA yöntemi güncelleme başarısız oldu",
+      "disableAuthFailed": "Kimlik doğrulayıcıyı devre dışı bırakma başarısız oldu",
+      "authenticatorDisabled": "Kimlik doğrulayıcı başarıyla devre dışı bırakıldı",
+      "newBackupCodesFailed": "Yeni yedek kodlar oluşturma başarısız oldu",
+      "newBackupCodesGenerated": "Yeni yedek kodlar başarıyla oluşturuldu",
+      "invalidResponse": "Sunucudan geçersiz yanıt biçimi",
+      "passkeyRegistered": "Passkey başarıyla kaydedildi",
+      "passkeyDeleted": "Passkey başarıyla silindi",
+      "passkeyDeleteFailed": "Passkey silme başarısız oldu",
+      "passkeyRenamed": "Geçiş anahtarı başarıyla yeniden adlandırıldı",
+      "passkeyRenameFailed": "Geçiş anahtarı yeniden adlandırılamadı"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Bağlı Hesaplar",
+    "noAccounts": "Bağlı hesap yok",
+    "link": "Hesap Bağla",
+    "unlink": "Bağlantıyı Kaldır",
+    "description": "Hesabınıza bağlı harici kimlik doğrulama sağlayıcıları",
+    "noAccountsMessage": "Profilinize bağlı harici hesap yok. SSO sağlayıcısı üzerinden oturum açarak hesapları bağlayabilirsiniz.",
+    "emailLabel": "E-posta: {{email}}",
+    "usernameLabel": "Kullanıcı adı: {{username}}",
+    "lastLoginLinked": "Son oturum açma: {{lastLogin}} | Bağlı: {{linked}}",
+    "unlinkTooltip": "Hesap bağlantısını kaldır",
+    "errors": {
+      "loadFailed": "Bağlı hesaplar yüklenemedi",
+      "unlinkFailed": "Hesabın bağlantısı kaldırılamadı"
+    },
+    "unlinkDialog": {
+      "title": "Hesabın Bağlantısını Kaldır",
+      "warning": "Bu sağlayıcıyı kullanarak artık oturum açamazsınız.",
+      "confirmation": "{{provider}} hesabınızın bağlantısını kaldırmak istediğinizden emin misiniz?"
+    }
+  },
+  "notifications": {
+    "title": "Bildirimler",
+    "emailNotifications": "E-posta Bildirimleri",
+    "jobCompleted": "İş Tamamlandı",
+    "agentOffline": "Ajan Çevrimdışı",
+    "securityAlerts": "Güvenlik Uyarıları"
+  },
+  "preferences": {
+    "title": "Tercihler",
+    "language": "Dil",
+    "timezone": "Saat Dilimi",
+    "dateFormat": "Tarih Biçimi",
+    "theme": "Tema",
+    "themes": {
+      "light": "Açık",
+      "dark": "Koyu",
+      "system": "Sistem"
+    },
+    "languageHelper": "Sadece bu tarayıcı için geçerlidir.",
+    "themeHelper": "Sistem, işletim sistemi ayarınızı izler."
+  },
+  "errors": {
+    "updateFailed": "Ayarlar güncellenemedi",
+    "passwordMismatch": "Parolalar eşleşmiyor",
+    "invalidPassword": "Geçersiz mevcut parola"
+  },
+  "nav": {
+    "description": "Hesabınız, güvenlik ve tercihler.",
+    "groupAccount": "Hesap",
+    "profile": "Profil",
+    "profileDesc": "E-posta adresi, dil ve görünüm.",
+    "security": "Güvenlik",
+    "securityDesc": "Parola, iki faktörlü kimlik doğrulama, bağlı hesaplar ve CA sertifikası.",
+    "notifications": "Bildirimler",
+    "notificationsDesc": "Hangi olaylar size ulaşıyor ve nasıl.",
+    "api": "API anahtarı",
+    "apiDesc": "HTTP API için kişisel anahtar.",
+    "charsets": "Kaydedilmiş karakter setleri",
+    "charsetsDesc": "Maske saldırıları için özel karakter setleri."
+  },
+  "savedCharsets": {
+    "title": "Kaydedilmiş Karakter Setleri",
+    "description": "Maske tabanlı saldırılar için kullanılmak üzere kişisel özel karakter setlerinizi yönetin. Satır içi tanımlar ve ikili .hcchr karakter seti dosyalarını destekler.",
+    "createCharset": "Karakter Seti Oluştur",
+    "sections": {
+      "mine": "Karakter Setlerim",
+      "team": "Takım Karakter Setleri",
+      "global": "Global Karakter Setleri",
+      "globalSubtitle": "Bu karakter setleri yöneticiler tarafından yönetilir ve herkese açıktır."
+    },
+    "columns": {
+      "name": "Ad",
+      "team": "Takım",
+      "definition": "Tanım / Bilgi",
+      "description": "Açıklama",
+      "created": "Oluşturuldu"
+    },
+    "typeLabels": {
+      "file": "Dosya",
+      "hex": "Onaltılık"
+    },
+    "uniqueBytes_one": "{{count}} benzersiz bayt",
+    "uniqueBytes_other": "{{count}} benzersiz bayt",
+    "hexBytes_one": "{{count}} bayt",
+    "hexBytes_other": "{{count}} bayt",
+    "rowActions": {
+      "edit": "Düzenle",
+      "delete": "Sil"
+    },
+    "empty": "Bu kategoride karakter seti yok.",
+    "dialogs": {
+      "create": {
+        "title": "Kişisel Karakter Seti Oluştur"
+      },
+      "edit": {
+        "title": "Karakter Setini Düzenle"
+      },
+      "delete": {
+        "title": "Karakter Setini Sil",
+        "confirmation": "\"{{name}}\" karakter setini silmek istediğinizden emin misiniz?"
+      },
+      "modeToggle": {
+        "inline": "Satır İçi Tanım",
+        "file": "Dosya Yükleme (.hcchr)"
+      },
+      "fields": {
+        "name": "Ad",
+        "namePlaceholder": "örn., DES Full Charset",
+        "definition": "Tanım",
+        "definitionPlaceholderHex": "örn., 41424344 (onaltılık bayt çiftleri)",
+        "definitionPlaceholderPlain": "örn., ?u?d veya abcdef0123456789",
+        "definitionHelperHex": "Onaltılık bayt çiftleri — her çift = bir karakter seti baytı. {{bytes}}",
+        "definitionHelperHexBytes_one": "{{count}} bayt",
+        "definitionHelperHexBytes_other": "{{count}} bayt",
+        "definitionHelperPlain": "Hashcat karakter seti tanımı. ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H veya düz karakterleri kullanın.",
+        "hexTooltip": "Etkinleştirildiğinde, tanım onaltılık bayt çiftleri olarak yorumlanır (örn., 41424344 = A, B, C, D baytları). Bu karakter setini kullanan işler otomatik olarak --hex-charset enjekte edecektir.",
+        "hexLabel": "Onaltılık kodlanmış tanım",
+        "selectFile": ".hcchr Dosyası Seç",
+        "fileSizeBytes_one": "{{count}} bayt",
+        "fileSizeBytes_other": "{{count}} bayt",
+        "fileHelperText": "Ham bayt değerleri içeren ikili karakter seti dosyası (maksimum 1023 bayt, en fazla 256 benzersiz bayt).",
+        "fileCharsetInfo_one": "Dosya karakter seti: {{count}} benzersiz bayt. Yalnızca ad ve açıklama düzenlenebilir.",
+        "fileCharsetInfo_other": "Dosya karakter seti: {{count}} benzersiz bayt. Yalnızca ad ve açıklama düzenlenebilir.",
+        "description": "Açıklama",
+        "descriptionPlaceholder": "Bu karakter setinin ne için kullanıldığına dair isteğe bağlı açıklama"
+      },
+      "update": "Güncelle",
+      "upload": "Yükle"
+    },
+    "messages": {
+      "createSuccess": "Karakter seti başarıyla oluşturuldu",
+      "uploadSuccess": "Dosya karakter seti başarıyla yüklendi",
+      "updateSuccess": "Karakter seti başarıyla güncellendi",
+      "deleteSuccess": "Karakter seti başarıyla silindi"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Yalnızca .hcchr dosyalarına izin verilir",
+      "fileTooLarge": "Dosya çok büyük (maksimum 1023 bayt — hashcat okuma arabelleği sınırı)",
+      "nameRequired": "Ad gerekli",
+      "definitionRequired": "Tanım gerekli",
+      "selectFile": "Lütfen bir .hcchr dosyası seçin",
+      "deleteFailed": "Karakter setini silme başarısız oldu: {{message}}",
+      "globalDeleteForbidden": "Global karakter setleri yalnızca yönetici panelindeki yöneticiler tarafından silinebilir"
+    }
+  }
+}

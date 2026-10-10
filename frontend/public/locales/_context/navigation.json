@@ -1,0 +1,11 @@
+{
+  "menu": {
+    "crackedHashes": "Nickname for hashcat's 'potfile' view: every password already cracked across all hashlists.",
+    "rules": "Hashcat mangling rules (word-transformation rules applied to a wordlist), not organizational rules."
+  },
+  "admin": {
+    "vouchers": "One-time or reusable claim codes agents use to register themselves with this server.",
+    "cloudFleet": "Management panel for cloud-rented GPU agent instances (as opposed to on-prem hardware).",
+    "binaries": "Hashcat and agent executable binaries that get distributed to agents."
+  }
+}

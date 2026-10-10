@@ -1,0 +1,172 @@
+{
+  "agentDownloads": {
+    "chunkSize": {
+      "title": "\"Chunk\" here is a download file-transfer block size (for future resume support), not a job's keyspace chunk."
+    }
+  },
+  "hashTypes": {
+    "table": {
+      "slow": "Column header; flags a slow (computationally expensive) hash algorithm, not table performance.",
+      "salted": "Column header; flags a hash type that uses per-hash salts, which affects keyspace calculation."
+    },
+    "tooltips": {
+      "processing": "Badge label shown on a hash type that needs special code-level processing; not a 'loading' indicator."
+    }
+  },
+  "cloud": {
+    "providers": {
+      "preflight": "Button that runs a read-only readiness check (credentials, quota); it launches nothing itself.",
+      "acknowledge": "Button confirming the admin accepts the third-party data-exposure risk described nearby.",
+      "fields": {
+        "vpnTag": "Label for the VPN tag/group (e.g. a Tailscale ACL tag) assigned to rented instances, not a generic tag field.",
+        "awsUseSpot": "\"Spot\" refers to AWS EC2 Spot (discounted, interruptible) capacity, not a location."
+      },
+      "limitsValue": "Template for a provider's limits; {{instances}} is the max concurrent instance count and {{rate}} is the hourly cost cap.",
+      "zones": {
+        "colZone": "Column header for an AWS Availability Zone, not a time zone or generic area.",
+        "availableCount": "\"{{count}} free\" means {{count}} machines currently available to rent, not 'free of charge'.",
+        "trust": {
+          "measured": "Displayed text is 'live', meaning this figure was just fetched in real time from the provider (vs. a static/advisory number)."
+        }
+      }
+    },
+    "budgets": {
+      "actions": {
+        "drain": "Status meaning no new work is dispatched to this client while its in-flight chunks finish, just before a hard stop."
+      },
+      "columns": {
+        "client": "\"Client\" is the customer/engagement being billed, not a software client.",
+        "ttl": "\"TTL\" (time to live) is the maximum lifetime allowed for a rented instance before forced teardown."
+      },
+      "fields": {
+        "enabled": "\"Cloud burst\" is the feature name for letting this client's jobs rent paid cloud GPU capacity; this is the toggle, not a status."
+      }
+    },
+    "fleet": {
+      "destroy": "Row action that terminates (deletes) a rented cloud instance and stops its billing, not a data-deletion action.",
+      "teardownFailingTitle": "\"Teardown\" is the process of destroying/releasing a rented cloud instance.",
+      "estimated": "Abbreviation for 'estimated'; the figure is projected from elapsed time and rate, not the provider's final billed amount.",
+      "states": {
+        "draining": "Instance lifecycle state: no new work is sent while its current in-flight chunk finishes before teardown."
+      },
+      "columns": {
+        "rate": "Column header for the instance's hourly billing rate, not a hash rate or success rate.",
+        "spend": "Column header (noun use of 'spend') showing the dollar amount this instance has cost so far.",
+        "client": "\"Client\" is the customer/engagement this instance's work is billed to, not a software client.",
+        "agent": "\"Agent\" is the cracking-machine process running on this rented instance, not a person."
+      }
+    },
+    "rules": {
+      "fields": {
+        "minStarvation": "\"Starvation\" is scheduling jargon for a job getting no agent time at all; sets the minimum wait before that triggers cloud rental."
+      }
+    },
+    "system": {
+      "reconciliation": "Heading for the background process that checks the database against what the cloud provider is actually running, not financial reconciliation.",
+      "units": {
+        "seconds": "Unit abbreviation 's' for seconds, used as a numeric-field suffix."
+      },
+      "fields": {
+        "teardownSlack": "\"Slack\" means a time buffer reserved before an instance's lifetime ends, not the Slack messaging app.",
+        "commissioningGrace": "\"Commissioning\" is the startup period after a rented instance registers, before it has done any work.",
+        "reaperInterval": "\"Reaper\" is the background process that destroys stray/unrecognized cloud instances; sets how often it runs.",
+        "orphanGrace": "\"Orphan\" means an instance found on the cloud provider's account with no matching database record.",
+        "crackDrainGrace": "Combines 'crack' (cracked password) and 'drain': how long to wait for a dying instance to finish uploading cracked passwords before destruction."
+      },
+      "discard": "Button that discards unsaved form changes on this settings page, not a destructive data action.",
+      "eligibility": "Heading for a toggle deciding whether jobs may be offloaded to rented cloud capacity at all, separate from spend limits."
+    }
+  },
+  "serverCertificate": {
+    "summary": {
+      "subject": "\"Subject\" is the X.509 certificate field naming who the certificate was issued to, not a topic.",
+      "serial": "\"Serial\" is the certificate's unique serial number, not a product serial number."
+    },
+    "discovered": {
+      "hits": "Column: how many times this address has been seen attempting to connect; not a security 'attack hit' count."
+    },
+    "rotateCa": {
+      "instruction": "{{phrase}} is a literal confirmation word/phrase the admin must type to proceed."
+    },
+    "banner": {
+      "body": "{{agents}} is either 'An agent' or a count/name list (paired with title_one/title_other), used as the sentence's subject."
+    }
+  },
+  "settingsNav": {
+    "sections": {
+      "execution": "Short nav label for 'Job Execution' settings (chunking, keyspace, benchmarks), not a general sense of 'execution'."
+    }
+  },
+  "hub": {
+    "cards": {
+      "binaries": "Dashboard card for managed hashcat binary files, not numeric/binary data."
+    },
+    "attention": {
+      "migration": "{{state}} holds a storage-migration phase/status string (e.g. 'in progress', 'failed')."
+    }
+  },
+  "fieldState": {
+    "applyHint": "\"Apply\" refers to a specific Apply button elsewhere on the page; this field only takes effect once that button is clicked."
+  },
+  "branding": {
+    "replace": "Button to replace the already-uploaded logo or favicon image with a new one."
+  },
+  "agentAutoUpdate": {
+    "healthTimeout": "\"Health\" refers to whether an updated agent reconnects successfully, not general system health."
+  },
+  "networkShare": {
+    "agent": {
+      "exportPath": "\"Export path\" is NFS terminology for the directory path exposed by the network share, not a data-export feature."
+    }
+  },
+  "jobAnalytics": {
+    "attackModes": {
+      "straight": "Hashcat's name for a plain dictionary (wordlist) attack, not 'straightforward'.",
+      "association": "Hashcat attack mode that maps each hash to one specific candidate password by line number, not a generic grouping."
+    },
+    "filters": {
+      "apply": "Button that applies the selected filters to the analytics view."
+    },
+    "successRate": {
+      "preset": "Badge marking a row as a built-in preset job configuration, as opposed to a custom one.",
+      "columns": {
+        "totalCompute": "\"Compute\" means total GPU time spent (a compute resource), not a count of computations."
+      }
+    },
+    "jobExecution": {
+      "taskBreakdown": "{{tasksPhrase}} and {{metricsPhrase}} are pre-built phrases like '5 tasks' and '120 metric points'.",
+      "columns": {
+        "benchmark": "Column showing the agent's measured hash rate for this job, not a general performance score."
+      }
+    }
+  },
+  "teams": {
+    "list": {
+      "columns": {
+        "clients": "\"Clients\" means customers/engagements assigned to this team, not software clients.",
+        "agents": "\"Agents\" means cracking machines accessible to this team's members, not people."
+      }
+    },
+    "detail": {
+      "tabs": {
+        "trustedTeams": "\"Trusted\" teams are other teams whose agents may run this team's jobs — a specific one-way permission, not general trust."
+      },
+      "addTrust": "Button to grant another team's agents permission to run this team's jobs, not a generic 'add trust' action.",
+      "systemOwner": "Value shown in place of a username when an agent is owned by the system itself rather than a team member.",
+      "columns": {
+        "source": "Column showing whether an agent is 'Direct' (owned by a team member) or 'Trusted' (borrowed from a trusted team)."
+      },
+      "source": {
+        "direct": "Means the agent is owned by a member of this team, as opposed to borrowed from a trusted team."
+      },
+      "roles": {
+        "admin": "This is the team-level 'Admin' role, distinct from the system-wide Admin user role."
+      }
+    }
+  },
+  "customCharsets": {
+    "typeLabels": {
+      "hex": "\"Hex\" marks a charset defined as hex byte pairs rather than literal characters."
+    }
+  }
+}

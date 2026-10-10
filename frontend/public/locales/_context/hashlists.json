@@ -1,0 +1,43 @@
+{
+  "hashDetails": {
+    "originalHash": "The hash value itself (as uploaded), not the cracked password."
+  },
+  "hashesTable": {
+    "columns": {
+      "originalHash": "The hash value itself (as uploaded), not the cracked password.",
+      "domain": "The Windows/AD domain extracted from the hash (e.g. NTLM), not a web domain."
+    },
+    "status": {
+      "partial": "Hash only partially cracked, e.g. one half of a linked LM/NTLM pair recovered but not the other."
+    }
+  },
+  "upload": {
+    "linkDialog": {
+      "title": "LM and NTLM are two different Windows password-hash formats found together in a pwdump-style file."
+    }
+  },
+  "createJob": {
+    "canInterrupt": "If enabled, this job's tasks can be preempted when a higher-priority job needs the agents.",
+    "loopback": {
+      "label": "'Dry' means no more new passwords are being cracked; this keeps re-running the attack until that happens."
+    },
+    "form": {
+      "ruleOptional": "A hashcat rule file that mangles each wordlist entry (e.g. capitalize, append digits) before trying it.",
+      "allowHighPriorityOverride": "If enabled, a higher-priority job may take this job's agents even past its max-agents limit.",
+      "clientPotfileName_one": "Lets the client's own potfile (passwords already cracked for this client) be used as a wordlist source.",
+      "clientPotfileName_other": "Lets the client's own potfile (passwords already cracked for this client) be used as a wordlist source."
+    }
+  },
+  "detail": {
+    "validationBanner": {
+      "resumeReview": "Button that reopens the malformed-line review dialog for a paused upload."
+    }
+  },
+  "deletionProgress": {
+    "orphansDeleted": "Hashes that existed only in this hashlist (not shared with any other) and are now fully removed.",
+    "sharedPreserved": "Hashes also used by other hashlists are kept; only this hashlist's reference to them is removed."
+  },
+  "confirmDelete": {
+    "removeFromGlobalPotfile": "'Potfile' = hashcat's store of already-cracked passwords; this also strips this hashlist's cracks from the shared global one."
+  }
+}

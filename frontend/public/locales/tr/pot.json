@@ -1,0 +1,96 @@
+{
+  "title": "Kırılmış Hashler",
+  "page": {
+    "title": "Kırılmış Hashler (Pot)",
+    "description": "Tüm hash listeleri ve müşteriler arasında başarıyla kırılmış parola hashlerini görüntüleyin.",
+    "filterByHashlist": "Hash Listesine Git",
+    "hashlistPlaceholder": "Bir hash listesi seçin..."
+  },
+  "table": {
+    "allCrackedHashes": "Tüm Kırılmış Hashler"
+  },
+  "navigation": {
+    "backToAll": "Tüm Kırılmış Hashlere Geri Dön",
+    "backToSource": "Geri"
+  },
+  "client": {
+    "title": "Kırılmış Hashler - Müşteri Görünümü",
+    "description": "{{clientName}} müşterisi için kırılmış hashler görüntüleniyor",
+    "tableTitle": "\"{{clientName}}\" için Kırılmış Hashler"
+  },
+  "hashlist": {
+    "title": "Kırılmış Hashler - Hash Listesi Görünümü",
+    "description": "{{hashlistName}} hash listesi için kırılmış hashler görüntüleniyor",
+    "tableTitle": "\"{{hashlistName}}\" için Kırılmış Hashler"
+  },
+  "job": {
+    "title": "İş için Kırılmış Hashler: {{jobName}}",
+    "description": "Bu iş yürütmesinden başarıyla kırılmış tüm parola hashlerini görüntüleyin.",
+    "tableTitle": "Kırılmış Hashler - {{jobName}}",
+    "defaultName": "İş {{id}}"
+  },
+  "columns": {
+    "originalHash": "Orijinal Hash",
+    "domain": "Etki Alanı",
+    "username": "Kullanıcı Adı",
+    "password": "Parola",
+    "hashType": "Hash Türü",
+    "actions": "İşlemler"
+  },
+  "search": {
+    "placeholder": "Veritabanında ara...",
+    "filterPlaceholder": "Bu sayfayı filtrele...",
+    "button": "Ara",
+    "resultsFound_one": "{{count}} sonuç bulundu",
+    "resultsFound_other": "{{count}} sonuç bulundu",
+    "noResults": "Sonuç bulunamadı",
+    "searching": "Aranıyor..."
+  },
+  "export": {
+    "hashPass": "Hash:Parola",
+    "userPass": "Kullanıcı:Parola",
+    "username": "Kullanıcı Adı",
+    "password": "Parola",
+    "domainUser": "Etki Alanı\\Kullanıcı",
+    "domainUserPass": "Etki Alanı\\Kullanıcı:Parola",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "Görünür sonuçları dışa aktar",
+    "downloaded": "{{filename}} indirildi",
+    "downloadFailed": "Dosya indirme başarısız oldu"
+  },
+  "tooltips": {
+    "copyHash": "Hash:parola'yı kopyala",
+    "copyDomain": "Etki alanını kopyalamak için tıkla",
+    "copyUsername": "Kullanıcı adını kopyalamak için tıkla",
+    "copyPassword": "Parolayı kopyalamak için tıkla"
+  },
+  "dialogs": {
+    "loadAllTitle": "Tüm Sonuçlar Yüklensin Mi?",
+    "loadAllMessage": "Tüm {{value}} sonuçları yükleme önemli miktarda zaman alabilir ve performansı etkileyebilir. Devam etmek istediğinizden emin misiniz?",
+    "loadingAll": "Tüm sonuçlar yükleniyor. Bu biraz zaman alabilir...",
+    "cancel": "İptal Et",
+    "loadAll": "Tümünü Yükle"
+  },
+  "pagination": {
+    "all": "Tümü"
+  },
+  "notifications": {
+    "copiedToClipboard": "Panoya kopyalandı",
+    "exported": "Kırılmış hashler dışa aktarıldı"
+  },
+  "errors": {
+    "loadFailed": "Kırılmış hashler yükleme başarısız oldu",
+    "loadClientFailed": "Müşteri bilgisi yükleme başarısız oldu",
+    "loadHashlistFailed": "Hash listesi bilgisi yükleme başarısız oldu",
+    "loadJobFailed": "İş bilgisi yükleme başarısız oldu"
+  },
+  "filter": {
+    "filteredBy": "{{param}} ile filtrelendi: {{value}}"
+  },
+  "breadcrumb": "Kırılmış hashler",
+  "sourceLabel": {
+    "job": "İş",
+    "client": "Müşteri",
+    "hashlist": "Hash Listesi"
+  }
+}

@@ -9,6 +9,7 @@
     "wordlists": "Diccionarios",
     "rules": "Reglas",
     "clientManagement": "Gestión de clientes",
+    "teams": "Equipos",
     "analytics": "Analíticas",
     "about": "Acerca de",
     "logout": "Cerrar sesión"
@@ -17,21 +18,35 @@
     "title": "Administración",
     "settings": "Configuración de administrador",
     "userManagement": "Gestión de usuarios",
+    "customCharsets": "Conjuntos de caracteres personalizados",
     "presetJobs": "Trabajos predefinidos",
     "jobWorkflows": "Flujos de trabajo",
     "diagnostics": "Diagnósticos",
     "auditLog": "Registro de auditoría",
     "jobAnalytics": "Analíticas de Trabajos",
-    "cloudFleet": "Cloud Fleet"
+    "teamManagement": "Gestión de equipos",
+    "cloudFleet": "Flota en la nube",
+    "binaries": "Binarios",
+    "hashTypes": "Tipos de hash",
+    "vouchers": "Códigos de registro",
+    "clients": "Clientes",
+    "teams": "Equipos"
   },
   "userMenu": {
     "userSettings": "Configuración de usuario",
+    "savedCharsets": "Conjuntos de caracteres guardados",
     "logout": "Cerrar sesión",
     "user": "Usuario"
   },
   "aria": {
     "toggleDrawer": "Alternar menú lateral",
     "mainNavigation": "Navegación principal",
-    "adminNavigation": "Navegación de administrador"
+    "adminNavigation": "Navegación de administrador",
+    "downloadCaCert": "Descargar certificado de CA"
+  },
+  "groups": {
+    "resources": "Recursos",
+    "peopleAccess": "Personas y acceso",
+    "operations": "Operaciones"
   }
 }

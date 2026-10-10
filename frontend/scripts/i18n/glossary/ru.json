@@ -1,0 +1,397 @@
+{
+  "language": "ru",
+  "formality": "Formal/impersonal: address the user with capitalized «Вы» only in direct prompts and confirmation dialogs (the existing UI already does this, e.g. «Вы уверены, что хотите удалить...?»); everywhere else (buttons, table headers, field labels) use impersonal infinitives, imperatives or nouns — never the informal «ты».",
+  "styleNotes": "1) Default to impersonal nouns/infinitives for UI chrome; reserve capitalized formal «Вы» for direct prompts and confirmations, matching existing strings. 2) Use Russian sentence case for headings, buttons and table headers (capitalize only the first word and proper nouns) — never Title Case. 3) Keep loanwords already naturalized in this codebase (хеш, ваучер, бенчмарк, брендинг, блок) rather than inventing calques; keep doNotTranslate tokens in Latin script (API, GPU, webhook, TLS, loopback). 4) Abbreviate only where the existing UI already does for tight table columns (e.g. «Макс. агентов», «Эффективное простр. ключей»); use the full form in body text, tooltips, dialogs and settings labels.",
+  "terms": {
+    "hash": {
+      "translation": "хеш",
+      "keepEnglish": false,
+      "note": "Standard in Russian security writing; expand to 'хеш-значение' in detailed/formal contexts."
+    },
+    "hashlist": {
+      "translation": "Список хешей",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'HashList' (kept as brand name) — that is not how the app actually renders it. Every existing ru locale file (hashlists.json title/page.title, pot.json, dashboard.json, jobs.json) translates this as 'Список хешей'/'список хешей'. There is no brand-name usage to preserve; keep translating it."
+    },
+    "hash type": {
+      "translation": "тип хеша",
+      "keepEnglish": false,
+      "note": "Matches jobs.json/common.json 'hashType': 'Тип хеша'. Expand to 'тип хеша в hashcat' only where the hashcat-mode context isn't otherwise clear."
+    },
+    "crack": {
+      "translation": "взламывать",
+      "keepEnglish": false,
+      "note": "Infinitive/verb form; pair with object for full context, e.g. 'взламывать хеш/пароль'."
+    },
+    "cracked": {
+      "translation": "взломан (м.), взломана (ж.), взломанные (мн.)",
+      "keepEnglish": false,
+      "note": "Adjective — must agree in gender/number with the noun it modifies in Russian."
+    },
+    "cracked hashes": {
+      "translation": "взломанные хеши",
+      "keepEnglish": false,
+      "note": "Matches pot.json 'table.allCrackedHashes': 'Все взломанные хеши' exactly."
+    },
+    "plaintext": {
+      "translation": "открытый текст",
+      "keepEnglish": false,
+      "note": "Standard term in Russian hashcat/security writing for the recovered password. 'Пароль в открытом виде' is an acceptable longer variant in prose."
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "Confirmed by pot.json export option 'potfile': 'Potfile (Hashcat)' — the live UI keeps this in Latin script. hashcat-specific technical term."
+    },
+    "client potfile": {
+      "translation": "potfile клиента",
+      "keepEnglish": false,
+      "note": "Keep 'potfile' itself in Latin per the term above; only the modifier is translated."
+    },
+    "wordlist": {
+      "translation": "словарь",
+      "keepEnglish": false,
+      "note": "Matches jobs.json form.wordlist: 'Словарь' and every other locale file. Use the plural 'словари' for multiple wordlists; don't introduce 'список слов' — it isn't used anywhere in the app."
+    },
+    "rule": {
+      "translation": "правило",
+      "keepEnglish": false,
+      "note": "Matches jobs.json form.rules: 'Правила'. The fuller 'правило манипуляции' is correct hashcat terminology but the UI always just says 'правило(а)' — keep it short to stay consistent."
+    },
+    "rule file": {
+      "translation": "файл правил",
+      "keepEnglish": false,
+      "note": "No change; natural and already implied by admin.json rule-chunking strings (e.g. 'Директория для частей правил')."
+    },
+    "mask": {
+      "translation": "маска",
+      "keepEnglish": false,
+      "note": "Matches jobs.json details.mask: 'Маска'. hashcat-specific pattern notation."
+    },
+    "charset": {
+      "translation": "набор символов",
+      "keepEnglish": false,
+      "note": "Custom character set for masks; not to be confused with encoding (кодировка). No existing ru translation yet (admin.json's 'Custom Charset Management' section is still untranslated) — this is the recommended rendering when it is localized."
+    },
+    "attack mode": {
+      "translation": "режим атаки",
+      "keepEnglish": false,
+      "note": "Matches admin.json 'Гибридный режим атаки'. 'Тип атаки' is not used anywhere in the app — don't introduce it."
+    },
+    "brute force": {
+      "translation": "перебор",
+      "keepEnglish": false,
+      "note": "Matches admin.json 'bruteForceModeMask': 'Режим перебора'. The dedicated attack-mode label in jobs.json is the fuller 'Полный перебор' — use that specific phrase only for the attack-mode value, 'перебор' for the general concept."
+    },
+    "dictionary attack": {
+      "translation": "словарная атака",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'атака по словарю'. jobs.json 'details.attackModes.dictionary' already renders this as 'Словарная атака' — match the live UI rather than the grammatically-valid but unused alternative."
+    },
+    "hybrid attack": {
+      "translation": "гибридная атака",
+      "keepEnglish": false,
+      "note": "Matches admin.json's general term ('Гибридный режим атаки', 'гибридная атака словарь ± маска'). The specific sub-variant labels in jobs.json ('Гибрид: словарь + маска' / 'Гибрид: маска + словарь') are shorter forms for table cells, not a conflicting translation."
+    },
+    "association attack": {
+      "translation": "ассоциативная атака",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'атака ассоциаций'. admin.json's dedicated error string already uses 'Режим ассоциативной атаки' and jobs.json attackModes.association is 'Ассоциативная атака' — this is the deliberate, properly-inflected rendering. (One admin.json sentence lists the bare English word 'association' inline; that looks like an oversight, not a style to repeat.)"
+    },
+    "keyspace": {
+      "translation": "пространство ключей",
+      "keepEnglish": false,
+      "note": "Matches jobs.json common.keyspace: 'Пространство ключей' exactly. Mathematical/technical term."
+    },
+    "effective keyspace": {
+      "translation": "эффективное пространство ключей",
+      "keepEnglish": false,
+      "note": "Matches jobs.json. Tight table columns abbreviate to 'Эффективное простр. ключей' — use the abbreviation only where column width forces it, the full form everywhere else."
+    },
+    "chunk": {
+      "translation": "блок",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'фрагмент'. The actual codebase is internally inconsistent here — jobs.json and admin.json's 'chunkSize.title' both say 'блок' ('Размер блока'), but other admin.json strings say 'чанк' (transliteration) or 'часть'. Standardize new strings on 'блок': it's the clearest Russian word and matches the most user-facing surface (the Jobs page). Flag the 'чанк'/'часть' instances for cleanup rather than following them."
+    },
+    "task": {
+      "translation": "задача",
+      "keepEnglish": false,
+      "note": "Matches jobs.json throughout (taskId, activeTasksTable, etc.)."
+    },
+    "job": {
+      "translation": "задание",
+      "keepEnglish": false,
+      "note": "Matches jobs.json title/columns throughout. 'Задание' (assigned work unit) vs. 'работа' (labor in general) — the app consistently picks 'задание'."
+    },
+    "preset job": {
+      "translation": "шаблон задания",
+      "keepEnglish": false,
+      "note": "Matches navigation.json 'presetJobs': 'Шаблоны заданий' and admin.json's presetJobs section exactly."
+    },
+    "workflow": {
+      "translation": "рабочий процесс",
+      "keepEnglish": false,
+      "note": "Matches navigation.json 'jobWorkflows': 'Рабочие процессы' and admin.json's workflows section exactly."
+    },
+    "loopback": {
+      "translation": "loopback",
+      "keepEnglish": true,
+      "note": "New feature (GH #64), not yet in a merged ru locale file. Kept in Latin per existing practice for other hashcat/product-specific technical nouns (potfile, webhook)."
+    },
+    "priority": {
+      "translation": "приоритет",
+      "keepEnglish": false,
+      "note": "Matches jobs.json columns.priority."
+    },
+    "max agents": {
+      "translation": "макс. агентов",
+      "keepEnglish": false,
+      "note": "Matches jobs.json columns.maxAgents exactly, including the abbreviation. Spell out as 'максимум агентов' only in full-sentence help text (see admin.json validation strings)."
+    },
+    "overflow": {
+      "translation": "избыток",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'переполнение'. In this domain 'overflow' means extra/surplus agents beyond a job's configured limit, not a buffer/stack overflow — admin.json's 'agentOverflow' settings and 'overflowUpdated' strings consistently use 'избыточные агенты'/'избыточный'. 'Переполнение' risks reading as an error condition and should be avoided here."
+    },
+    "benchmark": {
+      "translation": "бенчмарк",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'тестирование'. admin.json already uses 'бенчмарк' as an established noun ('Срок хранения бенчмарков', 'кэшировать бенчмарки агентов') — this transliteration is the live convention, not just an alternative."
+    },
+    "hash rate": {
+      "translation": "скорость хеширования",
+      "keepEnglish": false,
+      "note": "Matches agents.json columns.hashRate exactly."
+    },
+    "progress": {
+      "translation": "прогресс",
+      "keepEnglish": false,
+      "note": "Matches jobs.json/common.json throughout."
+    },
+    "agent": {
+      "translation": "агент",
+      "keepEnglish": false,
+      "note": "Standard throughout the app; a cracking node. Don't substitute 'узел' — it's not used here."
+    },
+    "device": {
+      "translation": "устройство",
+      "keepEnglish": false,
+      "note": "Matches agents.json hardware.deviceId: 'ID устройства' and the devices/monitoring sections throughout."
+    },
+    "claim code": {
+      "translation": "код активации",
+      "keepEnglish": false,
+      "note": "Matches agents.json table.columns.claimCode: 'Код активации' exactly. 'Код заявки' is not used anywhere in the app."
+    },
+    "voucher": {
+      "translation": "ваучер",
+      "keepEnglish": false,
+      "note": "CORRECTED keepEnglish from true to false — draft's translation was already the Cyrillic word 'ваучер', which is a fully naturalized loanword (matches agents.json vouchers.title: 'Ваучеры'), not literal kept-English text like 'potfile' or 'webhook'. Flagging the flag, not the word."
+    },
+    "heartbeat": {
+      "translation": "проверка соединения",
+      "keepEnglish": false,
+      "note": "No exact existing UI string (agent 'last seen' is shown as 'Последняя активность' instead, which is the user-facing proxy for this). 'Проверка соединения' is clear for internal/admin-facing copy describing the periodic agent check-in."
+    },
+    "offline buffer": {
+      "translation": "буфер отключения",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'буфер автономности' (автономность = autonomy, not quite the right sense). No ru translation exists yet for this key (admin.json's English 'offlineBuffer'/'offlineBufferHelper' strings aren't localized). This phrasing pairs naturally with the already-translated sibling setting 'reconnectGrace' → 'Льготный период переподключения'."
+    },
+    "auto-update": {
+      "translation": "автоматическое обновление",
+      "keepEnglish": false,
+      "note": "Binary/agent self-update; no existing contradicting usage (feature lives on a separate branch per project notes)."
+    },
+    "binary": {
+      "translation": "бинарный файл",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'исполняемый файл'. The established term throughout common.json/agents.json is 'бинарный файл' (binaryVersionSelector, 'Конфигурация бинарного файла агента', 'Бинарный файл Hashcat'). Avoid the informal 'бинарник' — not used in the UI."
+    },
+    "client": {
+      "translation": "клиент",
+      "keepEnglish": false,
+      "note": "Matches hashlists.json columns.client: 'Клиент' and admin.json's client-management section. (A couple of newer, not-yet-localized admin.json strings still say 'Client' in English — treat those as translation debt, not precedent.)"
+    },
+    "team": {
+      "translation": "команда",
+      "keepEnglish": false,
+      "note": "Multi-team feature is still planned/unshipped, so there is no existing UI string to confirm against. 'Команда' is the standard Russian software term for this concept."
+    },
+    "member": {
+      "translation": "участник",
+      "keepEnglish": false,
+      "note": "Same caveat as 'team' — not yet shipped. 'Участник' is standard; 'член' is also correct but colder/more formal-legalistic, less common in consumer/admin UI copy."
+    },
+    "owner": {
+      "translation": "владелец",
+      "keepEnglish": false,
+      "note": "Matches agents.json fields.owner: 'Владелец' and 'agentOwnerUpdated': 'Владелец агента обновлён' exactly."
+    },
+    "retention": {
+      "translation": "срок хранения",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'период хранения'. admin.json consistently uses 'срок хранения' ('Срок хранения данных (месяцы)', 'retentionPeriod': 'Срок хранения данных по умолчанию (месяцы)') — match the established phrase, not a synonym."
+    },
+    "archive": {
+      "translation": "архив",
+      "keepEnglish": false,
+      "note": "Matches hashlists.json/jobs.json archive sections exactly ('Архивировать', 'Архивировано', etc.)."
+    },
+    "analytics report": {
+      "translation": "аналитический отчёт",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'отчет аналитики' (and standardized the ё). analytics.json's own description reads '...аналитических отчётов по паролям' — adjective-first is the natural Russian order and what the app already uses; 'отчёт аналитики' is awkward and unused."
+    },
+    "password reuse": {
+      "translation": "повторное использование паролей",
+      "keepEnglish": false,
+      "note": "Pluralized to match analytics.json 'passwordReuse': 'Повторное использование паролей' exactly (draft had the singular 'пароля')."
+    },
+    "hash reuse": {
+      "translation": "повторное использование хешей",
+      "keepEnglish": false,
+      "note": "Pluralized to match analytics.json 'noHashReuse': 'Повторное использование хешей не обнаружено' (draft had the singular 'хеша'). The fuller descriptive variant 'повторное использование паролей на основе хешей' also appears once in-app and is fine for a section subtitle, but this shorter form is the more broadly reusable glossary entry."
+    },
+    "complexity": {
+      "translation": "сложность",
+      "keepEnglish": false,
+      "note": "Matches analytics.json 'complexityAnalysis': 'Анализ сложности символов' exactly."
+    },
+    "entropy": {
+      "translation": "энтропия",
+      "keepEnglish": false,
+      "note": "Matches analytics.json 'entropyDistribution'/'entropyLevel'/'shannonEntropy' exactly."
+    },
+    "domain": {
+      "translation": "домен",
+      "keepEnglish": false,
+      "note": "Matches analytics.json/pot.json 'domain': 'Домен' exactly. Expand to 'домен Windows/AD' only where the AD context needs spelling out."
+    },
+    "username": {
+      "translation": "имя пользователя",
+      "keepEnglish": false,
+      "note": "Matches analytics.json/pot.json 'username': 'Имя пользователя' exactly."
+    },
+    "audit log": {
+      "translation": "журнал аудита",
+      "keepEnglish": false,
+      "note": "Matches navigation.json 'auditLog': 'Журнал аудита' exactly."
+    },
+    "dashboard": {
+      "translation": "панель управления",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's bare 'панель'. dashboard.json's actual page title is 'Панель управления' — use the full phrase; 'панель' alone is ambiguous with other UI panels/sidebars."
+    },
+    "settings": {
+      "translation": "настройки",
+      "keepEnglish": false,
+      "note": "Matches settings.json title ('Настройки пользователя') and admin.json throughout."
+    },
+    "autosave": {
+      "translation": "автосохранение",
+      "keepEnglish": false,
+      "note": "Standard Russian UI term; no existing contradicting usage found. 'Автоматическое сохранение' is an acceptable longer variant in help text."
+    },
+    "apply": {
+      "translation": "применить",
+      "keepEnglish": false,
+      "note": "Matches admin.json 'unsavedChanges': '...Нажмите «Сохранить настройки» для их применения' and 'applyNote' usage of 'применя-' throughout."
+    },
+    "certificate": {
+      "translation": "сертификат",
+      "keepEnglish": false,
+      "note": "Matches admin.json certificate-management strings throughout ('Сертификат IdP', 'Скачать сертификат SP', etc.)."
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "Subject Alternative Name; PKI acronym, keep in Latin script. Note: the live certificate-settings UI doesn't currently surface the literal acronym 'SAN' — it spells the concept out as separate 'DNS names'/'IP addresses' fields — so treat this as reference terminology for prose/tooltips rather than an already-rendered label."
+    },
+    "network share": {
+      "translation": "сетевой ресурс",
+      "keepEnglish": false,
+      "note": "SMB/NFS share for wordlist/rule storage. Standard Russian IT term. This feature's strings (admin.json ~line 2500+) aren't localized into ru yet — use this rendering when they are; 'сетевая папка' is an acceptable, more casual alternative for short user-facing labels."
+    },
+    "mount": {
+      "translation": "подключение",
+      "keepEnglish": false,
+      "note": "Attach a network share to a path. No existing ru translation yet (same untranslated admin.json section as 'network share'). Use the verb 'подключить' for actions and 'смонтировать' only in more technical/sysadmin-facing copy (e.g. the mount-command generator)."
+    },
+    "cloud fleet": {
+      "translation": "облачный парк",
+      "keepEnglish": false,
+      "note": "Already confirmed live: admin.json's experimental-provider warning references the page by name — '...следите на странице «Облачный парк» за экземплярами...'."
+    },
+    "provisioning": {
+      "translation": "ввод в работу",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'развертывание' (which reads more like software deployment). admin.json's cloud-provider lifecycle description already uses this exact phrase for provisioning a rented instance: '...запуск, ввод в работу, перебор, корректное освобождение и возврат бюджета...'."
+    },
+    "budget": {
+      "translation": "бюджет",
+      "keepEnglish": false,
+      "note": "Matches admin.json cloud-budget strings throughout ('Бюджеты определяют, сколько можно потратить...')."
+    },
+    "threshold": {
+      "translation": "порог",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'пороговое значение'. admin.json already uses the short noun 'порог' for this exact budget/limit concept ('Порог разделения правил', 'Порога нет: любая задача...'). Use 'пороговое значение' only where the longer, more formal phrasing is specifically wanted."
+    },
+    "drain": {
+      "translation": "вывод из работы",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's bare 'остановка' (too generic — loses the 'finish running work, accept nothing new' nuance). No ru translation exists yet for the relevant admin.json strings ('drainPctHelp'/'drainTimeoutHelp' are still in English); this phrase matches how the same lifecycle is already described elsewhere in ru admin.json ('пока не продвигаться... fleet drains' concept)."
+    },
+    "teardown": {
+      "translation": "уничтожение",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'завершение' — that collides with 'job completion' ('Завершение задания'), a different concept. admin.json already uses 'уничтожить'/'уничтожение' pervasively for destroying a cloud instance ('Уничтожать арендованный экземпляр...', '...пока вы не уничтожите его здесь', 'перед уничтожением арендованного экземпляра')."
+    },
+    "webhook": {
+      "translation": "webhook",
+      "keepEnglish": true,
+      "note": "Confirmed live: notifications.json keeps this in Latin script throughout ('Настройка Webhook', 'Создать Webhook', 'Тест webhook успешен'), alongside the fully-Cyrillic informal 'вебхук' in a couple of helper strings — keep the capitalized Latin form for labels/buttons to match the dominant pattern."
+    },
+    "notification": {
+      "translation": "уведомление",
+      "keepEnglish": false,
+      "note": "Matches notifications.json throughout."
+    },
+    "two-factor authentication": {
+      "translation": "двухфакторная аутентификация",
+      "keepEnglish": false,
+      "note": "Matches auth.json/settings.json title exactly: 'Двухфакторная аутентификация'."
+    },
+    "backup codes": {
+      "translation": "резервные коды",
+      "keepEnglish": false,
+      "note": "Matches settings.json 'backupCodes': 'Резервные коды' exactly."
+    },
+    "authenticator app": {
+      "translation": "приложение-аутентификатор",
+      "keepEnglish": false,
+      "note": "CORRECTED to add the hyphen — draft wrote the two nouns unhyphenated ('приложение аутентификатор'), but settings.json/auth.json both render this compound with a hyphen: 'Приложение-аутентификатор'. The hyphen is grammatically required for this kind of Russian noun+noun apposition."
+    },
+    "session": {
+      "translation": "сессия",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'сеанс'. Every existing usage — common.json, errors.json, auth.json, admin.json's terminate-session dialogs — consistently says 'сессия', never 'сеанс'. Follow the established term even though 'сеанс' is also dictionary-correct."
+    },
+    "API key": {
+      "translation": "API-ключ",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'ключ API' (reversed word order). settings.json's apiKey section consistently uses the hyphenated prefix form: 'API-ключ', 'Сгенерировать API-ключ', 'Отозвать API-ключ'. 'API' itself stays in Latin per doNotTranslate."
+    },
+    "branding": {
+      "translation": "брендинг",
+      "keepEnglish": false,
+      "note": "CORRECTED from draft's 'фирменное оформление'. admin.json's actual section title is 'Брендинг' — a naturalized Russian loanword already live in the UI, not literally-kept English text (hence keepEnglish stays false; the word is Cyrillic)."
+    },
+    "diagnostics": {
+      "translation": "диагностика",
+      "keepEnglish": false,
+      "note": "Matches navigation.json 'diagnostics': 'Диагностика' and admin.json 'pageTitle': 'Диагностика системы' exactly."
+    }
+  }
+}

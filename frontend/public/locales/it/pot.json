@@ -1,0 +1,97 @@
+{
+  "title": "Hash craccati",
+  "page": {
+    "title": "Hash craccati (Pot)",
+    "description": "Visualizza tutti gli hash delle password craccati con successo in tutti gli hashlist e i clienti.",
+    "filterByHashlist": "Vai alla hashlist",
+    "hashlistPlaceholder": "Seleziona una hashlist..."
+  },
+  "table": {
+    "allCrackedHashes": "Tutti gli hash craccati"
+  },
+  "navigation": {
+    "backToAll": "Torna a tutti gli hash craccati",
+    "backToSource": "Indietro"
+  },
+  "client": {
+    "title": "Hash craccati - Visualizzazione cliente",
+    "description": "Visualizzazione degli hash craccati per il cliente: {{clientName}}",
+    "tableTitle": "Hash craccati per \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Hash craccati - Visualizzazione hashlist",
+    "description": "Visualizzazione degli hash craccati per l'hashlist: {{hashlistName}}",
+    "tableTitle": "Hash craccati per \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Hash craccati per job: {{jobName}}",
+    "description": "Visualizza tutti gli hash delle password craccati con successo da questa esecuzione del job.",
+    "tableTitle": "Hash craccati - {{jobName}}",
+    "defaultName": "Job {{id}}"
+  },
+  "columns": {
+    "originalHash": "Hash originale",
+    "domain": "Dominio",
+    "username": "Nome utente",
+    "password": "Password",
+    "hashType": "Tipo di hash",
+    "actions": "Azioni"
+  },
+  "search": {
+    "placeholder": "Cerca nel database...",
+    "filterPlaceholder": "Filtra questa pagina...",
+    "button": "Cerca",
+    "resultsFound_many": "Trovati {{count}} risultati",
+    "resultsFound_one": "Trovato {{count}} risultato",
+    "resultsFound_other": "Trovati {{count}} risultati",
+    "noResults": "Nessun risultato trovato",
+    "searching": "Ricerca in corso..."
+  },
+  "export": {
+    "hashPass": "Hash:Pass",
+    "userPass": "User:Pass",
+    "username": "Nome utente",
+    "password": "Password",
+    "domainUser": "Dominio\\Utente",
+    "domainUserPass": "Dominio\\Utente:Pass",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "Esporta i risultati visibili",
+    "downloaded": "Scaricato {{filename}}",
+    "downloadFailed": "Impossibile scaricare il file"
+  },
+  "tooltips": {
+    "copyHash": "Copia hash:password",
+    "copyDomain": "Copia il dominio",
+    "copyUsername": "Copia il nome utente",
+    "copyPassword": "Copia la password"
+  },
+  "dialogs": {
+    "loadAllTitle": "Caricare tutti i risultati?",
+    "loadAllMessage": "Il caricamento di tutti {{value}} i risultati potrebbe richiedere un tempo significativo e potrebbe avere un impatto sulle prestazioni. È sicuro di voler continuare?",
+    "loadingAll": "Caricamento di tutti i risultati. Potrebbe richiedere un po' di tempo...",
+    "cancel": "Annulla",
+    "loadAll": "Carica tutto"
+  },
+  "pagination": {
+    "all": "Tutto"
+  },
+  "notifications": {
+    "copiedToClipboard": "Copiato negli appunti",
+    "exported": "Hash craccati esportati"
+  },
+  "errors": {
+    "loadFailed": "Impossibile caricare gli hash craccati",
+    "loadClientFailed": "Impossibile caricare le informazioni del cliente",
+    "loadHashlistFailed": "Impossibile caricare le informazioni dell'hashlist",
+    "loadJobFailed": "Impossibile caricare le informazioni del job"
+  },
+  "filter": {
+    "filteredBy": "Filtrato per {{param}}: {{value}}"
+  },
+  "breadcrumb": "Hash craccati",
+  "sourceLabel": {
+    "job": "Job",
+    "client": "Cliente",
+    "hashlist": "Hashlist"
+  }
+}

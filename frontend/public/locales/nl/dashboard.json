@@ -14,7 +14,8 @@
   },
   "recentActivity": {
     "title": "Recente activiteit",
-    "noActivity": "Geen recente activiteit"
+    "noActivity": "Geen recente activiteit",
+    "viewAll": "Alle meldingen"
   },
   "quickActions": {
     "title": "Snelle acties",
@@ -112,5 +113,52 @@
       "maxAgents": "Max. agents",
       "actions": "Acties"
     }
+  },
+  "kpi": {
+    "runningJobs": "Actieve taken",
+    "queued": "{{count}} in wachtrij",
+    "agentsOnline": "Agents online",
+    "agentProblems": "{{count}} vereisen aandacht",
+    "hashRate": "Hashsnelheid",
+    "cracks24h": "Gekraakt (24u)",
+    "cracks7d": "{{count}} in 7 dagen",
+    "crackRate": "Kraaksnelheid",
+    "hashlistTotals": "{{cracked}} van {{total}} hashes",
+    "failed24h": "Mislukt (24u)",
+    "completed24h": "{{count}} voltooid"
+  },
+  "agentHealth": {
+    "title": "Agentstatus",
+    "viewAll": "Alle agents",
+    "utilization": "GPU-gebruik",
+    "temperature": "Heetste GPU",
+    "lastSeen": "Laatst gezien {{when}}",
+    "warnings": {
+      "error": "Fout",
+      "offline": "Offline",
+      "update_failed": "Update mislukt",
+      "stale_heartbeat": "Geen heartbeat",
+      "gpu_hot": "GPU heet"
+    }
+  },
+  "recentCracks": {
+    "title": "Recente kraken",
+    "viewAll": "Alle gekraakte hashes",
+    "empty": "Nog niets gekraakt",
+    "copy": "Platte tekst kopiëren",
+    "copied": "Gekopieerd"
+  },
+  "activeJobs": {
+    "title": "Actieve taken",
+    "showing": "10 van {{total}} weergegeven",
+    "viewAll": "Alle taken",
+    "empty": "Niets actief",
+    "emptyHint": "Start een taak vanuit een hashlijst.",
+    "goHashlists": "Naar hashlijsten"
+  },
+  "welcomeUser": "Welkom terug, {{name}}",
+  "autoRefresh": {
+    "on": "Live",
+    "off": "Gepauzeerd"
   }
 }

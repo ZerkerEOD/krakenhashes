@@ -1,0 +1,397 @@
+{
+  "language": "fr",
+  "formality": "Formal vous — never tu. Matches the shipped UI exactly (\"Voulez-vous vraiment supprimer...\", \"Vous ne pourrez plus la voir\"); imperative/infinitive button labels (Enregistrer, Annuler, Supprimer) stay gender-neutral so this never comes up for them.",
+  "styleNotes": "Several product concepts are kept as capitalized English entity names throughout the shipped UI, not translated: Hashlist, Job, Wordlist, Keyspace, Voucher (e.g. \"Créer un Job\", \"Importer une Hashlist\", \"Keyspace effective\"). French adjectives still agree with their implied gender (feminine for Hashlist/Wordlist/Keyspace: \"Keyspace effective\", \"Première Wordlist\"). Everyday nouns around them (task→tâche, priority→priorité, progress→progression) ARE translated — task is not a synonym for job here, they render completely differently. Other technical nouns (hash, chunk, potfile, workflow, loopback, benchmark, webhook, voucher, SAN, Hash rate, Provisioning, Cloud Fleet) are also kept English but lowercase/sentence-case as plain nouns, not capitalized entities. Always address the user with formal vous. Several newer admin sections (Cloud Provisioning, Network Share, the new Server Certificate/SAN panel) are still partly untranslated (raw English strings) in the current fr/admin.json — treat that as a translation backlog, not a style precedent; this glossary gives the target French (or deliberate keep-English) for when those get localized.",
+  "terms": {
+    "hash": {
+      "translation": "hash",
+      "keepEnglish": true,
+      "note": "Confirmed: lowercase loanword throughout (\"Type de hash\", \"Hash d'origine\", \"Hashes totaux\"). Widely used in French security tooling."
+    },
+    "hashlist": {
+      "translation": "Hashlist",
+      "keepEnglish": true,
+      "note": "FIXED — draft had \"liste de hashes\"/translated, but the shipped UI keeps it as the English product entity name, capitalized, everywhere: \"Importer une Hashlist\", \"Gestion des Hashlists\", \"Détails de la Hashlist\", \"Hashlist introuvable\". Treat like Job/Wordlist. Only loose descriptive prose uses a lowercase French paraphrase (\"listes de hash de mots de passe\" in a page subtitle) — do not use that as the entity name."
+    },
+    "hash type": {
+      "translation": "type de hash",
+      "keepEnglish": false,
+      "note": "Confirmed across jobs/hashlists/pot/admin: \"Type de hash\"."
+    },
+    "crack": {
+      "translation": "casser",
+      "keepEnglish": false,
+      "note": "Verb: casser un hash. Consistent with cracked/cracked hashes below."
+    },
+    "cracked": {
+      "translation": "cassé",
+      "keepEnglish": false,
+      "note": "Adjective; feminine cassée. Confirmed: \"Hashes cassés\", \"Cassés\" (column), \"Cassé\" (hashDetails)."
+    },
+    "cracked hashes": {
+      "translation": "hashes cassés",
+      "keepEnglish": false,
+      "note": "Confirmed exactly in pot.json title/columns."
+    },
+    "plaintext": {
+      "translation": "mot de passe",
+      "keepEnglish": false,
+      "note": "FIXED — draft's generic infosec term \"texte en clair\" is technically correct but not what the shipped UI uses. Wherever this concept appears as a field (hashDetails.password, pot.json columns.password/export.password) it is simply rendered \"Mot de passe\". Use \"texte en clair\" only in genuinely generic crypto/help-doc prose, never as the field label for a cracked value."
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "Confirmed lowercase throughout admin/pot.json (\"potfile\", \"Potfile (Hashcat)\" in exports). hashcat technical term."
+    },
+    "client potfile": {
+      "translation": "potfile client",
+      "keepEnglish": false,
+      "note": "No literal string exists yet for this exact phrase; follows the \"potfile\" (kept English) + French-noun-adjective-order pattern used elsewhere (e.g. \"Paramètres du potfile\")."
+    },
+    "wordlist": {
+      "translation": "Wordlist",
+      "keepEnglish": true,
+      "note": "FIXED — draft had \"liste de mots\"/translated, but the shipped UI keeps it English and capitalized as an entity, agreeing feminine: \"Wordlist\" (form/details labels), \"Première Wordlist\", \"Deuxième Wordlist\", \"Wordlists non utilisées pour ce mode d'attaque\"."
+    },
+    "rule": {
+      "translation": "règle",
+      "keepEnglish": false,
+      "note": "Confirmed: \"Règles\" (form/details/admin), unlike wordlist this one IS translated."
+    },
+    "rule file": {
+      "translation": "fichier de règles",
+      "keepEnglish": false,
+      "note": "Confirmed exactly in admin.json (\"Importer un fichier de règles\")."
+    },
+    "mask": {
+      "translation": "masque",
+      "keepEnglish": false,
+      "note": "Confirmed: \"Masque\", \"Motif de masque\", \"Masque (suffixe/préfixe)\"."
+    },
+    "charset": {
+      "translation": "jeu de caractères",
+      "keepEnglish": false,
+      "note": "No existing string to confirm against yet; standard French IT term, safe default."
+    },
+    "attack mode": {
+      "translation": "mode d'attaque",
+      "keepEnglish": false,
+      "note": "Confirmed throughout admin.json: \"Mode d'attaque\", \"Exigences du mode d'attaque\"."
+    },
+    "brute force": {
+      "translation": "brute-force",
+      "keepEnglish": true,
+      "note": "Universally used in French, kept English. The shipped UI is inconsistent on the hyphen: jobs.json attackModes uses \"Brute-force\" (hyphenated, as a standalone label), admin.json validation prose uses unhyphenated \"mode d'attaque brute force\". Standardize going forward on hyphenated \"brute-force\" as a noun/label, unhyphenated only inside a longer descriptive sentence if needed."
+    },
+    "dictionary attack": {
+      "translation": "attaque par dictionnaire",
+      "keepEnglish": false,
+      "note": "No exact string to confirm against, but this is the standard French security term and matches the \"attaque hybride\"/\"attaque par association\" pattern below."
+    },
+    "hybrid attack": {
+      "translation": "attaque hybride",
+      "keepEnglish": false,
+      "note": "Confirmed: \"Le mode d'attaque hybride nécessite...\" in admin.json."
+    },
+    "association attack": {
+      "translation": "attaque par association",
+      "keepEnglish": false,
+      "note": "The mode name alone is rendered as the cognate \"Association\" in dropdowns (jobs.json attackModes.association), but one admin error string still has the whole phrase untranslated (\"Le mode Association attack n'est pas implémenté\" — a backlog gap, not a style choice). \"Attaque par association\" is the correct target, matching the dictionary/hybrid pattern."
+    },
+    "keyspace": {
+      "translation": "Keyspace",
+      "keepEnglish": true,
+      "note": "FIXED — draft chose \"espace de clés\" (translated), but the shipped UI never translates this: \"Keyspace\", \"Keyspace effective\", \"Keyspace parcourue\", \"Keyspace distribuée\" (jobs.json, consistently). Treated as a capitalized feminine entity noun — French adjectives after it agree feminine (effective, parcourue, distribuée)."
+    },
+    "effective keyspace": {
+      "translation": "Keyspace effective",
+      "keepEnglish": true,
+      "note": "Confirmed exact label in jobs.json (common.effectiveKeyspace, layerTable.effectiveKeyspace)."
+    },
+    "chunk": {
+      "translation": "chunk",
+      "keepEnglish": true,
+      "note": "FIXED — draft chose \"tranche\" (translated). The core Jobs UI, which is by far the most visible surface for this term, keeps it English throughout: \"Taille des chunks\", \"La taille des chunks doit être d'au moins 5 secondes\" (jobs.json validation/common). Flag for later cleanup: the newer Cloud Provisioning admin section instead translates it as \"bloc\" (\"Durée minimale de bloc cloud\", \"les blocs cloud sont donc relevés...\") — that is a real inconsistency in the current codebase, not a second accepted style; recommend converging on \"chunk\" (kept English) to match the older, far more frequently seen Jobs page."
+    },
+    "task": {
+      "translation": "tâche",
+      "keepEnglish": false,
+      "note": "Confirmed extensively (jobs.json \"Tâches\", \"Tâches actives\", etc.). Not interchangeable with job — see job below."
+    },
+    "job": {
+      "translation": "Job",
+      "keepEnglish": true,
+      "note": "FIXED — this is the single most important correction in the draft. The draft mapped job→\"tâche\", but \"tâche\" is already task's translation (see above), and the shipped UI never translates job: \"Jobs\", \"Créer un Job\", \"Nom du Job\", \"Job prédéfini\", \"Hashes cassés du Job\", capitalized throughout jobs.json/pot.json/admin.json. Using \"tâche\" for job would collide with task and contradict the entire shipped product."
+    },
+    "preset job": {
+      "translation": "Job prédéfini",
+      "keepEnglish": true,
+      "note": "FIXED to match the Job correction above. Confirmed exactly: admin.json presetJobs — \"Gestion des Jobs prédéfinis\", \"Créer un Job prédéfini\"."
+    },
+    "workflow": {
+      "translation": "workflow",
+      "keepEnglish": true,
+      "note": "Confirmed lowercase throughout admin.json workflows section (\"Gestion des workflows de Jobs\", \"Créer un workflow\")."
+    },
+    "loopback": {
+      "translation": "loopback",
+      "keepEnglish": true,
+      "note": "FIXED — draft invented \"boucle de rétroaction\", but the shipped UI keeps the English term exactly as-is: \"Loopback\" (label), \"Activer le loopback pour toutes les étapes éligibles\" (admin.json)."
+    },
+    "priority": {
+      "translation": "priorité",
+      "keepEnglish": false,
+      "note": "Confirmed throughout jobs.json (\"Priorité\", priority bands Basse/Moyenne/Haute/Critique/Maximale)."
+    },
+    "max agents": {
+      "translation": "Agents max. / Nombre maximal d'agents",
+      "keepEnglish": false,
+      "note": "Two established forms depending on space: the Jobs column header abbreviates to \"Agents max.\" (jobs.json columns.maxAgents), while form/detail labels spell it out as \"Nombre maximal d'agents\" (jobs.json form.maxAgents, agents validation). One admin allocation-mode setting still leaves it as raw English \"Max Agents\" (\"Max Agents - Round Robin\") — a backlog gap to fix, not a model to copy."
+    },
+    "overflow": {
+      "translation": "dépassement",
+      "keepEnglish": false,
+      "note": "FIXED — draft had \"débordement\". The shipped admin UI uses \"dépassement\": \"Mode d'allocation du dépassement d'Agents\" (admin.json agentOverflow.overflowUpdated/overflowFailed)."
+    },
+    "benchmark": {
+      "translation": "benchmark",
+      "keepEnglish": true,
+      "note": "Confirmed lowercase throughout admin.json (\"Durée du cache des benchmarks\", \"Rétention de l'historique des benchmarks\")."
+    },
+    "hash rate": {
+      "translation": "Hash rate",
+      "keepEnglish": true,
+      "note": "FIXED — draft chose \"débit de hash\" (translated). The shipped UI always keeps this English: \"Hash Rate\" (agents.json column/monitoring header, title case) and \"Hash rate cumulé\" (jobs.json tooltip, sentence case + French adjective). Never translated."
+    },
+    "progress": {
+      "translation": "progression",
+      "keepEnglish": false,
+      "note": "Confirmed throughout (\"Progression\")."
+    },
+    "agent": {
+      "translation": "agent",
+      "keepEnglish": false,
+      "note": "Confirmed; already a French word, so this isn't really an anglicism decision. Sometimes capitalized \"Agent(s)\" in admin copy when referring to the entity (\"les Agents remontent leur progression\"), lowercase in plain generic use (\"Impossible de charger les agents\")."
+    },
+    "device": {
+      "translation": "appareil",
+      "keepEnglish": false,
+      "note": "FIXED — draft's \"processeur\" is simply wrong here: processeur means CPU/processor specifically, but this term covers GPU+CPU devices generically. Confirmed throughout agents.json: \"Aucun appareil\", \"ID de l'appareil\", \"Supervision des appareils\", \"Aucun appareil détecté\"."
+    },
+    "claim code": {
+      "translation": "code d'enrôlement",
+      "keepEnglish": false,
+      "note": "FIXED — draft had \"code d'activation\". Confirmed established term: \"Votre code d'enrôlement\", \"Code d'enrôlement\" (table column), \"Impossible de générer le code d'enrôlement\" (agents.json)."
+    },
+    "voucher": {
+      "translation": "voucher",
+      "keepEnglish": true,
+      "note": "FIXED — draft invented \"bon d'accès\", but the shipped UI keeps the English word throughout: \"Vouchers\" (section title), \"Créer un voucher\", \"Code du voucher\", \"Désactiver le voucher\", \"Aucun voucher actif\" (agents.json)."
+    },
+    "heartbeat": {
+      "translation": "heartbeat",
+      "keepEnglish": true,
+      "note": "CHANGED from draft's \"ping\". No existing fr string to confirm against (not yet surfaced in the UI), but \"ping\" already has a distinct, specific meaning in French tech speech (ICMP round-trip latency) and would mislead here. \"Heartbeat\" is a very common devops/infra loanword in French and matches the project's general habit of keeping infra nouns in English (chunk, voucher, workflow, loopback, benchmark, webhook)."
+    },
+    "offline buffer": {
+      "translation": "délai de grâce",
+      "keepEnglish": false,
+      "note": "No setting is literally labelled \"offline buffer\" yet, but the closest shipped analogue is \"Délai de grâce de reconnexion\" (admin.json reconnectGrace) for the related agent-reconnection grace period — reuse \"délai de grâce\" as the base phrase for this family of settings."
+    },
+    "auto-update": {
+      "translation": "mise à jour automatique",
+      "keepEnglish": false,
+      "note": "Consistent with shipped phrasing (\"recevront les mises à jour automatiquement\", admin.json binary management)."
+    },
+    "binary": {
+      "translation": "binaire",
+      "keepEnglish": false,
+      "note": "Confirmed throughout admin.json (\"Gestion des binaires\", \"Version du binaire\")."
+    },
+    "client": {
+      "translation": "client",
+      "keepEnglish": false,
+      "note": "Confirmed throughout (\"Gestion des clients\", \"Ajouter un client\")."
+    },
+    "team": {
+      "translation": "équipe",
+      "keepEnglish": false,
+      "note": "Not yet shipped in the frontend (team management is a planned v2.0 feature) — no existing string to confirm against. Standard, unambiguous French term."
+    },
+    "member": {
+      "translation": "membre",
+      "keepEnglish": false,
+      "note": "Not yet shipped; standard term, pairs with team/équipe above."
+    },
+    "owner": {
+      "translation": "propriétaire",
+      "keepEnglish": false,
+      "note": "Confirmed: agents.json fields.owner \"Propriétaire\", admin.json updateAgentOwnerFailed."
+    },
+    "retention": {
+      "translation": "rétention",
+      "keepEnglish": false,
+      "note": "Confirmed throughout admin.json (\"Rétention (mois)\", \"Rétention des données\")."
+    },
+    "archive": {
+      "translation": "archive",
+      "keepEnglish": false,
+      "note": "Confirmed as noun/plural (\"Afficher les archives\") and adjective (\"Archivée\"); the UI renders the action as the verb \"Archiver\", not a separate noun form."
+    },
+    "analytics report": {
+      "translation": "rapport d'analyse",
+      "keepEnglish": false,
+      "note": "Confirmed: analytics.json description \"rapports d'analyse de mots de passe\", \"Générer le rapport\". Use the fuller \"rapport d'analyse de mots de passe\" where space allows."
+    },
+    "password reuse": {
+      "translation": "réutilisation de mot de passe",
+      "keepEnglish": false,
+      "note": "No exact string found to confirm, but this is the unambiguous standard term and matches hash reuse below."
+    },
+    "hash reuse": {
+      "translation": "réutilisation de hash",
+      "keepEnglish": false,
+      "note": "Same reasoning as password reuse; keeps \"hash\" per that entry."
+    },
+    "complexity": {
+      "translation": "complexité",
+      "keepEnglish": false,
+      "note": "Confirmed: analytics.json \"Analyse de la complexité des caractères\"."
+    },
+    "entropy": {
+      "translation": "entropie",
+      "keepEnglish": false,
+      "note": "Confirmed: analytics.json \"Répartition de l'entropie\", \"Niveau d'entropie\"."
+    },
+    "domain": {
+      "translation": "domaine",
+      "keepEnglish": false,
+      "note": "Confirmed: pot.json columns.domain \"Domaine\"."
+    },
+    "username": {
+      "translation": "nom d'utilisateur",
+      "keepEnglish": false,
+      "note": "Confirmed throughout (pot.json, settings.json profile)."
+    },
+    "audit log": {
+      "translation": "journal d'audit",
+      "keepEnglish": false,
+      "note": "Confirmed: notifications.json auditLog.title \"Journal d'audit\"."
+    },
+    "dashboard": {
+      "translation": "tableau de bord",
+      "keepEnglish": false,
+      "note": "Confirmed: dashboard.json title \"Tableau de bord\"."
+    },
+    "settings": {
+      "translation": "paramètres",
+      "keepEnglish": false,
+      "note": "Confirmed throughout (settings.json title \"Paramètres utilisateur\")."
+    },
+    "autosave": {
+      "translation": "enregistrement automatique",
+      "keepEnglish": false,
+      "note": "No existing string to confirm against; standard, unambiguous French phrase."
+    },
+    "apply": {
+      "translation": "appliquer",
+      "keepEnglish": false,
+      "note": "Button/infinitive form, confirmed in admin.json settings prose (\"...pour les appliquer\"). Note the newer Server Certificate \"Apply & Reissue\" button is still untranslated English in the current file — a backlog gap, target should still be \"Appliquer\" (+ reissue wording)."
+    },
+    "certificate": {
+      "translation": "certificat",
+      "keepEnglish": false,
+      "note": "Confirmed throughout admin.json SSO/IdP section (\"Télécharger le certificat SP\", \"Certificat téléchargé avec succès\")."
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "Subject Alternative Name; technical acronym, kept as-is internationally. The new Server Certificate/SAN admin panel is still unlocalized in the current fr.json, so there is no existing French string to contradict this."
+    },
+    "network share": {
+      "translation": "partage réseau",
+      "keepEnglish": false,
+      "note": "Feature still in progress / not yet localized — no existing string to confirm against. Standard French IT term."
+    },
+    "mount": {
+      "translation": "monter",
+      "keepEnglish": false,
+      "note": "Verb; noun form is montage. No existing string yet (same in-progress feature as network share)."
+    },
+    "cloud fleet": {
+      "translation": "Cloud Fleet",
+      "keepEnglish": true,
+      "note": "FIXED — draft had \"flotte cloud\" (translated). Confirmed exact heading in admin.json: \"Cloud Fleet\" (cloud.fleet.title), kept fully English and capitalized like Job/Hashlist."
+    },
+    "provisioning": {
+      "translation": "Provisioning",
+      "keepEnglish": true,
+      "note": "FIXED — draft had \"déploiement\" (translated). Confirmed kept English and capitalized in BOTH places it appears: SSO \"Provisioning utilisateur\" and the sidebar/section label \"Cloud Provisioning\" (admin.json)."
+    },
+    "budget": {
+      "translation": "budget",
+      "keepEnglish": false,
+      "note": "Already a fully nativized French word (identical spelling); confirmed as \"Budget\" throughout the cloud-provisioning admin fields."
+    },
+    "threshold": {
+      "translation": "seuil",
+      "keepEnglish": false,
+      "note": "Confirmed: admin.json \"Seuil de découpage des règles\" (an unrelated feature, but the same word, confirming the established translation). The newer cloud spend-threshold UI is currently mostly untranslated English (backlog) — \"seuil\" is still the right target there too."
+    },
+    "drain": {
+      "translation": "drainage",
+      "keepEnglish": false,
+      "note": "Verb form drainer. No shipped French string yet — the cloud-fleet UI currently leaves this in English (\"Draining\", \"Start draining at (%)\", a translation backlog, not a style choice). \"Drainage\"/\"drainer\" is the natural French rendering (let running work finish, stop assigning new work) and matches common French DevOps usage (e.g. \"drainer un nœud\")."
+    },
+    "teardown": {
+      "translation": "destruction",
+      "keepEnglish": false,
+      "note": "CHANGED from draft's \"désactivation\", which undersells it — this is permanent destruction of a cloud instance, not merely disabling something. Pairs with the (currently still-English) \"Destroy\" action, which should become \"Détruire\". The cloud-fleet UI currently leaves nearly all of this in raw English (\"Teardown is failing\", \"Work sizing and teardown\") — a translation backlog; \"destruction\"/\"détruire\" is the target for when it's localized."
+    },
+    "webhook": {
+      "translation": "webhook",
+      "keepEnglish": true,
+      "note": "Confirmed: notifications.json \"Webhook\", \"Échec du webhook\", \"Aucun webhook actif configuré\"."
+    },
+    "notification": {
+      "translation": "notification",
+      "keepEnglish": false,
+      "note": "Already a native French word (not really an anglicism); confirmed: settings.json \"Notifications\", \"Notifications par e-mail\"."
+    },
+    "two-factor authentication": {
+      "translation": "authentification à deux facteurs",
+      "keepEnglish": false,
+      "note": "Confirmed exactly: auth.json and settings.json mfa.title \"Authentification à deux facteurs\"."
+    },
+    "backup codes": {
+      "translation": "codes de récupération",
+      "keepEnglish": false,
+      "note": "FIXED — draft had \"codes de secours\". Confirmed established term: settings.json mfa.methods.backupCodes \"Codes de récupération\", setup.backupCodesGenerated \"Enregistrez ces codes de récupération...\"."
+    },
+    "authenticator app": {
+      "translation": "application d'authentification",
+      "keepEnglish": false,
+      "note": "Confirmed exactly: settings.json mfa.methods.totp \"Application d'authentification\"."
+    },
+    "session": {
+      "translation": "session",
+      "keepEnglish": false,
+      "note": "Already a native French word; confirmed: auth.json \"Session expirée\", admin.json \"Terminer la session\"."
+    },
+    "API key": {
+      "translation": "clé API",
+      "keepEnglish": false,
+      "note": "Confirmed exactly throughout settings.json apiKey section (\"Clés API\", \"Générer une clé API\")."
+    },
+    "branding": {
+      "translation": "image de marque",
+      "keepEnglish": false,
+      "note": "FIXED — draft had bare \"marque\", which is incomplete (marque alone just means \"brand\"). Confirmed full established title: admin.json branding.title \"Image de marque\", branding.messages.saved \"Image de marque enregistrée\"."
+    },
+    "diagnostics": {
+      "translation": "diagnostic / diagnostics",
+      "keepEnglish": false,
+      "note": "Not really an anglicism decision — diagnostic/diagnostics is a native French cognate with identical spelling. Confirmed: admin.json \"Diagnostics système\", \"Package de diagnostic\", \"Télécharger le diagnostic\"."
+    }
+  }
+}

@@ -1,0 +1,452 @@
+{
+  "title": "ジョブ",
+  "createJob": "ジョブを作成",
+  "page": {
+    "title": "ジョブ"
+  },
+  "columns": {
+    "name": "ジョブ名",
+    "hashlist": "ハッシュリスト",
+    "createdBy": "作成者",
+    "progress": "進捗",
+    "keyspace": "キースペース",
+    "cracked": "クラック済み",
+    "agents": "エージェント",
+    "priority": "優先度",
+    "maxAgents": "最大エージェント数",
+    "actions": "アクション",
+    "status": "ステータス",
+    "createdAt": "作成日時",
+    "client": "クライアント"
+  },
+  "status": {
+    "preparing": "準備中",
+    "pending": "保留中",
+    "running": "実行中",
+    "completed": "完了",
+    "failed": "失敗",
+    "stopped": "停止",
+    "paused": "一時停止",
+    "active": "アクティブ",
+    "cancelled": "キャンセル"
+  },
+  "actions": {
+    "delete": "ジョブを削除",
+    "retry": "ジョブを再試行",
+    "stop": "ジョブを停止",
+    "pause": "ジョブを一時停止",
+    "resume": "ジョブを再開",
+    "viewDetails": "詳細を表示"
+  },
+  "sections": {
+    "activeJobs": "アクティブなジョブ",
+    "completedJobs": "完了したジョブ"
+  },
+  "confirmDelete": {
+    "title": "ジョブを削除",
+    "message": "このジョブを削除してもよろしいですか？この操作は取り消せません。",
+    "messageNamed": "ジョブ「{{name}}」を削除してもよろしいですか？この操作は取り消せません。"
+  },
+  "row": {
+    "completed": "完了：",
+    "unknown": "不明",
+    "error": "エラー：",
+    "rulesLabel": "（ルール）",
+    "custom": "カスタム攻撃"
+  },
+  "tooltips": {
+    "combinedHashRate": "合計ハッシュレート",
+    "retry": "ジョブを再試行",
+    "delete": "ジョブを削除",
+    "save": "保存",
+    "cancel": "キャンセル"
+  },
+  "validation": {
+    "priorityRange": "優先度は0～{{max}}の間である必要があります",
+    "maxAgentsRange": "最大エージェント数は1～100の間である必要があります",
+    "maxAgentsPositive": "最大エージェント数は0（無制限）または正の値である必要があります",
+    "chunkSizeMin": "チャンクサイズは最低5秒である必要があります",
+    "chunkSizeMax": "チャンクサイズは24時間（86400秒）を超えることはできません",
+    "invalidNumber": "有効な数値を入力してください",
+    "minValue": "値は最低{{min}}である必要があります",
+    "maxValue": "値は最大{{max}}である必要があります"
+  },
+  "errors": {
+    "loadFailed": "ジョブの読み込みに失敗しました",
+    "loadDetailsFailed": "ジョブの詳細の読み込みに失敗しました",
+    "deleteFailed": "ジョブの削除に失敗しました",
+    "updateFailed": "ジョブの更新に失敗しました",
+    "fetchFailed": "ジョブの取得に失敗しました：{{message}}",
+    "willRetry": "自動的に再試行します。",
+    "notFound": "ジョブが見つかりません",
+    "saveFailed": "変更の保存に失敗しました",
+    "updatePriorityFailed": "優先度の更新に失敗しました",
+    "updateMaxAgentsFailed": "最大エージェント数の更新に失敗しました",
+    "updateChunkSizeFailed": "チャンクサイズの更新に失敗しました",
+    "retryTaskFailed": "タスクの再試行に失敗しました",
+    "forceCompleteFailed": "ジョブの強制完了に失敗しました"
+  },
+  "details": {
+    "title": "ジョブの詳細",
+    "pageTitle": "ジョブの詳細",
+    "overview": "概要",
+    "tasks": "タスク",
+    "results": "結果",
+    "logs": "ログ",
+    "jobInformation": "ジョブ情報",
+    "timeRemaining": "残り時間",
+    "estimatedCompletion": "推定完了時刻",
+    "crackingCompletedAt": "クラック完了日時",
+    "totalRunningTime": "合計実行時間",
+    "chunkSizeDefault": "未設定（デフォルトを使用）",
+    "noActiveTasksEstimate": "推定できません。現在実行中のタスクがありません",
+    "lessThanOneMinute": "1分未満",
+    "jobCompleted": "ジョブが完了しました",
+    "finishingUp": "完了中...",
+    "completingShortly": "まもなく完了します",
+    "processingDuration": "処理中：{{duration}}",
+    "wordlists": "ワードリスト",
+    "rules": "ルール",
+    "splittingMode": "分割モード",
+    "ruleSplitting": "ルール分割",
+    "firstWordlist": "最初のワードリスト",
+    "secondWordlist": "2番目のワードリスト",
+    "wordlist": "ワードリスト",
+    "mask": "マスク",
+    "incrementMode": "インクリメントモード",
+    "incrementRange": "インクリメント範囲",
+    "maskSuffix": "マスク（サフィックス）",
+    "maskPrefix": "マスク（プリフィックス）",
+    "associationHints": "アソシエーションヒント",
+    "autoRefreshOn": "自動更新：オン",
+    "autoRefreshPaused": "自動更新：一時停止",
+    "forceComplete": "強制完了",
+    "refreshNow": "今すぐ更新",
+    "priorityRange": "0～{{max}}",
+    "maxAgentsHint": "0=無制限",
+    "chunkSizeHint": "秒（5～86400）",
+    "incrementLayers": "インクリメントレイヤー（合計{{count}}）",
+    "estimatedKeyspace": "推定",
+    "taskProgressVisualization": "タスク進捗の可視化",
+    "activeTasks": "アクティブなタスク（{{count}}実行中）",
+    "noActiveTasks": "アクティブなタスクはありません",
+    "failedTasks": "失敗したタスク（合計{{count}}）",
+    "completedTasks": "完了したタスク（合計{{count}}）",
+    "noCompletedTasks": "完了したタスクはありません",
+    "increment": "インクリメント",
+    "incrementInverse": "インクリメント逆順",
+    "jobNotFound": "ジョブが見つかりません",
+    "priority": "優先度",
+    "timeUnits": {
+      "year": "年",
+      "years": "年",
+      "month": "ヶ月",
+      "months": "ヶ月",
+      "day": "日",
+      "days": "日",
+      "hour": "時間",
+      "hours": "時間",
+      "minute": "分",
+      "minutes": "分",
+      "second": "秒",
+      "seconds": "秒"
+    },
+    "layerTable": {
+      "layer": "レイヤー",
+      "mask": "マスク",
+      "minLength": "最小長",
+      "maxLength": "最大長",
+      "keyspace": "キースペース",
+      "effectiveKeyspace": "有効キースペース",
+      "progress": "進捗",
+      "tasks": "タスク",
+      "cracks": "クラック",
+      "status": "ステータス",
+      "running": "実行中",
+      "total": "合計",
+      "failed": "{{count}}失敗"
+    },
+    "activeTasksTable": {
+      "agentId": "エージェントID",
+      "taskId": "タスクID",
+      "agent": "エージェント",
+      "skip": "スキップ",
+      "limit": "リミット",
+      "keyspaceRange": "キースペース範囲",
+      "progress": "進捗",
+      "speed": "速度",
+      "currentSpeed": "現在の速度",
+      "cracks": "クラック",
+      "startedAt": "開始日時"
+    },
+    "failedTasksTable": {
+      "agentId": "エージェントID",
+      "taskId": "タスクID",
+      "agent": "エージェント",
+      "status": "ステータス",
+      "retryCount": "再試行回数",
+      "error": "エラー",
+      "errorMessage": "エラーメッセージ",
+      "lastUpdated": "最終更新日時",
+      "failedAt": "失敗日時",
+      "actions": "アクション"
+    },
+    "completedTasksTable": {
+      "agentId": "エージェントID",
+      "taskId": "タスクID",
+      "agent": "エージェント",
+      "completedAt": "完了日時",
+      "keyspaceRange": "キースペース範囲",
+      "finalProgress": "最終進捗",
+      "averageSpeed": "平均速度",
+      "cracks": "クラック",
+      "cracksFound": "クラック数"
+    },
+    "additionalArgs": "追加引数",
+    "attackModes": {
+      "dictionary": "辞書",
+      "combination": "結合",
+      "bruteforce": "ブルートフォース",
+      "hybridWordlistMask": "ハイブリッド ワードリスト + マスク",
+      "hybridMaskWordlist": "ハイブリッド マスク + ワードリスト",
+      "association": "アソシエーション",
+      "modeNumber": "モード {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "クラウド予算に達しました",
+      "cloud_cap_reached": "クラウドインスタンス上限に達しました",
+      "cloud_settling": "レンタルインスタンスの起動を待機中",
+      "cloud_no_capacity": "クラウド容量がありません",
+      "cloud_dead_on_arrival": "レンタルインスタンスが接続できませんでした",
+      "cloud_launch_failed": "クラウドインスタンスをレンタルできませんでした",
+      "seenTimes_other": "{{count}}回表示されました",
+      "cloud_rental_too_short": "レンタル期間が短すぎて無駄です",
+      "cloud_cracks_lost": "クラック済みパスワードが失われた可能性があります",
+      "cloud_draining": "クラウドインスタンスがドレイン中です（新しい作業はなし）"
+    },
+    "client": "クライアント",
+    "presetJob": "プリセットジョブ",
+    "workflow": "ワークフロー",
+    "createdBy": "作成者",
+    "system": "システム"
+  },
+  "common": {
+    "id": "ID",
+    "name": "名前",
+    "status": "ステータス",
+    "hashlist": "ハッシュリスト",
+    "hashType": "ハッシュタイプ",
+    "attackMode": "攻撃モード",
+    "keyspace": "キースペース",
+    "effectiveKeyspace": "有効キースペース",
+    "processedKeyspace": "処理済みキースペース",
+    "dispatchedKeyspace": "割り当てキースペース",
+    "progress": "進捗",
+    "cracksFound": "クラック数",
+    "createdAt": "作成日時",
+    "startedAt": "開始日時",
+    "completedAt": "完了日時",
+    "error": "エラー",
+    "warning": "警告",
+    "maxAgents": "最大エージェント数",
+    "chunkSize": "チャンクサイズ",
+    "unassigned": "未割り当て",
+    "noErrorMessage": "エラーメッセージなし",
+    "notAvailable": "N/A",
+    "back": "戻る",
+    "rulesMultiplier": "(ルール)"
+  },
+  "editableCell": {
+    "clickToEdit": "クリックして編集"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "完了ジョブの削除",
+      "message": "完了したすべてのジョブを削除してもよろしいですか?この操作は取り消せません。"
+    },
+    "forceComplete": {
+      "title": "ジョブの強制完了",
+      "warning": "すべての未完了タスクを完了としてマークし、ジョブステータスを完了に設定します。",
+      "onlyUseIf": "次の場合のみ使用してください:",
+      "reason1": "ジョブが実際にすべての処理を完了している",
+      "reason2": "ジョブが実行中/保留中のステータスで止まっている",
+      "reason3": "キースペース全体が検索されたことを確認している",
+      "note": "注: 様々な状況下でのキースペース計算とジョブ完了検出の改善に取り組んでいます。",
+      "confirmation": "このジョブを強制完了してもよろしいですか?",
+      "completing": "完了中...",
+      "button": "強制完了"
+    },
+    "deleteConfirm": {
+      "deleting": "削除中..."
+    }
+  },
+  "buttons": {
+    "refresh": "更新",
+    "deleteFinished": "完了ジョブを削除",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "save": "保存",
+    "retry": "再試行"
+  },
+  "success": {
+    "chunkSizeUpdated": "チャンクサイズが正常に更新されました。変更は次のタスク作成時に反映されます。",
+    "forceCompleted": "ジョブが正常に強制完了されました"
+  },
+  "form": {
+    "name": "ジョブ名",
+    "hashlist": "ハッシュリストを選択",
+    "attackMode": "攻撃モード",
+    "wordlist": "ワードリスト",
+    "rules": "ルール",
+    "priority": "優先度",
+    "maxAgents": "最大エージェント数"
+  },
+  "autoRefresh": {
+    "on": "自動更新: オン",
+    "off": "自動更新: オフ"
+  },
+  "pagination": {
+    "jobsPerPage": "1ページあたりのジョブ数"
+  },
+  "filters": {
+    "searchPlaceholder": "ジョブを検索...",
+    "priority": "優先度",
+    "status": "ステータス",
+    "all": "すべて"
+  },
+  "priority": {
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "critical": "緊急",
+    "maximum": "最大"
+  },
+  "lastUpdated": "最後に更新: {{time}}",
+  "filtered": "(フィルター済み)",
+  "loading": "ジョブを読み込み中...",
+  "archive": {
+    "showArchived": "アーカイブ済みを表示",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブを解除",
+    "archived": "アーカイブ済み",
+    "archiveSelected": "選択項目をアーカイブ",
+    "unarchiveSelected": "選択項目のアーカイブを解除",
+    "deleteSelected": "選択項目を削除",
+    "selectedCount": "{{count}}個選択",
+    "confirmBulkDelete": {
+      "title": "一括削除の確認",
+      "message_other": "{{count}}個のジョブを削除してもよろしいですか?この操作は取り消せません。",
+      "warning": "選択したジョブとすべての関連データが永続的に削除されます。",
+      "cancel": "キャンセル",
+      "delete": "削除",
+      "deleting": "削除中..."
+    },
+    "bulkArchiveSuccess_other": "{{count}}個のジョブが正常にアーカイブされました",
+    "bulkUnarchiveSuccess_other": "{{count}}個のジョブのアーカイブが正常に解除されました",
+    "bulkDeleteSuccess_other": "{{count}}個のジョブが正常に削除されました"
+  },
+  "cloud": {
+    "projection": {
+      "title": "予算内に完了しますか?",
+      "loadFailed": "このジョブの予測に失敗しました",
+      "coverageLabel": "予算カバー率",
+      "coverageValue": "残りの作業の{{pct}}%が予算でカバーされています",
+      "timeToFinish": "予想完了時間",
+      "projectedCost": "予想クラウドコスト",
+      "availableBudget": "利用可能な予算",
+      "onpremSpeed": "オンプレミス速度",
+      "cloudSpeed": "クラウド速度",
+      "unknown": "不明",
+      "confirm": "起動",
+      "pessimistic": "これはソルト付きハッシュタイプであるため、ソルトがクラックされるにつれて実際のスループットはこの推定値を超えます。予測を最悪のケースとして扱ってください。",
+      "shortfallTitle": "予算がジョブの完了より先に尽きます",
+      "shortfallBody": "予測レートでは、予算は残りのキースペースの{{pct}}%をカバーします。ジョブは途中で停止します。部分的な進捗は購入する価値があるかもしれません — しかし、それは意図的な選択であるべきです。",
+      "shortfallAcknowledge": "このジョブが予算内に完了しないことを理解しています",
+      "metric": "メトリクス",
+      "value": "値"
+    },
+    "cloudBurst": {
+      "label": "このジョブのクラウドバーストを許可",
+      "help": "オンプレミスフリートが追いつかない場合、GPUインスタンスをレンタルします。クライアントが資金を持ち、プロバイダーにオプトインしている必要があります。これなしではレンタルされません。",
+      "maxInstances": "最大レンタルインスタンス数",
+      "maxInstancesHelp": "最大エージェント数とは別で、共有オンプレミスプールを管理します。残りの予算で判断できるように空のままにしてください。",
+      "badge": "クラウドバースト",
+      "thirdPartyBadge": "サードパーティーホスト",
+      "provisionNow": "今すぐプロビジョニング",
+      "provisionConfirm": "このジョブ用に今すぐクラウドインスタンスを1つレンタルしますか?\n\nこれはオートスケーラーの枯渇と間もなく終了のルールをバイパスし、このクライアントの予算に対してお金を使用します。予算、支出期間、ジョブあたりの上限、プロバイダーの同意はまだ適用されます。",
+      "provisionRequested": "クラウドインスタンスリクエスト済み",
+      "provisionFailed": "クラウドインスタンスをプロビジョニングできませんでした"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "全体的な進捗: {{percent}}%",
+    "noTasks": "まだタスクが割り当てられていません",
+    "notAvailable": "N/A",
+    "tooltip": {
+      "taskId": "タスクID: {{id}}",
+      "status": "ステータス: {{status}}",
+      "keyspace": "キースペース: {{start}} - {{end}}",
+      "progress": "進捗: {{percent}}%",
+      "speed": "速度: {{speed}}",
+      "cracksFound": "クラック数: {{count}}",
+      "agentId": "エージェントID: {{id}}"
+    },
+    "legend": {
+      "pending": "保留中",
+      "running": "実行中",
+      "processing": "処理中",
+      "completed": "完了",
+      "processingError": "処理エラー",
+      "failed": "失敗",
+      "crackFound": "クラック検出"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "ベンチマーククールダウン",
+    "subtitle": "繰り返しの失敗後、このジョブのベンチマークからブロックリストに登録されたエージェント。エントリをクリアして次のスケジューリングサイクルで再試行してください。",
+    "loadFailed": "ブロックリストの読み込みに失敗しました",
+    "clearSuccess": "ブロックリストエントリがクリアされました — スケジューラーは次のサイクルで再試行します",
+    "clearFailedPrefix": "クリアに失敗しました: {{error}}",
+    "clearFailedDefault": "エントリをクリアできませんでした",
+    "expired": "期限切れ",
+    "retryNow": "今すぐ再試行",
+    "scope": {
+      "thisJob": "このジョブ",
+      "global": "グローバル"
+    },
+    "columns": {
+      "agent": "エージェント",
+      "scope": "範囲",
+      "hashMode": "ハッシュタイプ/モード",
+      "failures": "失敗",
+      "reason": "理由",
+      "expires": "有効期限",
+      "action": "アクション"
+    }
+  },
+  "loopback": {
+    "title": "ループバック",
+    "subtitle": "各ループバックは、攻撃の変異を新たにクラックされたパスワードのみに対して再実行し、新しいクラックが見つからなくなるまで繰り返します。",
+    "runningCount": "{{count}}実行中",
+    "statusLabel": {
+      "waiting": "ラウンドの完了を待機中",
+      "active": "ループ中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み"
+    },
+    "roundLabel": "ラウンド {{current}} / {{max}}",
+    "hashlistFallback": "ハッシュリスト #{{id}}",
+    "jobCount_other": "{{count}}個のジョブ",
+    "noJobsYet": "まだジョブが記録されていません。",
+    "loopsBackYes": "はい",
+    "loopsBackFeedsDelta": "デルタをフィード",
+    "columns": {
+      "round": "ラウンド",
+      "original": "オリジナル",
+      "job": "ジョブ",
+      "role": "ロール",
+      "loopsBack": "ループバック"
+    }
+  }
+}

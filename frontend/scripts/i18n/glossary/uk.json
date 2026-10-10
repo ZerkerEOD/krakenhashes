@@ -1,0 +1,397 @@
+{
+  "language": "uk",
+  "formality": "Formal register: address the user with the formal/plural 'ви' in any direct second-person text (help text, confirmations, error messages) — never the informal 'ти'. For action buttons and menu items, use the Ukrainian convention of perfective-aspect verb infinitives (e.g. 'Застосувати', 'Зберегти', 'Заархівувати'); this form is formality-neutral and does not conflict with the 'ви' register used in surrounding text.",
+  "styleNotes": "1) Keep hashcat/scheduler jargon that Ukrainian pentesters already use when writing or speaking (хеш, атака, пріоритет, агент, сертифікат); only keep literal English for terms with no real Ukrainian equivalent among security professionals, such as hashcat-native artifact names ('potfile', 'loopback') and X.509/protocol acronyms already in the doNotTranslate list ('SAN', 'API', 'TLS'). 2) Never use decryption vocabulary ('розшифрувати', 'дешифрувати') for 'crack'/'cracked' — hashcat hashes are one-way and are recovered/guessed, never decrypted; using decryption words would misstate how the tool works. 3) Keep 'job' ('завдання') and 'task' ('задача') strictly distinct — they are different, nested scheduling concepts in the product, and the two words must never be swapped or used interchangeably. 4) For action buttons use perfective-aspect verb infinitives ('Застосувати', 'Заархівувати', 'Зберегти'); reserve the corresponding nouns/participles ('архів', 'архівовано') for status and section labels, not buttons.",
+  "terms": {
+    "hash": {
+      "translation": "хеш",
+      "keepEnglish": false,
+      "note": "Standard, universally used term in Ukrainian security/hashcat documentation; no native alternative needed."
+    },
+    "hashlist": {
+      "translation": "список хешів",
+      "keepEnglish": false,
+      "note": "Product-specific concept (an uploaded hash collection); 'список хешів' is clear and composes well with other terms. Avoid mixing in 'хеш-список' as a second spelling — keep one form consistent across the UI."
+    },
+    "hash type": {
+      "translation": "тип хешу",
+      "keepEnglish": false,
+      "note": "Genitive singular of 'хеш'; standard in Ukrainian hashcat-adjacent documentation (e.g. NTLM, mode 1000)."
+    },
+    "crack": {
+      "translation": "зламати",
+      "keepEnglish": false,
+      "note": "Correct verb is 'зламати' (to break/crack security), not 'розламати' (to snap something into physical pieces) — the draft's 'розламати' is a meaning error. Also avoid 'взламати' (a Russianism/calque, not standard Ukrainian spelling), and never use 'розшифрувати'/'дешифрувати' (decrypt): hashcat hashes are one-way, so cracking recovers/guesses the plaintext rather than decrypting anything — decryption vocabulary would mislead security-literate users about how the tool works."
+    },
+    "cracked": {
+      "translation": "зламаний",
+      "keepEnglish": false,
+      "note": "Participle of 'зламати' (see 'crack'), not 'розламаний'. Feminine: зламана; neuter: зламане; plural: зламані."
+    },
+    "cracked hashes": {
+      "translation": "зламані хеші",
+      "keepEnglish": false,
+      "note": "Plural of 'зламаний' (see 'cracked'); kept consistent with 'crack'/'cracked' — do not use 'розламані'."
+    },
+    "plaintext": {
+      "translation": "відкритий текст",
+      "keepEnglish": false,
+      "note": "Standard Ukrainian cryptography term for the recovered password/plaintext value of a cracked hash. Use 'пароль' only where the UI clearly means the final recovered password string rather than the general crypto concept."
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "hashcat's own file/concept; kept untranslated as in Ukrainian hashcat community material, same treatment as other hashcat-native artifacts."
+    },
+    "client potfile": {
+      "translation": "potfile клієнта",
+      "keepEnglish": false,
+      "note": "Hybrid form: keep the Latin word 'potfile' (consistent with the standalone 'potfile' entry — do not switch to the Cyrillic transliteration 'потфайл', which the draft used inconsistently) and add the Ukrainian genitive 'клієнта' ('of the client')."
+    },
+    "wordlist": {
+      "translation": "словник",
+      "keepEnglish": false,
+      "note": "Standard term for a dictionary/candidate-password file."
+    },
+    "rule": {
+      "translation": "правило",
+      "keepEnglish": false,
+      "note": "Standard; matches general Ukrainian IT usage for a hashcat mangling rule."
+    },
+    "rule file": {
+      "translation": "файл правил",
+      "keepEnglish": false,
+      "note": "Genitive plural of 'правило'; standard compound."
+    },
+    "mask": {
+      "translation": "маска",
+      "keepEnglish": false,
+      "note": "Standard hashcat term; mask notation itself (?u?l?d etc.) stays unchanged."
+    },
+    "charset": {
+      "translation": "набір символів",
+      "keepEnglish": false,
+      "note": "Accurate, generic term covering letters, digits and symbols. Avoid 'абетка' (alphabet) — a charset is not limited to letters, so that alternative is a meaning error for mask-building contexts."
+    },
+    "attack mode": {
+      "translation": "режим атаки",
+      "keepEnglish": false,
+      "note": "Standard; sets the 'атака' pattern used consistently for all specific attack types below (dictionary/hybrid/association attack)."
+    },
+    "brute force": {
+      "translation": "перебір",
+      "keepEnglish": false,
+      "note": "Standard, concise term used in Ukrainian security texts for mask/brute-force attacks; 'повний перебір' or the loanword 'брутфорс' are acceptable longer alternatives. Avoid the literal calque 'грубий перебір' ('crude/rough enumeration'), which reads awkwardly in Ukrainian."
+    },
+    "dictionary attack": {
+      "translation": "словникова атака",
+      "keepEnglish": false,
+      "note": "Fixed a meaning error: 'напад' means a physical/violent assault, not a cybersecurity attack vector. Ukrainian security terminology uses 'атака' (already used correctly in 'attack mode' = 'режим атаки'); 'словникова атака' matches that pattern. Avoid 'словниковий напад'."
+    },
+    "hybrid attack": {
+      "translation": "гібридна атака",
+      "keepEnglish": false,
+      "note": "Same fix as 'dictionary attack': use 'атака', not 'напад', for consistency across all attack-type terms."
+    },
+    "association attack": {
+      "translation": "асоціативна атака",
+      "keepEnglish": false,
+      "note": "Same fix as the other attack types; the adjective+'атака' pattern ('асоціативна атака') is more natural and stays consistent with 'словникова атака' / 'гібридна атака' than 'напад асоціації' or 'атака асоціації'."
+    },
+    "keyspace": {
+      "translation": "простір ключів",
+      "keepEnglish": false,
+      "note": "Standard term in Ukrainian cryptography texts."
+    },
+    "effective keyspace": {
+      "translation": "ефективний простір ключів",
+      "keepEnglish": false,
+      "note": "Keyspace after the rule multiplier is applied; consistent with 'keyspace'."
+    },
+    "chunk": {
+      "translation": "блок",
+      "keepEnglish": false,
+      "note": "Preferred over 'частина' in scheduling/dispatch contexts — reads clearly as a discrete, allocatable unit of work."
+    },
+    "task": {
+      "translation": "задача",
+      "keepEnglish": false,
+      "note": "Reassigned from the draft. KrakenHashes has two distinct, nested concepts: the overall cracking 'job' and the smaller per-agent 'task' (one chunk assignment). The draft used 'завдання' for both (directly for 'task', and as the suggested alternative for 'job'), which would make the two concepts indistinguishable in the UI. Fix: 'task' (smaller, per-agent chunk) = 'задача'; 'job' (larger, user-facing cracking job) = 'завдання'. Keep this pairing consistent everywhere — never swap them."
+    },
+    "job": {
+      "translation": "завдання",
+      "keepEnglish": false,
+      "note": "See 'task' — 'job' and 'task' must use different Ukrainian nouns since they are distinct nested concepts. 'завдання' (the higher-level, formal scheduling entity) is reserved for 'job'; 'задача' is reserved for 'task'. Do not use 'робота' (too generic/colloquial, easily confused with everyday 'work'/'employment') for 'job', and do not let it collide with 'задача'."
+    },
+    "preset job": {
+      "translation": "шаблон завдання",
+      "keepEnglish": false,
+      "note": "A saved, reusable attack configuration — i.e. a template for a job, not a one-off 'finished' job. Fixed from the draft's 'готове завдання' ('ready-made job', which reads as already completed) and its alternative 'передустановлене завдання' (an awkward, unnatural calque of 'pre-installed'). 'шаблон завдання' correctly reuses the 'job' word ('завдання', see above) and conveys 'reusable template'."
+    },
+    "workflow": {
+      "translation": "робочий процес",
+      "keepEnglish": false,
+      "note": "Standard term for an ordered sequence of preset jobs; distinct from 'job'/'завдання' and 'task'/'задача', no collision."
+    },
+    "loopback": {
+      "translation": "loopback",
+      "keepEnglish": true,
+      "note": "Fixed from the draft's 'повторне запущення', which used an incorrect noun form — the correct deverbal noun from 'запустити' is 'запуск', not 'запущення' (which instead evokes 'запущений' = neglected/in disrepair, entirely the wrong connotation). Rather than patch that word, keep 'loopback' untranslated: it names hashcat's own --loopback mechanism, the same category as 'potfile' and the other hashcat-native terms kept in English, and KrakenHashes already uses it as a named feature/toggle label in the UI."
+    },
+    "priority": {
+      "translation": "пріоритет",
+      "keepEnglish": false,
+      "note": "Standard term in job scheduling."
+    },
+    "max agents": {
+      "translation": "максимум агентів",
+      "keepEnglish": false,
+      "note": "Clear and concise; 'максимальна кількість агентів' is an acceptable longer alternative."
+    },
+    "overflow": {
+      "translation": "надлишок",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'надлишкові агенти' ('excess agents'), which bakes the noun 'agents' into the glossary entry for the standalone term 'overflow' and breaks composability — a UI string like 'Overflow Allocation Mode' would render ungrammatically if 'overflow' were substituted with that ready-made phrase. 'надлишок' (surplus) is the bare noun; compounds like 'overflow agents' then derive naturally as 'надлишкові агенти'."
+    },
+    "benchmark": {
+      "translation": "тестування швидкості",
+      "keepEnglish": false,
+      "note": "Clear description of hashcat's GPU speed test; 'еталонне тестування' (literal 'benchmark') and the shorter 'тест швидкості' are acceptable alternatives — pick one and keep it consistent across the UI rather than mixing all three."
+    },
+    "hash rate": {
+      "translation": "швидкість хешування",
+      "keepEnglish": false,
+      "note": "Shortened from the draft's 'швидкість обробки хешів' for conciseness in UI labels next to a numeric H/s value; units (H/s, GH/s, etc.) remain unchanged per the doNotTranslate list."
+    },
+    "progress": {
+      "translation": "прогрес",
+      "keepEnglish": false,
+      "note": "Standard, widely used loanword in Ukrainian UI."
+    },
+    "agent": {
+      "translation": "агент",
+      "keepEnglish": false,
+      "note": "Standard, adopted term in Ukrainian IT."
+    },
+    "device": {
+      "translation": "пристрій",
+      "keepEnglish": false,
+      "note": "Formal term, appropriate for a professional security tool; 'девайс' is an informal alternative, not recommended here."
+    },
+    "claim code": {
+      "translation": "код реєстрації",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'код активації': the glossary's own definition says this code is used to REGISTER a new agent, not to activate an existing/installed feature, so 'реєстрації' (registration) matches the actual meaning more precisely than 'активації' (activation)."
+    },
+    "voucher": {
+      "translation": "ваучер",
+      "keepEnglish": false,
+      "note": "Transliterated loanword, well established in Ukrainian. Kept distinct from 'claim code' because the product itself uses two different English labels ('voucher' in the admin panel, 'claim code'/--claim on the agent side) for the same underlying concept — mirroring that distinction in Ukrainian is correct, not an inconsistency."
+    },
+    "heartbeat": {
+      "translation": "сигнал активності",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'серцебиття' (literally 'heartbeat of a living heart'), which is overly poetic/anthropomorphic for a technical status field such as 'Last heartbeat: 5s ago' in a pentesting dashboard. 'сигнал активності' (liveness/activity signal) is the natural, professional phrasing; a transliteration ('хартбіт') is sometimes seen in Ukrainian ops docs if more brevity is needed."
+    },
+    "offline buffer": {
+      "translation": "період очікування",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'буфер очікування': this is a TIME duration (a grace period), not a data buffer/queue, so 'буфер' (which reads as a networking/memory buffer) is a mild mistranslation. 'період очікування' (waiting/grace period) matches the actual meaning."
+    },
+    "auto-update": {
+      "translation": "автоматичне оновлення",
+      "keepEnglish": false,
+      "note": "Standard; written as one phrase without a hyphen, unlike the English compound."
+    },
+    "binary": {
+      "translation": "виконуваний файл",
+      "keepEnglish": false,
+      "note": "Formal, standard term for an executable; 'бінарник' is a common informal alternative, avoided here for a professional UI."
+    },
+    "client": {
+      "translation": "клієнт",
+      "keepEnglish": false,
+      "note": "Standard Ukrainian business/IT term."
+    },
+    "team": {
+      "translation": "команда",
+      "keepEnglish": false,
+      "note": "Standard organizational term."
+    },
+    "member": {
+      "translation": "учасник",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'член': while 'член' is the dictionary word for 'member', in everyday contemporary Ukrainian it is also common crude slang for male genitalia, and modern Ukrainian software localizations (e.g. Discord, Slack) use 'учасник' specifically to avoid that unintended reading in a professional product. The draft's formality assessment was backwards — 'учасник' is the safer, now-standard professional choice, not the informal one."
+    },
+    "owner": {
+      "translation": "власник",
+      "keepEnglish": false,
+      "note": "Standard term."
+    },
+    "retention": {
+      "translation": "період збереження",
+      "keepEnglish": false,
+      "note": "Matches the product's 'data_retention_months' concept directly."
+    },
+    "archive": {
+      "translation": "заархівувати",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'архів' (a noun, 'the archive'), which does not work as a button/action label for the verb 'to archive'. Ukrainian UI buttons use perfective-aspect infinitives (compare 'apply' → 'застосувати'), so the action is 'заархівувати'; use the noun 'архів' only for a section/page name, and 'архівовано'/'в архіві' for a status label — do not reuse the verb there."
+    },
+    "analytics report": {
+      "translation": "аналітичний звіт",
+      "keepEnglish": false,
+      "note": "Reordered from the draft's 'звіт аналітики' (a genitive construction, 'report of analytics') to the more idiomatic adjective-first Ukrainian pattern, matching how compounds like 'фінансовий звіт' (financial report) are normally formed."
+    },
+    "password reuse": {
+      "translation": "повторне використання паролю",
+      "keepEnglish": false,
+      "note": "Clear and standard. Removed the draft's alternative 'переклад паролю' ('password translation') — unrelated to 'reuse' and should not be used."
+    },
+    "hash reuse": {
+      "translation": "повторне використання хешу",
+      "keepEnglish": false,
+      "note": "Consistent with 'password reuse'."
+    },
+    "complexity": {
+      "translation": "складність",
+      "keepEnglish": false,
+      "note": "Standard term in password-security contexts."
+    },
+    "entropy": {
+      "translation": "ентропія",
+      "keepEnglish": false,
+      "note": "Standard loanword; bit-based measurement stays unchanged."
+    },
+    "domain": {
+      "translation": "домен",
+      "keepEnglish": false,
+      "note": "Standard for a Windows/AD domain."
+    },
+    "username": {
+      "translation": "ім'я користувача",
+      "keepEnglish": false,
+      "note": "Standard and clear; 'логін' is an acceptable shorter alternative."
+    },
+    "audit log": {
+      "translation": "журнал аудиту",
+      "keepEnglish": false,
+      "note": "Standard security term."
+    },
+    "dashboard": {
+      "translation": "інформаційна панель",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'панель керування' ('control panel'), which implies an active configuration/management surface. The glossary defines 'dashboard' as the 'Home overview page' (a read-mostly summary) — a different concept from the 'settings'/'параметри' configuration pages. 'інформаційна панель' is the standard Ukrainian term for an overview dashboard and avoids overlapping with 'control panel' semantics. 'дашборд' (informal loanword) remains an acceptable casual alternative."
+    },
+    "settings": {
+      "translation": "параметри",
+      "keepEnglish": false,
+      "note": "Kept as in the draft — this matches official Microsoft Ukrainian localization (Windows 'Параметри' = Settings), so it is a validated, correct choice despite reading literally as 'parameters'. 'налаштування' is an equally common alternative; use one consistently."
+    },
+    "autosave": {
+      "translation": "автозбереження",
+      "keepEnglish": false,
+      "note": "Standard compound, unhyphenated."
+    },
+    "apply": {
+      "translation": "застосувати",
+      "keepEnglish": false,
+      "note": "Perfective-aspect infinitive, the standard Ukrainian convention for action-button labels; used as the model for other button verbs in this glossary (e.g. 'archive' → 'заархівувати')."
+    },
+    "certificate": {
+      "translation": "сертифікат",
+      "keepEnglish": false,
+      "note": "Standard TLS/security term."
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "X.509 technical acronym, not translated in Ukrainian security documentation either — matches the doNotTranslate list's treatment of similar acronyms."
+    },
+    "network share": {
+      "translation": "мережевий ресурс",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'мережева папка' ('network folder'): this is specifically an SMB/NFS share used for wordlist storage, configured by admins, so the precise technical term 'мережевий ресурс' (network resource/share) is preferable to the more casual, end-user 'folder' framing. The draft's alternative 'мережева гільця' is not a real Ukrainian term for a network share — removed. 'мережева папка' remains an acceptable, more user-friendly alternative for a less technical audience."
+    },
+    "mount": {
+      "translation": "монтування",
+      "keepEnglish": false,
+      "note": "Standard Unix/Linux term, appropriate for the admin-facing network-share feature."
+    },
+    "cloud fleet": {
+      "translation": "парк хмарних інстансів",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'хмарні екземпляри' ('cloud instances'), which drops the 'fleet' (managed group/pool) sense entirely. 'парк' is the standard Ukrainian ops term for a managed fleet/pool (cf. 'парк серверів' = server fleet), more natural here than the draft note's nautical 'флот'."
+    },
+    "provisioning": {
+      "translation": "виділення ресурсів",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'розгортання', which is the standard Ukrainian term for software/config 'deployment' — a related but distinct DevOps concept. The glossary defines 'provisioning' here as 'starting cloud instances automatically' (resource allocation, not deploying code onto existing infrastructure), so 'виділення ресурсів' (resource allocation) is accurate and avoids confusing the two concepts if 'deployment' is ever added to the UI."
+    },
+    "budget": {
+      "translation": "бюджет",
+      "keepEnglish": false,
+      "note": "Standard financial/cloud term."
+    },
+    "threshold": {
+      "translation": "поріг",
+      "keepEnglish": false,
+      "note": "Standard technical term for a percentage trigger."
+    },
+    "drain": {
+      "translation": "виведення з роботи",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'завершення роботи' ('finishing work'/'shutdown'), which reads as a generic stop and loses the specific nuance that NO NEW work is accepted while existing work finishes. 'виведення з роботи' (gracefully taking out of active service) conveys that two-part behavior and stays distinct from 'teardown'."
+    },
+    "teardown": {
+      "translation": "знищення",
+      "keepEnglish": false,
+      "note": "Fixed from the draft's 'демонтування' ('disassembly'), a construction/hardware metaphor that reads oddly for destroying a virtual cloud instance. 'знищення' (destruction) matches the glossary's own definition ('destroying a cloud instance') directly and is more natural in Ukrainian cloud-ops usage."
+    },
+    "webhook": {
+      "translation": "вебхук",
+      "keepEnglish": false,
+      "note": "Standard transliteration used in Ukrainian technical documentation."
+    },
+    "notification": {
+      "translation": "сповіщення",
+      "keepEnglish": false,
+      "note": "Standard; emphasizes the alert nature, distinct from the more generic 'повідомлення' (message)."
+    },
+    "two-factor authentication": {
+      "translation": "двофакторна автентифікація",
+      "keepEnglish": false,
+      "note": "Spelling fixed from the draft's 'аутентифікація' to 'автентифікація': current Ukrainian orthographic norms follow the root in 'автентичний' (authentic), making 'автентифікація' the preferred modern spelling (used by major Ukrainian localizations), while 'аутентифікація' is a Russian-influenced calque still common informally. Kept consistent with 'authenticator app' below."
+    },
+    "backup codes": {
+      "translation": "резервні коди",
+      "keepEnglish": false,
+      "note": "Standard, literal and clear for MFA recovery codes; 'коди відновлення' is an acceptable alternative."
+    },
+    "authenticator app": {
+      "translation": "застосунок автентифікації",
+      "keepEnglish": false,
+      "note": "Spelling fixed to match 'two-factor authentication' above ('автентифікація', not 'аутентифікації'). 'застосунок' (not 'програма') is the modern, Ukrainian-preferred term for 'app', matching current OS/platform UI conventions."
+    },
+    "session": {
+      "translation": "сеанс",
+      "keepEnglish": false,
+      "note": "Standard term for a logged-in browser session."
+    },
+    "API key": {
+      "translation": "ключ API",
+      "keepEnglish": false,
+      "note": "Keep 'API' untranslated per the project's doNotTranslate list; translate only 'key' as 'ключ'."
+    },
+    "branding": {
+      "translation": "брендування",
+      "keepEnglish": false,
+      "note": "Standard transliteration, widely used in Ukrainian marketing/IT contexts."
+    },
+    "diagnostics": {
+      "translation": "діагностика",
+      "keepEnglish": false,
+      "note": "Standard term for a troubleshooting/debug tools page."
+    }
+  }
+}

@@ -14,7 +14,8 @@
   },
   "recentActivity": {
     "title": "最近活动",
-    "noActivity": "暂无最近活动"
+    "noActivity": "暂无最近活动",
+    "viewAll": "所有通知"
   },
   "quickActions": {
     "title": "快捷操作",
@@ -112,5 +113,52 @@
       "maxAgents": "最大代理数",
       "actions": "操作"
     }
+  },
+  "kpi": {
+    "runningJobs": "运行中的任务",
+    "queued": "{{count}} 个排队中",
+    "agentsOnline": "在线代理",
+    "agentProblems": "{{count}} 个需要关注",
+    "hashRate": "哈希速率",
+    "cracks24h": "已破解（24 小时）",
+    "cracks7d": "{{count}} 个（7 天内）",
+    "crackRate": "破解速率",
+    "hashlistTotals": "{{cracked}} / {{total}} 个哈希",
+    "failed24h": "失败（24 小时）",
+    "completed24h": "{{count}} 个已完成"
+  },
+  "agentHealth": {
+    "title": "代理健康状态",
+    "viewAll": "所有代理",
+    "utilization": "GPU 利用率",
+    "temperature": "最热 GPU",
+    "lastSeen": "最后在线于 {{when}}",
+    "warnings": {
+      "error": "错误",
+      "offline": "离线",
+      "update_failed": "更新失败",
+      "stale_heartbeat": "无心跳",
+      "gpu_hot": "GPU 过热"
+    }
+  },
+  "recentCracks": {
+    "title": "最近破解",
+    "viewAll": "所有已破解哈希",
+    "empty": "暂无破解密码",
+    "copy": "复制明文",
+    "copied": "已复制"
+  },
+  "activeJobs": {
+    "title": "活跃任务",
+    "showing": "显示 10 / {{total}}",
+    "viewAll": "所有任务",
+    "empty": "暂无运行中的任务",
+    "emptyHint": "从哈希列表启动任务。",
+    "goHashlists": "转到哈希列表"
+  },
+  "welcomeUser": "欢迎回来，{{name}}",
+  "autoRefresh": {
+    "on": "实时",
+    "off": "暂停"
   }
 }

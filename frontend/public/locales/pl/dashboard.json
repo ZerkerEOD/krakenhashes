@@ -1,0 +1,164 @@
+{
+  "title": "Pulpit nawigacyjny",
+  "welcome": "Witaj w KrakenHashes",
+  "stats": {
+    "title": "Przegląd",
+    "totalJobs": "Razem zadań",
+    "activeJobs": "Aktywne zadania",
+    "completedJobs": "Ukończone zadania",
+    "totalHashes": "Razem haszy",
+    "crackedHashes": "Złamane hasze",
+    "crackRate": "Wskaźnik złamania",
+    "activeAgents": "Aktywni agenci",
+    "totalAgents": "Razem agentów"
+  },
+  "recentActivity": {
+    "title": "Ostatnia aktywność",
+    "noActivity": "Brak ostatniej aktywności",
+    "viewAll": "Wszystkie powiadomienia"
+  },
+  "quickActions": {
+    "title": "Szybkie akcje",
+    "createJob": "Utwórz zadanie",
+    "uploadHashlist": "Prześlij listę haszy",
+    "viewAgents": "Wyświetl agentów"
+  },
+  "agents": {
+    "title": "Twoi agenci",
+    "loadError": "Nie udało się załadować agentów: {{message}}",
+    "noAgents": "Brak zarejestrowanych agentów",
+    "hashRate": "Hashrate",
+    "notAvailable": "N/A",
+    "job": "Zadanie",
+    "unnamedJob": "Nienazwane zadanie",
+    "noActiveTask": "Brak aktywnego podzadania"
+  },
+  "pagination": {
+    "previous": "Poprzednia",
+    "next": "Następna",
+    "pageOf": "Strona {{current}} z {{total}}"
+  },
+  "jobs": {
+    "title": "Twoje zadania",
+    "total": "Razem",
+    "autoRefreshOn": "Auto",
+    "autoRefreshOff": "Wył.",
+    "lastUpdated": "Ostatnia aktualizacja: {{time}}",
+    "loadError": "Nie udało się załadować zadań: {{message}}",
+    "noJobs": "Nie znaleziono zadań. Utwórz nowe zadanie, aby rozpocząć."
+  },
+  "buttons": {
+    "refresh": "Odśwież",
+    "deleteFinished": "Usuń ukończone"
+  },
+  "filters": {
+    "status": "Stan",
+    "priority": "Priorytet",
+    "all": "Wszystkie",
+    "searchPlaceholder": "Szukaj zadań...",
+    "clear": "Wyczyść filtry"
+  },
+  "status": {
+    "pending": "Oczekujące",
+    "running": "Uruchomione",
+    "paused": "Wstrzymane",
+    "completed": "Ukończone",
+    "failed": "Nieudane",
+    "cancelled": "Anulowane"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Usuń ukończone zadania",
+      "message": "Czy na pewno chcesz usunąć wszystkie ukończone zadania? Ta akcja nie może być cofnięta."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Nie udało się usunąć ukończonych zadań",
+    "deleteJobFailed": "Nie udało się usunąć zadania",
+    "retryJobFailed": "Nie udało się ponowić zadania",
+    "updateJobFailed": "Nie udało się zaktualizować zadania"
+  },
+  "hashlistOverview": {
+    "title": "Przegląd list haszy",
+    "loadError": "Nie udało się załadować list haszy",
+    "noHashlists": "Nie znaleziono list haszy",
+    "columns": {
+      "name": "Nazwa",
+      "client": "Klient",
+      "status": "Stan",
+      "total": "Razem",
+      "cracked": "Złamane",
+      "progress": "Postęp"
+    },
+    "status": {
+      "ready": "Gotowa",
+      "error": "Błąd",
+      "uploading": "Przesyłanie",
+      "processing": "Przetwarzanie"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Nie znaleziono zadań",
+    "noJobsHint": "Utwórz nowe zadanie na stronie List haszy, aby rozpocząć.",
+    "completedJobs": "Ukończone zadania",
+    "columns": {
+      "jobName": "Nazwa zadania",
+      "hashlist": "Lista haszy / Szablon",
+      "createdBy": "Utworzone przez",
+      "progress": "Postęp",
+      "keyspace": "Przestrzeń kluczy",
+      "cracked": "Złamane",
+      "agents": "Agenci",
+      "priority": "Priorytet",
+      "maxAgents": "Maks. agentów",
+      "actions": "Akcje"
+    }
+  },
+  "kpi": {
+    "runningJobs": "Uruchomione zadania",
+    "queued": "{{count}} w kolejce",
+    "agentsOnline": "Agenci online",
+    "agentProblems": "{{count}} do sprawdzenia",
+    "hashRate": "Hashrate",
+    "cracks24h": "Złamane (24h)",
+    "cracks7d": "{{count}} w ciągu 7 dni",
+    "crackRate": "Wskaźnik złamania",
+    "hashlistTotals": "{{cracked}} z {{total}} haszy",
+    "failed24h": "Nieudane (24h)",
+    "completed24h": "{{count}} ukończono"
+  },
+  "agentHealth": {
+    "title": "Stan agentów",
+    "viewAll": "Wszyscy agenci",
+    "utilization": "Wykorzystanie GPU",
+    "temperature": "Najgorętsze GPU",
+    "lastSeen": "Ostatnio widziano {{when}}",
+    "warnings": {
+      "error": "Błąd",
+      "offline": "Offline",
+      "update_failed": "Błąd aktualizacji",
+      "stale_heartbeat": "Brak heartbeat",
+      "gpu_hot": "GPU gorące"
+    }
+  },
+  "recentCracks": {
+    "title": "Ostatnio złamane hasze",
+    "viewAll": "Wszystkie złamane hasze",
+    "empty": "Brak złamanych haszy",
+    "copy": "Skopiuj tekst jawny",
+    "copied": "Skopiowano"
+  },
+  "activeJobs": {
+    "title": "Aktywne zadania",
+    "showing": "Wyświetlanie 10 z {{total}}",
+    "viewAll": "Wszystkie zadania",
+    "empty": "Brak uruchomionych zadań",
+    "emptyHint": "Uruchom zadanie z listy haszy.",
+    "goHashlists": "Przejdź do list haszy"
+  },
+  "welcomeUser": "Witaj ponownie, {{name}}",
+  "autoRefresh": {
+    "on": "Na żywo",
+    "off": "Zatrzymane"
+  }
+}

@@ -16,7 +16,7 @@
   },
   "admin": {
     "title": "Admin",
-    "settings": "Admin Settings",
+    "settings": "Settings",
     "userManagement": "User Management",
     "customCharsets": "Custom Charsets",
     "presetJobs": "Preset Jobs",
@@ -25,7 +25,12 @@
     "auditLog": "Audit Log",
     "jobAnalytics": "Job Analytics",
     "teamManagement": "Team Management",
-    "cloudFleet": "Cloud Fleet"
+    "cloudFleet": "Cloud Fleet",
+    "binaries": "Binaries",
+    "hashTypes": "Hash Types",
+    "vouchers": "Vouchers",
+    "clients": "Clients",
+    "teams": "Teams"
   },
   "userMenu": {
     "userSettings": "User Settings",
@@ -38,5 +43,10 @@
     "mainNavigation": "Main navigation",
     "adminNavigation": "Admin navigation",
     "downloadCaCert": "Download CA certificate"
+  },
+  "groups": {
+    "resources": "Resources",
+    "peopleAccess": "People & Access",
+    "operations": "Operations"
   }
 }

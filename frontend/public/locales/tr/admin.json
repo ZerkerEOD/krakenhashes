@@ -1,0 +1,3144 @@
+{
+  "title": "Yönetim Ayarları",
+  "sections": {
+    "general": "Genel Ayarlar",
+    "authentication": "Kimlik Doğrulama",
+    "email": "E-posta Ayarları",
+    "security": "Güvenlik",
+    "sso": "Tek Oturum Açma",
+    "monitoring": "İzleme"
+  },
+  "tabs": {
+    "emailSettings": "E-posta Ayarları",
+    "authenticationSettings": "Kimlik Doğrulama Ayarları",
+    "ssoSettings": "SSO Ayarları",
+    "binaryManagement": "İkili Dosya Yönetimi",
+    "systemSettings": "Sistem Ayarları",
+    "clientSettings": "Müşteri Ayarları",
+    "hashTypes": "Hash Türleri",
+    "jobExecution": "İş Yürütme",
+    "monitoring": "İzleme",
+    "agentDownloads": "Ajan İndirmeleri",
+    "notifications": "Bildirimler",
+    "cloudProvisioning": "Bulut Provisioning",
+    "serverCertificate": "Sunucu Sertifikası"
+  },
+  "common": {
+    "cancel": "İptal",
+    "create": "Oluştur",
+    "edit": "Düzenle",
+    "delete": "Sil",
+    "save": "Kaydet",
+    "saveChanges": "Değişiklikleri Kaydet",
+    "copyToClipboard": "Panoya Kopyala",
+    "never": "Asla",
+    "invalidDate": "Geçersiz tarih",
+    "all": "Tümü",
+    "yes": "Evet",
+    "no": "Hayır",
+    "note": "Not",
+    "default": "Varsayılan",
+    "on": "Açık",
+    "off": "Kapalı",
+    "none": "Hiçbiri",
+    "unlimited": "Sınırsız",
+    "close": "Kapat",
+    "unknownError": "Bilinmeyen hata",
+    "dialogs": {
+      "confirmDeleteNamed": "\"{{name}}\" öğesini silmek istediğinizden emin misiniz?"
+    },
+    "download": "İndir",
+    "confirm": "Onayla"
+  },
+  "users": {
+    "title": "Kullanıcı Yönetimi",
+    "description": "Kullanıcı hesaplarını ve izinleri yönetin",
+    "addUser": "Kullanıcı Ekle",
+    "createUser": "Kullanıcı Oluştur",
+    "columns": {
+      "username": "Kullanıcı Adı",
+      "email": "E-posta",
+      "role": "Rol",
+      "status": "Durum",
+      "createdAt": "Oluşturuldu",
+      "lastLogin": "Son Oturum Açma",
+      "actions": "İşlemler",
+      "provider": "Sağlayıcı",
+      "providerLocal": "Yerel",
+      "mfa": "MFA",
+      "apiKey": "API Anahtarı",
+      "lastApiUse": "Son API Kullanımı"
+    },
+    "roles": {
+      "admin": "Yönetici",
+      "user": "Kullanıcı",
+      "system": "Sistem"
+    },
+    "status": {
+      "active": "Etkin",
+      "pending": "Onay Bekliyor",
+      "disabled": "Devre Dışı",
+      "locked": "Kilitli"
+    },
+    "actions": {
+      "edit": "Kullanıcıyı Düzenle",
+      "delete": "Kullanıcıyı Sil",
+      "approve": "Onayla",
+      "disable": "Devre Dışı Bırak",
+      "enable": "Etkinleştir",
+      "unlock": "Kilidi Aç",
+      "resetPassword": "Parolayı Sıfırla",
+      "disableMfa": "MFA'yı Devre Dışı Bırak",
+      "revokeApiKey": "API Anahtarını İptal Et",
+      "cannotDeleteSystem": "Sistem kullanıcıları silinemez",
+      "terminateSession": "Oturumu Sonlandır",
+      "terminateAllSessions": "Tüm Oturumları Sonlandır"
+    },
+    "apiKey": {
+      "none": "Hiçbiri"
+    },
+    "validation": {
+      "usernameRequired": "Kullanıcı adı gereklidir",
+      "emailRequired": "E-posta gereklidir",
+      "emailInvalid": "Geçersiz e-posta biçimi",
+      "passwordRequired": "Parola gereklidir",
+      "passwordMinLength": "en az {{value}} karakter",
+      "passwordUppercase": "bir büyük harf",
+      "passwordLowercase": "bir küçük harf",
+      "passwordNumber": "bir sayı",
+      "passwordSpecial": "bir özel karakter",
+      "passwordMustContain": "Parola {{requirements}} içermelidir",
+      "confirmPasswordRequired": "Lütfen parolayı onaylayın",
+      "passwordsMismatch": "Parolalar eşleşmiyor"
+    },
+    "errors": {
+      "loadFailed": "Kullanıcılar yüklenemedi. Lütfen sayfayı yenileyin.",
+      "loadDetailsFailed": "Kullanıcı ayrıntıları yüklenemedi",
+      "loadSessionsFailed": "Oturumlar yüklenemedi",
+      "loadLoginAttemptsFailed": "Oturum açma denemeleri yüklenemedi",
+      "loadApiKeyFailed": "API anahtarı bilgileri yüklenemedi",
+      "createFailed": "Kullanıcı oluşturulamadı",
+      "updateFailed": "Kullanıcı güncellenemedi",
+      "deleteFailed": "Kullanıcı silinemedi",
+      "enableFailed": "Kullanıcı etkinleştirilemedi",
+      "disableFailed": "Kullanıcı devre dışı bırakılamadı",
+      "unlockFailed": "Hesap kilidi açılamadı",
+      "reasonRequired": "Lütfen bu kullanıcıyı devre dışı bırakmanız için bir neden sağlayın",
+      "passwordResetFailed": "Parola sıfırlanamadı",
+      "mfaDisableFailed": "MFA devre dışı bırakılamadı",
+      "accountStatusFailed": "Hesap durumu güncellenemedi",
+      "terminateSessionFailed": "Oturum sonlandırılamadı",
+      "terminateAllSessionsFailed": "Tüm oturumlar sonlandırılamadı",
+      "revokeApiKeyFailed": "API anahtarı iptal edilemedi",
+      "userNotFound": "Kullanıcı bulunamadı"
+    },
+    "messages": {
+      "createSuccess": "Kullanıcı başarıyla oluşturuldu",
+      "updateSuccess": "Kullanıcı ayrıntıları başarıyla güncellendi",
+      "deleteSuccess": "Kullanıcı başarıyla silindi",
+      "enableSuccess": "Kullanıcı başarıyla etkinleştirildi",
+      "disableSuccess": "Kullanıcı başarıyla devre dışı bırakıldı",
+      "passwordResetSuccess": "Parola başarıyla sıfırlandı!",
+      "passwordCopied": "Parola panoya kopyalandı",
+      "mfaDisableSuccess": "MFA başarıyla devre dışı bırakıldı",
+      "accountDisabled": "Kullanıcı hesabı devre dışı bırakıldı",
+      "accountEnabled": "Kullanıcı hesabı etkinleştirildi",
+      "accountUnlocked": "Kullanıcı hesabı kilidi açıldı",
+      "sessionTerminated": "Oturum başarıyla sonlandırıldı",
+      "allSessionsTerminated_one": "{{count}} oturum başarıyla sonlandırıldı",
+      "allSessionsTerminated_other": "{{count}} oturum başarıyla sonlandırıldı",
+      "apiKeyRevoked": "API anahtarı başarıyla iptal edildi"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Yeni Kullanıcı Oluştur",
+        "password": "Parola",
+        "confirmPassword": "Parolayı Onayla",
+        "roleHelperText": "Kullanıcının sistemdeki rolünü seçin"
+      },
+      "disableUser": {
+        "title": "Kullanıcı Hesabını Devre Dışı Bırak",
+        "description": "Lütfen bu kullanıcı hesabını devre dışı bırakmanız için bir neden sağlayın. Bu, denetim amaçları için kaydedilecektir.",
+        "reasonLabel": "Devre Dışı Bırakmanın Nedeni",
+        "reasonPlaceholder": "Örn. Hesap Güvenliği İhlali, Şartlar İhlali, Kullanıcı İsteği, vb.",
+        "disableAccount": "Hesabı Devre Dışı Bırak"
+      },
+      "deleteUser": {
+        "title": "Kullanıcı Hesabını Sil",
+        "warning": "Bu işlem geri alınamaz. Kullanıcı sistemden kalıcı olarak kaldırılacaktır.",
+        "confirmation": "<strong>{{username}}</strong> kullanıcısını silmek istediğinizden emin misiniz?",
+        "dataNote": "İlişkili tüm veriler korunacaktır, ancak kullanıcı artık oturum açamayacaktır."
+      },
+      "resetPassword": {
+        "title": "Kullanıcı Parolasını Sıfırla",
+        "generateTemporary": "Geçici parola oluştur",
+        "newPassword": "Yeni Parola",
+        "passwordHelperText": "En az 8 karakter olmalıdır"
+      },
+      "disableMfa": {
+        "title": "MFA'yı Devre Dışı Bırak",
+        "confirmation": "Bu kullanıcı için MFA'yı devre dışı bırakmak istediğinizden emin misiniz? Gerekli olursa yeniden kurması gerekecektir."
+      },
+      "terminateSession": {
+        "title": "Oturumu Sonlandır?",
+        "description": "Bu, kullanıcının bu cihazdaki oturumunu kapatır. Uygulamayı kullanmaya devam etmek için kullanıcının yeniden oturum açması gerekecektir.",
+        "terminate": "Sonlandır"
+      },
+      "terminateAllSessions": {
+        "title": "Tüm Oturumları Sonlandır?",
+        "description": "Bu, kullanıcının geçerli oturumu da dahil olmak üzere TÜM cihazlardaki oturumlarını kapatır. Kullanıcının yeniden oturum açması gerekecektir. Bu işlem geri alınamaz.",
+        "warning": "Buna herhangi bir etkin çalışma oturumu da dahildir!",
+        "terminateAll": "Tümünü Sonlandır"
+      },
+      "revokeApiKey": {
+        "title": "Kullanıcı API Anahtarını İptal Et?",
+        "warning": "Bu, bu kullanıcı için API erişimini hemen devre dışı bırakır. Bu anahtarı kullanan tüm uygulamalar çalışmayı durdurur.",
+        "confirmation": "Bu kullanıcının API anahtarını iptal etmek istediğinizden emin misiniz?"
+      }
+    },
+    "detail": {
+      "title": "Kullanıcı Ayrıntıları",
+      "backToUsers": "Kullanıcılara Geri Dön",
+      "userInformation": "Kullanıcı Bilgileri",
+      "userId": "Kullanıcı Kimliği",
+      "systemUserReadOnly": "Sistem kullanıcıları değiştirilemez",
+      "accountStatus": "Hesap Durumu",
+      "accountStatusLabel": "Hesap Durumu",
+      "enabled": "Etkin",
+      "disabled": "Devre Dışı",
+      "noReasonProvided": "Neden sağlanmadı",
+      "lockStatus": "Kilit Durumu",
+      "lockedUntil": "{{date}} tarihine kadar kilitli",
+      "notLocked": "Kilitli değil",
+      "mfaStatus": "MFA Durumu",
+      "mfaEnabled": "Etkin ({{types}})",
+      "mfaDisabled": "Devre Dışı",
+      "apiKeyManagement": "API Anahtarı Yönetimi",
+      "apiKeyStatus": "API Anahtarı Durumu",
+      "noApiKeyGenerated": "API Anahtarı Oluşturulmadı",
+      "created": "Oluşturuldu",
+      "lastUsed": "Son Kullanılma",
+      "apiKeySecurityNote": "Yöneticiler API anahtarlarını iptal edebilir ancak güvenlik nedenleriyle düz metin anahtarı görüntüleyemez.",
+      "activityInformation": "Aktivite Bilgileri",
+      "passwordChanged": "Parola Değiştirildi",
+      "failedLoginAttempts": "Başarısız Oturum Açma Denemeleri",
+      "attemptsCount_one": "{{count}} deneme",
+      "attemptsCount_other": "{{count}} deneme",
+      "disabledAt": "Devre Dışı Bırakıldı",
+      "activeSessions": "Etkin Oturumlar",
+      "noActiveSessions": "Etkin oturum yok",
+      "loginHistory": "Oturum Açma Geçmişi",
+      "noLoginAttempts": "Oturum açma denemesi bulunamadı",
+      "temporaryPassword": "Geçici parola",
+      "sharePasswordSecurely": "Lütfen bu parolayı kullanıcı ile güvenli bir şekilde paylaşın.",
+      "sessions": {
+        "ipAddress": "IP Adresi",
+        "deviceBrowser": "Cihaz / Tarayıcı",
+        "lastActive": "Son Etkinlik"
+      },
+      "loginAttempts": {
+        "timestamp": "Zaman Damgası",
+        "success": "Başarılı",
+        "failed": "Başarısız",
+        "failureReason": "Başarısızlık Nedeni"
+      },
+      "teams": "Takımlar",
+      "teamName": "Takım",
+      "teamDescription": "Açıklama",
+      "noTeams": "Herhangi bir takımın üyesi değil",
+      "ownedAgents": "Sahip Olunan Ajanlar",
+      "noOwnedAgents": "Bu kullanıcı hiçbir ajanın sahibi değil",
+      "agentName": "Ajan",
+      "agentVersion": "Sürüm",
+      "agentLastSeen": "Son Görülme"
+    }
+  },
+  "clients": {
+    "title": "Müşteri Yönetimi",
+    "addClient": "Müşteri Ekle",
+    "columns": {
+      "name": "Ad",
+      "description": "Açıklama",
+      "contact": "İletişim",
+      "cracked": "Kırılmış",
+      "retention": "Saklama (Ay)",
+      "createdAt": "Oluşturuldu",
+      "actions": "İşlemler",
+      "wordlists": "Wordlist'ler"
+    },
+    "form": {
+      "clientName": "Müşteri Adı",
+      "description": "Açıklama",
+      "contactInfo": "İletişim Bilgileri",
+      "dataRetention": "Veri Saklama (Ay)",
+      "dataRetentionHelperText": "Sistem varsayılanını kullanmak için boş bırakın. Sonsuza kadar tutmak için 0 girin.",
+      "excludeFromPotfile": "Potfile'dan hariç tut (kırılmış parolaları kaydetme)",
+      "excludeFromPotfileHelperText": "Katı veri saklama gereksinimlerine sahip müşteriler için bunu etkinleştirin",
+      "cloudInherit": "Bulut açılımı: bu müşteri sunucu varsayılanını miras alacak — {{state}}, ${{amount}} / {{period}}. Bunu Bulut Provisioning → Müşteri Bütçeleri'nde değiştirin.",
+      "cloudInheritUnfunded": "Bulut açılımı: varsayılan bütçe ayarlanmadığı için bu müşteri finanse edilmemiş olarak başlar ve ücretli kapasiteyi kiralayamaz. Bulut Provisioning → Müşteri Bütçeleri'nde bir varsayılan ayarlayın.",
+      "cloudInheritUnknown": "Bulut açılımı ayarları, Bulut Provisioning → Müşteri Bütçeleri'ndeki sunucu varsayılanlarından miras alınır.",
+      "cloudEnabledWord": "etkinleştirilmiş",
+      "cloudDisabledWord": "devre dışı bırakılmış",
+      "excludeFromClientPotfile": "Müşteri potfile'ından hariç tut",
+      "excludeFromClientPotfileHelperText": "İşaretlendiğinde, bu müşteri için kırılmış parolalar müşteri potfile'ına EKLENMEZ.",
+      "clientPotfileSettings": "Potfile Silme Ayarları",
+      "useSystemDefault": "Sistem varsayılanını kullan",
+      "alwaysRemove": "Her zaman kaldır",
+      "neverRemove": "Hiçbir zaman kaldırma",
+      "assignToTeam": "Takıma Ata",
+      "assignToTeamHelperText": "Yeni müşteri bu takıma atanacak. Mevcut müşterinin yeniden atanması Admin Takım Yönetimi aracılığıyla yönetilir.",
+      "removeFromGlobalPotfileOnDelete": "Sil'de küresel potfile'dan kaldır",
+      "removeFromGlobalPotfileHelperText": "Bir hash listesi silindiğinde parolaların küresel potfile'dan kaldırılıp kaldırılmayacağını kontrol eder.",
+      "removeFromClientPotfileOnDelete": "Sil'de müşteri potfile'ından kaldır",
+      "removeFromClientPotfileHelperText": "Bir hash listesi silindiğinde parolaların müşteri potfile'ından kaldırılıp kaldırılmayacağını kontrol eder."
+    },
+    "validation": {
+      "nameRequired": "Müşteri Adı gerekli.",
+      "retentionInvalid": "Saklama Süresi negatif olmayan bir sayı veya boş (varsayılan için) olmalıdır.",
+      "teamRequired": "Takımlar etkinleştirildiğinde takım seçimi gerekli"
+    },
+    "errors": {
+      "loadFailed": "Müşteriler yüklenemedi. Lütfen yenilemeyi deneyin.",
+      "loadDefaultSettingsFailed": "Varsayılan müşteri ayarları yüklenemedi.",
+      "saveFailed": "Müşteri kaydedilemedi.",
+      "deleteFailed": "Müşteri silinemedi."
+    },
+    "messages": {
+      "createSuccess": "Müşteri başarıyla oluşturuldu",
+      "updateSuccess": "Müşteri başarıyla güncellendi",
+      "deleteSuccess": "Müşteri başarıyla silindi"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Yeni Müşteri Ekle",
+        "createButton": "Müşteri Oluştur"
+      },
+      "editClient": {
+        "title": "Müşteri Düzenle"
+      },
+      "deleteClient": {
+        "title": "Silmeyi Onayla",
+        "confirmation": "\"{{name}}\" adlı müşteriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz. İlişkili hash listeleri saklama politikalarına göre hemen silinebilir veya yetim bırakılabilir."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Ad",
+        "status": "Durum",
+        "total": "Hashler",
+        "cracked": "Kırılmış",
+        "created": "Oluşturuldu"
+      },
+      "notFound": "Müşteri bulunamadı",
+      "notFoundHint": "Silinmiş olabilir veya üye olmadığınız bir takıma ait olabilir.",
+      "backToClients": "Müşterilere geri dön",
+      "breadcrumb": "Müşteriler",
+      "manageWordlists": "Wordlist'ler ve potfile",
+      "stats": {
+        "hashlists": "Hash Listeleri",
+        "cracked": "Kırılmış",
+        "jobs": "İşler",
+        "active": "{{count}} etkin",
+        "wordlists": "Wordlist'ler",
+        "hasPotfile": "Müşteri potfile'ı mevcut"
+      },
+      "hashlists": "Hash Listeleri",
+      "noHashlists": "Bu müşteri için henüz hash listesi yok",
+      "jobs": "İşler",
+      "noJobs": "Bu müşteri için hiç iş çalışmadı",
+      "teams": "Takımlar",
+      "noTeams": "Hiçbir takıma atanmamış",
+      "policy": "Saklama ve potfile",
+      "retention": "Veri saklama",
+      "retentionDefault": "Sistem varsayılanı",
+      "retentionForever": "Süresiz",
+      "retentionMonths_one": "{{count}} ay",
+      "retentionMonths_other": "{{count}} ay",
+      "globalPotfile": "Küresel potfile",
+      "excluded": "Hariç",
+      "included": "Dahil",
+      "clientPotfile": "Müşteri potfile'ı",
+      "contact": "İletişim",
+      "lastActivity": "Son etkinlik"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Müşterileri Takıma Ata",
+      "dialogDescription_one": "Seçili {{count}} müşteriyi bir takıma atayın. Seçili takımda zaten olan müşteriler atlanacak.",
+      "dialogDescription_other": "Seçili {{count}} müşteriyi bir takıma atayın. Seçili takımda zaten olan müşteriler atlanacak.",
+      "selectTeam": "Takım Seç",
+      "assignButton": "Ata",
+      "fallbackTeamName": "takım",
+      "success_one": "{{count}} müşteri {{team}} takımına atandı",
+      "success_other": "{{count}} müşteri {{team}} takımına atandı",
+      "successWithSkipped_one": "{{count}} müşteri {{team}} takımına atandı ({{skipped}} zaten atanmış)",
+      "successWithSkipped_other": "{{count}} müşteri {{team}} takımına atandı ({{skipped}} zaten atanmış)",
+      "errors": {
+        "assignFailed": "Müşteriler takıma atanamadı"
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Wordlist Yönetimi",
+    "description": "Parola kırma için wordlist'leri yönet",
+    "uploadWordlist": "Wordlist Yükle",
+    "refresh": "Yenile",
+    "loading": "Wordlist'ler yükleniyor...",
+    "noWordlistsFound": "Wordlist bulunamadı",
+    "tryDifferentSearch": "Farklı bir arama terimi dene",
+    "uploadToGetStarted": "Başlamak için bir wordlist yükle",
+    "noDescription": "Açıklama sağlanmadı",
+    "searchPlaceholder": "Wordlist'lerde ara...",
+    "tabs": {
+      "all": "Tüm Wordlist'ler",
+      "general": "Genel",
+      "specialized": "Uzmanlaşmış",
+      "targeted": "Hedefli",
+      "custom": "Özel"
+    },
+    "columns": {
+      "name": "Ad",
+      "status": "Durum",
+      "type": "Tür",
+      "size": "Boyut",
+      "wordCount": "Kelime Sayısı",
+      "updated": "Güncellendi",
+      "actions": "İşlemler"
+    },
+    "status": {
+      "verified": "Doğrulandı",
+      "pending": "Beklemede",
+      "failed": "Başarısız",
+      "missing": "Dosya diskten eksik",
+      "missingSince": "Dosya {{date}} tarihinden beri diskten eksik. Tekrar yükleyin veya girdiyi silin."
+    },
+    "types": {
+      "general": "Genel",
+      "specialized": "Uzmanlaşmış",
+      "targeted": "Hedefli",
+      "custom": "Özel"
+    },
+    "fields": {
+      "name": "Ad",
+      "description": "Açıklama",
+      "wordlistType": "Wordlist Türü"
+    },
+    "tooltips": {
+      "refreshMetadata": "Meta Verileri Yenile",
+      "download": "İndir",
+      "edit": "Düzenle",
+      "delete": "Sil"
+    },
+    "errors": {
+      "loadFailed": "Wordlist'ler yüklenemedi",
+      "uploadFailed": "Wordlist yüklenemedi",
+      "deleteFailed": "Wordlist silinemedi",
+      "downloadFailed": "Wordlist indirilemedi",
+      "refreshFailed": "Wordlist meta verileri yenilenemedi",
+      "updateFailed": "Wordlist güncellenemedi: {{error}}",
+      "sessionExpired": "Oturumunuz sona erdi. Lütfen tekrar giriş yapın."
+    },
+    "messages": {
+      "uploadSuccess": "Wordlist başarıyla yüklendi",
+      "duplicateWordlist": "Wordlist \"{{name}}\" zaten var",
+      "deleteSuccess": "Wordlist \"{{name}}\" başarıyla silindi",
+      "updateSuccess": "Wordlist başarıyla güncellendi",
+      "refreshSuccess": "Wordlist meta verileri başarıyla yenilendi"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Wordlist Yükle",
+        "fileUploadTitle": "Bir wordlist dosyası yükle",
+        "fileUploadDescription": "Yüklenecek bir wordlist dosyası seç. Desteklenen biçimler: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Wordlist Düzenle"
+      },
+      "delete": {
+        "title": "Silmeyi Onayla",
+        "cascadeTitle": "Kademeli Silmeyi Onayla",
+        "confirmation": "\"{{name}}\" adlı wordlist'i silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+        "cascadeWarning": "\"{{name}}\" adlı wordlist'i silmek, aşağıdakileri de silecektir:",
+        "checkingDependencies": "Bağımlılıklar kontrol ediliyor...",
+        "jobsCount_one": "{{count}} İş (beklemede/çalışan/başarısız):",
+        "jobsCount_other": "{{count}} İş (beklemede/çalışan/başarısız):",
+        "presetJobsCount_one": "{{count}} Ön Tanımlı İş:",
+        "presetJobsCount_other": "{{count}} Ön Tanımlı İş:",
+        "workflowStepsCount_one": "{{count}} İş Akışı Adımı:",
+        "workflowStepsCount_other": "{{count}} İş Akışı Adımı:",
+        "emptyWorkflowsCount_one": "{{count}} Boş İş Akışı silinecek:",
+        "emptyWorkflowsCount_other": "{{count}} Boş İş Akışı silinecek:",
+        "noHashlist": "Hash listesi yok",
+        "step": "Adım {{order}}",
+        "andMore": "...ve {{count}} daha",
+        "confirmationPrompt": "Bu kademeli silmeyi onaylamak için wordlist ID'sini yazın: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Onaylamak için {{id}} yazın",
+        "idMismatch": "ID eşleşmiyor",
+        "deleteAll": "Tümünü Sil"
+      }
+    },
+    "filterForm": {
+      "helpText": "Tüm kriterler birleştirilir (VE) — bir kelime ayarladığınız her birini karşılamalıdır. Normal ifadeniz uzunluk alanlarından daha katı ise (örn. minimum uzunluk 8 ancak normal ifade 12+ gerektiriyorsa), daha katı kural kazanır. Aşağıdaki tahmin birleştirilmiş sonucu yansıtır.",
+      "minLength": "Minimum uzunluk",
+      "maxLength": "Maksimum uzunluk",
+      "requiredClasses": "Gerekli karakter sınıfları",
+      "uppercase": "Büyük harfler",
+      "lowercase": "Küçük harfler",
+      "digit": "Rakam",
+      "special": "Özel",
+      "minClasses": "Min karakter sınıfı sayısı (1-4)",
+      "minClassesHelp": "örn. 3 = 4 sınıftan en az 3'ü",
+      "regexLabel": "Normal İfade (RE2)",
+      "regexHelperDefault": "örn. ^.{10,16}$",
+      "regexLookaroundError": "Lookaround'lar ((?=…), (?!…), (?<=…), (?<!…)) arka uç normal ifade motoru (RE2) tarafından desteklenmez. Bunun yerine uzunluk/sınıf filtreleri kullanın.",
+      "regexInvalidDefault": "Geçersiz normal ifade",
+      "estimating": "Tahmin ediliyor…",
+      "previewTooltip": "Kaynak wordlist'in başını örneklendirerek tahmin edildi. Sıralı listeler için gerçek toplam farklı olabilir.",
+      "previewLabel": "~{{countDisplay}} aday (örneklemenin %{{rateDisplay}}'i)",
+      "previewUnavailable": "Önizleme kullanılamıyor"
+    },
+    "filtered": {
+      "badge": "Filtrelenmiş",
+      "regeneratingBadge": "Yeniden oluşturuluyor…",
+      "regeneratingTooltip": "Üst öğe değişti; bu filtrelenmiş wordlist yeniden oluşturuluyor (mümkün olduğunda yalnızca yeni girişler yeniden filtrelenir).",
+      "staleBadge": "Eski",
+      "staleTooltip": "Üst wordlist bu oluşturulduktan sonra değişti. Filtrelenmiş wordlist'ler üst öğeleri değiştiğinde otomatik olarak yeniden oluşturulur; artık yeniden oluşturabilirsiniz.",
+      "namePlaceholder": "{{name}} (filtrelenmiş)",
+      "wordCount_one": "{{count}} kelime",
+      "wordCount_other": "{{count}} kelime",
+      "plaintextChip": "düz metin",
+      "compressedChip": "sıkıştırılmış",
+      "messages": {
+        "generating": "Filtrelenmiş wordlist oluşturuluyor",
+        "createFailed": "Filtrelenmiş wordlist oluşturulamadı",
+        "regenerating": "Filtrelenmiş wordlist'in tam yeniden oluşturulması başladı",
+        "regenerateFailed": "Filtrelenmiş wordlist yeniden oluşturulamadı"
+      },
+      "createDialog": {
+        "title": "Filtrelenmiş Wordlist Oluştur",
+        "description": "Ölçütlerinize uyan bir kaynak wordlist'in yalnızca satırlarını içeren yeni bir wordlist oluştur. Sonuç işler arasında yeniden kullanılabilir ve üst öğesine karşı izlenir.",
+        "sourceWordlistLabel": "Kaynak wordlist",
+        "nameLabel": "Ad",
+        "create": "Oluştur"
+      },
+      "regenerateDialog": {
+        "title": "Filtrelenmiş wordlist yeniden oluşturulsun mu?",
+        "autoInfo": "Filtrelenmiş wordlist'ler normalde <strong>arka uçta otomatik olarak</strong> üst wordlist'leri her değiştiğinde yeniden oluşturulur — bunu elle yapmanız gerekmez.",
+        "manualHint": "Yalnızca <strong>üst öğedeki sözcüklerin sırası değiştiğini</strong> biliyorsanız manuel olarak yeniden oluşturun (sözcükler basitçe sona eklenmek yerine düzenlenmiş, kaldırılmış veya yeniden sıralanmıştır).",
+        "warningWithExample": "Bu <strong>tam yeniden oluşturma</strong> çalıştırır — üst öğe tamamen yeniden filtrelenir, bu da büyük wordlist'ler için biraz zaman alabilir (örn. \"{{name}}\").",
+        "warningNoExample": "Bu <strong>tam yeniden oluşturma</strong> çalıştırır — üst öğe tamamen yeniden filtrelenir, bu da büyük wordlist'ler için biraz zaman alabilir.",
+        "confirmButton": "Tamamen yeniden oluştur"
+      }
+    }
+  },
+  "rules": {
+    "title": "Kural Yönetimi",
+    "description": "Parola kırma için Hashcat kurallarını yönetin",
+    "uploadRule": "Kural Yükle",
+    "refresh": "Yenile",
+    "loading": "Kurallar yükleniyor...",
+    "noRulesFound": "Kural bulunamadı",
+    "tryDifferentSearch": "Farklı bir arama terimi deneyin",
+    "uploadToGetStarted": "Başlamak için bir kural yükleyin",
+    "noDescription": "Açıklama sağlanmadı",
+    "searchPlaceholder": "Kuralları ara...",
+    "tabs": {
+      "all": "Tüm Kurallar",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Ad",
+      "status": "Durum",
+      "type": "Tür",
+      "size": "Boyut",
+      "ruleCount": "Kural Sayısı",
+      "updated": "Güncelleme",
+      "actions": "İşlemler"
+    },
+    "status": {
+      "verified": "Doğrulanmış",
+      "pending": "Beklemede",
+      "failed": "Başarısız",
+      "ready": "Hazır",
+      "processing": "İşleniyor",
+      "missing": "Diskte dosya eksik",
+      "missingSince": "Diskten {{date}} tarihinden beri dosya eksik. Yeniden yükleyin veya girişi silin."
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Ad",
+      "description": "Açıklama",
+      "ruleType": "Kural Türü"
+    },
+    "tooltips": {
+      "download": "İndir",
+      "edit": "Düzenle",
+      "delete": "Sil"
+    },
+    "errors": {
+      "loadFailed": "Kuralları yükleme başarısız oldu",
+      "uploadFailed": "Kural yükleme başarısız oldu",
+      "deleteFailed": "Kuralı silme başarısız oldu",
+      "downloadFailed": "Kuralı indirme başarısız oldu",
+      "updateFailed": "Kuralı güncelleme başarısız oldu: {{error}}",
+      "verifyFailed": "Kuralı doğrulama başarısız oldu",
+      "sessionExpired": "Oturumunuz sona erdi. Lütfen yeniden giriş yapın."
+    },
+    "messages": {
+      "uploadSuccess": "Kural başarıyla yüklendi",
+      "duplicateRule": "\"{{name}}\" kuralı zaten var",
+      "deleteSuccess": "\"{{name}}\" kuralı başarıyla silindi",
+      "updateSuccess": "Kural başarıyla güncellendi",
+      "verifySuccess": "\"{{name}}\" kuralı başarıyla doğrulandı"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Kural Yükle",
+        "fileUploadTitle": "Bir kural dosyası yükleyin",
+        "fileUploadDescription": "Yüklemek için bir kural dosyası seçin. Desteklenen formatlar: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Kural Düzenle"
+      },
+      "delete": {
+        "title": "Silmeyi Onayla",
+        "cascadeTitle": "Basamaklı Silmeyi Onayla",
+        "confirmation": "\"{{name}}\" kuralını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+        "cascadeWarning": "\"{{name}}\" kuralını silmek aşağıdakini de silecektir:",
+        "checkingDependencies": "Bağımlılıklar kontrol ediliyor...",
+        "jobsCount_one": "{{count}} İş (beklemede/çalışıyor/başarısız):",
+        "jobsCount_other": "{{count}} İş (beklemede/çalışıyor/başarısız):",
+        "presetJobsCount_one": "{{count}} Ön tanımlı İş:",
+        "presetJobsCount_other": "{{count}} Ön tanımlı İş:",
+        "workflowStepsCount_one": "{{count}} İş Akışı Adımı:",
+        "workflowStepsCount_other": "{{count}} İş Akışı Adımı:",
+        "emptyWorkflowsCount_one": "{{count}} Boş İş Akışı silinecek:",
+        "emptyWorkflowsCount_other": "{{count}} Boş İş Akışı silinecek:",
+        "noHashlist": "Hash listesi yok",
+        "step": "Adım {{order}}",
+        "andMore": "...ve {{count}} daha",
+        "confirmationPrompt": "Bu basamaklı silmeyi onaylamak için kural kimliğini yazın: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Onaylamak için {{id}} yazın",
+        "idMismatch": "Kimlik eşleşmiyor",
+        "deleteAll": "Tümünü Sil"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Ön Tanımlı İş Yönetimi",
+    "createNew": "Ön Tanımlı İş Oluştur",
+    "confirmDelete": "Bu ön tanımlı işi silmek istediğinizden emin misiniz?",
+    "noJobsFound": "Ön tanımlı iş bulunamadı. Başlamak için bir tane oluşturun.",
+    "keyspaceNotCalculated": "Hesaplanmadı",
+    "calculating": "Hesaplanıyor...",
+    "calculateKeyspace": "Keyspace Hesapla",
+    "calculateAllMissingKeyspaces": "Tüm Eksik Keyspace'leri Hesapla",
+    "calculatingKeyspaces": "Hesaplanıyor...",
+    "calculatingAllKeyspacesMessage": "Tüm ön tanımlı işlerin keyspace'leri hesaplanıyor. Bu bir an sürebilir...",
+    "canInterruptRunningJobs": "Çalışan işleri kesebilir",
+    "columns": {
+      "name": "Ad",
+      "description": "Açıklama",
+      "attackMode": "Saldırı Modu",
+      "priority": "Öncelik",
+      "highPriorityOverride": "Yüksek Öncelik Geçersiz Kılma",
+      "maxAgents": "Maksimum Ajan Sayısı",
+      "keyspace": "Keyspace",
+      "binaryVersion": "İkili Dosya Sürümü",
+      "wordlists": "Wordlist'ler",
+      "rules": "Kurallar",
+      "createdAt": "Oluşturulma Tarihi",
+      "actions": "İşlemler"
+    },
+    "messages": {
+      "deleteSuccess": "Ön tanımlı iş başarıyla silindi",
+      "deleteFailed": "Ön tanımlı işi silme başarısız oldu: {{error}}",
+      "fetchError": "Ön tanımlı işleri yüklerken hata: {{error}}",
+      "deleteError": "Ön tanımlı işi silerken hata: {{error}}",
+      "keyspaceRecalculateSuccess": "Keyspace başarıyla yeniden hesaplandı",
+      "keyspaceRecalculateFailed": "Keyspace'i yeniden hesaplama başarısız oldu: {{error}}",
+      "keyspaceAllComplete": "{{updated}} güncellendi, {{skipped}} atlandı, {{failed}} başarısız",
+      "keyspaceAllFailed": "Keyspace'leri yeniden hesaplama başarısız oldu: {{error}}"
+    },
+    "form": {
+      "createTitle": "Ön Tanımlı İş Oluştur",
+      "editTitle": "Ön Tanımlı İşi Düzenle",
+      "createJob": "Ön Tanımlı İş Oluştur",
+      "updateJob": "Ön Tanımlı İşi Güncelle",
+      "attackModeRequirements": "Saldırı Modu Gereksinimleri",
+      "wordlistSelectionCombination": "Wordlist Seçimi (Kombinasyon Modu)",
+      "selectFirstWordlist": "İlk wordlist'i seçin",
+      "selectSecondWordlist": "İkinci wordlist'i seçin",
+      "fields": {
+        "jobName": "İş Adı",
+        "attackMode": "Saldırı Modu",
+        "priority": "Öncelik",
+        "chunkSize": "Parça Süresi (saniye)",
+        "maxAgents": "Maksimum Ajan Sayısı",
+        "maskPattern": "Maske Deseni",
+        "incrementMode": "Artırma Modu",
+        "incrementMin": "Artırma Minimum Uzunluğu",
+        "incrementMax": "Artırma Maksimum Uzunluğu",
+        "wordlists": "Wordlist'ler",
+        "rules": "Kurallar",
+        "mask": "Maske",
+        "ruleOptional": "Kural (İsteğe bağlı)",
+        "firstWordlist": "İlk Wordlist",
+        "secondWordlist": "İkinci Wordlist",
+        "allowHighPriorityOverride": "Yüksek Öncelik Geçersiz Kılmaya İzin Ver (çalışan işleri kesebilir)",
+        "additionalArgs": "Ek Hashcat Argümanları",
+        "cloudBurstEnabled": "Bulut patlamasına izin ver",
+        "cloudMaxInstances": "Maksimum bulut örneği",
+        "cloudAllowCommunityHosts": "Eş kullanıcılar tarafından işletilen ana bilgisayarlara izin ver (Vast.ai, RunPod Community)"
+      },
+      "incrementModes": {
+        "off": "Kapalı (tam maskeyi kullan)",
+        "increment": "Artırma (1'den maksimuma)",
+        "incrementInverse": "Ters Artırma (maksimumdan 1'e)"
+      },
+      "helperText": {
+        "binaryVersion": "Kullanılacak hashcat ikili dosya sürümünü seçin",
+        "priority": "Daha yüksek öncelikli işler önce çalışır (0-{{maxPriority}})",
+        "maskPattern": "Hashcat maske deseni (örneğin, ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=küçük harf, ?u=büyük harf, ?d=rakam, ?s=özel, ?a=tümü",
+        "incrementMode": "Farklı uzunlukta maskeleri denemek için artırma modunu kullanın",
+        "incrementMin": "Denenecek minimum maske uzunluğu",
+        "incrementMax": "Denenecek maksimum maske uzunluğu",
+        "chunkSize": "Her parça için saniye cinsinden süre",
+        "maxAgents": "Maksimum ajan sayısı (0 = sınırsız)",
+        "allowHighPriorityOverride": "Etkinleştirildiğinde, bu iş daha düşük öncelikli çalışan işleri kesebilir ve ajanlarını alabilir",
+        "wordlistsNotUsed": "Bu saldırı modu için wordlist'ler kullanılmaz",
+        "selectWordlists_one": "Tam olarak {{count}} wordlist seçin",
+        "selectWordlists_other": "Tam olarak {{count}} wordlist seçin",
+        "rulesNotUsed": "Bu saldırı modu için kurallar kullanılmaz",
+        "selectRule": "Dönüşümleri uygulamak için isteğe bağlı olarak bir kural dosyası seçin",
+        "firstWordlist": "Bu listedeki sözcükler ilk bölüm olarak kullanılacak",
+        "secondWordlist": "Bu listedeki sözcükler birinciye eklenecek",
+        "additionalArgs": "Bu iş için ek hashcat bayrakları. Ajan seviyesi bayrakları çatışmalarda öncelik alır.",
+        "cloudBurstEnabled": "Bu ön ayardan oluşturulan işler için, yerinde görevli filo ayak uyduramadığında GPU örnekleri kiralayın. Müşterinin finanse edilmesi ve bir sağlayıcıya katılması gerekir.",
+        "cloudMaxInstances": "Paylaşılan yerinde havuzu kontrol eden Maksimum Ajan Sayısı'ndan ayrı. Kalan bütçenin karar vermesi için boş bırakın.",
+        "cloudAllowCommunityHosts": "Bunlar başkasının makineleri. Ana bilgisayarın sahibinin konteyner üzerinde kök erişimi vardır, bu nedenle bu müşterinin hashleri, wordlist'leri ve kırılmış düz metinleri üçüncü bir taraf tarafından okunabilir ve ana bilgisayarda şifrelenmemiş olarak depolanır. Üretim veya müşteri katılımı verilerine önerilmez. Bunu kapalı bırakın ve işler yine de müşteri izin verirse güvenli kapasiteyi (AWS, RunPod Güvenli Bulut) kullanacaktır.",
+        "prefilteredWordlistHint": "Ön tanımlı bir işte ön filtrelenmiş bir wordlist kullanmak için, önce Wordlist Yönetimi'nde oluşturun — daha sonra bu listede görünecektir. Satır içi geçici filtreleme yalnızca tek seferlik özel işlerde mevcuttur."
+      },
+      "errors": {
+        "nameRequired": "İş adı gerekli",
+        "binaryVersionRequired": "İkili dosya sürümü gerekli",
+        "straightModeWordlist": "Düz saldırı modu tam olarak 1 wordlist gerektirir",
+        "combinationModeWordlists": "Kombinasyon saldırı modu tam olarak 2 wordlist gerektirir",
+        "selectBothWordlists": "Lütfen kombinasyon modu için her iki wordlist'i seçin",
+        "bruteForceModeMask": "Kaba kuvvet saldırı modu bir maske gerektirir",
+        "hybridModeWordlist": "Hibrit saldırı modu tam olarak 1 wordlist gerektirir",
+        "hybridModeMask": "Hibrit saldırı modu bir maske gerektirir",
+        "associationModeNotImplemented": "İlişkilendirme saldırı modu uygulanmamıştır",
+        "noWordlistsAvailable": "Wordlist yok. Lütfen önce wordlist yükleyin.",
+        "loadFailed": "Ön tanımlı işi yükleme başarısız oldu",
+        "loadFormDataFailed": "Form verilerini yükleme başarısız oldu",
+        "saveFailed": "Ön tanımlı işi kaydetme başarısız oldu"
+      },
+      "messages": {
+        "createSuccess": "Ön tanımlı iş başarıyla oluşturuldu",
+        "updateSuccess": "Ön tanımlı iş başarıyla güncellendi"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Düz",
+          "description": "Bir wordlist'ten sözcükleri kullanır, isteğe bağlı olarak bunları dönüştürmek için bir kural uygular",
+          "wordlistRequirement": "Tam olarak 1 wordlist gerekli",
+          "rulesRequirement": "0 veya 1 kural dosyası",
+          "maskRequirement": "Maske gerekli değil"
+        },
+        "combination": {
+          "name": "Kombinasyon",
+          "description": "İki wordlist'ten sözcükleri birleştirir (first_word + second_word)",
+          "wordlistRequirement": "Tam olarak 2 wordlist gerekli",
+          "rulesRequirement": "Kural gerekli değil",
+          "maskRequirement": "Maske gerekli değil"
+        },
+        "bruteForce": {
+          "name": "Kaba Kuvvet (Maske)",
+          "description": "Bir desene/maskeye dayalı parolalar oluşturur",
+          "wordlistRequirement": "Wordlist gerekli değil",
+          "rulesRequirement": "Kural gerekli değil",
+          "maskRequirement": "Maske gerekli (örneğin, ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Hibrit: Wordlist + Maske",
+          "description": "Maske tarafından oluşturulan karakterleri bir wordlist'teki sözcüklerin sonuna ekler",
+          "wordlistRequirement": "Tam olarak 1 wordlist gerekli",
+          "rulesRequirement": "Kural gerekli değil",
+          "maskRequirement": "Maske gerekli (örneğin, ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Hibrit: Maske + Wordlist",
+          "description": "Maske tarafından oluşturulan karakterleri bir wordlist'teki sözcüklerin önüne ekler",
+          "wordlistRequirement": "Tam olarak 1 wordlist gerekli",
+          "rulesRequirement": "Kural gerekli değil",
+          "maskRequirement": "Maske gerekli (örneğin, ?d?d?d?d)"
+        },
+        "association": {
+          "name": "İlişkilendirme (Uygulanmamış)",
+          "description": "Bu saldırı modu şu anda uygulanmamıştır",
+          "wordlistRequirement": "Yok",
+          "rulesRequirement": "Yok",
+          "maskRequirement": "Yok"
+        }
+      }
+    }
+  },
+  "workflows": {
+    "title": "İş Akışı Yönetimi",
+    "create": "İş Akışı Oluştur",
+    "deleteTitle": "İş Akışını Sil",
+    "confirmDelete": "\"{{name}}\" iş akışını silmek istediğinizden emin misiniz?",
+    "noWorkflowsFound": "İş akışı bulunamadı. Başlamak için yeni bir tane oluşturun.",
+    "canInterrupt": "Kesebilir",
+    "normal": "Normal",
+    "loopbackAllEligible": "Tümü uygun",
+    "loopbackStepCount_one": "{{count}} adım",
+    "loopbackStepCount_other": "{{count}} adım",
+    "columns": {
+      "name": "Ad",
+      "description": "Açıklama",
+      "steps": "Adımlar",
+      "jobCount": "İşler",
+      "highPriority": "Öncelik Modu",
+      "loopback": "Loopback",
+      "created": "Oluşturuldu",
+      "lastUpdated": "Son Güncelleme",
+      "actions": "İşlemler"
+    },
+    "messages": {
+      "loadFailed": "İş akışları yüklenemedi",
+      "deleteFailed": "İş akışı silinemedi"
+    },
+    "form": {
+      "createTitle": "İş Akışı Oluştur",
+      "editTitle": "İş Akışını Düzenle",
+      "createWorkflow": "İş Akışı Oluştur",
+      "saveChanges": "Değişiklikleri Kaydet",
+      "workflowSteps": "İş Akışı Adımları",
+      "noJobsAdded": "Henüz bu iş akışına hiç iş eklenmedi. Yukarıdaki ön tanımlı işleri arayın ve ekleyin.",
+      "priority": "Öncelik: {{priority}}",
+      "binary": "İkili Dosya: {{name}}",
+      "wordlistCount_one": "{{count}} wordlist",
+      "wordlistCount_other": "{{count}} wordlist",
+      "ruleCount_one": "{{count}} kural",
+      "ruleCount_other": "{{count}} kural",
+      "loopback": {
+        "masterToggle": "Tüm uygun adımlar için loopback'i etkinleştir",
+        "masterHelperText": "Açık olduğunda, tüm iş akışı çalışır, ardından her uygun adım (düz + kurallar veya hibrit wordlist ± maske saldırısı) yalnızca yeni kırılmış parolalara karşı yeniden çalışır — hiçbir yeni kırılmış parola bulunana kadar akıllıca tekrarlanır. Mutasyon yapmayan adımlar (yalnızca wordlist, kaba kuvvet, ilişkilendirme) yine de yeni kırılmış parolalarını döngüye besler. Bu açıkken, aşağıdaki adım başına anahtarlar devre dışı bırakılır.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Mutasyon yapmak için bir şey yok (yalnızca wordlist, kaba kuvvet, ilişkilendirme veya combinator). Bu adım yine de yeni kırılmış parolalarını döngüye besler, ancak yeniden çalıştırılmaz.",
+        "tooltipMasterOn": "İş akışı düzeyinde loopback açık, bu nedenle tüm uygun adımlarda loopback uygulanır.",
+        "tooltipStep": "Bu adımı yalnızca yeni kırılmış parolalara karşı hiçbir yeni kırılmış parola bulunana kadar yeniden çalıştır."
+      },
+      "fields": {
+        "workflowName": "İş Akışı Adı",
+        "searchPresetJobs": "Ön Tanımlı İşleri Ara"
+      },
+      "helperText": {
+        "searchPresetJobs": "Bu iş akışına eklemek için ön tanımlı işleri arayın"
+      },
+      "errors": {
+        "nameRequired": "İş akışı adı gerekli",
+        "presetJobRequired": "En az bir ön tanımlı iş gerekli",
+        "noPresetJobsAvailable": "Ön tanımlı iş yok. Önce ön tanımlı işler oluşturun.",
+        "loadFailed": "İş akışı yüklenemedi",
+        "loadFormDataFailed": "Form verileri yüklenemedi",
+        "saveFailed": "İş akışı kaydedilemedi"
+      },
+      "messages": {
+        "createSuccess": "İş akışı başarıyla oluşturuldu",
+        "updateSuccess": "İş akışı başarıyla güncellendi"
+      },
+      "cloudBurst": {
+        "toggle": "Her adım için bulut patlamasına izin ver",
+        "helperText": "Tüm adımlara uygulanır ve her ön tanımlının kendi ayarını geçersiz kılar. İş akışı düzeyinde ayarlayın, böylece kiralanan bir örnek tüm iş akışını taşıyabilir, adımlar arasında sonlandırılıp yeniden kiralanmak yerine."
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "İkili Dosya Yönetimi",
+    "title": "Hashcat İkili Dosyaları",
+    "addBinary": "İkili Dosya Ekle",
+    "showingActiveOnly": "Yalnızca etkin ikili dosyalar gösteriliyor",
+    "showingAll": "Tüm ikili dosyalar gösteriliyor",
+    "noBinaries": "İkili dosya bulunamadı",
+    "noActiveBinaries": "Etkin ikili dosya bulunamadı",
+    "default": "Varsayılan",
+    "verifyBinary": "İkili Dosyayı Doğrula",
+    "deleteBinary": "İkili Dosyayı Sil",
+    "sourceUpload": "Yükleme",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Sürüm",
+      "type": "Tür",
+      "source": "Kaynak",
+      "size": "Boyut",
+      "status": "Durum",
+      "default": "Varsayılan",
+      "lastVerified": "Son Doğrulama",
+      "actions": "İşlemler"
+    },
+    "messages": {
+      "fetchFailed": "İkili dosyalar alınamadı",
+      "verifySuccess": "İkili dosya başarıyla doğrulandı",
+      "verifyFailed": "İkili dosya doğrulanamadı",
+      "deleteSuccess": "İkili dosya başarıyla silindi",
+      "deleteFailed": "İkili dosya silinemedi",
+      "cannotDeleteLast": "Son etkin {{type}} ikili dosyası silinemez",
+      "cannotDeleteOnly": "Bu türdeki tek ikili dosya silinemez",
+      "setDefaultSuccess": "Varsayılan ikili dosya başarıyla güncellendi",
+      "setDefaultFailed": "Varsayılan ikili dosya ayarlanamadı",
+      "addSuccess": "İkili dosya başarıyla eklendi",
+      "addFailed": "İkili dosya eklenemedi"
+    },
+    "deleteDialog": {
+      "title": "Silmeyi Onayla",
+      "message": "\"{{fileName}}\" ikili dosyasını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+    },
+    "form": {
+      "addDialogTitle": "Yeni İkili Dosya Ekle",
+      "sourceLabel": "Kaynak",
+      "downloadFromUrl": "URL'den İndir",
+      "uploadFile": "Dosya Yükle",
+      "binaryTypeLabel": "İkili Dosya Türü",
+      "johnPending": "John the Ripper (destek bekleniyor)",
+      "compressionTypeLabel": "Sıkıştırma Türü",
+      "sourceUrlLabel": "Kaynak URL'si",
+      "sourceUrlHelp": "İkili dosyayı indirmek için URL (ör: https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Arşiv Dosyasını Seç",
+      "uploadHelp": "İkili dosyayı içeren bir .7z, .zip, .tar.gz veya .tar.xz arşivi yükleyin",
+      "fileNameLabel": "Dosya Adı",
+      "fileNameHelp": "URL/dosyadan otomatik olarak doldurulur, ancak gerekirse değiştirilebilir",
+      "versionLabel": "Sürüm",
+      "versionHelp": "Dosya adından otomatik algılanır. Özel derlemeler için geçersiz kılın.",
+      "descriptionLabel": "Açıklama",
+      "descriptionHelp": "Bu ikili dosya hakkında isteğe bağlı notlar (ör: özel derleme ayrıntıları)",
+      "setAsDefault": "Varsayılan ikili dosya olarak ayarla",
+      "selectFileRequired": "Lütfen yüklemek için bir dosya seçin",
+      "uploadBinarySubmit": "İkili Dosyayı Yükle"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Sistem Tanılaması",
+    "diagnosticPackage": "Tanılama Paketi",
+    "diagnosticPackageDescription": "Sorun giderme için sistem bilgileri, günlükleri ve yapılandırma ayrıntılarını içeren bir tanılama paketini indirin.",
+    "refreshData": "Verileri Yenile",
+    "hours": "Saat",
+    "hoursTooltip": "Dahil edilecek günlük saat sayısı",
+    "includeAgentLogs": "Ajan Günlüğünü Dahil Et",
+    "includeNginxLogs": "Nginx Günlüğünü Dahil Et",
+    "includePostgresLogs": "PostgreSQL Günlüğünü Dahil Et",
+    "preparing": "Hazırlanıyor...",
+    "downloadDiagnostics": "Tanılamayı İndir",
+    "systemInfo": "Sistem Bilgileri",
+    "runtime": "Çalışma Zamanı",
+    "cpus": "CPU'lar",
+    "goroutines": "Goroutines",
+    "memory": "Bellek",
+    "heap": "Heap",
+    "system": "Sistem",
+    "gcRuns": "GC Çalıştırmaları",
+    "database": "Veritabanı",
+    "size": "Boyut",
+    "connections": "Bağlantılar",
+    "agents": "Ajanlar",
+    "connected": "Bağlı",
+    "withDebugStatus": "Hata Ayıklamalı",
+    "serverDebugStatus": "Sunucu Hata Ayıklama Durumu",
+    "serverDebugDescription": "Sunucu için ayrıntılı günlüğü etkinleştirin. Bu, günlük dosya boyutlarını artırabilir ve performansı etkileyebilir.",
+    "debugEnabled": "Hata Ayıklama Etkinleştirildi",
+    "debugDisabled": "Hata Ayıklama Devre Dışı Bırakıldı",
+    "level": "Düzey",
+    "enableDebug": "Hata Ayıklamayı Etkinleştir",
+    "disableDebug": "Hata Ayıklamayı Devre Dışı Bırak",
+    "loadingServerDebugStatus": "Sunucu hata ayıklama durumu yükleniyor...",
+    "serverLogs": "Sunucu Günlükleri",
+    "serverLogsDescription": "Sunucu günlük dosyalarını yönetin. Günlükleri temizlemek kalıcıdır ve geri alınamaz.",
+    "refreshLogStats": "Günlük İstatistiklerini Yenile",
+    "directory": "Dizin",
+    "files": "Dosyalar",
+    "actions": "İşlemler",
+    "backend": "Arka Uç",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Toplam",
+    "purge": "Temizle",
+    "purgeAll": "Tümünü Temizle",
+    "loadingLogStatistics": "Günlük istatistikleri yükleniyor...",
+    "agentDebugStatus": "Ajan Hata Ayıklama Durumu",
+    "enableAll": "Tümünü Etkinleştir",
+    "disableAll": "Tümünü Devre Dışı Bırak",
+    "noAgentsWithDebugStatus": "Hata ayıklama durumu olan ajan yok",
+    "agentId": "Ajan ID'si",
+    "logLevel": "Günlük Düzeyi",
+    "fileLogging": "Dosya Günlüğü",
+    "logFileSize": "Günlük Dosya Boyutu",
+    "buffer": "Arabellek",
+    "lastUpdated": "Son Güncelleme",
+    "viewLogs": "Günlükleri Görüntüle",
+    "purgeLogs": "Günlükleri Temizle",
+    "agentLogs": "Ajan Günlükleri",
+    "agent": "Ajan",
+    "allLevels": "Tüm Düzeyler",
+    "refresh": "Yenile",
+    "showingEntries": "{{shown}} / {{total}} girdi gösteriliyor",
+    "filtered": "filtrelenmiş",
+    "truncated": "kesilmiş",
+    "time": "Zaman",
+    "message": "Mesaj",
+    "location": "Konum",
+    "noEntriesForLevel": "{{level}} düzeyi için giriş bulunamadı",
+    "noLogEntriesAvailable": "Günlük girdisi yok",
+    "logFileContent": "Günlük Dosya İçeriği",
+    "noLogsAvailable": "Günlük yok",
+    "securityWarning": "Güvenlik Uyarısı",
+    "postgresLogsWarning": "PostgreSQL günlükleri hassas veriler içerebilir. Sorun giderme sonrasında temizlemeyi düşünün.",
+    "nginxLogsWarning": "Nginx erişim günlükleri hassas istek verilerini içerebilir. Sorun giderme sonrasında temizlemeyi düşünün.",
+    "sensitiveNginxLogsWarning": "Nginx erişim günlükleri, istek başlıklarında ve sorgu parametrelerinde kimlik doğrulama belirteçleri dahil olmak üzere hassas bilgiler içerebilir.",
+    "sensitivePostgresLogsWarning": "PostgreSQL günlükleri, kullanıcı verileri, parolalar ve bağlantı ayrıntıları ile sorgular dahil olmak üzere hassas bilgiler içerebilir.",
+    "sensitiveLogsTestEnvironmentWarning": "Bu günlükleri yalnızca test/geliştirme ortamları için veya hata ayıklama için kesinlikle gerekli olduğunda ekleyin.",
+    "sensitiveLogsProductionWarning": "Harici olarak paylaşılan üretim tanılama paketlerine hassas günlükleri eklemeyin.",
+    "iUnderstandIncludeLogs": "Anladım, Günlükleri Dahil Et",
+    "allServerLogs": "tüm sunucu günlükleri",
+    "directoryLogs": "{{directory}} günlükleri",
+    "purgeServerLogs": "Sunucu Günlüğünü Temizle",
+    "confirmPurgeLogs": "{{dirLabel}} temizlemek istediğinizden emin misiniz?",
+    "cannotBeUndone": "Bu işlem geri alınamaz.",
+    "purgeAgentLogs": "Ajan Günlüğünü Temizle",
+    "confirmPurgeAgentLogs": "Ajan {{agentId}} için günlükleri temizlemek istediğinizden emin misiniz?",
+    "enable": "Etkinleştir",
+    "disable": "Devre Dışı Bırak",
+    "serverDebugModeTitle": "{{action}} Sunucu Hata Ayıklama Modu",
+    "serverDebugModeMessage": "Bu, sunucunun günlüğe kaydetme düzeyini değiştirecektir. Değişiklikleri uygulamak için nginx sunucusu yeniden yüklenecektir.",
+    "serverDebugModeWarning": "Değişiklikleri uyguladıktan sonra sayfa kısaca yeniden bağlanacaktır.",
+    "reconnectingToServer": "Sunucuya Yeniden Bağlanıyor",
+    "pleaseWaitReconnecting": "Sunucu yeniden başlarken lütfen bekleyin...",
+    "nginxLogsTooltip": "Uyarı: Hassas istek verilerini içerebilir",
+    "postgresLogsTooltip": "Uyarı: Hassas veritabanı sorgularını içerebilir",
+    "messages": {
+      "loadFailed": "Tanılama verileri yüklenemedi:",
+      "logStatsFailed": "Günlük istatistikleri yüklenemedi:",
+      "purgeFailed": "Günlükler temizlenemedi:",
+      "reconnectionTimedOut": "Yeniden bağlantı zaman aşımına uğradı. Lütfen sayfayı yenileyin.",
+      "toggleDebugFailed": "Hata ayıklama modu değiştirilemedi:",
+      "downloadFailed": "Tanılama indirilemedi:",
+      "toggleAgentDebugFailed": "Ajan hata ayıklaması değiştirilemedi:",
+      "toggleAllAgentsDebugFailed": "Tüm ajanlar için hata ayıklama değiştirilemedi:",
+      "fetchAgentLogsFailed": "Ajan günlükleri alınamadı:",
+      "purgeAgentLogsFailed": "Ajan günlükleri temizlenemedi:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Kimlik Doğrulama Ayarları",
+    "unsavedChanges": "Kaydedilmemiş değişiklikleriniz var. Bunları uygulamak için 'Ayarları Kaydet' seçeneğine tıklayın.",
+    "saving": "Kaydediliyor...",
+    "saveSettings": "Ayarları Kaydet",
+    "resetToSaved": "Kaydedilene Sıfırla",
+    "passwordPolicy": {
+      "title": "Parola Politikası",
+      "minLength": "Minimum Parola Uzunluğu",
+      "requireUppercase": "Büyük Harf Gerekli",
+      "requireLowercase": "Küçük Harf Gerekli",
+      "requireNumbers": "Sayı Gerekli",
+      "requireSpecialChars": "Özel Karakter Gerekli"
+    },
+    "accountSecurity": {
+      "title": "Hesap Güvenliği",
+      "maxFailedAttempts": "Maksimum Başarısız Giriş Denemesi",
+      "lockoutDuration": "Kilitlenme Süresi (dakika)",
+      "jwtExpiry": "JWT Geçerlilik Süresi (dakika)",
+      "notificationAggregation": "Bildirim Toplama (dakika)",
+      "notificationAggregationHelper": "Benzer bildirimlerin gönderilmeden önce ne kadar süreyle toplanacağını belirler"
+    },
+    "mfa": {
+      "title": "Çok Faktörlü Kimlik Doğrulama",
+      "requireMfa": "Tüm Kullanıcılar İçin MFA Gerekli",
+      "requireMfaEmailRequired": "MFA Gerekli (e-posta sağlayıcısı gerektirir)",
+      "allowedMethods": "İzin Verilen MFA Yöntemleri",
+      "methodEmail": "E-posta Kodu",
+      "methodAuthenticator": "Kimlik Doğrulayıcı Uygulaması (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (bu tarayıcıda desteklenmiyor)",
+      "codeSettings": "Kod Ayarları",
+      "emailCodeValidity": "E-posta Kodu Geçerlilik Süresi (dakika)",
+      "emailCodeValidityHelper": "E-posta doğrulama kodlarının ne kadar süre geçerli olduğunu belirler",
+      "codeCooldown": "Kod İsteği Bekleme Süresi (dakika)",
+      "codeCooldownHelper": "Kod istekleri arasındaki minimum süreyi belirler",
+      "codeExpiry": "Kod Geçerlilik Süresi (dakika)",
+      "codeExpiryHelper": "MFA kodlarının ne kadar süre geçerli olduğunu belirler",
+      "maxCodeAttempts": "Maksimum Kod Denemesi",
+      "maxCodeAttemptsHelper": "Kilitlenmeden önce maksimum başarısız kod denemelerinin sayısını belirler",
+      "backupCodesCount": "Yedek Kod Sayısı",
+      "backupCodesCountHelper": "Oluşturulacak yedek kodların sayısını belirler",
+      "requireMfaHelper": "Her kullanıcı oturum açarken MFA'yı tamamlamalıdır. Kodların teslim edilebilmesi için yapılandırılmış bir e-posta sağlayıcısı gerekir."
+    },
+    "webauthn": {
+      "title": "WebAuthn / Passkey Yapılandırması",
+      "notSupported": "WebAuthn bu tarayıcıda desteklenmiyor.",
+      "requiresDomain": "Passkey'ler uygun bir alan adı ve HTTPS gerektirir. Alan adı ayarlarınızı aşağıda yapılandırın.",
+      "rpId": "Relying Party ID",
+      "rpIdHelper": "Alan adınız (ör: krakenhashes.example.com)",
+      "rpDisplayName": "Görüntü Adı",
+      "rpDisplayNameHelper": "Passkey kaydı sırasında kullanıcılara gösterilen ad",
+      "allowedOrigins": "İzin Verilen Kaynaklar",
+      "allowedOriginsHelper": "Satır başına bir kaynak (ör: https://krakenhashes.example.com)",
+      "configured": "WebAuthn yapılandırılmış ve kullanıma hazır.",
+      "save": "WebAuthn Ayarlarını Kaydet"
+    },
+    "session": {
+      "title": "Oturum Yönetimi",
+      "tokenCleanupInterval": "Token Temizleme Aralığı (saniye)",
+      "tokenCleanupIntervalHelper": "Süresi dolmuş token'ların ne kadar sıklıkta temizlendiğini belirler",
+      "maxConcurrentSessions": "Maksimum Eş Zamanlı Oturum",
+      "maxConcurrentSessionsHelper": "Kullanıcı başına maksimum oturum sayısı (0 = sınırsız)",
+      "absoluteTimeout": "Mutlak Oturum Zaman Aşımı (saat)",
+      "absoluteTimeoutHelper": "Bu süre sonra yeniden kimlik doğrulamayı zorunlu kılar (0 = devre dışı)"
+    },
+    "errors": {
+      "loadFailed": "Kimlik doğrulama ayarları yüklenemedi",
+      "noSettingsToSave": "Kaydedilecek ayar yok",
+      "saveFailed": "Ayarlar kaydedilemedi",
+      "emailProviderRequired": "E-posta tabanlı MFA için e-posta sağlayıcısı gereklidir",
+      "webauthnSaveFailed": "WebAuthn ayarları kaydedilemedi",
+      "resetFailed": "Ayarlar sıfırlanamadı"
+    },
+    "messages": {
+      "updateSuccess": "Kimlik doğrulama ayarları başarıyla güncellendi",
+      "updateFailed": "Kimlik doğrulama ayarları güncellenirken hata oluştu"
+    },
+    "teams": {
+      "title": "Çok Takımlı İzolasyon",
+      "description": "Etkinleştirildiğinde, müşteriler, hash listeleri, işler ve ajanlar takımlara göre sınırlandırılır ve kullanıcılar yalnızca takımlarına ait olanları görür.",
+      "enable": "Takımları Etkinleştir",
+      "enableHelper": "Mevcut veriler Varsayılan Takım'a yerleştirilir."
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "SSO Ayarları",
+    "pageDescription": "Tek Oturum Açma sağlayıcılarını ve kimlik doğrulama seçeneklerini yapılandırın",
+    "warnings": {
+      "ephemeralKeyTitle": "SSO Şifreleme Anahtarı Yapılandırılmadı",
+      "ephemeralKeyDescription": "SSO sağlayıcı sırları (istemci sırları, bağlama parolaları, özel anahtarlar) şu anda sunucu yeniden başlatıldığında kaybolacak geçici bir anahtarla şifrelenmiştir. Yapılandırılmış herhangi bir SSO sağlayıcısı yeniden başlatıldıktan sonra çalışmayı durdurur.",
+      "ephemeralKeyInstructions": "Bunu düzeltmek için aşağıdakileri çalıştırarak kalıcı bir şifreleme anahtarı oluşturun:",
+      "ephemeralKeyAddToEnv": "Ardından aşağıdakini .env dosyanıza ekleyin ve sunucuyu yeniden başlatın:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Komut panoya kopyalandı"
+    },
+    "authMethods": {
+      "title": "Kimlik Doğrulama Yöntemleri",
+      "description": "Kimlik doğrulama yöntemlerini küresel olarak etkinleştirin veya devre dışı bırakın",
+      "localAuth": "Yerel Kimlik Doğrulama",
+      "localAuthDescription": "Kullanıcı adı/parola girişi",
+      "ldapAuth": "LDAP Kimlik Doğrulaması",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "SAML Kimlik Doğrulaması",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "OAuth/OIDC Kimlik Doğrulaması",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Kullanıcı Provisioning",
+      "description": "SSO oturum açmalarından otomatik kullanıcı oluşturulmasını yapılandırın",
+      "autoCreateUsers": "Kullanıcıları Otomatik Oluşturma",
+      "autoCreateUsersDescription": "Yeni SSO oturum açmaları için kullanıcı hesaplarını otomatik olarak oluşturur",
+      "autoEnableUsers": "Kullanıcıları Otomatik Etkinleştirme",
+      "autoEnableUsersDescription": "Yeni oluşturulan SSO kullanıcılarını otomatik olarak etkinleştirir (aksi takdirde yönetici onayı gereklidir)"
+    },
+    "providers": {
+      "title": "SSO Sağlayıcıları",
+      "addProvider": "Sağlayıcı Ekle",
+      "noProviders": "Yapılandırılmış SSO sağlayıcısı yok. Bir tane oluşturmak için \"Sağlayıcı Ekle\" seçeneğine tıklayın.",
+      "enabled": "Etkin",
+      "disabled": "Devre Dışı",
+      "callbackUrl": "Geri Çağırma URL'si",
+      "acsUrl": "ACS URL",
+      "metadata": "Meta Veriler",
+      "viewXml": "XML'i Görüntüle",
+      "testConnection": "Bağlantıyı Test Et",
+      "downloadCertificate": "SP Sertifikasını İndir"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Sağlayıcıyı Sil",
+        "confirmation": "Sağlayıcı \"{{name}}\" öğesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve ilişkili tüm kullanıcı kimliklerinin bağlantısı kaldırılır."
+      },
+      "providerForm": {
+        "addTitle": "Sağlayıcı Ekle",
+        "editTitle": "Sağlayıcıyı Düzenle",
+        "providerName": "Sağlayıcı Adı",
+        "providerType": "Sağlayıcı Türü",
+        "enabled": "Etkin"
+      }
+    },
+    "ldapConfig": {
+      "title": "LDAP Yapılandırması",
+      "serverUrl": "Sunucu URL'si",
+      "serverUrlHelper": "Güvenli bağlantılar için ldaps:// kullanın",
+      "baseDn": "Base DN",
+      "userSearchFilter": "Kullanıcı Arama Filtresi",
+      "userSearchFilterHelper": "Yer tutucu olarak {{username}} kullanın",
+      "bindDn": "Bind DN (isteğe bağlı)",
+      "bindPassword": "Bağlama Parolası",
+      "emailAttribute": "E-posta Özniteliği",
+      "usernameAttribute": "Kullanıcı Adı Özniteliği",
+      "usernameAttributeHelper": "Kullanıcı adını içeren LDAP özniteliği (ör: sAMAccountName, uid)",
+      "connectionTimeout": "Bağlantı Zaman Aşımı (saniye)",
+      "useStartTls": "StartTLS Kullan",
+      "skipCertVerify": "Sertifika Doğrulamasını Atla (yalnızca test için)"
+    },
+    "samlConfig": {
+      "title": "SAML Yapılandırması",
+      "spEntityId": "SP Entity ID",
+      "spEntityIdHelper": "Uygulamanızın SAML tanımlayıcısı",
+      "idpEntityId": "IdP Entity ID",
+      "idpSsoUrl": "IdP SSO URL",
+      "idpCertificate": "IdP Sertifikası",
+      "emailAttribute": "E-posta Özniteliği",
+      "usernameAttribute": "Kullanıcı Adı Özniteliği",
+      "usernameAttributeHelper": "Kullanıcı adını içeren SAML özniteliği (ör: uid, username)",
+      "requireSignedAssertions": "İmzalı Onaylar Gerekli"
+    },
+    "oauthConfig": {
+      "title": "OAuth/OIDC Yapılandırması",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "İstemci Kimliği",
+      "clientSecret": "İstemci Gizli Bilgisi",
+      "discoveryUrl": "Keşif URL'si",
+      "discoveryUrlHelper": "OIDC keşif uç noktası (diğer URL'leri otomatik olarak yapılandırır)",
+      "authorizationUrl": "Yetkilendirme URL'si",
+      "tokenUrl": "Token URL'si",
+      "userInfoUrl": "Kullanıcı Bilgileri URL'si",
+      "scopes": "Kapsamlar",
+      "scopesHelper": "Boşluk ile ayrılmış liste",
+      "emailAttribute": "E-posta Özniteliği",
+      "usernameAttribute": "Kullanıcı Adı Özniteliği",
+      "usernameAttributeHelper": "Kullanıcı adını içeren claim (ör: preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "SSO ayarları yüklenemedi",
+      "settingsUpdated": "SSO ayarları başarıyla güncellendi",
+      "updateFailed": "SSO ayarları güncellenirken hata oluştu",
+      "loadProviderFailed": "Sağlayıcı ayrıntıları yüklenemedi",
+      "providerDeleted": "Sağlayıcı başarıyla silindi",
+      "deleteFailed": "Sağlayıcı silinirken hata oluştu",
+      "testSuccess": "Bağlantı testi başarılı",
+      "testFailed": "Bağlantı testi başarısız",
+      "certificateDownloaded": "Sertifika başarıyla indirildi",
+      "certificateNotFound": "Sertifika meta verilerde bulunamadı",
+      "certificateDownloadFailed": "Sertifika indirilirken hata oluştu",
+      "providerUpdated": "Sağlayıcı başarıyla güncellendi",
+      "providerCreated": "Sağlayıcı başarıyla oluşturuldu",
+      "saveProviderFailed": "Sağlayıcı kaydedilirken hata oluştu"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Sağlayıcı Yapılandırması",
+      "emailTemplates": "E-posta Şablonları"
+    },
+    "provider": {
+      "titles": {
+        "current": "Güncel E-posta Yapılandırması",
+        "create": "E-posta Yapılandırması Oluştur",
+        "edit": "E-posta Yapılandırmasını Düzenle"
+      },
+      "labels": {
+        "provider": "Sağlayıcı",
+        "apiKey": "API Anahtarı",
+        "password": "Parola",
+        "smtpHost": "SMTP Sunucusu",
+        "port": "Port",
+        "username": "Kullanıcı Adı",
+        "encryption": "Şifreleme",
+        "fromEmail": "Gönderici E-postası",
+        "fromName": "Gönderici Adı",
+        "domain": "Alan Adı",
+        "region": "Bölge",
+        "monthlyLimit": "Aylık Sınır",
+        "skipTlsVerify": "TLS Sertifikası Doğrulamasını Atla (güvensiz, önerilmez)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "Test E-posta Adresi"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Geçerli olanı tutmak için boş bırakın",
+        "monthlyLimit": "Sınırsız için boş bırakın",
+        "mailgunFromEmail": "Genellikle noreply@yourdomain",
+        "fromName": "E-postalar için görüntü adı"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Yok (Port 25)",
+        "encryptionStarttls": "STARTTLS (Port 587)",
+        "encryptionTls": "TLS/SSL (Port 465)",
+        "regionUS": "US (api.mailgun.net)",
+        "regionEU": "EU (api.eu.mailgun.net)"
+      },
+      "buttons": {
+        "edit": "Yapılandırmayı Düzenle",
+        "cancel": "İptal",
+        "testConnection": "Bağlantıyı Test Et",
+        "save": "Yapılandırmayı Kaydet",
+        "saveOnly": "Yalnızca Kaydet",
+        "saveAndTest": "Kaydet ve Test Et",
+        "sendTestEmail": "Test E-postası Gönder"
+      },
+      "dialogs": {
+        "test": {
+          "title": "E-posta Yapılandırmasını Test Et",
+          "content": "Test e-postası göndermek için bir e-posta adresi girin:"
+        },
+        "save": {
+          "title": "Yapılandırmayı Kaydet",
+          "content": "Kaydettikten sonra yapılandırmayı test etmek ister misiniz?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "TLS sertifikası doğrulaması devre dışı bırakıldı",
+        "tlsVerifyWarning": "TLS doğrulamasını devre dışı bırakmak, bağlantınızı ortadaki adam saldırılarına karşı savunmasız hale getirir. Bunu yalnızca kendinden imzalı sertifikalarla test için kullanın."
+      },
+      "messages": {
+        "testSuccess": "Test e-postası başarıyla gönderildi",
+        "testFailed": "Test e-postası gönderilemedi",
+        "saveSuccess": "Yapılandırma başarıyla kaydedildi",
+        "saveFailed": "Yapılandırma kaydedilirken hata oluştu",
+        "loadFailed": "Yapılandırma yüklenemedi"
+      }
+    },
+    "templates": {
+      "title": "E-posta Şablonları",
+      "createTemplate": "E-posta Şablonu Oluştur",
+      "editTemplate": "E-posta Şablonunu Düzenle",
+      "labels": {
+        "templateType": "Şablon Türü",
+        "name": "Ad",
+        "subject": "Konu",
+        "htmlContent": "HTML İçeriği",
+        "textContent": "Metin İçeriği"
+      },
+      "menuItems": {
+        "securityEvent": "Güvenlik Olayı",
+        "jobCompletion": "İş Tamamlanması",
+        "adminError": "Yönetici Hatası",
+        "mfaCode": "MFA Kodu",
+        "securityPasswordChanged": "Parola Değiştirildi",
+        "securityMfaDisabled": "MFA Devre Dışı Bırakıldı",
+        "securitySuspiciousLogin": "Şüpheli Oturum Açma",
+        "jobStarted": "İş Başladı",
+        "jobFailed": "İş Başarısız",
+        "firstCrack": "İlk Kırılma",
+        "taskCompleted": "Görev Tamamlandı",
+        "agentOffline": "Ajan Çevrimdışı",
+        "agentError": "Ajan Hatası",
+        "webhookFailure": "Webhook Başarısız"
+      },
+      "buttons": {
+        "create": "Şablon Oluştur",
+        "cancel": "İptal",
+        "test": "Test",
+        "save": "Kaydet",
+        "edit": "Düzenle",
+        "delete": "Sil"
+      },
+      "table": {
+        "name": "Ad",
+        "type": "Tür",
+        "subject": "Konu",
+        "actions": "İşlemler"
+      },
+      "preview": "Canlı Önizleme (örnek verilerle):",
+      "messages": {
+        "loadSuccess": "Şablonlar başarıyla yüklendi",
+        "loadFailed": "Şablonlar yüklenemedi",
+        "createSuccess": "Şablon başarıyla oluşturuldu",
+        "createFailed": "Şablon oluşturulamadı",
+        "updateSuccess": "Şablon başarıyla güncellendi",
+        "updateFailed": "Şablon güncellenemedi",
+        "deleteSuccess": "Şablon başarıyla silindi",
+        "deleteFailed": "Şablon silinemedi",
+        "testSuccess": "Test e-postası başarıyla gönderildi",
+        "testFailed": "Test e-postası gönderilemedi",
+        "saveFailed": "Şablon kaydedilemedi"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Ayarlar başarıyla kaydedildi",
+    "saveFailed": "Ayarlar kaydedilemedi"
+  },
+  "clientSettings": {
+    "title": "Müşteri Ayarları",
+    "retentionPeriod": "Varsayılan Veri Saklama Süresi (Ay)",
+    "retentionHelperText": "Yeni müşteriler için varsayılan saklama süresi (0 = sonsuza kadar saklanır)",
+    "saveButton": "Ayarları Kaydet",
+    "errors": {
+      "invalidRetention": "Saklama süresi negatif olmayan bir sayı olmalıdır",
+      "saveFailed": "Müşteri ayarları kaydedilemedi"
+    },
+    "messages": {
+      "updateSuccess": "Müşteri ayarları başarıyla güncellendi"
+    }
+  },
+  "systemSettings": {
+    "title": "Sistem Ayarları",
+    "priority": {
+      "title": "Öncelik Ayarları",
+      "tooltip": "İşler ve ön tanımlı işlere atanabilecek maksimum öncelik değerini yapılandırın. Bu, kuruluşunuz genelinde tutarlı öncelik aralıklarını korumanıza yardımcı olur.",
+      "maxPriority": "Maksimum İş Önceliği",
+      "helperText": "Maksimum öncelik değerini ayarlayın (1-1.000.000). İşler ve ön tanımlı işler bu önceliği aşamaz.",
+      "saveButton": "Ayarları Kaydet",
+      "saving": "Kaydediliyor...",
+      "reset": "Sıfırla"
+    },
+    "priorityInfo": {
+      "title": "Öncelik Sistemi Bilgileri",
+      "description": "Öncelik sistemi, 0'dan yapılandırılmış maksimum önceliğe kadar bir aralık kullanır. Daha yüksek sayılar daha yüksek önceliği gösterir.",
+      "currentMax": "Geçerli Maksimum",
+      "note": "Maksimum önceliği mevcut ön tanımlı iş önceliklerinden daha düşük olarak ayarlayamazsınız. Gerekirse yüksek öncelikli ön tanımlı işleri önce güncelleyin veya kaldırın.",
+      "recommended": "Kuruluş büyüklüğüne göre önerilen aralıklar:",
+      "small": "Küçük kuruluş: 0-100",
+      "medium": "Orta/büyük kuruluş: 0-1.000",
+      "large": "Saçma iş yükü kuruluşu: 0-10.000"
+    },
+    "agentScheduling": {
+      "title": "Ajan Planlama",
+      "tooltip": "Ajan planlama sistemini genel olarak etkinleştirin veya devre dışı bırakın. Etkinleştirildiğinde, ajanlar günlük zamanlamalar yapılandırabilir.",
+      "enable": "Ajan Planlama Sistemini Etkinleştir",
+      "description": "Etkinleştirildiğinde, ajanlar günlük zamanlamalarla yapılandırılabilir. Yalnızca geçerli saat için planlanan ajanlar işlere atanacaktır.",
+      "note": "Bunun etkili olması için bireysel ajanların da planlama özelliği etkin olmalı ve zamanlamalar yapılandırılmalıdır."
+    },
+    "agentOverflow": {
+      "title": "Ajan Taşması Tahsisi",
+      "tooltip": "Serbest ajanların, her öncelik katmanındaki her iş max_agents sınırına ulaştığında nasıl dağıtılacağını yapılandırın.",
+      "modeLabel": "Taşma tahsisi modu",
+      "priorityFifoMode": "Öncelik - FIFO",
+      "priorityRoundRobinMode": "Öncelik - Döner Seçim",
+      "enforceMaxAgentsMode": "Maksimum Ajan Sayısını Zorla",
+      "maxAgentsFifoMode": "Maksimum Ajan Sayısı - FIFO",
+      "maxAgentsRoundRobinMode": "Maksimum Ajan Sayısı - Döner Seçim",
+      "priorityFifoDescription": "Katmanlar en yüksek öncelikten itibaren doldurulur. Bir katman max_agents'a ulaştığında, kalan ajanlar o katmandaki EN ESKİ işe yığılır — üst sınırını aşar. Düşük öncelikli işler daha yüksek katmanlar tükenene kadar açlık çekebilir.",
+      "priorityRoundRobinDescription": "Katmanlar en yüksek öncelikten itibaren doldurulur. Bir katman max_agents'a ulaştığında, kalan ajanlar o katmanın işleri arasında eşit şekilde döner — limitleri aşar. Düşük öncelikli işler açlık çekebilir.",
+      "enforceMaxAgentsDescription": "Her işi max_agents sınırına kesin olarak sınırlandır — taşma yok. Fazla ajanlar boşta kalır. En tahmin edilebilir; kapasiteyi boşa harcayabilir.",
+      "maxAgentsFifoDescription": "Tüm önceliklerdeki tüm işler önce max_agents'a doldurulur (kesin sınırlar). Kalan ajanlar daha sonra toplam olarak EN ESKİ işe yığılır — önceliği atlayarak. Verim maksimize edilir ve yine de her işe temel düzeyini sağlar.",
+      "maxAgentsRoundRobinDescription": "Tüm önceliklerdeki tüm işler önce max_agents'a doldurulur (kesin sınırlar). Kalan ajanlar daha sonra TÜM işler arasında eşit şekilde döner — önceliği atlayarak. Verim maksimize edilir ve temel düzeyinin ötesinde adil dağılım sağlanır."
+    },
+    "hashlist": {
+      "title": "Hash Listesi Ayarları",
+      "tooltip": "Hash listesi yüklemeleri ve yönetimi ile ilgili ayarları yapılandırın",
+      "requireClient": "Hash Listeleri için Müşteri Gerekli",
+      "requireClientDescription": "Etkinleştirildiğinde, kullanıcılar yeni hash listeleri yüklerken bir müşteri atamalıdır. Bu, hash listelerin müşteri tarafından daha iyi organize edilmesine ve izlenmesine yardımcı olur.",
+      "batchSize": "Toplu İthalatçı Batch Boyutu",
+      "batchSizeHelper": "Yüklemeler sırasında batch başına işlenen hash sayısı. Varsayılan: 100.000. Önerilen: Büyük hash listeleri için 500.000-1.000.000 (47M+)",
+      "performanceGuide": "Performans Kılavuzu:",
+      "performance100k": "100K (varsayılan): Çoğu kullanım durumu için iyi",
+      "performance500k": "500K: Büyük hash listeleri için daha iyi, verim artırabilir",
+      "performance1m": "1M: Çok büyük hash listeleri için en iyi (50M+), daha fazla RAM gerektirir"
+    },
+    "potfile": {
+      "title": "Potfile Ayarları",
+      "tooltip": "Potfile'ın işler arasında yeniden kullanım için kırılmış parolaları nasıl işleyeceğini yapılandırın",
+      "maxBatchSize": "Maksimum Batch Boyutu",
+      "maxBatchSizeHelper": "Her batch döngüsünde işlenecek staged parola sayısı (1.000 - 500.000)",
+      "batchInterval": "Batch Aralığı (saniye)",
+      "batchIntervalHelper": "Potfile batch işleme döngüleri arasındaki saniye (10 - 600)",
+      "description": "Potfile tüm işlerden kırılmış parolaları toplar ve sonraki saldırılarda yeniden kullanır. Daha yüksek batch boyutları aynı anda daha fazla parolayı işler ancak her döngü daha uzun sürer.",
+      "processingRate": "İşleme Hızı",
+      "passwordsPerSecond": "parola/saniye",
+      "currentSettings": "Geçerli Ayarlar",
+      "passwordsEvery": "parola her",
+      "seconds": "saniye"
+    },
+    "speedTest": {
+      "title": "Hız Testi (Benchmark)",
+      "tooltip": "Ajanların hız testini başarısız saymadan önce hashcat'in kullanılabilir bir benchmark üretmesini ne kadar bekleyeceğini ayarlayın. Sıkıştırılmış wordlist'ler dictstat ön işlemesi için önemli ölçüde daha fazla zaman gerektirir.",
+      "timeoutUncompressed": "Zaman Aşımı: düz metin wordlist'ler (saniye)",
+      "timeoutUncompressedHelper": "Ajanın düz metin wordlist'ler için geçerli bir hız okuması bekleyeceği maksimum saniye. Varsayılan: 120.",
+      "timeoutCompressed": "Zaman Aşımı: sıkıştırılmış wordlist'ler (saniye)",
+      "timeoutCompressedHelper": ".gz / .zip / .xz wordlist'ler için maksimum saniye — hashcat'in yerel olarak okuduğu üç format. Bunlar açılmak ve dictstat ön işlemesi için daha uzun süreye ihtiyaç duyarlar. Varsayılan: 300.",
+      "minStatusUpdates": "Minimum durum güncellemeleri",
+      "minStatusUpdatesHelper": "Ajanın sonuç döndürmeden önce toplaması gereken hashcat --status-json adımlarının minimum sayısı. Varsayılan: 3.",
+      "minUpdatesLowWarning": "3'ün altındaki değerler hatalı okumalar üretebilir: GPU'lar henüz hızlanma sürecini tamamlamamış olabilir.",
+      "description": "Ajan sıfır olmayan bir hız üretmeden zaman aşımına uğrarsa, benchmark başarısız olarak raporlanır ve yöneticinin harekete geçebileceği bir hata gösterir. Parçalama boru hattı da 1 adaylı bir görevi göndermeyi reddeder, bu nedenle eski bir 0 H/s benchmark sonsuza kadar döngü olamaz."
+    },
+    "errors": {
+      "loadFailed": "Sistem ayarları yüklenemedi",
+      "maxPriorityRequired": "Maksimum öncelik gerekli",
+      "maxPriorityPositive": "Maksimum öncelik pozitif bir sayı olmalıdır",
+      "maxPriorityMax": "Maksimum öncelik 1.000.000'u aşamaz",
+      "saveFailed": "Sistem ayarları kaydedilemedi",
+      "batchSizeRange": "Batch boyutu {{min}} ile {{max}} arasında olmalıdır",
+      "intervalRange": "Aralık {{min}} ile {{max}} saniye arasında olmalıdır",
+      "speedTestTimeoutRange": "Hız testi zaman aşımı {{min}} ile {{max}} saniye arasında olmalıdır",
+      "minStatusUpdatesRange": "Minimum durum güncellemeleri {{min}} ile {{max}} arasında olmalıdır"
+    },
+    "messages": {
+      "updateSuccess": "Sistem ayarları başarıyla güncellendi",
+      "schedulingUpdated": "Ajan planlama ayarı güncellendi",
+      "schedulingFailed": "Planlama ayarı güncellenemedi",
+      "overflowUpdated": "Ajan taşması tahsisi modu güncellendi",
+      "overflowFailed": "Taşması tahsisi modu güncellenemedi",
+      "hashlistClientUpdated": "Hash listesi müşteri gereksinimi güncellendi",
+      "hashlistBatchUpdated": "Hash listesi batch boyutu güncellendi",
+      "potfileBatchUpdated": "Potfile batch boyutu güncellendi",
+      "potfileIntervalUpdated": "Potfile batch aralığı güncellendi",
+      "speedTestTimeoutUpdated": "Hız testi zaman aşımı güncellendi",
+      "speedTestMinUpdatesUpdated": "Hız testi minimum durum güncellemeleri güncellendi",
+      "updateFailed": "Ayar güncellenemedi"
+    }
+  },
+  "jobExecution": {
+    "title": "İş Yürütme Ayarları",
+    "description": "İşlerin nasıl yürütüldüğünü ve ajanlar arasında nasıl dağıtıldığını yapılandırın",
+    "chunking": {
+      "title": "İş Parçalama",
+      "defaultChunkDuration": "Varsayılan Parça Süresi",
+      "defaultChunkDurationHelper": "Parça başına hedef duvar saati (scheduler-v2 her ajanın parçasını buna ulaşacak şekilde boyutlandırır)",
+      "minChunkSeconds": "Minimum Parça Süresi",
+      "minChunkSecondsHelper": "Tek bir parçanın duvar saati için taban; küçük yetim parçaları önler",
+      "minutes": "dakika",
+      "overrunTolerance": "Parça aşma toleransı",
+      "overrunToleranceHelper": "Koruma bunu durdurup geri kalanını yeniden göndermeden önce bir parçanın planlanan süresinin ne kadar ötesinde çalışabileceği.",
+      "overrunGuard": "Parça aşma korumasını etkinleştir",
+      "overrunGuardHelper": "Planlanan parça süresinin çok ötesinde çalışan bir görevi durdurup bitmemiş kısmı yeniden gönderir."
+    },
+    "agentConfig": {
+      "title": "Ajan Yapılandırması",
+      "hashlistRetention": "Hash Listesi Saklama",
+      "hashlistRetentionHelper": "Ajanların hash listelerini ne kadar süre sakladığı",
+      "maxConcurrentJobs": "Ajan Başına Maksimum Eş Zamanlı İş",
+      "maxConcurrentJobsHelper": "Bir ajanın aynı anda çalıştırabileceği maksimum iş sayısı",
+      "progressReporting": "İlerleme Raporlama Aralığı",
+      "progressReportingHelper": "Ajanların ilerlemeyi ne sıklıkla bildirdikleri",
+      "benchmarkCache": "Benchmark Önbellek Süresi",
+      "benchmarkCacheHelper": "Ajan benchmark'larını ne kadar süre önbelleğe alacağı",
+      "benchmarkHistoryRetention": "Benchmark Geçmişi Saklama",
+      "benchmarkHistoryRetentionHelper": "Benchmark geçmiş kayıtlarının saklanacağı gün sayısı (0 = sınırsız)",
+      "reconnectGrace": "Yeniden Bağlanma Ek Süresi",
+      "reconnectGraceHelper": "Sunucu yeniden başlatıldıktan sonra ajanların yeniden bağlanmasını beklemek için zaman",
+      "days": "gün",
+      "seconds": "saniye",
+      "minutes": "dakika"
+    },
+    "jobControl": {
+      "title": "İş Kontrolü",
+      "allowInterruption": "İş Kesilmesine İzin Ver",
+      "allowInterruptionHelper": "Daha yüksek öncelikli işler çalışan işleri kesebilir",
+      "realtimeNotifications": "Gerçek Zamanlı Kırılma Bildirimleri",
+      "realtimeNotificationsHelper": "Hashler kırıldığında bildirimler gönder",
+      "refreshInterval": "İş Yenileme Aralığı",
+      "refreshIntervalHelper": "İş durumunun arayüzde ne sıklıkla yenileneceği",
+      "maxRetryAttempts": "Maksimum Parça Yeniden Deneme Denemesi",
+      "maxRetryAttemptsHelper": "Başarısız parçaları yeniden deneme sayısı",
+      "jobsPerPage": "Sayfa Başına İş",
+      "jobsPerPageHelper": "İş listeleri için varsayılan sayfalandırma boyutu",
+      "keyspaceTimeout": "Keyspace Hesaplama Zaman Aşımı",
+      "keyspaceTimeoutHelper": "hashcat --keyspace ve --total-candidates komutları için maksimum zaman. Büyük wordlist'ler/kurallar için artırın."
+    },
+    "potfile": {
+      "title": "Potfile Ayarları",
+      "enablePotfile": "Potfile'ı Etkinleştir",
+      "enablePotfileHelper": "Kırılmış parolaları gelecekteki işlerde kullanmak üzere otomatik olarak depolar. Bireysel hash listeleri hâlâ hariç tutulabilir.",
+      "maxBatchSize": "Maksimum Batch Boyutu",
+      "maxBatchSizeHelper": "Her batch döngüsünde işlenecek staged parola sayısı (1.000 - 500.000)",
+      "batchInterval": "Batch Aralığı",
+      "batchIntervalHelper": "Potfile batch işleme döngüleri arasındaki saniye (10 - 600)",
+      "enableClientPotfiles": "Müşteri potfile'larını etkinleştir",
+      "enableClientPotfilesHelper": "Genel olana ek olarak müşteri başına ayrı bir potfile tutar.",
+      "removeGlobalDefault": "Bir hash listesi silindiğinde global potfile'dan kaldır (varsayılan)",
+      "removeClientDefault": "Bir hash listesi silindiğinde müşteri potfile'ından kaldır (varsayılan)"
+    },
+    "scheduler": {
+      "title": "Planlayıcı (v2)",
+      "description": "v2 planlayıcısının görev canlılığı ve aşma işleme için gelişmiş ayarlama. Varsayılanlar çoğu dağıtım için güvenlidir.",
+      "taskHeartbeatTimeout": "Görev Nabız Sinyali Zaman Aşımı",
+      "taskHeartbeatTimeoutHelper": "Çalışan bir görevin kayıp olarak işaretlenip kurtarılmadan önce nabız sinyali almadan geçirebileceği saniye sayısı",
+      "taskStartupGrace": "Görev Başlatma Ek Süresi",
+      "taskStartupGraceHelper": "İlk ilerleme öncesinde ekstra ek süre (dosya indirme, sıkıştırmayı açma, autotune)",
+      "networkGrace": "Ağ Ek Süresi",
+      "networkGraceHelper": "Bağlantı kopuşunda kurtarma başlamadan önce WebSocket yeniden bağlanma toleransı",
+      "overrunGuardEnabled": "Parça Aşma Koruması",
+      "overrunGuardEnabledHelper": "Parça hedefini aşağıdaki toleransın ötesinde aşan görevleri durdurur",
+      "overrunTolerance": "Aşma Toleransı",
+      "overrunToleranceHelper": "Ek süre penceresi: duvar süresi parça hedefini bu yüzde oranında aştığında durdurun"
+    },
+    "buttons": {
+      "save": "Ayarları Kaydet"
+    },
+    "errors": {
+      "loadFailed": "Ayarlar yüklenemedi",
+      "outOfRange": "{{label}} {{min}} ile {{max}} arasında olmalıdır"
+    },
+    "messages": {
+      "updateSuccess": "İş yürütme ayarları başarıyla güncellendi",
+      "loadFailed": "İş yürütme ayarları yüklenemedi",
+      "saveFailed": "Ayarlar kaydedilemedi"
+    },
+    "keyspaceBenchmark": {
+      "title": "Keyspace & Benchmark",
+      "caption": "KrakenHashes'in bir saldırıyı ölçmeye ne kadar süre harcayabileceği. İlk ayar SUNUCU'nun iş oluşturmada wordlist'i ölçmesini sınırlandırır; hız testi ayarları AJAN'ın kendi hash hızını ölçmesini sınırlandırır. Bunlar farklı aşamalardır — birini artırmak diğerini etkilemez.",
+      "keyspaceTimeout": "Keyspace hesaplama zaman aşımı",
+      "keyspaceTimeoutHelper": "Sunucu tarafı. İş oluşturulduğunda hashcat --keyspace / --total-candidates için izin verilen zaman. Arka planda çalıştığından, bunu artırmak iş oluşturmayı daha yavaş yapmaz. Aşılırsa, sözlük saldırısı wordlist sözcük sayısına geri döner ve kullanıcıya bildirir.",
+      "speedTestUncompressed": "Ajan hız testi zaman aşımı",
+      "speedTestUncompressedHelper": "Ajan tarafı. Sıkıştırılmamış wordlist'te ajan benchmark'ı için duvar saati sınırı.",
+      "speedTestCompressed": "Ajan hız testi zaman aşımı (sıkıştırılmış)",
+      "speedTestCompressedHelper": "Ajan tarafı. Sıkıştırılmış wordlist'ler için daha uzun sınır; hashcat bir hız bildirmeden önce bunları açmalıdır.",
+      "minStatusUpdates": "Minimum durum güncellemeleri",
+      "minStatusUpdatesHelper": "Sonucu güvenilir olmadan önce hız testinin üretmesi gereken hashcat durum raporu sayısı. Düşük değerler, GPU tam hıza ulaşmadan önce kaydedilmiş bir oranı riske atar.",
+      "cacheDuration": "Benchmark önbellek süresi",
+      "cacheDurationHelper": "Kaydedilen bir benchmark'un bir ajan yeniden ölçmeye çağrılmadan önce ne kadar süre geçerli olduğu.",
+      "historyRetention": "Benchmark geçmiş saklama",
+      "historyRetentionHelper": "Trend analizi için bireysel benchmark kayıtlarının ne kadar süre tutulduğu.",
+      "hours": "saat",
+      "days": "gün"
+    },
+    "benchmarkReliability": {
+      "title": "Benchmark Güvenilirliği",
+      "caption": "Benchmark'lar tekrar tekrar başarısız olduğunda ne olur. Bunlar, bir kötü ajan veya bir kötü iş yapılandırması'nın başarısız olamayan bir benchmark'ı yeniden çalıştırarak filoyu tüketmesine karşı koruma sağlar.",
+      "failureThreshold": "Başarısızlık eşiği",
+      "failureThresholdHelper": "Bir ajan/iş/saldırı kombinasyonun engel listesine alınmasından önce ardışık benchmark başarısızlıkları.",
+      "hardFailureCap": "Sert başarısızlık limiti",
+      "hardFailureCapHelper": "Yukarıdaki eşikten bağımsız olarak, bir kombinasyon için benchmark denemelerinin mutlak üst sınırı.",
+      "blocklistCooldown": "Engelleme listesi bekleme süresi",
+      "blocklistCooldownHelper": "Engellenen bir ajan/iş/saldırı kombinasyonunun yeniden denenebilmeden önce ne kadar süre engelli kalacağı.",
+      "stormThreshold": "Benchmark fırtınası eşiği",
+      "stormThresholdHelper": "Fırtına penceresi içinde bir yönetici bildirimini tetikleyen benchmark başarısızlıklarının sayısı.",
+      "stormWindow": "Benchmark fırtınası penceresi",
+      "stormWindowHelper": "Fırtına eşiği başarısızlıklarının sayıldığı zaman dilimi.",
+      "streakReset": "Başarısızlık serisi sıfırlama süresi",
+      "streakResetHelper": "Bir ajanın başarısızlık serisinin sıfırlanmasından önce, benchmark başarısızlığı olmadan ne kadar süre gitmesi gerektiği.",
+      "quarantineStreak": "Karantina başarısızlık serisi",
+      "quarantineStreakHelper": "Ajanın kendisi benchmark'tan karantinaya alınmadan önce, kombinasyon fark etmeksizin art arda yaşanan başarısızlık sayısı.",
+      "quarantineDistinct": "Karantina için farklı kombinasyon sayısı",
+      "quarantineDistinctHelper": "İşin değil, ajanın kendisinin hatalı sayılmasından önce kaç FARKLI saldırı/hash türü kombinasyonunun başarısız olması gerektiği."
+    },
+    "scheduling": {
+      "title": "Planlama ve Tahsis",
+      "overflowMode": "Ajan taşması için tahsis modu",
+      "overflowModeHelper": "İşler maksimum ajan sınırına ulaştıktan sonra kalan ajanların nasıl dağıtıldığı.",
+      "maxConcurrentJobs": "Ajan başına maksimum eşzamanlı iş",
+      "maxConcurrentJobsHelper": "Tek bir ajanın aynı anda kaç iş üzerinde çalışabileceği.",
+      "agentScheduling": "Ajan planlamasını etkinleştir",
+      "agentSchedulingHelper": "Ajan başına çalışma saatleri programlarını genel olarak etkinleştirir. Bu kapalıyken, ajan programları yok sayılır.",
+      "jobInterruption": "İş kesintisine izin ver",
+      "jobInterruptionHelper": "Önalım için genel kapı. Herhangi bir işin kesintiye uğratılabilmesi için, kesintiyi yapacak işin de kendi yüksek öncelik geçersiz kılma bayrağına VE sıfır olmayan bir önceliğe sahip olması gerekir.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Döner yöntemi",
+        "enforceMaxAgents": "Maksimum ajanları uygula",
+        "maxAgentsFifo": "Maksimum ajanlar, sonra FIFO",
+        "maxAgentsRoundRobin": "Maksimum ajanlar, sonra döner yöntemi"
+      }
+    },
+    "taskHealth": {
+      "title": "Görev Sağlığı",
+      "caption": "Çalışan bir görevin ne zaman kaybolmuş olarak kabul edileceği ve çalışmanın ne kadar agresif olarak kurtarıldığı. Bunları çok sıkı ayarlarsanız sağlıklı görevler çıkarılır; çok gevşek ayarlarsanız ölü bir görev saatler boyunca keyspace'ini tutar.",
+      "heartbeatTimeout": "Görev nabız sinyali zaman aşımı",
+      "heartbeatTimeoutHelper": "Çalışan bir görevin kaybolmuş olarak kabul edilmeden ve keyspace'i yeniden açılmadan önce ne kadar süre nabız sinyali olmadan gidebileceği.",
+      "startupGrace": "Görev başlangıç toleransı",
+      "startupGraceHelper": "Atamadan sonra, nabız sinyali kuralları uygulanmadan önce hashcat başlatma ve dosya yüklemeyi kapsayacak şekilde izin verilen ek süre.",
+      "networkGrace": "Ağ toleransı",
+      "networkGraceHelper": "Kaçırılan bir nabız sinyalinin sayılmadan önce geçici ağ kesintileri için kısa bir tolerans.",
+      "reconnectGrace": "Yeniden bağlanma tolerans süresi",
+      "reconnectGraceHelper": "Bağlantısı kesilen bir ajanın yeniden bağlanıp çalışan görevini geri alabileceği süre.",
+      "offlineBuffer": "Ajan çevrimdışı bekleme süresi",
+      "offlineBufferHelper": "Kısaca çevrimdışı olan bir ajan için mesajların atılmadan önce ne kadar süre tamponlanacağı.",
+      "maxRetryAttempts": "Maksimum parça yeniden deneme sayısı",
+      "maxRetryAttemptsHelper": "Görevin başarısız olmasından önce başarısız bir parçanın kaç kez yeniden deneneceği. Yeniden denemeleri devre dışı bırakmak için 0 olarak ayarlayın.",
+      "progressInterval": "İlerleme raporlama aralığı",
+      "progressIntervalHelper": "Ajanların ilerlemeyi ne sıklıkta bildirdikleri. Daha düşük değerler daha ayrıntılı ilerleme sağlar ancak daha fazla yük getirir.",
+      "hashlistRetention": "Ajan hash listesi saklama",
+      "hashlistRetentionHelper": "Ajanların indirilen bir hash listesini bitirdikten sonra ne kadar süre tutacağı."
+    },
+    "loopback": {
+      "title": "Loopback",
+      "maxRounds": "Maksimum loopback turları",
+      "maxRoundsHelper": "Bir loopback oturumu hâlâ yeni parolalar kırmaya devam etse bile, durmadan önce bir saldırıyı yeni kırılmış düz metinlere karşı kaç kez yeniden çalıştırabileceğine ilişkin güvenlik üst sınırı."
+    },
+    "jobNotifications": {
+      "title": "İş Bildirimleri",
+      "realtimeCracks": "Gerçek zamanlı kırma bildirimleri",
+      "realtimeCracksHelper": "Hashler kırıldığında bildir. Çok büyük işlerde kayda değer yük ekleyebilir."
+    }
+  },
+  "monitoring": {
+    "title": "İzleme Ayarları",
+    "metricsRetention": {
+      "title": "📊 Metrik Saklama Dönemleri",
+      "description": "Metriklerin farklı ayrıntı seviyelerinde ne kadar süre saklanacağını yapılandırın. Veriler zaman içinde ayrıntılı düzeyden toplulaştırılmış düzeye kademeli olarak akar.",
+      "realtimeData": "Gerçek Zamanlı Veri Saklama",
+      "realtimeDataHelper": "Son etkinlik için ince taneli metrikleri kaç gün saklayacağı (örneğin, 7 gün)",
+      "dailyAggregates": "Günlük Özetler Saklama",
+      "dailyAggregatesHelper": "Gerçek zamanlı dönemden sonra günlük özetleri kaç gün depolayacağı (örneğin, 30 gün)",
+      "weeklyAggregates": "Haftalık Özetler Saklama",
+      "weeklyAggregatesHelper": "Uzun vadeli trendleri haftalık özetler olarak kaç gün koruyacağı (örneğin, 365 gün)"
+    },
+    "aggregation": {
+      "title": "⚙️ Toplama Ayarları",
+      "enableAggregation": "Otomatik Toplamayı Etkinleştir",
+      "enableAggregationDescription": "Trendleri korurken depolama alanından tasarruf etmek için eski metrikleri otomatik olarak birleştirir",
+      "interval": "Toplama Aralığı",
+      "intervalHelper": "Toplama işleminin ne sıklıkta çalıştırılacağı",
+      "hourly": "Saatlik",
+      "daily": "Günlük",
+      "weekly": "Haftalık"
+    },
+    "cascading": {
+      "title": "Kademeli toplama nasıl çalışır:",
+      "realtime": "Gerçek zamanlı veriler son etkinlik için ayrıntılı metrikler sağlar",
+      "daily": "Gerçek zamanlı dönemden sonra veriler günlük özetlere toplanır",
+      "weekly": "Günlük dönemden sonra, veriler bir adım daha toplanarak haftalık özetlere dönüştürülür",
+      "benefit": "Bu yaklaşım grafikleri okunabilir tutar ve aynı zamanda tarihi trendleri korur"
+    },
+    "buttons": {
+      "save": "Ayarları Kaydet",
+      "saving": "Kaydediliyor..."
+    },
+    "errors": {
+      "loadFailed": "Ayarlar yüklenemedi. Lütfen tekrar deneyin.",
+      "saveFailed": "Ayarlar kaydedilemedi. Lütfen tekrar deneyin."
+    },
+    "messages": {
+      "updateSuccess": "İzleme ayarları başarıyla kaydedildi"
+    }
+  },
+  "agentDownloads": {
+    "title": "Ajan Dosya Aktarım Ayarları",
+    "description": "Ajanların arka uçtan dosyaları nasıl indireceğini yapılandırın. Bu ayarlar tüm bağlı ajanlar için geçerlidir.",
+    "concurrentDownloads": {
+      "title": "Eşzamanlı İndirmeler",
+      "description": "Aynı anda indirilebilecek maksimum dosya sayısı"
+    },
+    "downloadTimeout": {
+      "title": "İndirme Zaman Aşımı",
+      "description": "Tek bir dosya indirmesi için izin verilen maksimum süre",
+      "helper": "1 dakika ile 24 saat arasında (1440 dakika)",
+      "unit": "dakika"
+    },
+    "retryAttempts": {
+      "title": "Yeniden Deneme Sayısı",
+      "description": "Başarısız indirmeleri yeniden deneme sayısı"
+    },
+    "progressInterval": {
+      "title": "İlerleme Raporu Aralığı",
+      "description": "Ajanların indirme ilerlemesini ne sıklıkta bildirdikleri",
+      "helper": "1 saniye ile 5 dakika arasında (300 saniye)",
+      "unit": "saniye"
+    },
+    "chunkSize": {
+      "title": "Parça Boyutu",
+      "description": "İleride indirmelere devam edebilme desteği için indirme parça boyutu",
+      "helper": "1 MB ile 100 MB arasında",
+      "unit": "MB"
+    },
+    "applyNote": "Değişiklikler, ajanların bir sonraki bağlantısında geçerli olacaktır. Şu anda bağlı ajanlar güncellemeleri otomatik olarak alacaktır.",
+    "buttons": {
+      "save": "Ayarları Kaydet",
+      "saving": "Kaydediliyor..."
+    },
+    "errors": {
+      "loadFailed": "Ajan indirme ayarları yüklenemedi",
+      "saveFailed": "Ajan indirme ayarları güncellenemedi"
+    },
+    "messages": {
+      "updateSuccess": "Ajan indirme ayarları başarıyla güncellendi"
+    }
+  },
+  "hashTypes": {
+    "title": "Hash Türü Yönetimi",
+    "description": "Parola kırma işlemleri için desteklenen hash türlerini yönetin",
+    "addHashType": "Hash Türü Ekle",
+    "searchPlaceholder": "Hash türlerini ara...",
+    "hashTypesFound_one": "{{count}} hash türü bulundu",
+    "hashTypesFound_other": "{{count}} hash türü bulundu",
+    "table": {
+      "id": "Kimlik",
+      "name": "Ad",
+      "description": "Açıklama",
+      "example": "Örnek",
+      "slow": "Yavaş",
+      "salted": "Tuzlanmış",
+      "actions": "İşlemler",
+      "loading": "Hash türleri yükleniyor...",
+      "noResults": "Hash türü bulunamadı"
+    },
+    "dialog": {
+      "addTitle": "Yeni Hash Türü Ekle",
+      "editTitle": "Hash Türünü Düzenle",
+      "hashIdLabel": "Hash Kimliği (Hashcat Modu Numarası)",
+      "hashIdHelper": "örneğin, NTLM için 1000",
+      "nameLabel": "Ad",
+      "descriptionLabel": "Açıklama",
+      "exampleLabel": "Örnek Hash",
+      "exampleHelper": "Bu hash biçiminin örneği",
+      "slowLabel": "Yavaş Hash Algoritması",
+      "saltedLabel": "Tuzlanmış Hash Türü (örneğin, NTLMv2, bcrypt)",
+      "processingInfo": "Bu hash türü özel işleme gerektirir. İşleme mantığı programatik olarak yönetilir.",
+      "cancel": "İptal",
+      "save": "Kaydet",
+      "saving": "Kaydediliyor..."
+    },
+    "validation": {
+      "hashIdRequired": "Hash Kimliği gereklidir ve pozitif olmalıdır",
+      "hashIdExists": "Bu Hash Kimliği zaten var",
+      "nameRequired": "Ad gereklidir"
+    },
+    "tooltips": {
+      "requiresProcessing": "Özel işleme gerektirir",
+      "processing": "İşleme gerekli",
+      "slowAlgorithm": "Yavaş hash algoritması (hesaplama açısından pahalı)",
+      "salted": "Hash başına tuz kullanır (keyspace hesaplamasını etkiler)"
+    },
+    "confirmDelete": {
+      "title": "Silmeyi Onayla",
+      "warning": "Bu hash türü şu anda etkindir. Silinmesi mevcut işlevselliği etkileyebilir.",
+      "cancel": "İptal",
+      "delete": "Sil",
+      "deleting": "Siliniyor..."
+    },
+    "messages": {
+      "createSuccess": "Hash türü başarıyla oluşturuldu",
+      "createFailed": "Hash türü oluşturulamadı",
+      "updateSuccess": "Hash türü başarıyla güncellendi",
+      "updateFailed": "Hash türü güncellenemedi",
+      "deleteSuccess": "Hash türü başarıyla silindi",
+      "deleteFailed": "Hash türü silinemedi",
+      "deleteInUse": "Silinemez: Bu hash türü mevcut hash listeleri tarafından kullanılmaktadır",
+      "loadFailed": "Hash türleri yüklenemedi. Lütfen sayfayı yenileyin."
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "Bulut GPU provisioning",
+      "body": "İsteğe bağlı olarak, şirket içi filo yetişemediğinde GPU örneklerini kiralayın. Örnekler mevcut VPN'inize katılır, yalnızca işlerinin ihtiyaç duyduğu dosyaları alır ve otomatik olarak sonlandırılır. Harcama, bir örnek başlatılmadan önce müşteri başına bütçeye karşı taahhüt edilir, bu nedenle bir sınır gerçek bir sınırdır ve geriye dönük bir ölçüm değildir.",
+      "fleetLink": "Canlı filoyu görüntüle"
+    },
+    "sections": {
+      "providers": "Sağlayıcılar",
+      "clients": "Müşteri Bütçeleri",
+      "policy": "Eşik Politikası",
+      "rules": "Provisioning Kuralları",
+      "system": "Sınırlar ve İşlemler"
+    },
+    "providers": {
+      "title": "Bulut Sağlayıcıları",
+      "description": "Kiralanan örneklerin nereden geldiği ve bu sunucuya nasıl ulaştığı.",
+      "add": "Sağlayıcı Ekle",
+      "addTitle": "Bulut Sağlayıcısı Ekle",
+      "editTitle": "Bulut Sağlayıcısını Düzenle",
+      "edit": "Düzenle",
+      "delete": "Sil",
+      "save": "Kaydet",
+      "saved": "Sağlayıcı kaydedildi",
+      "saveFailed": "Sağlayıcı kaydedilemedi",
+      "deleted": "Sağlayıcı silindi",
+      "deleteFailed": "Sağlayıcı silinemedi",
+      "deleteTitle": "Sağlayıcıyı sil?",
+      "deleteBody": "\"{{name}}\" silinsin mi? Herhangi bir kiralanan örnek hala ona başvurduğu sürece bu başarısız olur.",
+      "loadFailed": "Sağlayıcılar yüklenemedi",
+      "empty": "Bulut sağlayıcısı yapılandırılmadı. Hiçbir şey kiralanmayacaktır.",
+      "enabled": "Etkin",
+      "disabled": "Devre Dışı",
+      "noCredentials": "Kimlik Bilgileri Yok",
+      "noVpn": "VPN Yok",
+      "credentialExpired": "Kimlik Bilgisinin Süresi Doldu",
+      "credentialExpiresIn": "{{days}}g içinde sona eriyor",
+      "limitsValue": "{{instances}} maks, {{rate}}/sa sınırı",
+      "thirdPartyBadge": "Üçüncü taraf makinelerde çalışır",
+      "preflight": "Ön kontrol",
+      "preflightTitle": "Ön kontrol raporu",
+      "preflightOk": "Bu sağlayıcı örnekler başlatabilir.",
+      "preflightFailed": "Ön kontrol isteği başarısız oldu",
+      "preflightFailedBody": "Bu sağlayıcı henüz örnekler başlatamaz.",
+      "preflightIdentity": "{{identity}} olarak kimlik doğrulandı",
+      "preflightQuota": "Kota: {{used}} / {{limit}} kullanımda ({{source}})",
+      "preflightSections": {
+        "missing_permissions": "Eksik İzinler",
+        "inconclusive": "Doğrulanamadı (başarısızlık olarak işlendi)",
+        "errors": "Hatalar",
+        "warnings": "Uyarılar"
+      },
+      "acknowledge": "Onayla",
+      "acknowledged": "Onay kaydedildi",
+      "ackFailed": "Onay kaydedilemedi",
+      "ackTitle": "Üçüncü taraf veri maruziyetini onayla",
+      "ackBody": {
+        "vastai": "Vast.ai, operatörlerin kapsayıcıya root erişimine sahip olduğu kişilere ait makinelerde GPU'ları kiralar. Orada yerleştirilen hashler, wordlistler ve kırılmış düz metinler üçüncü bir tarafça görülebilir. Bu, örneklerin kendi hesabınız içinde veya SOC 2 veri merkezlerinde çalıştığı AWS veya RunPod Secure Cloud'dan kategorik olarak farklıdır.",
+        "runpod_community": "RunPod Community Cloud, sahiplerinin konteynere root erişimine sahip olduğu, eş tarafından işletilen makinelerde GPU'ları kiralar. Orada yerleştirilen hashler, wordlistler ve kırılmış düz metinler üçüncü bir tarafça görülebilir. RunPod'un uyumluluk belgeleri yalnızca Secure Cloud'u kapsar ve bu katmana uzanmaz."
+      },
+      "ackConfirm": "Bu sağlayıcıya gönderilen iş yükleri için bu maruziyeti kabul ediyor musunuz?",
+      "ackAccept": "Anladım ve kabul ediyorum",
+      "ephemeralKeyTitle": "Şifreleme anahtarı geçici",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY ayarlanmamış, bu nedenle başlangıçta rastgele bir anahtar oluşturuldu. Depolanmış her kimlik bilgisi sonraki yeniden başlatmadan sonra okunamaz hale gelir. Sağlayıcı kimlik bilgilerini kaydetmeden önce KH_ENCRYPTION_KEY ayarlayın.",
+      "vpnSection": "VPN Bağlantısı",
+      "vpnSectionHelp": "Bu sunucu hiçbir zaman internete maruz kalmaz, bu nedenle kiralanan örnekler zaten çalıştırdığınız VPN'e katılır. OpenVPN desteklenmiyor: /dev/net/tun ve CAP_NET_ADMIN'e ihtiyaç duyar; Vast.ai'nin ayrıcalıklandırılmamış konteynerleri bunları sağlamaz.",
+      "reusableKeyWarning": {
+        "tailscale": "Yeniden kullanılabilir bir anahtar her örnek tarafından paylaşılır ve sona erer — Tailscale, auth anahtarlarını 90 güne sınırlandırır. Sona erdiğinde, bağlanamayan örnekler başlatmak yerine provisioning reddedilir. Bunun yerine bir OAuth istemcisi, KrakenHashes'in örnek başına tek kullanımlık geçici etiketli bir anahtar basması sağlar.",
+        "netbird": "Yeniden kullanılabilir bir kurulum anahtarı her örnek tarafından paylaşılır, bu nedenle aynı gizli dizi her kiralanan konağa ulaşır. Anahtarın bir sona erme tarihi varsa aşağıda Credential expires at'ı ayarlayın — bağlanamayan örnekler başlatmak yerine provisioning reddedilir; süresi bitmeyen bir anahtar için boş bırakın. Etiket veya grup bu kimlik bilgisi türü için yok sayılır: grup ve geçici bayrak, anahtarın NetBird'deki kendi yapılandırmasından gelir. Bir erişim belirteci, KrakenHashes'in örnek başına tek kullanımlık geçici bir kurulum anahtarı basması ve grubun kendisini ayarlaması sağlar."
+      },
+      "staticConfigWarning": "WireGuard, statik bir eş yapılandırması kullanır: örnek başına kimlik bilgisi yoktur ve bir örnek sonlandığında otomatik kayıttan çıkarma yoktur. Tailscale veya NetBird daha güvenlidir.",
+      "kinds": {
+        "aws": "AWS EC2 (kendi hesabınız)",
+        "vastai": "Vast.ai (üçüncü taraf makineler)",
+        "mock": "Mock (yerel test ajanları, maliyet yok)",
+        "runpod": "RunPod Secure Cloud (SOC 2 veri merkezleri)",
+        "runpod_community": "RunPod Community Cloud (eş tarafından işletilen makineler)"
+      },
+      "credentialKinds": {
+        "oauth": "OAuth istemcisi — örnek başına tek bir geçici anahtar üretir (önerilir)",
+        "pat": "Erişim belirteci — örnek başına tek bir geçici anahtar üretir (önerilir)",
+        "reusable_key": "Yeniden kullanılabilir anahtar — her örnek arasında paylaşılır",
+        "static_config": "Statik yapılandırma — örnek başına kimlik bilgisi yok"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "Tailscale OAuth istemcisi client_id:client_secret olarak. auth_keys kapsamı ve seçili etiket gerektirir.",
+        "pat": "NetBird kişisel erişim belirteci veya hizmet kullanıcısı belirteci.",
+        "reusable_key": "Her örneğin kullanacağı önceden yetkilendirilmiş anahtar.",
+        "static_config": "Tam WireGuard eş yapılandırması."
+      },
+      "columns": {
+        "name": "Ad",
+        "provider": "Sağlayıcı",
+        "status": "Durum",
+        "vpn": "VPN",
+        "limits": "Limitler",
+        "actions": "İşlemler"
+      },
+      "fields": {
+        "name": "Ad",
+        "provider": "Sağlayıcı",
+        "credentials": "Sağlayıcı kimlik bilgileri",
+        "credentialsHelp": "{{provider}} için API kimlik bilgileri. Şifreli olarak depolanır ve asla döndürülmez.",
+        "credentialsKeepHelp": "Depolanan kimlik bilgisini değiştirilmemiş tutmak için boş bırakın.",
+        "maxConcurrent": "Maksimum eşzamanlı örnek",
+        "maxHourlyCents": "Maksimum saatlik ücret (cent)",
+        "maxHourlyHelp": "Bu oranın üzerindeki teklifler, bütçe ne izin verse de asla kiralanmaz.",
+        "vpnProvider": "VPN sağlayıcısı",
+        "credentialKind": "Kimlik bilgisi türü",
+        "vpnCredential": "VPN kimlik bilgisi",
+        "credentialExpiry": "Kimlik bilgisinin sona erme tarihi",
+        "credentialExpiryHelp": "İsteğe bağlı — asla sona ermeyen bir anahtar için boş bırakın. Provisioning bu tarihten sonra reddedilir ve yaklaştığında uyarılacaksınız.",
+        "vpnTag": "Etiket veya grup",
+        "vpnTagHelp": "örn. tag:kraken-worker. Tailscale OAuth için gereklidir; bu düğümlerin neler erişebileceğini belirler.",
+        "backendVpnHost": "Bu sunucunun VPN üzerindeki adresi",
+        "backendVpnHostHelp": "Bulut ajanlarının kullandığı KH_HOST değeri. Sunucu sertifikası bunu kapsamalıdır — Sunucu Sertifikası sekmesinin altına ekleyin ve Uygula ve Yeniden Düzenle'yi tıklayın, aksi takdirde ajanlar TLS ana bilgisayar adı doğrulamasında başarısız olur.",
+        "enabled": "Etkin",
+        "awsAccessKeyId": "AWS erişim anahtarı kimliği",
+        "awsAccessKeyIdHelp": "EC2 provisioning kapsamına alınmış bir IAM kullanıcısı veya rol anahtarı. Şifreli olarak depolanır ve asla döndürülmez.",
+        "awsSecretAccessKey": "AWS gizli erişim anahtarı",
+        "awsRegion": "Bölge",
+        "awsRegionHelp": "örn. us-east-2. Aşağıdaki diğer her AWS alanı bu bölgede bulunmalıdır.",
+        "awsSubnet": "Alt ağ kimliği",
+        "awsSubnetHelp": "örn. subnet-0abc123. Otomatik olarak genel bir IP atamalıdır, aksi takdirde örnek VPN'inizin kontrol düzlemine ulaşamaz.",
+        "awsSecurityGroups": "Güvenlik grubu kimlikleri",
+        "awsSecurityGroupsHelp": "Virgülle ayrılmış, örn. sg-0abc123. Yalnızca giden erişime ihtiyaç duyar; gelen kuralı gerekmez.",
+        "awsAmiSsm": "AMI SSM parametresi",
+        "awsAmiSsmHelp": "Başlatma sırasında çözülür, bu nedenle görüntü hiçbir zaman eski hale gelmez. örn. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "AMI Kimliği (SSM parametresini geçersiz kılar)",
+        "awsAmiIdHelp": "Bunun yerine belirli bir görüntüyü sabitleyin. SSM üzerinden çözmek için boş bırakın. İkisinden biri gereklidir.",
+        "awsInstanceProfile": "IAM örnek profili ARN'si",
+        "awsInstanceProfileHelp": "İsteğe bağlı. Yalnızca ajanın kendisinin AWS API'lerini çağırması gerekiyorsa gereklidir.",
+        "awsRootVolume": "Kök birim (GB)",
+        "awsRootVolumeHelp": "Bir minimum; bir işin dosya kümesi daha fazlasına ihtiyaç duyabilir. En az AMI'nın anlık görüntü boyutu kadar olmalıdır, aksi takdirde başlatma başarısız olur.",
+        "awsEbsRate": "EBS oranı (cent/GB-ay)",
+        "awsEbsRateHelp": "gp3 depolama fiyatı. 0'da bırakıldığında bütçe disk için hiçbir şey ayırmaz.",
+        "awsUseSpot": "Spot kapasitesini kullan",
+        "awsUseSpotHelp": "Spot istekleri tek seferlik olup kesintide sonlandırılır. Mevcut nesil GPU'lar üzerindeki indirimler genellikle mütevazıdır, bu nedenle bu otomatik olarak daha ucuz değildir. Spot ve on-demand ayrı vCPU kotalarından yararlanır.",
+        "awsInstanceType": "Örnek türü",
+        "awsHourlyCents": "Cent/saat",
+        "awsGpuModel": "GPU modeli",
+        "awsGpuCount": "GPU'lar",
+        "awsVram": "VRAM/GPU",
+        "mockAgentBinary": "Ajan ikili dosya yolu",
+        "mockAgentBinaryHelp": "Sunucunun --test-mode ile yürütebileceği bir ajan ikili dosyasının yolu.",
+        "mockBackendHost": "Üretilen ajanlar için arka uç ana bilgisayarı",
+        "mockBackendHostHelp": "örn. localhost:31337.",
+        "mockHourlyRate": "Benzetilmiş ücret (cent/saat)",
+        "mockBootDelay": "Benzetilmiş önyükleme gecikmesi (saniye)",
+        "mockFailLaunch": "Hata: her başlatma başarısız olur",
+        "mockDropLaunchResponse": "Hata: başlatma yanıtı bırakılır (örnek çalışır ancak başarısız olarak bildirilir)",
+        "mockNeverRegister": "Hata: örnek asla kaydolmaz",
+        "mockFailDestroy": "Hata: her sonlandırma başarısız olur",
+        "vpnTagIgnoredHelp": "NetBird yeniden kullanılabilir anahtarı için yoksayılır: grup üyeliği ve geçici bayrak, NetBird'deki kurulum anahtarının kendi yapılandırmasından gelir. Yalnızca erişim belirteci yolunda kullanılır, her oluşturulan anahtar üzerinde auto_groups olarak.",
+        "vpnUrl": {
+          "netbird": "NetBird yönetim URL'si",
+          "tailscale": "Tailscale giriş sunucusu (Headscale)"
+        },
+        "vpnUrlHelp": {
+          "netbird": "Kendi kendine barındırılan NetBird yönetim sunucunuz, örn. https://netbird.example.com. Kurulum anahtarları oluşturmak ve istemciyi başlatmak için kullanılır. NetBird'ün barındırılan hizmeti için boş bırakın.",
+          "tailscale": "Yalnızca kendi kendine barındırılan kontrol sunucusu için. Erişim belirteci oluşturmanın her zaman api.tailscale.com kullandığını ve Headscale'i desteklemediğini unutmayın."
+        },
+        "vastCountries": "Ülkeler (virgülle ayrılmış)",
+        "vastCountriesHelp": "Vast.ai ülke kodları, örn. US, DE, SE. Boş, her yeri anlamına gelir. Bildirilen coğrafi konum ile büyük/küçük harf duyarlılığı olmadan eşleştirilir, bu nedenle 'US' 'US, Texas' ile eşleşir. Veri konumu denetimini de sağlar.",
+        "vastGpuModels": "İzin verilen GPU modelleri (virgülle ayrılmış)",
+        "vastGpuModelsHelp": "Boş, herhangi bir kartı anlamına gelir. Normalleştirilmiş bir anahtar üzerinde eşleştirilir, bu nedenle 'rtx_4090' hem 'NVIDIA GeForce RTX 4090' hem de 'RTX 4090' ile eşleşir. Bu listeyi genişletmek, kullanılabilirliği artırmanın en ucuz yoludur.",
+        "vastDeniedGpuModels": "Reddedilen GPU modelleri (virgülle ayrılmış)",
+        "vastDeniedGpuModelsHelp": "Her zaman izin listesine karşı kazanır. Bu, 'o kart başarısız olmaya devam ediyor, kiralama durdur' için acil durum kaldıracıdır.",
+        "vastMinReliability": "Minimum ana bilgisayar güvenilirliği (0-1)",
+        "vastMinReliabilityHelp": "Vast.ai'nin kendi ana bilgisayar güvenilirlik puanı. 0 minimumu devre dışı bırakır. Puan bildirmeyen ana bilgisayarlar tutulur. Az miktarda kullanılabilirliği daha az ölü kiralamayla değiştirir — örneği parça ortasında bırakan bir ana bilgisayar, yine de onu devreye alma karşılığında zaten ödeme almıştır.",
+        "vastAllowUnverified": "Doğrulanmamış ana bilgisayarlara izin ver (kullanılabilirliği artırır; onay verilmemiş makineler)",
+        "vastAllowResidential": "Konut ana bilgisayarlarına izin ver (kullanılabilirliği artırır; ev makineleri, veri merkezleri değil)",
+        "runpodDataCenters": "Veri merkezleri (virgülle ayrılmış)",
+        "runpodDataCentersHelp": "RunPod veri merkezi kimlikleri, örn. EU-RO-1, US-KS-2. BOŞ EN GENİŞ AYARDIR, en dar değil — RunPod'ün kendi planlayıcısı bir pod'u her yere yerleştirebilir. Bu, AWS bölgelerinin tersidir: orada boş bırakmak bile sizi tek bir bölgeye sabitler. Veri konumu için ayarlayın veya başlatma yeniden deneme döngüsünü gerçekten bağımsız havuzlarda yürüyecek şekilde yapın.",
+        "runpodGpuTypes": "İzin verilen GPU türleri (virgülle ayrılmış)",
+        "runpodGpuTypesHelp": "RunPod gpuType kimlikleri tam olarak kullanılabilirlik ızgarasında göründüğü gibi, örn. 'NVIDIA GeForce RTX 4090'. Boş, bu katmanın taşıdığı her kartı anlamına gelir.",
+        "runpodDiskGb": "Konteyner disk minimumu (GB)",
+        "runpodDiskGbHelp": "Bir minimum, bir sınır değil: dosya kümesi daha fazlasına ihtiyaç duyan bir iş, daha fazlasını alır. Konteyner diski pod yeniden başlatıldığında silinir ve hiçbir ağ birimi asla eklenmez; eklenecek olsa pod'dan daha uzun ömürlü olur ve sonlandırmadan sonra da kırılmış düz metinleri saklamaya devam ederdi.",
+        "runpodDiskRate": "Konteyner diski (cent/GB-ay)",
+        "runpodDiskRateHelp": "Bütçe ayırmasının depolama bölümünü besler. Yuvarlanmış, çünkü depolamayı az belirten bir ayırma, müşterinin zor olduğu söylenen bir sınırı aşmasını sağlar.",
+        "runpodSelfDestruct": "VPN ölürse pod'lara kendilerini silmesine izin ver (Yalnızca Güvenli katman)",
+        "runpodSelfDestructHelp": "Bir pod iletişimi kaybettiğinde kendini SİLebilsin diye üçüncü bir sonlandırma rayı ekler; bu, Vast.ai ile eşleşir. RunPod'ün pod başına kapsamlı kimlik bilgisi yoktur, bu nedenle bu, her pod'un içine HESAP KAPSAMLI bir anahtar yerleştirir — hesaptaki diğer her pod'u oluşturabilir ve silebilir. Provisioning anahtarınızı yeniden kullanmak yerine, kimlik bilgileri JSON'ında self_destruct_api_key olarak ayrı, dar bir anahtar sağlayın. Topluluk katmanında asla kullanılamaz."
+      },
+      "peerWarningTitle": "Üçüncü taraf donanımı",
+      "peerWarningBody": {
+        "vastai": "Vast.ai örnekleri, kontrol etmediğiniz bireysel olarak sahip olunan makinelerde çalışır. Yalnızca verileri üçüncü tarafa maruz kalabilecek müşteriler için etkinleştirin ve bunu müşteri başına da kabul edin.",
+        "runpod_community": "RunPod Topluluk Bulutu, sahipleri konteyner üzerinde root'a sahip olan eşler tarafından işletilen makinelerde çalışır. RunPod'ün SOC 2, ISO 27001 ve PCI DSS onayları yalnızca Güvenli Bulut'u kapsar, bu katmanı değil. Yalnızca verileri üçüncü tarafa maruz kalabilecek müşteriler için etkinleştirin ve bunu müşteri başına da kabul edin."
+      },
+      "awsSection": "AWS yerleştirme ve fiyatlandırma",
+      "awsSectionHelp": "Örneklerin başladığı yer ve ne kadar maliyeti. EC2, bu koda makine tarafından okunabilir GPU modeli veya saatlik oranı ortaya koymaz, bu nedenle her ikisi burada bildirilir.",
+      "awsInstanceTypes": "Sunulan örnek türleri",
+      "awsInstanceTypesHelp": "Yalnızca burada listelenen türler kiralanabilir. Faturalandırılmaya istekli olduğunuz oranı bildirin — yuvarlayıp yukarı çıkarın, çünkü bütçe bu sayıya karşı ayırır ve hiçbir şey onu bir fatura ile çaprazlamaz. GPU modelini ve adedini bildirmek, iş başına maliyete göre sıralama yapılmasını sağlar; bunu bildirmezseniz sıralama saatlik fiyata geri döner.",
+      "awsAddInstanceType": "Örnek türü ekle",
+      "awsRemoveInstanceType": "Kaldır",
+      "mockSection": "Sahte davranış ve hata enjeksiyonu",
+      "mockSectionHelp": "Sahte sağlayıcı yerel ajan --test-mode işlemlerini üretir. Hata anahtarları yeniden derleme yapmadan hata dallarını çalıştırır.",
+      "providerNotImplemented": "Bu sağlayıcı henüz bir adaptöre sahip değildir: arka uç başlatma sırasında bunu \"desteklenmeyen bulut sağlayıcısı\" ile reddeder. Kaydedilebilir, ancak bundan hiçbir şey provision edilemez.",
+      "zones": {
+        "title": "Yerleştirmeler ve donanım",
+        "help": "Kiralamaya istekli olduğunuz her yeri ve her GPU'yu işaretleyin. Kapasite genellikle (donanım, yerleştirme) çiftine aittir, ikisinden birine tek başına değil; bu nedenle her işaretlenen hücre bir makine almanın bağımsız bir şansıdır — tek bir işaretlenen hücre, kapasite reddinin geri dönecek yer olmadığı anlamına gelir. Bir satırdaki tüm kartları işaretli bırakmak \"onayladığım herhangi bir donanım\" anlamına gelir, daha sonra eklenen herhangi biri de dahil olmak üzere.",
+        "probe": "Kullanılabilirliği kontrol et",
+        "probeHelp": "AWS'den canlı kullanılabilirlik bölgesi, alt ağ, teklif, spot fiyat ve yerleştirme puanı verilerini okur. Salt okunur: hiçbir şey başlatmaz ve hiçbir maliyeti yoktur.",
+        "probeIdle": "bu sağlayıcı için canlı kullanılabilirlik bölgelerini, alt ağları ve spot fiyatları yüklemek için.",
+        "probeFailed": "AWS'den kapasite okunamadı.",
+        "saveFirst": "Sağlayıcıyı önce kaydedin. Kullanılabilirlik kaydedilen kimlik bilgileri ve bölge kullanılarak okunur, bu nedenle kaydedilmemiş bir form sorgulamak için hiçbir şeye sahip değildir.",
+        "selectAll": "Geçerli tüm kullanılabilirlik bölgelerini seç",
+        "colZone": "Kullanılabilirlik Bölgesi",
+        "colSubnet": "Alt ağ",
+        "notOffered": "EC2 bu kullanılabilirlik bölgesinde bu örnek türünü sunmaz. Bu kesindir — burada başlatmak Desteklenmeyen hata ile başarısız olur.",
+        "unusable": "Bu yerleştirme başlatılamaz. Adının yanındaki nota bakın.",
+        "freeIps_one": "{{count}} boş IP",
+        "freeIps_other": "{{count}} boş IP",
+        "scoreHelp": "AWS'nin BU kart için BU kullanılabilirlik bölgesindeki kendi 1-10 sıralaması ve zayıf bir kanıt: bu bölgedeki her kullanılabilirlik bölgesi, bu hesapta dakikalar önce 1/10 aldı, ardından birinde yapılan bir başlatma ilk denemede başarılı oldu. Hangi havuzun ilk deneneceğini belirler. Hiçbir zaman bir havuzu listeden kaldırmaz. Kullanılabilirlik bölgesi adı yanındaki tüm türler puanı ile karşılaştırın.",
+        "spotVsConfigured": "Spot burada {{spot}}/saat fiyatlandırması yapıyor; bu tür için yapılandırılmış oranınız {{configured}}/saattir. Rezervasyonlar YAPILANDIRILMIŞ rakamı kullanır, bu nedenle canlı oranın altındaki fiyatlandırma, zor olduğu söylenen bir bütçe sınırına karşı alt ayırma yapar.",
+        "poolCount_one": "{{count}} kapasite havuzu seçildi",
+        "poolCount_other": "{{count}} kapasite havuzu seçildi",
+        "poolCountWarning": "Bir havuz bir şanstır. Tükendiğinde başlatma yeniden deneme döngüsünün gidecek başka yeri yoktur ve provisioning, kapasite geri dönene kadar basitçe durur. Daha fazla kullanılabilirlik bölgesi, daha fazla örnek türü veya her ikisini işaretleyin.",
+        "poolCountOk": "Bir havuzdaki kapasite reddi, en olası sıradan başlayarak bir sonraki havuza düşer.",
+        "legacyOverridden": "Kullanılabilirlik bölgeleri yapılandırıldığından, yukarıdaki tek Alt ağ kimliği ({{subnet}}) yoksayılır. Her kullanılabilirlik bölgesi işaretsizse geri dönüş olarak kalır.",
+        "combinedScore": "tüm türler: {{score}}/10",
+        "combinedScoreHelp": "AWS'nin bu bölgedeki TÜM fiyatlandırılan örnek türleriniz için verdiği yerleştirme puanı; bu, herhangi bir tek kartın puanından farklı bir sorudur ve genellikle çok daha iyi bir cevaptır. Bir bölgede bir dakikada ölçülür: g6.xlarge tek başına burada 1/10 puan alırken, g4dn + g5 + g6 birlikte 9/10 puan aldı. Çeşitlilik, kıtlığa karşı bir sigorta değildir; puanlandırılan şey budur.",
+        "availableCount": "{{count}} müsait",
+        "availableCountHelp": "Şu anda kiralama için uygun makinelerin canlı sayısı. Bu gerçek envanterdir ve ekrandaki en güçlü sinyal — yerleştirme puanından çok daha iyidir, bu sadece bir görüştür.",
+        "livePriceHelp": "Sağlayıcının bunun için şu anda ne kadar ücret aldığı.",
+        "trust": {
+          "definitive": "kesin",
+          "measured": "canlı",
+          "advisory": "sadece danışma niteliğinde"
+        },
+        "axesModeNote": "Bu sağlayıcı ülkeleri ve GPU modellerini iki bağımsız liste olarak depoladığından, bir kartı işaretlemek onu seçilen her ülkede uygular. Aşağıdaki hücre başına sayılar ve fiyatlar yine de gerçek ve o ülkeye özgüdür."
+      },
+      "vastSection": "Vast.ai yerleştirme ve donanım ilkesi",
+      "vastSectionHelp": "Bu sağlayıcının kiralayabileceği hangi ülkeler ve hangi kartlar. Bir listeyi boş bırakmak herhangi bir kısıtlama olmadığı anlamına gelir ve bu en geniş havuzdur (varsayılan).",
+      "vastTierWarningTitle": "Doğrulanmamış bir ana bilgisayar katmanı açıyorsunuz",
+      "vastTierWarningBody": "Bu, Vast.ai'de elde edilebilecek en büyük tek kullanılabilirlik artışıdır ve müşteri hashlerini, wordlistlerini, potfile'larını ve kırılmış düz metinleri Vast.ai'nin doğrulamadığı makinelere yerleştirir. Her Vast ana bilgisayarının zaten konteynere kök erişimi vardır; bu seçenekler, onu Vast'ın kontrol ettiği ana bilgisayarlarla sınırlayan tek filtreyi kaldırır. Doğrulanmamış katman aynı zamanda 'bağlantı takılı' ve 'kötü sürücü' raporlarının yoğunlaştığı yerdir, bu nedenle ek kullanılabilirliğin bir kısmı yanılsamadır — hiçbir zaman yararlı bir işe ulaşmayan bir kiralama bile size devreye alma maliyetini ödetir.",
+      "runpodSection": "RunPod yerleştirme ve donanım ilkesi",
+      "runpodSectionHelp": "Bu sağlayıcının kiralayabileceği veri merkezleri ve GPU türleri. RunPod fiyatları canlı olduğundan, burada beyan edilecek oranlar yoktur — AWS'den farklı olarak.",
+      "runpodCommunityTeardownTitle": "Topluluk sonlandırması tek başına arka uç temizleyicisidir",
+      "runpodCommunityTeardownBody": "RunPod, pod başına kapsamlı bir kimlik bilgisi sağlamadığından, bir Topluluk pod'unun kendini silmesi için güvenli bir yol yoktur: işe yarayacak tek anahtar hesap kapsamında olup, bir Topluluk ana bilgisayarı işletmecisinin konteynere kök erişimi vardır ve bunu ortamdan okuyabilir. Misafir içi son tarih yine de hashcat'i öldürür ve veri maruziyetini sona erdirir, ancak pod faturalandırmasını DURDURAMAZ. Bu arka uç kapalı veya takılıysa, bir Topluluk pod'u siz onu Bulut Filosu sayfasından el ile yok edene kadar faturalandırılmaya devam eder. Düşük bir örnek TTL tavanı ve bu katmanı kullanmasına izin verilen herhangi bir müşteri için küçük bir bütçe tavanı ayarlayın.",
+      "experimentalChip": "Deneysel",
+      "experimentalTooltip": "Deneysel — henüz test edilmemiş. Bu adaptör gerçek sağlayıcıya karşı gerçek para harcayarak uçtan uca hiç çalıştırılmamıştır. Hataları bekleyin; işlerinizi izleyin ve bulduğunuzu bildirin.",
+      "experimentalTitle": "Deneysel — henüz test edilmemiş",
+      "experimentalBody": "Bu sağlayıcı gerçek parayla uçtan uca kanıtlanmamıştır: önyükleme, devreye alma, kırma, temiz serbest bırakma ve bütçe geri ödemesinin hepsinin birlikte çalıştığı gözlenmemiştir. İşlev görmelidir ve hataları olacaktır. Küçük bir bütçe tavanı ve düşük bir örnek sınırı ile başlayın ve serbest bırakılmayan örnekler için Bulut Filosu sayfasını izleyin. Lütfen yanlış giden herhangi bir şeyi bildirin.",
+      "testedChip": "Test Edildi",
+      "testedTooltip": "Test edildi — gerçek sağlayıcıya karşı gerçek parayla, önyükleme, kırma, temiz serbest bırakma ve tamamlanmış bir bütçe geri ödemesi yoluyla uçtan uca çalıştırıldı.",
+      "reportIssueLink": "GitHub'da hata bildir",
+      "reportDiagnosticsLink": "Discord'da tanılama gönder (sorunun içinde değil)"
+    },
+    "budgets": {
+      "title": "Müşteri bütçeleri",
+      "description": "Her müşterinin ne kadar harcayabileceği ve verilerinin hangi sağlayıcılara gidebileceği. Boş alanları olan müşteriler aşağıdaki sunucu varsayılanlarını izler.",
+      "loadFailed": "Müşteri bütçeleri yüklenemedi",
+      "empty": "Henüz müşteri yok. Önce bir müşteri oluşturun, sonra buraya fon sağlayın.",
+      "edit": "Düzenle",
+      "editTitle": "Bulut ayarları — {{name}}",
+      "saved": "Müşteri bulut ayarları kaydedildi",
+      "saveFailed": "Müşteri bulut ayarları kaydedilemedi",
+      "enabled": "Etkin",
+      "disabled": "Devre Dışı",
+      "unfunded": "Bütçe yok",
+      "noProviders": "İzin verilen sağlayıcı yok",
+      "ttlValue": "{{minutes}} dk",
+      "spendSummary": "{{used}}/{{cap}} taahhüt edildi ({{pct}}%)",
+      "acknowledged": "Onay kaydedildi",
+      "acknowledgedChip": "Onaylandı",
+      "ackFailed": "Onay kaydedilemedi",
+      "ackTitle": "Bu müşteri için üçüncü taraf maruziyetini onaylayın",
+      "ackWarningTitle": "Bu müşterinin verileri kontrolünüzü terk eder",
+      "ackWarningBody": "{{name}} için Vast.ai'ye izin vermek bu müşterinin hashlerini, wordlistlerini ve kırılmış düz metinleri konteynere kök erişimi olan üçüncü şahıslara ait makinelere yerleştirebilir anlamına gelir.",
+      "ackConfirm": "Bu müşteri için bu maruziyeti kabul ediyor musunuz?",
+      "ackAccept": "Anlıyorum ve kabul ediyorum",
+      "actions": {
+        "none": "Bütçe içinde",
+        "notify": "Eşik ulaşıldı",
+        "stop_provisioning": "Provisioning durduruldu",
+        "drain": "Drain ediliyor",
+        "hard_stop": "Sabit durduruldu"
+      },
+      "columns": {
+        "client": "Müşteri",
+        "status": "Durum",
+        "providers": "İzin verilen sağlayıcılar",
+        "spend": "Harcama",
+        "ttl": "Maks TTL",
+        "actions": "İşlemler"
+      },
+      "fields": {
+        "budget": "Bütçe",
+        "budgetHelp": "Geçerli bütçe döneminin harcama tavanı. Sunucu varsayılanını almak için boş bırakın; bir müşteri yalnızca hiçbir varsayılan ayarlanmamışsa fonlanmamış olur.",
+        "ttl": "Maksimum örnek yaşam süresi (dakika)",
+        "ttlHelp": "Bir örnek, ilerlemesi ne olursa olsun, bu yaşta yok edilir. Sistem varsayılanını kullanmak için boş bırakın.",
+        "providers": "İzin verilen sağlayıcılar",
+        "providersHelp": "Boş bırakmak, bu müşteri için hiçbir şeyin kiralanamayacağı anlamına gelir. AWS'ye izin vermek ve Vast.ai'yi yasaklamak normal bir yapılandırmadır.",
+        "enabled": "Bulut patlaması",
+        "period": "Bütçe dönemi",
+        "periodHelp": "Sunucu varsayılanını almak için boş bırakın."
+      },
+      "errors": {
+        "invalidBudget": "Bütçe bir sayı olmalıdır, örn. 25.00",
+        "negativeBudget": "Bütçe negatif olmamalıdır",
+        "invalidTtl": "Maksimum yaşam süresi dakika cinsinden pozitif bir sayı olmalıdır",
+        "enabledWithoutBudget": "Bulut patlamasını etkinleştirmeden önce bir bütçe ayarlayın — fonlanmamış bir müşteri hiçbir zaman herhangi bir şey provision edemez.",
+        "enabledWithoutProvider": "Bulut patlamasını etkinleştirmeden önce en az bir sağlayıcıya izin verin."
+      },
+      "peerTooltip": "Eş tarafından işletilen donanım: bu müşterinin verileri makinenin sahibi tarafından okunabilir olacaktır.",
+      "defaults": {
+        "title": "Sunucu varsayılanları",
+        "description": "Kendi ayarlarını yapmadığında bir müşterinin kullandığı değerler. Bir müşterinin alanını boş bırakmak onun buradaki varsayılanı takip ettiği anlamına gelir, bu nedenle bunu değiştirmek hala miras alan her müşteriyi değiştirir.",
+        "summary": "{{period}} başına {{amount}}",
+        "summaryUnset": "Varsayılan bütçe ayarlanmadı — miras alan müşteriler fonlanmamış kalır",
+        "budget": "Varsayılan bütçe",
+        "budgetHelp": "Hiçbir varsayılan olmaması için boş bırakın: miras alan müşteriler fonlanmamış kalır ve patlayamaz.",
+        "period": "Varsayılan bütçe dönemi",
+        "enabled": "Müşteriler varsayılan olarak ödenen kapasiteye patlayabilir",
+        "providers": "Varsayılan sağlayıcılar",
+        "providersHelp": "Kendi sağlayıcı listesi boş olan herhangi bir müşteriye uygulanır.",
+        "peerAckNote": "Eş tarafından işletilen sağlayıcılar yine de müşteri başına onay gerektirir. Bunları varsayılan olarak dahil etmek bu onayı vermez — verileri oraya gitmeden önce her müşterinin ayrı ayrı onaylanması gerekir.",
+        "appliesNow": "Bulut patlaması varsayılan olarak etkindir ve varsayılan bir bütçe ayarlanır, bu nedenle hala miras alan her müşteri artık ödenen kapasiteyi provision edebilir.",
+        "save": "Varsayılanları kaydet",
+        "saved": "Varsayılanlar kaydedildi",
+        "saveFailed": "Varsayılanlar kaydedilemedi",
+        "fundedButDisabled": "Varsayılan bir bütçe ayarlanır, ancak bulut patlaması varsayılan olarak kapalıdır, bu nedenle hiçbir miras alan müşteri herhangi bir şey provision edemez. Bütçeyi kullanılabilir kılmak için yukarıdaki kutuyu işaretleyin.",
+        "enabledWithoutProviders": "Bulut patlaması varsayılan olarak açıktır, ancak hiçbir varsayılan sağlayıcı seçilmemiştir, bu nedenle miras alan müşteriler yine de hiçbir şey kiralayamaz. Yukarıda en az bir sağlayıcı seçin.",
+        "willEnableTitle_one": "Bu, {{count}} müşterinin ödenen kapasiteyi kiralamasına izin verecek",
+        "willEnableTitle_other": "Bu, {{count}} müşterinin ödenen kapasiteyi kiralamasına izin verecek",
+        "willEnableBody": "Bu müşterilerin kendi ayarları yoktur, bu nedenle yukarıdaki varsayılanları izlerler. Kaydetme işlemi her birinin bulut örneklerini provision etmesine ve bu bütçeye karşı harcama yapmasına izin verir. Bütçe müşteri başına olup paylaşılmadığından, bu listelenen müşteri sayısı ile çarpılan toplam maruziyettir. Bir müşteriyi dışında tutmak için kendi bulut patlamasını Devre Dışı olarak ayarlayın.",
+        "andMore": "+{{count}} daha fazla",
+        "confirmTitle_one": "{{count}} müşteri için bulut harcamasını etkinleştir?",
+        "confirmTitle_other": "{{count}} müşteri için bulut harcamasını etkinleştir?",
+        "confirmBody_one": "{{count}} müşteri şu anda hiçbir şey kiralayamaz. Varsayılanları kaydetme işlemi buna {{period}} başına {{amount}} tavanı ve harcama izni verir. Bütçe müşteri başına olup paylaşılmadığından, bu listelenen müşteri sayısı ile çarpılan toplam maruziyettir.",
+        "confirmBody_other": "{{count}} müşteri şu anda hiçbir şey kiralayamaz. Varsayılanları kaydetme işlemi her birine {{period}} başına {{amount}} tavanı ve harcama izni verir. Bütçe müşteri başına olup paylaşılmadığından, bu listelenen müşteri sayısı ile çarpılan toplam maruziyettir.",
+        "confirmAlternative": "Birer birer iyimser misiniz? İptal edin, bulut patlamasını varsayılan olarak kapalı bırakın ve her müşteriye tek tek bulut patlaması ve bütçe ayarlayın.",
+        "confirmAccept_one": "{{count}} müşteriyi etkinleştir",
+        "confirmAccept_other": "{{count}} müşteriyi etkinleştir"
+      },
+      "periods": {
+        "monthly": "ay",
+        "quarterly": "çeyrek yıl",
+        "semiannual": "altı ay"
+      },
+      "inheritLabel": "Varsayılanı miras alma ({{value}})",
+      "on": "Etkin",
+      "off": "Devre Dışı",
+      "inheriting": "miras alan"
+    },
+    "policy": {
+      "title": "Harcama eşik ilkesi",
+      "description": "Bir müşteri tavanına yaklaştığında ne olur. Bu eşikler tavana ne kadar zarif ulaşıldığını belirler; aslında bir aşımı önleyen şey, bir örneğin tüm ömür boyu maliyetinin önyüklenmeden önce taahhüt edilmesidir.",
+      "loadFailed": "Eşik ilkesi yüklenemedi",
+      "saved": "Eşik ilkesi kaydedildi",
+      "saveFailed": "Eşik ilkesi kaydedilemedi",
+      "overageWarning": "Aşırı harcamaya izin verilir: rezervasyonlar kalan bütçeyi aşabilir. Tavan tavsiye niteliğine dönüşür, mutlak değil.",
+      "hardStopAboveCapNote": "Sabit durdurma {{pct}}% olarak ayarlanır, ancak aşırı harcama kapalı olduğundan, rezervasyonlar yine de bütçenin %100'ünü aşamaz. Tavan ötesinde harcamaya izin vermeyi düşünüyorsanız aşırı harcamayı etkinleştirin.",
+      "fields": {
+        "notifyEnabled": "Harcama tavana yaklaştığında beni bilgilendir",
+        "notifyPct": "Şurada bildir (bütçenin %'si)",
+        "notifyPctHelp": "Bir kez bildirim gönderir. Hiçbir zaman bilgilendirilmek istemiyorsanız kutuyu kapatın.",
+        "stopProvisionPct": "Şurada provisioning'i durdur (%)",
+        "stopProvisionPctHelp": "Bu noktanın ötesinde yeni örnekler başlatılmaz. Çalışan örnekler devam eder.",
+        "drainPct": "Şurada draining'e başla (%)",
+        "drainPctHelp": "Yeni işler gönderilmez; uçuştaki parçaların bitmesine izin verilir.",
+        "hardStopPct": "Şurada sabit dur (%)",
+        "hardStopPctHelp": "Örnekler, bitirmiş olsun olmasın, hemen yok edilir.",
+        "drainTimeout": "Drain zaman aşımı (saniye)",
+        "drainTimeoutHelp": "Yine de yok edilmeden önce bir örneğin parçasını bitirmesine ne kadar süre verilebileceği.",
+        "allowOverage": "Tavanı aşan harcamaya izin ver",
+        "allowOverageHelp": "Tavanı mutlak kılmak için kapalı bırakın. Kapalı olduğunda, $10 bütçe $10'da durur."
+      },
+      "errors": {
+        "notifyRange": "Bildirim eşiği, %1 ile provisioning durdurma eşiği arasında olmalıdır.",
+        "stopBeforeDrain": "Provisioning durdurma eşiği, drain eşiğini aşmamalıdır.",
+        "drainBeforeHardStop": "Drain eşiği, sabit durdurma eşiğini aşmamalıdır.",
+        "negativeTimeout": "Drain zaman aşımı negatif olmamalıdır."
+      }
+    },
+    "fleet": {
+      "title": "Bulut Filosu",
+      "description": "Para harcamaya devam edebilecek her kiralanan örnek.",
+      "loadFailed": "Filo yüklenemedi",
+      "empty": "Hiçbir örnek çalışmıyor. Hiçbir şey faturalandırılmıyor.",
+      "summary_one": "{{count}} canlı örnek, {{hourly}}/hr, {{reserved}} taahhüt edildi.",
+      "summary_other": "{{count}} canlı örnek, {{hourly}}/hr, {{reserved}} taahhüt edildi.",
+      "destroy": "Yok et",
+      "destroyed": "Örnek yok edildi",
+      "destroyFailed": "Sağlayıcı bu örneği yok etmeyi reddetti — hâlâ faturalandırılıyor",
+      "destroyTitle": "Örneği yok et?",
+      "destroyBody": "\"{{label}}\" örneğini şimdi yok et? Sağlayıcı onaylar onaylamaz faturalandırma durur.",
+      "destroyJobWarning": "Bu örnek bir iş üzerinde çalışıyor. Şu anda işlenmekte olan parçası kaybolacak ve başka bir yere yeniden gönderilecek.",
+      "teardownFailingTitle": "Sonlandırma başarısız oluyor",
+      "teardownFailingBody_one": "{{count}} örnek yok edilemedi ve maliyeti artmaya devam ediyor. Sağlayıcı konsolunu kontrol edin.",
+      "teardownFailingBody_other": "{{count}} örnek yok edilemedi ve maliyeti artmaya devam ediyor. Sağlayıcı konsolunu kontrol edin.",
+      "teardownFailingTooltip": "Sonlandırma başarısız; bu örnek hâlâ faturalandırılıyor",
+      "estimated": "tah.",
+      "estimatedTooltip": "Geçen süre ve orandan tahmin edilmiştir; sağlayıcının kendi rakamı daha sonra gelecek.",
+      "perHour": "{{rate}}/sa",
+      "ttlExpired": "Süresi doldu",
+      "states": {
+        "requested": "İstendi",
+        "launching": "Başlatılıyor",
+        "provisioning": "Provisioning",
+        "syncing": "Dosyalar senkronize ediliyor",
+        "running": "Çalışıyor",
+        "draining": "Drain ediliyor",
+        "terminating": "Sonlandırılıyor",
+        "terminated": "Sonlandırıldı",
+        "failed": "Başarısız"
+      },
+      "columns": {
+        "label": "Örnek",
+        "state": "Durum",
+        "client": "Müşteri",
+        "gpu": "GPU",
+        "rate": "Oran",
+        "spend": "Harcama",
+        "ttl": "Kalan TTL",
+        "disk": "Disk",
+        "actions": "İşlemler",
+        "agent": "Ajan",
+        "job": "İş"
+      },
+      "experimentalRunningTitle_one": "{{count}} örnek deneysel bir sağlayıcı üzerinde çalışıyor",
+      "experimentalRunningTitle_other": "{{count}} örnek deneysel bir sağlayıcı üzerinde çalışıyor",
+      "experimentalRunningBody": "{{providers}} uçtan uca gerçek parayla kanıtlanmadı. Bu örneklerin 'sonlandırıldı' durumuna ulaşmasını izleyin, bunun otomatik olacağını varsaymayın: sonlandırma yolu, herhangi bir yeni bağdaştırıcının en az test edilen kısmıdır ve hiçbir zaman serbest bırakılmayan bir örnek burada yok edene kadar faturalandırılmaya devam eder. Gördüğünüzü lütfen bildirin.",
+      "experimentalTooltip": "{{provider}} deneysel bir sağlayıcı — henüz test edilmedi. Hataları bekleyebilirsiniz; bu örneğin işi bittiğinde gerçekten serbest bırakıldığını doğrulayın."
+    },
+    "rules": {
+      "title": "Sistem ne zaman harcayabilir",
+      "description": "Bütçeler ne kadar harcanabileceğini kontrol eder. Bunlar ise ne zaman herhangi bir şey harcanabileceğini kontrol eder. Bunlar olmadan otomatik ölçeklendirici, herhangi bir iş kaynaksız kaldığında ilk andan sonra, herhangi bir saatte, iş başına sınır olmaksızın kaynak kiralar.",
+      "inheritTitle": "Bunlar sistem varsayılanlarıdır",
+      "inheritBody": "Müşteriler her alanı bireysel olarak devralır, bu nedenle burada bir varsayılanı sıkılaştırmak, o spesifik alanı geçersiz kılmayan her müşteriye ulaşır. Müşteri başına geçersiz kılmalar, müşteri ekranında düzenlenir.",
+      "saved": "Provisioning kuralları kaydedildi",
+      "saveFailed": "Provisioning kuralları kaydedilemedi",
+      "loadFailed": "Provisioning kuralları yüklenemedi",
+      "save": "Kuralları Kaydet",
+      "fields": {
+        "minJobPriority": "Minimum iş önceliği",
+        "minStarvation": "Minimum açlık süresi (dakika)",
+        "skipIfFinishing": "Şu süre içinde bitecekse atla (dakika)",
+        "maxSpendPerJob": "İş başına maksimum harcama",
+        "windowEnabled": "Provisioning'i bir zaman penceresine sınırla",
+        "windowStart": "Pencere açılışı",
+        "windowEnd": "Pencere kapanışı",
+        "windowTz": "Saat dilimi"
+      },
+      "helperText": {
+        "minJobPriority": "Mutlak öncelik, yüzde değil. Mevcut tavanınız {{ceiling}}.",
+        "floorOff": "Taban yok: bulut patlamalı herhangi bir iş otomatik provisioning için uygundur.",
+        "minStarvation": "Ücretli kapasite kiralanmadan önce bir işin hiç ilerleme yapmaması gereken süre. 0 ilk açlık işaretinde kiralar. Yalnızca otomatik ölçeklendiriciye uygulanır.",
+        "skipIfFinishing": "Mevcut kapasite üzerinde çok yakında bitmesi beklenen bir iş için kira almayın — kiralanmış bir örneğin önyüklenmesi ve senkronize olması için 5-10 dakika gerekir. 0 hiçbir zaman atlamaz.",
+        "maxSpendPerJob": "Bir iş için bulut harcamasında, aylık değil ömür boyu geçerli bir üst sınırdır. Boş bırakılması sınır olmadığı anlamına gelir. Manuel yönetici provisioning'i de dahil olmak üzere her yerde uygulanır.",
+        "windowEnabled": "Yalnızca başlatmaları yönetir. Örnekler, sırf pencere kapandığı için asla sonlandırılmaz — sonlandırmayı TTL ve boşta kalma drain'i yönetir.",
+        "windowTz": "IANA adı, örneğin America/Chicago. UTC için boş bırakın.",
+        "windowWrap": "Açılış saatinden daha erken bir kapanış saati gece yarısını aşar; bu, 'sadece geceleri kirala' yazmanın normal yoludur. Her ikisini de aynı değere ayarlamak her zaman açık anlamına gelir."
+      },
+      "bands": {
+        "minimal": "Minimal",
+        "low": "Düşük",
+        "normal": "Normal",
+        "high": "Yüksek",
+        "critical": "Kritik"
+      }
+    },
+    "system": {
+      "ceilings": "Harcama ve eşzamanlılık tavanları",
+      "ceilingsHelp": "Mutlak sistem genelinde sınırlar, herhangi bir müşteri bütçesine danışılmadan önce uygulanır.",
+      "work": "İş boyutlandırma ve sonlandırma",
+      "workHelp": "Kiralanmış bir örneğe aynı anda ne kadar iş verildiği ve boşta kalanının ne kadar hızlı serbest bırakıldığı. Parça başına ek yük kiralama oranlarında faturalandırılır, bu nedenle bunlar verim ile atığı takas eder.",
+      "reconciliation": "Uzlaştırma",
+      "reconciliationHelp": "Veritabanının sağlayıcının gerçekten çalıştırdığına karşı ne sıklıkta kontrol edildiği ve tanınmayan bir örneğin yok edilmeden önce ne kadar süre tolere edildiği.",
+      "capDisabledWarning": "Bulut provisioning'i şu anda DEVRE DIŞI: global aylık tavan 0'dır. Sağlayıcılar, müşteri bütçeleri ve bulut özellikli işler hepsi doğru şekilde yapılandırılacak ve hiçbir şey hiçbir zaman kiralanmayacak. Bunu etkinleştirmek için sıfır olmayan bir tavan ayarlayın.",
+      "saved": "Ayar kaydedildi",
+      "saveFailed": "Ayar kaydedilemedi",
+      "loadFailed": "Bulut ayarları yüklenemedi",
+      "units": {
+        "seconds": "s",
+        "minutes": "dak"
+      },
+      "fields": {
+        "monthlyCap": "Global aylık harcama tavanı",
+        "monthlyCapHelp": "Tüm müşteriler ve sağlayıcılar genelinde. 0, bulut provisioning'i tamamen devre dışı bırakır — sınırsız değildir.",
+        "concurrentCap": "Global eşzamanlı örnek tavanı",
+        "concurrentCapHelp": "Her sağlayıcı ve müşteri genelinde, aynı anda kiralanabilecek maksimum örnek sayısı. 0 sınırsız anlamına gelir, yine de bütçeler ve sağlayıcı kotaları tarafından sınırlandırılır.",
+        "defaultMaxInstancesPerJob": "İş başına varsayılan maksimum örnek sayısı",
+        "defaultMaxInstancesPerJobHelp": "Kendi sınırını boş bırakan bir iş için maksimum kiralanmış örnek sayısı. Boş bırakmak sınırsız anlamına geliyordu, bu da yalnızca buluta dönük bir dağıtımda müşteri bütçesini açlık çeken bir işin dakikada bir kez kira almasını durduran tek şey olarak bırakır. İş başına değer yine de bunu geçersiz kılar. 0 sınırsız olarak geri yükler.",
+        "chunkDuration": "Minimum bulut parça süresi",
+        "chunkDurationHelp": "Bulut ajanları için minimum parça süresi. Kiralanmış bir GPU, hashcat başlarken, çekirdekleri otomatik ayarlarken ve wordlist'i yüklerken faturalandırılır, bu nedenle bulut parçaları iş daha azını istese bile bu değere tabanlanır. Daha fazlasını isteyen bir iş kendi değerini tutar. Her zaman örneğin kalan yaşam süresine geri sabitlenir. Tabanı devre dışı bırakmak için 0 olarak ayarlayın.",
+        "teardownSlack": "Sonlandırma boşluğu",
+        "teardownSlackHelp": "Örneğin yaşam süresinin sonunda drain ve yok etme için ayrılmıştır, bu nedenle örneğin öldüğü noktanın ötesinde hiçbir parça planlanmaz.",
+        "idleDrain": "Boşta kalma drain'i",
+        "idleDrainHelp": "Bekleyen iş olmadan bu kadar uzun süre sonra kiralanmış bir örneği yok edin. Yapacak şeyleri biten bir GPU için ne kadar ödediğinizi sınırlandırır.",
+        "commissioningGrace": "Devreye alma toleransı",
+        "commissioningGraceHelp": "Ajanının kayıt olduğu andan bu kadar uzun süre sonra, hiçbir görev verilmemiş kiralanmış bir örneği yok edin. Soğuk bir örnek önce dosyalarını indirmeli ve bir benchmark çalıştırmalıdır, bu nedenle bunu yaklaşık 20 dakikanın altında ayarlamak başlangıç sırasında sağlıklı örnekleri yok eder — ve iş hâlâ beklediği için hemen başka bir örnek kiralanır. 0 devre dışı bırakır.",
+        "reaperInterval": "Reaper aralığı",
+        "reaperIntervalHelp": "Veritabanının sağlayıcı envanterine karşı ne sıklıkla uzlaştırılacağını ve var olmaması gereken her şeyin ne sıklıkla yok edileceğini belirler.",
+        "orphanGrace": "Yetim toleransı",
+        "orphanGraceHelp": "Sağlayıcı hesabında bu kadar uzun süre sonra eşleşen veritabanı satırı olmayan örnekleri yok edin. Bu, kaydı asla gelmemiş bir başlatma için tek kurtarma yoludur.",
+        "agentImage": "Ajan imajı",
+        "agentImageHelp": "örneğin zerkereod/krakenhashes-agent-cloud:cloud-gpu. Boş bırakın; bu durumda önce KH_CLOUD_AGENT_IMAGE'ye, ardından yerleşik varsayılan değere geri döner. Yerleşik varsayılanın :latest olduğuna dikkat edin — bu yalnızca bir sürüm etiketlendikten sonra var olur, bu nedenle yayın öncesi dağıtımlar bunu ayarlamalıdır.",
+        "defaultBurstEnabled": "Her iş için bulut patlamasını etkinleştir",
+        "defaultBurstEnabledHelp": "Her işi, her ön ayar, iş akışı ve iş üzerindeki kutuyu işaretlemeden bulut patlaması etkinleştirilmiş olarak değerlendirir. Hiçbir şirket içi GPU'su olmayan dağıtımlar için tasarlanmıştır; burada kira almak, işin hiç çalışmasının tek yoludur. Müşteri bütçeleri ve örnek sınırları hâlâ uygulanır. Hemen etkili olur, zaten sırada olan işler de dahil olmak üzere.",
+        "defaultClient": "Varsayılan faturalandırma müşterisi",
+        "defaultClientHelp": "Kendi müşterisi olmayan bir hash listesi için bulut harcaması burada faturalandırılır. Hiçbiri olarak bırakın ve atanmamış iş hiç kapasite kiralayamaz. Bütçeler, örnek sınırları ve eşik merdiveni seçtiğiniz müşteriye tam olarak normal şekilde uygulanır — 'Atanmamış İş' gibi adlandırılan bir müşteri harcama raporunun dürüst kalmasını sağlar.",
+        "defaultClientNone": "Hiçbiri — atanmamış iş bulut kullanamaz",
+        "crackDrainGrace": "Kırılmış drain toleransı",
+        "crackDrainGraceHelp": "Kiralanmış bir örneği yok etmeden önce, hâlâ sahip olduğu bir görevin kırılmış parolaları yüklemeyi bitirmesini bu kadar uzun süre bekleyin. Başladığı zamandan değil, o görevin son yazıldığı zamandan itibaren ölçülür, bu nedenle çalışan bir ajan hiçbir zaman yok edilmez ve sıkışmış bir tane sonsuza kadar beklenmez. Boşta kalma drain'inden daha uzun ve 30 dakikadan kısa olmalıdır. 0 hemen yok eder, bu da ajanın zaten bulduğu kırılmış parolaları kalıcı olarak kaybedebilir — artık var olmayan bir makineden yeniden gönderilemezler."
+      },
+      "agent": "Bulut ajan imajı",
+      "agentHelp": "Kiralanmış örneklerin çektiği ve çalıştırdığı konteyner imajı. Registry'de var olan bir etiket olmalıdır: eksik bir etiket başlangıç hatası değildir — örnek önyüklenir, çekme işlemi başarısız olur ve ana bilgisayar yaklaşık bir dakika sonra kendi kendine sonlanır, faturalandırılır.",
+      "save": "Değişiklikleri Kaydet",
+      "discard": "Vazgeç",
+      "unsaved_one": "{{count}} kaydedilmemiş değişiklik",
+      "unsaved_other": "{{count}} kaydedilmemiş değişiklik",
+      "eligibility": "Yalnızca bulut dağıtımları",
+      "eligibilityHelp": "İşlerin hiç kira almaya değer görülüp görülmediği. Yukarıdaki her şey neyin harcanabileceğini sınırlandırır; bu, herhangi bir şeyin olup olmayacağını belirler."
+    }
+  },
+  "serverCertificate": {
+    "title": "Sunucu Sertifikası",
+    "description": "Sunucunun TLS sertifikasının kapladığı adresleri yönetin. Ajanlar yalnızca burada listelenen bir adrese bağlanabilir.",
+    "apply": "Uygula ve Yeniden Çıkart",
+    "warning": {
+      "title": "KrakenHashes dahili bir araçtır",
+      "body": "Asla genel internetten erişilebilir olmamalıdır. Kırılmış kimlik bilgilerini işler, bu nedenle yalnızca özel ve VPN adresleri sertifikaya eklenebilir — genel IP adresleri reddedilir. Bu dağıtım herkese açıksa, devam etmeden önce çevrimdışına alın."
+    },
+    "summary": {
+      "title": "Mevcut sertifika",
+      "unavailable": "Sunucu sertifikası okunamadı.",
+      "subject": "Özne",
+      "issuer": "Veren",
+      "validity": "Geçerli",
+      "serial": "Seri",
+      "covers": "Bu sertifika şunlar için geçerlidir",
+      "coversNothing": "Bu sertifika hiç adres listelemiyor. Hiçbir ajan bağlanamaz.",
+      "daysRemaining_one": "{{count}} gün kaldı",
+      "daysRemaining_other": "{{count}} gün kaldı",
+      "caSubject": "Sertifika otoritesi",
+      "caExpires": "CA süresi doluyor",
+      "caFingerprint": "CA parmak izi (SHA-256)",
+      "pending_one": "{{count}} adres kaydedilmiştir, ancak henüz sertifikada değildir. Uygula ve Yeniden Çıkart'ı tıklayın.",
+      "pending_other": "{{count}} adres kaydedilmiştir, ancak henüz sertifikada değildir. Uygula ve Yeniden Çıkart'ı tıklayın.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES veya KH_ADDITIONAL_DNS_NAMES hâlâ ortamda ayarlanmıştır. Artık okunmuyor — bu ayarlar onun yerine geçer. Karışıklığı önlemek için değişkeni kaldırın."
+    },
+    "sans": {
+      "title": "Bu sertifikanın kapsaması gereken adresler",
+      "add": "Ekle",
+      "empty": "Başka adres yapılandırılmadı.",
+      "unsaved": "Kaydedilmemiş değişiklikleriniz var. Bunları sertifikaya koymak için Uygula ve Yeniden Çıkart'ı tıklayın.",
+      "lockedTooltip": "Her zaman dahil. Kaldırmak, dahili proxy ve sağlık kontrollerini bozardı.",
+      "ip": {
+        "title": "IP adresleri",
+        "help": "Yalnızca özel ve VPN adresleri: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), bağlantı-yerel ve IPv6 ULA.",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "DNS adları",
+        "help": "Ajanların ve tarayıcıların bu sunucuya ulaşmak için kullandığı ana bilgisayar adları.",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "\"{{address}}\" geçerli bir adres değildir.",
+      "public_ip": "{{address}} genel bir IP adresidir ve eklenemez. KrakenHashes yalnızca dahili kullanım için tasarlanmış bir araçtır. Kırılmış kimlik bilgilerini işler ve hiçbir zaman internetten erişilebilir olmamalıdır. Yalnızca özel adresler (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local ve IPv6 ULA) eklenebilir. Bu VPN'inizin adresi ise, VPN internetteki başka birinin sahip olduğu bir adres alanı kullanıyor — ağ aralığını özel veya CGNAT aralığına değiştirin.",
+      "duplicate": "{{address}} zaten listede var.",
+      "bind_address": "{{address}} ulaşılabilir bir adres değil, bir bağlama adresidir. Hiçbir istemci buna bağlanmaz.",
+      "multicast": "{{address}} bir multicast adresidir ve bir sunucuyu tanımlamak için kullanılamaz.",
+      "wildcard_dns": "Joker karakterli adlar desteklenmez.",
+      "has_port": "Yalnızca ana bilgisayar adını girin, port numarasını eklemeyin.",
+      "is_ip": "Bu bir IP adresidir. Bunun yerine IP adresi listesine ekleyin.",
+      "too_long": "Bu ad 253 karakter sınırından daha uzun."
+    },
+    "discovered": {
+      "title": "Keşfedilen adresler",
+      "help": "Bu sunucuya ulaşan ve sertifikanın kapsamadığı adresler. Burada hiçbir şey otomatik olarak uygulanmaz.",
+      "empty": "Henüz hiç adres keşfedilmedi. Bir ajan başlatın veya bu sayfayı ajanların kullandığı adresten açın, o zaman burada görünecektir.",
+      "address": "Adres",
+      "source": "Kaynak",
+      "reportedBy": "Bildiren",
+      "lastSeen": "Son görülme",
+      "hits": "Görülme",
+      "actions": "İşlemler",
+      "add": "Ekle",
+      "added": "{{address}} eklendi. Sertifikaya koymak için Uygula ve Yeniden Düzenle'ye tıklayın.",
+      "dismiss": "Yoksay",
+      "pending": "Yeniden düzenleme beklemede",
+      "sources": {
+        "agent_tls_failure": "Ajan TLS hatası",
+        "host_header": "Tarayıcı / Host başlığı",
+        "tls_sni": "TLS SNI",
+        "manual": "Manuel"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "Kimliği doğrulanmış bir ajan, bu sunucunun sertifikasını bu adres için doğrulayamadığını bildirdi.",
+        "host_header": "İstekteki Host başlığında gözlendi. Bu sunucuya ulaşabilen herkes bu değeri etkileyebilir — eklemeden önce doğrulayın.",
+        "tls_sni": "TLS el sıkışmasında sunucu adı olarak gözlendi.",
+        "manual": "Bir yönetici tarafından eklendi."
+      }
+    },
+    "reissue": {
+      "doneTitle": "Sertifika yeniden düzenlendi",
+      "noChangeTitle": "Değişiklik gerekli değil",
+      "noChangeBody": "Sertifika zaten yapılandırılan tüm adresleri kapsamakta ve sona ermek üzere değildir.",
+      "changes": "Değişiklikler",
+      "validUntil": "Yeni sertifika {{date}} tarihine kadar geçerlidir.",
+      "backendReloaded": "31337 numaralı bağlantı noktasındaki API zaten yeni sertifikaya hizmet vermektedir. Yeniden başlatma gerekli değildir.",
+      "nginxReloaded": "443 numaralı bağlantı noktasındaki web arayüzü yeniden yüklendi ve yeni sertifikaya hizmet vermektedir.",
+      "nginxFailed": "443 numaralı bağlantı noktasındaki web arayüzü hala önceki sertifikaya hizmet vermektedir",
+      "backup": "Önceki sertifika malzemesi {{path}} konumuna yedeklendi.",
+      "agentsReconnect": "Başarısız olan ajanlar 30 saniye içinde kendi kendilerine yeniden bağlanacaktır. Ajan yeniden başlatması gerekli değildir.",
+      "agentsRefetch": "Her ajan CA'yı yeniden getirmelidir. Ajanlar bunu otomatik olarak bir el sıkışma başarısız olduğunda yapar, ancak eski CA'ya güvenen tarayıcılar yeni olanı el ile kurmalıdır.",
+      "close": "Kapat",
+      "nginxFailedBody": "API zaten yeni sertifikaya hizmet vermektedir, bu nedenle ajanlar etkilenmez. 443 numaralı bağlantı noktasındaki web arayüzü KrakenHashes yeniden başlatılana kadar öncekine hizmet vermeye devam edecektir."
+    },
+    "confirmRemoval": {
+      "title": "Adresler sertifikadan kaldırılsın mı?",
+      "body": "Şu adresler mevcut sertifikada bulunmakta ve kaldırılacaktır: {{addresses}}. Bu adreslerden birine bağlanan herhangi bir ajan, yeniden eklenene kadar bağlanamayacaktır.",
+      "cancel": "İptal",
+      "confirm": "Kaldır ve yeniden düzenle"
+    },
+    "rotateCa": {
+      "section": "Gelişmiş",
+      "title": "Sertifika yetkilisini döndür",
+      "warning": "Sertifika yetkilisini döndürmek yepyeni bir CA yayınlar ve sunucu ile ajan sertifikalarını yeniden imzalar. Her ajan yeniden bağlanabilmesi için CA'yı yeniden indirmeli ve eski CA'ya güvenen her tarayıcı yeni ca.crt kurulana kadar uyarı gösterecektir. Yalnızca CA özel anahtarının açığa çıkmış olabileceğinden şüpheleniyorsanız bunu yapın.",
+      "instruction": "Onaylamak için {{phrase}} yazın.",
+      "action": "CA'yı döndür"
+    },
+    "banner": {
+      "title_one": "{{count}} ajan bu sunucunun sertifikasını doğrulayamıyor",
+      "title_other": "{{count}} ajan bu sunucunun sertifikasını doğrulayamıyor",
+      "body": "{{agents}}, sunucu sertifikasında listelenmeyen {{address}}'e bağlanıyor. Yeniden denemeye devam edecek ve sertifika yeniden düzenlenene kadar çevrimiçi olamayacak.",
+      "anAgent": "Bir ajan",
+      "action": "Sunucu Sertifikası ayarlarında düzelt"
+    }
+  },
+  "branding": {
+    "title": "Markalama",
+    "description": "Bu örneği kuruluşunuzun adı, renkleri ve logosu altında sunun. Buradaki her şey web arayüzüne, tarayıcı sekmesine, bildirim e-postalarına (AppName şablon değişkeni aracılığıyla), yeni kimlik doğrulayıcı kayıtlarına ve analiz PDF dışa aktarımlarına uygulanır.",
+    "attributionNote": "\"KrakenHashes tarafından desteklenmektedir\" atfı her zaman özel bir ad yanında ve dışa aktarılan PDF'lerde gösterilir. Sunucu tarafından eklenir ve kaldırılamaz.",
+    "identity": "Kimlik ve renkler",
+    "appName": "Uygulama adı",
+    "appNameHelper": "Başlıkta, giriş sayfasında, e-postalarda ve raporlarda gösterilir. KrakenHashes için boş bırakın.",
+    "pageTitle": "Tarayıcı sayfa başlığı",
+    "pageTitleHelper": "Etkin başlık: {{title}}",
+    "primaryColor": "Birincil vurgu rengi",
+    "secondaryColor": "İkincil vurgu rengi",
+    "colorHint": "Onaltılık renkler (#rrggbb). Koyu arka plan sabit kalır; yakın siyah yüzeylerde okunabilir kalacak vurgular seçin. Birincil renk PDF raporlarındaki çizgiler ve çubuklar için de kullanılır.",
+    "save": "Markalamayı kaydet",
+    "logo": "Logo",
+    "logoHint": "PNG veya JPEG, en fazla 2 MB ve 2048×2048 px. Başlık, giriş sayfası ve PDF raporlarında kullanılır (RGB görseller en iyi şekilde işlenir).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG veya ICO, en fazla 512 KB ve 512×512 px. Tarayıcılar simgeleri agresif şekilde önbelleğe alır; bir kez zorla yenileme (hard reload) gerekebilir.",
+    "upload": "Yükle",
+    "replace": "Değiştir",
+    "remove": "Kaldır",
+    "messages": {
+      "saved": "Markalama kaydedildi",
+      "uploaded": "Görsel yüklendi",
+      "removed": "Görsel kaldırıldı"
+    },
+    "errors": {
+      "loadFailed": "Markalama ayarları yüklenemedi",
+      "saveFailed": "Markalama ayarları kaydedilemedi",
+      "uploadFailed": "Görsel yüklenemedi",
+      "removeFailed": "Görsel kaldırılamadı",
+      "invalidHex": "#1e88e5 gibi onaltılık bir renk girin",
+      "tooLarge": "Dosya çok büyük (en fazla {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Ayarlar bölümleri",
+    "groups": {
+      "general": "Genel",
+      "security": "Güvenlik",
+      "jobs": "İşler",
+      "agents": "Ajanlar",
+      "integrations": "Entegrasyonlar",
+      "cloud": "Bulut"
+    },
+    "sections": {
+      "branding": "Markalama",
+      "brandingDesc": "Uygulama adı, renkler, logo ve favicon.",
+      "data": "Veri",
+      "dataDesc": "Saklama varsayılanları ve hash listesi alımı.",
+      "storage": "Depolama",
+      "storageDesc": "Wordlist ve kurallar için ağ paylaşımı depolaması.",
+      "certificate": "Sertifika",
+      "certificateDesc": "Sunucu sertifikası adları ve adresleri.",
+      "authentication": "Kimlik Doğrulama",
+      "authenticationDesc": "Parola politikası, kilitleme ve oturumlar.",
+      "mfa": "Çok faktörlü",
+      "mfaDesc": "MFA politikası ve passkey güvenen tarafı.",
+      "sso": "Tek oturum açma",
+      "ssoDesc": "Kimlik sağlayıcıları ve provisioning.",
+      "access": "Erişim modeli",
+      "accessDesc": "Çok takımlı yalıtım.",
+      "execution": "Yürütme",
+      "executionDesc": "Parçalama, keyspace ve benchmark.",
+      "scheduling": "Zamanlama",
+      "schedulingDesc": "Ajan tahsisi ve iş önceliği.",
+      "potfile": "Potfile ve loopback",
+      "potfileDesc": "Potfile davranışı ve loopback turları.",
+      "health": "Sağlık",
+      "healthDesc": "Nabız sinyalleri, tolerans süreleri ve çevrimdışı bekleme süresi.",
+      "downloads": "İndirmeler",
+      "downloadsDesc": "Ajanların sunucudan dosya getirme şekli.",
+      "updates": "Güncellemeler",
+      "updatesDesc": "Otomatik ajan ikili dosyası güncellemeleri.",
+      "monitoring": "İzleme",
+      "monitoringDesc": "Ölçüm saklama ve toplama.",
+      "email": "E-posta",
+      "emailDesc": "Sağlayıcı yapılandırması ve şablonları.",
+      "webhooks": "Webhook'lar",
+      "webhooksDesc": "Genel webhook ve kullanıcı webhook'ları.",
+      "notifications": "Bildirimler",
+      "notificationsDesc": "Hangi iş olayları bildirir.",
+      "providers": "Sağlayıcılar",
+      "providersDesc": "Bulut GPU sağlayıcı kimlik bilgileri.",
+      "budgets": "Müşteri bütçeleri",
+      "budgetsDesc": "Müşteri başına aylık sınırlar.",
+      "policy": "Eşik politikası",
+      "policyDesc": "Harcama eşiği merdiveni.",
+      "rules": "Provisioning kuralları",
+      "rulesDesc": "Otomatik ölçeklendiricinin ne zaman harcayabileceği.",
+      "limits": "Sınırlar",
+      "limitsDesc": "Sistem genelinde tavanlar ve zamanlamalar."
+    }
+  },
+  "hub": {
+    "pageDescription": "Bu sunucuyu yapılandıran her şey, ne etkilediğine göre gruplandırılmıştır. Alanlar, bölüm aksi söylemediği sürece ayrılırken kaydedilir.",
+    "navLabel": "Genel Bakış",
+    "attentionTitle": "Dikkat gerekli",
+    "attentionSubtitle": "Sunucunun nasıl çalıştığını etkileyen sorunlar.",
+    "allGood": "Her şey iyi görünüyor",
+    "allGoodHint": "Hiçbir yapılandırma sorunu algılanmadı.",
+    "loadFailed": "Ayarlar durumu yüklenemedi.",
+    "overviewTitle": "Durum",
+    "attentionCount": "{{count}} inceleme için bekliyor",
+    "browseTitle": "Tüm ayarlar",
+    "loading": "Kontrol ediliyor…",
+    "cards": {
+      "email": "E-posta",
+      "certificate": "Sertifika",
+      "sso": "Tek oturum açma",
+      "binaries": "İkili dosyalar",
+      "cloud": "Bulut",
+      "storage": "Depolama",
+      "webhook": "Genel webhook"
+    },
+    "detail": {
+      "emailConfigured": "Yapılandırıldı ({{provider}})",
+      "emailNotConfigured": "Hiçbir sağlayıcı yapılandırılmamış",
+      "certUnmanaged": "KrakenHashes dışında yönetilir ({{mode}})",
+      "certDays": "{{days}} gün kaldı",
+      "certPending": "Henüz düzenlenmedi",
+      "ssoProviders_one": "{{count}} sağlayıcı etkin",
+      "ssoProviders_other": "{{count}} sağlayıcı etkin",
+      "binaries": "{{verified}}/{{total}} doğrulandı",
+      "cloudNoProviders": "Hiçbir sağlayıcı yapılandırılmamış",
+      "cloudCap": "{{providers}} sağlayıcı, aylık sınır {{cap}}",
+      "storageLocal": "Yerel depolama",
+      "storageReachable": "Paylaşım bağlı ve ulaşılabilir",
+      "storageUnreachable": "Paylaşım ulaşılamaz",
+      "webhookOff": "Devre dışı",
+      "webhookOn": "Etkin",
+      "webhookNoUrl": "URL olmadan etkin"
+    },
+    "attention": {
+      "ok": "Tamam",
+      "probeFailed": "Durum kontrol edilemedi",
+      "emailNotConfigured": "E-posta yapılandırılmamış; MFA kodları ve bildirimler gönderilemez.",
+      "certExpiring": "Sunucu sertifikasının süresi {{days}} gün içinde doluyor.",
+      "ssoEphemeralKey": "SSO kısa ömürlü bir imzalama anahtarı kullanıyor; oturumlar yeniden başlatmanın ardından kalmayacak.",
+      "noVerifiedBinary": "Doğrulanmış hashcat ikili dosyası yok; işler çalıştırılamaz.",
+      "cloudCapZero": "Bulut sağlayıcıları yapılandırılmış ancak aylık sınır 0, bu nedenle hiçbir şey provisioning edilmeyecek.",
+      "shareUnreachable": "Ağ paylaşımı etkin ancak ulaşılamaz.",
+      "migration": "Bir depolama geçişi {{state}}.",
+      "webhookNoUrl": "Genel webhook etkin ancak URL'si yok."
+    },
+    "severity": {
+      "default": "Bilgi",
+      "success": "Tamam",
+      "warning": "Uyarı",
+      "error": "Hata"
+    }
+  },
+  "fieldState": {
+    "saving": "Kaydediliyor…",
+    "saved": "Kaydedildi",
+    "error": "Kaydedilmedi",
+    "minSelected": "En az {{count}} seçin",
+    "autosaveHint": "Otomatik kaydedilir",
+    "autosaveHintLong": "Her alan, siz onu bıraktığınız anda otomatik olarak kaydedilir.",
+    "applyHint": "Uygula gerekli",
+    "applyHintLong": "Buradaki değişiklikler yalnızca bunları uyguladıktan sonra etkili olur."
+  },
+  "unsaved": {
+    "title": "Kaydedilmemiş değişiklikler",
+    "body": "Uygulanmamış değişiklikleriniz var. Bu sayfayı bırakıp onları iptal etmek istediğinizden emin misiniz?",
+    "stay": "Kal",
+    "leave": "Git"
+  },
+  "agentAutoUpdate": {
+    "title": "Otomatik Güncellemeler",
+    "description": "Sunucunun yeni ajan ikili dosyalarını bağlı ajanlara göndermesine izin ver.",
+    "enable": "Otomatik ajan güncellemelerini etkinleştir",
+    "maxConcurrent": "Eş zamanlı güncellemeler",
+    "maxConcurrentHelper": "Kaç ajan aynı anda güncellenebilir.",
+    "maxAttempts": "Ajan başına denemeler",
+    "maxAttemptsHelper": "Bu kadar başarısız güncelleme sonrasında ajandan vazgeç.",
+    "healthTimeout": "Sağlık zaman aşımı",
+    "healthTimeoutHelper": "Güncellenen bir ajanın yeniden bağlanması için, güncellemeyi başarısız olarak işaretlemeden önce ne kadar beklenecek.",
+    "applyNote": "Ajanlar bu değerleri bir sonraki bağlantılarında alır."
+  },
+  "networkShare": {
+    "intro": "Wordlist ve kuralları bir ağ paylaşımında depolayın, böylece sunucu büyük bir yerel diske ihtiyaç duymaz. Operatör paylaşımı sunucu ana bilgisayarına (docker-compose aracılığıyla, <code>KH_SHARE_DIR</code> olarak) ve herhangi bir network-direct ajan ana bilgisayarına bağlar; KrakenHashes yalnızca bağlanmış yolu okur — paylaşımına kendisi bağlanmaz veya kimlik bilgilerini depolamaz. Bulut GPU ajanları paylaşımı bağlamaz: wordlist ve kuralları sunucudan VPN üzerinden indirir.",
+    "migrationLocked": "Bir geçiş devam ediyor ({{state}}). Tamamlanana kadar yapılandırma kilitli.",
+    "server": {
+      "title": "Sunucu depolama bağlaması",
+      "description": "Sunucu wordlist ve kuralları bu operatör tarafından bağlanmış yoldan okur (docker-compose'ta <code>KH_SHARE_DIR</code> olarak ayarlanır). KrakenHashes paylaşımına kendisi bağlanmaz — bağlama operatörün sorumluluğudur.",
+      "mountedPath": "Bağlanmış yol (salt okunur)",
+      "shareDirNotSet": "KH_SHARE_DIR ayarlanmadı — paylaşımı docker-compose'ta bağlayın",
+      "servingFromShare": "Sunulan yer: ağ paylaşımı",
+      "servingFromLocal": "Sunulan yer: yerel disk",
+      "shareReachable": "Paylaşım erişilebilir",
+      "shareNotMounted": "Paylaşım bağlanmadı",
+      "migrationChip": "Geçiş: {{state}}",
+      "lastValidated": "Son doğrulama {{date}}",
+      "enable": "Ağ paylaşımını etkinleştir",
+      "saving": "Kaydediliyor…",
+      "save": "Yapılandırmayı kaydet",
+      "validating": "Doğrulanıyor…",
+      "validate": "Sunucu bağlamasını doğrula",
+      "validatedOk": "Tamam"
+    },
+    "validation": {
+      "mountPath": "Bağlama yolu: <code>{{path}}</code>",
+      "unset": "(ayarlanmadı)",
+      "yes": "evet",
+      "no": "hayır",
+      "summary": "Bağlanmış: {{mounted}} · Yazılabilir: {{writable}} · Boş: {{free}} · Yazma: {{write}} MB/s · Okuma: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Veri geçişi",
+      "descriptionToShare": "Mevcut wordlist ve kuralları ağ paylaşımına kopyalayın ve etkin depolama arka ucunu değiştirin. Bu bir bakım işlemidir: filo drain edilirken yeni işlerin gönderilmesi durur, ardından wordlist/kural yüklemeleri dondurulur, dosyalar kopyalanır ve sağlama toplamı doğrulandıktan sonra depolama arka ucu değiştirilir. Veri boyutuna bağlı olarak bu uzun sürebilir ve sunucu bu süre zarfında yüklemeler ve yeni işler için kullanılamayacaktır. Müşteri ve ilişkilendirme wordlistleri, ikili dosyalar, karakter setleri ve hash listeleri her zaman yerel kalır.",
+      "descriptionToLocal": "Mevcut wordlist ve kuralları yerel diske geri kopyalayın ve etkin depolama arka ucunu değiştirin. Bu bir bakım işlemidir: filo drain edilirken yeni işlerin gönderilmesi durur, ardından wordlist/kural yüklemeleri dondurulur, dosyalar kopyalanır ve sağlama toplamı doğrulandıktan sonra depolama arka ucu değiştirilir. Veri boyutuna bağlı olarak bu uzun sürebilir ve sunucu bu süre zarfında yüklemeler ve yeni işler için kullanılamayacaktır. Müşteri ve ilişkilendirme wordlistleri, ikili dosyalar, karakter setleri ve hash listeleri her zaman yerel kalır.",
+      "phase": "Aşama: {{phase}}",
+      "directionToShare": "yerel → paylaşım",
+      "directionToLocal": "paylaşım → yerel",
+      "waitingTasks_one": "{{count}} görevin bitmesini bekleniyor",
+      "waitingTasks_other": "{{count}} görevin bitmesini bekleniyor",
+      "earliestLock": " — en erken kilit {{time}}",
+      "filesProgress": "{{done}}/{{total}} dosya · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "İptal ediliyor…",
+      "abort": "Geçişi durdur",
+      "abortHelp": "Geçişi bir sonraki kontrol noktasında durdurur (paylaşım yavaş veya takılıysa faydalıdır). Depolama geçerli arka ucunda kalır ve gönderim yeniden başlar; zaten kopyalanan dosyalar kalır ve yeniden denediğinizde yeniden kullanılır.",
+      "complete": "Geçiş tamamlandı.",
+      "failed": "Geçiş başarısız oldu.",
+      "migrateToShare": "Wordlist ve kuralları paylaşıma geçir",
+      "migrateToLocal": "Yerel diske geri geçir",
+      "enableFirst": "Paylaşımı etkinleştirin ve geçişten önce doğrulandığını onaylayın."
+    },
+    "agent": {
+      "title": "Şirket içi ajan bağlama komutu (isteğe bağlı)",
+      "description": "Bu alanlar <b>yalnızca</b> <b>network_direct</b> katmanına ayarlanmış şirket içi ajanlar için bağlama komutu oluşturmak için kullanılır. Sunucu (yukarıdaki) ve bulut GPU ajanları bunları <b>kullanmaz</b> — bulut ajanları VPN üzerinden indirir. Sırlar değildir; kimlik bilgileri asla depolanmaz veya gönderilmez.",
+      "protocol": "Protokol",
+      "protocolHelp": "SMB, Windows/macOS/Linux ajanlar arasında en taşınabilir olanıdır; NFS, VPN üzerinde salt okunur dışa aktarma ile iyi çalışır.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Ajanların bağladığı paylaşım ana bilgisayarı (VPN adresi)",
+      "hostHelp": "Ajanların VPN üzerinden ulaştığı paylaşımın adresi — sunucu ayarı değil (sunucu yukarıda bağlanmış yolunu kullanır).",
+      "exportPath": "Dışa aktarma yolu",
+      "shareName": "Paylaşım adı",
+      "mountOptions": "Bağlama seçenekleri (satır başına bir anahtar=değer)",
+      "runThis": "Bunu ajan ana bilgisayarında çalıştırın, ardından bu ajanın Depolama katmanını Ajan sayfasında “Network direct” olarak ayarlayın ve bağlama yolunu belirtin:",
+      "replaceSmb": "<code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> ve <code>&lt;PASSWORD&gt;</code> öğelerini çalıştırmadan önce değiştirin — komut hala yer tutucular içerir.",
+      "replaceNfs": "<code>&lt;MOUNT_PATH&gt;</code> öğesini çalıştırmadan önce değiştirin — komut hala yer tutucular içerir.",
+      "softSmb": "Komut, paylaşım yavaş veya kopursa, takılmak yerine bağlamanın hızlı başarısız olması için <code>soft</code> içerir (çekirdeğin <code>hard</code> varsayılanı). Bu, bağlama okunamıyorsa işi yönlendiren ajanın fail-closed paylaşım kontrolüyle eşleşir. <b>network_direct</b> düşük gecikmeli/LAN-bitişik paylaşımlar içindir — uzak veya yüksek gecikmeli paylaşımları bunun yerine <b>on_demand</b>/<b>full_cache</b> indirme katmanlarına koyun. Yukarıda ayarlayarak herhangi bir seçeneği geçersiz kılın.",
+      "softNfs": "Komut, paylaşım yavaş veya kopursa, takılmak yerine bağlamanın hızlı başarısız olması için <code>soft</code>, <code>timeo</code> ve <code>retrans</code> içerir (çekirdeğin <code>hard</code> varsayılanı). Bu, bağlama okunamıyorsa işi yönlendiren ajanın fail-closed paylaşım kontrolüyle eşleşir. <b>network_direct</b> düşük gecikmeli/LAN-bitişik paylaşımlar içindir — uzak veya yüksek gecikmeli paylaşımları bunun yerine <b>on_demand</b>/<b>full_cache</b> indirme katmanlarına koyun. Yukarıda ayarlayarak herhangi bir seçeneği geçersiz kılın.",
+      "otherOs": "macOS: <code>mount_smbfs</code> (SMB) veya <code>mount -t nfs</code> (NFS) kullanın. Windows: <code>{{uncPath}}</code>'a karşı <code>net use</code> kullanın. Ajan yalnızca bağlamadan okur. Bu alanlar yukarıda <b>Yapılandırmayı kaydet</b> ile kaydedilir."
+    },
+    "confirm": {
+      "title": "Veri geçişi başlatılsın mı?",
+      "intro": "Bu şu işlemleri yapacak:",
+      "step1": "Yeni işlerin gönderilmesini durdurur ve çalışan görevlerin bitmesini bekler (ajanların yeniden bağlanması için en fazla ~12 dakika, uzun işler çalışıyorsa daha uzun).",
+      "step2": "Wordlist/kural yüklemelerini dondurur ve dosyalar kopyalanıp sağlama toplamı doğrulanırken bir bakım sayfası sunar.",
+      "step3ToShare": "Tamamlandığında etkin depolama arka ucunu ağ paylaşımına değiştirir.",
+      "step3ToLocal": "Tamamlandığında etkin depolama arka ucunu yerel diske değiştirir.",
+      "outro": "Duraklatılan işler sonrasında otomatik olarak devam eder. Herhangi bir şey başarısız olursa, depolama değişmez kalır ve sunucu çalışmaya devam eder.",
+      "cancel": "İptal",
+      "start": "Geçişi başlat"
+    },
+    "toast": {
+      "loadFailed": "Ağ paylaşımı yapılandırması yüklenemedi",
+      "migrationStarted": "Geçiş başladı.",
+      "startFailed": "Geçiş başlatılamadı",
+      "migrationCanceled": "Geçiş iptal edildi — depolama değişmez kaldı.",
+      "cancelFailed": "Geçiş iptal edilemedi",
+      "saved": "Ağ paylaşımı yapılandırması kaydedildi.",
+      "saveFailed": "Yapılandırma kaydedilemedi",
+      "validated": "Paylaşım başarıyla doğrulandı.",
+      "validationProblems": "Paylaşım doğrulaması sorunları bildirdi.",
+      "validationFailed": "Doğrulama çalıştırılamadı"
+    }
+  },
+  "jobAnalytics": {
+    "title": "İş Performansı Analitikleri",
+    "description": "İş yürütme performansını, hash hızlarını ve ajanlarda benchmark geçmişini analiz edin.",
+    "loadFiltersFailed": "Filtre seçenekleri yüklenemedi",
+    "tabs": {
+      "jobPerformance": "İş Performansı",
+      "successRate": "Başarı Oranı",
+      "benchmarkHistory": "Benchmark Geçmişi"
+    },
+    "summary": {
+      "totalJobs": "Toplam İşler",
+      "totalJobsSubtitle": "{{completed}} tamamlandı, {{failed}} başarısız",
+      "totalCracks": "Toplam Kırılanlar",
+      "totalCracksSubtitle": "Tüm filtrelenmiş işler arasında",
+      "avgSpeed": "Ort. Hız",
+      "avgSpeedSubtitle": "İş başına ortalama hash hızı",
+      "avgDuration": "Ort. Süre",
+      "avgDurationSubtitle": "{{keys}} aday işlendi"
+    },
+    "hashRateChart": {
+      "title": "Hash Hızı Zaman Çizelgesi",
+      "daily": "Günlük",
+      "weekly": "Haftalık",
+      "empty": "Seçili filtreler için zaman çizelgesi verisi yok",
+      "hashRate": "Hash Hızı",
+      "tooltipHashRate": "Hash Hızı: {{speed}}",
+      "tooltipJobs": "İşler: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Benchmark Hızı Eğilimleri",
+      "agent": "Ajan",
+      "selectAgent": "Ajan Seçin",
+      "hashType": "Hash Türü",
+      "attackMode": "Saldırı Modu",
+      "all": "Tümü",
+      "range90d": "90g",
+      "range1y": "1y",
+      "rangeAll": "Tümü",
+      "selectAgentPrompt": "Benchmark eğilimlerini görmek için bir ajan seçin",
+      "empty": "Bu ajan için benchmark geçmişi bulunamadı",
+      "speed": "Hız",
+      "tooltipSpeed": "Hız: {{speed}}"
+    },
+    "filters": {
+      "title": "Filtreler",
+      "active": "Etkin",
+      "dateStart": "Başlangıç Tarihi",
+      "dateEnd": "Bitiş Tarihi",
+      "hashlist": "Hash Listesi",
+      "status": "Durum",
+      "minKeyspace": "Min Keyspace",
+      "maxKeyspace": "Max Keyspace",
+      "reset": "Sıfırla",
+      "apply": "Uygula"
+    },
+    "attackModes": {
+      "straight": "Düz",
+      "combination": "Kombinasyon",
+      "bruteforce": "Kaba Kuvvet",
+      "hybridWlMask": "Hibrit WL+Mask",
+      "hybridMaskWl": "Hibrit Mask+WL",
+      "association": "İlişkilendirme",
+      "modeNumber": "Mod {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Benchmark Geçmişi",
+      "empty": "Benchmark geçmişi bulunamadı",
+      "columns": {
+        "date": "Tarih",
+        "agentFallback": "Ajan #{{id}}",
+        "status": "Durum"
+      },
+      "success": "Başarılı",
+      "failed": "Başarısız"
+    },
+    "successRate": {
+      "title": "İş Yapılandırmasına Göre Başarı Oranı",
+      "subtitle": "Wordlist, kurallar, saldırı modu ve hash türüne göre gruplandırılmıştır. Ön tanımlı işler eşleşen özel işleri içerir.",
+      "empty": "Seçili filtreler için başarı oranı verisi yok",
+      "preset": "Ön tanımlı",
+      "columns": {
+        "configuration": "Yapılandırma",
+        "runs": "Çalıştırmalar",
+        "hashes": "Hashler",
+        "cracks": "Kırılanlar",
+        "successRate": "Başarı Oranı",
+        "avgDuration": "Ort. Süre",
+        "totalCompute": "Toplam İşlem Süresi"
+      }
+    },
+    "jobExecution": {
+      "title": "İş Yürütme Detayları",
+      "empty": "Seçili filtreler için iş bulunamadı",
+      "noTaskData": "Görev verisi yok",
+      "taskBreakdown": "Görev Dağılımı ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_one": "{{count}} görev",
+      "taskCount_other": "{{count}} görev",
+      "metricPointCount_one": "{{count}} metrik noktası",
+      "metricPointCount_other": "{{count}} metrik noktası",
+      "columns": {
+        "name": "Ad",
+        "attack": "Saldırı",
+        "duration": "Süre",
+        "keyspace": "Keyspace",
+        "agents": "Ajanlar",
+        "progress": "İlerleme",
+        "benchmark": "Benchmark",
+        "started": "Başlatıldı",
+        "completed": "Tamamlandı"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Wordlist Yönetimi - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Müşteri Wordlistleri ({{count}})",
+      "clientPotfile": "Müşteri Potfile'ı",
+      "associationWordlists": "İlişkilendirme Wordlistleri ({{count}})"
+    },
+    "columns": {
+      "fileName": "Dosya Adı",
+      "lineCount": "Satır Sayısı",
+      "fileSize": "Dosya Boyutu",
+      "uploaded": "Yüklenen",
+      "hashlist": "Hash Listesi",
+      "actions": "İşlemler"
+    },
+    "hashlistFallback": "Hash Listesi #{{id}}",
+    "clientTab": {
+      "info": "Müşteri wordlistleri bu müşteri için tüm hash listeleri arasında kullanılabilir. Bunlar herhangi bir saldırı modu ile kullanılabilir.",
+      "uploadWordlist": "Wordlist Yükle",
+      "uploading": "Yükleniyor... {{progress}}%",
+      "noWordlists": "Henüz müşteri wordlistleri yüklenmedi."
+    },
+    "potfileTab": {
+      "noPotfile": "Henüz müşteri potfile'ı mevcut değil. Bu müşterinin hash listeleri için hashler kırıldığında otomatik olarak oluşturulacak.",
+      "autoGenerated": "Müşteri Potfile'ı (Otomatik Oluşturuldu)",
+      "description": "Bu potfile, bu müşteri için kırılmış tüm parolaları içerir. Hashler kırıldığında otomatik olarak güncellenir.",
+      "passwordCount_one": "{{countDisplay}} parola",
+      "passwordCount_other": "{{countDisplay}} parola",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Güncellendi: {{date}}",
+      "downloadPotfile": "Potfile'ı İndir"
+    },
+    "associationTab": {
+      "info": "İlişkilendirme wordlistleri hash listesi başına olup, her hashı satır numarasına göre bir parola adayı ile 1:1 eşlerler. Hash listesi detay sayfasından yüklenir ve yönetilir. Bu görünüm, bu müşterinin tüm hash listeleri arasında tüm ilişkilendirme wordlistlerini gösterir.",
+      "noWordlists": "Bu müşterinin hash listeleri için ilişkilendirme wordlistleri bulunamadı."
+    },
+    "messages": {
+      "wordlistDeleted": "Müşteri wordlisti silindi",
+      "associationDeleted": "İlişkilendirme wordlisti silindi",
+      "deleteFailed": "Wordlist silinmesi başarısız",
+      "uploadSuccess": "Müşteri wordlisti başarıyla yüklendi",
+      "uploadFailed": "Wordlist yüklenmesi başarısız",
+      "downloaded": "{{filename}} indirildi",
+      "downloadFailed": "Dosya indirilmesi başarısız"
+    },
+    "deleteConfirm": {
+      "title": "Wordlisti Sil",
+      "message": "\"{{fileName}}\" silinsin mi? Bu işlem geri alınamaz."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Takım Yönetimi",
+      "titleMine": "Takımlarım",
+      "description": "Sistemdeki tüm takımları yönetin",
+      "descriptionMine": "Üyesi olduğunuz takımlar",
+      "createTeam": "Takım Oluştur",
+      "bulkAssignHint": "Birden fazla müşteriyi aynı anda bir takıma atamak için <link>Müşteri Yönetimi</link> sayfasındaki toplu atama özelliğini kullanın.",
+      "columns": {
+        "name": "Takım Adı",
+        "description": "Açıklama",
+        "members": "Üyeler",
+        "clients": "Müşteriler",
+        "hashlists": "Hash Listeleri",
+        "agents": "Ajanlar",
+        "created": "Oluşturulan"
+      },
+      "rowActions": {
+        "manage": "Takımı yönet",
+        "edit": "Takımı düzenle",
+        "delete": "Takımı sil"
+      },
+      "empty": "Takım bulunamadı",
+      "emptyMine": "Henüz herhangi bir takımın üyesi değilsiniz.",
+      "viewDetails": "Detayları Görüntüle",
+      "memberCount_one": "{{count}} üye",
+      "memberCount_other": "{{count}} üye",
+      "clientCount_one": "{{count}} müşteri",
+      "clientCount_other": "{{count}} müşteri",
+      "hashlistCount_one": "{{count}} hash listesi",
+      "hashlistCount_other": "{{count}} hash listesi",
+      "agentCount_one": "{{count}} ajan",
+      "agentCount_other": "{{count}} ajan",
+      "dialogs": {
+        "create": {
+          "title": "Yeni Takım Oluştur",
+          "nameLabel": "Takım Adı",
+          "descriptionLabel": "Açıklama",
+          "creatingButton": "Oluşturuluyor..."
+        },
+        "delete": {
+          "title": "Takımı Sil",
+          "confirmation": "Takım \"{{name}}\" silinsin mi? Bu, tüm takım üyeliklerini ve müşteri atamalarını kaldıracak."
+        }
+      },
+      "messages": {
+        "createSuccess": "Takım başarıyla oluşturuldu",
+        "deleteSuccess": "Takım başarıyla silindi",
+        "updateSuccess": "Takım başarıyla güncellendi"
+      },
+      "errors": {
+        "loadFailed": "Takımlar yüklenemedi",
+        "createFailed": "Takım oluşturulamadı",
+        "deleteFailed": "Takım silinemedi",
+        "updateFailed": "Takım güncellenemedi"
+      }
+    },
+    "detail": {
+      "notFound": "Takım bulunamadı",
+      "noDescription": "Açıklama yok",
+      "breadcrumb": "Takımlar",
+      "editTeam": "Takımı Düzenle",
+      "confirmActionTitle": "İşlemi Onayla",
+      "tabs": {
+        "members": "Üyeler ({{count}})",
+        "clients": "Müşteriler ({{count}})",
+        "trustedTeams": "Güvenilen Takımlar ({{count}})",
+        "agents": "Ajanlar ({{count}})"
+      },
+      "addMember": "Üye Ekle",
+      "assignClient": "Müşteriyi Ata",
+      "addTrust": "Güven İlişkisi Ekle",
+      "trustInfo": "Başka bir takıma güvenmek, onların ajanlarının takımınızın işlerini çalıştırmasına izin verir. Bu tek yönlü bir ilişkidir — B Takımına güvenmek, ajanlarınıza B Takımının işlerine erişim hakkı vermez.",
+      "agentsInfo": "<strong>Doğrudan</strong> ajanlar bu takımın üyeleri tarafından sahiplenilir. <strong>Güvenilen</strong> ajanlar, güven ilişkileri kurduğunuz takımlardan gelir.",
+      "systemOwner": "Sistem",
+      "columns": {
+        "username": "Kullanıcı Adı",
+        "email": "E-Posta",
+        "role": "Rol",
+        "joined": "Katılan",
+        "clientName": "Müşteri Adı",
+        "description": "Açıklama",
+        "trustedTeam": "Güvenilen Takım",
+        "trustedSince": "Güvenilmesinden Beri",
+        "agentName": "Ajan Adı",
+        "status": "Durum",
+        "version": "Sürüm",
+        "owner": "Sahip",
+        "source": "Kaynak"
+      },
+      "roles": {
+        "member": "Üye",
+        "admin": "Yönetici",
+        "adminManager": "Yönetici (Takım Yöneticisi)"
+      },
+      "source": {
+        "direct": "Doğrudan",
+        "trusted": "Güvenilen {{team}}",
+        "trustedBadge": "Güvenilen",
+        "unknown": "Bilinmeyen"
+      },
+      "rowActions": {
+        "removeMember": "Üyeyi kaldır",
+        "removeClientFromTeam": "Müşteriyi takımdan kaldır",
+        "removeTrust": "Güven ilişkisini kaldır"
+      },
+      "empty": {
+        "noMembers": "Bu takımda üye yok",
+        "noClients": "Bu takıma atanmış müşteri yok",
+        "noTrustedTeams": "Güvenilen takım yok. Yalnızca sistem ajanları ve bu takımın kendi ajanları işler çalıştırabilir.",
+        "noAgents": "Bu takım tarafından erişilebilir ajan yok",
+        "noAgentsHint": "Ajanları olan takım üyeleri ekleyin veya güven ilişkileri kurun."
+      },
+      "confirm": {
+        "removeMember": "Bu üyeyi kaldırmak istediğinizden emin misiniz?",
+        "removeClient": "\"{{name}}\" öğesini bu takımdan kaldırmak istediğinizden emin misiniz? Takım üyeleri bu müşterinin verilerine erişimini kaybedecek.",
+        "removeTrust": "Bu güven ilişkisini kaldırmak istediğinizden emin misiniz? Bu takımın ajanları artık işlerinizi çalıştıramayacak."
+      },
+      "messages": {
+        "memberAdded": "Üye başarıyla eklendi",
+        "memberRemoved": "Üye kaldırıldı",
+        "roleUpdated": "Rol güncellendi",
+        "teamUpdated": "Takım başarıyla güncellendi",
+        "clientAssigned": "Müşteri takıma atandı",
+        "clientRemoved": "Müşteri takımdan kaldırıldı",
+        "trustAdded": "Güven ilişkisi eklendi",
+        "trustRemoved": "Güven ilişkisi kaldırıldı"
+      },
+      "errors": {
+        "loadFailed": "Takım verileri yüklenemedi",
+        "addMemberFailed": "Üye eklenemedi",
+        "removeMemberFailed": "Üye kaldırılamadı",
+        "updateRoleFailed": "Rol güncellenemedi",
+        "loadClientsFailed": "Müşteriler yüklenemedi",
+        "assignClientFailed": "Müşteri atanamadı",
+        "removeClientFailed": "Müşteri kaldırılamadı",
+        "updateTeamFailed": "Takım güncellenemedi",
+        "loadTeamNamesFailed": "Takım adları yüklenemedi",
+        "addTrustFailed": "Güven ilişkisi eklenemedi",
+        "removeTrustFailed": "Güven ilişkisi kaldırılamadı"
+      },
+      "dialogs": {
+        "cancel": "İptal",
+        "editTeam": {
+          "title": "Takımı Düzenle",
+          "nameLabel": "Takım Adı",
+          "descriptionLabel": "Açıklama",
+          "saveButton": "Kaydet",
+          "savingButton": "Kaydediliyor..."
+        },
+        "addMember": {
+          "title": "Takım Üyesi Ekle",
+          "searchLabel": "Kullanıcıları ara",
+          "searchPlaceholder": "En az 2 karakter yazın...",
+          "typeToSearch": "Arama yapmak için yazın...",
+          "noUsersFound": "Kullanıcı bulunamadı",
+          "roleLabel": "Rol",
+          "addButton": "Üye Ekle"
+        },
+        "addTrust": {
+          "title": "Güvenilen Takım Ekle",
+          "info": "Güvenilen takımın üyeleri tarafından sahiplenilen ajanların, bu takımın işlerini çalıştırmasına izin verilecek.",
+          "selectLabel": "Güvenilecek takımı seç",
+          "searchPlaceholder": "Takımları ara...",
+          "noTeamsAvailable": "Kullanılabilir takım yok",
+          "optionLabel_one": "{{name}} ({{count}} ajan)",
+          "optionLabel_other": "{{name}} ({{count}} ajan)"
+        },
+        "assignClient": {
+          "title": "Müşteriyi Takıma Ata",
+          "info": "Müşteriyi atamak, tüm takım üyelerine bu müşterinin hash listeleri, işleri ve kırılmış verilerine erişim hakkı verir.",
+          "selectLabel": "Müşteriyi seç",
+          "searchPlaceholder": "Müşterileri ara...",
+          "noClientsAvailable": "Atanmamış müşteri yok"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Özel Karakter Seti Yönetimi",
+    "description": "Tüm ön tanımlı işler ve kullanıcılar için kullanılabilir genel özel karakter setlerini yönetin. Satır içi tanımlar ve ikili .hcchr karakter seti dosyalarını destekler.",
+    "createCharset": "Karakter Seti Oluştur",
+    "columns": {
+      "name": "Ad",
+      "type": "Tür",
+      "definition": "Tanım / Bilgi",
+      "description": "Açıklama",
+      "created": "Oluşturulan"
+    },
+    "typeLabels": {
+      "file": "Dosya",
+      "inline": "Satır İçi",
+      "hex": "Hex"
+    },
+    "uniqueBytes_one": "{{count}} benzersiz bayt",
+    "uniqueBytes_other": "{{count}} benzersiz bayt",
+    "rowActions": {
+      "edit": "Düzenle",
+      "delete": "Sil"
+    },
+    "empty": "Özel karakter seti bulunamadı. Başlamak için bir tane oluşturun.",
+    "dialogs": {
+      "create": {
+        "title": "Özel Karakter Seti Oluştur"
+      },
+      "edit": {
+        "title": "Özel Karakter Setini Düzenle"
+      },
+      "delete": {
+        "title": "Karakter Setini Sil",
+        "confirmation": "Karakter seti \"{{name}}\" silinsin mi?"
+      },
+      "modeToggle": {
+        "inline": "Satır İçi Tanım",
+        "file": "Dosya Yükleme (.hcchr)"
+      },
+      "fields": {
+        "name": "Ad",
+        "namePlaceholder": "örn., DES Tam Karakter Seti",
+        "definition": "Tanım",
+        "definitionPlaceholderHex": "örn., 41424344 (hex bayt çiftleri)",
+        "definitionPlaceholderPlain": "örn., ?u?d veya abcdef0123456789",
+        "definitionHelperHex": "Hex bayt çiftleri — her çift = bir karakter seti baytı. {{bytes}}",
+        "definitionHelperHexBytes_one": "{{count}} bayt",
+        "definitionHelperHexBytes_other": "{{count}} bayt",
+        "definitionHelperPlain": "Hashcat karakter seti tanımı. ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H veya sabit karakterler kullanın.",
+        "hexTooltip": "Etkinleştirildiğinde, tanım hex bayt çiftleri olarak yorumlanır (örn., 41424344 = baytlar A, B, C, D). Bu karakter setini kullanan işler otomatik olarak --hex-charset enjekte edecek.",
+        "hexLabel": "Hex kodlu tanım",
+        "selectFile": ".hcchr Dosyasını Seç",
+        "fileSizeBytes_one": "{{count}} bayt",
+        "fileSizeBytes_other": "{{count}} bayt",
+        "fileHelperText": "Ham bayt değerleri içeren ikili karakter seti dosyası (maksimum 1023 bayt, en fazla 256 benzersiz bayt). DES kırma, NTLMv1 ve dile özgü kodlamalar için kullanılır.",
+        "fileCharsetInfo_one": "Dosya karakter seti: {{count}} benzersiz bayt. Yalnızca ad ve açıklama düzenlenebilir.",
+        "fileCharsetInfo_other": "Dosya karakter seti: {{count}} benzersiz bayt. Yalnızca ad ve açıklama düzenlenebilir.",
+        "description": "Açıklama",
+        "descriptionPlaceholder": "Bu karakter setinin ne için kullanıldığının isteğe bağlı açıklaması"
+      },
+      "update": "Güncelle",
+      "upload": "Yükle"
+    },
+    "messages": {
+      "createSuccess": "Karakter seti başarıyla oluşturuldu",
+      "uploadSuccess": "Dosya karakter seti başarıyla yüklendi",
+      "updateSuccess": "Karakter seti başarıyla güncellendi",
+      "deleteSuccess": "Karakter seti başarıyla silindi"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Yalnızca .hcchr dosyalarına izin verilir",
+      "fileTooLarge": "Dosya çok büyük (maksimum 1023 bayt — hashcat okuma arabelleği sınırı)",
+      "nameRequired": "Ad gereklidir",
+      "definitionRequired": "Tanım gereklidir",
+      "selectFile": "Lütfen bir .hcchr dosyası seçin",
+      "loadFailed": "Karakter setleri yüklenemedi: {{message}}",
+      "deleteFailed": "Karakter seti silinemedi: {{message}}"
+    }
+  }
+}

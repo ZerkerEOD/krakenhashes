@@ -38,6 +38,7 @@
     "disabled": "Désactivé",
     "active": "Actif",
     "inactive": "Inactif",
+    "updating": "Mise à jour en cours",
     "pending": "En attente",
     "completed": "Terminé",
     "failed": "Échec",
@@ -73,16 +74,20 @@
     "areYouSure": "Confirmez-vous cette action ?",
     "cannotBeUndone": "Cette action est irréversible.",
     "confirmDelete": "Confirmer la suppression",
-    "confirmAction": "Confirmer l'action"
+    "confirmAction": "Confirmer l'action",
+    "typeToConfirm": "Tapez {{text}} pour confirmer"
   },
   "time": {
     "justNow": "À l'instant",
-    "minutesAgo": "Il y a {{count}} minute",
-    "minutesAgo_plural": "Il y a {{count}} minutes",
-    "hoursAgo": "Il y a {{count}} heure",
-    "hoursAgo_plural": "Il y a {{count}} heures",
-    "daysAgo": "Il y a {{count}} jour",
-    "daysAgo_plural": "Il y a {{count}} jours",
+    "minutesAgo_many": "il y a {{count}} minutes",
+    "minutesAgo_one": "Il y a {{count}} minute",
+    "minutesAgo_other": "Il y a {{count}} minutes",
+    "hoursAgo_many": "il y a {{count}} heures",
+    "hoursAgo_one": "Il y a {{count}} heure",
+    "hoursAgo_other": "Il y a {{count}} heures",
+    "daysAgo_many": "il y a {{count}} jours",
+    "daysAgo_one": "Il y a {{count}} jour",
+    "daysAgo_other": "Il y a {{count}} jours",
     "never": "Jamais"
   },
   "fileUpload": {
@@ -126,7 +131,17 @@
     "logoAltBranded": "Logo {{appName}}"
   },
   "table": {
+    "clearSearch": "Effacer la recherche",
+    "clearSelection": "Effacer la sélection",
+    "selectedCount": "{{count}} sélectionné(s)",
+    "expandRow": "Développer la ligne",
+    "collapseRow": "Réduire la ligne",
+    "showAll": "Afficher tout",
+    "showFewer": "Afficher moins",
+    "showingOf": "Affichage de {{shown}} sur {{total}}",
+    "actions": "Actions",
     "noResults": "Aucun résultat trouvé",
+    "rowsPerPage": "Lignes par page",
     "loading": "Chargement des données...",
     "emptyState": "Aucune donnée à afficher"
   },
@@ -139,7 +154,8 @@
       "frontend": "Frontend",
       "agent": "Version de l'agent",
       "api": "Version de l'API",
-      "database": "Base de données"
+      "database": "Base de données",
+      "build": "Build"
     },
     "projectInfo": {
       "title": "Informations sur le projet",
@@ -157,5 +173,195 @@
     "tooltip": "Texte non valide. Le mot de passe exact est {{value}}. Les caractères affichés sont une estimation (Windows-1252), pas le vrai mot de passe.",
     "copyExact": "Copier la valeur exacte (pour hashcat)",
     "copyGuess": "Copier l'estimation (non exacte)"
+  },
+  "empty": {
+    "noData": "Rien ici pour le moment",
+    "noResults": "Aucun résultat",
+    "noResultsHint": "Essayez d'ajuster votre recherche ou vos filtres."
+  },
+  "theme": {
+    "appearance": "Apparence",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
+  },
+  "status": {
+    "job": {
+      "preparing": "Préparation",
+      "pending": "En attente",
+      "running": "En cours d'exécution",
+      "paused": "En pause",
+      "processing": "Traitement",
+      "completed": "Terminé",
+      "failed": "Échoué",
+      "cancelled": "Annulé",
+      "archived": "Archivé"
+    },
+    "task": {
+      "pending": "En attente",
+      "assigned": "Assignée",
+      "reconnect_pending": "Reconnexion en cours",
+      "running": "En cours d'exécution",
+      "processing": "Traitement",
+      "processing_error": "Erreur de traitement",
+      "completed": "Terminée",
+      "failed": "Échouée",
+      "cancelled": "Annulée"
+    },
+    "agent": {
+      "pending": "En attente",
+      "active": "En ligne",
+      "inactive": "Hors ligne",
+      "error": "Erreur",
+      "disabled": "Désactivé",
+      "updating": "Mise à jour en cours",
+      "online": "En ligne",
+      "offline": "Hors ligne"
+    },
+    "hashlist": {
+      "uploading": "Téléversement en cours",
+      "processing": "Traitement",
+      "ready": "Prête",
+      "error": "Erreur",
+      "deleting": "Suppression en cours",
+      "ready_with_errors": "Prête avec erreurs",
+      "awaiting_validation_decision": "En attente d'examen",
+      "cancelled": "Annulée"
+    },
+    "verification": {
+      "pending": "En attente",
+      "verified": "Vérifié",
+      "failed": "Échoué",
+      "deleted": "Supprimé"
+    },
+    "cloud": {
+      "requested": "Demandée",
+      "launching": "Lancement",
+      "provisioning": "Provisioning",
+      "syncing": "Synchronisation",
+      "running": "En cours d'exécution",
+      "draining": "Drainage",
+      "terminating": "Destruction en cours",
+      "terminated": "Détruite",
+      "failed": "Échouée"
+    },
+    "loopback": {
+      "waiting": "En attente",
+      "active": "Actif",
+      "completed": "Terminé",
+      "failed": "Échoué",
+      "cancelled": "Annulé"
+    },
+    "audit": {
+      "info": "Info",
+      "warning": "Avertissement",
+      "critical": "Critique"
+    },
+    "diagnostic": {
+      "info": "Info",
+      "warning": "Avertissement",
+      "error": "Erreur"
+    },
+    "sync": {
+      "pending": "En attente",
+      "in_progress": "En cours",
+      "completed": "Terminée",
+      "failed": "Échouée"
+    },
+    "generic": {
+      "success": "Succès",
+      "ok": "OK",
+      "healthy": "Sain",
+      "enabled": "Activé",
+      "active": "Actif",
+      "verified": "Vérifié",
+      "warning": "Avertissement",
+      "degraded": "Dégradé",
+      "error": "Erreur",
+      "failed": "Échoué",
+      "critical": "Critique",
+      "info": "Info",
+      "running": "En cours d'exécution",
+      "pending": "En attente",
+      "queued": "En file d'attente",
+      "disabled": "Désactivé",
+      "inactive": "Inactif",
+      "unknown": "Inconnu"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Jeux de caractères personnalisés (optionnel - définissez ?1 à ?4 pour utilisation dans le masque)",
+    "hexTooltip": "Lorsqu'il est activé, les définitions de jeu de caractères inline sont interprétées comme des paires d'octets hex (p. ex., 41424344 = ABCD). Les jeux de caractères de fichier ne sont pas affectés.",
+    "hexEncodedLabel": "Jeux de caractères encodés en hexadécimal",
+    "charsetSlotLabel": "Jeu de caractères {{slot}} (-{{slot}})",
+    "fileValue_many": "[Fichier : {{name}} — {{count}} octets]",
+    "fileValue_one": "[Fichier : {{name}} — {{count}} octet]",
+    "fileValue_other": "[Fichier : {{name}} — {{count}} octets]",
+    "fileHelperUsed_many": "{{count}} octets uniques",
+    "fileHelperUsed_one": "{{count}} octet unique",
+    "fileHelperUsed_other": "{{count}} octets uniques",
+    "fileHelperUnused_many": "{{count}} octets uniques (non référencés dans le masque)",
+    "fileHelperUnused_one": "{{count}} octet unique (non référencé dans le masque)",
+    "fileHelperUnused_other": "{{count}} octets uniques (non référencés dans le masque)",
+    "placeholderHex": "p. ex., 41424344 (paires d'octets hex)",
+    "placeholderPlain": "p. ex., ?u?d ou abcdef0123456789",
+    "inlineHelperBytes_many": "{{count}} octets",
+    "inlineHelperBytes_one": "{{count}} octet",
+    "inlineHelperBytes_other": "{{count}} octets",
+    "inlineHelperBytesUnused_many": "{{count}} octets (non référencés dans le masque)",
+    "inlineHelperBytesUnused_one": "{{count}} octet (non référencé dans le masque)",
+    "inlineHelperBytesUnused_other": "{{count}} octets (non référencés dans le masque)",
+    "inlineHelperChars_many": "{{count}} caractères",
+    "inlineHelperChars_one": "{{count}} caractère",
+    "inlineHelperChars_other": "{{count}} caractères",
+    "inlineHelperCharsUnused_many": "{{count}} caractères (non référencés dans le masque)",
+    "inlineHelperCharsUnused_one": "{{count}} caractère (non référencé dans le masque)",
+    "inlineHelperCharsUnused_other": "{{count}} caractères (non référencés dans le masque)",
+    "referencedNotDefined": "Référencé dans le masque mais non défini",
+    "savedLabel": "Enregistré",
+    "typeLabels": {
+      "file": "Fichier",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_many": "{{count}} octets uniques",
+    "optionUniqueBytes_one": "{{count}} octet unique",
+    "optionUniqueBytes_other": "{{count}} octets uniques",
+    "optionBytesHex_many": "{{count}} octets (hex)",
+    "optionBytesHex_one": "{{count}} octet (hex)",
+    "optionBytesHex_other": "{{count}} octets (hex)",
+    "willEnableHex": " — activera le mode hex",
+    "willDisableHex": " — désactivera le mode hex",
+    "estimatedKeyspace": "Keyspace estimée : {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} octets",
+    "slotSizeChars": "?{{slot}} = {{size}} caractères"
+  },
+  "teamFilter": {
+    "label": "Équipe",
+    "allTeams": "Toutes les équipes",
+    "adminBadge": "Admin"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Le mot de passe est obligatoire",
+    "currentPasswordLabel": "Mot de passe actuel"
+  },
+  "hashDetailModal": {
+    "title": "Détails du hash",
+    "hashValue": "Valeur du hash",
+    "copied": "Copié !",
+    "copyHash": "Copier le hash",
+    "copyPlaintext": "Copier le mot de passe",
+    "originalHash": "Hash original (depuis le fichier)",
+    "status": "État",
+    "cracked": "Cassé",
+    "notCracked": "Non cassé",
+    "hashType": "Type de hash",
+    "typeId": "ID du type : {{id}}",
+    "username": "Nom d'utilisateur",
+    "crackedText": "Mot de passe",
+    "hashlist": "Hashlist",
+    "lastUpdated": "Dernière mise à jour",
+    "crackedAt": "Cassé le",
+    "hashCopied": "Hash copié dans le presse-papiers",
+    "crackedTextCopied": "Mot de passe copié dans le presse-papiers"
   }
 }

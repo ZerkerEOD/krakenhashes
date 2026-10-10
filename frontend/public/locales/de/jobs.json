@@ -16,9 +16,11 @@
     "maxAgents": "Max. Agenten",
     "actions": "Aktionen",
     "status": "Status",
-    "createdAt": "Erstellt am"
+    "createdAt": "Erstellt am",
+    "client": "Kunde"
   },
   "status": {
+    "preparing": "Wird vorbereitet",
     "pending": "Ausstehend",
     "running": "Läuft",
     "completed": "Abgeschlossen",
@@ -49,7 +51,8 @@
     "completed": "Abgeschlossen:",
     "unknown": "Unbekannt",
     "error": "Fehler:",
-    "rulesLabel": "(Regeln)"
+    "rulesLabel": "(Regeln)",
+    "custom": "Benutzerdefinierter Angriff"
   },
   "tooltips": {
     "combinedHashRate": "Kombinierte Hashrate",
@@ -199,6 +202,7 @@
       "cracks": "Knackungen",
       "cracksFound": "Gefundene Knackungen"
     },
+    "additionalArgs": "Zusätzliche Argumente",
     "attackModes": {
       "dictionary": "Wörterbuch",
       "combination": "Kombination",
@@ -215,8 +219,17 @@
       "cloud_no_capacity": "Keine Cloud-Kapazität verfügbar",
       "cloud_dead_on_arrival": "Gemietete Instanzen konnten keine Verbindung herstellen",
       "cloud_launch_failed": "Cloud-Instanz konnte nicht gemietet werden",
-      "seenTimes": "{{count}}-mal aufgetreten"
-    }
+      "seenTimes_one": "{{count}} Mal angezeigt",
+      "seenTimes_other": "{{count}} Mal angezeigt",
+      "cloud_rental_too_short": "Die Miete wäre zu kurz, um nützlich zu sein",
+      "cloud_cracks_lost": "Geknackte Passwörter können verloren gegangen sein",
+      "cloud_draining": "Cloud-Instanz befindet sich im Drain (keine neue Arbeit)"
+    },
+    "client": "Kunde",
+    "presetJob": "Vorlagen-Auftrag",
+    "workflow": "Workflow",
+    "createdBy": "Erstellt von",
+    "system": "System"
   },
   "common": {
     "id": "ID",
@@ -323,45 +336,123 @@
     "selectedCount": "{{count}} ausgewählt",
     "confirmBulkDelete": {
       "title": "Massenlöschung bestätigen",
-      "message": "Sind Sie sicher, dass Sie {{count}} Auftrag/Aufträge löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "message_one": "Sind Sie sicher, dass Sie {{count}} Auftrag löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "message_other": "Sind Sie sicher, dass Sie {{count}} Aufträge löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
       "warning": "Dies löscht die ausgewählten Aufträge und alle zugehörigen Daten dauerhaft.",
       "cancel": "Abbrechen",
       "delete": "Löschen",
       "deleting": "Wird gelöscht..."
     },
-    "bulkArchiveSuccess": "{{count}} Auftrag/Aufträge erfolgreich archiviert",
-    "bulkUnarchiveSuccess": "{{count}} Auftrag/Aufträge erfolgreich dearchiviert",
-    "bulkDeleteSuccess": "{{count}} Auftrag/Aufträge erfolgreich gelöscht"
+    "bulkArchiveSuccess_one": "{{count}} Auftrag erfolgreich archiviert",
+    "bulkArchiveSuccess_other": "{{count}} Aufträge erfolgreich archiviert",
+    "bulkUnarchiveSuccess_one": "{{count}} Auftrag erfolgreich dearchiviert",
+    "bulkUnarchiveSuccess_other": "{{count}} Aufträge erfolgreich dearchiviert",
+    "bulkDeleteSuccess_one": "{{count}} Auftrag erfolgreich gelöscht",
+    "bulkDeleteSuccess_other": "{{count}} Aufträge erfolgreich gelöscht"
   },
   "cloud": {
     "projection": {
-      "title": "Will this finish within budget?",
-      "loadFailed": "Failed to project this job",
-      "coverageLabel": "Budget coverage",
-      "coverageValue": "{{pct}}% of the remaining work is funded",
-      "timeToFinish": "Projected time to finish",
-      "projectedCost": "Projected cloud cost",
-      "availableBudget": "Available budget",
-      "onpremSpeed": "On-prem speed",
-      "cloudSpeed": "Cloud speed",
-      "unknown": "Unknown",
-      "confirm": "Launch",
-      "pessimistic": "This is a salted hash type, so real throughput will exceed this estimate as salts crack. Treat the projection as a worst case.",
-      "shortfallTitle": "The budget runs out before the work does",
-      "shortfallBody": "At the projected rate, the budget covers {{pct}}% of the remaining keyspace. The job will stop partway through. Partial progress may still be worth buying — but it should be a deliberate choice.",
-      "shortfallAcknowledge": "I understand this job will not finish within budget"
+      "title": "Wird dies innerhalb des Budgets abgeschlossen?",
+      "loadFailed": "Auftrag konnte nicht projiziert werden",
+      "coverageLabel": "Budget-Abdeckung",
+      "coverageValue": "{{pct}}% der verbleibenden Arbeit ist finanziert",
+      "timeToFinish": "Projizierte Zeit bis zum Abschluss",
+      "projectedCost": "Projizierte Cloud-Kosten",
+      "availableBudget": "Verfügbares Budget",
+      "onpremSpeed": "On-Prem-Geschwindigkeit",
+      "cloudSpeed": "Cloud-Geschwindigkeit",
+      "unknown": "Unbekannt",
+      "confirm": "Starten",
+      "pessimistic": "Dies ist ein gesalzener Hash-Typ, daher wird der reale Durchsatz diese Schätzung überschreiten, wenn Salze geknackt werden. Behandeln Sie die Projektion als schlimmsten Fall.",
+      "shortfallTitle": "Das Budget reicht nicht für die gesamte Arbeit",
+      "shortfallBody": "Bei der projizierten Rate deckt das Budget {{pct}}% des verbleibenden Keyspace ab. Der Auftrag wird vorzeitig angehalten. Teilweiser Fortschritt kann sich trotzdem lohnen – aber das sollte eine bewusste Entscheidung sein.",
+      "shortfallAcknowledge": "Ich verstehe, dass dieser Auftrag nicht innerhalb des Budgets abgeschlossen wird",
+      "metric": "Metrik",
+      "value": "Wert"
     },
     "cloudBurst": {
-      "label": "Allow cloud burst for this job",
-      "help": "Rent GPU instances when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider. Nothing is rented without this.",
-      "maxInstances": "Maximum rented instances",
-      "maxInstancesHelp": "Separate from max agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
-      "badge": "Cloud burst",
-      "thirdPartyBadge": "Third-party host",
-      "provisionNow": "Provision now",
-      "provisionConfirm": "Rent one cloud instance for this job now?\n\nThis bypasses the autoscaler's starvation and finishing-soon rules, and will spend money against this client's budget. The budget, spend window, per-job cap and provider consent still apply.",
-      "provisionRequested": "Cloud instance requested",
-      "provisionFailed": "Could not provision a cloud instance"
+      "label": "Cloud-Burst für diesen Auftrag zulassen",
+      "help": "Mieten Sie GPU-Instanzen, wenn die On-Prem-Flotte nicht Schritt halten kann. Erfordert, dass der Kunde finanziert ist und sich bei einem Anbieter angemeldet hat. Ohne dies wird nichts gemietet.",
+      "maxInstances": "Maximale gemietete Instanzen",
+      "maxInstancesHelp": "Getrennt von Max. Agenten, die den gemeinsamen On-Prem-Pool regeln. Lassen Sie das Feld leer, damit das verbleibende Budget entscheidet.",
+      "badge": "Cloud-Burst",
+      "thirdPartyBadge": "Drittanbieter-Host",
+      "provisionNow": "Jetzt bereitstellen",
+      "provisionConfirm": "Mieten Sie jetzt eine Cloud-Instanz für diesen Auftrag?\n\nDies umgeht die Mangel- und Bald-fertig-Regeln des Autoscalers und belastet das Budget dieses Kunden. Das Budget, das Ausgabefenster, die Pro-Job-Obergrenze und die Zustimmung des Anbieters gelten weiterhin.",
+      "provisionRequested": "Cloud-Instanz angefordert",
+      "provisionFailed": "Cloud-Instanz konnte nicht bereitgestellt werden"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Gesamtfortschritt: {{percent}}%",
+    "noTasks": "Noch keine Aufgaben zugewiesen",
+    "notAvailable": "N/V",
+    "tooltip": {
+      "taskId": "Aufgaben-ID: {{id}}",
+      "status": "Status: {{status}}",
+      "keyspace": "Keyspace: {{start}} - {{end}}",
+      "progress": "Fortschritt: {{percent}}%",
+      "speed": "Geschwindigkeit: {{speed}}",
+      "cracksFound": "Gefundene Knackungen: {{count}}",
+      "agentId": "Agent-ID: {{id}}"
+    },
+    "legend": {
+      "pending": "Ausstehend",
+      "running": "Läuft",
+      "processing": "Verarbeitung",
+      "completed": "Abgeschlossen",
+      "processingError": "Verarbeitungsfehler",
+      "failed": "Fehlgeschlagen",
+      "crackFound": "Knackung gefunden"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Benchmark-Abklingzeiten",
+    "subtitle": "Agenten, die nach wiederholten Fehlern derzeit vom Benchmarking dieses Auftrags ausgeschlossen sind. Löschen Sie einen Eintrag, um es im nächsten Planungszyklus erneut zu versuchen.",
+    "loadFailed": "Blockierliste konnte nicht geladen werden",
+    "clearSuccess": "Blockierlisteneintrag gelöscht – Scheduler versucht es im nächsten Zyklus erneut",
+    "clearFailedPrefix": "Konnte nicht löschen: {{error}}",
+    "clearFailedDefault": "Eintrag konnte nicht gelöscht werden",
+    "expired": "abgelaufen",
+    "retryNow": "Jetzt erneut versuchen",
+    "scope": {
+      "thisJob": "dieser Auftrag",
+      "global": "global"
+    },
+    "columns": {
+      "agent": "Agent",
+      "scope": "Bereich",
+      "hashMode": "Hash / Modus",
+      "failures": "Fehlschläge",
+      "reason": "Grund",
+      "expires": "Verfällt",
+      "action": "Aktion"
+    }
+  },
+  "loopback": {
+    "title": "Loopback",
+    "subtitle": "Jeder Loopback führt die Mutation eines Angriffs nur gegen die neu geknackten Passwörter erneut aus und wiederholt dies, bis keine neuen Knackungen gefunden werden.",
+    "runningCount": "{{count}} laufend",
+    "statusLabel": {
+      "waiting": "Warte auf Ende der Runde",
+      "active": "Läuft",
+      "completed": "Fertig",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen"
+    },
+    "roundLabel": "Runde {{current}} / {{max}}",
+    "hashlistFallback": "Hashliste #{{id}}",
+    "jobCount_one": "{{count}} Auftrag",
+    "jobCount_other": "{{count}} Aufträge",
+    "noJobsYet": "Noch keine Aufträge aufgezeichnet.",
+    "loopsBackYes": "Ja",
+    "loopsBackFeedsDelta": "Speist Delta",
+    "columns": {
+      "round": "Runde",
+      "original": "Original",
+      "job": "Auftrag",
+      "role": "Rolle",
+      "loopsBack": "Rückführung"
     }
   }
 }

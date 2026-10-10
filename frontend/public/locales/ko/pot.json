@@ -1,0 +1,95 @@
+{
+  "title": "크래킹된 해시",
+  "page": {
+    "title": "크래킹된 해시 (Pot)",
+    "description": "모든 해시 목록 및 클라이언트에서 성공적으로 크래킹된 모든 암호 해시를 확인합니다.",
+    "filterByHashlist": "해시 목록으로 이동",
+    "hashlistPlaceholder": "해시 목록 선택..."
+  },
+  "table": {
+    "allCrackedHashes": "모든 크래킹된 해시"
+  },
+  "navigation": {
+    "backToAll": "모든 크래킹된 해시로 돌아가기",
+    "backToSource": "이전"
+  },
+  "client": {
+    "title": "크래킹된 해시 - 클라이언트 보기",
+    "description": "클라이언트의 크래킹된 해시 확인: {{clientName}}",
+    "tableTitle": "\"{{clientName}}\"의 크래킹된 해시"
+  },
+  "hashlist": {
+    "title": "크래킹된 해시 - 해시 목록 보기",
+    "description": "해시 목록의 크래킹된 해시 확인: {{hashlistName}}",
+    "tableTitle": "\"{{hashlistName}}\"의 크래킹된 해시"
+  },
+  "job": {
+    "title": "{{jobName}} 작업의 크래킹된 해시",
+    "description": "이 작업 실행에서 성공적으로 크래킹된 모든 암호 해시를 확인합니다.",
+    "tableTitle": "크래킹된 해시 - {{jobName}}",
+    "defaultName": "작업 {{id}}"
+  },
+  "columns": {
+    "originalHash": "원본 해시",
+    "domain": "도메인",
+    "username": "사용자명",
+    "password": "비밀번호",
+    "hashType": "해시 유형",
+    "actions": "동작"
+  },
+  "search": {
+    "placeholder": "데이터베이스 검색...",
+    "filterPlaceholder": "이 페이지 필터링...",
+    "button": "검색",
+    "resultsFound_other": "{{count}}개의 결과를 찾았습니다.",
+    "noResults": "검색 결과가 없습니다.",
+    "searching": "검색 중..."
+  },
+  "export": {
+    "hashPass": "해시:비밀번호",
+    "userPass": "사용자:비밀번호",
+    "username": "사용자명",
+    "password": "비밀번호",
+    "domainUser": "도메인\\사용자",
+    "domainUserPass": "도메인\\사용자:비밀번호",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "표시된 결과 내보내기",
+    "downloaded": "{{filename}} 다운로드됨",
+    "downloadFailed": "파일 다운로드 실패"
+  },
+  "tooltips": {
+    "copyHash": "해시:비밀번호 복사",
+    "copyDomain": "클릭하여 도메인 복사",
+    "copyUsername": "클릭하여 사용자명 복사",
+    "copyPassword": "클릭하여 비밀번호 복사"
+  },
+  "dialogs": {
+    "loadAllTitle": "모든 결과를 로드하시겠습니까?",
+    "loadAllMessage": "모든 {{value}}개의 결과를 로드하면 상당한 시간이 걸릴 수 있으며 성능에 영향을 줄 수 있습니다. 계속하시겠습니까?",
+    "loadingAll": "모든 결과를 로드하고 있습니다. 시간이 걸릴 수 있습니다...",
+    "cancel": "취소",
+    "loadAll": "모두 로드"
+  },
+  "pagination": {
+    "all": "전체"
+  },
+  "notifications": {
+    "copiedToClipboard": "클립보드에 복사됨",
+    "exported": "크래킹된 해시를 내보냈습니다."
+  },
+  "errors": {
+    "loadFailed": "크래킹된 해시를 로드할 수 없습니다.",
+    "loadClientFailed": "클라이언트 정보를 로드할 수 없습니다.",
+    "loadHashlistFailed": "해시 목록 정보를 로드할 수 없습니다.",
+    "loadJobFailed": "작업 정보를 로드할 수 없습니다."
+  },
+  "filter": {
+    "filteredBy": "{{param}} 필터: {{value}}"
+  },
+  "breadcrumb": "크래킹된 해시",
+  "sourceLabel": {
+    "job": "작업",
+    "client": "클라이언트",
+    "hashlist": "해시 목록"
+  }
+}

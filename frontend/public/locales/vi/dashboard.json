@@ -1,0 +1,164 @@
+{
+  "title": "Trang tổng quan",
+  "welcome": "Chào mừng bạn đến với KrakenHashes",
+  "stats": {
+    "title": "Tổng quan",
+    "totalJobs": "Tổng số công việc",
+    "activeJobs": "Công việc hoạt động",
+    "completedJobs": "Công việc hoàn thành",
+    "totalHashes": "Tổng số hash",
+    "crackedHashes": "Hash đã bẻ khóa",
+    "crackRate": "Tỷ lệ bẻ khóa",
+    "activeAgents": "Agent hoạt động",
+    "totalAgents": "Tổng số agent"
+  },
+  "recentActivity": {
+    "title": "Hoạt động gần đây",
+    "noActivity": "Không có hoạt động gần đây",
+    "viewAll": "Tất cả thông báo"
+  },
+  "quickActions": {
+    "title": "Hành động nhanh",
+    "createJob": "Tạo công việc",
+    "uploadHashlist": "Tải lên danh sách hash",
+    "viewAgents": "Xem agent"
+  },
+  "agents": {
+    "title": "Các agent của bạn",
+    "loadError": "Không thể tải agent: {{message}}",
+    "noAgents": "Không có agent được đăng ký",
+    "hashRate": "Tốc độ hash",
+    "notAvailable": "N/A",
+    "job": "Công việc",
+    "unnamedJob": "Công việc không có tên",
+    "noActiveTask": "Không có tác vụ hoạt động"
+  },
+  "pagination": {
+    "previous": "Trước",
+    "next": "Tiếp theo",
+    "pageOf": "Trang {{current}} trên {{total}}"
+  },
+  "jobs": {
+    "title": "Công việc của bạn",
+    "total": "Tổng cộng",
+    "autoRefreshOn": "Tự động",
+    "autoRefreshOff": "Tắt",
+    "lastUpdated": "Cập nhật lần cuối: {{time}}",
+    "loadError": "Không thể tải công việc: {{message}}",
+    "noJobs": "Không tìm thấy công việc nào. Tạo một công việc mới để bắt đầu."
+  },
+  "buttons": {
+    "refresh": "Làm mới",
+    "deleteFinished": "Xóa công việc đã hoàn thành"
+  },
+  "filters": {
+    "status": "Trạng thái",
+    "priority": "Ưu tiên",
+    "all": "Tất cả",
+    "searchPlaceholder": "Tìm kiếm công việc...",
+    "clear": "Xóa bộ lọc"
+  },
+  "status": {
+    "pending": "Chờ xử lý",
+    "running": "Đang chạy",
+    "paused": "Tạm dừng",
+    "completed": "Hoàn thành",
+    "failed": "Thất bại",
+    "cancelled": "Đã hủy"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Xóa công việc đã hoàn thành",
+      "message": "Bạn có chắc chắn muốn xóa tất cả công việc đã hoàn thành không? Hành động này không thể hoàn tác."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Không thể xóa công việc đã hoàn thành",
+    "deleteJobFailed": "Không thể xóa công việc",
+    "retryJobFailed": "Không thể thử lại công việc",
+    "updateJobFailed": "Không thể cập nhật công việc"
+  },
+  "hashlistOverview": {
+    "title": "Tổng quan danh sách hash",
+    "loadError": "Không thể tải danh sách hash",
+    "noHashlists": "Không tìm thấy danh sách hash nào",
+    "columns": {
+      "name": "Tên",
+      "client": "Khách hàng",
+      "status": "Trạng thái",
+      "total": "Tổng cộng",
+      "cracked": "Đã bẻ khóa",
+      "progress": "Tiến độ"
+    },
+    "status": {
+      "ready": "Sẵn sàng",
+      "error": "Lỗi",
+      "uploading": "Đang tải lên",
+      "processing": "Đang xử lý"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Không tìm thấy công việc nào",
+    "noJobsHint": "Tạo một công việc mới từ trang danh sách hash để bắt đầu.",
+    "completedJobs": "Công việc hoàn thành",
+    "columns": {
+      "jobName": "Tên công việc",
+      "hashlist": "Danh sách hash / Cài sẵn",
+      "createdBy": "Được tạo bởi",
+      "progress": "Tiến độ",
+      "keyspace": "Keyspace",
+      "cracked": "Đã bẻ khóa",
+      "agents": "Agent",
+      "priority": "Ưu tiên",
+      "maxAgents": "Agent tối đa",
+      "actions": "Hành động"
+    }
+  },
+  "kpi": {
+    "runningJobs": "Công việc đang chạy",
+    "queued": "{{count}} đang chờ",
+    "agentsOnline": "Agent trực tuyến",
+    "agentProblems": "{{count}} cần chú ý",
+    "hashRate": "Tốc độ hash",
+    "cracks24h": "Đã bẻ khóa (24h)",
+    "cracks7d": "{{count}} trong 7 ngày",
+    "crackRate": "Tỷ lệ bẻ khóa",
+    "hashlistTotals": "{{cracked}} trên {{total}} hash",
+    "failed24h": "Thất bại (24h)",
+    "completed24h": "{{count}} hoàn thành"
+  },
+  "agentHealth": {
+    "title": "Tình trạng agent",
+    "viewAll": "Tất cả agent",
+    "utilization": "Sử dụng GPU",
+    "temperature": "GPU nóng nhất",
+    "lastSeen": "Hoạt động lần cuối {{when}}",
+    "warnings": {
+      "error": "Lỗi",
+      "offline": "Ngoại tuyến",
+      "update_failed": "Cập nhật thất bại",
+      "stale_heartbeat": "Không có heartbeat",
+      "gpu_hot": "GPU nóng"
+    }
+  },
+  "recentCracks": {
+    "title": "Bẻ khóa gần đây",
+    "viewAll": "Tất cả hash đã bẻ khóa",
+    "empty": "Chưa bẻ khóa được gì",
+    "copy": "Sao chép plaintext",
+    "copied": "Đã sao chép"
+  },
+  "activeJobs": {
+    "title": "Công việc hoạt động",
+    "showing": "Hiển thị 10 trên {{total}}",
+    "viewAll": "Tất cả công việc",
+    "empty": "Không có gì đang chạy",
+    "emptyHint": "Bắt đầu một công việc từ danh sách hash.",
+    "goHashlists": "Đi đến danh sách hash"
+  },
+  "welcomeUser": "Chào mừng bạn trở lại, {{name}}",
+  "autoRefresh": {
+    "on": "Trực tiếp",
+    "off": "Tạm dừng"
+  }
+}

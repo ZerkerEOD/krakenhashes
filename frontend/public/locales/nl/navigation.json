@@ -9,6 +9,7 @@
     "wordlists": "Woordenlijsten",
     "rules": "Regels",
     "clientManagement": "Klantbeheer",
+    "teams": "Teams",
     "analytics": "Analyse",
     "about": "Over",
     "logout": "Uitloggen"
@@ -17,21 +18,35 @@
     "title": "Beheer",
     "settings": "Beheerinstellingen",
     "userManagement": "Gebruikersbeheer",
+    "customCharsets": "Aangepaste karaktersets",
     "presetJobs": "Vooringestelde taken",
     "jobWorkflows": "Taakworkflows",
     "diagnostics": "Diagnostiek",
     "auditLog": "Auditlogboek",
     "jobAnalytics": "Taakanalyse",
-    "cloudFleet": "Cloud Fleet"
+    "teamManagement": "Teambeheer",
+    "cloudFleet": "Cloud Fleet",
+    "binaries": "Binaries",
+    "hashTypes": "Hashtypen",
+    "vouchers": "Vouchers",
+    "clients": "Klanten",
+    "teams": "Teams"
   },
   "userMenu": {
     "userSettings": "Gebruikersinstellingen",
+    "savedCharsets": "Opgeslagen karaktersets",
     "logout": "Uitloggen",
     "user": "Gebruiker"
   },
   "aria": {
     "toggleDrawer": "Zijbalk in-/uitklappen",
     "mainNavigation": "Hoofdnavigatie",
-    "adminNavigation": "Beheernavigatie"
+    "adminNavigation": "Beheernavigatie",
+    "downloadCaCert": "CA-certificaat downloaden"
+  },
+  "groups": {
+    "resources": "Bronnen",
+    "peopleAccess": "Personen en toegang",
+    "operations": "Operations"
   }
 }

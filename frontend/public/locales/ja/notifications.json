@@ -1,0 +1,204 @@
+{
+  "title": "通知",
+  "connected": "通知",
+  "disconnected": "再接続中...",
+  "empty": "通知はありません",
+  "markAllRead": "すべて既読にする",
+  "markRead": "既読にする",
+  "viewAll": "すべての通知を表示",
+  "deleteSelected": "選択中の{{count}}件を削除",
+  "selectAll": "すべて選択",
+  "aria": {
+    "bellButton": "通知を表示"
+  },
+  "center": {
+    "title": "通知センター",
+    "description": "通知を表示・管理できます"
+  },
+  "filters": {
+    "category": "カテゴリ",
+    "status": "ステータス",
+    "allCategories": "すべてのカテゴリ",
+    "all": "すべて",
+    "unread": "未読",
+    "read": "既読"
+  },
+  "categories": {
+    "job": "ジョブ",
+    "agent": "エージェント",
+    "security": "セキュリティ",
+    "system": "システム"
+  },
+  "types": {
+    "header": "通知タイプ",
+    "job_started": "ジョブ開始",
+    "job_completed": "ジョブ完了",
+    "job_failed": "ジョブ失敗",
+    "first_crack": "最初のクラック",
+    "task_completed_with_cracks": "タスク完了レポート",
+    "agent_offline": "エージェントオフライン",
+    "agent_error": "エージェントエラー",
+    "security_suspicious_login": "疑わしいログイン",
+    "security_mfa_disabled": "二要素認証無効化",
+    "security_password_changed": "パスワード変更",
+    "webhook_failure": "Webhook失敗"
+  },
+  "typeDescriptions": {
+    "job_started": "ジョブの実行が開始される際",
+    "job_completed": "ジョブが正常に完了する際",
+    "job_failed": "ジョブが失敗する際",
+    "first_crack": "最初のハッシュがクラックされた際（即座に通知）",
+    "task_completed_with_cracks": "タスクが完了する際",
+    "agent_offline": "エージェントがオフラインになった際（バッファ期間後）",
+    "agent_error": "エージェントが重大エラーを報告する際",
+    "security_suspicious_login": "新しい場所またはデバイスからのログイン",
+    "security_mfa_disabled": "二要素認証がオフにされた際（必須）",
+    "security_password_changed": "パスワードが変更された際（必須）",
+    "webhook_failure": "Webhook配信が失敗した際"
+  },
+  "channels": {
+    "inApp": "アプリ内",
+    "email": "メール",
+    "webhook": "Webhook"
+  },
+  "settings": {
+    "title": "通知設定",
+    "description": "通知の受け取り方法と受け取り時期を設定できます",
+    "enabledChannels": "有効なチャンネル",
+    "taskReportMode": "通知のタイミング",
+    "taskReportModeOnlyIfCracks": "クラックが見つかった場合のみ",
+    "taskReportModeAlways": "常に通知",
+    "modeUpdated": "タスクレポートモードが更新されました",
+    "onlyIfCracks": "クラックが見つかった場合のみ",
+    "always": "常に通知",
+    "mandatory": "必須",
+    "mandatoryDescription": "この通知は無効にできません",
+    "emailNotConfigured": "メールゲートウェイが設定されていません",
+    "emailNotConfiguredWarning": "メールゲートウェイが設定されていません。メール通知は現在利用できません。",
+    "noWebhooksConfigured": "アクティブなWebhookが設定されていません",
+    "toggleAll": "すべて切り替える"
+  },
+  "webhooks": {
+    "title": "Webhook設定",
+    "description": "Webhook統合を管理できます",
+    "name": "名前",
+    "url": "URL",
+    "secret": "シークレット",
+    "secretPlaceholder": "Webhookシークレット（任意）",
+    "isActive": "アクティブ",
+    "notificationTypes": "通知タイプ",
+    "allTypes": "すべてのタイプ",
+    "retryCount": "再試行回数",
+    "timeout": "タイムアウト（秒）",
+    "lastTriggered": "最後のトリガー",
+    "lastSuccess": "最後の成功",
+    "lastError": "最後のエラー",
+    "totalSent": "送信合計",
+    "totalFailed": "失敗合計",
+    "create": "Webhookを作成",
+    "edit": "Webhookを編集",
+    "delete": "Webhookを削除",
+    "deleteConfirm": "このWebhookを削除してもよろしいですか？",
+    "test": "Webhookをテスト",
+    "testUrl": "テストURL",
+    "testSuccess": "Webhookテストが成功しました",
+    "testFailed": "Webhookテストが失敗しました",
+    "secretExists": "シークレットが設定されています。現在の値を保つには空のままにするか、新しい値を入力して置き換えてください。",
+    "invalidJson": "無効なJSON形式",
+    "noWebhooks": "Webhookが設定されていません。Webhookで通知を受け取るには作成してください。",
+    "updated": "Webhookが更新されました",
+    "created": "Webhookが作成されました",
+    "deleted": "Webhookが削除されました",
+    "secretEditHelp": "既存のシークレットを保つには空のままにしてください",
+    "validation": {
+      "nameAndUrl": "名前とURLは必須です"
+    }
+  },
+  "admin": {
+    "title": "通知設定",
+    "globalWebhook": {
+      "title": "グローバルWebhook",
+      "description": "すべての通知向けにシステム全体のWebhookを設定できます",
+      "enabled": "グローバルWebhookを有効にする",
+      "url": "Webhook URL",
+      "secret": "Webhookシークレット",
+      "customHeaders": "カスタムヘッダー（JSON）",
+      "test": "グローバルWebhookをテスト",
+      "saved": "グローバルWebhook設定が保存されました"
+    },
+    "agentOffline": {
+      "title": "エージェントオフラインバッファ",
+      "description": "エージェントオフライン通知を送信するまでの待機時間を設定できます",
+      "bufferMinutes": "バッファ（分）",
+      "bufferHelp": "エージェントがオフラインになったことを通知するまでこの分数待機します",
+      "saved": "エージェントオフライン設定が保存されました"
+    },
+    "userWebhooks": {
+      "title": "ユーザーWebhook",
+      "description": "すべてのユーザー設定Webhookを表示できます",
+      "username": "ユーザー名",
+      "email": "メール",
+      "empty": "ユーザーWebhookが設定されていません"
+    }
+  },
+  "auditLog": {
+    "title": "監査ログ",
+    "description": "すべてのユーザーのセキュリティおよび重大イベント",
+    "noData": "監査ログエントリが見つかりません",
+    "columns": {
+      "time": "時刻",
+      "severity": "重大度",
+      "eventType": "イベントタイプ",
+      "user": "ユーザー",
+      "title": "タイトル",
+      "ip": "IPアドレス"
+    },
+    "filters": {
+      "eventType": "イベントタイプ",
+      "severity": "重大度",
+      "startDate": "開始日",
+      "endDate": "終了日",
+      "all": "すべて",
+      "clear": "フィルターをクリア"
+    },
+    "severity": {
+      "critical": "重大",
+      "warning": "警告",
+      "info": "情報"
+    },
+    "details": {
+      "message": "メッセージ",
+      "ipAddress": "IPアドレス",
+      "userAgent": "ユーザーエージェント",
+      "source": "ソース",
+      "data": "追加データ"
+    },
+    "errors": {
+      "loadFailed": "監査ログの読み込みに失敗しました"
+    },
+    "system": "システム"
+  },
+  "systemAlert": {
+    "title": "システムアラート",
+    "dismiss": "閉じる",
+    "dismissAll": "すべて閉じる"
+  },
+  "errors": {
+    "fetchFailed": "通知の読み込みに失敗しました",
+    "markReadFailed": "通知を既読にするのに失敗しました",
+    "deleteFailed": "通知の削除に失敗しました",
+    "saveFailed": "設定の保存に失敗しました",
+    "webhookCreateFailed": "Webhookの作成に失敗しました",
+    "webhookUpdateFailed": "Webhookの更新に失敗しました",
+    "webhookDeleteFailed": "Webhookの削除に失敗しました",
+    "webhookSaveFailed": "Webhookの保存に失敗しました"
+  },
+  "common": {
+    "actions": "アクション",
+    "active": "アクティブ",
+    "inactive": "非アクティブ",
+    "cancel": "キャンセル",
+    "save": "保存",
+    "delete": "削除"
+  }
+}

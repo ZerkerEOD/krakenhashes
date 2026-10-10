@@ -1,0 +1,219 @@
+{
+  "common": {
+    "note": "Generic label, likely used as a callout/alert heading (e.g. 'Note:'), not a verb.",
+    "default": "Generic badge/value meaning 'this is the default option', not a 'reset to default' button.",
+    "all": "Generic filter/dropdown option meaning no filter is applied (show everything), not a 'select all' action.",
+    "none": "Generic value meaning 'nothing selected/configured', not a negative reply.",
+    "on": "Toggle-state label (power/enabled state), not the preposition 'on'.",
+    "off": "Toggle-state label (power/disabled state), not the preposition 'off'.",
+    "never": "Generic value meaning 'this never expires/never happened' (e.g. in a date field), not an imperative."
+  },
+  "users": {
+    "columns": {
+      "providerLocal": "Shown in the Provider column for a user who signs in with username/password rather than SSO.",
+      "mfa": "Column header; MFA = Multi-Factor Authentication status for the user."
+    },
+    "roles": {
+      "system": "Role label for an automated/internal system account, not a reference to system settings."
+    },
+    "validation": {
+      "passwordMinLength": "Fragment concatenated into passwordMustContain's {{requirements}} list (e.g. 'at least 8 characters'); keep it a phrase that reads naturally in a list.",
+      "passwordUppercase": "Fragment concatenated into passwordMustContain's {{requirements}} list.",
+      "passwordLowercase": "Fragment concatenated into passwordMustContain's {{requirements}} list.",
+      "passwordNumber": "Fragment concatenated into passwordMustContain's {{requirements}} list.",
+      "passwordSpecial": "Fragment concatenated into passwordMustContain's {{requirements}} list.",
+      "passwordMustContain": "{{requirements}} is a comma-joined list built from the passwordMinLength/Uppercase/Lowercase/Number/Special fragments above."
+    },
+    "dialogs": {
+      "deleteUser": {
+        "confirmation": "Contains an HTML <strong> tag around {{username}}; keep the tag, translate only the surrounding words."
+      }
+    },
+    "detail": {
+      "mfaEnabled": "{{types}} lists the enabled MFA method names (e.g. 'Authenticator, Email'), not a data type.",
+      "created": "Refers to when the API key was created, not account/user creation.",
+      "lastUsed": "Refers to when the API key was last used, not general last activity."
+    }
+  },
+  "clients": {
+    "columns": {
+      "cracked": "Column header; shows the count of hashes already cracked for this client (not an action to mark something cracked)."
+    },
+    "form": {
+      "cloudInherit": "{{state}} is filled from cloudEnabledWord/cloudDisabledWord ('enabled'/'disabled'); {{amount}} is a dollar budget number; {{period}} is a billing period word (e.g. 'month').",
+      "cloudEnabledWord": "Lowercase fragment inserted mid-sentence into cloudInherit as the {{state}} value.",
+      "cloudDisabledWord": "Lowercase fragment inserted mid-sentence into cloudInherit as the {{state}} value."
+    },
+    "detail": {
+      "columns": {
+        "total": "Column header for the client's total hash count (key is named 'total' but the shown label is 'Hashes')."
+      },
+      "excluded": "Status value shown next to 'Global potfile' / 'Client potfile' indicating this client's cracks are NOT stored there.",
+      "included": "Status value shown next to 'Global potfile' / 'Client potfile' indicating this client's cracks ARE stored there.",
+      "stats": {
+        "active": "{{count}} active — qualifier shown next to the Jobs stat, counting currently-running jobs."
+      }
+    },
+    "bulkAssign": {
+      "fallbackTeamName": "Generic lowercase fallback word used in place of a real team name when the name isn't available; fits mid-sentence."
+    }
+  },
+  "wordlists": {
+    "filterForm": {
+      "regexLabel": "'RE2' is the name of the regex engine used (Google's RE2) — do not translate it.",
+      "requiredClasses": "'Character classes' = categories of characters (uppercase, lowercase, digit, special) listed just below, not programming or school classes.",
+      "previewLabel": "{{countDisplay}} is the estimated number of matching words; {{rateDisplay}} is the percentage of the sampled wordlist that matched."
+    },
+    "filtered": {
+      "plaintextChip": "Chip meaning the wordlist file itself is uncompressed/plain-text format — unrelated to a cracked 'plaintext' password.",
+      "regeneratingTooltip": "'Parent' here means the same thing as 'source wordlist' elsewhere — the original list this filtered list was derived from."
+    },
+    "dialogs": {
+      "delete": {
+        "cascadeTitle": "'Cascade deletion' means deleting this wordlist also deletes everything that depends on it (jobs, preset jobs, workflow steps), listed below."
+      }
+    }
+  },
+  "rules": {
+    "tabs": {
+      "john": "Short tab label for 'John the Ripper' (a password-cracking tool) — not the first name John."
+    },
+    "status": {
+      "ready": "Status chip meaning the rule file finished processing and can be used in jobs, distinct from 'Verified' (syntax-checked)."
+    },
+    "dialogs": {
+      "delete": {
+        "cascadeTitle": "'Cascade deletion' means deleting this rule file also deletes everything that depends on it (jobs, preset jobs, workflow steps), listed below."
+      }
+    }
+  },
+  "presetJobs": {
+    "columns": {
+      "keyspace": "Keyspace = the total number of password candidates this job will try (a hashcat term), not a storage/disk space."
+    },
+    "form": {
+      "fields": {
+        "cloudBurstEnabled": "'Cloud burst' = temporarily renting cloud GPU instances when the on-prem agent fleet is full.",
+        "mask": "Same hashcat 'mask' concept as maskPattern above — just the field label used in this attack mode's section."
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Hashcat attack-mode name (mode 0: use wordlist words unmodified) — not the geometric/direct sense of 'straight'."
+        },
+        "combination": {
+          "name": "Hashcat attack-mode name (mode 1: concatenate words from two wordlists) — not a general 'combination'."
+        }
+      },
+      "helperText": {
+        "maskPatternExamples": "?l, ?u, ?d, ?s, ?a are literal hashcat mask syntax tokens — keep them unchanged; only the descriptive words may be localized.",
+        "cloudAllowCommunityHosts": "Vast.ai, RunPod, and AWS are third-party cloud GPU providers' brand names — keep untranslated.",
+        "priority": "{{maxPriority}} is the admin-configured maximum priority value (from System Settings), not a fixed number."
+      }
+    }
+  },
+  "workflows": {
+    "canInterrupt": "Value shown in the Priority Mode column when this workflow may interrupt lower-priority jobs (pairs with 'Normal').",
+    "normal": "Value shown in the Priority Mode column for a workflow that cannot interrupt other jobs (pairs with 'Can Interrupt').",
+    "loopbackAllEligible": "Badge/value meaning every eligible step in this workflow has loopback re-runs turned on.",
+    "columns": {
+      "highPriority": "Column header for the workflow's priority/interrupt mode; shows 'Normal' or 'Can Interrupt'.",
+      "loopback": "'Loopback' = a feature that re-runs mutation steps against only newly-cracked passwords until no more are found."
+    }
+  },
+  "binaryManagement": {
+    "default": "Badge/label marking which binary is currently the default (not a 'reset to default' button).",
+    "sourceUpload": "Value shown in the Source column meaning this binary was added by file upload (not an 'Upload' button)."
+  },
+  "diagnostics": {
+    "runtime": "Section heading for Go runtime stats (CPUs, goroutines, memory) — not a duration/uptime value.",
+    "goroutines": "'Goroutines' = Go language's lightweight concurrent threads, a runtime metric (not a typo for 'routines').",
+    "heap": "'Heap' = memory allocated by the Go runtime's heap, as distinct from total OS memory ('System' below).",
+    "system": "Total OS-reported memory, as distinct from the Go runtime 'Heap' above.",
+    "gcRuns": "'GC Runs' = number of Go garbage-collector cycles (an automatic memory-cleanup metric).",
+    "connections": "Active PostgreSQL database connection count (not network or agent connections).",
+    "connected": "Count of currently-connected agents, distinct from the database 'Connections' above.",
+    "withDebugStatus": "Count of agents currently running with debug logging enabled.",
+    "level": "Current server log verbosity level (e.g. Debug, Info, Warn).",
+    "buffer": "Size/count of an agent's in-memory log buffer before it's flushed to a file.",
+    "filtered": "Short qualifier appended to the 'Showing X of Y entries' message, e.g. '(filtered)', when a log-level filter is active.",
+    "truncated": "Short qualifier appended to the 'Showing X of Y entries' message, e.g. '(truncated)', when log output was cut off.",
+    "total": "Sum row across all log categories (Backend + Nginx + PostgreSQL) in the log-size table.",
+    "nginx": "'Nginx' is the web server's product name — keep untranslated (same for 'PostgreSQL').",
+    "confirmPurgeLogs": "{{dirLabel}} is filled from 'allServerLogs' or 'directoryLogs' (e.g. 'all server logs' or 'nginx logs').",
+    "serverDebugModeTitle": "{{action}} is filled with 'Enable' or 'Disable' from the keys below, forming e.g. 'Enable Server Debug Mode'."
+  },
+  "authSettings": {
+    "accountSecurity": {
+      "jwtExpiry": "'JWT' = JSON Web Token, the access-token format; keep the acronym untranslated."
+    },
+    "teams": {
+      "enableHelper": "'Default Team' is the system's built-in fallback team (a proper name), not a generic description."
+    },
+    "webauthn": {
+      "rpId": "'Relying Party' is a fixed WebAuthn/FIDO specification term for the service doing the authenticating, not a generic phrase."
+    }
+  },
+  "ssoSettings": {
+    "providers": {
+      "acsUrl": "'ACS' = SAML Assertion Consumer Service, the endpoint that receives the SSO response (a fixed technical term)."
+    },
+    "ldapConfig": {
+      "baseDn": "'DN' = LDAP Distinguished Name, a technical identifier format, not a typo.",
+      "useStartTls": "'StartTLS' is the protocol name for upgrading a plain LDAP connection to encrypted — keep it untranslated."
+    },
+    "samlConfig": {
+      "spEntityId": "'SP' = Service Provider (this application); the 'IdP' fields below = Identity Provider (the external SSO system)."
+    },
+    "warnings": {
+      "ephemeralKeyEnvExample": "Literal .env file syntax; keep 'SSO_ENCRYPTION_KEY=' and the <angle-bracket> placeholder syntax as-is."
+    }
+  },
+  "emailSettings": {
+    "provider": {
+      "labels": {
+        "domain": "The sending domain registered with the email provider (e.g. Mailgun), not a generic company/website domain."
+      },
+      "helpers": {
+        "mailgunFromEmail": "'yourdomain' is illustrative example text, not a real placeholder — keep it as a generic example."
+      }
+    },
+    "templates": {
+      "menuItems": {
+        "firstCrack": "Notification template sent when the very first password in a job/hashlist gets cracked."
+      }
+    }
+  },
+  "systemSettings": {
+    "agentOverflow": {
+      "priorityFifoMode": "'FIFO' = First In, First Out — the oldest job is served first; a scheduling term often left untranslated.",
+      "tooltip": "'max_agents' refers to the literal Max Agents setting/column name (snake_case used intentionally), not a typo."
+    },
+    "potfile": {
+      "passwordsEvery": "Sentence fragment combined with numbers elsewhere to read e.g. '500 passwords every 60 seconds' — not a complete phrase on its own."
+    },
+    "priorityInfo": {
+      "large": "Intentionally informal/humorous tone ('ridiculous workload') — keep playful if natural in the target language, or soften if not."
+    }
+  },
+  "jobExecution": {
+    "chunking": {
+      "defaultChunkDurationHelper": "'scheduler-v2' is the internal name of the task-scheduling subsystem — keep it as-is, don't translate.",
+      "minChunkSecondsHelper": "'Wall time' = real-world elapsed time (wall-clock time), as opposed to CPU time."
+    },
+    "jobControl": {
+      "keyspaceTimeoutHelper": "'--keyspace' and '--total-candidates' are literal hashcat command-line flag names — do not translate them."
+    },
+    "scheduler": {
+      "taskStartupGraceHelper": "'Autotune' = hashcat's automatic GPU kernel-tuning step at startup, a technical term often left untranslated."
+    },
+    "potfile": {
+      "enableClientPotfilesHelper": "'Pot-file' here is the same concept as 'Potfile' written elsewhere in this file — spelling varies in the source, no difference in meaning."
+    },
+    "loopback": {
+      "title": "Heading for the loopback feature: re-running mutation steps against only newly-cracked passwords until no more are found."
+    },
+    "scheduling": {
+      "jobInterruptionHelper": "'Preemption' = forcibly interrupting a lower-priority running job to free up its agents (a scheduling term)."
+    }
+  }
+}

@@ -14,7 +14,8 @@
   },
   "recentActivity": {
     "title": "Activité récente",
-    "noActivity": "Aucune activité récente"
+    "noActivity": "Aucune activité récente",
+    "viewAll": "Toutes les notifications"
   },
   "quickActions": {
     "title": "Actions rapides",
@@ -112,5 +113,52 @@
       "maxAgents": "Agents max.",
       "actions": "Actions"
     }
+  },
+  "kpi": {
+    "runningJobs": "Jobs en cours",
+    "queued": "{{count}} en attente",
+    "agentsOnline": "Agents en ligne",
+    "agentProblems": "{{count}} nécessitent de l'attention",
+    "hashRate": "Hash rate",
+    "cracks24h": "Cassés (24h)",
+    "cracks7d": "{{count}} en 7 jours",
+    "crackRate": "Taux de cassage",
+    "hashlistTotals": "{{cracked}} sur {{total}} hashes",
+    "failed24h": "Échoués (24h)",
+    "completed24h": "{{count}} terminés"
+  },
+  "agentHealth": {
+    "title": "Santé des agents",
+    "viewAll": "Tous les agents",
+    "utilization": "Utilisation du GPU",
+    "temperature": "GPU le plus chaud",
+    "lastSeen": "Vu pour la dernière fois {{when}}",
+    "warnings": {
+      "error": "Erreur",
+      "offline": "Hors ligne",
+      "update_failed": "Mise à jour échouée",
+      "stale_heartbeat": "Pas de heartbeat",
+      "gpu_hot": "GPU surchauffé"
+    }
+  },
+  "recentCracks": {
+    "title": "Cassages récents",
+    "viewAll": "Tous les hashes cassés",
+    "empty": "Rien n'a été cassé jusqu'à présent",
+    "copy": "Copier le mot de passe",
+    "copied": "Copié"
+  },
+  "activeJobs": {
+    "title": "Jobs actifs",
+    "showing": "Affichage de 10 sur {{total}}",
+    "viewAll": "Tous les Jobs",
+    "empty": "Rien ne s'exécute",
+    "emptyHint": "Démarrer un Job depuis une Hashlist.",
+    "goHashlists": "Aller aux Hashlists"
+  },
+  "welcomeUser": "Bienvenue, {{name}}",
+  "autoRefresh": {
+    "on": "En direct",
+    "off": "En pause"
   }
 }

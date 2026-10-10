@@ -1,0 +1,3097 @@
+{
+  "title": "Cài đặt quản trị",
+  "sections": {
+    "general": "Cài đặt chung",
+    "authentication": "Xác thực",
+    "email": "Cài đặt email",
+    "security": "Bảo mật",
+    "sso": "Đăng nhập một lần",
+    "monitoring": "Giám sát"
+  },
+  "tabs": {
+    "emailSettings": "Cài đặt email",
+    "authenticationSettings": "Cài đặt xác thực",
+    "ssoSettings": "Cài đặt SSO",
+    "binaryManagement": "Quản lý binary",
+    "systemSettings": "Cài đặt hệ thống",
+    "clientSettings": "Cài đặt khách hàng",
+    "hashTypes": "Loại hash",
+    "jobExecution": "Thực thi công việc",
+    "monitoring": "Giám sát",
+    "agentDownloads": "Tải xuống agent",
+    "notifications": "Thông báo",
+    "cloudProvisioning": "Cấp phát đám mây",
+    "serverCertificate": "Chứng chỉ số máy chủ"
+  },
+  "common": {
+    "cancel": "Hủy",
+    "create": "Tạo",
+    "edit": "Chỉnh sửa",
+    "delete": "Xóa",
+    "save": "Lưu",
+    "saveChanges": "Lưu thay đổi",
+    "copyToClipboard": "Sao chép vào clipboard",
+    "never": "Không bao giờ",
+    "invalidDate": "Ngày không hợp lệ",
+    "all": "Tất cả",
+    "yes": "Có",
+    "no": "Không",
+    "note": "Ghi chú",
+    "default": "Mặc định",
+    "on": "Bật",
+    "off": "Tắt",
+    "none": "Không có",
+    "unlimited": "Không giới hạn",
+    "close": "Đóng",
+    "unknownError": "Lỗi không xác định",
+    "dialogs": {
+      "confirmDeleteNamed": "Bạn có chắc chắn muốn xóa \"{{name}}\"?"
+    },
+    "download": "Tải xuống",
+    "confirm": "Xác nhận"
+  },
+  "users": {
+    "title": "Quản lý người dùng",
+    "description": "Quản lý các tài khoản người dùng và quyền hạn",
+    "addUser": "Thêm người dùng",
+    "createUser": "Tạo người dùng",
+    "columns": {
+      "username": "Tên người dùng",
+      "email": "Email",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "createdAt": "Ngày tạo",
+      "lastLogin": "Lần đăng nhập cuối",
+      "actions": "Hành động",
+      "provider": "Nhà cung cấp",
+      "providerLocal": "Cục bộ",
+      "mfa": "MFA",
+      "apiKey": "Khóa API",
+      "lastApiUse": "Lần sử dụng API cuối"
+    },
+    "roles": {
+      "admin": "Quản trị viên",
+      "user": "Người dùng",
+      "system": "Hệ thống"
+    },
+    "status": {
+      "active": "Hoạt động",
+      "pending": "Chờ phê duyệt",
+      "disabled": "Bị vô hiệu hóa",
+      "locked": "Bị khóa"
+    },
+    "actions": {
+      "edit": "Chỉnh sửa người dùng",
+      "delete": "Xóa người dùng",
+      "approve": "Phê duyệt",
+      "disable": "Vô hiệu hóa",
+      "enable": "Kích hoạt",
+      "unlock": "Mở khóa",
+      "resetPassword": "Đặt lại mật khẩu",
+      "disableMfa": "Vô hiệu hóa MFA",
+      "revokeApiKey": "Thu hồi khóa API",
+      "cannotDeleteSystem": "Không thể xóa người dùng hệ thống",
+      "terminateSession": "Kết thúc phiên",
+      "terminateAllSessions": "Kết thúc tất cả phiên"
+    },
+    "apiKey": {
+      "none": "Không có"
+    },
+    "validation": {
+      "usernameRequired": "Tên người dùng là bắt buộc",
+      "emailRequired": "Email là bắt buộc",
+      "emailInvalid": "Định dạng email không hợp lệ",
+      "passwordRequired": "Mật khẩu là bắt buộc",
+      "passwordMinLength": "ít nhất {{value}} ký tự",
+      "passwordUppercase": "một chữ cái in hoa",
+      "passwordLowercase": "một chữ cái thường",
+      "passwordNumber": "một chữ số",
+      "passwordSpecial": "một ký tự đặc biệt",
+      "passwordMustContain": "Mật khẩu phải chứa {{requirements}}",
+      "confirmPasswordRequired": "Vui lòng xác nhận mật khẩu",
+      "passwordsMismatch": "Mật khẩu không khớp"
+    },
+    "errors": {
+      "loadFailed": "Không thể tải người dùng. Vui lòng thử làm mới.",
+      "loadDetailsFailed": "Không thể tải chi tiết người dùng",
+      "loadSessionsFailed": "Không thể tải phiên",
+      "loadLoginAttemptsFailed": "Không thể tải các lần đăng nhập",
+      "loadApiKeyFailed": "Không thể tải thông tin khóa API",
+      "createFailed": "Không thể tạo người dùng",
+      "updateFailed": "Không thể cập nhật người dùng",
+      "deleteFailed": "Không thể xóa người dùng",
+      "enableFailed": "Không thể kích hoạt người dùng",
+      "disableFailed": "Không thể vô hiệu hóa người dùng",
+      "unlockFailed": "Không thể mở khóa tài khoản",
+      "reasonRequired": "Vui lòng cung cấp lý do vô hiệu hóa người dùng này",
+      "passwordResetFailed": "Không thể đặt lại mật khẩu",
+      "mfaDisableFailed": "Không thể vô hiệu hóa MFA",
+      "accountStatusFailed": "Không thể cập nhật trạng thái tài khoản",
+      "terminateSessionFailed": "Không thể kết thúc phiên",
+      "terminateAllSessionsFailed": "Không thể kết thúc tất cả phiên",
+      "revokeApiKeyFailed": "Không thể thu hồi khóa API",
+      "userNotFound": "Không tìm thấy người dùng"
+    },
+    "messages": {
+      "createSuccess": "Người dùng đã được tạo thành công",
+      "updateSuccess": "Chi tiết người dùng đã được cập nhật thành công",
+      "deleteSuccess": "Người dùng đã được xóa thành công",
+      "enableSuccess": "Người dùng đã được kích hoạt thành công",
+      "disableSuccess": "Người dùng đã được vô hiệu hóa thành công",
+      "passwordResetSuccess": "Mật khẩu đã được đặt lại thành công!",
+      "passwordCopied": "Mật khẩu đã được sao chép vào clipboard",
+      "mfaDisableSuccess": "MFA đã được vô hiệu hóa thành công",
+      "accountDisabled": "Tài khoản người dùng bị vô hiệu hóa",
+      "accountEnabled": "Tài khoản người dùng được kích hoạt",
+      "accountUnlocked": "Tài khoản người dùng được mở khóa",
+      "sessionTerminated": "Phiên đã được kết thúc thành công",
+      "allSessionsTerminated_other": "Đã kết thúc {{count}} phiên thành công",
+      "apiKeyRevoked": "Khóa API đã được thu hồi thành công"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Tạo người dùng mới",
+        "password": "Mật khẩu",
+        "confirmPassword": "Xác nhận mật khẩu",
+        "roleHelperText": "Chọn vai trò của người dùng trong hệ thống"
+      },
+      "disableUser": {
+        "title": "Vô hiệu hóa tài khoản người dùng",
+        "description": "Vui lòng cung cấp lý do vô hiệu hóa tài khoản người dùng này. Điều này sẽ được ghi lại cho mục đích kiểm toán.",
+        "reasonLabel": "Lý do vô hiệu hóa",
+        "reasonPlaceholder": "ví dụ: Tài khoản bị xâm phạm, Vi phạm điều khoản, Yêu cầu người dùng, v.v.",
+        "disableAccount": "Vô hiệu hóa tài khoản"
+      },
+      "deleteUser": {
+        "title": "Xóa tài khoản người dùng",
+        "warning": "Hành động này không thể hoàn tác. Người dùng sẽ bị xóa vĩnh viễn khỏi hệ thống.",
+        "confirmation": "Bạn có chắc chắn muốn xóa người dùng <strong>{{username}}</strong>?",
+        "dataNote": "Tất cả dữ liệu liên quan sẽ được giữ lại, nhưng người dùng sẽ không thể đăng nhập nữa."
+      },
+      "resetPassword": {
+        "title": "Đặt lại mật khẩu người dùng",
+        "generateTemporary": "Tạo mật khẩu tạm thời",
+        "newPassword": "Mật khẩu mới",
+        "passwordHelperText": "Phải có ít nhất 8 ký tự"
+      },
+      "disableMfa": {
+        "title": "Vô hiệu hóa MFA",
+        "confirmation": "Bạn có chắc chắn muốn vô hiệu hóa MFA cho người dùng này không? Họ sẽ cần phải thiết lập lại nếu được yêu cầu."
+      },
+      "terminateSession": {
+        "title": "Kết thúc phiên?",
+        "description": "Điều này sẽ đăng xuất người dùng khỏi thiết bị này. Người dùng sẽ cần phải đăng nhập lại để tiếp tục sử dụng ứng dụng.",
+        "terminate": "Kết thúc"
+      },
+      "terminateAllSessions": {
+        "title": "Kết thúc tất cả phiên?",
+        "description": "Điều này sẽ đăng xuất người dùng khỏi tất cả các thiết bị, bao gồm phiên hiện tại của họ. Người dùng sẽ cần phải đăng nhập lại. Hành động này không thể hoàn tác.",
+        "warning": "Điều này bao gồm bất kỳ phiên làm việc hoạt động nào!",
+        "terminateAll": "Kết thúc tất cả"
+      },
+      "revokeApiKey": {
+        "title": "Thu hồi khóa API của người dùng?",
+        "warning": "Điều này sẽ ngay lập tức vô hiệu hóa quyền truy cập API cho người dùng này. Bất kỳ ứng dụng nào sử dụng khóa này sẽ không hoạt động.",
+        "confirmation": "Bạn có chắc chắn muốn thu hồi khóa API của người dùng này không?"
+      }
+    },
+    "detail": {
+      "title": "Chi tiết người dùng",
+      "backToUsers": "Quay lại danh sách người dùng",
+      "userInformation": "Thông tin người dùng",
+      "userId": "ID người dùng",
+      "systemUserReadOnly": "Không thể sửa đổi người dùng hệ thống",
+      "accountStatus": "Trạng thái tài khoản",
+      "accountStatusLabel": "Trạng thái tài khoản",
+      "enabled": "Được kích hoạt",
+      "disabled": "Bị vô hiệu hóa",
+      "noReasonProvided": "Không có lý do nào được cung cấp",
+      "lockStatus": "Trạng thái khóa",
+      "lockedUntil": "Bị khóa cho đến {{date}}",
+      "notLocked": "Không bị khóa",
+      "mfaStatus": "Trạng thái MFA",
+      "mfaEnabled": "Được kích hoạt ({{types}})",
+      "mfaDisabled": "Bị vô hiệu hóa",
+      "apiKeyManagement": "Quản lý khóa API",
+      "apiKeyStatus": "Trạng thái khóa API",
+      "noApiKeyGenerated": "Không có khóa API nào được tạo",
+      "created": "Tạo lúc",
+      "lastUsed": "Lần sử dụng cuối",
+      "apiKeySecurityNote": "Quản trị viên có thể thu hồi khóa API nhưng không thể xem khóa plaintext vì lý do bảo mật.",
+      "activityInformation": "Thông tin hoạt động",
+      "passwordChanged": "Mật khẩu đã thay đổi",
+      "failedLoginAttempts": "Lần đăng nhập thất bại",
+      "attemptsCount_other": "{{count}} lần",
+      "disabledAt": "Bị vô hiệu hóa lúc",
+      "activeSessions": "Phiên hoạt động",
+      "noActiveSessions": "Không có phiên hoạt động nào",
+      "loginHistory": "Lịch sử đăng nhập",
+      "noLoginAttempts": "Không tìm thấy lần đăng nhập nào",
+      "temporaryPassword": "Mật khẩu tạm thời",
+      "sharePasswordSecurely": "Vui lòng chia sẻ mật khẩu này một cách an toàn với người dùng.",
+      "sessions": {
+        "ipAddress": "Địa chỉ IP",
+        "deviceBrowser": "Thiết bị / Trình duyệt",
+        "lastActive": "Lần hoạt động cuối"
+      },
+      "loginAttempts": {
+        "timestamp": "Dấu thời gian",
+        "success": "Thành công",
+        "failed": "Thất bại",
+        "failureReason": "Lý do thất bại"
+      },
+      "teams": "Nhóm",
+      "teamName": "Nhóm",
+      "teamDescription": "Mô tả",
+      "noTeams": "Không phải là thành viên của bất kỳ nhóm nào",
+      "ownedAgents": "Agent được sở hữu",
+      "noOwnedAgents": "Người dùng này không sở hữu agent nào",
+      "agentName": "Agent",
+      "agentVersion": "Phiên bản",
+      "agentLastSeen": "Lần nhìn thấy cuối"
+    }
+  },
+  "clients": {
+    "title": "Quản lý khách hàng",
+    "addClient": "Thêm khách hàng",
+    "columns": {
+      "name": "Tên",
+      "description": "Mô tả",
+      "contact": "Liên hệ",
+      "cracked": "Đã bẻ khóa",
+      "retention": "Thời gian lưu giữ (tháng)",
+      "createdAt": "Ngày tạo",
+      "actions": "Hành động",
+      "wordlists": "Wordlist"
+    },
+    "form": {
+      "clientName": "Tên khách hàng",
+      "description": "Mô tả",
+      "contactInfo": "Thông tin liên hệ",
+      "dataRetention": "Thời gian lưu giữ dữ liệu (tháng)",
+      "dataRetentionHelperText": "Để trống để sử dụng mặc định hệ thống. Nhập 0 để giữ vĩnh viễn.",
+      "excludeFromPotfile": "Loại trừ khỏi potfile (không lưu mật khẩu đã bẻ khóa)",
+      "excludeFromPotfileHelperText": "Bật tính năng này cho các khách hàng có yêu cầu lưu giữ dữ liệu nghiêm ngặt",
+      "cloudInherit": "Cloud burst: khách hàng này sẽ kế thừa mặc định của máy chủ — {{state}}, ${{amount}} mỗi {{period}}. Thay đổi nó trong Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnfunded": "Cloud burst: chưa có ngân sách mặc định nào được đặt, vì vậy khách hàng này không có kinh phí và không thể thuê dung lượng trả phí. Đặt ngân sách mặc định trong Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnknown": "Cài đặt Cloud burst được kế thừa từ các mặc định máy chủ trong Cloud Provisioning → Client Budgets.",
+      "cloudEnabledWord": "được bật",
+      "cloudDisabledWord": "bị tắt",
+      "excludeFromClientPotfile": "Loại trừ khỏi potfile của khách hàng",
+      "excludeFromClientPotfileHelperText": "Khi được chọn, mật khẩu đã bẻ khóa cho khách hàng này KHÔNG được thêm vào potfile riêng của họ.",
+      "clientPotfileSettings": "Cài đặt xóa potfile",
+      "useSystemDefault": "Sử dụng mặc định hệ thống",
+      "alwaysRemove": "Luôn xóa",
+      "neverRemove": "Không bao giờ xóa",
+      "assignToTeam": "Gán cho nhóm",
+      "assignToTeamHelperText": "Khách hàng mới sẽ được gán cho nhóm này. Gán lại khách hàng hiện có được quản lý thông qua Admin Team Management.",
+      "removeFromGlobalPotfileOnDelete": "Xóa khỏi potfile toàn cầu khi xóa",
+      "removeFromGlobalPotfileHelperText": "Kiểm soát liệu mật khẩu có được xóa khỏi potfile toàn cầu khi danh sách hash bị xóa.",
+      "removeFromClientPotfileOnDelete": "Xóa khỏi potfile của khách hàng khi xóa",
+      "removeFromClientPotfileHelperText": "Kiểm soát liệu mật khẩu có được xóa khỏi potfile của khách hàng khi danh sách hash bị xóa."
+    },
+    "validation": {
+      "nameRequired": "Tên khách hàng là bắt buộc.",
+      "retentionInvalid": "Khoảng thời gian lưu giữ phải là một số không âm hoặc trống (cho mặc định).",
+      "teamRequired": "Chọn nhóm là bắt buộc khi các nhóm được bật"
+    },
+    "errors": {
+      "loadFailed": "Không tải được khách hàng. Vui lòng thử làm mới.",
+      "loadDefaultSettingsFailed": "Không tải được cài đặt khách hàng mặc định.",
+      "saveFailed": "Không lưu được khách hàng.",
+      "deleteFailed": "Không xóa được khách hàng."
+    },
+    "messages": {
+      "createSuccess": "Khách hàng được tạo thành công",
+      "updateSuccess": "Khách hàng được cập nhật thành công",
+      "deleteSuccess": "Khách hàng được xóa thành công"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Thêm khách hàng mới",
+        "createButton": "Tạo khách hàng"
+      },
+      "editClient": {
+        "title": "Chỉnh sửa khách hàng"
+      },
+      "deleteClient": {
+        "title": "Xác nhận xóa",
+        "confirmation": "Bạn có chắc chắn muốn xóa khách hàng \"{{name}}\"? Hành động này không thể hoàn tác. Danh sách hash liên quan có thể bị xóa ngay lập tức hoặc không còn thuộc về khách hàng nào, tùy theo chính sách lưu giữ."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Tên",
+        "status": "Trạng thái",
+        "total": "Hash",
+        "cracked": "Đã bẻ khóa",
+        "created": "Ngày tạo"
+      },
+      "notFound": "Không tìm thấy khách hàng",
+      "notFoundHint": "Khách hàng này có thể đã bị xóa, hoặc thuộc về một nhóm mà bạn không phải là thành viên.",
+      "backToClients": "Quay lại khách hàng",
+      "breadcrumb": "Khách hàng",
+      "manageWordlists": "Wordlist & potfile",
+      "stats": {
+        "hashlists": "Danh sách hash",
+        "cracked": "Đã bẻ khóa",
+        "jobs": "Công việc",
+        "active": "{{count}} đang hoạt động",
+        "wordlists": "Wordlist",
+        "hasPotfile": "Potfile của khách hàng hiện diện"
+      },
+      "hashlists": "Danh sách hash",
+      "noHashlists": "Chưa có danh sách hash cho khách hàng này",
+      "jobs": "Công việc",
+      "noJobs": "Không có công việc nào chạy cho khách hàng này",
+      "teams": "Nhóm",
+      "noTeams": "Không được gán cho nhóm nào",
+      "policy": "Thời gian lưu giữ & potfile",
+      "retention": "Thời gian lưu giữ dữ liệu",
+      "retentionDefault": "Mặc định hệ thống",
+      "retentionForever": "Giữ vĩnh viễn",
+      "retentionMonths_other": "{{count}} tháng",
+      "globalPotfile": "Potfile toàn cầu",
+      "excluded": "Được loại trừ",
+      "included": "Được bao gồm",
+      "clientPotfile": "Potfile của khách hàng",
+      "contact": "Liên hệ",
+      "lastActivity": "Hoạt động cuối cùng"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Gán khách hàng cho nhóm",
+      "dialogDescription_other": "Gán {{count}} khách hàng được chọn cho một nhóm. Các khách hàng đã có trong nhóm được chọn sẽ bị bỏ qua.",
+      "selectTeam": "Chọn nhóm",
+      "assignButton": "Gán",
+      "fallbackTeamName": "nhóm",
+      "success_other": "Đã gán {{count}} khách hàng cho {{team}}",
+      "successWithSkipped_other": "Đã gán {{count}} khách hàng cho {{team}} ({{skipped}} đã được gán)",
+      "errors": {
+        "assignFailed": "Không gán được khách hàng cho nhóm"
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Quản lý Wordlist",
+    "description": "Quản lý wordlist để bẻ khóa mật khẩu",
+    "uploadWordlist": "Tải lên Wordlist",
+    "refresh": "Làm mới",
+    "loading": "Đang tải wordlist...",
+    "noWordlistsFound": "Không tìm thấy wordlist",
+    "tryDifferentSearch": "Thử một thuật ngữ tìm kiếm khác",
+    "uploadToGetStarted": "Tải lên wordlist để bắt đầu",
+    "noDescription": "Không có mô tả nào được cung cấp",
+    "searchPlaceholder": "Tìm kiếm wordlist...",
+    "tabs": {
+      "all": "Tất cả Wordlist",
+      "general": "Chung",
+      "specialized": "Chuyên biệt",
+      "targeted": "Nhắm mục tiêu",
+      "custom": "Tùy chỉnh"
+    },
+    "columns": {
+      "name": "Tên",
+      "status": "Trạng thái",
+      "type": "Loại",
+      "size": "Kích thước",
+      "wordCount": "Số lượng từ",
+      "updated": "Ngày cập nhật",
+      "actions": "Hành động"
+    },
+    "status": {
+      "verified": "Đã xác minh",
+      "pending": "Đang chờ",
+      "failed": "Không thành công",
+      "missing": "Tệp bị thiếu trên đĩa",
+      "missingSince": "Tệp bị thiếu từ đĩa kể từ {{date}}. Tải lên lại hoặc xóa mục nhập."
+    },
+    "types": {
+      "general": "Chung",
+      "specialized": "Chuyên biệt",
+      "targeted": "Nhắm mục tiêu",
+      "custom": "Tùy chỉnh"
+    },
+    "fields": {
+      "name": "Tên",
+      "description": "Mô tả",
+      "wordlistType": "Loại Wordlist"
+    },
+    "tooltips": {
+      "refreshMetadata": "Làm mới siêu dữ liệu",
+      "download": "Tải xuống",
+      "edit": "Chỉnh sửa",
+      "delete": "Xóa"
+    },
+    "errors": {
+      "loadFailed": "Không tải được wordlist",
+      "uploadFailed": "Không tải lên được wordlist",
+      "deleteFailed": "Không xóa được wordlist",
+      "downloadFailed": "Không tải xuống được wordlist",
+      "refreshFailed": "Không làm mới được siêu dữ liệu wordlist",
+      "updateFailed": "Không cập nhật được wordlist: {{error}}",
+      "sessionExpired": "Phiên của bạn đã hết hạn. Vui lòng đăng nhập lại."
+    },
+    "messages": {
+      "uploadSuccess": "Wordlist được tải lên thành công",
+      "duplicateWordlist": "Wordlist \"{{name}}\" đã tồn tại",
+      "deleteSuccess": "Wordlist \"{{name}}\" được xóa thành công",
+      "updateSuccess": "Wordlist được cập nhật thành công",
+      "refreshSuccess": "Siêu dữ liệu wordlist được làm mới thành công"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Tải lên Wordlist",
+        "fileUploadTitle": "Tải lên tệp wordlist",
+        "fileUploadDescription": "Chọn tệp wordlist để tải lên. Các định dạng được hỗ trợ: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Chỉnh sửa Wordlist"
+      },
+      "delete": {
+        "title": "Xác nhận xóa",
+        "cascadeTitle": "Xác nhận xóa lan truyền",
+        "confirmation": "Bạn có chắc chắn muốn xóa wordlist \"{{name}}\"? Hành động này không thể hoàn tác.",
+        "cascadeWarning": "Xóa wordlist \"{{name}}\" cũng sẽ xóa các mục sau:",
+        "checkingDependencies": "Đang kiểm tra các phụ thuộc...",
+        "jobsCount_other": "{{count}} Công việc (đang chờ/đang chạy/không thành công):",
+        "presetJobsCount_other": "{{count}} Công việc cài sẵn:",
+        "workflowStepsCount_other": "{{count}} Bước quy trình làm việc:",
+        "emptyWorkflowsCount_other": "{{count}} Quy trình làm việc trống sẽ bị xóa:",
+        "noHashlist": "Không có danh sách hash",
+        "step": "Bước {{order}}",
+        "andMore": "...và {{count}} mục khác",
+        "confirmationPrompt": "Để xác nhận việc xóa lan truyền này, nhập ID wordlist: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Nhập {{id}} để xác nhận",
+        "idMismatch": "ID không khớp",
+        "deleteAll": "Xóa tất cả"
+      }
+    },
+    "filterForm": {
+      "helpText": "Tất cả các tiêu chí được kết hợp (AND) — một từ phải thỏa mãn tất cả những tiêu chí bạn đặt. Nếu regex của bạn chặt hơn các trường độ dài (ví dụ: độ dài tối thiểu 8 nhưng regex yêu cầu 12+), quy tắc chặt hơn sẽ được áp dụng. Ước tính dưới đây phản ánh kết quả kết hợp.",
+      "minLength": "Độ dài tối thiểu",
+      "maxLength": "Độ dài tối đa",
+      "requiredClasses": "Các lớp ký tự bắt buộc",
+      "uppercase": "Chữ hoa",
+      "lowercase": "Chữ thường",
+      "digit": "Chữ số",
+      "special": "Đặc biệt",
+      "minClasses": "Số lượng lớp tối thiểu (1-4)",
+      "minClassesHelp": "ví dụ: 3 = ít nhất 3 trong 4 lớp",
+      "regexLabel": "Regex (RE2)",
+      "regexHelperDefault": "ví dụ: ^.{10,16}$",
+      "regexLookaroundError": "Lookarounds ((?=…), (?!…), (?<=…), (?<!…)) không được hỗ trợ bởi công cụ regex của backend (RE2). Sử dụng các bộ lọc độ dài/lớp thay thế.",
+      "regexInvalidDefault": "Biểu thức chính quy không hợp lệ",
+      "estimating": "Đang ước tính…",
+      "previewTooltip": "Được ước tính bằng cách lấy mẫu phần đầu của wordlist nguồn. Đối với danh sách được sắp xếp, tổng số thực có thể khác.",
+      "previewLabel": "~{{countDisplay}} từ phù hợp ({{rateDisplay}}% của mẫu)",
+      "previewUnavailable": "Xem trước không có sẵn"
+    },
+    "filtered": {
+      "badge": "Được lọc",
+      "regeneratingBadge": "Đang tạo lại…",
+      "regeneratingTooltip": "Cha thay đổi; wordlist được lọc này đang tạo lại (chỉ các mục nhập mới được lọc lại nếu có thể).",
+      "staleBadge": "Cũ",
+      "staleTooltip": "Wordlist cha thay đổi kể từ khi cái này được tạo. Wordlist được lọc tạo lại tự động khi cha của chúng thay đổi; bạn cũng có thể tạo lại ngay bây giờ.",
+      "namePlaceholder": "{{name}} (được lọc)",
+      "wordCount_other": "{{count}} từ",
+      "plaintextChip": "plaintext",
+      "compressedChip": "nén",
+      "messages": {
+        "generating": "Wordlist được lọc đang được tạo",
+        "createFailed": "Không tạo được wordlist được lọc",
+        "regenerating": "Bắt đầu tạo lại đầy đủ wordlist được lọc",
+        "regenerateFailed": "Không tạo lại được wordlist được lọc"
+      },
+      "createDialog": {
+        "title": "Tạo Wordlist Được Lọc",
+        "description": "Tạo một wordlist mới chỉ chứa các dòng của wordlist nguồn khớp với tiêu chí của bạn. Kết quả có thể dùng lại cho nhiều công việc và được theo dõi dựa trên wordlist cha của nó.",
+        "sourceWordlistLabel": "Wordlist nguồn",
+        "nameLabel": "Tên",
+        "create": "Tạo"
+      },
+      "regenerateDialog": {
+        "title": "Tạo lại wordlist được lọc?",
+        "autoInfo": "Wordlist được lọc thường được tạo lại <strong>tự động trên backend</strong> bất cứ khi nào wordlist cha của chúng thay đổi — bạn không cần phải làm điều này bằng tay.",
+        "manualHint": "Chỉ tạo lại bằng tay nếu bạn biết <strong>thứ tự các từ trong cha thay đổi</strong> (các từ được chỉnh sửa, xóa hoặc sắp xếp lại thay vì chỉ thêm vào cuối).",
+        "warningWithExample": "Điều này chạy <strong>tạo lại đầy đủ</strong> — toàn bộ cha được lọc lại, điều này có thể mất một lúc đối với các wordlist lớn (ví dụ: \"{{name}}\").",
+        "warningNoExample": "Điều này chạy <strong>tạo lại đầy đủ</strong> — toàn bộ cha được lọc lại, điều này có thể mất một lúc đối với các wordlist lớn.",
+        "confirmButton": "Tạo lại đầy đủ"
+      }
+    }
+  },
+  "rules": {
+    "title": "Quản Lý Tệp Quy Tắc",
+    "description": "Quản lý tệp quy tắc Hashcat để bẻ khóa mật khẩu",
+    "uploadRule": "Tải Lên Tệp Quy Tắc",
+    "refresh": "Làm Mới",
+    "loading": "Đang tải tệp quy tắc...",
+    "noRulesFound": "Không tìm thấy tệp quy tắc",
+    "tryDifferentSearch": "Thử một cụm từ tìm kiếm khác",
+    "uploadToGetStarted": "Tải lên tệp quy tắc để bắt đầu",
+    "noDescription": "Không có mô tả",
+    "searchPlaceholder": "Tìm kiếm tệp quy tắc...",
+    "tabs": {
+      "all": "Tất Cả Tệp Quy Tắc",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Tên",
+      "status": "Trạng Thái",
+      "type": "Loại",
+      "size": "Kích Thước",
+      "ruleCount": "Số Lượng Quy Tắc",
+      "updated": "Cập Nhật Lúc",
+      "actions": "Thao Tác"
+    },
+    "status": {
+      "verified": "Đã Xác Minh",
+      "pending": "Đang Chờ",
+      "failed": "Thất Bại",
+      "ready": "Sẵn Sàng",
+      "processing": "Đang Xử Lý",
+      "missing": "Tệp bị mất trên đĩa",
+      "missingSince": "Tệp bị mất trên đĩa kể từ {{date}}. Tải lên lại hoặc xóa mục nhập."
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Tên",
+      "description": "Mô Tả",
+      "ruleType": "Loại Tệp Quy Tắc"
+    },
+    "tooltips": {
+      "download": "Tải Xuống",
+      "edit": "Chỉnh Sửa",
+      "delete": "Xóa"
+    },
+    "errors": {
+      "loadFailed": "Không thể tải tệp quy tắc",
+      "uploadFailed": "Không thể tải lên tệp quy tắc",
+      "deleteFailed": "Không thể xóa tệp quy tắc",
+      "downloadFailed": "Không thể tải xuống tệp quy tắc",
+      "updateFailed": "Không thể cập nhật tệp quy tắc: {{error}}",
+      "verifyFailed": "Không thể xác minh tệp quy tắc",
+      "sessionExpired": "Phiên của bạn đã hết hạn. Vui lòng đăng nhập lại."
+    },
+    "messages": {
+      "uploadSuccess": "Tệp quy tắc đã được tải lên thành công",
+      "duplicateRule": "Tệp quy tắc \"{{name}}\" đã tồn tại",
+      "deleteSuccess": "Tệp quy tắc \"{{name}}\" đã được xóa thành công",
+      "updateSuccess": "Tệp quy tắc đã được cập nhật thành công",
+      "verifySuccess": "Tệp quy tắc \"{{name}}\" đã được xác minh thành công"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Tải Lên Tệp Quy Tắc",
+        "fileUploadTitle": "Tải lên tệp quy tắc",
+        "fileUploadDescription": "Chọn tệp quy tắc để tải lên. Các định dạng được hỗ trợ: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Chỉnh Sửa Tệp Quy Tắc"
+      },
+      "delete": {
+        "title": "Xác Nhận Xóa",
+        "cascadeTitle": "Xác Nhận Xóa Các Mục Phụ Thuộc",
+        "confirmation": "Bạn có chắc chắn muốn xóa tệp quy tắc \"{{name}}\" không? Không thể hoàn tác hành động này.",
+        "cascadeWarning": "Xóa tệp quy tắc \"{{name}}\" sẽ xóa các mục sau đây:",
+        "checkingDependencies": "Đang kiểm tra các phụ thuộc...",
+        "jobsCount_other": "{{count}} Công việc (đang chờ/đang chạy/thất bại):",
+        "presetJobsCount_other": "{{count}} Công việc cài sẵn:",
+        "workflowStepsCount_other": "{{count}} Bước quy trình làm việc:",
+        "emptyWorkflowsCount_other": "{{count}} Quy trình làm việc trống sẽ bị xóa:",
+        "noHashlist": "Không có danh sách hash",
+        "step": "Bước {{order}}",
+        "andMore": "...và {{count}} mục khác",
+        "confirmationPrompt": "Để xác nhận xóa các mục phụ thuộc, nhập ID tệp quy tắc: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Nhập {{id}} để xác nhận",
+        "idMismatch": "ID không trùng khớp",
+        "deleteAll": "Xóa Tất Cả"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Quản Lý Công Việc Cài Sẵn",
+    "createNew": "Tạo Công Việc Cài Sẵn",
+    "confirmDelete": "Bạn có chắc chắn muốn xóa công việc cài sẵn này không?",
+    "noJobsFound": "Không tìm thấy công việc cài sẵn. Tạo một công việc cài sẵn để bắt đầu.",
+    "keyspaceNotCalculated": "Chưa được tính toán",
+    "calculating": "Đang tính toán...",
+    "calculateKeyspace": "Tính Toán Keyspace",
+    "calculateAllMissingKeyspaces": "Tính Toán Tất Cả Keyspace Bị Thiếu",
+    "calculatingKeyspaces": "Đang tính toán...",
+    "calculatingAllKeyspacesMessage": "Đang tính toán keyspace cho tất cả công việc cài sẵn. Điều này có thể mất một chút thời gian...",
+    "canInterruptRunningJobs": "Có thể gián đoạn các công việc đang chạy",
+    "columns": {
+      "name": "Tên",
+      "description": "Mô Tả",
+      "attackMode": "Chế Độ Tấn Công",
+      "priority": "Ưu Tiên",
+      "highPriorityOverride": "Ghi Đè Ưu Tiên Cao",
+      "maxAgents": "Agent Tối Đa",
+      "keyspace": "Keyspace",
+      "binaryVersion": "Phiên Bản Binary",
+      "wordlists": "Wordlists",
+      "rules": "Tệp Quy Tắc",
+      "createdAt": "Tạo Lúc",
+      "actions": "Thao Tác"
+    },
+    "messages": {
+      "deleteSuccess": "Công việc cài sẵn đã được xóa thành công",
+      "deleteFailed": "Không thể xóa công việc cài sẵn: {{error}}",
+      "fetchError": "Lỗi tải công việc cài sẵn: {{error}}",
+      "deleteError": "Lỗi xóa công việc cài sẵn: {{error}}",
+      "keyspaceRecalculateSuccess": "Keyspace đã được tính toán lại thành công",
+      "keyspaceRecalculateFailed": "Không thể tính toán lại keyspace: {{error}}",
+      "keyspaceAllComplete": "Đã cập nhật {{updated}}, bỏ qua {{skipped}}, thất bại {{failed}}",
+      "keyspaceAllFailed": "Không thể tính toán lại keyspace: {{error}}"
+    },
+    "form": {
+      "createTitle": "Tạo Công Việc Cài Sẵn",
+      "editTitle": "Chỉnh Sửa Công Việc Cài Sẵn",
+      "createJob": "Tạo Công Việc Cài Sẵn",
+      "updateJob": "Cập Nhật Công Việc Cài Sẵn",
+      "attackModeRequirements": "Yêu Cầu Chế Độ Tấn Công",
+      "wordlistSelectionCombination": "Lựa Chọn Wordlist (Chế Độ Combination)",
+      "selectFirstWordlist": "Chọn wordlist đầu tiên",
+      "selectSecondWordlist": "Chọn wordlist thứ hai",
+      "fields": {
+        "jobName": "Tên Công Việc",
+        "attackMode": "Chế Độ Tấn Công",
+        "priority": "Ưu Tiên",
+        "chunkSize": "Thời Lượng Chunk (giây)",
+        "maxAgents": "Agent Tối Đa",
+        "maskPattern": "Mẫu Mask",
+        "incrementMode": "Chế Độ Tăng Dần",
+        "incrementMin": "Độ Dài Tối Thiểu Tăng Dần",
+        "incrementMax": "Độ Dài Tối Đa Tăng Dần",
+        "wordlists": "Wordlists",
+        "rules": "Tệp Quy Tắc",
+        "mask": "Mask",
+        "ruleOptional": "Tệp Quy Tắc (Tùy Chọn)",
+        "firstWordlist": "Wordlist Đầu Tiên",
+        "secondWordlist": "Wordlist Thứ Hai",
+        "allowHighPriorityOverride": "Cho Phép Ghi Đè Ưu Tiên Cao (có thể gián đoạn các công việc đang chạy)",
+        "additionalArgs": "Các Đối Số Hashcat Bổ Sung",
+        "cloudBurstEnabled": "Cho phép cloud burst",
+        "cloudMaxInstances": "Số lượng instance đám mây tối đa",
+        "cloudAllowCommunityHosts": "Cho phép máy chủ do đơn vị khác vận hành (Vast.ai, RunPod Community)"
+      },
+      "incrementModes": {
+        "off": "Tắt (sử dụng mask đầy đủ)",
+        "increment": "Tăng Dần (1 đến tối đa)",
+        "incrementInverse": "Tăng Dần Ngược (tối đa đến 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Chọn phiên bản binary hashcat để sử dụng",
+        "priority": "Công việc có ưu tiên cao chạy trước (0-{{maxPriority}})",
+        "maskPattern": "Mẫu mask hashcat (ví dụ: ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=ký tự thường, ?u=ký tự hoa, ?d=chữ số, ?s=ký tự đặc biệt, ?a=tất cả",
+        "incrementMode": "Sử dụng chế độ tăng dần để thử mask có độ dài khác nhau",
+        "incrementMin": "Độ dài mask tối thiểu để thử",
+        "incrementMax": "Độ dài mask tối đa để thử",
+        "chunkSize": "Thời lượng cho mỗi chunk công việc tính bằng giây",
+        "maxAgents": "Số lượng agent tối đa (0 = không giới hạn)",
+        "allowHighPriorityOverride": "Khi bật, công việc này có thể gián đoạn các công việc đang chạy có ưu tiên thấp hơn để chiếm các agent của chúng",
+        "wordlistsNotUsed": "Wordlists không được sử dụng cho chế độ tấn công này",
+        "selectWordlists_other": "Chọn chính xác {{count}} wordlists",
+        "rulesNotUsed": "Tệp quy tắc không được sử dụng cho chế độ tấn công này",
+        "selectRule": "Có thể chọn tệp quy tắc để áp dụng các biến đổi",
+        "firstWordlist": "Các từ từ danh sách này sẽ được sử dụng làm phần đầu tiên",
+        "secondWordlist": "Các từ từ danh sách này sẽ được nối vào phần đầu tiên",
+        "additionalArgs": "Các cờ hashcat bổ sung cho công việc này. Các cờ cấp agent có ưu tiên cao trong trường hợp xung đột.",
+        "cloudBurstEnabled": "Thuê các instance GPU cho công việc được tạo từ cài sẵn này khi đội GPU tại chỗ không thể theo kịp. Yêu cầu khách hàng được tài trợ và chọn tham gia một nhà cung cấp.",
+        "cloudMaxInstances": "Riêng biệt với Agent Tối Đa, điều chỉnh nhóm tại chỗ được chia sẻ. Để trống để cho ngân sách còn lại quyết định.",
+        "cloudAllowCommunityHosts": "Đây là máy của người khác. Chủ sở hữu máy chủ có quyền root trên container, do đó các hash, wordlist và plaintext đã bẻ khóa của khách hàng này có thể được đọc bởi bên thứ ba và không được mã hóa khi lưu trữ trên máy chủ. Không được khuyến cáo cho dữ liệu sản xuất hoặc dữ liệu dự án khách hàng. Tắt tùy chọn này và các công việc sẽ vẫn sử dụng năng lực an toàn (AWS, RunPod Secure Cloud) nếu khách hàng cho phép.",
+        "prefilteredWordlistHint": "Để sử dụng wordlist được lọc trước trong một công việc cài sẵn, tạo nó trước tiên trong Quản Lý Wordlist — nó sẽ xuất hiện trong danh sách này. Lọc tạm thời nội tuyến chỉ có sẵn cho các công việc tùy chỉnh một lần."
+      },
+      "errors": {
+        "nameRequired": "Tên công việc là bắt buộc",
+        "binaryVersionRequired": "Phiên bản binary là bắt buộc",
+        "straightModeWordlist": "Chế độ tấn công Straight yêu cầu chính xác 1 wordlist",
+        "combinationModeWordlists": "Chế độ tấn công Combination yêu cầu chính xác 2 wordlists",
+        "selectBothWordlists": "Vui lòng chọn cả hai wordlist cho chế độ Combination",
+        "bruteForceModeMask": "Chế độ tấn công brute force yêu cầu một mask",
+        "hybridModeWordlist": "Chế độ tấn công hybrid yêu cầu chính xác 1 wordlist",
+        "hybridModeMask": "Chế độ tấn công hybrid yêu cầu một mask",
+        "associationModeNotImplemented": "Chế độ tấn công association chưa được triển khai",
+        "noWordlistsAvailable": "Không có wordlist khả dụng. Vui lòng tải lên wordlist trước.",
+        "loadFailed": "Không thể tải công việc cài sẵn",
+        "loadFormDataFailed": "Không thể tải dữ liệu biểu mẫu",
+        "saveFailed": "Không thể lưu công việc cài sẵn"
+      },
+      "messages": {
+        "createSuccess": "Công việc cài sẵn đã được tạo thành công",
+        "updateSuccess": "Công việc cài sẵn đã được cập nhật thành công"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Straight",
+          "description": "Sử dụng các từ từ wordlist, tùy chọn áp dụng quy tắc để biến đổi chúng",
+          "wordlistRequirement": "Yêu cầu chính xác 1 wordlist",
+          "rulesRequirement": "0 hoặc 1 tệp quy tắc",
+          "maskRequirement": "Không cần mask"
+        },
+        "combination": {
+          "name": "Combination",
+          "description": "Kết hợp các từ từ hai wordlist (first_word + second_word)",
+          "wordlistRequirement": "Yêu cầu chính xác 2 wordlist",
+          "rulesRequirement": "Không cần tệp quy tắc",
+          "maskRequirement": "Không cần mask"
+        },
+        "bruteForce": {
+          "name": "Brute Force (Mask)",
+          "description": "Tạo mật khẩu dựa trên một mẫu/mask",
+          "wordlistRequirement": "Không cần wordlist",
+          "rulesRequirement": "Không cần tệp quy tắc",
+          "maskRequirement": "Mask là bắt buộc (ví dụ: ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Hybrid: Wordlist + Mask",
+          "description": "Nối các ký tự do mask tạo ra vào các từ từ wordlist",
+          "wordlistRequirement": "Yêu cầu chính xác 1 wordlist",
+          "rulesRequirement": "Không cần tệp quy tắc",
+          "maskRequirement": "Mask là bắt buộc (ví dụ: ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Hybrid: Mask + Wordlist",
+          "description": "Đặt trước các ký tự do mask tạo ra vào các từ từ wordlist",
+          "wordlistRequirement": "Yêu cầu chính xác 1 wordlist",
+          "rulesRequirement": "Không cần tệp quy tắc",
+          "maskRequirement": "Mask là bắt buộc (ví dụ: ?d?d?d?d)"
+        },
+        "association": {
+          "name": "Association (Chưa được triển khai)",
+          "description": "Chế độ tấn công này hiện chưa được triển khai",
+          "wordlistRequirement": "N/A",
+          "rulesRequirement": "N/A",
+          "maskRequirement": "N/A"
+        }
+      }
+    }
+  },
+  "workflows": {
+    "title": "Quản Lý Quy Trình Làm Việc",
+    "create": "Tạo Quy Trình Làm Việc",
+    "deleteTitle": "Xóa Quy Trình Làm Việc",
+    "confirmDelete": "Bạn có chắc chắn muốn xóa quy trình làm việc \"{{name}}\" không?",
+    "noWorkflowsFound": "Không tìm thấy quy trình làm việc nào. Tạo một quy trình làm việc để bắt đầu.",
+    "canInterrupt": "Có Thể Ngắt",
+    "normal": "Bình Thường",
+    "loopbackAllEligible": "Tất cả đủ điều kiện",
+    "loopbackStepCount_other": "{{count}} bước",
+    "columns": {
+      "name": "Tên",
+      "description": "Mô Tả",
+      "steps": "Bước",
+      "jobCount": "Công Việc",
+      "highPriority": "Chế Độ Ưu Tiên",
+      "loopback": "Loopback",
+      "created": "Ngày Tạo",
+      "lastUpdated": "Cập Nhật Lần Cuối",
+      "actions": "Hành Động"
+    },
+    "messages": {
+      "loadFailed": "Không thể tải quy trình làm việc",
+      "deleteFailed": "Không thể xóa quy trình làm việc"
+    },
+    "form": {
+      "createTitle": "Tạo Quy Trình Làm Việc",
+      "editTitle": "Chỉnh Sửa Quy Trình Làm Việc",
+      "createWorkflow": "Tạo Quy Trình Làm Việc",
+      "saveChanges": "Lưu Thay Đổi",
+      "workflowSteps": "Bước Quy Trình Làm Việc",
+      "noJobsAdded": "Chưa có công việc nào được thêm vào quy trình làm việc này. Tìm kiếm và thêm công việc cài sẵn ở trên.",
+      "priority": "Ưu Tiên: {{priority}}",
+      "binary": "Binary: {{name}}",
+      "wordlistCount_other": "{{count}} wordlist",
+      "ruleCount_other": "{{count}} quy tắc",
+      "loopback": {
+        "masterToggle": "Bật loopback cho tất cả bước đủ điều kiện",
+        "masterHelperText": "Khi bật, toàn bộ quy trình làm việc chạy, sau đó mỗi bước đủ điều kiện (straight + rules, hoặc tấn công hỗn hợp wordlist ± mask) chạy lại chỉ trên những mật khẩu vừa được bẻ khóa — lặp lại một cách thông minh cho đến khi không tìm thấy mật khẩu mới nào. Các bước không biến đổi (wordlist-only, brute-force, association) vẫn đưa mật khẩu mới của chúng vào vòng lặp. Các bộ chuyển đổi từng bước dưới đây bị vô hiệu hóa khi tính năng này được bật.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Không có gì để biến đổi (wordlist-only, brute-force, association hoặc combinator). Bước này vẫn đưa mật khẩu mới của nó vào vòng lặp, nhưng không chạy lại.",
+        "tooltipMasterOn": "Loopback ở cấp quy trình làm việc đang bật, vì vậy mỗi bước đủ điều kiện sẽ quay lại.",
+        "tooltipStep": "Chạy lại bước này chỉ trên mật khẩu vừa được bẻ khóa cho đến khi không tìm thấy mật khẩu mới nào."
+      },
+      "fields": {
+        "workflowName": "Tên Quy Trình Làm Việc",
+        "searchPresetJobs": "Tìm Kiếm Công Việc Cài Sẵn"
+      },
+      "helperText": {
+        "searchPresetJobs": "Tìm kiếm công việc cài sẵn để thêm vào quy trình làm việc này"
+      },
+      "errors": {
+        "nameRequired": "Tên quy trình làm việc là bắt buộc",
+        "presetJobRequired": "Cần phải có ít nhất một công việc cài sẵn",
+        "noPresetJobsAvailable": "Không có công việc cài sẵn nào. Tạo công việc cài sẵn trước.",
+        "loadFailed": "Không thể tải quy trình làm việc",
+        "loadFormDataFailed": "Không thể tải dữ liệu biểu mẫu",
+        "saveFailed": "Không thể lưu quy trình làm việc"
+      },
+      "messages": {
+        "createSuccess": "Quy trình làm việc được tạo thành công",
+        "updateSuccess": "Quy trình làm việc được cập nhật thành công"
+      },
+      "cloudBurst": {
+        "toggle": "Cho phép cloud burst cho mỗi bước",
+        "helperText": "Áp dụng cho tất cả các bước, ghi đè cài đặt của từng công việc cài sẵn. Đặt ở cấp quy trình làm việc để một instance được thuê có thể thực hiện toàn bộ quy trình làm việc thay vì bị tháo dỡ và thuê lại giữa các bước."
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Quản Lý Binary",
+    "title": "Binary Hashcat",
+    "addBinary": "Thêm Binary",
+    "showingActiveOnly": "Chỉ hiển thị binary hoạt động",
+    "showingAll": "Hiển thị tất cả binary",
+    "noBinaries": "Không tìm thấy binary nào",
+    "noActiveBinaries": "Không tìm thấy binary hoạt động nào",
+    "default": "Mặc Định",
+    "verifyBinary": "Xác Minh Binary",
+    "deleteBinary": "Xóa Binary",
+    "sourceUpload": "Tải Lên",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Phiên Bản",
+      "type": "Loại",
+      "source": "Nguồn",
+      "size": "Kích Thước",
+      "status": "Trạng Thái",
+      "default": "Mặc Định",
+      "lastVerified": "Xác Minh Lần Cuối",
+      "actions": "Hành Động"
+    },
+    "messages": {
+      "fetchFailed": "Không thể tải binary",
+      "verifySuccess": "Binary được xác minh thành công",
+      "verifyFailed": "Không thể xác minh binary",
+      "deleteSuccess": "Binary được xóa thành công",
+      "deleteFailed": "Không thể xóa binary",
+      "cannotDeleteLast": "Không thể xóa binary {{type}} hoạt động cuối cùng",
+      "cannotDeleteOnly": "Không thể xóa binary duy nhất của loại này",
+      "setDefaultSuccess": "Binary mặc định được cập nhật thành công",
+      "setDefaultFailed": "Không thể đặt binary mặc định",
+      "addSuccess": "Binary được thêm thành công",
+      "addFailed": "Không thể thêm binary"
+    },
+    "deleteDialog": {
+      "title": "Xác Nhận Xóa",
+      "message": "Bạn có chắc chắn muốn xóa binary \"{{fileName}}\"? Hành động này không thể hoàn tác."
+    },
+    "form": {
+      "addDialogTitle": "Thêm Binary Mới",
+      "sourceLabel": "Nguồn",
+      "downloadFromUrl": "Tải Xuống Từ URL",
+      "uploadFile": "Tải Lên Tệp",
+      "binaryTypeLabel": "Loại Binary",
+      "johnPending": "John the Ripper (chờ hỗ trợ)",
+      "compressionTypeLabel": "Loại Nén",
+      "sourceUrlLabel": "URL Nguồn",
+      "sourceUrlHelp": "URL để tải xuống binary (ví dụ: https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Chọn Tệp Lưu Trữ",
+      "uploadHelp": "Tải lên tệp lưu trữ .7z, .zip, .tar.gz, hoặc .tar.xz chứa binary",
+      "fileNameLabel": "Tên Tệp",
+      "fileNameHelp": "Tự động điền từ URL/tệp, nhưng có thể sửa đổi nếu cần",
+      "versionLabel": "Phiên Bản",
+      "versionHelp": "Tự động phát hiện từ tên tệp. Ghi đè cho các bản dựng tùy chỉnh.",
+      "descriptionLabel": "Mô Tả",
+      "descriptionHelp": "Ghi chú tùy chọn về binary này (ví dụ: chi tiết bản dựng tùy chỉnh)",
+      "setAsDefault": "Đặt làm binary mặc định",
+      "selectFileRequired": "Vui lòng chọn tệp để tải lên",
+      "uploadBinarySubmit": "Tải Lên Binary"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Chẩn Đoán Hệ Thống",
+    "diagnosticPackage": "Gói Chẩn Đoán",
+    "diagnosticPackageDescription": "Tải xuống gói chẩn đoán chứa thông tin hệ thống, nhật ký và chi tiết cấu hình để xử lý sự cố.",
+    "refreshData": "Làm Mới Dữ Liệu",
+    "hours": "Giờ",
+    "hoursTooltip": "Số giờ nhật ký cần bao gồm",
+    "includeAgentLogs": "Bao Gồm Nhật Ký Agent",
+    "includeNginxLogs": "Bao Gồm Nhật Ký Nginx",
+    "includePostgresLogs": "Bao Gồm Nhật Ký PostgreSQL",
+    "preparing": "Đang Chuẩn Bị...",
+    "downloadDiagnostics": "Tải Xuống Chẩn Đoán",
+    "systemInfo": "Thông Tin Hệ Thống",
+    "runtime": "Runtime",
+    "cpus": "CPU",
+    "goroutines": "Goroutines",
+    "memory": "Bộ Nhớ",
+    "heap": "Heap",
+    "system": "Hệ Thống",
+    "gcRuns": "Lượt GC",
+    "database": "Cơ Sở Dữ Liệu",
+    "size": "Kích Thước",
+    "connections": "Kết Nối",
+    "agents": "Agent",
+    "connected": "Được Kết Nối",
+    "withDebugStatus": "Có Trạng Thái Gỡ Lỗi",
+    "serverDebugStatus": "Trạng Thái Gỡ Lỗi Máy Chủ",
+    "serverDebugDescription": "Bật ghi nhật ký chi tiết cho máy chủ. Điều này sẽ tăng kích thước tệp nhật ký và có thể ảnh hưởng đến hiệu suất.",
+    "debugEnabled": "Gỡ Lỗi Được Bật",
+    "debugDisabled": "Gỡ Lỗi Bị Tắt",
+    "level": "Mức",
+    "enableDebug": "Bật Gỡ Lỗi",
+    "disableDebug": "Tắt Gỡ Lỗi",
+    "loadingServerDebugStatus": "Đang tải trạng thái gỡ lỗi máy chủ...",
+    "serverLogs": "Nhật Ký Máy Chủ",
+    "serverLogsDescription": "Quản lý tệp nhật ký máy chủ. Xóa nhật ký là vĩnh viễn và không thể hoàn tác.",
+    "refreshLogStats": "Làm Mới Thống Kê Nhật Ký",
+    "directory": "Thư Mục",
+    "files": "Tệp",
+    "actions": "Hành Động",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Tổng Cộng",
+    "purge": "Xóa",
+    "purgeAll": "Xóa Tất Cả",
+    "loadingLogStatistics": "Đang tải thống kê nhật ký...",
+    "agentDebugStatus": "Trạng Thái Gỡ Lỗi Agent",
+    "enableAll": "Bật Tất Cả",
+    "disableAll": "Tắt Tất Cả",
+    "noAgentsWithDebugStatus": "Không có agent nào với trạng thái gỡ lỗi",
+    "agentId": "ID Agent",
+    "logLevel": "Mức Nhật Ký",
+    "fileLogging": "Ghi Nhật Ký Tệp",
+    "logFileSize": "Kích Thước Tệp Nhật Ký",
+    "buffer": "Bộ Đệm",
+    "lastUpdated": "Cập Nhật Lần Cuối",
+    "viewLogs": "Xem Nhật Ký",
+    "purgeLogs": "Xóa Nhật Ký",
+    "agentLogs": "Nhật Ký Agent",
+    "agent": "Agent",
+    "allLevels": "Tất Cả Mức",
+    "refresh": "Làm Mới",
+    "showingEntries": "Hiển thị {{shown}} trên {{total}} mục",
+    "filtered": "đã lọc",
+    "truncated": "bị cắt ngắn",
+    "time": "Thời Gian",
+    "message": "Thông Điệp",
+    "location": "Vị Trí",
+    "noEntriesForLevel": "Không tìm thấy mục nào cho mức {{level}}",
+    "noLogEntriesAvailable": "Không có mục nhật ký nào",
+    "logFileContent": "Nội Dung Tệp Nhật Ký",
+    "noLogsAvailable": "Không có nhật ký nào",
+    "securityWarning": "Cảnh Báo Bảo Mật",
+    "postgresLogsWarning": "Nhật ký PostgreSQL có thể chứa dữ liệu nhạy cảm. Hãy cân nhắc xóa chúng sau khi xử lý sự cố.",
+    "nginxLogsWarning": "Nhật ký truy cập Nginx có thể chứa dữ liệu yêu cầu nhạy cảm. Hãy cân nhắc xóa chúng sau khi xử lý sự cố.",
+    "sensitiveNginxLogsWarning": "Nhật ký truy cập Nginx có thể chứa thông tin nhạy cảm bao gồm mã thông báo xác thực trong tiêu đề yêu cầu và tham số truy vấn.",
+    "sensitivePostgresLogsWarning": "Nhật ký PostgreSQL có thể chứa thông tin nhạy cảm bao gồm truy vấn với dữ liệu người dùng, mật khẩu và chi tiết kết nối.",
+    "sensitiveLogsTestEnvironmentWarning": "Chỉ bao gồm những nhật ký này cho các môi trường thử nghiệm/phát triển hoặc khi thực sự cần thiết để gỡ lỗi.",
+    "sensitiveLogsProductionWarning": "Không bao gồm nhật ký nhạy cảm trong các gói chẩn đoán sản xuất được chia sẻ bên ngoài.",
+    "iUnderstandIncludeLogs": "Tôi Hiểu, Bao Gồm Nhật Ký",
+    "allServerLogs": "tất cả nhật ký máy chủ",
+    "directoryLogs": "nhật ký {{directory}}",
+    "purgeServerLogs": "Xóa Nhật Ký Máy Chủ",
+    "confirmPurgeLogs": "Bạn có chắc chắn muốn xóa {{dirLabel}} không?",
+    "cannotBeUndone": "Hành động này không thể hoàn tác.",
+    "purgeAgentLogs": "Xóa Nhật Ký Agent",
+    "confirmPurgeAgentLogs": "Bạn có chắc chắn muốn xóa nhật ký cho agent {{agentId}} không?",
+    "enable": "Bật",
+    "disable": "Tắt",
+    "serverDebugModeTitle": "{{action}} Chế Độ Gỡ Lỗi Máy Chủ",
+    "serverDebugModeMessage": "Điều này sẽ thay đổi mức ghi nhật ký của máy chủ. Máy chủ nginx sẽ được tải lại để áp dụng thay đổi.",
+    "serverDebugModeWarning": "Trang sẽ kết nối lại trong thời gian ngắn sau khi áp dụng thay đổi.",
+    "reconnectingToServer": "Đang Kết Nối Lại Với Máy Chủ",
+    "pleaseWaitReconnecting": "Vui lòng đợi khi máy chủ khởi động lại...",
+    "nginxLogsTooltip": "Cảnh báo: Có thể chứa dữ liệu yêu cầu nhạy cảm",
+    "postgresLogsTooltip": "Cảnh báo: Có thể chứa truy vấn cơ sở dữ liệu nhạy cảm",
+    "messages": {
+      "loadFailed": "Không thể tải dữ liệu chẩn đoán:",
+      "logStatsFailed": "Không thể tải thống kê nhật ký:",
+      "purgeFailed": "Không thể xóa nhật ký:",
+      "reconnectionTimedOut": "Kết nối lại đã hết thời gian chờ. Vui lòng làm mới trang.",
+      "toggleDebugFailed": "Không thể bật/tắt chế độ gỡ lỗi:",
+      "downloadFailed": "Không thể tải xuống chẩn đoán:",
+      "toggleAgentDebugFailed": "Không thể bật/tắt gỡ lỗi agent:",
+      "toggleAllAgentsDebugFailed": "Không thể bật/tắt gỡ lỗi cho tất cả agent:",
+      "fetchAgentLogsFailed": "Không thể tải nhật ký agent:",
+      "purgeAgentLogsFailed": "Không thể xóa nhật ký agent:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Cài đặt Xác thực",
+    "unsavedChanges": "Bạn có những thay đổi chưa được lưu. Nhấp vào 'Lưu Cài đặt' để áp dụng chúng.",
+    "saving": "Đang lưu...",
+    "saveSettings": "Lưu Cài đặt",
+    "resetToSaved": "Đặt lại về Đã lưu",
+    "passwordPolicy": {
+      "title": "Chính sách Mật khẩu",
+      "minLength": "Độ dài Mật khẩu Tối thiểu",
+      "requireUppercase": "Yêu cầu Chữ hoa",
+      "requireLowercase": "Yêu cầu Chữ thường",
+      "requireNumbers": "Yêu cầu Số",
+      "requireSpecialChars": "Yêu cầu Ký tự Đặc biệt"
+    },
+    "accountSecurity": {
+      "title": "Bảo mật Tài khoản",
+      "maxFailedAttempts": "Số lần Đăng nhập Thất bại Tối đa",
+      "lockoutDuration": "Thời gian Khóa (phút)",
+      "jwtExpiry": "Hết hạn JWT (phút)",
+      "notificationAggregation": "Tổng hợp Thông báo (phút)",
+      "notificationAggregationHelper": "Thời gian tổng hợp các thông báo tương tự trước khi gửi"
+    },
+    "mfa": {
+      "title": "Xác thực Đa yếu tố",
+      "requireMfa": "Yêu cầu MFA cho Tất cả Người dùng",
+      "requireMfaEmailRequired": "Yêu cầu MFA (yêu cầu nhà cung cấp email)",
+      "allowedMethods": "Phương pháp MFA Được phép",
+      "methodEmail": "Mã Email",
+      "methodAuthenticator": "Ứng dụng Xác thực (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (không hỗ trợ trong trình duyệt này)",
+      "codeSettings": "Cài đặt Mã",
+      "emailCodeValidity": "Hiệu lực Mã Email (phút)",
+      "emailCodeValidityHelper": "Thời gian các mã xác minh email còn hợp lệ",
+      "codeCooldown": "Thời gian Chờ Yêu cầu Mã (phút)",
+      "codeCooldownHelper": "Thời gian tối thiểu giữa các yêu cầu mã",
+      "codeExpiry": "Hết hạn Mã (phút)",
+      "codeExpiryHelper": "Thời gian các mã MFA còn hợp lệ",
+      "maxCodeAttempts": "Số lần Thử Mã Tối đa",
+      "maxCodeAttemptsHelper": "Số lần thử mã thất bại tối đa trước khi bị khóa",
+      "backupCodesCount": "Số Mã Dự phòng",
+      "backupCodesCountHelper": "Số lượng mã dự phòng cần tạo",
+      "requireMfaHelper": "Mỗi người dùng phải hoàn thành MFA khi đăng nhập. Yêu cầu nhà cung cấp email được cấu hình để các mã có thể được gửi."
+    },
+    "webauthn": {
+      "title": "Cấu hình WebAuthn / Passkey",
+      "notSupported": "WebAuthn không được hỗ trợ trong trình duyệt này.",
+      "requiresDomain": "Passkey yêu cầu domain thích hợp và HTTPS. Cấu hình cài đặt domain của bạn dưới đây.",
+      "rpId": "ID Relying Party",
+      "rpIdHelper": "Tên domain của bạn (ví dụ: krakenhashes.example.com)",
+      "rpDisplayName": "Tên Hiển thị",
+      "rpDisplayNameHelper": "Tên hiển thị cho người dùng trong quá trình đăng ký passkey",
+      "allowedOrigins": "Origin Được phép",
+      "allowedOriginsHelper": "Một origin mỗi dòng (ví dụ: https://krakenhashes.example.com)",
+      "configured": "WebAuthn đã được cấu hình và sẵn sàng sử dụng.",
+      "save": "Lưu Cài đặt WebAuthn"
+    },
+    "session": {
+      "title": "Quản lý Phiên",
+      "tokenCleanupInterval": "Khoảng thời gian Dọn dẹp Token (giây)",
+      "tokenCleanupIntervalHelper": "Tần suất dọn dẹp token đã hết hạn",
+      "maxConcurrentSessions": "Phiên Đồng thời Tối đa",
+      "maxConcurrentSessionsHelper": "Số phiên tối đa mỗi người dùng (0 = không giới hạn)",
+      "absoluteTimeout": "Hết hạn Phiên Tuyệt đối (giờ)",
+      "absoluteTimeoutHelper": "Buộc xác thực lại sau thời gian này (0 = bị vô hiệu hóa)"
+    },
+    "errors": {
+      "loadFailed": "Không thể tải cài đặt xác thực",
+      "noSettingsToSave": "Không có cài đặt nào để lưu",
+      "saveFailed": "Không thể lưu cài đặt",
+      "emailProviderRequired": "Email provider được yêu cầu để sử dụng MFA dựa trên email",
+      "webauthnSaveFailed": "Không thể lưu cài đặt WebAuthn",
+      "resetFailed": "Không thể đặt lại cài đặt"
+    },
+    "messages": {
+      "updateSuccess": "Cài đặt xác thực đã được cập nhật thành công",
+      "updateFailed": "Không thể cập nhật cài đặt xác thực"
+    },
+    "teams": {
+      "title": "Cô lập Nhiều nhóm",
+      "description": "Khi được bật, các khách hàng, danh sách hash, công việc và agent sẽ được phân loại theo nhóm và người dùng chỉ nhìn thấy những gì các nhóm của họ sở hữu.",
+      "enable": "Bật nhóm",
+      "enableHelper": "Dữ liệu hiện có được đặt trong Nhóm Mặc định."
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "Cài đặt SSO",
+    "pageDescription": "Cấu hình các nhà cung cấp Single Sign-On và các tùy chọn xác thực",
+    "warnings": {
+      "ephemeralKeyTitle": "Khóa Mã hóa SSO Chưa được Cấu hình",
+      "ephemeralKeyDescription": "Bí mật của nhà cung cấp SSO (client secret, mật khẩu ràng buộc, khóa riêng tư) hiện đang được mã hóa bằng khóa tạm thời sẽ bị mất khi máy chủ khởi động lại. Bất kỳ nhà cung cấp SSO được cấu hình nào sẽ ngừng hoạt động sau khi khởi động lại.",
+      "ephemeralKeyInstructions": "Để khắc phục điều này, hãy tạo khóa mã hóa cố định bằng cách chạy:",
+      "ephemeralKeyAddToEnv": "Sau đó, thêm nội dung sau vào tệp .env của bạn và khởi động lại máy chủ:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Lệnh đã được sao chép vào bộ nhớ tạm"
+    },
+    "authMethods": {
+      "title": "Phương pháp Xác thực",
+      "description": "Bật hoặc tắt các phương pháp xác thực trên toàn hệ thống",
+      "localAuth": "Xác thực Cục bộ",
+      "localAuthDescription": "Đăng nhập tên người dùng/mật khẩu",
+      "ldapAuth": "Xác thực LDAP",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "Xác thực SAML",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "Xác thực OAuth/OIDC",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Cấp phát Người dùng",
+      "description": "Cấu hình tạo người dùng tự động từ đăng nhập SSO",
+      "autoCreateUsers": "Tự động Tạo Người dùng",
+      "autoCreateUsersDescription": "Tự động tạo tài khoản người dùng cho các đăng nhập SSO mới",
+      "autoEnableUsers": "Tự động Bật Người dùng",
+      "autoEnableUsersDescription": "Tự động bật người dùng SSO mới tạo (nếu không, cần có sự phê duyệt của quản trị viên)"
+    },
+    "providers": {
+      "title": "Nhà cung cấp SSO",
+      "addProvider": "Thêm Nhà cung cấp",
+      "noProviders": "Không có nhà cung cấp SSO nào được cấu hình. Nhấp vào \"Thêm Nhà cung cấp\" để tạo một.",
+      "enabled": "Đã bật",
+      "disabled": "Đã tắt",
+      "callbackUrl": "URL Gọi lại",
+      "acsUrl": "URL ACS",
+      "metadata": "Siêu dữ liệu",
+      "viewXml": "Xem XML",
+      "testConnection": "Kiểm tra Kết nối",
+      "downloadCertificate": "Tải xuống Chứng chỉ số SP"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Xóa Nhà cung cấp",
+        "confirmation": "Bạn có chắc chắn muốn xóa nhà cung cấp \"{{name}}\" không? Hành động này không thể được hoàn tác và sẽ ngắt liên kết tất cả các danh tính người dùng liên quan."
+      },
+      "providerForm": {
+        "addTitle": "Thêm Nhà cung cấp",
+        "editTitle": "Chỉnh sửa Nhà cung cấp",
+        "providerName": "Tên Nhà cung cấp",
+        "providerType": "Loại Nhà cung cấp",
+        "enabled": "Đã bật"
+      }
+    },
+    "ldapConfig": {
+      "title": "Cấu hình LDAP",
+      "serverUrl": "URL Máy chủ",
+      "serverUrlHelper": "Sử dụng ldaps:// cho các kết nối an toàn",
+      "baseDn": "DN Cơ sở",
+      "userSearchFilter": "Bộ lọc Tìm kiếm Người dùng",
+      "userSearchFilterHelper": "Sử dụng {{username}} làm chỗ giữ chỗ",
+      "bindDn": "DN Ràng buộc (tùy chọn)",
+      "bindPassword": "Mật khẩu Ràng buộc",
+      "emailAttribute": "Thuộc tính Email",
+      "usernameAttribute": "Thuộc tính Tên người dùng",
+      "usernameAttributeHelper": "Thuộc tính LDAP chứa tên người dùng (ví dụ: sAMAccountName, uid)",
+      "connectionTimeout": "Thời gian Chờ Kết nối (giây)",
+      "useStartTls": "Sử dụng StartTLS",
+      "skipCertVerify": "Bỏ qua Xác minh Chứng chỉ số (chỉ dùng để kiểm tra)"
+    },
+    "samlConfig": {
+      "title": "Cấu hình SAML",
+      "spEntityId": "ID Thực thể SP",
+      "spEntityIdHelper": "Định danh SAML của ứng dụng của bạn",
+      "idpEntityId": "ID Thực thể IdP",
+      "idpSsoUrl": "URL SSO IdP",
+      "idpCertificate": "Chứng chỉ số IdP",
+      "emailAttribute": "Thuộc tính Email",
+      "usernameAttribute": "Thuộc tính Tên người dùng",
+      "usernameAttributeHelper": "Thuộc tính SAML chứa tên người dùng (ví dụ: uid, username)",
+      "requireSignedAssertions": "Yêu cầu Assertion Đã ký"
+    },
+    "oauthConfig": {
+      "title": "Cấu hình OAuth/OIDC",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "discoveryUrl": "URL Khám phá",
+      "discoveryUrlHelper": "Điểm cuối khám phá OIDC (tự động cấu hình các URL khác)",
+      "authorizationUrl": "URL Cấp quyền",
+      "tokenUrl": "URL Token",
+      "userInfoUrl": "URL Thông tin Người dùng",
+      "scopes": "Phạm vi",
+      "scopesHelper": "Danh sách được phân cách bằng khoảng trắng",
+      "emailAttribute": "Thuộc tính Email",
+      "usernameAttribute": "Thuộc tính Tên người dùng",
+      "usernameAttributeHelper": "Claim chứa tên người dùng (ví dụ: preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Không thể tải cài đặt SSO",
+      "settingsUpdated": "Cài đặt SSO đã được cập nhật thành công",
+      "updateFailed": "Không thể cập nhật cài đặt SSO",
+      "loadProviderFailed": "Không thể tải chi tiết nhà cung cấp",
+      "providerDeleted": "Nhà cung cấp đã được xóa thành công",
+      "deleteFailed": "Không thể xóa nhà cung cấp",
+      "testSuccess": "Kiểm tra kết nối thành công",
+      "testFailed": "Kiểm tra kết nối không thành công",
+      "certificateDownloaded": "Chứng chỉ số đã được tải xuống thành công",
+      "certificateNotFound": "Chứng chỉ số không được tìm thấy trong siêu dữ liệu",
+      "certificateDownloadFailed": "Không thể tải xuống chứng chỉ số",
+      "providerUpdated": "Nhà cung cấp đã được cập nhật thành công",
+      "providerCreated": "Nhà cung cấp đã được tạo thành công",
+      "saveProviderFailed": "Không thể lưu nhà cung cấp"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Cấu hình Nhà cung cấp",
+      "emailTemplates": "Mẫu Email"
+    },
+    "provider": {
+      "titles": {
+        "current": "Cấu hình Email Hiện tại",
+        "create": "Tạo Cấu hình Email",
+        "edit": "Chỉnh sửa Cấu hình Email"
+      },
+      "labels": {
+        "provider": "Nhà cung cấp",
+        "apiKey": "Khóa API",
+        "password": "Mật khẩu",
+        "smtpHost": "Máy chủ SMTP",
+        "port": "Cổng",
+        "username": "Tên người dùng",
+        "encryption": "Mã hóa",
+        "fromEmail": "Email Người gửi",
+        "fromName": "Tên Người gửi",
+        "domain": "Domain",
+        "region": "Vùng",
+        "monthlyLimit": "Giới hạn Hàng tháng",
+        "skipTlsVerify": "Bỏ qua Xác minh Chứng chỉ số TLS (không an toàn, không khuyến cáo)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "Địa chỉ Email Kiểm tra"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Để trống để giữ hiện tại",
+        "monthlyLimit": "Để trống để không giới hạn",
+        "mailgunFromEmail": "Thường là noreply@yourdomain",
+        "fromName": "Tên hiển thị cho email"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Không (Cổng 25)",
+        "encryptionStarttls": "STARTTLS (Cổng 587)",
+        "encryptionTls": "TLS/SSL (Cổng 465)",
+        "regionUS": "US (api.mailgun.net)",
+        "regionEU": "EU (api.eu.mailgun.net)"
+      },
+      "buttons": {
+        "edit": "Chỉnh sửa Cấu hình",
+        "cancel": "Hủy",
+        "testConnection": "Kiểm tra Kết nối",
+        "save": "Lưu Cấu hình",
+        "saveOnly": "Chỉ Lưu",
+        "saveAndTest": "Lưu và Kiểm tra",
+        "sendTestEmail": "Gửi Email Kiểm tra"
+      },
+      "dialogs": {
+        "test": {
+          "title": "Cấu hình Email Kiểm tra",
+          "content": "Nhập một địa chỉ email để gửi email kiểm tra đến:"
+        },
+        "save": {
+          "title": "Lưu Cấu hình",
+          "content": "Bạn có muốn kiểm tra cấu hình sau khi lưu không?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "Xác minh chứng chỉ số TLS bị vô hiệu hóa",
+        "tlsVerifyWarning": "Vô hiệu hóa xác minh TLS làm cho kết nối của bạn dễ bị tấn công man-in-the-middle. Chỉ sử dụng cho kiểm tra với các chứng chỉ số tự ký."
+      },
+      "messages": {
+        "testSuccess": "Email kiểm tra đã được gửi thành công",
+        "testFailed": "Không thể gửi email kiểm tra",
+        "saveSuccess": "Cấu hình đã được lưu thành công",
+        "saveFailed": "Không thể lưu cấu hình",
+        "loadFailed": "Không thể tải cấu hình"
+      }
+    },
+    "templates": {
+      "title": "Mẫu Email",
+      "createTemplate": "Tạo Mẫu Email",
+      "editTemplate": "Chỉnh sửa Mẫu Email",
+      "labels": {
+        "templateType": "Loại Mẫu",
+        "name": "Tên",
+        "subject": "Chủ đề",
+        "htmlContent": "Nội dung HTML",
+        "textContent": "Nội dung Văn bản"
+      },
+      "menuItems": {
+        "securityEvent": "Sự kiện Bảo mật",
+        "jobCompletion": "Hoàn thành Công việc",
+        "adminError": "Lỗi Quản trị viên",
+        "mfaCode": "Mã MFA",
+        "securityPasswordChanged": "Mật khẩu Đã thay đổi",
+        "securityMfaDisabled": "MFA Bị vô hiệu hóa",
+        "securitySuspiciousLogin": "Đăng nhập Đáng ngờ",
+        "jobStarted": "Công việc Đã bắt đầu",
+        "jobFailed": "Công việc Thất bại",
+        "firstCrack": "Bẻ khóa Đầu tiên",
+        "taskCompleted": "Tác vụ Đã hoàn thành",
+        "agentOffline": "Agent Ngoại tuyến",
+        "agentError": "Lỗi Agent",
+        "webhookFailure": "Lỗi Webhook"
+      },
+      "buttons": {
+        "create": "Tạo Mẫu",
+        "cancel": "Hủy",
+        "test": "Kiểm tra",
+        "save": "Lưu",
+        "edit": "Chỉnh sửa",
+        "delete": "Xóa"
+      },
+      "table": {
+        "name": "Tên",
+        "type": "Loại",
+        "subject": "Chủ đề",
+        "actions": "Hành động"
+      },
+      "preview": "Xem trước Trực tiếp (với dữ liệu mẫu):",
+      "messages": {
+        "loadSuccess": "Mẫu đã được tải thành công",
+        "loadFailed": "Không thể tải mẫu",
+        "createSuccess": "Mẫu được tạo thành công",
+        "createFailed": "Không thể tạo mẫu",
+        "updateSuccess": "Mẫu được cập nhật thành công",
+        "updateFailed": "Không thể cập nhật mẫu",
+        "deleteSuccess": "Mẫu được xóa thành công",
+        "deleteFailed": "Không thể xóa mẫu",
+        "testSuccess": "Email kiểm tra đã được gửi thành công",
+        "testFailed": "Không thể gửi email kiểm tra",
+        "saveFailed": "Không thể lưu mẫu"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Cài đặt đã được lưu thành công",
+    "saveFailed": "Không thể lưu cài đặt"
+  },
+  "clientSettings": {
+    "title": "Cài đặt Khách hàng",
+    "retentionPeriod": "Thời gian Lưu giữ Dữ liệu Mặc định (Tháng)",
+    "retentionHelperText": "Thời gian lưu giữ mặc định cho khách hàng mới (0 = giữ vô hạn)",
+    "saveButton": "Lưu Cài đặt",
+    "errors": {
+      "invalidRetention": "Thời gian lưu giữ phải là một số không âm",
+      "saveFailed": "Không thể lưu cài đặt khách hàng"
+    },
+    "messages": {
+      "updateSuccess": "Cài đặt khách hàng được cập nhật thành công"
+    }
+  },
+  "systemSettings": {
+    "title": "Cài đặt Hệ thống",
+    "priority": {
+      "title": "Cài đặt Ưu tiên",
+      "tooltip": "Cấu hình giá trị ưu tiên tối đa có thể được gán cho công việc và công việc cài sẵn. Điều này giúp duy trì các dải ưu tiên nhất quán trong toàn tổ chức của bạn.",
+      "maxPriority": "Ưu tiên Công việc Tối đa",
+      "helperText": "Đặt giá trị ưu tiên tối đa (1-1.000.000). Công việc và công việc cài sẵn không thể vượt quá ưu tiên này.",
+      "saveButton": "Lưu Cài đặt",
+      "saving": "Đang lưu...",
+      "reset": "Đặt lại"
+    },
+    "priorityInfo": {
+      "title": "Thông tin Hệ thống Ưu tiên",
+      "description": "Hệ thống ưu tiên sử dụng một dải từ 0 đến ưu tiên tối đa được cấu hình của bạn. Các số cao hơn chỉ ra ưu tiên cao hơn.",
+      "currentMax": "Tối đa Hiện tại",
+      "note": "Bạn không thể đặt ưu tiên tối đa thấp hơn bất kỳ ưu tiên công việc cài sẵn nào hiện có. Cập nhật hoặc xóa các công việc cài sẵn ưu tiên cao trước nếu cần.",
+      "recommended": "Dải khuyến nghị theo kích thước tổ chức:",
+      "small": "Tổ chức nhỏ: 0-100",
+      "medium": "Tổ chức vừa/lớn: 0-1.000",
+      "large": "Tổ chức khối lượng công việc khủng khiếp: 0-10.000"
+    },
+    "agentScheduling": {
+      "title": "Lập lịch Agent",
+      "tooltip": "Bật hoặc tắt hệ thống lập lịch agent trên toàn cục. Khi bật, các agent có thể có lịch hàng ngày được cấu hình.",
+      "enable": "Bật Hệ thống Lập lịch Agent",
+      "description": "Khi bật, các agent có thể được cấu hình với lịch hàng ngày. Chỉ các agent được lập lịch cho thời gian hiện tại mới được gán công việc.",
+      "note": "Các agent riêng lẻ cũng phải bật lập lịch và cấu hình lịch để điều này có hiệu lực."
+    },
+    "agentOverflow": {
+      "title": "Phân bổ Agent Dư",
+      "tooltip": "Cấu hình cách các agent rảnh được phân phối sau khi mọi công việc ở mọi cấp ưu tiên đã đạt đến giới hạn max_agents của nó.",
+      "modeLabel": "Chế độ phân bổ agent dư",
+      "priorityFifoMode": "Ưu tiên - FIFO",
+      "priorityRoundRobinMode": "Ưu tiên - Round Robin",
+      "enforceMaxAgentsMode": "Thực thi Agent Tối đa",
+      "maxAgentsFifoMode": "Agent Tối đa - FIFO",
+      "maxAgentsRoundRobinMode": "Agent Tối đa - Round Robin",
+      "priorityFifoDescription": "Các cấp được lấp đầy theo thứ tự ưu tiên cao nhất trước. Khi một cấp đạt đến max_agents, các agent còn lại sẽ dồn vào công việc CŨ NHẤT trong cấp đó — vượt quá giới hạn của nó. Các công việc ưu tiên thấp hơn có thể bị đói agent cho đến khi các cấp cao hơn cạn kiệt.",
+      "priorityRoundRobinDescription": "Các cấp được lấp đầy theo thứ tự ưu tiên cao nhất trước. Khi một cấp đạt đến max_agents, các agent còn lại xoay vòng đều trên các công việc của cấp đó — vượt quá giới hạn. Các công việc ưu tiên thấp hơn có thể bị đói agent.",
+      "enforceMaxAgentsDescription": "Giới hạn chặt chẽ mỗi công việc ở giới hạn max_agents của nó — không dư agent. Agent dư thừa ở chế độ chờ. Dễ dự đoán nhất; có thể lãng phí công suất.",
+      "maxAgentsFifoDescription": "Tất cả các công việc ở mọi mức ưu tiên lấp đầy đến max_agents trước (giới hạn chặt chẽ). Agent còn lại sau đó dồn vào công việc CŨ NHẤT nói chung — bỏ qua ưu tiên. Tối đa hóa thông lượng trong khi vẫn đảm bảo mức cơ sở cho mọi công việc.",
+      "maxAgentsRoundRobinDescription": "Tất cả các công việc ở mọi mức ưu tiên lấp đầy đến max_agents trước (giới hạn chặt chẽ). Agent còn lại sau đó xoay vòng đều trên TẤT CẢ các công việc — bỏ qua ưu tiên. Tối đa hóa thông lượng với phân phối công bằng vượt ngoài mức cơ sở."
+    },
+    "hashlist": {
+      "title": "Cài đặt Danh sách Hash",
+      "tooltip": "Cấu hình các cài đặt liên quan đến tải lên và quản lý danh sách hash",
+      "requireClient": "Yêu cầu Khách hàng cho Danh sách Hash",
+      "requireClientDescription": "Khi bật, người dùng phải gán một khách hàng khi tải lên danh sách hash mới. Điều này giúp duy trì tổ chức tốt hơn và theo dõi danh sách hash theo khách hàng.",
+      "batchSize": "Kích thước Batch Nhập Bulk",
+      "batchSizeHelper": "Số lượng hash được xử lý trên mỗi batch trong quá trình tải lên. Mặc định: 100.000. Khuyến nghị: 500.000-1.000.000 cho danh sách hash lớn (47M+)",
+      "performanceGuide": "Hướng dẫn Hiệu suất:",
+      "performance100k": "100K (mặc định): Tốt cho hầu hết các trường hợp sử dụng",
+      "performance500k": "500K: Tốt hơn cho danh sách hash lớn, có thể cải thiện thông lượng",
+      "performance1m": "1M: Tốt nhất cho danh sách hash rất lớn (50M+), yêu cầu RAM nhiều hơn"
+    },
+    "potfile": {
+      "title": "Cài đặt Potfile",
+      "tooltip": "Cấu hình cách potfile xử lý các mật khẩu đã bẻ khóa để tái sử dụng trên các công việc",
+      "maxBatchSize": "Kích thước Batch Tối đa",
+      "maxBatchSizeHelper": "Số mật khẩu được chuẩn bị để xử lý trong mỗi chu kỳ batch (1.000 - 500.000)",
+      "batchInterval": "Khoảng thời gian Batch (giây)",
+      "batchIntervalHelper": "Giây giữa các chu kỳ xử lý batch pot-file (10 - 600)",
+      "description": "Potfile thu thập các mật khẩu đã bẻ khóa từ tất cả các công việc và tái sử dụng chúng trong các cuộc tấn công tiếp theo. Các kích thước batch cao hơn xử lý nhiều mật khẩu cùng một lúc nhưng mất nhiều thời gian hơn trên mỗi chu kỳ.",
+      "processingRate": "Tốc độ Xử lý",
+      "passwordsPerSecond": "mật khẩu/giây",
+      "currentSettings": "Cài đặt Hiện tại",
+      "passwordsEvery": "mật khẩu mỗi",
+      "seconds": "giây"
+    },
+    "speedTest": {
+      "title": "Kiểm tra Tốc độ (Benchmark)",
+      "tooltip": "Điều chỉnh thời gian agents chờ hashcat tạo ra một benchmark có thể sử dụng được trước khi kiểm tra tốc độ thất bại. Các wordlist nén cần nhiều thời gian hơn đáng kể để dictstat-preprocess.",
+      "timeoutUncompressed": "Hết giờ: wordlist văn bản thuần túy (giây)",
+      "timeoutUncompressedHelper": "Số giây tối đa agent sẽ chờ để có được một kết quả đo tốc độ hợp lệ trên các wordlist văn bản thuần túy. Mặc định: 120.",
+      "timeoutCompressed": "Hết giờ: wordlist nén (giây)",
+      "timeoutCompressedHelper": "Số giây tối đa cho các wordlist .gz / .zip / .xz — ba định dạng mà hashcat hỗ trợ đọc trực tiếp. Chúng cần thời gian dài hơn để giải nén và dictstat-preprocess. Mặc định: 300.",
+      "minStatusUpdates": "Cập nhật trạng thái tối thiểu",
+      "minStatusUpdatesHelper": "Số lượt --status-json tối thiểu của hashcat mà agent phải thu thập trước khi trả về kết quả. Mặc định: 3.",
+      "minUpdatesLowWarning": "Các giá trị dưới 3 có thể cho ra kết quả đo không chính xác: GPU có thể chưa hoàn tất quá trình tăng tốc.",
+      "description": "Nếu agent hết giờ mà không tạo ra tốc độ khác 0, benchmark sẽ được báo cáo là thất bại và công việc sẽ hiển thị một lỗi mà quản trị viên có thể xử lý. Pipeline chunking cũng từ chối gửi một tác vụ 1-candidate, vì vậy một benchmark 0 H/s cũ sẽ không thể lặp lại mãi mãi."
+    },
+    "errors": {
+      "loadFailed": "Không thể tải cài đặt hệ thống",
+      "maxPriorityRequired": "Ưu tiên tối đa là bắt buộc",
+      "maxPriorityPositive": "Ưu tiên tối đa phải là một số dương",
+      "maxPriorityMax": "Ưu tiên tối đa không thể vượt quá 1.000.000",
+      "saveFailed": "Không thể lưu cài đặt hệ thống",
+      "batchSizeRange": "Kích thước batch phải nằm giữa {{min}} và {{max}}",
+      "intervalRange": "Khoảng thời gian phải nằm giữa {{min}} và {{max}} giây",
+      "speedTestTimeoutRange": "Hết giờ kiểm tra tốc độ phải nằm giữa {{min}} và {{max}} giây",
+      "minStatusUpdatesRange": "Cập nhật trạng thái tối thiểu phải nằm giữa {{min}} và {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Cài đặt hệ thống được cập nhật thành công",
+      "schedulingUpdated": "Cài đặt lập lịch agent được cập nhật",
+      "schedulingFailed": "Không thể cập nhật cài đặt lập lịch",
+      "overflowUpdated": "Chế độ phân bổ agent dư được cập nhật",
+      "overflowFailed": "Không thể cập nhật chế độ phân bổ agent dư",
+      "hashlistClientUpdated": "Yêu cầu khách hàng cho danh sách hash được cập nhật",
+      "hashlistBatchUpdated": "Kích thước batch danh sách hash được cập nhật",
+      "potfileBatchUpdated": "Kích thước batch potfile được cập nhật",
+      "potfileIntervalUpdated": "Khoảng thời gian batch potfile được cập nhật",
+      "speedTestTimeoutUpdated": "Hết giờ kiểm tra tốc độ được cập nhật",
+      "speedTestMinUpdatesUpdated": "Cập nhật trạng thái tối thiểu kiểm tra tốc độ được cập nhật",
+      "updateFailed": "Không thể cập nhật cài đặt"
+    }
+  },
+  "jobExecution": {
+    "title": "Cài đặt Thực thi Công việc",
+    "description": "Cấu hình cách các công việc được thực thi và phân phối trên các agent",
+    "chunking": {
+      "title": "Chunking Công việc",
+      "defaultChunkDuration": "Thời lượng Chunk Mặc định",
+      "defaultChunkDurationHelper": "Thời gian thực mục tiêu trên mỗi chunk (scheduler-v2 xác định kích thước chunk của mỗi agent để đạt được điều này)",
+      "minChunkSeconds": "Thời lượng Chunk Tối thiểu",
+      "minChunkSecondsHelper": "Sàn cho thời gian thực của một chunk duy nhất; ngăn chặn các chunk mồ côi nhỏ",
+      "minutes": "phút",
+      "overrunTolerance": "Dung sai overrun chunk",
+      "overrunToleranceHelper": "Một chunk được phép chạy vượt quá thời lượng đã lên kế hoạch bao lâu trước khi guard dừng nó và gửi lại phần còn lại.",
+      "overrunGuard": "Bật guard overrun chunk",
+      "overrunGuardHelper": "Dừng một tác vụ chạy lâu vượt quá thời lượng chunk đã lên kế hoạch và gửi lại phần chưa hoàn thành."
+    },
+    "agentConfig": {
+      "title": "Cấu hình Agent",
+      "hashlistRetention": "Thời gian Lưu giữ Danh sách Hash",
+      "hashlistRetentionHelper": "Agents giữ danh sách hash trong bao lâu",
+      "maxConcurrentJobs": "Công việc Đồng thời Tối đa trên mỗi Agent",
+      "maxConcurrentJobsHelper": "Số công việc tối đa một agent có thể chạy cùng một lúc",
+      "progressReporting": "Khoảng Báo cáo Tiến độ",
+      "progressReportingHelper": "Tần suất agents báo cáo tiến độ",
+      "benchmarkCache": "Thời lượng Cache Benchmark",
+      "benchmarkCacheHelper": "Bao lâu để cache benchmark của agent",
+      "benchmarkHistoryRetention": "Thời gian Lưu giữ Lịch sử Benchmark",
+      "benchmarkHistoryRetentionHelper": "Ngày để giữ các bản ghi lịch sử benchmark (0 = không giới hạn)",
+      "reconnectGrace": "Thời gian Gia hạn Kết nối lại",
+      "reconnectGraceHelper": "Thời gian chờ đợi các agent kết nối lại sau khi khởi động lại máy chủ",
+      "days": "ngày",
+      "seconds": "giây",
+      "minutes": "phút"
+    },
+    "jobControl": {
+      "title": "Điều khiển Công việc",
+      "allowInterruption": "Cho phép Gián đoạn Công việc",
+      "allowInterruptionHelper": "Các công việc ưu tiên cao hơn có thể gián đoạn các công việc đang chạy",
+      "realtimeNotifications": "Thông báo Bẻ khóa Thời gian thực",
+      "realtimeNotificationsHelper": "Gửi thông báo khi hash được bẻ khóa",
+      "refreshInterval": "Khoảng Làm mới Công việc",
+      "refreshIntervalHelper": "Tần suất làm mới trạng thái công việc trong giao diện người dùng",
+      "maxRetryAttempts": "Lần Thử lại Chunk Tối đa",
+      "maxRetryAttemptsHelper": "Số lần thử lại các chunk thất bại",
+      "jobsPerPage": "Công việc Trên mỗi Trang",
+      "jobsPerPageHelper": "Kích thước phân trang mặc định cho danh sách công việc",
+      "keyspaceTimeout": "Hết giờ Tính toán Keyspace",
+      "keyspaceTimeoutHelper": "Thời gian tối đa cho các lệnh hashcat --keyspace và --total-candidates. Tăng cho các wordlist/quy tắc lớn."
+    },
+    "potfile": {
+      "title": "Cài đặt Potfile",
+      "enablePotfile": "Bật Potfile",
+      "enablePotfileHelper": "Tự động lưu trữ các mật khẩu đã bẻ khóa để sử dụng trong các công việc trong tương lai. Các danh sách hash riêng lẻ vẫn có thể bị loại trừ.",
+      "maxBatchSize": "Kích thước Batch Tối đa",
+      "maxBatchSizeHelper": "Số mật khẩu được chuẩn bị để xử lý trong mỗi chu kỳ batch (1.000 - 500.000)",
+      "batchInterval": "Khoảng Batch",
+      "batchIntervalHelper": "Giây giữa các chu kỳ xử lý batch potfile (10 - 600)",
+      "enableClientPotfiles": "Bật potfile của khách hàng",
+      "enableClientPotfilesHelper": "Giữ một potfile riêng biệt cho mỗi khách hàng, ngoài potfile toàn cục.",
+      "removeGlobalDefault": "Xóa khỏi potfile toàn cục khi danh sách hash bị xóa (mặc định)",
+      "removeClientDefault": "Xóa khỏi potfile của khách hàng khi danh sách hash bị xóa (mặc định)"
+    },
+    "scheduler": {
+      "title": "Bộ lập lịch (v2)",
+      "description": "Điều chỉnh nâng cao cho liveness tác vụ và xử lý overrun của bộ lập lịch v2. Các giá trị mặc định là an toàn cho hầu hết các triển khai.",
+      "taskHeartbeatTimeout": "Hết giờ Heartbeat Tác vụ",
+      "taskHeartbeatTimeoutHelper": "Giây mà không có tín hiệu liveness trước khi một tác vụ chạy được đánh dấu là bị mất và được khôi phục",
+      "taskStartupGrace": "Thời gian Gia hạn Khởi động Tác vụ",
+      "taskStartupGraceHelper": "Gia hạn thêm trước tiến độ đầu tiên (tải file, giải nén, autotune)",
+      "networkGrace": "Thời gian Gia hạn Mạng",
+      "networkGraceHelper": "Dung sai kết nối lại WebSocket trước khi khôi phục kích hoạt trên ngắt kết nối",
+      "overrunGuardEnabled": "Guard Overrun Chunk",
+      "overrunGuardEnabledHelper": "Dừng các tác vụ chạy vượt quá mục tiêu chunk của chúng ngoài dung sai dưới đây",
+      "overrunTolerance": "Dung sai Overrun",
+      "overrunToleranceHelper": "Cửa sổ gia hạn: dừng khi thời gian thực vượt quá mục tiêu chunk theo phần trăm này"
+    },
+    "buttons": {
+      "save": "Lưu Cài đặt"
+    },
+    "errors": {
+      "loadFailed": "Không thể tải cài đặt",
+      "outOfRange": "{{label}} phải nằm giữa {{min}} và {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Cài đặt thực thi công việc được cập nhật thành công",
+      "loadFailed": "Không thể tải cài đặt thực thi công việc",
+      "saveFailed": "Không thể lưu cài đặt"
+    },
+    "keyspaceBenchmark": {
+      "title": "Keyspace & Benchmark",
+      "caption": "Bao lâu KrakenHashes có thể dành để đo lường một cuộc tấn công. Cài đặt đầu tiên ràng buộc SERVER đo lường wordlist khi tạo công việc; các cài đặt kiểm tra tốc độ ràng buộc một AGENT đo lường tốc độ hash của chính nó. Chúng là các giai đoạn khác nhau — tăng một cái không ảnh hưởng đến cái kia.",
+      "keyspaceTimeout": "Hết giờ tính toán keyspace",
+      "keyspaceTimeoutHelper": "Phía máy chủ. Thời gian cho phép cho hashcat --keyspace / --total-candidates khi một công việc được tạo. Chạy trong nền, vì vậy tăng thời gian này không làm cho việc tạo công việc chậm hơn. Nếu vượt quá, một cuộc tấn công straight sẽ quay về dùng số từ trong wordlist và thông báo cho người dùng.",
+      "speedTestUncompressed": "Hết giờ kiểm tra tốc độ agent",
+      "speedTestUncompressedHelper": "Phía agent. Giới hạn thời gian thực cho một benchmark agent trên một wordlist chưa nén.",
+      "speedTestCompressed": "Hết giờ kiểm tra tốc độ agent (nén)",
+      "speedTestCompressedHelper": "Phía agent. Giới hạn dài hơn cho các wordlist nén, mà hashcat phải giải nén trước khi nó có thể báo cáo một tốc độ.",
+      "minStatusUpdates": "Cập nhật trạng thái tối thiểu",
+      "minStatusUpdatesHelper": "Bao nhiêu báo cáo trạng thái hashcat mà một kiểm tra tốc độ phải tạo ra trước khi kết quả của nó được tin tưởng. Các giá trị thấp có nguy cơ ghi nhận một tốc độ được đo trước khi GPU ổn định.",
+      "cacheDuration": "Thời lượng cache benchmark",
+      "cacheDurationHelper": "Bao lâu một benchmark đã ghi lại còn hiệu lực trước khi một agent được yêu cầu đo lại.",
+      "historyRetention": "Thời gian lưu giữ lịch sử benchmark",
+      "historyRetentionHelper": "Các bản ghi benchmark riêng lẻ được giữ bao lâu để phân tích xu hướng.",
+      "hours": "giờ",
+      "days": "ngày"
+    },
+    "benchmarkReliability": {
+      "title": "Độ tin cậy Benchmark",
+      "caption": "Điều gì xảy ra khi các benchmark liên tục thất bại. Chúng bảo vệ chống lại một agent xấu, hoặc một cấu hình công việc xấu, làm tiêu hao cả đội agent bằng cách chạy lại một benchmark không thể thành công.",
+      "failureThreshold": "Ngưỡng thất bại",
+      "failureThresholdHelper": "Các lần thất bại benchmark liên tiếp của một kết hợp agent/công việc/attack trước khi nó bị đưa vào danh sách chặn.",
+      "hardFailureCap": "Giới hạn cứng cho số lần thất bại",
+      "hardFailureCapHelper": "Giới hạn tuyệt đối về số lần thử benchmark cho một tổ hợp, bất kể ngưỡng ở trên.",
+      "blocklistCooldown": "Thời gian chờ danh sách chặn",
+      "blocklistCooldownHelper": "Thời gian một agent/công việc/tổ hợp tấn công nằm trong danh sách chặn trước khi có thể được thử lại.",
+      "stormThreshold": "Ngưỡng bão benchmark",
+      "stormThresholdHelper": "Số lần benchmark thất bại trong cửa sổ bão kích hoạt thông báo cho quản trị viên.",
+      "stormWindow": "Cửa sổ bão benchmark",
+      "stormWindowHelper": "Khoảng thời gian trong đó các lần thất bại được tính để đạt ngưỡng bão.",
+      "streakReset": "Thời gian đặt lại chuỗi lỗi",
+      "streakResetHelper": "Thời gian agent phải không có lỗi benchmark trước khi chuỗi lỗi được đặt lại thành 0.",
+      "quarantineStreak": "Chuỗi lỗi cách ly",
+      "quarantineStreakHelper": "Số lần thất bại liên tiếp trên bất kỳ tổ hợp nào trước khi chính agent bị cách ly khỏi benchmark.",
+      "quarantineDistinct": "Tổ hợp riêng biệt cách ly",
+      "quarantineDistinctHelper": "Bao nhiêu tổ hợp tấn công/loại hash KHÁC NHAU phải thất bại trước khi agent được coi là bị lỗi chứ không phải công việc."
+    },
+    "scheduling": {
+      "title": "Lập lịch & Cấp phát",
+      "overflowMode": "Chế độ cấp phát agent dư",
+      "overflowModeHelper": "Cách các agent dư được phân phối sau khi công việc đạt giới hạn agent tối đa.",
+      "maxConcurrentJobs": "Số công việc đồng thời tối đa trên mỗi agent",
+      "maxConcurrentJobsHelper": "Bao nhiêu công việc một agent duy nhất có thể làm việc cùng một lúc.",
+      "agentScheduling": "Bật lập lịch agent",
+      "agentSchedulingHelper": "Bật toàn cầu các lịch giờ làm việc cho mỗi agent. Khi tắt, các lịch agent bị bỏ qua.",
+      "jobInterruption": "Cho phép ngắt công việc",
+      "jobInterruptionHelper": "Cổng toàn cầu cho việc ngắt công việc. Một công việc CŨNG phải có cờ ghi đè ưu tiên cao riêng của nó và ưu tiên khác 0 trước khi bất cứ điều gì bị ngắt.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Round robin",
+        "enforceMaxAgents": "Thực thi agent tối đa",
+        "maxAgentsFifo": "Agent tối đa, rồi FIFO",
+        "maxAgentsRoundRobin": "Agent tối đa, rồi round robin"
+      }
+    },
+    "taskHealth": {
+      "title": "Sức khỏe tác vụ",
+      "caption": "Khi nào một tác vụ đang chạy được coi là đã mất, và việc khôi phục được thực hiện quyết liệt đến mức nào. Đặt các giá trị này quá chặt sẽ khiến các tác vụ lành mạnh bị loại bỏ; quá lỏng sẽ khiến một tác vụ đã chết giữ keyspace của nó trong nhiều giờ.",
+      "heartbeatTimeout": "Thời gian chờ heartbeat tác vụ",
+      "heartbeatTimeoutHelper": "Thời gian một tác vụ đang chạy có thể không có heartbeat trước khi được coi là đã mất và keyspace của nó được mở lại.",
+      "startupGrace": "Thời gian ân hạn khởi động tác vụ",
+      "startupGraceHelper": "Thời gian bổ sung được phép sau khi gán trước khi các quy tắc heartbeat được áp dụng, bao gồm khởi động hashcat và tải tệp.",
+      "networkGrace": "Thời gian ân hạn mạng",
+      "networkGraceHelper": "Khoảng thời gian ngắn cho các gián đoạn mạng tạm thời trước khi một heartbeat bị bỏ lỡ được tính.",
+      "reconnectGrace": "Khoảng thời gian ân hạn kết nối lại",
+      "reconnectGraceHelper": "Thời gian một agent ngắt kết nối có thể kết nối lại và lấy lại tác vụ đang chạy của nó.",
+      "offlineBuffer": "Thời gian gia hạn ngoại tuyến agent",
+      "offlineBufferHelper": "Thời gian các tin nhắn cho một agent ngoại tuyến tạm thời được đệm trước khi bị xóa.",
+      "maxRetryAttempts": "Số lần thử lại chunk tối đa",
+      "maxRetryAttemptsHelper": "Bao nhiêu lần một chunk bị lỗi được thử lại trước khi tác vụ bị lỗi. Đặt thành 0 để vô hiệu hóa các lần thử lại.",
+      "progressInterval": "Khoảng thời gian báo cáo tiến độ",
+      "progressIntervalHelper": "Tần suất agent báo cáo tiến độ. Giá trị thấp hơn cho tiến độ chi tiết hơn nhưng tải lớn hơn.",
+      "hashlistRetention": "Thời gian lưu giữ danh sách hash agent",
+      "hashlistRetentionHelper": "Thời gian agent giữ danh sách hash đã tải xuống sau khi hoàn thành."
+    },
+    "loopback": {
+      "title": "Loopback",
+      "maxRounds": "Số vòng loopback tối đa",
+      "maxRoundsHelper": "Giới hạn an toàn về bao nhiêu lần một phiên loopback chạy lại một tấn công trên plaintext vừa bẻ khóa trước khi dừng, ngay cả khi nó vẫn đang tìm thấy những bẻ khóa mới."
+    },
+    "jobNotifications": {
+      "title": "Thông báo công việc",
+      "realtimeCracks": "Thông báo bẻ khóa thời gian thực",
+      "realtimeCracksHelper": "Thông báo khi các hash được bẻ khóa. Có thể tăng tải đáng chú ý trên các công việc rất lớn."
+    }
+  },
+  "monitoring": {
+    "title": "Cài đặt Giám sát",
+    "metricsRetention": {
+      "title": "📊 Khoảng thời gian lưu giữ Chỉ số",
+      "description": "Cấu hình thời gian lưu giữ chỉ số ở các mức độ chi tiết khác nhau. Dữ liệu chuyển dần từ chi tiết sang tổng hợp theo thời gian.",
+      "realtimeData": "Lưu giữ Dữ liệu Thời gian thực",
+      "realtimeDataHelper": "Số ngày lưu giữ các chỉ số chi tiết cho hoạt động gần đây (ví dụ: 7 ngày)",
+      "dailyAggregates": "Lưu giữ Tổng hợp Hàng ngày",
+      "dailyAggregatesHelper": "Số ngày lưu trữ tóm tắt hàng ngày sau giai đoạn thời gian thực (ví dụ: 30 ngày)",
+      "weeklyAggregates": "Lưu giữ Tổng hợp Hàng tuần",
+      "weeklyAggregatesHelper": "Số ngày để bảo toàn xu hướng dài hạn dưới dạng tóm tắt hàng tuần (ví dụ: 365 ngày)"
+    },
+    "aggregation": {
+      "title": "⚙️ Cài đặt Tổng hợp",
+      "enableAggregation": "Bật Tổng hợp Tự động",
+      "enableAggregationDescription": "Tự động hợp nhất các chỉ số cũ hơn để tiết kiệm không gian lưu trữ trong khi bảo toàn xu hướng",
+      "interval": "Khoảng thời gian Tổng hợp",
+      "intervalHelper": "Tần suất chạy quá trình tổng hợp",
+      "hourly": "Hàng giờ",
+      "daily": "Hàng ngày",
+      "weekly": "Hàng tuần"
+    },
+    "cascading": {
+      "title": "Cách tổng hợp phân tầng hoạt động:",
+      "realtime": "Dữ liệu thời gian thực cung cấp các chỉ số chi tiết cho hoạt động gần đây",
+      "daily": "Sau giai đoạn thời gian thực, dữ liệu được tổng hợp thành tóm tắt hàng ngày",
+      "weekly": "Sau giai đoạn hàng ngày, dữ liệu được tổng hợp thêm thành tóm tắt hàng tuần",
+      "benefit": "Cách tiếp cận này giữ các biểu đồ dễ đọc trong khi bảo toàn xu hướng lịch sử"
+    },
+    "buttons": {
+      "save": "Lưu Cài đặt",
+      "saving": "Đang lưu..."
+    },
+    "errors": {
+      "loadFailed": "Không thể tải cài đặt. Vui lòng thử lại.",
+      "saveFailed": "Không thể lưu cài đặt. Vui lòng thử lại."
+    },
+    "messages": {
+      "updateSuccess": "Cài đặt giám sát đã được lưu thành công"
+    }
+  },
+  "agentDownloads": {
+    "title": "Cài đặt Truyền tệp Agent",
+    "description": "Cấu hình cách agent tải xuống tệp từ backend. Những cài đặt này áp dụng cho tất cả các agent được kết nối.",
+    "concurrentDownloads": {
+      "title": "Tải xuống Đồng thời",
+      "description": "Số lượng tệp tối đa có thể được tải xuống cùng một lúc"
+    },
+    "downloadTimeout": {
+      "title": "Thời gian chờ Tải xuống",
+      "description": "Thời gian tối đa cho phép tải xuống một tệp duy nhất",
+      "helper": "Từ 1 phút đến 24 giờ (1440 phút)",
+      "unit": "phút"
+    },
+    "retryAttempts": {
+      "title": "Số lần Thử lại",
+      "description": "Số lần thử lại các tải xuống bị lỗi"
+    },
+    "progressInterval": {
+      "title": "Khoảng thời gian Báo cáo Tiến độ",
+      "description": "Tần suất agent báo cáo tiến độ tải xuống",
+      "helper": "Từ 1 giây đến 5 phút (300 giây)",
+      "unit": "giây"
+    },
+    "chunkSize": {
+      "title": "Kích thước Chunk",
+      "description": "Kích thước chunk tải xuống cho khả năng tiếp tục trong tương lai",
+      "helper": "Từ 1 MB đến 100 MB",
+      "unit": "MB"
+    },
+    "applyNote": "Các thay đổi sẽ được áp dụng cho agent khi kết nối tiếp theo. Các agent được kết nối hiện tại sẽ nhận được cập nhật tự động.",
+    "buttons": {
+      "save": "Lưu Cài đặt",
+      "saving": "Đang lưu..."
+    },
+    "errors": {
+      "loadFailed": "Không thể tải cài đặt tải xuống agent",
+      "saveFailed": "Không thể cập nhật cài đặt tải xuống agent"
+    },
+    "messages": {
+      "updateSuccess": "Cài đặt tải xuống agent đã được cập nhật thành công"
+    }
+  },
+  "hashTypes": {
+    "title": "Quản lý Loại Hash",
+    "description": "Quản lý các loại hash được hỗ trợ cho các hoạt động bẻ khóa mật khẩu",
+    "addHashType": "Thêm Loại Hash",
+    "searchPlaceholder": "Tìm kiếm loại hash...",
+    "hashTypesFound_other": "Đã tìm thấy {{count}} loại hash",
+    "table": {
+      "id": "ID",
+      "name": "Tên",
+      "description": "Mô tả",
+      "example": "Ví dụ",
+      "slow": "Chậm",
+      "salted": "Có muối",
+      "actions": "Hành động",
+      "loading": "Đang tải loại hash...",
+      "noResults": "Không tìm thấy loại hash nào"
+    },
+    "dialog": {
+      "addTitle": "Thêm Loại Hash Mới",
+      "editTitle": "Chỉnh sửa Loại Hash",
+      "hashIdLabel": "Hash ID (Số chế độ Hashcat)",
+      "hashIdHelper": "ví dụ: 1000 cho NTLM",
+      "nameLabel": "Tên",
+      "descriptionLabel": "Mô tả",
+      "exampleLabel": "Hash Mẫu",
+      "exampleHelper": "Ví dụ về định dạng hash này",
+      "slowLabel": "Thuật toán Hash Chậm",
+      "saltedLabel": "Loại Hash Có Muối (ví dụ: NTLMv2, bcrypt)",
+      "processingInfo": "Loại hash này yêu cầu xử lý đặc biệt. Logic xử lý được quản lý theo lập trình.",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saving": "Đang lưu..."
+    },
+    "validation": {
+      "hashIdRequired": "Hash ID là bắt buộc và phải là số dương",
+      "hashIdExists": "Hash ID này đã tồn tại",
+      "nameRequired": "Tên là bắt buộc"
+    },
+    "tooltips": {
+      "requiresProcessing": "Yêu cầu xử lý đặc biệt",
+      "processing": "Xử lý đặc biệt",
+      "slowAlgorithm": "Thuật toán hash chậm (tính toán tốn kém)",
+      "salted": "Sử dụng muối theo hash (ảnh hưởng đến tính toán keyspace)"
+    },
+    "confirmDelete": {
+      "title": "Xác nhận Xóa",
+      "warning": "Loại hash này hiện được bật. Xóa nó có thể ảnh hưởng đến chức năng hiện có.",
+      "cancel": "Hủy",
+      "delete": "Xóa",
+      "deleting": "Đang xóa..."
+    },
+    "messages": {
+      "createSuccess": "Loại hash đã được tạo thành công",
+      "createFailed": "Không thể tạo loại hash",
+      "updateSuccess": "Loại hash đã được cập nhật thành công",
+      "updateFailed": "Không thể cập nhật loại hash",
+      "deleteSuccess": "Loại hash đã được xóa thành công",
+      "deleteFailed": "Không thể xóa loại hash",
+      "deleteInUse": "Không thể xóa: Loại hash này đang được sử dụng bởi danh sách hash hiện có",
+      "loadFailed": "Không thể tải loại hash. Vui lòng thử làm mới trang."
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "Cấp phát GPU đám mây",
+      "body": "Thuê các instance GPU theo yêu cầu khi đội GPU tại chỗ không theo kịp. Các instance tham gia VPN hiện có của bạn, chỉ nhận tệp mà công việc của chúng cần, và được tháo dỡ tự động. Chi tiêu được cam kết vào ngân sách của từng khách hàng trước khi instance khởi động, vì vậy giới hạn này có hiệu lực thực tế chứ không phải là một số liệu đo được sau khi sự việc đã xảy ra.",
+      "fleetLink": "Xem đội GPU trực tiếp"
+    },
+    "sections": {
+      "providers": "Nhà cung cấp",
+      "clients": "Ngân sách Khách hàng",
+      "policy": "Chính sách Ngưỡng",
+      "rules": "Quy tắc Cấp phát",
+      "system": "Giới hạn & Hoạt động"
+    },
+    "providers": {
+      "title": "Nhà cung cấp Đám mây",
+      "description": "Nơi xuất phát của các instance được thuê, và cách chúng kết nối đến máy chủ này.",
+      "add": "Thêm nhà cung cấp",
+      "addTitle": "Thêm nhà cung cấp đám mây",
+      "editTitle": "Chỉnh sửa nhà cung cấp đám mây",
+      "edit": "Chỉnh sửa",
+      "delete": "Xóa",
+      "save": "Lưu",
+      "saved": "Nhà cung cấp đã được lưu",
+      "saveFailed": "Không thể lưu nhà cung cấp",
+      "deleted": "Nhà cung cấp đã được xóa",
+      "deleteFailed": "Không thể xóa nhà cung cấp",
+      "deleteTitle": "Xóa nhà cung cấp?",
+      "deleteBody": "Xóa \"{{name}}\"? Điều này sẽ thất bại trong khi bất kỳ instance được thuê nào vẫn tham chiếu nó.",
+      "loadFailed": "Không thể tải nhà cung cấp",
+      "empty": "Không có nhà cung cấp đám mây nào được cấu hình. Không có gì sẽ được thuê.",
+      "enabled": "Được bật",
+      "disabled": "Bị tắt",
+      "noCredentials": "Không có thông tin xác thực",
+      "noVpn": "Không có VPN",
+      "credentialExpired": "Thông tin xác thực đã hết hạn",
+      "credentialExpiresIn": "Hết hạn trong {{days}} ngày",
+      "limitsValue": "{{instances}} tối đa, {{rate}}/hr tối đa",
+      "thirdPartyBadge": "Chạy trên máy của bên thứ ba",
+      "preflight": "Kiểm tra sẵn sàng",
+      "preflightTitle": "Báo cáo kiểm tra sẵn sàng",
+      "preflightOk": "Nhà cung cấp này có thể khởi chạy các instance.",
+      "preflightFailed": "Yêu cầu kiểm tra sẵn sàng thất bại",
+      "preflightFailedBody": "Nhà cung cấp này chưa thể khởi chạy các instance.",
+      "preflightIdentity": "Được xác thực dưới tên {{identity}}",
+      "preflightQuota": "Hạn ngạch: {{used}} trong số {{limit}} đang được sử dụng ({{source}})",
+      "preflightSections": {
+        "missing_permissions": "Quyền bị thiếu",
+        "inconclusive": "Không thể xác minh (coi là lỗi)",
+        "errors": "Lỗi",
+        "warnings": "Cảnh báo"
+      },
+      "acknowledge": "Xác nhận",
+      "acknowledged": "Xác nhận đã được ghi lại",
+      "ackFailed": "Không thể ghi lại xác nhận",
+      "ackTitle": "Xác nhận tiết lộ dữ liệu của bên thứ ba",
+      "ackBody": {
+        "vastai": "Vast.ai thuê GPU trên các máy được sở hữu riêng lẻ có các nhà khai thác có quyền truy cập root vào container. Hash, wordlist và plaintext đã bẻ khóa được đặt ở đó có thể nhìn thấy được bởi bên thứ ba. Điều này hoàn toàn khác với AWS hoặc RunPod Secure Cloud, nơi các instance chạy bên trong tài khoản riêng của bạn hoặc trong các trung tâm dữ liệu SOC 2.",
+        "runpod_community": "RunPod Community Cloud thuê GPU trên các máy vận hành ngang hàng có chủ sở hữu có quyền truy cập root vào container. Hash, wordlist và plaintext đã bẻ khóa được đặt ở đó có thể nhìn thấy được bởi bên thứ ba. Các chứng thực tuân thủ của RunPod chỉ bao gồm Secure Cloud và không mở rộng đến cấp này."
+      },
+      "ackConfirm": "Bạn có chấp nhận rủi ro lộ dữ liệu này cho các khối lượng công việc được gửi đến nhà cung cấp này không?",
+      "ackAccept": "Tôi hiểu và chấp nhận",
+      "ephemeralKeyTitle": "Khóa mã hóa là tạm thời",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY không được đặt, vì vậy một khóa ngẫu nhiên đã được tạo khi khởi động. Mỗi thông tin xác thực được lưu trữ trở thành không thể đọc được sau lần khởi động tiếp theo. Đặt KH_ENCRYPTION_KEY trước khi lưu thông tin xác thực nhà cung cấp.",
+      "vpnSection": "Kết nối VPN",
+      "vpnSectionHelp": "Máy chủ này không bao giờ được tiếp xúc với internet, vì vậy các instance được thuê tham gia VPN mà bạn đã chạy. OpenVPN không được hỗ trợ: nó cần /dev/net/tun và CAP_NET_ADMIN, mà các container không có đặc quyền của Vast.ai không cung cấp.",
+      "reusableKeyWarning": {
+        "tailscale": "Một khóa có thể tái sử dụng được chia sẻ bởi mỗi instance và hết hạn — Tailscale giới hạn các khóa xác thực ở 90 ngày. Sau khi nó hết hạn, cấp phát bị từ chối thay vì khởi chạy các instance không thể kết nối. Thay vào đó, một máy khách OAuth cho phép KrakenHashes tạo một khóa tạm thời, có gắn thẻ, dùng một lần cho mỗi instance.",
+        "netbird": "Một khóa thiết lập có thể tái sử dụng được chia sẻ bởi mỗi instance, vì vậy cùng một bí mật này xuất hiện trên mọi máy chủ được thuê. Đặt Thông tin xác thực hết hạn ở bên dưới nếu khóa có ngày hết hạn — cấp phát sau đó bị từ chối sau khi nó hết hạn thay vì khởi chạy các instance không thể kết nối; để trống đối với khóa không bao giờ hết hạn. Tag hoặc nhóm bị bỏ qua cho loại thông tin xác thực này: nhóm và cờ tạm thời đến từ cấu hình riêng của khóa trong NetBird. Một mã truy cập cho phép KrakenHashes tạo một khóa thiết lập tạm thời, dùng một lần, trên mỗi instance và tự đặt nhóm."
+      },
+      "staticConfigWarning": "WireGuard sử dụng một cấu hình ngang hàng tĩnh: không có thông tin xác thực cho mỗi instance và không có hủy đăng ký tự động khi một instance chết. Tailscale hoặc NetBird an toàn hơn.",
+      "kinds": {
+        "aws": "AWS EC2 (tài khoản của bạn)",
+        "vastai": "Vast.ai (máy của bên thứ ba)",
+        "mock": "Mock (agent kiểm tra cục bộ, không có chi phí)",
+        "runpod": "RunPod Secure Cloud (trung tâm dữ liệu SOC 2)",
+        "runpod_community": "RunPod Community Cloud (máy vận hành ngang hàng)"
+      },
+      "credentialKinds": {
+        "oauth": "Máy khách OAuth — tạo một khóa tạm thời cho mỗi instance (được khuyến nghị)",
+        "pat": "Mã truy cập — tạo một khóa tạm thời cho mỗi instance (được khuyến nghị)",
+        "reusable_key": "Khóa có thể tái sử dụng — chia sẻ bởi mỗi instance",
+        "static_config": "Cấu hình tĩnh — không có thông tin xác thực cho mỗi instance"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "Máy khách Tailscale OAuth dưới dạng client_id:client_secret. Cần phạm vi auth_keys và tag được chọn.",
+        "pat": "Mã truy cập cá nhân NetBird hoặc mã người dùng dịch vụ.",
+        "reusable_key": "Khóa đã được ủy quyền từ trước mà mọi instance sẽ sử dụng.",
+        "static_config": "Toàn bộ cấu hình peer của WireGuard."
+      },
+      "columns": {
+        "name": "Tên",
+        "provider": "Nhà cung cấp",
+        "status": "Trạng thái",
+        "vpn": "VPN",
+        "limits": "Giới hạn",
+        "actions": "Hành động"
+      },
+      "fields": {
+        "name": "Tên",
+        "provider": "Nhà cung cấp",
+        "credentials": "Thông tin xác thực nhà cung cấp",
+        "credentialsHelp": "Thông tin xác thực API cho {{provider}}. Được lưu trữ dưới dạng mã hóa và không bao giờ được trả lại.",
+        "credentialsKeepHelp": "Để trống nếu muốn giữ nguyên thông tin xác thực đã lưu.",
+        "maxConcurrent": "Số lượng instance đồng thời tối đa",
+        "maxHourlyCents": "Mức giá tối đa mỗi giờ (cent)",
+        "maxHourlyHelp": "Các mức giá cao hơn ngưỡng này sẽ không bao giờ được thuê, bất kể ngân sách cho phép.",
+        "vpnProvider": "Nhà cung cấp VPN",
+        "credentialKind": "Loại thông tin xác thực",
+        "vpnCredential": "Thông tin xác thực VPN",
+        "credentialExpiry": "Thông tin xác thực hết hạn lúc",
+        "credentialExpiryHelp": "Tùy chọn — để trống cho một khóa không bao giờ hết hạn. Cấp phát sẽ bị từ chối sau thời điểm này, và bạn sẽ được cảnh báo khi thời điểm đó gần đến.",
+        "vpnTag": "Thẻ hoặc nhóm",
+        "vpnTagHelp": "ví dụ tag:kraken-worker. Bắt buộc cho Tailscale OAuth; xác định phạm vi mà các nút này có thể tiếp cận.",
+        "backendVpnHost": "Địa chỉ của máy chủ này trên VPN",
+        "backendVpnHostHelp": "Giá trị KH_HOST mà các agent đám mây sử dụng. Chứng chỉ số của máy chủ phải bao gồm nó — thêm nó dưới tab Chứng chỉ số Máy chủ và nhấp vào Áp dụng & Phát hành lại, nếu không agent sẽ không xác minh được tên máy chủ TLS.",
+        "enabled": "Bật",
+        "awsAccessKeyId": "ID khóa truy cập AWS",
+        "awsAccessKeyIdHelp": "Khóa người dùng hoặc vai trò IAM có phạm vi giới hạn trong cấp phát EC2. Được lưu trữ dưới dạng mã hóa và không bao giờ được trả lại.",
+        "awsSecretAccessKey": "Khóa truy cập bí mật AWS",
+        "awsRegion": "Khu vực",
+        "awsRegionHelp": "ví dụ us-east-2. Mọi trường AWS khác bên dưới phải nằm trong khu vực này.",
+        "awsSubnet": "ID Subnet",
+        "awsSubnetHelp": "ví dụ subnet-0abc123. Phải tự động gán IP công khai, nếu không instance sẽ không thể tiếp cận mặt phẳng điều khiển VPN của bạn.",
+        "awsSecurityGroups": "ID nhóm bảo mật",
+        "awsSecurityGroupsHelp": "Phân cách bằng dấu phẩy, ví dụ sg-0abc123. Chỉ cần quyền truy cập ra ngoài (outbound); không yêu cầu quy tắc truy cập vào (inbound).",
+        "awsAmiSsm": "Tham số SSM AMI",
+        "awsAmiSsmHelp": "Được phân giải tại thời điểm khởi chạy, nên hình ảnh không bao giờ lỗi thời. ví dụ /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "ID AMI (ghi đè tham số SSM)",
+        "awsAmiIdHelp": "Ghim một hình ảnh cụ thể thay vào đó. Để trống để phân giải thông qua SSM. Một trong hai là bắt buộc.",
+        "awsInstanceProfile": "ARN hồ sơ instance IAM",
+        "awsInstanceProfileHelp": "Tùy chọn. Chỉ cần thiết nếu chính agent phải gọi API AWS.",
+        "awsRootVolume": "Volume gốc (GB)",
+        "awsRootVolumeHelp": "Một sàn; bộ tệp của công việc có thể cần nhiều hơn. Phải ít nhất bằng kích thước ảnh chụp AMI, nếu không việc khởi chạy sẽ thất bại.",
+        "awsEbsRate": "Mức giá EBS (cent/GB-tháng)",
+        "awsEbsRateHelp": "Giá lưu trữ gp3. Nếu để ở 0, ngân sách sẽ không dành riêng phần nào cho đĩa.",
+        "awsUseSpot": "Sử dụng dung lượng spot",
+        "awsUseSpotHelp": "Các yêu cầu Spot là một lần và kết thúc khi bị gián đoạn. Chiết khấu trên GPU thế hệ hiện tại thường khiêm tốn, vì vậy điều này không tự động rẻ hơn. Spot và on-demand sử dụng từ các hạn ngạch vCPU riêng biệt.",
+        "awsInstanceType": "Loại instance",
+        "awsHourlyCents": "Cent/giờ",
+        "awsGpuModel": "Model GPU",
+        "awsGpuCount": "GPU",
+        "awsVram": "VRAM/GPU",
+        "mockAgentBinary": "Đường dẫn binary agent",
+        "mockAgentBinaryHelp": "Đường dẫn đến binary agent mà máy chủ có thể thực thi với --test-mode.",
+        "mockBackendHost": "Host backend cho các agent được tạo",
+        "mockBackendHostHelp": "ví dụ localhost:31337.",
+        "mockHourlyRate": "Mức giá mô phỏng (cent/giờ)",
+        "mockBootDelay": "Độ trễ khởi động mô phỏng (giây)",
+        "mockFailLaunch": "Lỗi: mọi lần khởi chạy đều thất bại",
+        "mockDropLaunchResponse": "Lỗi: làm mất phản hồi khởi chạy (instance vẫn chạy nhưng bị báo cáo là thất bại)",
+        "mockNeverRegister": "Lỗi: instance không bao giờ đăng ký",
+        "mockFailDestroy": "Lỗi: mọi lần hủy đều thất bại",
+        "vpnTagIgnoredHelp": "Bỏ qua đối với khóa tái sử dụng NetBird: thành viên nhóm và cờ tạm thời đến từ cấu hình của khóa thiết lập trong NetBird. Chỉ được sử dụng trên đường dẫn token truy cập, như auto_groups trên mỗi khóa được đúc.",
+        "vpnUrl": {
+          "netbird": "URL quản lý NetBird",
+          "tailscale": "Máy chủ đăng nhập Tailscale (Headscale)"
+        },
+        "vpnUrlHelp": {
+          "netbird": "Máy chủ quản lý NetBird tự lưu trữ của bạn, ví dụ https://netbird.example.com. Được sử dụng để đúc khóa thiết lập và để bắt đầu máy khách. Để trống cho dịch vụ lưu trữ NetBird.",
+          "tailscale": "Chỉ dành cho máy chủ điều khiển tự lưu trữ. Lưu ý rằng việc đúc token truy cập luôn sử dụng api.tailscale.com và không hỗ trợ Headscale."
+        },
+        "vastCountries": "Quốc gia (phân cách bằng dấu phẩy)",
+        "vastCountriesHelp": "Mã quốc gia Vast.ai, ví dụ US, DE, SE. Trống nghĩa là ở bất kỳ đâu. Khớp không phân biệt chữ hoa chữ thường với vị trí địa lý được báo cáo, vì vậy 'US' khớp 'US, Texas'. Đồng thời đóng vai trò kiểm soát cư trú dữ liệu của bạn.",
+        "vastGpuModels": "Các Model GPU được cho phép (phân cách bằng dấu phẩy)",
+        "vastGpuModelsHelp": "Trống nghĩa là bất kỳ thẻ nào. Được khớp trên khóa bình thường hóa, vì vậy 'rtx_4090' khớp cả 'NVIDIA GeForce RTX 4090' và 'RTX 4090'. Mở rộng danh sách này là cách rẻ nhất để tăng tính khả dụng.",
+        "vastDeniedGpuModels": "Các Model GPU bị từ chối (phân cách bằng dấu phẩy)",
+        "vastDeniedGpuModelsHelp": "Luôn thắng so với danh sách cho phép. Đây là cơ chế khẩn cấp cho trường hợp 'card đó liên tục lỗi, ngừng thuê nó'.",
+        "vastMinReliability": "Độ tin cậy host tối thiểu (0-1)",
+        "vastMinReliabilityHelp": "Điểm độ tin cậy host của Vast.ai. 0 vô hiệu hóa sàn. Các host không báo cáo điểm vẫn được giữ lại. Đánh đổi một chút tính khả dụng để giảm số lượt thuê 'chết' — một host làm rơi instance giữa chunk vẫn được trả tiền cho việc đã kích hoạt nó.",
+        "vastAllowUnverified": "Cho phép host chưa xác minh (tăng tính khả dụng; máy chưa được kiểm tra)",
+        "vastAllowResidential": "Cho phép host dân cư (tăng tính khả dụng; máy gia đình, không phải trung tâm dữ liệu)",
+        "runpodDataCenters": "Trung tâm dữ liệu (phân cách bằng dấu phẩy)",
+        "runpodDataCentersHelp": "Mã trung tâm dữ liệu RunPod, ví dụ EU-RO-1, US-KS-2. ĐỂ TRỐNG LÀ CÀI ĐẶT RỘNG NHẤT, không phải hẹp nhất — trình lên lịch của RunPod khi đó có thể đặt pod ở bất kỳ đâu. Điều này ngược lại với zone của AWS, nơi để trống vẫn ghim bạn vào một zone duy nhất. Đặt giá trị này để kiểm soát cư trú dữ liệu, hoặc để buộc vòng lặp thử lại khi khởi chạy phải đi qua các pool thực sự độc lập với nhau.",
+        "runpodGpuTypes": "Các loại GPU được cho phép (phân cách bằng dấu phẩy)",
+        "runpodGpuTypesHelp": "Mã RunPod gpuType chính xác như chúng xuất hiện trong lưới tính khả dụng, ví dụ 'NVIDIA GeForce RTX 4090'. Để trống nghĩa là chấp nhận mọi card mà tầng này cung cấp.",
+        "runpodDiskGb": "Sàn đĩa container (GB)",
+        "runpodDiskGbHelp": "Một sàn, không phải trần: công việc có bộ tệp cần nhiều hơn sẽ nhận được nhiều hơn. Đĩa container bị xóa khi pod khởi động lại, và không bao giờ gắn volume mạng — một volume như vậy sẽ tồn tại lâu hơn pod và giữ lại plaintext đã bẻ khóa sau khi chấm dứt.",
+        "runpodDiskRate": "Đĩa container (cent/GB-tháng)",
+        "runpodDiskRateHelp": "Cung cấp phần lưu trữ cho mức dự trữ ngân sách. Làm tròn lên, vì một mức dự trữ thiếu tính dung lượng lưu trữ sẽ để khách hàng vượt quá giới hạn được cho là cố định.",
+        "runpodSelfDestruct": "Cho phép pod tự xóa nếu VPN chết (chỉ dành cho tầng Secure Cloud)",
+        "runpodSelfDestructHelp": "Thêm một lớp tháo dỡ thứ ba để pod có thể TỰ XÓA khi mất liên lạc, tương tự như Vast.ai. RunPod không có thông tin xác thực được giới hạn phạm vi theo từng pod, vì vậy điều này đặt một khóa có phạm vi TOÀN TÀI KHOẢN bên trong mỗi pod — khóa có thể tạo và xóa mọi pod khác trên tài khoản. Hãy cung cấp một khóa riêng, hẹp phạm vi hơn dưới tên self_destruct_api_key trong JSON thông tin xác thực, thay vì dùng lại khóa cấp phát của bạn. Không bao giờ khả dụng trên tầng Community Cloud."
+      },
+      "peerWarningTitle": "Phần cứng của bên thứ ba",
+      "peerWarningBody": {
+        "vastai": "Các instance Vast.ai chạy trên các máy do cá nhân sở hữu mà bạn không kiểm soát. Chỉ bật tùy chọn này cho các khách hàng có dữ liệu có thể bị lộ cho bên thứ ba, và xác nhận điều này riêng cho từng khách hàng.",
+        "runpod_community": "RunPod Community Cloud chạy trên các máy do những người dùng ngang hàng vận hành, mà chủ sở hữu có quyền root trên container. Các xác nhận SOC 2, ISO 27001 và PCI DSS của RunPod chỉ bao gồm Secure Cloud, không phải tầng này. Chỉ bật tùy chọn này cho các khách hàng có dữ liệu có thể bị lộ cho bên thứ ba, và xác nhận điều này riêng cho từng khách hàng."
+      },
+      "awsSection": "Vị trí và giá trên AWS",
+      "awsSectionHelp": "Nơi các instance khởi chạy và chi phí của chúng. EC2 không cung cấp Model GPU hay mức giá mỗi giờ ở dạng máy có thể đọc được cho mã nguồn này, vì vậy cả hai được khai báo thủ công tại đây.",
+      "awsInstanceTypes": "Loại instance được cung cấp",
+      "awsInstanceTypesHelp": "Chỉ những loại được liệt kê ở đây mới có thể được thuê. Hãy khai báo mức giá bạn sẵn sàng chi trả — làm tròn lên, vì ngân sách được trích dự trữ theo số này và không có gì đối chiếu nó với hóa đơn thực tế. Khai báo Model GPU và số lượng GPU là điều cho phép xếp hạng theo chi phí trên mỗi công việc; nếu không khai báo, việc xếp hạng sẽ quay về dùng giá mỗi giờ.",
+      "awsAddInstanceType": "Thêm loại instance",
+      "awsRemoveInstanceType": "Xóa",
+      "mockSection": "Hành vi giả lập và tiêm lỗi",
+      "mockSectionHelp": "Nhà cung cấp giả lập tạo ra các tiến trình agent --test-mode cục bộ. Các công tắc lỗi giúp kích hoạt các nhánh thất bại mà không cần biên dịch lại.",
+      "providerNotImplemented": "Nhà cung cấp này chưa có bộ điều hợp: backend từ chối nó bằng \"unsupported cloud provider\" tại thời điểm khởi chạy. Nó có thể được lưu, nhưng không có gì có thể được cấp phát từ nó.",
+      "zones": {
+        "title": "Vị trí và phần cứng",
+        "help": "Đánh dấu mọi địa điểm và mọi GPU mà bạn sẵn sàng thuê. Dung lượng thường thuộc về cặp (phần cứng, vị trí) chứ không thuộc riêng về một yếu tố nào, vì vậy mỗi ô được đánh dấu là một cơ hội độc lập để có được máy — nếu chỉ đánh dấu một ô duy nhất, một lần bị từ chối dung lượng sẽ không còn nơi nào khác để thử. Để tất cả các card trong một hàng được đánh dấu có nghĩa là \"mọi phần cứng tôi đã chấp thuận\", bao gồm cả phần cứng được thêm vào sau này.",
+        "probe": "Kiểm tra tính khả dụng",
+        "probeHelp": "Đọc dữ liệu zone, subnet, offering, spot price và placement-score trực tiếp từ AWS. Chỉ đọc: nó không khởi chạy bất cứ điều gì và không có chi phí.",
+        "probeIdle": "để tải các zone, subnet và giá spot trực tiếp cho nhà cung cấp này.",
+        "probeFailed": "Không thể đọc dung lượng từ AWS.",
+        "saveFirst": "Lưu nhà cung cấp trước. Tính khả dụng được đọc bằng cách sử dụng thông tin xác thực đã lưu và khu vực, vì vậy một biểu mẫu chưa lưu sẽ không có gì để dùng cho việc truy vấn.",
+        "selectAll": "Chọn tất cả các zone có thể sử dụng",
+        "colZone": "Zone",
+        "colSubnet": "Subnet",
+        "notOffered": "EC2 không cung cấp loại instance này trong zone này. Đây là điều chắc chắn — một lần khởi chạy ở đây sẽ thất bại với lỗi Unsupported.",
+        "unusable": "Không thể khởi chạy vào vị trí này. Xem ghi chú bên cạnh tên của nó.",
+        "freeIps_other": "{{count}} IP còn trống",
+        "scoreHelp": "Xếp hạng 1-10 riêng của AWS cho CARD này trong zone này, và là bằng chứng yếu: mọi zone trong khu vực này đều đạt 1/10 trên tài khoản này, chỉ vài phút trước khi một lần khởi chạy ở một trong số đó thành công ngay lần đầu. Nó quyết định pool nào được thử trước. Nó không bao giờ loại bỏ một pool khỏi danh sách. So sánh nó với điểm tổng hợp tất cả các loại bên cạnh tên zone.",
+        "spotVsConfigured": "Spot đang báo giá {{spot}}/giờ ở đây; mức giá bạn đã cấu hình cho loại này là {{configured}}/giờ. Các mức dự trữ sử dụng số liệu ĐÃ CẤU HÌNH, vì vậy nếu mức giá đó thấp hơn giá thực tế, khoản dự trữ sẽ không đủ so với giới hạn ngân sách được cho là cố định.",
+        "poolCount_other": "{{count}} pool dung lượng được chọn",
+        "poolCountWarning": "Một pool là một cơ hội. Khi nó cạn kiệt, vòng lặp thử lại khởi chạy không còn nơi nào khác để đi, và việc cấp phát sẽ dừng lại cho đến khi dung lượng trở lại. Hãy đánh dấu thêm zone, thêm loại instance, hoặc cả hai.",
+        "poolCountOk": "Khi một pool bị từ chối dung lượng, hệ thống sẽ rơi sang pool tiếp theo, theo thứ tự khả năng cao nhất trước.",
+        "legacyOverridden": "Các zone đã được cấu hình, vì vậy Subnet ID duy nhất ở trên ({{subnet}}) sẽ bị bỏ qua. Nó vẫn được giữ làm phương án dự phòng nếu tất cả zone đều bị bỏ chọn.",
+        "combinedScore": "tất cả loại: {{score}}/10",
+        "combinedScoreHelp": "Điểm vị trí của AWS cho tất cả các loại instance có giá của bạn được tính chung trong zone này — đây là một câu hỏi khác với điểm của riêng một card, và thường là câu trả lời tốt hơn nhiều. Được đo trong một khu vực, trong một phút: g6.xlarge một mình đạt 1/10 ở đây, trong khi g4dn + g5 + g6 cùng nhau đạt 9/10. Độ rộng không phải là một hàng rào chống lại sự khan hiếm; nó chính là điều được tính điểm.",
+        "availableCount": "{{count}} khả dụng",
+        "availableCountHelp": "Số lượng máy hiện có sẵn để thuê ngay bây giờ. Đây là hàng tồn kho thực tế và là tín hiệu mạnh nhất trên màn hình — tốt hơn nhiều so với điểm xếp hạng vị trí, vốn chỉ là một ý kiến.",
+        "livePriceHelp": "Nhà cung cấp đang tính phí bao nhiêu cho dịch vụ này ngay bây giờ.",
+        "trust": {
+          "definitive": "chắc chắn",
+          "measured": "trực tiếp",
+          "advisory": "chỉ mang tính tham khảo"
+        },
+        "axesModeNote": "Nhà cung cấp này lưu trữ các quốc gia và mô hình GPU dưới dạng hai danh sách độc lập, vì vậy chọn một thẻ sẽ áp dụng nó ở mọi quốc gia được chọn. Số lượng và giá dưới đây cho từng ô vẫn là thực tế và cụ thể cho quốc gia đó."
+      },
+      "vastSection": "Chính sách vị trí và phần cứng của Vast.ai",
+      "vastSectionHelp": "Nhà cung cấp này có thể thuê những quốc gia nào và những card nào. Để danh sách trống có nghĩa là không có giới hạn, là phạm vi rộng nhất và là mặc định.",
+      "vastTierWarningTitle": "Bạn đang mở một tier máy chủ chưa được kiểm tra",
+      "vastTierWarningBody": "Đây là mức tăng khả dụng lớn nhất hiện có trên Vast.ai, và nó đặt hash, wordlist, potfile và plaintext đã bẻ khóa của khách hàng trên các máy mà Vast.ai chưa xác minh. Mỗi máy chủ Vast đã có quyền root trên container; các công tắc này loại bỏ bộ lọc duy nhất giúp giới hạn nó ở các máy chủ mà Vast đã kiểm tra. Tier chưa được xác minh cũng là nơi tập trung các báo cáo 'stuck connecting' và 'bad driver', vì vậy một phần khả dụng bổ sung chỉ là ảo — một lượt thuê không bao giờ đạt được công việc hữu ích vẫn khiến bạn tốn chi phí cấp phát của nó.",
+      "runpodSection": "Chính sách vị trí và phần cứng của RunPod",
+      "runpodSectionHelp": "Nhà cung cấp này có thể thuê những trung tâm dữ liệu nào và loại GPU nào. Giá của RunPod thay đổi theo thời gian thực, vì vậy không có tỷ giá nào để khai báo ở đây — không giống như AWS.",
+      "runpodCommunityTeardownTitle": "Tháo dỡ Community chỉ dựa vào backend reaper",
+      "runpodCommunityTeardownBody": "RunPod không cấp thông tin xác thực có phạm vi riêng cho từng pod, vì vậy không có cách an toàn nào để một pod Community tự xóa: khóa duy nhất có thể dùng được là khóa có phạm vi toàn tài khoản, và người vận hành máy chủ Community có quyền root trên container nên sẽ đọc được khóa đó từ môi trường. Deadline trong guest vẫn khiến hashcat bị dừng và chấm dứt việc lộ dữ liệu, nhưng nó KHÔNG THỂ ngăn việc tính phí pod. Nếu backend này bị hạ hoặc bị kẹt, một pod Community sẽ tiếp tục bị tính phí cho đến khi bạn tháo dỡ nó bằng tay từ trang Cloud Fleet. Hãy đặt giới hạn TTL instance thấp và giới hạn ngân sách nhỏ cho bất kỳ khách hàng nào được phép dùng tier này.",
+      "experimentalChip": "Thử nghiệm",
+      "experimentalTooltip": "Thử nghiệm — chưa được kiểm tra. Adapter này chưa bao giờ được thử nghiệm end-to-end đối với nhà cung cấp thực tế với tiền thực. Hãy lường trước sẽ có lỗi; theo dõi công việc của bạn và báo cáo những gì bạn tìm thấy.",
+      "experimentalTitle": "Thử nghiệm — chưa được kiểm tra",
+      "experimentalBody": "Nhà cung cấp này chưa được chứng minh end-to-end với tiền thực: khởi động, cấp phát, bẻ khóa, giải phóng sạch và hoàn tiền ngân sách chưa được quan sát hoạt động cùng nhau. Nó nên hoạt động, và nó sẽ có lỗi. Bắt đầu với một giới hạn ngân sách nhỏ và giới hạn instance thấp, và theo dõi trang Cloud Fleet để phát hiện các instance không giải phóng được. Vui lòng báo cáo bất cứ điều gì sai lệch.",
+      "testedChip": "Được kiểm tra",
+      "testedTooltip": "Được kiểm tra — thử nghiệm end-to-end đối với nhà cung cấp thực tế với tiền thực, bao gồm khởi động, bẻ khóa, giải phóng sạch và hoàn tiền ngân sách đã giải quyết.",
+      "reportIssueLink": "Báo cáo lỗi trên GitHub",
+      "reportDiagnosticsLink": "Gửi chẩn đoán trên Discord (không phải trong issue)"
+    },
+    "budgets": {
+      "title": "Ngân sách khách hàng",
+      "description": "Mỗi khách hàng có thể chi tiêu bao nhiêu và dữ liệu của họ có thể được gửi cho nhà cung cấp nào. Khách hàng có các trường trống sẽ tuân theo các giá trị mặc định máy chủ dưới đây.",
+      "loadFailed": "Không thể tải ngân sách khách hàng",
+      "empty": "Chưa có khách hàng nào. Trước tiên hãy tạo một khách hàng, sau đó cấp vốn cho nó ở đây.",
+      "edit": "Chỉnh sửa",
+      "editTitle": "Cài đặt đám mây — {{name}}",
+      "saved": "Đã lưu cài đặt đám mây khách hàng",
+      "saveFailed": "Không thể lưu cài đặt đám mây khách hàng",
+      "enabled": "Đã bật",
+      "disabled": "Đã tắt",
+      "unfunded": "Không có ngân sách",
+      "noProviders": "Không cho phép nhà cung cấp nào",
+      "ttlValue": "{{minutes}} phút",
+      "spendSummary": "{{used}} của {{cap}} được cam kết ({{pct}}%)",
+      "acknowledged": "Đã ghi nhận xác nhận",
+      "acknowledgedChip": "Đã xác nhận",
+      "ackFailed": "Không thể ghi nhận xác nhận",
+      "ackTitle": "Xác nhận mức lộ dữ liệu cho bên thứ ba của khách hàng này",
+      "ackWarningTitle": "Dữ liệu của khách hàng này sẽ rời khỏi sự kiểm soát của bạn",
+      "ackWarningBody": "Cho phép Vast.ai cho {{name}} có nghĩa là hash, wordlist và plaintext đã bẻ khóa của khách hàng này có thể được đặt trên các máy được sở hữu bởi các bên thứ ba có quyền truy cập root vào container.",
+      "ackConfirm": "Bạn có chấp nhận mức lộ dữ liệu này cho khách hàng này không?",
+      "ackAccept": "Tôi hiểu và chấp nhận",
+      "actions": {
+        "none": "Trong ngân sách",
+        "notify": "Đã đạt ngưỡng",
+        "stop_provisioning": "Cấp phát đã dừng",
+        "drain": "Đang rút dần",
+        "hard_stop": "Dừng cứng"
+      },
+      "columns": {
+        "client": "Khách hàng",
+        "status": "Trạng thái",
+        "providers": "Nhà cung cấp được phép",
+        "spend": "Chi tiêu",
+        "ttl": "TTL tối đa",
+        "actions": "Hành động"
+      },
+      "fields": {
+        "budget": "Ngân sách",
+        "budgetHelp": "Giới hạn chi tiêu cho giai đoạn ngân sách hiện tại. Để trống để kế thừa giá trị mặc định máy chủ; khách hàng chỉ rơi vào tình trạng không có ngân sách nếu không có giá trị mặc định nào được đặt.",
+        "ttl": "Thời gian tồn tại instance tối đa (phút)",
+        "ttlHelp": "Một instance sẽ bị tháo dỡ khi đạt đến độ tuổi này, bất kể tiến độ. Để trống để sử dụng giá trị mặc định của hệ thống.",
+        "providers": "Nhà cung cấp được phép",
+        "providersHelp": "Để trống có nghĩa là không có gì có thể được thuê cho khách hàng này. Cho phép AWS trong khi cấm Vast.ai là một cấu hình bình thường.",
+        "enabled": "Cloud burst",
+        "period": "Giai đoạn ngân sách",
+        "periodHelp": "Để trống để kế thừa giá trị mặc định máy chủ."
+      },
+      "errors": {
+        "invalidBudget": "Ngân sách phải là một số, ví dụ 25.00",
+        "negativeBudget": "Ngân sách không được âm",
+        "invalidTtl": "Thời gian tồn tại tối đa phải là một số phút dương",
+        "enabledWithoutBudget": "Đặt ngân sách trước khi bật cloud burst — khách hàng không có ngân sách không bao giờ có thể cấp phát bất cứ điều gì.",
+        "enabledWithoutProvider": "Cho phép ít nhất một nhà cung cấp trước khi bật cloud burst."
+      },
+      "peerTooltip": "Phần cứng do ngang hàng vận hành: dữ liệu của khách hàng này sẽ có thể đọc được bởi chủ sở hữu máy.",
+      "defaults": {
+        "title": "Giá trị mặc định máy chủ",
+        "description": "Giá trị mà khách hàng sử dụng khi chưa đặt giá trị của riêng nó. Để trống trường của khách hàng có nghĩa là nó tuân theo giá trị mặc định ở đây, vì vậy thay đổi điều này sẽ thay đổi mọi khách hàng vẫn còn kế thừa.",
+        "summary": "{{amount}} mỗi {{period}}",
+        "summaryUnset": "Không có ngân sách mặc định được đặt — khách hàng kế thừa vẫn không có ngân sách",
+        "budget": "Ngân sách mặc định",
+        "budgetHelp": "Để trống nếu không có giá trị mặc định: khách hàng kế thừa sau đó vẫn không có ngân sách và không thể burst.",
+        "period": "Giai đoạn ngân sách mặc định",
+        "enabled": "Khách hàng có thể burst đến công suất trả phí theo mặc định",
+        "providers": "Nhà cung cấp mặc định",
+        "providersHelp": "Áp dụng cho bất kỳ khách hàng nào có danh sách nhà cung cấp riêng để trống.",
+        "peerAckNote": "Các nhà cung cấp do ngang hàng vận hành vẫn yêu cầu xác nhận riêng cho từng khách hàng. Việc đặt chúng làm giá trị mặc định không đồng nghĩa với việc đã cấp xác nhận đó — mỗi khách hàng vẫn phải được xác nhận riêng lẻ trước khi dữ liệu của nó có thể được gửi đến đó.",
+        "appliesNow": "Cloud burst được bật theo mặc định và ngân sách mặc định được đặt, vì vậy mọi khách hàng vẫn còn kế thừa hiện có thể cấp phát công suất trả phí.",
+        "save": "Lưu giá trị mặc định",
+        "saved": "Đã lưu giá trị mặc định",
+        "saveFailed": "Không thể lưu giá trị mặc định",
+        "fundedButDisabled": "Ngân sách mặc định được đặt nhưng cloud burst bị tắt theo mặc định, vì vậy không có khách hàng kế thừa nào có thể cấp phát bất cứ điều gì. Chọn hộp ở trên để làm cho ngân sách có thể sử dụng được.",
+        "enabledWithoutProviders": "Cloud burst được bật theo mặc định nhưng không có nhà cung cấp mặc định nào được chọn, vì vậy khách hàng kế thừa vẫn không thể thuê bất cứ điều gì. Chọn ít nhất một nhà cung cấp ở trên.",
+        "willEnableTitle_other": "Điều này sẽ cho phép {{count}} khách hàng thuê công suất trả phí",
+        "willEnableBody": "Các khách hàng này không có cài đặt riêng, nên họ tuân theo các giá trị mặc định ở trên. Lưu lại sẽ cho phép mỗi khách hàng cấp phát instance đám mây và chi tiêu từ ngân sách này. Để loại một khách hàng ra, hãy đặt Cloud burst riêng của khách hàng đó thành Đã tắt.",
+        "andMore": "+{{count}} nữa",
+        "confirmTitle_other": "Bật chi tiêu đám mây cho {{count}} khách hàng?",
+        "confirmBody_other": "{{count}} khách hàng hiện không thể thuê bất cứ điều gì. Lưu các giá trị mặc định này cho mỗi khách hàng một giới hạn {{amount}} mỗi {{period}} và quyền chi tiêu nó. Ngân sách là cho mỗi khách hàng, không phải chia sẻ, vì vậy đây là tổng mức lộ dữ liệu nhân với số lượng khách hàng được liệt kê.",
+        "confirmAlternative": "Muốn bật từng khách hàng một thay vì tất cả cùng lúc? Hủy, để Cloud burst tắt theo mặc định, và đặt Cloud burst cùng ngân sách cho từng khách hàng riêng lẻ.",
+        "confirmAccept_other": "Bật {{count}} khách hàng"
+      },
+      "periods": {
+        "monthly": "tháng",
+        "quarterly": "quý",
+        "semiannual": "sáu tháng"
+      },
+      "inheritLabel": "Kế thừa giá trị mặc định ({{value}})",
+      "on": "Đã bật",
+      "off": "Đã tắt",
+      "inheriting": "kế thừa"
+    },
+    "policy": {
+      "title": "Chính sách ngưỡng chi tiêu",
+      "description": "Điều gì sẽ xảy ra khi khách hàng tiếp cận giới hạn của nó. Các ngưỡng này quyết định việc đạt đến giới hạn diễn ra êm ái đến mức nào; điều thực sự ngăn chặn việc vượt quá là chi phí vòng đời toàn bộ của instance được cam kết trước khi nó khởi động.",
+      "loadFailed": "Không thể tải chính sách ngưỡng",
+      "saved": "Đã lưu chính sách ngưỡng",
+      "saveFailed": "Không thể lưu chính sách ngưỡng",
+      "overageWarning": "Vượt quá là được phép: các đặt trước có thể vượt quá ngân sách còn lại. Giới hạn trở thành mang tính tham khảo chứ không phải tuyệt đối.",
+      "hardStopAboveCapNote": "Dừng cứng được đặt thành {{pct}}% nhưng vượt quá bị tắt, vì vậy các đặt trước vẫn không thể vượt quá 100% ngân sách. Bật vượt quá nếu bạn định cho phép chi tiêu vượt quá giới hạn.",
+      "fields": {
+        "notifyEnabled": "Thông báo cho tôi khi chi tiêu tiếp cận giới hạn",
+        "notifyPct": "Thông báo tại (% của ngân sách)",
+        "notifyPctHelp": "Gửi một thông báo. Tắt hộp kiểm để không bao giờ thông báo.",
+        "stopProvisionPct": "Dừng cấp phát tại (%)",
+        "stopProvisionPctHelp": "Không có instance mới được khởi chạy sau điểm này. Các instance đang chạy tiếp tục.",
+        "drainPct": "Bắt đầu rút dần tại (%)",
+        "drainPctHelp": "Không có công việc mới được gửi; chunk đang xử lý được phép hoàn thành.",
+        "hardStopPct": "Dừng cứng tại (%)",
+        "hardStopPctHelp": "Các instance bị tháo dỡ ngay lập tức, dù đã hoàn thành hay không.",
+        "drainTimeout": "Thời gian chờ rút dần (giây)",
+        "drainTimeoutHelp": "Khoảng thời gian tối đa một instance được tiếp tục hoàn thành chunk của nó trước khi vẫn bị tháo dỡ.",
+        "allowOverage": "Cho phép chi tiêu vượt quá giới hạn",
+        "allowOverageHelp": "Tắt để làm cho giới hạn tuyệt đối. Với nó tắt, ngân sách $10 dừng lại ở $10."
+      },
+      "errors": {
+        "notifyRange": "Ngưỡng thông báo phải nằm trong khoảng từ 1% đến ngưỡng dừng cấp phát.",
+        "stopBeforeDrain": "Ngưỡng dừng cấp phát không được vượt quá ngưỡng rút dần.",
+        "drainBeforeHardStop": "Ngưỡng rút dần không được vượt quá ngưỡng dừng cứng.",
+        "negativeTimeout": "Thời gian chờ rút dần không được âm."
+      }
+    },
+    "fleet": {
+      "title": "Đội GPU đám mây",
+      "description": "Mỗi instance được thuê có thể vẫn đang tốn tiền.",
+      "loadFailed": "Không thể tải đội GPU đám mây",
+      "empty": "Không có instance nào đang chạy. Không có gì đang được tính phí.",
+      "summary_other": "{{count}} instance đang hoạt động, {{hourly}}/giờ, {{reserved}} được cam kết.",
+      "destroy": "Tháo dỡ",
+      "destroyed": "Instance đã bị tháo dỡ",
+      "destroyFailed": "Nhà cung cấp từ chối tháo dỡ instance này — nó vẫn đang tính phí",
+      "destroyTitle": "Tháo dỡ instance?",
+      "destroyBody": "Tháo dỡ \"{{label}}\" ngay bây giờ? Tính phí dừng ngay khi nhà cung cấp xác nhận.",
+      "destroyJobWarning": "Instance này đang làm một công việc. Chunk đang xử lý của nó bị mất và sẽ được gửi lại ở nơi khác.",
+      "teardownFailingTitle": "Tháo dỡ đang thất bại",
+      "teardownFailingBody_other": "{{count}} instance không thể bị tháo dỡ và vẫn đang phát sinh chi phí. Kiểm tra bảng điều khiển nhà cung cấp.",
+      "teardownFailingTooltip": "Tháo dỡ thất bại; instance này vẫn đang tính phí",
+      "estimated": "ước tính",
+      "estimatedTooltip": "Ước tính từ thời gian đã trôi qua và giá; số liệu của nhà cung cấp sẽ đến sau.",
+      "perHour": "{{rate}}/giờ",
+      "ttlExpired": "Hết hạn",
+      "states": {
+        "requested": "Đã yêu cầu",
+        "launching": "Đang khởi chạy",
+        "provisioning": "Đang cấp phát",
+        "syncing": "Đang đồng bộ hóa tệp",
+        "running": "Đang chạy",
+        "draining": "Đang rút dần",
+        "terminating": "Đang chấm dứt",
+        "terminated": "Đã chấm dứt",
+        "failed": "Thất bại"
+      },
+      "columns": {
+        "label": "Instance",
+        "state": "Trạng thái",
+        "client": "Khách hàng",
+        "gpu": "GPU",
+        "rate": "Giá",
+        "spend": "Chi tiêu",
+        "ttl": "TTL còn lại",
+        "disk": "Đĩa",
+        "actions": "Hành động",
+        "agent": "Agent",
+        "job": "Công việc"
+      },
+      "experimentalRunningTitle_other": "{{count}} instance đang chạy trên nhà cung cấp thử nghiệm",
+      "experimentalRunningBody": "{{providers}} chưa được kiểm chứng từ đầu đến cuối bằng tiền thực. Hãy theo dõi để các instance này đạt trạng thái 'terminated', đừng cho rằng chúng chắc chắn sẽ đạt được điều đó: đường tháo dỡ là phần được kiểm tra ít nhất trong bất kỳ adapter mới nào, và một instance không bao giờ giải phóng sẽ vẫn tính phí cho đến khi bạn tháo dỡ nó tại đây. Vui lòng báo cáo lại những gì bạn thấy.",
+      "experimentalTooltip": "{{provider}} là một nhà cung cấp thử nghiệm — chưa được kiểm tra. Có thể có lỗi; hãy xác nhận rằng instance này thực sự được giải phóng khi công việc của nó hoàn thành."
+    },
+    "rules": {
+      "title": "Khi hệ thống có thể chi tiêu",
+      "description": "Ngân sách kiểm soát có thể chi bao nhiêu. Các quy tắc này kiểm soát liệu có được chi bất kỳ điều gì hay không. Nếu không có chúng, bộ tự động cấp phát sẽ thuê ngay sau một nhịp đói đầu tiên, cho bất kỳ công việc nào, vào bất kỳ giờ nào, không có trần chi tiêu cho mỗi công việc.",
+      "inheritTitle": "Đây là các mặc định của hệ thống",
+      "inheritBody": "Khách hàng kế thừa từng trường riêng lẻ, vì vậy việc siết chặt giá trị mặc định ở đây sẽ ảnh hưởng đến mọi khách hàng chưa ghi đè trường đó. Các ghi đè riêng cho từng khách hàng được chỉnh sửa trên màn hình khách hàng.",
+      "saved": "Quy tắc cấp phát đã lưu",
+      "saveFailed": "Không thể lưu quy tắc cấp phát",
+      "loadFailed": "Không thể tải quy tắc cấp phát",
+      "save": "Lưu quy tắc",
+      "fields": {
+        "minJobPriority": "Ưu tiên công việc tối thiểu",
+        "minStarvation": "Thời gian đói tối thiểu (phút)",
+        "skipIfFinishing": "Bỏ qua nếu hoàn thành trong (phút)",
+        "maxSpendPerJob": "Chi tiêu tối đa trên mỗi công việc",
+        "windowEnabled": "Giới hạn cấp phát trong một cửa sổ thời gian",
+        "windowStart": "Cửa sổ mở",
+        "windowEnd": "Cửa sổ đóng",
+        "windowTz": "Múi giờ"
+      },
+      "helperText": {
+        "minJobPriority": "Ưu tiên tuyệt đối, không phải phần trăm. Trần hiện tại của bạn là {{ceiling}}.",
+        "floorOff": "Không có sàn: bất kỳ công việc cloud-burst nào cũng đủ điều kiện cho cấp phát tự động.",
+        "minStarvation": "Một công việc phải không có tiến độ nào trong bao lâu trước khi dung lượng trả phí được thuê. 0 sẽ thuê ngay ở nhịp đói đầu tiên. Chỉ áp dụng cho bộ tự động cấp phát.",
+        "skipIfFinishing": "Không thuê thêm cho một công việc dự kiến sẽ hoàn thành sớm như vậy trên dung lượng hiện có — một instance được thuê cần 5-10 phút để khởi động và đồng bộ hóa. 0 nghĩa là không bao giờ bỏ qua.",
+        "maxSpendPerJob": "Giới hạn suốt đời chi tiêu đám mây cho một công việc, không phải theo tháng. Để trống có nghĩa là không có giới hạn. Được thực thi ở khắp mọi nơi, bao gồm cấp phát thủ công của quản trị viên.",
+        "windowEnabled": "Chỉ kiểm soát các lần bắt đầu. Các instance không bao giờ bị tháo dỡ vì cửa sổ đã đóng — TTL và rút dần nhàn rỗi mới là bên đảm nhiệm việc tháo dỡ.",
+        "windowTz": "Tên IANA, ví dụ America/Chicago. Để trống cho UTC.",
+        "windowWrap": "Một thời gian đóng sớm hơn thời gian mở sẽ kéo dài qua nửa đêm, đây là cách thông thường để viết \"chỉ thuê qua đêm\". Đặt cả hai mốc thời gian giống nhau có nghĩa là luôn mở."
+      },
+      "bands": {
+        "minimal": "Tối thiểu",
+        "low": "Thấp",
+        "normal": "Bình thường",
+        "high": "Cao",
+        "critical": "Quan trọng"
+      }
+    },
+    "system": {
+      "ceilings": "Các trần chi tiêu và đồng thời",
+      "ceilingsHelp": "Giới hạn tuyệt đối trên toàn hệ thống, áp dụng trước khi bất kỳ ngân sách khách hàng nào được tham khảo.",
+      "work": "Kích thước công việc và tháo dỡ",
+      "workHelp": "Mỗi lần, một instance được thuê được giao bao nhiêu công việc, và một instance nhàn rỗi được giải phóng nhanh ra sao. Chi phí phát sinh trên mỗi chunk được tính theo giá thuê, nên đây là sự đánh đổi giữa thông lượng và lãng phí.",
+      "reconciliation": "Đối soát",
+      "reconciliationHelp": "Tần suất đối soát cơ sở dữ liệu với thực tế đang chạy của nhà cung cấp, và khoảng thời gian một instance không được công nhận được dung thứ trước khi bị hủy.",
+      "capDisabledWarning": "Cấp phát đám mây hiện đang BỊ VÔ HIỆU HÓA: giới hạn hàng tháng toàn cầu là 0. Các nhà cung cấp, ngân sách khách hàng và công việc hỗ trợ đám mây sẽ đều được định cấu hình chính xác và sẽ không bao giờ bị thuê. Đặt giới hạn khác 0 để bật nó.",
+      "saved": "Cài đặt đã lưu",
+      "saveFailed": "Không thể lưu cài đặt",
+      "loadFailed": "Không thể tải cài đặt đám mây",
+      "units": {
+        "seconds": "s",
+        "minutes": "min"
+      },
+      "fields": {
+        "monthlyCap": "Giới hạn chi tiêu hàng tháng toàn cầu",
+        "monthlyCapHelp": "Trên tất cả các khách hàng và nhà cung cấp. 0 vô hiệu hóa hoàn toàn việc cấp phát đám mây — đây không có nghĩa là không giới hạn.",
+        "concurrentCap": "Giới hạn instance đồng thời toàn cầu",
+        "concurrentCapHelp": "Số lượng instance được thuê tối đa cùng một lúc, trên tất cả các nhà cung cấp và khách hàng. 0 có nghĩa là không giới hạn, vẫn bị giới hạn bởi ngân sách và hạn ngạch nhà cung cấp.",
+        "defaultMaxInstancesPerJob": "Số instance tối đa mặc định trên mỗi công việc",
+        "defaultMaxInstancesPerJobHelp": "Số instance được thuê tối đa cho một công việc không đặt giới hạn riêng của nó. Trước đây, để trống nghĩa là không giới hạn — trong một triển khai chỉ dùng đám mây, điều đó khiến ngân sách khách hàng là thứ duy nhất ngăn một công việc đang đói thuê instance mỗi phút một lần. Giá trị đặt riêng cho từng công việc vẫn ghi đè lên giá trị này. 0 khôi phục lại trạng thái không giới hạn.",
+        "chunkDuration": "Thời lượng chunk đám mây tối thiểu",
+        "chunkDurationHelp": "Thời lượng chunk tối thiểu cho agent đám mây. Một GPU được thuê vẫn bị tính phí trong khi hashcat khởi động, tự động điều chỉnh kernel và tải wordlist, vì vậy chunk đám mây được đặt sàn ở giá trị này ngay cả khi công việc yêu cầu ít hơn. Một công việc yêu cầu NHIỀU hơn vẫn giữ giá trị riêng của nó. Luôn được giảm xuống nếu vượt quá tuổi thọ còn lại của instance. Đặt thành 0 để vô hiệu hóa sàn.",
+        "teardownSlack": "Thời gian dự trữ tháo dỡ",
+        "teardownSlackHelp": "Dành riêng vào cuối vòng đời của một instance để rút dần và hủy, vì vậy một chunk không bao giờ được lên kế hoạch vượt quá thời điểm instance bị hủy.",
+        "idleDrain": "Rút dần nhàn rỗi",
+        "idleDrainHelp": "Hủy một instance được thuê sau thời gian này mà không có công việc đang chờ xử lý. Giới hạn bao nhiêu bạn trả cho một GPU đã hết việc cần làm.",
+        "commissioningGrace": "Thời gian gia hạn khởi động",
+        "commissioningGraceHelp": "Hủy một instance được thuê mà không bao giờ được giao tác vụ sau thời gian này, được tính từ khi agent của nó được đăng ký. Một instance lạnh phải tải xuống các tệp của nó và chạy một benchmark trước, vì vậy đặt điều này dưới khoảng 20 phút sẽ hủy các instance lành mạnh giữa quá trình khởi động — và vì công việc vẫn đang chờ, một instance khác được thuê ngay lập tức. 0 vô hiệu hóa.",
+        "reaperInterval": "Khoảng thời gian Reaper",
+        "reaperIntervalHelp": "Tần suất đối soát cơ sở dữ liệu với kiểm kê của nhà cung cấp, và hủy bất kỳ thứ gì không nên tồn tại.",
+        "orphanGrace": "Thời gian gia hạn mồ côi",
+        "orphanGraceHelp": "Hủy các instance được tìm thấy trên tài khoản nhà cung cấp nhưng không có bản ghi cơ sở dữ liệu khớp sau thời gian này. Đây là cách khôi phục duy nhất cho một lần khởi chạy mà bản ghi của nó không bao giờ được lưu vào cơ sở dữ liệu.",
+        "agentImage": "Hình ảnh agent",
+        "agentImageHelp": "ví dụ: zerkereod/krakenhashes-agent-cloud:cloud-gpu. Để trống để quay lại KH_CLOUD_AGENT_IMAGE, sau đó đến mặc định tích hợp. Lưu ý rằng mặc định tích hợp là :latest, chỉ tồn tại khi một bản phát hành đã được gắn thẻ — các triển khai tiền phát hành phải đặt điều này.",
+        "defaultBurstEnabled": "Bật cloud burst cho mọi công việc",
+        "defaultBurstEnabledHelp": "Coi mỗi công việc như đã được bật cloud-burst, mà không cần tích chọn ở từng cài sẵn, quy trình làm việc và công việc. Dành cho các triển khai không có GPU tại chỗ, nơi việc thuê là cách duy nhất để công việc có thể chạy. Ngân sách khách hàng và giới hạn instance vẫn áp dụng. Có hiệu lực ngay lập tức, kể cả với các công việc đã được xếp hàng.",
+        "defaultClient": "Khách hàng thanh toán mặc định",
+        "defaultClientHelp": "Chi tiêu đám mây cho một danh sách hash không có khách hàng riêng sẽ được tính vào đây. Để mặc là Không thì công việc chưa được gán sẽ không thể thuê dung lượng nào cả. Ngân sách, giới hạn instance và bậc ngưỡng áp dụng cho khách hàng bạn chọn hoàn toàn như bình thường — một khách hàng có tên đại loại như \"Unassigned Work\" sẽ giữ cho báo cáo chi tiêu chính xác.",
+        "defaultClientNone": "Không — công việc chưa được gán không thể sử dụng đám mây",
+        "crackDrainGrace": "Thời gian gia hạn rút dần crack",
+        "crackDrainGraceHelp": "Trước khi hủy một instance được thuê, hãy chờ tối đa khoảng thời gian này để tác vụ mà nó vẫn đang sở hữu hoàn tất việc tải lên các mật khẩu đã bẻ khóa. Được tính từ lần cập nhật cuối cùng của tác vụ đó, không phải từ khi nó bắt đầu, vì vậy một agent đang hoạt động sẽ không bao giờ bị hủy, còn một agent bị mắc kẹt cũng không bị chờ vô thời hạn. Phải dài hơn thời gian rút dần nhàn rỗi và ngắn hơn 30 phút. 0 sẽ hủy ngay lập tức, có thể làm mất vĩnh viễn các mật khẩu đã bẻ khóa mà agent đã tìm thấy — chúng không thể được gửi lại từ một máy không còn tồn tại."
+      },
+      "agent": "Hình ảnh agent đám mây",
+      "agentHelp": "Hình ảnh container mà các instance được thuê kéo về và chạy. Đây phải là một tag tồn tại trong registry: tag bị thiếu không phải là lỗi khởi động — instance khởi động, việc kéo ảnh thất bại, và instance đó tự chấm dứt khoảng một phút sau đó, vẫn bị tính phí.",
+      "save": "Lưu thay đổi",
+      "discard": "Hủy bỏ",
+      "unsaved_other": "{{count}} thay đổi chưa lưu",
+      "eligibility": "Các triển khai chỉ đám mây",
+      "eligibilityHelp": "Liệu các công việc có được xem xét để thuê hay không. Mọi thứ ở trên giới hạn những gì có thể được chi; mục này quyết định liệu có bất kỳ điều gì được chi hay không."
+    }
+  },
+  "serverCertificate": {
+    "title": "Chứng chỉ số máy chủ",
+    "description": "Quản lý các địa chỉ mà chứng chỉ số TLS của máy chủ bao gồm. Các agent chỉ có thể kết nối với một địa chỉ được liệt kê ở đây.",
+    "apply": "Áp dụng & Phát hành lại",
+    "warning": {
+      "title": "KrakenHashes là một công cụ nội bộ",
+      "body": "Nó không bao giờ được truy cập được từ internet công cộng. Nó xử lý các thông tin đăng nhập đã bẻ khóa, vì vậy chỉ có thể thêm các địa chỉ riêng tư và VPN vào chứng chỉ số — các địa chỉ IP công cộng bị từ chối. Nếu triển khai này đang bị lộ ra công khai, hãy đưa nó ngoại tuyến trước khi tiếp tục."
+    },
+    "summary": {
+      "title": "Chứng chỉ số hiện tại",
+      "unavailable": "Không thể đọc chứng chỉ số của máy chủ.",
+      "subject": "Chủ thể",
+      "issuer": "Nhà phát hành",
+      "validity": "Hợp lệ",
+      "serial": "Sê-ri",
+      "covers": "Chứng chỉ số này có hiệu lực cho",
+      "coversNothing": "Chứng chỉ số này không liệt kê bất kỳ địa chỉ nào. Không có agent nào có thể kết nối.",
+      "daysRemaining_other": "{{count}} ngày còn lại",
+      "caSubject": "Cơ quan chứng chỉ số",
+      "caExpires": "CA hết hạn",
+      "caFingerprint": "Dấu vân tay CA (SHA-256)",
+      "pending_other": "{{count}} địa chỉ đã được lưu nhưng chưa có trong chứng chỉ số. Nhấp vào Áp dụng & Phát hành lại.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES hoặc KH_ADDITIONAL_DNS_NAMES vẫn được đặt trong môi trường. Nó không còn được đọc nữa — những cài đặt này thay thế nó. Xóa biến để tránh nhầm lẫn."
+    },
+    "sans": {
+      "title": "Các địa chỉ mà chứng chỉ số này nên bao gồm",
+      "add": "Thêm",
+      "empty": "Không có địa chỉ bổ sung nào được cấu hình.",
+      "unsaved": "Bạn có những thay đổi chưa lưu. Nhấp vào Áp dụng & Phát hành lại để đặt chúng vào chứng chỉ số.",
+      "lockedTooltip": "Luôn bao gồm. Xóa nó sẽ làm hỏng proxy nội bộ và kiểm tra sức khỏe.",
+      "ip": {
+        "title": "Địa chỉ IP",
+        "help": "Chỉ các địa chỉ riêng tư và VPN: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local và IPv6 ULA.",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "Tên DNS",
+        "help": "Tên máy chủ mà agent và trình duyệt dùng để truy cập máy chủ này.",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "\"{{address}}\" không phải là một địa chỉ hợp lệ.",
+      "public_ip": "{{address}} là một địa chỉ IP công cộng và không thể thêm. KrakenHashes là một công cụ chỉ dành cho nội bộ. Nó xử lý các thông tin đăng nhập đã bẻ khóa và không bao giờ được truy cập từ internet. Chỉ có thể thêm các địa chỉ riêng tư (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local và IPv6 ULA). Nếu đây là địa chỉ của VPN của bạn, VPN đang sử dụng không gian địa chỉ thuộc về một người khác trên internet — thay đổi dãy mạng của nó thành một dãy riêng tư hoặc CGNAT.",
+      "duplicate": "{{address}} đã có trong danh sách.",
+      "bind_address": "{{address}} là một địa chỉ bind, không phải một địa chỉ có thể truy cập được. Không có máy khách nào kết nối tới nó.",
+      "multicast": "{{address}} là một địa chỉ multicast và không thể xác định máy chủ.",
+      "wildcard_dns": "Tên ký tự đại diện không được hỗ trợ.",
+      "has_port": "Chỉ nhập tên máy chủ, không có cổng.",
+      "is_ip": "Đó là một địa chỉ IP. Thay vào đó, hãy thêm nó vào danh sách địa chỉ IP.",
+      "too_long": "Tên đó dài hơn giới hạn 253 ký tự."
+    },
+    "discovered": {
+      "title": "Các địa chỉ được khám phá",
+      "help": "Các địa chỉ được nhìn thấy truy cập máy chủ này mà chứng chỉ số không bao gồm. Không có gì ở đây được áp dụng tự động.",
+      "empty": "Chưa khám phá được địa chỉ nào. Khởi động một agent, hoặc mở trang này từ địa chỉ mà agent của bạn sử dụng, và nó sẽ xuất hiện ở đây.",
+      "address": "Địa chỉ",
+      "source": "Nguồn",
+      "reportedBy": "Người báo cáo",
+      "lastSeen": "Lần cuối phát hiện",
+      "hits": "Lần kết nối",
+      "actions": "Hành động",
+      "add": "Thêm",
+      "added": "{{address}} đã được thêm. Nhấp vào Áp dụng & Cấp lại để đưa nó vào chứng chỉ số.",
+      "dismiss": "Bỏ qua",
+      "pending": "Chờ cấp lại",
+      "sources": {
+        "agent_tls_failure": "Lỗi TLS của agent",
+        "host_header": "Trình duyệt / Host header",
+        "tls_sni": "TLS SNI",
+        "manual": "Thủ công"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "Một agent đã được xác thực báo cáo rằng nó không thể xác minh chứng chỉ số của máy chủ này cho địa chỉ này.",
+        "host_header": "Được quan sát trong Host header của yêu cầu. Bất kỳ ai có thể truy cập máy chủ này đều có thể ảnh hưởng đến giá trị này — xác nhận trước khi thêm.",
+        "tls_sni": "Được quan sát dưới dạng tên máy chủ trong bắt tay TLS.",
+        "manual": "Được thêm bởi quản trị viên."
+      }
+    },
+    "reissue": {
+      "doneTitle": "Chứng chỉ số được cấp lại",
+      "noChangeTitle": "Không cần thay đổi",
+      "noChangeBody": "Chứng chỉ số đã bao gồm mọi địa chỉ được cấu hình và không sắp hết hạn.",
+      "changes": "Thay đổi",
+      "validUntil": "Chứng chỉ số mới có hiệu lực cho đến {{date}}.",
+      "backendReloaded": "API trên cổng 31337 đã phục vụ chứng chỉ số mới. Không cần khởi động lại.",
+      "nginxReloaded": "Giao diện web trên cổng 443 đã được tải lại và đang phục vụ chứng chỉ số mới.",
+      "nginxFailed": "Giao diện web trên cổng 443 vẫn đang phục vụ chứng chỉ số trước đó",
+      "backup": "Các tệp chứng chỉ số trước đó đã được sao lưu vào {{path}}.",
+      "agentsReconnect": "Các agent đã gặp sự cố sẽ kết nối lại tự động trong 30 giây. Không cần khởi động lại agent.",
+      "agentsRefetch": "Mọi agent phải tải lại CA. Agent thực hiện điều này tự động lần tiếp theo khi bắt tay không thành công, nhưng các trình duyệt đã tin tưởng CA cũ phải cài đặt CA mới bằng tay.",
+      "close": "Đóng",
+      "nginxFailedBody": "API đã phục vụ chứng chỉ số mới, vì vậy agent không bị ảnh hưởng. Giao diện web trên cổng 443 sẽ tiếp tục trình bày chứng chỉ số trước đó cho đến khi KrakenHashes được khởi động lại."
+    },
+    "confirmRemoval": {
+      "title": "Xóa các địa chỉ khỏi chứng chỉ số?",
+      "body": "Các địa chỉ sau đây nằm trong chứng chỉ số hiện tại và sẽ bị xóa: {{addresses}}. Bất kỳ agent nào kết nối trên một trong số chúng sẽ không thể kết nối cho đến khi nó được thêm lại.",
+      "cancel": "Hủy",
+      "confirm": "Xóa và cấp lại"
+    },
+    "rotateCa": {
+      "section": "Nâng cao",
+      "title": "Luân chuyển cơ quan cấp chứng chỉ số",
+      "warning": "Luân chuyển cơ quan cấp chứng chỉ số cấp CA hoàn toàn mới và ký lại chứng chỉ số máy chủ và agent. Mọi agent phải tải lại CA trước khi nó có thể kết nối lại, và mọi trình duyệt đã tin tưởng CA cũ sẽ hiển thị cảnh báo cho đến khi ca.crt mới được cài đặt. Chỉ thực hiện điều này nếu khóa riêng CA có thể đã bị lộ.",
+      "instruction": "Nhập {{phrase}} để xác nhận.",
+      "action": "Luân chuyển CA"
+    },
+    "banner": {
+      "title_other": "{{count}} agent không thể xác minh chứng chỉ số của máy chủ này",
+      "body": "{{agents}} đang kết nối đến {{address}}, địa chỉ không được liệt kê trong chứng chỉ số máy chủ. Nó sẽ tiếp tục thử lại và không thể trực tuyến cho đến khi chứng chỉ số được cấp lại.",
+      "anAgent": "Một agent",
+      "action": "Sửa trong cài đặt Chứng chỉ số máy chủ"
+    }
+  },
+  "branding": {
+    "title": "Thương hiệu",
+    "description": "Trình bày hệ thống này theo tên, màu sắc và logo của tổ chức của bạn. Mọi thứ ở đây áp dụng cho giao diện web, tab trình duyệt, email thông báo (thông qua biến mẫu AppName), việc đăng ký ứng dụng xác thực mới và xuất PDF báo cáo phân tích.",
+    "attributionNote": "Ghi công \"powered by KrakenHashes\" luôn được hiển thị bên cạnh tên tùy chỉnh và trong các PDF được xuất. Nó được thêm bởi máy chủ và không thể bị xóa.",
+    "identity": "Danh tính và màu sắc",
+    "appName": "Tên ứng dụng",
+    "appNameHelper": "Hiển thị ở phần đầu trang, trang đăng nhập, email và báo cáo. Để trống để sử dụng KrakenHashes.",
+    "pageTitle": "Tiêu đề trang trình duyệt",
+    "pageTitleHelper": "Tiêu đề hiệu dụng: {{title}}",
+    "primaryColor": "Màu nhấn chính",
+    "secondaryColor": "Màu nhấn phụ",
+    "colorHint": "Màu hex (#rrggbb). Nền tối vẫn cố định; chọn các màu nhấn có thể đọc được trên nền gần đen. Màu chính cũng được sử dụng cho đường kẻ và thanh trong báo cáo PDF.",
+    "save": "Lưu thương hiệu",
+    "logo": "Logo",
+    "logoHint": "PNG hoặc JPEG, tối đa 2 MB và 2048×2048 px. Được sử dụng ở phần đầu trang, trang đăng nhập và báo cáo PDF (hình ảnh RGB hiển thị tốt nhất).",
+    "favicon": "Favicon",
+    "faviconHint": "PNG hoặc ICO, tối đa 512 KB và 512×512 px. Trình duyệt lưu bộ nhớ đệm biểu tượng rất lâu; có thể cần tải lại cứng một lần.",
+    "upload": "Tải lên",
+    "replace": "Thay thế",
+    "remove": "Xóa",
+    "messages": {
+      "saved": "Thương hiệu đã được lưu",
+      "uploaded": "Hình ảnh đã được tải lên",
+      "removed": "Hình ảnh đã được xóa"
+    },
+    "errors": {
+      "loadFailed": "Không thể tải cài đặt thương hiệu",
+      "saveFailed": "Không thể lưu cài đặt thương hiệu",
+      "uploadFailed": "Không thể tải lên hình ảnh",
+      "removeFailed": "Không thể xóa hình ảnh",
+      "invalidHex": "Nhập màu hex như #1e88e5",
+      "tooLarge": "Tệp quá lớn (tối đa {{max}} KB)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Các phần cài đặt",
+    "groups": {
+      "general": "Chung",
+      "security": "Bảo mật",
+      "jobs": "Công việc",
+      "agents": "Agent",
+      "integrations": "Tích hợp",
+      "cloud": "Đám mây"
+    },
+    "sections": {
+      "branding": "Thương hiệu",
+      "brandingDesc": "Tên ứng dụng, màu sắc, logo và favicon.",
+      "data": "Dữ liệu",
+      "dataDesc": "Thời gian lưu giữ mặc định và việc nạp danh sách hash.",
+      "storage": "Lưu trữ",
+      "storageDesc": "Lưu trữ trên chia sẻ mạng cho wordlist và quy tắc.",
+      "certificate": "Chứng chỉ số",
+      "certificateDesc": "Tên và địa chỉ chứng chỉ số máy chủ.",
+      "authentication": "Xác thực",
+      "authenticationDesc": "Chính sách mật khẩu, khóa tài khoản và phiên.",
+      "mfa": "Đa yếu tố",
+      "mfaDesc": "Chính sách đa yếu tố và bên tin cậy passkey.",
+      "sso": "Đăng nhập một lần",
+      "ssoDesc": "Nhà cung cấp danh tính và cấp phát.",
+      "access": "Mô hình truy cập",
+      "accessDesc": "Cô lập đa nhóm.",
+      "execution": "Thực thi",
+      "executionDesc": "Việc chia chunk, keyspace và benchmark.",
+      "scheduling": "Lập lịch",
+      "schedulingDesc": "Phân bổ agent và ưu tiên công việc.",
+      "potfile": "Potfile & loopback",
+      "potfileDesc": "Hành vi potfile và vòng loopback.",
+      "health": "Sức khỏe",
+      "healthDesc": "Heartbeat, khoảng thời gian ân hạn và thời gian gia hạn ngoại tuyến.",
+      "downloads": "Tải xuống",
+      "downloadsDesc": "Cách agent tải tệp từ máy chủ.",
+      "updates": "Cập nhật",
+      "updatesDesc": "Tự động cập nhật binary agent.",
+      "monitoring": "Giám sát",
+      "monitoringDesc": "Lưu giữ và tổng hợp số liệu.",
+      "email": "Email",
+      "emailDesc": "Cấu hình nhà cung cấp và mẫu.",
+      "webhooks": "Webhook",
+      "webhooksDesc": "Webhook toàn cục và webhook người dùng.",
+      "notifications": "Thông báo",
+      "notificationsDesc": "Các sự kiện công việc nào gửi thông báo.",
+      "providers": "Nhà cung cấp",
+      "providersDesc": "Thông tin xác thực nhà cung cấp GPU đám mây.",
+      "budgets": "Ngân sách khách hàng",
+      "budgetsDesc": "Giới hạn hàng tháng theo khách hàng.",
+      "policy": "Chính sách ngưỡng",
+      "policyDesc": "Bậc ngưỡng chi tiêu.",
+      "rules": "Quy tắc cấp phát",
+      "rulesDesc": "Khi tự động mở rộng có thể chi tiêu.",
+      "limits": "Giới hạn",
+      "limitsDesc": "Giới hạn trên toàn hệ thống và thời gian."
+    }
+  },
+  "hub": {
+    "pageDescription": "Mọi thứ cấu hình máy chủ này, được nhóm lại theo những gì nó ảnh hưởng. Các trường lưu khi bạn rời khỏi chúng trừ khi phần đó ghi khác.",
+    "navLabel": "Tổng quan",
+    "attentionTitle": "Cần chú ý",
+    "attentionSubtitle": "Các vấn đề ảnh hưởng đến cách máy chủ hoạt động.",
+    "allGood": "Mọi thứ đều ổn",
+    "allGoodHint": "Không phát hiện vấn đề cấu hình.",
+    "loadFailed": "Không thể tải trạng thái cài đặt.",
+    "overviewTitle": "Trạng thái",
+    "attentionCount": "{{count}} để xem xét",
+    "browseTitle": "Tất cả cài đặt",
+    "loading": "Đang kiểm tra…",
+    "cards": {
+      "email": "Email",
+      "certificate": "Chứng chỉ số",
+      "sso": "Đăng nhập một lần",
+      "binaries": "Binary",
+      "cloud": "Đám mây",
+      "storage": "Lưu trữ",
+      "webhook": "Webhook toàn cục"
+    },
+    "detail": {
+      "emailConfigured": "Đã cấu hình ({{provider}})",
+      "emailNotConfigured": "Không có nhà cung cấp nào được cấu hình",
+      "certUnmanaged": "Được quản lý bên ngoài KrakenHashes ({{mode}})",
+      "certDays": "{{days}} ngày còn lại",
+      "certPending": "Chưa được cấp",
+      "ssoProviders_other": "{{count}} nhà cung cấp được bật",
+      "binaries": "{{verified}} trong {{total}} được xác minh",
+      "cloudNoProviders": "Không có nhà cung cấp nào được cấu hình",
+      "cloudCap": "{{providers}} nhà cung cấp, giới hạn hàng tháng {{cap}}",
+      "storageLocal": "Lưu trữ cục bộ",
+      "storageReachable": "Chia sẻ được gắn kết và có thể truy cập được",
+      "storageUnreachable": "Chia sẻ không thể truy cập được",
+      "webhookOff": "Bị tắt",
+      "webhookOn": "Được bật",
+      "webhookNoUrl": "Được bật mà không có URL"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "Không thể kiểm tra trạng thái",
+      "emailNotConfigured": "Email không được cấu hình; không thể gửi mã xác thực đa yếu tố và thông báo.",
+      "certExpiring": "Chứng chỉ số máy chủ hết hạn trong {{days}} ngày.",
+      "ssoEphemeralKey": "SSO đang sử dụng khóa ký tạm thời; phiên sẽ không tồn tại sau khi khởi động lại.",
+      "noVerifiedBinary": "Không có binary hashcat được xác minh; công việc không thể chạy.",
+      "cloudCapZero": "Các nhà cung cấp đám mây được cấu hình nhưng giới hạn hàng tháng là 0, vì vậy sẽ không có gì được cấp phát.",
+      "shareUnreachable": "Chia sẻ mạng được bật nhưng không thể truy cập được.",
+      "migration": "Quá trình di chuyển lưu trữ là {{state}}.",
+      "webhookNoUrl": "Webhook toàn cục được bật nhưng không có URL."
+    },
+    "severity": {
+      "default": "Thông tin",
+      "success": "OK",
+      "warning": "Cảnh báo",
+      "error": "Lỗi"
+    }
+  },
+  "fieldState": {
+    "saving": "Đang lưu…",
+    "saved": "Đã lưu",
+    "error": "Chưa lưu",
+    "minSelected": "Chọn ít nhất {{count}}",
+    "autosaveHint": "Tự động lưu",
+    "autosaveHintLong": "Mỗi trường tự lưu ngay khi bạn rời khỏi nó.",
+    "applyHint": "Yêu cầu Áp dụng",
+    "applyHintLong": "Các thay đổi ở đây chỉ có hiệu lực sau khi bạn áp dụng chúng."
+  },
+  "unsaved": {
+    "title": "Những thay đổi chưa lưu",
+    "body": "Bạn có những thay đổi chưa được áp dụng. Rời khỏi trang này và loại bỏ chúng?",
+    "stay": "Ở lại",
+    "leave": "Rời khỏi"
+  },
+  "agentAutoUpdate": {
+    "title": "Cập nhật tự động",
+    "description": "Cho phép máy chủ đẩy các binary agent mới đến các agent đã kết nối.",
+    "enable": "Bật tự động cập nhật agent",
+    "maxConcurrent": "Cập nhật đồng thời",
+    "maxConcurrentHelper": "Có bao nhiêu agent có thể cập nhật cùng một lúc.",
+    "maxAttempts": "Số lần thử trên mỗi agent",
+    "maxAttemptsHelper": "Ngừng cập nhật agent đó sau số lần thất bại này.",
+    "healthTimeout": "Thời gian chờ kết nối lại",
+    "healthTimeoutHelper": "Chờ bao lâu để một agent đã cập nhật kết nối lại trước khi đánh dấu cập nhật không thành công.",
+    "applyNote": "Agent sẽ nhận các giá trị này vào lần kiểm tra tiếp theo."
+  },
+  "networkShare": {
+    "intro": "Lưu trữ wordlist và quy tắc trên chia sẻ mạng để máy chủ không cần đĩa cứng cục bộ lớn. Người điều hành gắn kết chia sẻ trên máy chủ (thông qua docker-compose, như <code>KH_SHARE_DIR</code>) và trên bất kỳ máy chủ agent network_direct; KrakenHashes chỉ đọc đường dẫn được gắn kết — nó không bao giờ kết nối với chia sẻ hoặc lưu trữ thông tin xác thực của nó. Cloud GPU agent không gắn kết chia sẻ: chúng tải wordlist/quy tắc từ máy chủ qua VPN.",
+    "migrationLocked": "Một quá trình di chuyển đang diễn ra ({{state}}). Cấu hình bị khóa cho đến khi hoàn thành.",
+    "server": {
+      "title": "Gắn kết lưu trữ máy chủ",
+      "description": "Máy chủ đọc wordlist và quy tắc từ đường dẫn được gắn kết bởi người điều hành này (được đặt trong docker-compose là <code>KH_SHARE_DIR</code>). KrakenHashes không kết nối với chia sẻ — gắn kết là trách nhiệm của người điều hành.",
+      "mountedPath": "Đường dẫn được gắn kết (chỉ đọc)",
+      "shareDirNotSet": "KH_SHARE_DIR chưa được đặt — gắn kết chia sẻ trong docker-compose",
+      "servingFromShare": "Phục vụ từ: chia sẻ mạng",
+      "servingFromLocal": "Phục vụ từ: đĩa cứng cục bộ",
+      "shareReachable": "Chia sẻ có thể truy cập được",
+      "shareNotMounted": "Chia sẻ chưa được gắn kết",
+      "migrationChip": "Di chuyển: {{state}}",
+      "lastValidated": "Xác thực lần cuối {{date}}",
+      "enable": "Bật chia sẻ mạng",
+      "saving": "Đang lưu…",
+      "save": "Lưu cấu hình",
+      "validating": "Đang xác thực…",
+      "validate": "Xác thực gắn kết máy chủ",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "Đường dẫn gắn kết: <code>{{path}}</code>",
+      "unset": "(chưa đặt)",
+      "yes": "có",
+      "no": "không",
+      "summary": "Đã gắn kết: {{mounted}} · Có thể ghi: {{writable}} · Trống: {{free}} · Ghi: {{write}} MB/s · Đọc: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Di chuyển dữ liệu",
+      "descriptionToShare": "Sao chép wordlist và quy tắc hiện có lên chia sẻ mạng và chuyển đổi backend lưu trữ đang hoạt động. Đây là một hoạt động bảo trì: công việc mới dừng phân phối trong khi đội rút dần, sau đó việc tải lên wordlist/quy tắc bị đóng băng, tệp được sao chép và xác minh checksum trước khi chuyển đổi. Tùy thuộc vào kích thước dữ liệu, việc này có thể mất nhiều thời gian và máy chủ sẽ không khả dụng cho việc tải lên và công việc mới trong lúc đó. Wordlist của khách hàng, wordlist association, binary, charset và danh sách hash luôn ở cục bộ.",
+      "descriptionToLocal": "Sao chép wordlist và quy tắc hiện có trở lại đĩa cứng cục bộ và chuyển đổi backend lưu trữ đang hoạt động. Đây là một hoạt động bảo trì: công việc mới dừng phân phối trong khi đội rút dần, sau đó việc tải lên wordlist/quy tắc bị đóng băng, tệp được sao chép và xác minh checksum trước khi chuyển đổi. Tùy thuộc vào kích thước dữ liệu, việc này có thể mất nhiều thời gian và máy chủ sẽ không khả dụng cho việc tải lên và công việc mới trong lúc đó. Wordlist của khách hàng, wordlist association, binary, charset và danh sách hash luôn ở cục bộ.",
+      "phase": "Giai đoạn: {{phase}}",
+      "directionToShare": "cục bộ → chia sẻ",
+      "directionToLocal": "chia sẻ → cục bộ",
+      "waitingTasks_other": "Chờ {{count}} tác vụ hoàn thành",
+      "earliestLock": " — khóa sớm nhất {{time}}",
+      "filesProgress": "{{done}}/{{total}} tệp · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "Đang hủy…",
+      "abort": "Hủy bỏ di chuyển",
+      "abortHelp": "Dừng di chuyển tại điểm kiểm tra tiếp theo của nó (hữu ích nếu chia sẻ chậm hoặc treo). Lưu trữ được để lại trên backend hiện tại và phân phối tiếp tục; các tệp đã sao chép vẫn tồn tại và được sử dụng lại nếu bạn thử lại.",
+      "complete": "Di chuyển hoàn thành.",
+      "failed": "Di chuyển thất bại.",
+      "migrateToShare": "Di chuyển wordlist & quy tắc đến chia sẻ",
+      "migrateToLocal": "Di chuyển trở lại đĩa cứng cục bộ",
+      "enableFirst": "Bật chia sẻ và xác nhận nó xác thực trước khi di chuyển."
+    },
+    "agent": {
+      "title": "Lệnh gắn kết agent tại chỗ (tùy chọn)",
+      "description": "Các trường này được sử dụng <b>chỉ</b> để tạo lệnh gắn kết cho agent tại chỗ được đặt thành tier <b>network_direct</b>. Máy chủ (ở trên) và cloud GPU agent <b>không</b> sử dụng chúng — cloud agent tải xuống qua VPN. Chúng không bí mật; thông tin xác thực không bao giờ được lưu trữ hoặc gửi.",
+      "protocol": "Giao thức",
+      "protocolHelp": "SMB là giao thức di động nhất trên agent Windows/macOS/Linux; NFS hoạt động tốt qua VPN với export chỉ đọc.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Agent gắn kết từ máy chủ chia sẻ (địa chỉ VPN)",
+      "hostHelp": "Địa chỉ của chia sẻ khi agent tiếp cận nó qua VPN — không phải cài đặt máy chủ (máy chủ sử dụng đường dẫn được gắn kết ở trên).",
+      "exportPath": "Đường dẫn export",
+      "shareName": "Tên chia sẻ",
+      "mountOptions": "Tùy chọn gắn kết (một key=value trên mỗi dòng)",
+      "runThis": "Chạy điều này trên máy chủ agent, sau đó đặt tier Lưu trữ của agent đó thành “Network direct” với đường dẫn gắn kết trên trang Agent của nó:",
+      "replaceSmb": "Thay thế <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> và <code>&lt;PASSWORD&gt;</code> trước khi chạy — lệnh vẫn chứa các trình giữ chỗ.",
+      "replaceNfs": "Thay thế <code>&lt;MOUNT_PATH&gt;</code> trước khi chạy — lệnh vẫn chứa các trình giữ chỗ.",
+      "softSmb": "Lệnh bao gồm <code>soft</code> để gắn kết thất bại nhanh nếu chia sẻ chậm hoặc mất kết nối, thay vì bị treo (mặc định <code>hard</code> của kernel). Điều này kết hợp với cơ chế kiểm tra chia sẻ fail-closed của agent, giúp định tuyến lại công việc khi gắn kết không thể đọc được. <b>network_direct</b> dành cho chia sẻ có độ trễ thấp hoặc gần mạng LAN — hãy đặt chia sẻ từ xa hoặc độ trễ cao vào tier tải xuống <b>on_demand</b>/<b>full_cache</b> thay thế. Ghi đè bất kỳ tùy chọn nào bằng cách đặt ở trên.",
+      "softNfs": "Lệnh bao gồm <code>soft</code>, <code>timeo</code> và <code>retrans</code> để gắn kết thất bại nhanh nếu chia sẻ chậm hoặc mất kết nối, thay vì bị treo (mặc định <code>hard</code> của kernel). Điều này kết hợp với cơ chế kiểm tra chia sẻ fail-closed của agent, giúp định tuyến lại công việc khi gắn kết không thể đọc được. <b>network_direct</b> dành cho chia sẻ có độ trễ thấp hoặc gần mạng LAN — hãy đặt chia sẻ từ xa hoặc độ trễ cao vào tier tải xuống <b>on_demand</b>/<b>full_cache</b> thay thế. Ghi đè bất kỳ tùy chọn nào bằng cách đặt ở trên.",
+      "otherOs": "macOS: sử dụng <code>mount_smbfs</code> (SMB) hoặc <code>mount -t nfs</code> (NFS). Windows: sử dụng <code>net use</code> với <code>{{uncPath}}</code>. Agent chỉ đọc từ gắn kết. Các trường này được lưu với <b>Lưu cấu hình</b> ở trên."
+    },
+    "confirm": {
+      "title": "Bắt đầu di chuyển dữ liệu?",
+      "intro": "Điều này sẽ:",
+      "step1": "Dừng phân phối công việc mới và chờ các tác vụ đang chạy hoàn thành (lên tới ~12 phút để agent kết nối lại, lâu hơn nếu có công việc dài đang chạy).",
+      "step2": "Đóng băng tải lên wordlist/quy tắc và phục vụ trang bảo trì trong khi tệp được sao chép và xác minh checksum.",
+      "step3ToShare": "Chuyển đổi backend lưu trữ hoạt động sang chia sẻ mạng khi hoàn thành.",
+      "step3ToLocal": "Chuyển đổi backend lưu trữ hoạt động sang đĩa cứng cục bộ khi hoàn thành.",
+      "outro": "Công việc tạm dừng tiếp tục tự động sau đó. Nếu có bất kỳ điều gì không thành công, lưu trữ được để lại không thay đổi và máy chủ vẫn hoạt động.",
+      "cancel": "Hủy",
+      "start": "Bắt đầu di chuyển"
+    },
+    "toast": {
+      "loadFailed": "Không thể tải cấu hình chia sẻ mạng",
+      "migrationStarted": "Di chuyển đã bắt đầu.",
+      "startFailed": "Không thể bắt đầu di chuyển",
+      "migrationCanceled": "Di chuyển bị hủy — lưu trữ được để lại không thay đổi.",
+      "cancelFailed": "Không thể hủy di chuyển",
+      "saved": "Cấu hình chia sẻ mạng đã được lưu.",
+      "saveFailed": "Không thể lưu cấu hình",
+      "validated": "Chia sẻ đã được xác thực thành công.",
+      "validationProblems": "Xác thực chia sẻ gặp vấn đề.",
+      "validationFailed": "Không thể chạy xác thực"
+    }
+  },
+  "jobAnalytics": {
+    "title": "Phân tích hiệu suất công việc",
+    "description": "Phân tích hiệu suất thực thi công việc, tốc độ hash và lịch sử benchmark trên các agent của bạn.",
+    "loadFiltersFailed": "Không thể tải tùy chọn bộ lọc",
+    "tabs": {
+      "jobPerformance": "Hiệu suất công việc",
+      "successRate": "Tỷ lệ thành công",
+      "benchmarkHistory": "Lịch sử benchmark"
+    },
+    "summary": {
+      "totalJobs": "Tổng công việc",
+      "totalJobsSubtitle": "{{completed}} hoàn thành, {{failed}} thất bại",
+      "totalCracks": "Tổng số bẻ khóa",
+      "totalCracksSubtitle": "Trên tất cả công việc đã lọc",
+      "avgSpeed": "Tốc độ trung bình",
+      "avgSpeedSubtitle": "Tốc độ hash trung bình mỗi công việc",
+      "avgDuration": "Thời gian trung bình",
+      "avgDurationSubtitle": "{{keys}} khóa đã xử lý"
+    },
+    "hashRateChart": {
+      "title": "Tốc độ hash theo thời gian",
+      "daily": "Hàng ngày",
+      "weekly": "Hàng tuần",
+      "empty": "Không có dữ liệu theo thời gian cho các bộ lọc đã chọn",
+      "hashRate": "Tốc độ hash",
+      "tooltipHashRate": "Tốc độ hash: {{speed}}",
+      "tooltipJobs": "Công việc: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Xu hướng tốc độ benchmark",
+      "agent": "Agent",
+      "selectAgent": "Chọn agent",
+      "hashType": "Loại hash",
+      "attackMode": "Chế độ tấn công",
+      "all": "Tất cả",
+      "range90d": "90 ngày",
+      "range1y": "1 năm",
+      "rangeAll": "Tất cả",
+      "selectAgentPrompt": "Chọn một agent để xem xu hướng benchmark",
+      "empty": "Không tìm thấy lịch sử benchmark cho agent này",
+      "speed": "Tốc độ",
+      "tooltipSpeed": "Tốc độ: {{speed}}"
+    },
+    "filters": {
+      "title": "Bộ lọc",
+      "active": "Đang áp dụng",
+      "dateStart": "Ngày bắt đầu",
+      "dateEnd": "Ngày kết thúc",
+      "hashlist": "Danh sách hash",
+      "status": "Trạng thái",
+      "minKeyspace": "Keyspace tối thiểu",
+      "maxKeyspace": "Keyspace tối đa",
+      "reset": "Đặt lại",
+      "apply": "Áp dụng"
+    },
+    "attackModes": {
+      "straight": "Straight",
+      "combination": "Combination",
+      "bruteforce": "Brute-force",
+      "hybridWlMask": "Hybrid WL+Mask",
+      "hybridMaskWl": "Hybrid Mask+WL",
+      "association": "Association",
+      "modeNumber": "Chế độ {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Lịch sử benchmark",
+      "empty": "Không tìm thấy lịch sử benchmark",
+      "columns": {
+        "date": "Ngày",
+        "agentFallback": "Agent #{{id}}",
+        "status": "Trạng thái"
+      },
+      "success": "Thành công",
+      "failed": "Thất bại"
+    },
+    "successRate": {
+      "title": "Tỷ lệ thành công theo cấu hình công việc",
+      "subtitle": "Được nhóm theo wordlist, quy tắc, chế độ tấn công và loại hash. Công việc cài sẵn bao gồm cả công việc tùy chỉnh khớp cấu hình.",
+      "empty": "Không có dữ liệu tỷ lệ thành công cho các bộ lọc đã chọn",
+      "preset": "Cài sẵn",
+      "columns": {
+        "configuration": "Cấu hình",
+        "runs": "Lượt chạy",
+        "hashes": "Hash",
+        "cracks": "Bẻ khóa",
+        "successRate": "Tỷ lệ thành công",
+        "avgDuration": "Thời gian trung bình",
+        "totalCompute": "Tổng thời gian GPU"
+      }
+    },
+    "jobExecution": {
+      "title": "Chi tiết thực thi công việc",
+      "empty": "Không tìm thấy công việc cho các bộ lọc đã chọn",
+      "noTaskData": "Không có dữ liệu tác vụ",
+      "taskBreakdown": "Phân tích tác vụ ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_other": "{{count}} tác vụ",
+      "metricPointCount_other": "{{count}} điểm dữ liệu",
+      "columns": {
+        "name": "Tên",
+        "attack": "Tấn công",
+        "duration": "Thời gian",
+        "keyspace": "Keyspace",
+        "agents": "Agent",
+        "progress": "Tiến độ",
+        "benchmark": "Benchmark",
+        "started": "Bắt đầu",
+        "completed": "Hoàn thành"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Quản lý wordlist - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Wordlist của khách hàng ({{count}})",
+      "clientPotfile": "Potfile của khách hàng",
+      "associationWordlists": "Wordlist association ({{count}})"
+    },
+    "columns": {
+      "fileName": "Tên tệp",
+      "lineCount": "Số dòng",
+      "fileSize": "Kích thước tệp",
+      "uploaded": "Tải lên",
+      "hashlist": "Danh sách hash",
+      "actions": "Hành động"
+    },
+    "hashlistFallback": "Danh sách hash #{{id}}",
+    "clientTab": {
+      "info": "Wordlist của khách hàng khả dụng trên tất cả danh sách hash của khách hàng này. Chúng có thể được dùng với bất kỳ chế độ tấn công nào.",
+      "uploadWordlist": "Tải lên wordlist",
+      "uploading": "Đang tải lên... {{progress}}%",
+      "noWordlists": "Chưa có wordlist của khách hàng nào được tải lên."
+    },
+    "potfileTab": {
+      "noPotfile": "Chưa có potfile của khách hàng. Nó sẽ được tự động tạo khi hash được bẻ khóa cho danh sách hash của khách hàng này.",
+      "autoGenerated": "Potfile của khách hàng (tự động tạo)",
+      "description": "Potfile này chứa tất cả mật khẩu đã bẻ khóa cho khách hàng này. Nó được tự động cập nhật khi hash được bẻ khóa.",
+      "passwordCount_other": "{{countDisplay}} mật khẩu",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Cập nhật: {{date}}",
+      "downloadPotfile": "Tải potfile"
+    },
+    "associationTab": {
+      "info": "Wordlist association được tổ chức theo từng danh sách hash và ánh xạ mỗi hash tới một mật khẩu ứng viên theo tỷ lệ 1:1 dựa trên số dòng. Chúng được tải lên và quản lý từ trang chi tiết danh sách hash. Chế độ xem này hiển thị tất cả wordlist association trên tất cả danh sách hash của khách hàng này.",
+      "noWordlists": "Không tìm thấy wordlist association nào cho danh sách hash của khách hàng này."
+    },
+    "messages": {
+      "wordlistDeleted": "Đã xóa wordlist của khách hàng",
+      "associationDeleted": "Đã xóa wordlist association",
+      "deleteFailed": "Không thể xóa wordlist",
+      "uploadSuccess": "Đã tải lên wordlist của khách hàng thành công",
+      "uploadFailed": "Không thể tải lên wordlist",
+      "downloaded": "Đã tải xuống {{filename}}",
+      "downloadFailed": "Không thể tải xuống tệp"
+    },
+    "deleteConfirm": {
+      "title": "Xóa wordlist",
+      "message": "Xóa \"{{fileName}}\"? Hành động này không thể hoàn tác."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Quản lý nhóm",
+      "titleMine": "Nhóm của tôi",
+      "description": "Quản lý tất cả các nhóm trong hệ thống",
+      "descriptionMine": "Các nhóm bạn tham gia",
+      "createTeam": "Tạo nhóm",
+      "bulkAssignHint": "Để gán nhiều khách hàng cho một nhóm cùng một lúc, sử dụng tính năng gán hàng loạt trên trang <link>Quản lý khách hàng</link>.",
+      "columns": {
+        "name": "Tên nhóm",
+        "description": "Mô tả",
+        "members": "Thành viên",
+        "clients": "Khách hàng",
+        "hashlists": "Danh sách hash",
+        "agents": "Agent",
+        "created": "Đã tạo"
+      },
+      "rowActions": {
+        "manage": "Quản lý nhóm",
+        "edit": "Chỉnh sửa nhóm",
+        "delete": "Xóa nhóm"
+      },
+      "empty": "Không tìm thấy nhóm nào",
+      "emptyMine": "Bạn chưa là thành viên của bất kỳ nhóm nào.",
+      "viewDetails": "Xem chi tiết",
+      "memberCount_other": "{{count}} thành viên",
+      "clientCount_other": "{{count}} khách hàng",
+      "hashlistCount_other": "{{count}} danh sách hash",
+      "agentCount_other": "{{count}} agent",
+      "dialogs": {
+        "create": {
+          "title": "Tạo nhóm mới",
+          "nameLabel": "Tên nhóm",
+          "descriptionLabel": "Mô tả",
+          "creatingButton": "Đang tạo..."
+        },
+        "delete": {
+          "title": "Xóa nhóm",
+          "confirmation": "Bạn có chắc chắn muốn xóa nhóm \"{{name}}\" không? Hành động này sẽ xóa toàn bộ thành viên và các khách hàng đã được gán của nhóm."
+        }
+      },
+      "messages": {
+        "createSuccess": "Nhóm đã được tạo thành công",
+        "deleteSuccess": "Nhóm đã được xóa thành công",
+        "updateSuccess": "Nhóm đã được cập nhật thành công"
+      },
+      "errors": {
+        "loadFailed": "Không thể tải nhóm",
+        "createFailed": "Không thể tạo nhóm",
+        "deleteFailed": "Không thể xóa nhóm",
+        "updateFailed": "Không thể cập nhật nhóm"
+      }
+    },
+    "detail": {
+      "notFound": "Không tìm thấy nhóm",
+      "noDescription": "Không có mô tả",
+      "breadcrumb": "Nhóm",
+      "editTeam": "Chỉnh sửa nhóm",
+      "confirmActionTitle": "Xác nhận hành động",
+      "tabs": {
+        "members": "Thành viên ({{count}})",
+        "clients": "Khách hàng ({{count}})",
+        "trustedTeams": "Nhóm tin tưởng ({{count}})",
+        "agents": "Agent ({{count}})"
+      },
+      "addMember": "Thêm thành viên",
+      "assignClient": "Gán khách hàng",
+      "addTrust": "Thêm tin tưởng",
+      "trustInfo": "Tin tưởng nhóm khác cho phép các agent của họ chạy công việc của nhóm bạn. Đây là mối quan hệ một chiều — tin tưởng Nhóm B không cho phép các agent của bạn truy cập công việc của Nhóm B.",
+      "agentsInfo": "<strong>Agent trực tiếp</strong> được sở hữu bởi các thành viên của nhóm này. <strong>Agent tin tưởng</strong> đến từ các nhóm mà bạn đã thiết lập mối quan hệ tin tưởng.",
+      "systemOwner": "Hệ thống",
+      "columns": {
+        "username": "Tên người dùng",
+        "email": "Email",
+        "role": "Vai trò",
+        "joined": "Đã tham gia",
+        "clientName": "Tên khách hàng",
+        "description": "Mô tả",
+        "trustedTeam": "Nhóm tin tưởng",
+        "trustedSince": "Tin tưởng từ",
+        "agentName": "Tên agent",
+        "status": "Trạng thái",
+        "version": "Phiên bản",
+        "owner": "Chủ sở hữu",
+        "source": "Nguồn"
+      },
+      "roles": {
+        "member": "Thành viên",
+        "admin": "Admin",
+        "adminManager": "Admin (Quản lý nhóm)"
+      },
+      "source": {
+        "direct": "Trực tiếp",
+        "trusted": "Tin tưởng {{team}}",
+        "trustedBadge": "Tin tưởng",
+        "unknown": "Không xác định"
+      },
+      "rowActions": {
+        "removeMember": "Xóa thành viên",
+        "removeClientFromTeam": "Xóa khách hàng khỏi nhóm",
+        "removeTrust": "Xóa tin tưởng"
+      },
+      "empty": {
+        "noMembers": "Không có thành viên trong nhóm này",
+        "noClients": "Không có khách hàng được gán cho nhóm này",
+        "noTrustedTeams": "Không có nhóm tin tưởng. Chỉ các agent hệ thống và các agent của nhóm này có thể chạy công việc.",
+        "noAgents": "Không có agent nào có thể truy cập được cho nhóm này",
+        "noAgentsHint": "Thêm các thành viên nhóm với các agent hoặc thiết lập mối quan hệ tin tưởng."
+      },
+      "confirm": {
+        "removeMember": "Bạn có chắc chắn muốn xóa thành viên này không?",
+        "removeClient": "Bạn có chắc chắn muốn xóa \"{{name}}\" khỏi nhóm này không? Các thành viên nhóm sẽ mất quyền truy cập vào dữ liệu của khách hàng này.",
+        "removeTrust": "Xóa mối quan hệ tin tưởng này? Các agent từ nhóm này sẽ không còn có thể chạy công việc của bạn."
+      },
+      "messages": {
+        "memberAdded": "Thành viên đã được thêm thành công",
+        "memberRemoved": "Thành viên đã được xóa",
+        "roleUpdated": "Vai trò đã được cập nhật",
+        "teamUpdated": "Nhóm đã được cập nhật thành công",
+        "clientAssigned": "Khách hàng đã được gán cho nhóm",
+        "clientRemoved": "Khách hàng đã được xóa khỏi nhóm",
+        "trustAdded": "Mối quan hệ tin tưởng đã được thêm",
+        "trustRemoved": "Mối quan hệ tin tưởng đã được xóa"
+      },
+      "errors": {
+        "loadFailed": "Không thể tải dữ liệu nhóm",
+        "addMemberFailed": "Không thể thêm thành viên",
+        "removeMemberFailed": "Không thể xóa thành viên",
+        "updateRoleFailed": "Không thể cập nhật vai trò",
+        "loadClientsFailed": "Không thể tải khách hàng",
+        "assignClientFailed": "Không thể gán khách hàng",
+        "removeClientFailed": "Không thể xóa khách hàng",
+        "updateTeamFailed": "Không thể cập nhật nhóm",
+        "loadTeamNamesFailed": "Không thể tải tên nhóm",
+        "addTrustFailed": "Không thể thêm mối quan hệ tin tưởng",
+        "removeTrustFailed": "Không thể xóa mối quan hệ tin tưởng"
+      },
+      "dialogs": {
+        "cancel": "Hủy",
+        "editTeam": {
+          "title": "Chỉnh sửa nhóm",
+          "nameLabel": "Tên nhóm",
+          "descriptionLabel": "Mô tả",
+          "saveButton": "Lưu",
+          "savingButton": "Đang lưu..."
+        },
+        "addMember": {
+          "title": "Thêm thành viên nhóm",
+          "searchLabel": "Tìm kiếm người dùng",
+          "searchPlaceholder": "Nhập ít nhất 2 ký tự...",
+          "typeToSearch": "Nhập để tìm kiếm...",
+          "noUsersFound": "Không tìm thấy người dùng nào",
+          "roleLabel": "Vai trò",
+          "addButton": "Thêm thành viên"
+        },
+        "addTrust": {
+          "title": "Thêm nhóm tin tưởng",
+          "info": "Các agent được sở hữu bởi các thành viên của nhóm tin tưởng sẽ được phép chạy công việc của nhóm này.",
+          "selectLabel": "Chọn nhóm để tin tưởng",
+          "searchPlaceholder": "Tìm kiếm nhóm...",
+          "noTeamsAvailable": "Không có nhóm nào",
+          "optionLabel_other": "{{name}} ({{count}} agent)"
+        },
+        "assignClient": {
+          "title": "Gán khách hàng cho nhóm",
+          "info": "Gán khách hàng cho phép tất cả các thành viên nhóm truy cập vào danh sách hash, công việc và dữ liệu đã bẻ khóa của khách hàng này.",
+          "selectLabel": "Chọn khách hàng",
+          "searchPlaceholder": "Tìm kiếm khách hàng...",
+          "noClientsAvailable": "Không có khách hàng chưa được gán nào"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Quản lý charset tùy chỉnh",
+    "description": "Quản lý các charset tùy chỉnh chung có sẵn cho tất cả công việc cài sẵn và người dùng. Hỗ trợ cả định nghĩa nội tuyến và tệp charset nhị phân .hcchr.",
+    "createCharset": "Tạo charset",
+    "columns": {
+      "name": "Tên",
+      "type": "Loại",
+      "definition": "Định nghĩa / Thông tin",
+      "description": "Mô tả",
+      "created": "Đã tạo"
+    },
+    "typeLabels": {
+      "file": "Tệp",
+      "inline": "Nội tuyến",
+      "hex": "Hex"
+    },
+    "uniqueBytes_other": "{{count}} byte duy nhất",
+    "rowActions": {
+      "edit": "Chỉnh sửa",
+      "delete": "Xóa"
+    },
+    "empty": "Không tìm thấy charset tùy chỉnh nào. Tạo một charset để bắt đầu.",
+    "dialogs": {
+      "create": {
+        "title": "Tạo charset tùy chỉnh"
+      },
+      "edit": {
+        "title": "Chỉnh sửa charset tùy chỉnh"
+      },
+      "delete": {
+        "title": "Xóa charset",
+        "confirmation": "Bạn có chắc chắn muốn xóa charset \"{{name}}\" không?"
+      },
+      "modeToggle": {
+        "inline": "Định nghĩa nội tuyến",
+        "file": "Tải tệp lên (.hcchr)"
+      },
+      "fields": {
+        "name": "Tên",
+        "namePlaceholder": "ví dụ: DES Full Charset",
+        "definition": "Định nghĩa",
+        "definitionPlaceholderHex": "ví dụ: 41424344 (cặp byte hex)",
+        "definitionPlaceholderPlain": "ví dụ: ?u?d hoặc abcdef0123456789",
+        "definitionHelperHex": "Cặp byte hex — mỗi cặp = một byte charset. {{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}} byte",
+        "definitionHelperPlain": "Định nghĩa charset hashcat. Sử dụng ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H hoặc các ký tự chữ.",
+        "hexTooltip": "Khi được bật, định nghĩa được diễn giải dưới dạng các cặp byte hex (ví dụ: 41424344 = byte A, B, C, D). Các công việc sử dụng charset này sẽ tự động tiêm --hex-charset.",
+        "hexLabel": "Định nghĩa được mã hóa hex",
+        "selectFile": "Chọn tệp .hcchr",
+        "fileSizeBytes_other": "{{count}} byte",
+        "fileHelperText": "Tệp charset nhị phân chứa các giá trị byte thô (tối đa 1023 byte, tối đa 256 byte duy nhất). Dùng cho bẻ khóa DES, NTLMv1 và mã hóa dành riêng cho ngôn ngữ.",
+        "fileCharsetInfo_other": "Charset tệp: {{count}} byte duy nhất. Chỉ có tên và mô tả có thể được chỉnh sửa.",
+        "description": "Mô tả",
+        "descriptionPlaceholder": "Mô tả tùy chọn về mục đích sử dụng của charset này"
+      },
+      "update": "Cập nhật",
+      "upload": "Tải lên"
+    },
+    "messages": {
+      "createSuccess": "Charset đã được tạo thành công",
+      "uploadSuccess": "Charset tệp đã được tải lên thành công",
+      "updateSuccess": "Charset đã được cập nhật thành công",
+      "deleteSuccess": "Charset đã được xóa thành công"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Chỉ cho phép các tệp .hcchr",
+      "fileTooLarge": "Tệp quá lớn (tối đa 1023 byte — giới hạn vùng đệm đọc hashcat)",
+      "nameRequired": "Tên là bắt buộc",
+      "definitionRequired": "Định nghĩa là bắt buộc",
+      "selectFile": "Vui lòng chọn tệp .hcchr",
+      "loadFailed": "Không thể tải charset: {{message}}",
+      "deleteFailed": "Không thể xóa charset: {{message}}"
+    }
+  }
+}

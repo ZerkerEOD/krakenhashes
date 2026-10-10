@@ -9,6 +9,7 @@
     "wordlists": "Словари",
     "rules": "Правила",
     "clientManagement": "Управление клиентами",
+    "teams": "Команды",
     "analytics": "Аналитика",
     "about": "О программе",
     "logout": "Выход"
@@ -17,21 +18,35 @@
     "title": "Администрирование",
     "settings": "Настройки администратора",
     "userManagement": "Управление пользователями",
+    "customCharsets": "Пользовательские наборы символов",
     "presetJobs": "Шаблоны заданий",
     "jobWorkflows": "Рабочие процессы",
     "diagnostics": "Диагностика",
     "auditLog": "Журнал аудита",
     "jobAnalytics": "Аналитика заданий",
-    "cloudFleet": "Cloud Fleet"
+    "teamManagement": "Управление командами",
+    "cloudFleet": "Облачный парк",
+    "binaries": "Бинарные файлы",
+    "hashTypes": "Типы хешей",
+    "vouchers": "Ваучеры",
+    "clients": "Клиенты",
+    "teams": "Команды"
   },
   "userMenu": {
     "userSettings": "Настройки пользователя",
+    "savedCharsets": "Сохранённые наборы символов",
     "logout": "Выход",
     "user": "Пользователь"
   },
   "aria": {
     "toggleDrawer": "Переключить панель",
     "mainNavigation": "Основная навигация",
-    "adminNavigation": "Навигация администратора"
+    "adminNavigation": "Навигация администратора",
+    "downloadCaCert": "Скачать сертификат CA"
+  },
+  "groups": {
+    "resources": "Ресурсы",
+    "peopleAccess": "Люди и доступ",
+    "operations": "Операции"
   }
 }

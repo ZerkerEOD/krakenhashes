@@ -1,0 +1,501 @@
+{
+  "title": "Hashlists",
+  "uploadButton": "Unggah Hashlist",
+  "page": {
+    "title": "Manajemen Hashlist",
+    "description": "Unggah dan kelola daftar hash kata sandi untuk operasi crack"
+  },
+  "columns": {
+    "name": "Nama",
+    "hashType": "Tipe Hash",
+    "totalHashes": "Total Hash",
+    "crackedHashes": "Tercrack",
+    "progress": "Tercrack (%)",
+    "client": "Klien",
+    "status": "Status",
+    "createdAt": "Dibuat",
+    "actions": "Tindakan"
+  },
+  "filters": {
+    "filterByName": "Filter berdasarkan Nama",
+    "status": "Status",
+    "all": "Semua"
+  },
+  "status": {
+    "uploading": "Mengunggah",
+    "processing": "Memproses",
+    "ready": "Siap",
+    "error": "Kesalahan"
+  },
+  "table": {
+    "noHashlists": "Tidak ada hashlist ditemukan."
+  },
+  "details": {
+    "title": "Detail Hashlist",
+    "overview": "Ringkasan",
+    "hashes": "Hash",
+    "jobs": "Job",
+    "stats": "Statistik"
+  },
+  "upload": {
+    "title": "Unggah Hashlist Baru",
+    "name": "Nama Hashlist",
+    "hashType": "Tipe Hash",
+    "client": "Klien (Opsional)",
+    "file": "File Hash",
+    "selectFile": "Pilih File",
+    "uploading": "Mengunggah...",
+    "cancel": "Batal",
+    "executableBlocked": "File ini tampaknya merupakan binary yang dapat dieksekusi dan tidak dapat diunggah sebagai hashlist.",
+    "description": "Deskripsi",
+    "methodLabel": "Metode Unggah",
+    "methodAriaLabel": "mode unggah",
+    "fileAriaLabel": "unggah file",
+    "pasteAriaLabel": "tempel hash",
+    "uploadFile": "Unggah File",
+    "pasteHashes": "Tempel Hash",
+    "dropHere": "Lepas file hashlist di sini...",
+    "dragAndDrop": "Seret dan lepas file hashlist, atau klik untuk memilih",
+    "allFileTypesExceptExecutables": "Semua jenis file diterima kecuali executable",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "Hapus",
+    "hashCount_other": "{{count}} hash",
+    "hashCountDetected_other": "{{count}} hash terdeteksi",
+    "pasteHashesLabel": "Tempel hash di sini (satu per baris)",
+    "pasteHashesPlaceholder": "Masukkan hash, satu per baris...&#10;&#10;Contoh:&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "Tempel hash Anda di atas, satu per baris",
+    "excludeFromGlobalPotfile": "Kecualikan dari potfile global",
+    "excludeFromGlobalPotfileHelper": "Kata sandi tercrack dari hashlist ini tidak akan disimpan ke potfile global",
+    "globalPotfileDisabledNotice": "Catatan: Potfile global saat ini dinonaktifkan oleh pengaturan admin.",
+    "excludeFromClientPotfile": "Kecualikan dari potfile klien",
+    "excludeFromClientPotfileHelper": "Kata sandi tercrack dari hashlist ini tidak akan disimpan ke potfile klien",
+    "clientPotfilesDisabledNotice": "Catatan: Potfile klien dinonaktifkan oleh pengaturan admin.",
+    "uploadButtonLabel": "Unggah Hashlist",
+    "selectTeamForNewClient": "Silakan pilih tim untuk klien baru.",
+    "validationCancelled": "Pengunggahan dibatalkan. Perbaiki file dan coba lagi.",
+    "errors": {
+      "nameRequired": "Nama diperlukan",
+      "hashTypeRequired": "Tipe hash diperlukan",
+      "clientRequired": "Klien diperlukan",
+      "noHashesToUpload": "Tidak ada hash untuk diunggah",
+      "uploadFailedWithStatus": "Pengunggahan gagal (HTTP {{status}})",
+      "uploadFailedWithMessage": "Pengunggahan gagal: {{message}}",
+      "uploadFailedUnknown": "Pengunggahan gagal (kesalahan tidak diketahui)",
+      "uploadErrorPrefix": "Kesalahan mengunggah hashlist: {{message}}",
+      "unknownError": "Terjadi kesalahan yang tidak diketahui"
+    },
+    "linkDialog": {
+      "title": "Hash LM/NTLM Terdeteksi",
+      "detected": "File format pwdump terdeteksi dengan:",
+      "lmCount_other": "{{count}} hash LM (tidak kosong)",
+      "ntlmCount_other": "{{count}} hash NTLM",
+      "blankLmCount_other": "{{count}} hash LM kosong (kata sandi kosong - akan dilewati)",
+      "question": "Apakah Anda ingin membuat dua hashlist yang tertaut untuk workflow crack terpisah?",
+      "explanation": "Ini akan membuat hashlist \"{{lmName}}\" dan \"{{ntlmName}}\" yang tertaut bersama.",
+      "uploadSingle": "Unggah sebagai Daftar Tunggal",
+      "createLinked": "Buat Daftar Tertaut"
+    }
+  },
+  "actions": {
+    "viewDetails": "Lihat Detail",
+    "createJob": "Buat Job",
+    "download": "Unduh",
+    "delete": "Hapus"
+  },
+  "createJob": {
+    "additionalArgs": "Argumen Hashcat Tambahan (Opsional)",
+    "additionalArgsHelper": "Flag hashcat tambahan untuk job ini. Flag tingkat agent memiliki prioritas saat terjadi konflik.",
+    "title": "Buat Job untuk \"{{name}}\"",
+    "successRedirect": "Job berhasil dibuat! Mengarahkan ke halaman job...",
+    "successDefault": "Job berhasil dibuat!",
+    "loadingDefault": "Membuat...",
+    "loadingCreating": "Membuat job...",
+    "loadingKeyspace": "Menghitung keyspace...",
+    "cancel": "Batal",
+    "submit": "Buat Job",
+    "canInterrupt": "Dapat Dihentikan",
+    "tabs": {
+      "workflows": "Workflow",
+      "presetJobs": "Preset Job",
+      "customJob": "Job Kustom"
+    },
+    "attackModes": {
+      "dictionary": "Kamus",
+      "combination": "Kombinasi",
+      "bruteforce": "Brute-force",
+      "hybridWordlistMask": "Hybrid Wordlist + Mask",
+      "hybridMaskWordlist": "Hybrid Mask + Wordlist",
+      "association": "Asosiasi",
+      "modeFallback": "Mode {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "Silakan pilih setidaknya satu workflow",
+      "selectPresetJob": "Silakan pilih setidaknya satu preset job",
+      "wordlistRequired": "Mode serangan yang dipilih memerlukan setidaknya satu wordlist",
+      "combinationRequiresTwo": "Serangan kombinasi mengharuskan kedua wordlist dipilih",
+      "maskRequired": "Mode serangan yang dipilih memerlukan mask",
+      "associationMixedWorkFactors": "Serangan asosiasi tidak dapat dijalankan pada hashlist dengan work factor campuran",
+      "associationWordlistRequired": "Serangan asosiasi memerlukan wordlist asosiasi",
+      "chunkDurationMin": "Durasi chunk harus setidaknya 5 detik",
+      "chunkDurationMax": "Durasi chunk tidak dapat melebihi 24 jam (86400 detik)",
+      "partialFailure": "{{message}}. Tidak dibuat: {{details}}",
+      "unnamedItem": "item",
+      "createFailed": "Gagal membuat job",
+      "loadFailed": "Gagal memuat job yang tersedia"
+    },
+    "workflows": {
+      "empty": "Tidak ada workflow tersedia. Silakan buat workflow di panel admin terlebih dahulu.",
+      "jobNameHelper": "Nama Anda akan digabungkan dengan setiap nama workflow",
+      "description": "Pilih satu atau lebih workflow untuk dijalankan. Anda dapat memilih beberapa workflow - masing-masing akan membuat urutan eksekusi job-nya sendiri. Pengaturan loopback dikonfigurasi di workflow itu sendiri — workflow yang ditandai \"Loopback\" akan secara otomatis menjalankan ulang langkah-langkah yang memenuhi syarat terhadap kata sandi yang baru tercrack.",
+      "jobsCount_other": "{{count}} job",
+      "loopbackAllEligible": "Loopback: semua yang memenuhi syarat",
+      "loopbackSteps_other": "Loopback: {{count}} langkah",
+      "jobsList": "Job: {{names}}",
+      "selectedCount_other": "{{count}} workflow dipilih"
+    },
+    "presetJobs": {
+      "empty": "Tidak ada preset job tersedia. Silakan buat preset job di panel admin terlebih dahulu.",
+      "jobNameHelper": "Nama Anda akan digabungkan dengan setiap tipe job (mis. 'Nama Saya - Potfile Run')",
+      "description": "Pilih satu atau lebih preset job untuk dijalankan. Anda dapat memilih beberapa job - mereka akan dibuat sebagai eksekusi job terpisah.",
+      "priorityLabel": "Prioritas: {{priority}}",
+      "selectedCount_other": "{{count}} job dipilih"
+    },
+    "loopback": {
+      "label": "Loopback hingga dry",
+      "helperEligible": "Menjalankan job yang dipilih, kemudian menjalankan ulang yang dapat dimutasi (straight + rule, atau serangan hibrida) terhadap hanya kata sandi yang baru tercrack — mengulangi hingga tidak ada crack baru yang ditemukan.",
+      "helperSelectEligible": "Pilih preset yang memenuhi syarat (straight + rule, atau serangan hibrida) di bawah untuk mengaktifkan loopback.",
+      "helperNoneEligible": "Tidak ada job yang dipilih yang memiliki mutasi untuk loopback (mereka hanya wordlist, brute-force, atau asosiasi).",
+      "helperFilterConflict": "Loopback tidak tersedia saat pre-filtering diaktifkan untuk job ini.",
+      "helperCustom": "Menjalankan serangan ini, kemudian menjalankan ulang mutasinya (rule atau mask) terhadap hanya kata sandi yang baru tercrack — mengulangi hingga tidak ada crack baru yang ditemukan."
+    },
+    "filter": {
+      "enableLabel": "Pre-filter wordlist yang dipilih untuk job ini",
+      "ephemeralNotice": "Daftar yang difilter ini bersifat ephemeral dan hanya digunakan untuk job ini. Untuk membuat wordlist yang difilter dan dapat digunakan kembali, gunakan Manajemen Wordlist. Generasi berjalan di latar belakang; job dimulai secara otomatis setelah siap."
+    },
+    "association": {
+      "explainer": "Serangan asosiasi memetakan setiap hash ke baris wordlist yang sesuai 1:1. Jumlah baris wordlist harus cocok dengan total jumlah hash ({{hashCount}}).",
+      "falsePositiveWarning": "<strong>Catatan:</strong> Serangan asosiasi dapat menghasilkan false positive. Disarankan untuk memverifikasi hasil dengan mengunduh hash tercrack, menghapus hashlist, mengunggah ulang, dan mengonfirmasi dengan serangan kamus.",
+      "wordlistLabel": "Wordlist Asosiasi",
+      "selectWordlist": "Pilih wordlist asosiasi",
+      "wordlistOptionLabel": "{{name}} ({{lines}} baris, {{size}} KB)",
+      "wordlistHelper": "Unggah wordlist asosiasi melalui bagian Wordlist Asosiasi Hashlist"
+    },
+    "cloud": {
+      "allowBurst": "Izinkan Cloud Burst",
+      "allowBurstHelper": "Sewa instance GPU ketika armada on-prem tidak dapat mengikuti. Memerlukan klien untuk didanai dan memilih masuk ke penyedia.",
+      "allowPeerHosts": "Izinkan host yang dijalankan peer (Vast.ai, RunPod Community)",
+      "peerHostsWarning": "Ini adalah mesin milik orang lain. Pemilik host memiliki root di atas container, sehingga hash, wordlist, dan plaintext tercrack milik klien ini dapat dibaca oleh pihak ketiga dan <strong>tidak dienkripsi saat disimpan di host</strong>. Tidak disarankan untuk produksi atau data engagement klien. Biarkan ini nonaktif dan job akan tetap menggunakan kapasitas aman (AWS, RunPod Secure Cloud) jika klien mengizinkannya.",
+      "maxInstances": "Max Cloud Instances",
+      "maxInstancesHelper": "Terpisah dari Max Agents, yang mengatur pool on-prem. Kosong membiarkan anggaran memutuskan."
+    },
+    "form": {
+      "jobName": "Nama Job (Opsional)",
+      "jobNamePlaceholder": "Kosongkan untuk nama yang dibuat secara otomatis",
+      "jobNameHelper": "Kosongkan untuk nama yang dibuat secara otomatis berdasarkan konfigurasi serangan",
+      "attackModeLabel": "Mode Serangan",
+      "attackModeDictionary": "Serangan Kamus",
+      "attackModeCombination": "Serangan Kombinasi",
+      "attackModeBruteforce": "Serangan Brute-force",
+      "attackModeHybridWordlistMask": "Hybrid Wordlist + Mask",
+      "attackModeHybridMaskWordlist": "Hybrid Mask + Wordlist",
+      "attackModeAssociation": "Serangan Asosiasi",
+      "associationBlockedMixed": " (Diblokir: Work factor campuran)",
+      "associationNoWordlists": " (Tidak ada wordlist yang diunggah)",
+      "binaryVersionHelper": "Pilih pola versi binary",
+      "wordlists": "Wordlist",
+      "selectWordlists": "Pilih wordlist",
+      "ruleOptional": "Rule (Opsional)",
+      "ruleOptionLabel_other": "{{name}} ({{count}} rule)",
+      "selectRule": "Pilih rule",
+      "firstWordlist": "Wordlist Pertama",
+      "secondWordlist": "Wordlist Kedua",
+      "selectFirstWordlist": "Pilih wordlist pertama",
+      "selectSecondWordlist": "Pilih wordlist kedua",
+      "categoryClientSpecific": "Khusus Klien",
+      "categoryGlobal": "Global",
+      "wordlistOptionWithLines": "{{name}} ({{lines}} baris)",
+      "wordlistOptionWithSize": "{{name}} ({{size}} MB)",
+      "clientPotfileName_other": "Potfile Klien ({{count, number}} kata sandi)",
+      "mask": "Mask",
+      "maskPlaceholder": "mis., ?u?l?l?l?l?d?d",
+      "maskHelper": "?l = huruf kecil, ?u = huruf besar, ?d = digit, ?s = khusus, ?1-?4 = kustom",
+      "incrementModeLabel": "Mode Increment",
+      "incrementModeOff": "Nonaktif",
+      "incrementModeForward": "Increment (L→R)",
+      "incrementModeInverse": "Increment Inverse (R→L)",
+      "incrementModeHelper": "Increment mencoba mask yang lebih pendek terlebih dahulu, berkembang secara progresif",
+      "minLength": "Panjang Min",
+      "maxLength": "Panjang Maks",
+      "priority": "Prioritas",
+      "priorityHelper": "Job dengan prioritas lebih tinggi dijalankan terlebih dahulu (1-1000)",
+      "chunkDuration": "Durasi Chunk (detik)",
+      "chunkDurationHelper": "Waktu dalam detik untuk setiap chunk (5-86400 detik)",
+      "maxAgents": "Max Agents",
+      "maxAgentsHelper": "Jumlah maksimal agent (0 = tidak terbatas)",
+      "allowHighPriorityOverride": "Izinkan Override Prioritas Tinggi",
+      "additionalArgsPlaceholder": "mis., -w 4 -O --force"
+    }
+  },
+  "confirmDelete": {
+    "title": "Konfirmasi Penghapusan",
+    "message": "Apakah Anda yakin ingin menghapus hashlist \"{{name}}\"? Tindakan ini tidak dapat dibatalkan.",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "deleting": "Menghapus...",
+    "removeFromGlobalPotfile": "Hapus kata sandi tercrack dari potfile global",
+    "removeFromClientPotfile": "Hapus kata sandi tercrack dari potfile klien"
+  },
+  "deletionProgress": {
+    "title": "Menghapus Hashlist",
+    "successTitle": "Hashlist Berhasil Dihapus",
+    "complete": "Penghapusan Selesai!",
+    "failed": "Penghapusan Gagal",
+    "summary": "Ringkasan:",
+    "totalProcessed": "Total hash yang diproses: {{value}}",
+    "orphansDeleted": "Hash yatim dihapus: {{value}}",
+    "sharedPreserved": "Hash bersama dipertahankan: {{value}}",
+    "jobsDeleted": "Job dihapus: {{value}}",
+    "duration": "Durasi: {{duration}}",
+    "phase": "Fase {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Mempersiapkan...",
+      "removingHashes": "Menghapus hash",
+      "clearingReferences": "Menghapus referensi task",
+      "cleaningOrphans": "Membersihkan hash yatim",
+      "finalizing": "Menyelesaikan penghapusan"
+    },
+    "units": {
+      "hashes": "hash",
+      "references": "referensi"
+    },
+    "error": "Error: {{error}}",
+    "done": "Selesai",
+    "close": "Tutup"
+  },
+  "notifications": {
+    "deleteSuccess": "Hashlist berhasil dihapus",
+    "uploadSuccess": "Hashlist berhasil diunggah",
+    "downloaded": "Berhasil mengunduh {{filename}}",
+    "archiveSuccess": "Hashlist berhasil diarsipkan",
+    "unarchiveSuccess": "Hashlist berhasil dipulihkan dari arsip",
+    "bulkArchiveSuccess_other": "{{count}} hashlist berhasil diarsipkan",
+    "bulkUnarchiveSuccess_other": "{{count}} hashlist berhasil dipulihkan dari arsip"
+  },
+  "errors": {
+    "loadFailed": "Error saat mengambil daftar hashlist.",
+    "uploadFailed": "Gagal mengunggah hashlist",
+    "deleteFailed": "Penghapusan gagal: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Tampilkan Arsip",
+    "archive": "Arsipkan",
+    "unarchive": "Pulihkan dari Arsip",
+    "archived": "Diarsipkan",
+    "selectedCount": "{{count}} dipilih",
+    "archiveSelected": "Arsipkan yang Dipilih",
+    "unarchiveSelected": "Pulihkan yang Dipilih dari Arsip",
+    "deleteSelected": "Hapus yang Dipilih",
+    "confirmBulkDelete": {
+      "title": "Konfirmasi Penghapusan Massal",
+      "message_other": "Apakah Anda yakin ingin menghapus {{count}} hashlist? Tindakan ini tidak dapat dibatalkan.",
+      "warning": "Ini akan menghapus secara permanen hashlist yang dipilih dan semua data terkait."
+    },
+    "bulkDeleteSuccess_other": "{{count}} hashlist berhasil dihapus"
+  },
+  "hashDetails": {
+    "title": "Detail Hash",
+    "originalHash": "Hash Asli",
+    "password": "Kata Sandi",
+    "cracked": "Tercrack",
+    "crackedAt": "Tercrack Pada"
+  },
+  "detail": {
+    "backToHashlists": "Kembali ke Hashlist",
+    "viewCrackedHashes": "Lihat Hash Tercrack",
+    "noDescription": "Tidak ada deskripsi",
+    "statusLabel": "Status:",
+    "hashType": "Tipe Hash: {{name}}",
+    "clientLabel": "Klien:",
+    "noClient": "Tidak ada",
+    "editClient": "Edit Klien",
+    "created": "Dibuat: {{date}}",
+    "crackProgress": "Progres Crack ({{cracked}} dari {{total}})",
+    "fallbackHashlistName": "Hashlist",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}} baris",
+      "rate": "({{rate}}/dtk)",
+      "eta": "• ETA: {{eta}}"
+    },
+    "deletionBanner": {
+      "title": "Hashlist ini sedang dihapus — {{phase}}",
+      "progress": "{{checked}} / {{total}} ({{percent}}%)"
+    },
+    "validationBanner": {
+      "loading": "Memuat…",
+      "resumeReview": "Lanjutkan ulasan",
+      "title": "Hashlist ini dijeda menunggu keputusan validasi.",
+      "message": "Validasi hash menandai <strong>{{invalidCount}}</strong> dari <strong>{{totalLines}}</strong> baris sebagai tidak sesuai format. Buka dialog ulasan untuk melanjutkan dengan hash yang valid, ubah tipe hash, atau batalkan pengunggahan."
+    },
+    "jobsRun": {
+      "title": "Job yang dijalankan",
+      "subtitle": "Job yang telah dijalankan terhadap hashlist ini, termasuk yang diarsipkan.",
+      "empty": "Belum ada job yang dijalankan terhadap hashlist ini"
+    },
+    "editClientDialog": {
+      "title": "Edit Penugasan Klien",
+      "description": "Pilih klien untuk hashlist ini atau biarkan kosong untuk menghapus penugasan klien.",
+      "save": "Simpan",
+      "saving": "Menyimpan..."
+    },
+    "notifications": {
+      "clientUpdated": "Klien berhasil diperbarui",
+      "processingResumed": "Pemrosesan dilanjutkan.",
+      "uploadCancelled": "Pengunggahan dibatalkan."
+    },
+    "errors": {
+      "deleteFailed": "Gagal menghapus hashlist",
+      "clientUpdateFailed": "Gagal memperbarui klien",
+      "clientNotFound": "Klien tidak ditemukan",
+      "clientLookupFailed": "Gagal mencari klien",
+      "downloadFailed": "Gagal mengunduh file",
+      "downloadHashlistFailed": "Gagal mengunduh hashlist",
+      "serverError": "Error server ({{status}})",
+      "loadInvalidHashesFailed": "Gagal memuat hash yang tidak valid"
+    }
+  },
+  "associationWordlists": {
+    "header": "Wordlist Spesifik Klien",
+    "blocked": "Diblokir",
+    "blockedTooltip": "Serangan asosiasi diblokir karena work factor campuran di hashlist",
+    "delete": "Hapus",
+    "uploadAssociation": "Unggah Wordlist Asosiasi",
+    "uploadClient": "Unggah Wordlist Klien",
+    "uploadingPercent": "Mengunggah... {{percent}}%",
+    "emptyAssociation": "Belum ada wordlist asosiasi yang diunggah.",
+    "emptyClient": "Belum ada wordlist klien yang diunggah.",
+    "mixedWorkFactorsWarning": "Hashlist ini memiliki work factor campuran. Serangan asosiasi tidak dapat dijalankan pada hashlist dengan bcrypt cost berbeda atau work factor variabel serupa. Anda masih dapat mengunggah wordlist, tetapi membuat job serangan asosiasi akan diblokir.",
+    "explainer": "Wordlist asosiasi memetakan setiap hash ke kandidat kata sandi 1:1 berdasarkan nomor baris. Wordlist harus memiliki tepat <strong>{{lines}}</strong> baris untuk cocok dengan jumlah hash hashlist ini.",
+    "tabs": {
+      "associationAttack": "Serangan Asosiasi",
+      "clientWordlists": "Wordlist Klien"
+    },
+    "columns": {
+      "fileName": "Nama File",
+      "lineCount": "Jumlah Baris",
+      "fileSize": "Ukuran File",
+      "status": "Status",
+      "uploaded": "Diunggah",
+      "actions": "Tindakan"
+    },
+    "status": {
+      "ready": "Siap",
+      "lineCountMismatch": "Ketidakcocokan jumlah baris",
+      "lineCountMismatchTooltip": "Diharapkan {{expected}} baris, tetapi didapat {{actual}} baris"
+    },
+    "deleteConfirm": {
+      "title": "Hapus wordlist",
+      "message": "Hapus \"{{fileName}}\"? Ini tidak dapat dibatalkan."
+    },
+    "clientWordlists": {
+      "noClientNotice": "Wordlist klien hanya tersedia untuk hashlist yang terkait dengan klien.",
+      "description": "Wordlist klien tersedia di semua hashlist untuk klien ini. Ini dapat digunakan dengan mode serangan apa pun, bukan hanya serangan asosiasi."
+    },
+    "clientPotfile": {
+      "title": "Potfile Klien (Dibuat Otomatis)",
+      "description": "Potfile ini berisi semua kata sandi tercrack untuk klien ini. Ini otomatis diperbarui saat hash tercrack.",
+      "passwordCount_other": "{{count}} kata sandi",
+      "updated": "Diperbarui: {{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "Wordlist asosiasi dihapus",
+      "clientDeleted": "Wordlist klien dihapus",
+      "associationUploaded": "Wordlist asosiasi berhasil diunggah",
+      "clientUploaded": "Wordlist klien berhasil diunggah"
+    },
+    "errors": {
+      "deleteFailed": "Gagal menghapus wordlist",
+      "uploadFailed": "Gagal mengunggah wordlist",
+      "loadAssociationFailed": "Gagal memuat wordlist asosiasi",
+      "loadClientFailed": "Gagal memuat wordlist klien",
+      "lineCountMismatch": "Wordlist memiliki {{wordlistLines}} baris tetapi hashlist memiliki {{hashlistLines}} hash yang valid."
+    }
+  },
+  "clientAutocomplete": {
+    "label": "Klien",
+    "placeholder": "Pilih klien...",
+    "createNewClient": "Buat Klien Baru",
+    "newClientDetails": "Detail Klien Baru",
+    "team": "Tim",
+    "teamHelper": "Klien baru akan ditugaskan ke tim ini.",
+    "clientName": "Nama Klien",
+    "description": "Deskripsi",
+    "contactInfo": "Informasi Kontak",
+    "dataRetention": "Retensi Data (bulan)",
+    "dataRetentionPlaceholderDefault": "Default sistem: {{months}}",
+    "dataRetentionPlaceholderUnset": "Tidak diatur (simpan tanpa batas)",
+    "dataRetentionHelperDefault": "Biarkan kosong untuk menggunakan default sistem ({{months}} bulan). Atur 0 untuk menyimpan selamanya.",
+    "dataRetentionHelperUnset": "Biarkan kosong untuk menggunakan default sistem. Atur 0 untuk menyimpan selamanya.",
+    "excludeFromGlobalPotfile": "Kecualikan dari potfile global",
+    "excludeFromGlobalPotfileHelper": "Kata sandi tercrack dari klien ini tidak akan ditambahkan ke potfile global.",
+    "excludeFromClientPotfile": "Kecualikan dari potfile klien",
+    "excludeFromClientPotfileHelper": "Kata sandi tercrack dari klien ini tidak akan ditambahkan ke potfile spesifik klien mereka.",
+    "errors": {
+      "fetchFailed": "Gagal mengambil daftar klien"
+    }
+  },
+  "hashesTable": {
+    "title": "Hash",
+    "subtitle": "{{cracked}} dari {{total}} tercrack ({{pct}}%)",
+    "searchPlaceholder": "Cari hash...",
+    "ariaLabel": "tabel hash hashlist",
+    "copiedToClipboard": "Disalin ke clipboard",
+    "copyPassword": "Salin kata sandi",
+    "copyHash": "Salin hash",
+    "loadFailed": "Gagal memuat hash",
+    "columns": {
+      "originalHash": "Hash Asli",
+      "username": "Username",
+      "domain": "Domain",
+      "password": "Kata Sandi",
+      "status": "Status"
+    },
+    "status": {
+      "cracked": "Tercrack",
+      "partial": "Sebagian",
+      "pending": "Tertunda"
+    }
+  },
+  "validationPreview": {
+    "title": "Validasi hash: tinjau baris tidak sesuai format",
+    "modeFallback": "mode {{id}}",
+    "truncatedNotice": "10.000 baris pertama yang tidak valid dicatat untuk ditinjau; baris-baris tidak valid tambahan ada di file tetapi tidak terdaftar di sini.",
+    "hashTypeLabel": "Tipe hash",
+    "hashTypeOptionLabel": "{{id}} — {{name}}",
+    "revalidating": "Validasi ulang…",
+    "revalidateButton": "Validasi Ulang",
+    "cancelAndFix": "Batalkan & Perbaiki",
+    "cancelling": "Membatalkan…",
+    "starting": "Memulai…",
+    "proceedButton": "Lanjutkan dengan {{validCount}} hash yang valid",
+    "noInvalidLines": "Tidak ada baris tidak valid untuk ditampilkan.",
+    "allInvalid": {
+      "body1": "<strong>Tidak ada satu pun</strong> dari {{totalLines}} baris di <em>{{hashlistName}}</em> yang cocok dengan <strong>{{hashTypeName}}</strong>. Pemilihan tipe hash mungkin salah.",
+      "body2": "Pilih tipe yang benar di bawah dan klik <strong>Validasi Ulang</strong> — file tetap diunggah, jadi Anda tidak perlu memulai lagi."
+    },
+    "notAllInvalid": {
+      "body": "<strong>{{invalidCount}}</strong> dari <strong>{{totalLines}}</strong> baris di <em>{{hashlistName}}</em> gagal validasi dan akan dilewati jika Anda melanjutkan. <strong>{{validCount}}</strong> hash yang valid akan diimpor."
+    },
+    "chooseActionText": "Pilih <strong>Lanjutkan dengan yang valid saja</strong> untuk mengimpor {{validCount}} hash yang valid (baris tidak valid yang terdaftar akan diabaikan), atau <strong>Batalkan & Perbaiki</strong> untuk menghapus pengunggahan ini sehingga Anda dapat mengoreksi file sumber dan mencoba lagi.",
+    "columns": {
+      "line": "Baris",
+      "hashTruncated": "Hash (dipotong)",
+      "reason": "Alasan"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "Gagal memuat hash yang tidak valid",
+      "proceedFailed": "Gagal melanjutkan",
+      "cancelFailed": "Gagal membatalkan",
+      "revalidationFailed": "Validasi ulang gagal"
+    }
+  }
+}

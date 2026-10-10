@@ -104,7 +104,9 @@
   "common": {
     "cancel": "Cancel",
     "never": "Never",
-    "invalidDate": "Invalid date"
+    "invalidDate": "Invalid date",
+    "create": "Create",
+    "delete": "Delete"
   },
   "mfa": {
     "title": "Two-Factor Authentication",
@@ -117,19 +119,142 @@
       "title": "Authentication Methods",
       "totp": "Authenticator App",
       "email": "Email",
-      "backupCodes": "Backup Codes"
+      "backupCodes": "Backup Codes",
+      "passkey": "Passkey"
     },
     "setup": {
       "scanQR": "Scan this QR code with your authenticator app",
       "enterCode": "Enter the code from your app to verify",
       "backupCodesGenerated": "Save these backup codes in a safe place"
+    },
+    "methodSelection": {
+      "title": "Choose MFA Method",
+      "description": "Select how you'd like to verify your identity when signing in.",
+      "authenticatorDescription": "Use a time-based code from an authenticator app like Google Authenticator, Authy, or 1Password.",
+      "passkeyDescription": "Use a security key, fingerprint, face recognition, or device PIN for quick and secure authentication."
+    },
+    "card": {
+      "title": "Multi-Factor Authentication",
+      "requiredByPolicy": "MFA is required by your organization's security policy",
+      "enableLabel": "Enable Multi-Factor Authentication",
+      "preferredMethod": "Preferred MFA Method",
+      "preferredMethodNames": {
+        "authenticator": "Authenticator",
+        "email": "Email",
+        "passkey": "Passkey"
+      },
+      "emailAuth": "Email Authentication",
+      "emailRequired": "Required for account security",
+      "optional": "Optional",
+      "required": "Required",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "disable": "Disable",
+      "setup": "Setup",
+      "passkeys": "Passkeys",
+      "passkeysRegistered_one": "{{count}} passkey registered",
+      "passkeysRegistered_other": "{{count}} passkeys registered",
+      "addPasskey": "Add Passkey",
+      "passkeyAdded": "Added: {{date}}",
+      "passkeyLastUsed": " | Last used: {{date}}",
+      "rename": "Rename",
+      "delete": "Delete",
+      "passkeysUnsupported": "Passkeys are not supported in this browser. Please use a modern browser to enable passkey authentication.",
+      "backupCodesRemaining_one": "{{count}} backup code remaining",
+      "backupCodesRemaining_other": "{{count}} backup codes remaining",
+      "noBackupCodes": "No backup codes available",
+      "regenerate": "Regenerate",
+      "generate": "Generate"
+    },
+    "dialogs": {
+      "cancel": "Cancel",
+      "close": "Close",
+      "warning": "Warning",
+      "setupAuthenticatorTitle": "Setup Authenticator App",
+      "qrAlt": "QR Code",
+      "manualEntry": "If you can't scan the QR code, enter this code manually: <strong>{{secret}}</strong>",
+      "scanInstructions": "Scan this QR code with your authenticator app (e.g., Google Authenticator, Authy)",
+      "verificationCode": "Verification Code",
+      "verificationPlaceholder": "Enter the 6-digit code",
+      "verify": "Verify",
+      "backupCodesTitle": "Backup Codes",
+      "generateBackupPrompt": "Generate backup codes to use when you can't access your primary authentication method",
+      "generateBackupCodes": "Generate Backup Codes",
+      "saveCodesWarning": "Save these codes in a secure location. They will not be shown again!",
+      "copied": "Copied!",
+      "copyAll": "COPY ALL CODES",
+      "regenerateWarning": "This will invalidate all your existing backup codes. Are you sure you want to generate new ones?",
+      "generateNewCodes": "Generate New Codes",
+      "disableAuthWarning": "Are you sure you want to disable the authenticator? This will remove it from your account and you will need to set it up again if you want to use it in the future.",
+      "disableAuthenticator": "Disable Authenticator",
+      "addPasskeyTitle": "Add Passkey",
+      "addPasskeyDescription": "Register a new passkey (security key, fingerprint, or device) for two-factor authentication.",
+      "passkeyName": "Passkey Name",
+      "passkeyNamePlaceholder": "e.g., YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn is not supported in this browser. Please use a modern browser.",
+      "webauthnUnsupportedBrowsers": "WebAuthn is not supported in this browser. Please use a modern browser like Chrome, Firefox, Safari, or Edge.",
+      "registering": "Registering...",
+      "registerPasskey": "Register Passkey",
+      "renamePasskeyTitle": "Rename Passkey",
+      "saving": "Saving...",
+      "save": "Save",
+      "deletePasskeyTitle": "Delete Passkey",
+      "deletePasskeyConfirm": "Are you sure you want to delete the passkey \"{{name}}\"? This action cannot be undone.",
+      "deleting": "Deleting...",
+      "delete": "Delete",
+      "setupPasskeyTitle": "Setup Passkey for MFA",
+      "setupPasskeyDescription": "Register a passkey to enable multi-factor authentication. Use a security key, fingerprint, face recognition, or device PIN.",
+      "registerAndEnable": "Register & Enable MFA"
+    },
+    "messages": {
+      "loadFailed": "Failed to load MFA settings",
+      "disabled": "MFA disabled successfully",
+      "passkeyBrowserRequired": "Passkey authentication is required but your browser does not support WebAuthn. Please use a modern browser like Chrome, Firefox, Safari, or Edge to enable MFA.",
+      "enabledEmail": "MFA enabled with email authentication",
+      "noMethods": "No MFA methods are available. Please contact your administrator.",
+      "toggleFailed": "Failed to toggle MFA",
+      "passkeyNameRequired": "Please enter a name for the passkey",
+      "passkeyRegisteredSaveCodes": "Passkey registered successfully! Please save your backup codes.",
+      "passkeyRegisteredNoCodes": "Passkey registered successfully. You can generate backup codes from the MFA settings.",
+      "authenticatorSetupFailed": "Failed to setup authenticator",
+      "authenticatorSetup": "Authenticator app has been set up successfully",
+      "verifyFailed": "Failed to verify code",
+      "backupCodesGenerated": "New backup codes have been generated",
+      "backupCodesFailed": "Failed to generate backup codes",
+      "preferredUpdated": "Preferred MFA method updated successfully",
+      "preferredFailed": "Failed to update preferred MFA method",
+      "disableAuthFailed": "Failed to disable authenticator",
+      "authenticatorDisabled": "Authenticator has been disabled successfully",
+      "newBackupCodesFailed": "Failed to generate new backup codes",
+      "newBackupCodesGenerated": "New backup codes have been generated successfully",
+      "invalidResponse": "Invalid response format from server",
+      "passkeyRegistered": "Passkey registered successfully",
+      "passkeyDeleted": "Passkey deleted successfully",
+      "passkeyDeleteFailed": "Failed to delete passkey",
+      "passkeyRenamed": "Passkey renamed successfully",
+      "passkeyRenameFailed": "Failed to rename passkey"
     }
   },
   "linkedAccounts": {
     "title": "Linked Accounts",
     "noAccounts": "No linked accounts",
     "link": "Link Account",
-    "unlink": "Unlink"
+    "unlink": "Unlink",
+    "description": "External authentication providers linked to your account",
+    "noAccountsMessage": "No external accounts are linked to your profile. You can link accounts by signing in through an SSO provider.",
+    "emailLabel": "Email: {{email}}",
+    "usernameLabel": "Username: {{username}}",
+    "lastLoginLinked": "Last login: {{lastLogin}} | Linked: {{linked}}",
+    "unlinkTooltip": "Unlink account",
+    "errors": {
+      "loadFailed": "Failed to load linked accounts",
+      "unlinkFailed": "Failed to unlink account"
+    },
+    "unlinkDialog": {
+      "title": "Unlink Account",
+      "warning": "You will no longer be able to sign in using this provider.",
+      "confirmation": "Are you sure you want to unlink your {{provider}} account?"
+    }
   },
   "notifications": {
     "title": "Notifications",
@@ -148,11 +273,112 @@
       "light": "Light",
       "dark": "Dark",
       "system": "System"
-    }
+    },
+    "languageHelper": "Applies to this browser only.",
+    "themeHelper": "System follows your operating system setting."
   },
   "errors": {
     "updateFailed": "Failed to update settings",
     "passwordMismatch": "Passwords do not match",
     "invalidPassword": "Invalid current password"
+  },
+  "nav": {
+    "description": "Your account, security and preferences.",
+    "groupAccount": "Account",
+    "profile": "Profile",
+    "profileDesc": "Email address, language and appearance.",
+    "security": "Security",
+    "securityDesc": "Password, two-factor authentication, linked accounts and the CA certificate.",
+    "notifications": "Notifications",
+    "notificationsDesc": "Which events reach you and how.",
+    "api": "API key",
+    "apiDesc": "Personal key for the HTTP API.",
+    "charsets": "Saved charsets",
+    "charsetsDesc": "Custom charsets for mask attacks."
+  },
+  "savedCharsets": {
+    "title": "Saved Charsets",
+    "description": "Manage your personal custom charsets for use in mask-based attacks. Supports inline definitions and binary .hcchr charset files.",
+    "createCharset": "Create Charset",
+    "sections": {
+      "mine": "My Charsets",
+      "team": "Team Charsets",
+      "global": "Global Charsets",
+      "globalSubtitle": "These charsets are managed by admins and available to everyone."
+    },
+    "columns": {
+      "name": "Name",
+      "team": "Team",
+      "definition": "Definition / Info",
+      "description": "Description",
+      "created": "Created"
+    },
+    "typeLabels": {
+      "file": "File",
+      "hex": "Hex"
+    },
+    "uniqueBytes_one": "{{count}} unique byte",
+    "uniqueBytes_other": "{{count}} unique bytes",
+    "hexBytes_one": "{{count}} byte",
+    "hexBytes_other": "{{count}} bytes",
+    "rowActions": {
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No charsets in this category.",
+    "dialogs": {
+      "create": {
+        "title": "Create Personal Charset"
+      },
+      "edit": {
+        "title": "Edit Charset"
+      },
+      "delete": {
+        "title": "Delete charset",
+        "confirmation": "Are you sure you want to delete the charset \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Inline Definition",
+        "file": "File Upload (.hcchr)"
+      },
+      "fields": {
+        "name": "Name",
+        "namePlaceholder": "e.g., DES Full Charset",
+        "definition": "Definition",
+        "definitionPlaceholderHex": "e.g., 41424344 (hex byte pairs)",
+        "definitionPlaceholderPlain": "e.g., ?u?d or abcdef0123456789",
+        "definitionHelperHex": "Hex byte pairs — each pair = one charset byte. {{bytes}}",
+        "definitionHelperHexBytes_one": "{{count}} byte",
+        "definitionHelperHexBytes_other": "{{count}} bytes",
+        "definitionHelperPlain": "Hashcat charset definition. Use ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H or literal characters.",
+        "hexTooltip": "When enabled, the definition is interpreted as hex byte pairs (e.g., 41424344 = bytes A, B, C, D). Jobs using this charset will auto-inject --hex-charset.",
+        "hexLabel": "Hex-encoded definition",
+        "selectFile": "Select .hcchr File",
+        "fileSizeBytes_one": "{{count}} byte",
+        "fileSizeBytes_other": "{{count}} bytes",
+        "fileHelperText": "Binary charset file containing raw byte values (max 1023 bytes, up to 256 unique bytes).",
+        "fileCharsetInfo_one": "File charset: {{count}} unique byte. Only name and description can be edited.",
+        "fileCharsetInfo_other": "File charset: {{count}} unique bytes. Only name and description can be edited.",
+        "description": "Description",
+        "descriptionPlaceholder": "Optional description of what this charset is used for"
+      },
+      "update": "Update",
+      "upload": "Upload"
+    },
+    "messages": {
+      "createSuccess": "Charset created successfully",
+      "uploadSuccess": "File charset uploaded successfully",
+      "updateSuccess": "Charset updated successfully",
+      "deleteSuccess": "Charset deleted successfully"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Only .hcchr files are allowed",
+      "fileTooLarge": "File too large (max 1023 bytes — hashcat read buffer limit)",
+      "nameRequired": "Name is required",
+      "definitionRequired": "Definition is required",
+      "selectFile": "Please select a .hcchr file",
+      "deleteFailed": "Failed to delete charset: {{message}}",
+      "globalDeleteForbidden": "Global charsets can only be deleted by admins in the admin panel"
+    }
   }
 }

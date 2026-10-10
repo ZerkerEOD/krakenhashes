@@ -19,7 +19,18 @@
     "endDate": "Дата окончания",
     "customPatterns": "Пользовательские шаблоны (через запятую)",
     "customPatternsPlaceholder": "например, goog, ggl, micro, soft",
-    "customPatternsHelper": "Добавьте пользовательские варианты названий организаций для проверки"
+    "customPatternsHelper": "Добавьте пользовательские варианты названий организаций для проверки",
+    "quickSelect": "Быстрый выбор",
+    "datePresets": {
+      "lastMonth": "Последний месяц",
+      "lastQuarter": "Последний квартал",
+      "last6Months": "Последние 6 месяцев",
+      "lastYear": "Последний год",
+      "priorMonth": "Предыдущий месяц",
+      "priorQuarter": "Предыдущий квартал",
+      "prior6Months": "Предыдущие 6 месяцев",
+      "priorYear": "Предыдущий год"
+    }
   },
   "hashlistSelection": {
     "title": "Хеш-листы",
@@ -32,7 +43,8 @@
     "cracked": "Взломано",
     "status": "Статус",
     "active": "Активный",
-    "archived": "Архивный"
+    "archived": "Архивный",
+    "titleWithCount": "{{title}} ({{selected}}/{{total}})"
   },
   "table": {
     "dateRange": "Диапазон дат",
@@ -58,7 +70,16 @@
     "retry": "Повторить",
     "delete": "Удалить",
     "exportHcmask": "Экспорт .hcmask",
-    "exportTxt": "Экспорт .txt"
+    "exportTxt": "Экспорт .txt",
+    "exportInternalPdf": "Внутренний PDF",
+    "exportExternalPdf": "Внешний PDF"
+  },
+  "pdfExport": {
+    "internalConfirmTitle": "Экспортировать внутренний отчёт?",
+    "internalConfirmBody": "Внутренний PDF содержит восстановленные пароли в открытом виде, имена пользователей и значения хешей. Обращайтесь с ним и храните только через утверждённые защищённые каналы. Этот экспорт записывается в журнал аудита.",
+    "confirm": "Загрузить внутренний PDF",
+    "cancel": "Отмена",
+    "error": "Ошибка создания PDF. Пожалуйста, попробуйте ещё раз."
   },
   "messages": {
     "selectClient": "Пожалуйста, выберите клиента",
@@ -80,7 +101,8 @@
     "copiedSuccess": "Имена пользователей скопированы в буфер обмена!",
     "noRecommendations": "Конкретных рекомендаций на данный момент нет. Политики паролей выглядят достаточными.",
     "top50Hashes": "Показаны 50 наиболее часто используемых хешей",
-    "top50PartialCracks": "Показаны 50 частичных взломов"
+    "top50PartialCracks": "Показаны 50 частичных взломов",
+    "confirmDeleteReport": "Удалить этот аналитический отчёт? Это нельзя отменить."
   },
   "sections": {
     "lengthDistribution": "Распределение по длине паролей",
@@ -117,7 +139,8 @@
     "kerberos": "Kerberos",
     "encryptionTypes": "Типы шифрования",
     "linkedHashCorrelation": "Корреляция связанных хешей LM/NTLM",
-    "reusedPasswords": "Повторно используемые пароли по частоте"
+    "reusedPasswords": "Повторно используемые пароли по частоте",
+    "overviewWithDomain": "{{base}} - {{domain}}"
   },
   "charts": {
     "count": "Количество",
@@ -197,7 +220,8 @@
     "totalEstimatedKeyspace": "Общее оценочное простр. ключей",
     "underOrEqual7Chars": "<=7 символов:",
     "8To14Chars": "8-14 символов:",
-    "partiallyCracked": "Частично взломано:"
+    "partiallyCracked": "Частично взломано:",
+    "domainFilterTabs": "Вкладки фильтра домена"
   },
   "cards": {
     "totalHashes": "Всего хешей",
@@ -334,11 +358,17 @@
     "chars": "символов"
   },
   "pagination": {
-    "masks": "{{from}}-{{to}} из {{count}} масок"
+    "masks_few": "{{from}}-{{to}} из {{count}} масок",
+    "masks_many": "{{from}}-{{to}} из {{count}} масок",
+    "masks_one": "{{from}}-{{to}} из {{count}} маски",
+    "masks_other": "{{from}}-{{to}} из {{count}} масок"
   },
   "export": {
     "header": "# Маски LM-to-NTLM для Hashcat",
-    "generatedFrom": "# Сгенерировано из {{count}} взломанных LM паролей",
+    "generatedFrom_few": "# Сгенерировано из {{count}} взломанных LM паролей",
+    "generatedFrom_many": "# Сгенерировано из {{count}} взломанных LM паролей",
+    "generatedFrom_one": "# Сгенерировано из {{count}} взломанного LM пароля",
+    "generatedFrom_other": "# Сгенерировано из {{count}} взломанных LM паролей",
     "totalMasks": "# Всего масок: {{count}}",
     "totalKeyspace": "# Общее оценочное пространство ключей: {{keyspace}}",
     "format": "# Формат: маска | шаблон | количество | совпадение% | простр. ключей | пример"
@@ -394,5 +424,14 @@
     "largestSingleReach": "Наибольший охват одной записи",
     "computers": "Компьютеры",
     "notApplicable": "н/д"
+  },
+  "bloodhoundUpload": {
+    "attachButton": "Прикрепить дамп BloodHound (необязательно)",
+    "filesSelected_few": "{{count}} файла выбрано",
+    "filesSelected_many": "{{count}} файлов выбрано",
+    "filesSelected_one": "{{count}} файл выбран",
+    "filesSelected_other": "{{count}} файлов выбрано",
+    "clear": "Очистить",
+    "helperText": "Загрузите SharpHound .zip (или файлы BloodHound .json), чтобы обогатить отчёт анализом привилегий AD. Дамп обрабатывается в памяти и никогда не сохраняется — загрузите снова для повторного анализа."
   }
 }

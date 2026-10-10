@@ -38,6 +38,7 @@
     "disabled": "Uitgeschakeld",
     "active": "Actief",
     "inactive": "Inactief",
+    "updating": "Bijwerken",
     "pending": "In behandeling",
     "completed": "Voltooid",
     "failed": "Mislukt",
@@ -73,16 +74,17 @@
     "areYouSure": "Weet u het zeker?",
     "cannotBeUndone": "Deze actie kan niet ongedaan worden gemaakt.",
     "confirmDelete": "Verwijderen bevestigen",
-    "confirmAction": "Actie bevestigen"
+    "confirmAction": "Actie bevestigen",
+    "typeToConfirm": "Typ {{text}} om te bevestigen"
   },
   "time": {
     "justNow": "Zojuist",
-    "minutesAgo": "{{count}} minuut geleden",
-    "minutesAgo_plural": "{{count}} minuten geleden",
-    "hoursAgo": "{{count}} uur geleden",
-    "hoursAgo_plural": "{{count}} uur geleden",
-    "daysAgo": "{{count}} dag geleden",
-    "daysAgo_plural": "{{count}} dagen geleden",
+    "minutesAgo_one": "{{count}} minuut geleden",
+    "minutesAgo_other": "{{count}} minuten geleden",
+    "hoursAgo_one": "{{count}} uur geleden",
+    "hoursAgo_other": "{{count}} uur geleden",
+    "daysAgo_one": "{{count}} dag geleden",
+    "daysAgo_other": "{{count}} dagen geleden",
     "never": "Nooit"
   },
   "fileUpload": {
@@ -122,11 +124,21 @@
     "versionUnavailable": "Versie niet beschikbaar"
   },
   "layout": {
-    "logoAlt": "KrakenHashes Logo",
+    "logoAlt": "KrakenHashes-logo",
     "logoAltBranded": "{{appName}}-logo"
   },
   "table": {
+    "clearSearch": "Zoekopdracht wissen",
+    "clearSelection": "Selectie wissen",
+    "selectedCount": "{{count}} geselecteerd",
+    "expandRow": "Rij uitvouwen",
+    "collapseRow": "Rij samenvouwen",
+    "showAll": "Alles weergeven",
+    "showFewer": "Minder weergeven",
+    "showingOf": "{{shown}} van {{total}} weergegeven",
+    "actions": "Acties",
     "noResults": "Geen resultaten gevonden",
+    "rowsPerPage": "Rijen per pagina",
     "loading": "Gegevens laden...",
     "emptyState": "Geen gegevens om weer te geven"
   },
@@ -139,13 +151,14 @@
       "frontend": "Frontend",
       "agent": "Agent-versie",
       "api": "API-versie",
-      "database": "Database"
+      "database": "Database",
+      "build": "Build"
     },
     "projectInfo": {
       "title": "Projectinformatie",
       "description": "KrakenHashes is een gedistribueerd wachtwoordkraakbeheersysteem ontworpen om wachtwoordkraaktaken te coördineren en beheren over meerdere agents.",
       "license": "Dit is een open-source project gelicenseerd onder de GNU Affero General Public License v3.0 (AGPL-3.0).",
-      "githubLink": "GitHub Repository"
+      "githubLink": "GitHub-repository"
     },
     "errors": {
       "fetchFailed": "Ophalen van versie-informatie mislukt"
@@ -157,5 +170,186 @@
     "tooltip": "Geen geldige tekst. Het exacte wachtwoord is {{value}}. De getoonde tekens zijn een schatting (Windows-1252), niet het echte wachtwoord.",
     "copyExact": "Exacte waarde kopiëren (voor hashcat)",
     "copyGuess": "Schatting kopiëren (niet exact)"
+  },
+  "empty": {
+    "noData": "Hier is nog niets",
+    "noResults": "Geen resultaten",
+    "noResultsHint": "Probeer uw zoekopdracht of filters aan te passen."
+  },
+  "theme": {
+    "appearance": "Uiterlijk",
+    "light": "Licht",
+    "dark": "Donker",
+    "system": "Systeem"
+  },
+  "status": {
+    "job": {
+      "preparing": "Voorbereiden",
+      "pending": "In afwachting",
+      "running": "Actief",
+      "paused": "Gepauzeerd",
+      "processing": "Verwerking",
+      "completed": "Voltooid",
+      "failed": "Mislukt",
+      "cancelled": "Geannuleerd",
+      "archived": "Gearchiveerd"
+    },
+    "task": {
+      "pending": "In afwachting",
+      "assigned": "Toegewezen",
+      "reconnect_pending": "Opnieuw verbinding maken",
+      "running": "Actief",
+      "processing": "Verwerking",
+      "processing_error": "Verwerkingsfout",
+      "completed": "Voltooid",
+      "failed": "Mislukt",
+      "cancelled": "Geannuleerd"
+    },
+    "agent": {
+      "pending": "In afwachting",
+      "active": "Online",
+      "inactive": "Offline",
+      "error": "Fout",
+      "disabled": "Uitgeschakeld",
+      "updating": "Bijwerken",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "hashlist": {
+      "uploading": "Uploaden",
+      "processing": "Verwerking",
+      "ready": "Gereed",
+      "error": "Fout",
+      "deleting": "Verwijderen",
+      "ready_with_errors": "Gereed met fouten",
+      "awaiting_validation_decision": "Wacht op beoordeling",
+      "cancelled": "Geannuleerd"
+    },
+    "verification": {
+      "pending": "In afwachting",
+      "verified": "Geverifieerd",
+      "failed": "Mislukt",
+      "deleted": "Verwijderd"
+    },
+    "cloud": {
+      "requested": "Aangevraagd",
+      "launching": "Starten",
+      "provisioning": "Provisioning",
+      "syncing": "Synchroniseren",
+      "running": "Actief",
+      "draining": "Draining",
+      "terminating": "Beëindigen",
+      "terminated": "Beëindigd",
+      "failed": "Mislukt"
+    },
+    "loopback": {
+      "waiting": "Wachten",
+      "active": "Actief",
+      "completed": "Voltooid",
+      "failed": "Mislukt",
+      "cancelled": "Geannuleerd"
+    },
+    "audit": {
+      "info": "Info",
+      "warning": "Waarschuwing",
+      "critical": "Kritiek"
+    },
+    "diagnostic": {
+      "info": "Info",
+      "warning": "Waarschuwing",
+      "error": "Fout"
+    },
+    "sync": {
+      "pending": "In afwachting",
+      "in_progress": "Bezig",
+      "completed": "Voltooid",
+      "failed": "Mislukt"
+    },
+    "generic": {
+      "success": "Succes",
+      "ok": "OK",
+      "healthy": "Gezond",
+      "enabled": "Ingeschakeld",
+      "active": "Actief",
+      "verified": "Geverifieerd",
+      "warning": "Waarschuwing",
+      "degraded": "Verminderd",
+      "error": "Fout",
+      "failed": "Mislukt",
+      "critical": "Kritiek",
+      "info": "Info",
+      "running": "Actief",
+      "pending": "In afwachting",
+      "queued": "In wachtrij",
+      "disabled": "Uitgeschakeld",
+      "inactive": "Inactief",
+      "unknown": "Onbekend"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Aangepaste karaktersets (optioneel - definieer ?1 tot en met ?4 voor gebruik in masker)",
+    "hexTooltip": "Wanneer ingeschakeld, worden inline karaktersetdefinities geïnterpreteerd als hexadecimale byteparen (bijv. 41424344 = ABCD). Bestandskaraktersets worden niet beïnvloed.",
+    "hexEncodedLabel": "Hexadecimaal gecodeerde karaktersets",
+    "charsetSlotLabel": "Karakterset {{slot}} (-{{slot}})",
+    "fileValue_one": "[Bestand: {{name}} — {{count}} byte]",
+    "fileValue_other": "[Bestand: {{name}} — {{count}} bytes]",
+    "fileHelperUsed_one": "{{count}} unieke byte",
+    "fileHelperUsed_other": "{{count}} unieke bytes",
+    "fileHelperUnused_one": "{{count}} unieke byte (niet gebruikt in masker)",
+    "fileHelperUnused_other": "{{count}} unieke bytes (niet gebruikt in masker)",
+    "placeholderHex": "bijv. 41424344 (hexadecimale byteparen)",
+    "placeholderPlain": "bijv. ?u?d of abcdef0123456789",
+    "inlineHelperBytes_one": "{{count}} byte",
+    "inlineHelperBytes_other": "{{count}} bytes",
+    "inlineHelperBytesUnused_one": "{{count}} byte (niet gebruikt in masker)",
+    "inlineHelperBytesUnused_other": "{{count}} bytes (niet gebruikt in masker)",
+    "inlineHelperChars_one": "{{count}} teken",
+    "inlineHelperChars_other": "{{count}} tekens",
+    "inlineHelperCharsUnused_one": "{{count}} teken (niet gebruikt in masker)",
+    "inlineHelperCharsUnused_other": "{{count}} tekens (niet gebruikt in masker)",
+    "referencedNotDefined": "Gebruikt in masker maar niet gedefinieerd",
+    "savedLabel": "Opgeslagen",
+    "typeLabels": {
+      "file": "Bestand",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_one": "{{count}} unieke byte",
+    "optionUniqueBytes_other": "{{count}} unieke bytes",
+    "optionBytesHex_one": "{{count}} byte (hex)",
+    "optionBytesHex_other": "{{count}} bytes (hex)",
+    "willEnableHex": " — schakelt hexmodus in",
+    "willDisableHex": " — schakelt hexmodus uit",
+    "estimatedKeyspace": "Geschatte keyspace: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} bytes",
+    "slotSizeChars": "?{{slot}} = {{size}} tekens"
+  },
+  "teamFilter": {
+    "label": "Team",
+    "allTeams": "Alle teams",
+    "adminBadge": "Admin"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Wachtwoord is vereist",
+    "currentPasswordLabel": "Huidig wachtwoord"
+  },
+  "hashDetailModal": {
+    "title": "Hashdetails",
+    "hashValue": "Hashwaarde",
+    "copied": "Gekopieerd!",
+    "copyHash": "Hash kopiëren",
+    "copyPlaintext": "Platte tekst kopiëren",
+    "originalHash": "Originele hash (uit bestand)",
+    "status": "Status",
+    "cracked": "Gekraakt",
+    "notCracked": "Niet gekraakt",
+    "hashType": "Hashtype",
+    "typeId": "Type-ID: {{id}}",
+    "username": "Gebruikersnaam",
+    "crackedText": "Gekraakte tekst",
+    "hashlist": "Hashlijst",
+    "lastUpdated": "Laatst bijgewerkt",
+    "crackedAt": "Gekraakt op",
+    "hashCopied": "Hash gekopieerd naar klembord",
+    "crackedTextCopied": "Gekraakte tekst gekopieerd naar klembord"
   }
 }

@@ -16,7 +16,14 @@
     "idle": "Inactivo",
     "error": "Error",
     "enabled": "Habilitado",
-    "disabled": "Deshabilitado"
+    "disabled": "Deshabilitado",
+    "updatePending": "Actualización pendiente",
+    "updateFailed": "Actualización fallida",
+    "updating": "Actualizando",
+    "updateStatus": "Estado de actualización",
+    "currentVersion": "Versión actual",
+    "targetVersion": "Actualizando a",
+    "standaloneNotice": "Este es un agente independiente y no se actualiza automáticamente."
   },
   "details": {
     "title": "Detalles del agente",
@@ -36,7 +43,8 @@
     "type": "Tipo",
     "name": "Nombre",
     "runtime": "Tiempo de ejecución",
-    "specs": "Especificaciones"
+    "specs": "Especificaciones",
+    "defaultDeviceType": "GPU"
   },
   "actions": {
     "viewDetails": "Ver detalles",
@@ -44,7 +52,8 @@
     "restart": "Reiniciar",
     "deactivateVoucher": "Desactivar vale",
     "removeAgent": "Eliminar agente",
-    "clearBusyStatus": "Limpiar estado ocupado"
+    "clearBusyStatus": "Limpiar estado ocupado",
+    "retry": "Reintentar"
   },
   "vouchers": {
     "title": "Vales",
@@ -56,15 +65,53 @@
     "available": "Disponible",
     "claimed": "Reclamado",
     "continuous": "Continuo",
-    "singleUse": "Un solo uso"
+    "singleUse": "Un solo uso",
+    "pageTitle": "Gestión de códigos de registro",
+    "pageDescription": "Códigos de registro que los agentes usan para registrarse con este servidor.",
+    "generate": "Generar código de registro",
+    "includeInactive": "Incluir inactivos",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "systemLabel": "Sistema",
+    "manage": "Administrar códigos de registro"
   },
   "downloads": {
+    "expectedVersion": "Esperado: v{{version}}",
     "title": "Descargas del agente",
     "selectPlatform": "Seleccionar plataforma",
     "downloadAgent": "Descargar agente",
     "version": "Versión {{version}}",
     "download": "Descargar",
     "copyUrl": "Copiar URL",
+    "copied": "¡Copiado!"
+  },
+  "version": {
+    "updateAvailable": "Actualización disponible",
+    "upToDate": "Actualizado"
+  },
+  "install": {
+    "sectionTitle": "Instalar un agente",
+    "sectionBlurb": "Elige tu sistema operativo para obtener los comandos de instalación exactos. El iniciador de actualización automática mantiene tu agente en la última versión; el binario independiente se administra manualmente.",
+    "dialogTitle": "Instalar agente en {{os}}",
+    "mode": "Modo",
+    "modeAutoUpdate": "Actualización automática (recomendado)",
+    "modeStandalone": "Independiente",
+    "architecture": "Arquitectura",
+    "key": "Código de registro (clave)",
+    "registerLater": "Registrarse más tarde (sin código)",
+    "registerLaterNote": "No hay código de registro seleccionado — el agente necesitará un código para registrarse. Genera uno arriba o regístralo más tarde.",
+    "generateCode": "Generar nuevo código",
+    "serverUrl": "URL del servidor",
+    "noBinaries": "Aún no hay binarios disponibles para esta plataforma.",
+    "serviceTitle": "Instalar como servicio (se inicia al iniciar sesión)",
+    "serviceRootUnix": "Se ejecuta como tu usuario desde esta carpeta y se inicia al iniciar sesión — no se necesita root. Para un servicio en todo el sistema que se inicia antes del inicio de sesión, añade --system (requiere sudo).",
+    "serviceRootWindows": "Se ejecuta como tu usuario al iniciar sesión mediante una Tarea programada — no se necesita administrador. Para un servicio del sistema, añade --system en PowerShell elevado.",
+    "runTitle": "Ejecutar en un terminal",
+    "downloadTitle": "Descargar directamente",
+    "downloadButton": "Descargar",
+    "launcherBlurb": "El iniciador supervisa el agente y actualiza automáticamente su binario cuando se lanza una nueva versión.",
+    "standaloneBlurb": "El agente independiente no se actualiza automáticamente — descarga nuevamente para actualizar.",
+    "copy": "Copiar",
     "copied": "¡Copiado!"
   },
   "errors": {
@@ -140,7 +187,8 @@
       "continuousLabel": "Continuo (el código puede ser reutilizado)",
       "claimCodeLabel": "Tu código de reclamo:",
       "continuousDescription": "Este código puede ser usado múltiples veces para registrar agentes.",
-      "singleUseDescription": "Este código solo puede ser usado una vez."
+      "singleUseDescription": "Este código solo puede ser usado una vez.",
+      "systemLabel": "Agente del sistema (sirve a todos los equipos)"
     },
     "clearStatus": {
       "title": "Limpiar estado ocupado",
@@ -183,7 +231,9 @@
     "owner": "Propietario",
     "machineName": "Nombre de máquina",
     "operatingSystem": "Sistema operativo",
-    "agentVersion": "Versión del agente"
+    "agentVersion": "Versión del agente",
+    "systemOwner": "Sistema",
+    "registeredBy": "Registrado por {{name}}"
   },
   "common": {
     "unknown": "Desconocido",
@@ -201,7 +251,7 @@
     "fileLogging": "Registro en archivo",
     "active": "Activo",
     "inactive": "Inactivo",
-    "buffer": "Buffer",
+    "buffer": "Búfer",
     "logFileSize": "Tamaño del archivo de registro",
     "lastUpdated": "Última actualización"
   },
@@ -215,7 +265,10 @@
     "temperature": "Temperatura",
     "utilization": "Utilización",
     "fanSpeed": "Velocidad del ventilador",
-    "hashRate": "Tasa de hash"
+    "hashRate": "Tasa de hash",
+    "noDataAvailable": "No hay datos disponibles",
+    "deviceFallback": "Dispositivo {{id}}",
+    "allDevices": "Todos los dispositivos"
   },
   "placeholders": {
     "enterHashcatParameters": "Ingresa parámetros de Hashcat..."
@@ -261,6 +314,60 @@
       "24Hours": "24 Horas",
       "24HoursDesc1": "Todos los días: 00:00 - 23:59",
       "24HoursDesc2": "El agente funciona continuamente"
+    }
+  },
+  "diagReasons": {
+    "noCompatibleJob": "Sin trabajo compatible",
+    "blocklisted": "Bloqueado por prueba de velocidad",
+    "benchmarking": "Ejecutando prueba de velocidad",
+    "outsideSchedule": "Fuera del horario programado",
+    "agentDisabled": "Agente deshabilitado",
+    "shuttingDown": "Apagándose",
+    "rejectionCooldown": "Período de espera por rechazo de tarea",
+    "noSchedulableWork": "No hay trabajos con tareas por despachar",
+    "atCapacity": "Trabajos compatibles en capacidad máxima"
+  },
+  "activity": {
+    "currentWork": "Trabajo actual",
+    "job": "Trabajo",
+    "taskStatus": "Estado de la tarea",
+    "jobProgress": "Progreso del trabajo",
+    "taskProgress": "Progreso de la tarea",
+    "keyspaceRange": "Rango de espacio de claves",
+    "started": "Iniciado",
+    "lastCheckpoint": "Último punto de control",
+    "whyNotWorking": "Por qué este agente no está funcionando",
+    "recentFailuresAlert_many": "Las tareas recientes están fallando ({{count}} en los últimos minutos)",
+    "recentFailuresAlert_one": "La tarea reciente está fallando ({{count}} en los últimos minutos)",
+    "recentFailuresAlert_other": "Las tareas recientes están fallando ({{count}} en los últimos minutos)",
+    "lastFailedJob": "Último trabajo fallido:",
+    "lastFailureTime": "último fallo {{time}}",
+    "lastSeenTime": "visto por última vez {{time}}",
+    "occurrencesSuffix_many": " · {{countDisplay}} ocurrencias",
+    "occurrencesSuffix_one": " · {{countDisplay}} ocurrencia",
+    "occurrencesSuffix_other": " · {{countDisplay}} ocurrencias",
+    "idleNoDiagnostics": "Este agente está inactivo. Sin diagnósticos de programación en los últimos minutos — puede estar desconectado, deshabilitado o simplemente esperando trabajo."
+  },
+  "storage": {
+    "title": "Nivel de almacenamiento",
+    "tiers": {
+      "fullCache": "Caché completo — mantener todas las listas",
+      "onDemand": "Bajo demanda — descargar + desalojo LRU",
+      "networkDirect": "Red directa — leer desde recurso compartido montado"
+    },
+    "helperText": {
+      "fullCache": "Descarga y mantiene todos los diccionarios/reglas localmente (más rápido para iniciar).",
+      "onDemand": "Descarga por tarea a través de HTTP y desaloja las listas menos usadas recientemente bajo presión de disco.",
+      "networkDirect": "Lee diccionarios/reglas directamente desde un recurso compartido de red montado en el host de este agente (sin copia local)."
+    },
+    "mountPathLabel": "Ruta de montaje del recurso compartido de red (solo lectura, en el host del agente)",
+    "mountPathHelper": "El operador monta el recurso compartido aquí en el host de este agente; el agente solo lee desde él. Las credenciales las ingresa el operador, nunca las envía el servidor.",
+    "messages": {
+      "enterMountPathHint": "Ingresa la ruta de montaje de solo lectura en este host de agente, luego se guarda automáticamente.",
+      "tierUpdated": "Nivel de almacenamiento actualizado",
+      "tierUpdateFailed": "Error al actualizar el nivel de almacenamiento",
+      "mountPathUpdated": "Ruta de montaje actualizada",
+      "mountPathUpdateFailed": "Error al actualizar la ruta de montaje"
     }
   }
 }

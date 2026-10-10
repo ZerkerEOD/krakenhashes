@@ -19,7 +19,18 @@
     "endDate": "Date de fin",
     "customPatterns": "Motifs personnalisés (séparés par des virgules)",
     "customPatternsPlaceholder": "ex. : goog, ggl, micro, soft",
-    "customPatternsHelper": "Ajoutez des variantes du nom de l'organisation à vérifier"
+    "customPatternsHelper": "Ajoutez des variantes du nom de l'organisation à vérifier",
+    "quickSelect": "Sélection rapide",
+    "datePresets": {
+      "lastMonth": "Mois dernier",
+      "lastQuarter": "Dernier trimestre",
+      "last6Months": "6 derniers mois",
+      "lastYear": "Dernière année",
+      "priorMonth": "Mois précédent",
+      "priorQuarter": "Trimestre précédent",
+      "prior6Months": "6 mois précédents",
+      "priorYear": "Année précédente"
+    }
   },
   "hashlistSelection": {
     "title": "Hashlists",
@@ -32,7 +43,8 @@
     "cracked": "Cassés",
     "status": "Statut",
     "active": "Active",
-    "archived": "Archivée"
+    "archived": "Archivée",
+    "titleWithCount": "{{title}} ({{selected}}/{{total}})"
   },
   "table": {
     "dateRange": "Période",
@@ -58,7 +70,16 @@
     "retry": "Relancer",
     "delete": "Supprimer",
     "exportHcmask": "Exporter en .hcmask",
-    "exportTxt": "Exporter en .txt"
+    "exportTxt": "Exporter en .txt",
+    "exportInternalPdf": "PDF interne",
+    "exportExternalPdf": "PDF externe"
+  },
+  "pdfExport": {
+    "internalConfirmTitle": "Exporter le rapport interne ?",
+    "internalConfirmBody": "Le PDF interne contient les mots de passe récupérés en clair, les noms d'utilisateur et les valeurs de hash. Manipulez et stockez-le uniquement via des canaux sécurisés approuvés. Cet export est enregistré dans le journal d'audit.",
+    "confirm": "Télécharger le PDF interne",
+    "cancel": "Annuler",
+    "error": "Impossible de générer le PDF. Veuillez réessayer."
   },
   "messages": {
     "selectClient": "Veuillez sélectionner un client",
@@ -80,7 +101,8 @@
     "copiedSuccess": "Noms d'utilisateur copiés dans le presse-papiers !",
     "noRecommendations": "Aucune recommandation spécifique pour le moment. Les politiques de mot de passe semblent adéquates.",
     "top50Hashes": "Affichage des 50 hashes les plus réutilisés",
-    "top50PartialCracks": "Affichage des 50 cassages partiels principaux"
+    "top50PartialCracks": "Affichage des 50 cassages partiels principaux",
+    "confirmDeleteReport": "Supprimer ce rapport d'analyse ? Cela ne peut pas être annulé."
   },
   "sections": {
     "lengthDistribution": "Répartition des longueurs",
@@ -117,7 +139,8 @@
     "kerberos": "Kerberos",
     "encryptionTypes": "Types de chiffrement",
     "linkedHashCorrelation": "Corrélation des hashes LM/NTLM liés",
-    "reusedPasswords": "Mots de passe réutilisés par occurrence"
+    "reusedPasswords": "Mots de passe réutilisés par occurrence",
+    "overviewWithDomain": "{{base}} - {{domain}}"
   },
   "charts": {
     "count": "Nombre",
@@ -197,7 +220,8 @@
     "totalEstimatedKeyspace": "Keyspace estimé total",
     "underOrEqual7Chars": "<=7 caractères :",
     "8To14Chars": "8-14 caractères :",
-    "partiallyCracked": "Partiellement cassés :"
+    "partiallyCracked": "Partiellement cassés :",
+    "domainFilterTabs": "Onglets de filtre par domaine"
   },
   "cards": {
     "totalHashes": "Hashes totaux",
@@ -264,7 +288,7 @@
     "netntlmv1": "NetNTLMv1",
     "netntlmv2": "NetNTLMv2",
     "dcc": "DCC (MS Cache)",
-    "dcc2": "DCC2 (MS Cache 2)"
+    "dcc2": "DCC2 (Cache MS 2)"
   },
   "kerberosTypes": {
     "rc4": "RC4",
@@ -298,7 +322,7 @@
     "greaterThan1Year": ">1 an"
   },
   "severities": {
-    "critical": "CRITICAL",
+    "critical": "CRITIQUE",
     "high": "HIGH",
     "medium": "MEDIUM",
     "info": "INFO"
@@ -334,11 +358,15 @@
     "chars": "car."
   },
   "pagination": {
-    "masks": "{{from}}-{{to}} sur {{count}} masques"
+    "masks_many": "{{from}}-{{to}} sur {{count}} masques",
+    "masks_one": "{{from}}-{{to}} sur {{count}} masque",
+    "masks_other": "{{from}}-{{to}} sur {{count}} masques"
   },
   "export": {
     "header": "# Masques Hashcat LM-to-NTLM",
-    "generatedFrom": "# Généré à partir de {{count}} mots de passe LM cassés",
+    "generatedFrom_many": "# Généré à partir de {{count}} mots de passe LM cassés",
+    "generatedFrom_one": "# Généré à partir de {{count}} mot de passe LM cassé",
+    "generatedFrom_other": "# Généré à partir de {{count}} mots de passe LM cassés",
     "totalMasks": "# Nombre total de masques : {{count}}",
     "totalKeyspace": "# Keyspace estimé total : {{keyspace}}",
     "format": "# Format : masque | motif | nombre | taux% | keyspace | exemple"
@@ -394,5 +422,13 @@
     "largestSingleReach": "Plus grande portée d'un seul compte",
     "computers": "Ordinateurs",
     "notApplicable": "s. o."
+  },
+  "bloodhoundUpload": {
+    "attachButton": "Joindre un dump BloodHound (optionnel)",
+    "filesSelected_many": "{{count}} fichiers sélectionnés",
+    "filesSelected_one": "{{count}} fichier sélectionné",
+    "filesSelected_other": "{{count}} fichiers sélectionnés",
+    "clear": "Effacer",
+    "helperText": "Téléchargez un fichier .zip SharpHound (ou des fichiers BloodHound .json) pour enrichir le rapport avec une analyse des privilèges AD. Le dump est traité en mémoire et jamais stocké — téléchargez à nouveau pour réanalyser."
   }
 }

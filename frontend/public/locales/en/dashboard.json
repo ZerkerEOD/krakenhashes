@@ -14,7 +14,8 @@
   },
   "recentActivity": {
     "title": "Recent Activity",
-    "noActivity": "No recent activity"
+    "noActivity": "No recent activity",
+    "viewAll": "All notifications"
   },
   "quickActions": {
     "title": "Quick Actions",
@@ -112,5 +113,52 @@
       "maxAgents": "Max Agents",
       "actions": "Actions"
     }
+  },
+  "kpi": {
+    "runningJobs": "Running jobs",
+    "queued": "{{count}} queued",
+    "agentsOnline": "Agents online",
+    "agentProblems": "{{count}} need attention",
+    "hashRate": "Hash rate",
+    "cracks24h": "Cracked (24h)",
+    "cracks7d": "{{count}} in 7 days",
+    "crackRate": "Crack rate",
+    "hashlistTotals": "{{cracked}} of {{total}} hashes",
+    "failed24h": "Failed (24h)",
+    "completed24h": "{{count}} completed"
+  },
+  "agentHealth": {
+    "title": "Agent health",
+    "viewAll": "All agents",
+    "utilization": "GPU utilization",
+    "temperature": "Hottest GPU",
+    "lastSeen": "Last seen {{when}}",
+    "warnings": {
+      "error": "Error",
+      "offline": "Offline",
+      "update_failed": "Update failed",
+      "stale_heartbeat": "No heartbeat",
+      "gpu_hot": "GPU hot"
+    }
+  },
+  "recentCracks": {
+    "title": "Recent cracks",
+    "viewAll": "All cracked hashes",
+    "empty": "Nothing cracked yet",
+    "copy": "Copy plaintext",
+    "copied": "Copied"
+  },
+  "activeJobs": {
+    "title": "Active jobs",
+    "showing": "Showing 10 of {{total}}",
+    "viewAll": "All jobs",
+    "empty": "Nothing running",
+    "emptyHint": "Start a job from a hashlist.",
+    "goHashlists": "Go to hashlists"
+  },
+  "welcomeUser": "Welcome back, {{name}}",
+  "autoRefresh": {
+    "on": "Live",
+    "off": "Paused"
   }
 }

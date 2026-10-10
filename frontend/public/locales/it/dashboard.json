@@ -1,0 +1,164 @@
+{
+  "title": "Dashboard",
+  "welcome": "Benvenuto in KrakenHashes",
+  "stats": {
+    "title": "Panoramica",
+    "totalJobs": "Job totali",
+    "activeJobs": "Job attivi",
+    "completedJobs": "Job completati",
+    "totalHashes": "Hash totali",
+    "crackedHashes": "Hash craccati",
+    "crackRate": "Percentuale di cracking",
+    "activeAgents": "Agent attivi",
+    "totalAgents": "Agent totali"
+  },
+  "recentActivity": {
+    "title": "Attività recente",
+    "noActivity": "Nessuna attività recente",
+    "viewAll": "Tutte le notifiche"
+  },
+  "quickActions": {
+    "title": "Azioni rapide",
+    "createJob": "Crea job",
+    "uploadHashlist": "Carica hashlist",
+    "viewAgents": "Visualizza agent"
+  },
+  "agents": {
+    "title": "I Suoi agent",
+    "loadError": "Caricamento degli agent non riuscito: {{message}}",
+    "noAgents": "Nessun agent registrato",
+    "hashRate": "Hash rate",
+    "notAvailable": "N/D",
+    "job": "Job",
+    "unnamedJob": "Job senza nome",
+    "noActiveTask": "Nessun task attivo"
+  },
+  "pagination": {
+    "previous": "Precedente",
+    "next": "Successivo",
+    "pageOf": "Pagina {{current}} di {{total}}"
+  },
+  "jobs": {
+    "title": "I Suoi job",
+    "total": "Totale",
+    "autoRefreshOn": "Auto",
+    "autoRefreshOff": "Off",
+    "lastUpdated": "Ultimo aggiornamento: {{time}}",
+    "loadError": "Caricamento dei job non riuscito: {{message}}",
+    "noJobs": "Nessun job trovato. Creane uno per iniziare."
+  },
+  "buttons": {
+    "refresh": "Aggiorna",
+    "deleteFinished": "Elimina terminati"
+  },
+  "filters": {
+    "status": "Stato",
+    "priority": "Priorità",
+    "all": "Tutti",
+    "searchPlaceholder": "Cerca job...",
+    "clear": "Cancella filtri"
+  },
+  "status": {
+    "pending": "In sospeso",
+    "running": "In corso",
+    "paused": "In pausa",
+    "completed": "Completato",
+    "failed": "Non riuscito",
+    "cancelled": "Annullato"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Elimina i job terminati",
+      "message": "È sicuro di voler eliminare tutti i job terminati? Questa azione non può essere annullata."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Eliminazione dei job terminati non riuscita",
+    "deleteJobFailed": "Eliminazione del job non riuscita",
+    "retryJobFailed": "Nuovo tentativo del job non riuscito",
+    "updateJobFailed": "Aggiornamento del job non riuscito"
+  },
+  "hashlistOverview": {
+    "title": "Panoramica hashlist",
+    "loadError": "Caricamento degli hashlist non riuscito",
+    "noHashlists": "Nessun hashlist trovato",
+    "columns": {
+      "name": "Nome",
+      "client": "Cliente",
+      "status": "Stato",
+      "total": "Totale",
+      "cracked": "Craccati",
+      "progress": "Avanzamento"
+    },
+    "status": {
+      "ready": "Pronto",
+      "error": "Errore",
+      "uploading": "Caricamento in corso",
+      "processing": "Elaborazione in corso"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Nessun job trovato",
+    "noJobsHint": "Crea un nuovo job dalla pagina Hashlist per iniziare.",
+    "completedJobs": "Job completati",
+    "columns": {
+      "jobName": "Nome job",
+      "hashlist": "Hashlist / Preset",
+      "createdBy": "Creato da",
+      "progress": "Avanzamento",
+      "keyspace": "Keyspace",
+      "cracked": "Craccati",
+      "agents": "Agent",
+      "priority": "Priorità",
+      "maxAgents": "Agenti massimi",
+      "actions": "Azioni"
+    }
+  },
+  "kpi": {
+    "runningJobs": "Job in corso",
+    "queued": "{{count}} in coda",
+    "agentsOnline": "Agent online",
+    "agentProblems": "{{count}} richiedono attenzione",
+    "hashRate": "Hash rate",
+    "cracks24h": "Craccati (24h)",
+    "cracks7d": "{{count}} in 7 giorni",
+    "crackRate": "Percentuale di cracking",
+    "hashlistTotals": "{{cracked}} di {{total}} hash",
+    "failed24h": "Non riusciti (24h)",
+    "completed24h": "{{count}} completati"
+  },
+  "agentHealth": {
+    "title": "Salute degli agent",
+    "viewAll": "Tutti gli agent",
+    "utilization": "Utilizzo GPU",
+    "temperature": "GPU più calda",
+    "lastSeen": "Visto l'ultima volta {{when}}",
+    "warnings": {
+      "error": "Errore",
+      "offline": "Offline",
+      "update_failed": "Aggiornamento non riuscito",
+      "stale_heartbeat": "Nessun heartbeat",
+      "gpu_hot": "GPU calda"
+    }
+  },
+  "recentCracks": {
+    "title": "Craccati recenti",
+    "viewAll": "Tutti gli hash craccati",
+    "empty": "Ancora nessun hash craccato",
+    "copy": "Copia testo in chiaro",
+    "copied": "Copiato"
+  },
+  "activeJobs": {
+    "title": "Job attivi",
+    "showing": "Visualizzati 10 di {{total}}",
+    "viewAll": "Tutti i job",
+    "empty": "Nessun job in corso",
+    "emptyHint": "Avvia un job da un hashlist.",
+    "goHashlists": "Vai agli hashlist"
+  },
+  "welcomeUser": "Bentornato/a, {{name}}",
+  "autoRefresh": {
+    "on": "In tempo reale",
+    "off": "In pausa"
+  }
+}

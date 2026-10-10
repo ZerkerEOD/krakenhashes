@@ -9,6 +9,7 @@
     "wordlists": "字典",
     "rules": "规则",
     "clientManagement": "客户管理",
+    "teams": "团队",
     "analytics": "分析",
     "about": "关于",
     "logout": "退出登录"
@@ -17,21 +18,35 @@
     "title": "管理",
     "settings": "管理设置",
     "userManagement": "用户管理",
+    "customCharsets": "自定义字符集",
     "presetJobs": "预设任务",
     "jobWorkflows": "任务工作流",
     "diagnostics": "诊断",
     "auditLog": "审计日志",
     "jobAnalytics": "任务分析",
-    "cloudFleet": "Cloud Fleet"
+    "teamManagement": "团队管理",
+    "cloudFleet": "云机群",
+    "binaries": "二进制",
+    "hashTypes": "哈希类型",
+    "vouchers": "注册码",
+    "clients": "客户",
+    "teams": "团队"
   },
   "userMenu": {
     "userSettings": "用户设置",
+    "savedCharsets": "已保存的字符集",
     "logout": "退出登录",
     "user": "用户"
   },
   "aria": {
     "toggleDrawer": "切换侧边栏",
     "mainNavigation": "主导航",
-    "adminNavigation": "管理导航"
+    "adminNavigation": "管理导航",
+    "downloadCaCert": "下载 CA 证书"
+  },
+  "groups": {
+    "resources": "资源",
+    "peopleAccess": "人员与访问",
+    "operations": "运维"
   }
 }

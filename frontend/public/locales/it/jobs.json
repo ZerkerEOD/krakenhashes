@@ -1,0 +1,464 @@
+{
+  "title": "Job",
+  "createJob": "Crea Job",
+  "page": {
+    "title": "Job"
+  },
+  "columns": {
+    "name": "Nome del Job",
+    "hashlist": "Hashlist",
+    "createdBy": "Creato da",
+    "progress": "Avanzamento",
+    "keyspace": "Keyspace",
+    "cracked": "Craccati",
+    "agents": "Agent",
+    "priority": "Priorità",
+    "maxAgents": "Agenti massimi",
+    "actions": "Azioni",
+    "status": "Stato",
+    "createdAt": "Creato il",
+    "client": "Cliente"
+  },
+  "status": {
+    "preparing": "In preparazione",
+    "pending": "In sospeso",
+    "running": "In esecuzione",
+    "completed": "Completato",
+    "failed": "Non riuscito",
+    "stopped": "Interrotto",
+    "paused": "In pausa",
+    "active": "Attivo",
+    "cancelled": "Annullato"
+  },
+  "actions": {
+    "delete": "Elimina Job",
+    "retry": "Riprova Job",
+    "stop": "Interrompi Job",
+    "pause": "Pausa Job",
+    "resume": "Riprendi Job",
+    "viewDetails": "Visualizza dettagli"
+  },
+  "sections": {
+    "activeJobs": "Job attivi",
+    "completedJobs": "Job completati"
+  },
+  "confirmDelete": {
+    "title": "Elimina Job",
+    "message": "È sicuro di voler eliminare questo Job? Questa azione non può essere annullata.",
+    "messageNamed": "È sicuro di voler eliminare il Job \"{{name}}\"? Questa azione non può essere annullata."
+  },
+  "row": {
+    "completed": "Completato:",
+    "unknown": "Sconosciuto",
+    "error": "Errore:",
+    "rulesLabel": "(regole)",
+    "custom": "Attacco personalizzato"
+  },
+  "tooltips": {
+    "combinedHashRate": "Hash rate combinato",
+    "retry": "Riprova Job",
+    "delete": "Elimina Job",
+    "save": "Salva",
+    "cancel": "Annulla"
+  },
+  "validation": {
+    "priorityRange": "La priorità deve essere compresa tra 0 e {{max}}",
+    "maxAgentsRange": "Gli agenti massimi devono essere compresi tra 1 e 100",
+    "maxAgentsPositive": "Gli agenti massimi devono essere 0 (illimitati) o positivi",
+    "chunkSizeMin": "La dimensione del chunk deve essere almeno 5 secondi",
+    "chunkSizeMax": "La dimensione del chunk non può superare 24 ore (86400 secondi)",
+    "invalidNumber": "Inserisca un numero valido",
+    "minValue": "Il valore deve essere almeno {{min}}",
+    "maxValue": "Il valore deve essere al massimo {{max}}"
+  },
+  "errors": {
+    "loadFailed": "Impossibile caricare i Job",
+    "loadDetailsFailed": "Impossibile caricare i dettagli del Job",
+    "deleteFailed": "Impossibile eliminare il Job",
+    "updateFailed": "Impossibile aggiornare il Job",
+    "fetchFailed": "Impossibile recuperare i Job: {{message}}",
+    "willRetry": "Ritenterà automaticamente.",
+    "notFound": "Job non trovato",
+    "saveFailed": "Impossibile salvare le modifiche",
+    "updatePriorityFailed": "Impossibile aggiornare la priorità",
+    "updateMaxAgentsFailed": "Impossibile aggiornare gli agenti massimi",
+    "updateChunkSizeFailed": "Impossibile aggiornare la dimensione del chunk",
+    "retryTaskFailed": "Impossibile riprovare il task",
+    "forceCompleteFailed": "Impossibile forzare il completamento del Job"
+  },
+  "details": {
+    "title": "Dettagli del Job",
+    "pageTitle": "Dettagli del Job",
+    "overview": "Panoramica",
+    "tasks": "Task",
+    "results": "Risultati",
+    "logs": "Log",
+    "jobInformation": "Informazioni sul Job",
+    "timeRemaining": "Tempo rimanente",
+    "estimatedCompletion": "Completamento stimato",
+    "crackingCompletedAt": "Cracking completato il",
+    "totalRunningTime": "Tempo di esecuzione totale",
+    "chunkSizeDefault": "Non impostato (utilizzando l'impostazione predefinita)",
+    "noActiveTasksEstimate": "Impossibile stimare - nessun task attualmente in esecuzione",
+    "lessThanOneMinute": "Meno di 1 minuto",
+    "jobCompleted": "Job completato",
+    "finishingUp": "Completamento in corso…",
+    "completingShortly": "Completamento a breve",
+    "processingDuration": "Elaborazione: {{duration}}",
+    "wordlists": "Wordlist",
+    "rules": "Regole",
+    "splittingMode": "Modalità di divisione",
+    "ruleSplitting": "Divisione delle regole",
+    "firstWordlist": "Prima wordlist",
+    "secondWordlist": "Seconda wordlist",
+    "wordlist": "Wordlist",
+    "mask": "Mask",
+    "incrementMode": "Modalità di incremento",
+    "incrementRange": "Intervallo di incremento",
+    "maskSuffix": "Mask (suffisso)",
+    "maskPrefix": "Mask (prefisso)",
+    "associationHints": "Suggerimenti di associazione",
+    "autoRefreshOn": "Aggiornamento automatico: ATTIVATO",
+    "autoRefreshPaused": "Aggiornamento automatico: IN PAUSA",
+    "forceComplete": "Forza completamento",
+    "refreshNow": "Aggiorna ora",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=illimitati",
+    "chunkSizeHint": "Secondi (5-86400)",
+    "incrementLayers": "Livelli di incremento ({{count}} totali)",
+    "estimatedKeyspace": "Stimato",
+    "taskProgressVisualization": "Visualizzazione dell'avanzamento dei task",
+    "activeTasks": "Task attivi ({{count}} in esecuzione)",
+    "noActiveTasks": "Nessun task attivo",
+    "failedTasks": "Task non riusciti ({{count}} totali)",
+    "completedTasks": "Task completati ({{count}} totali)",
+    "noCompletedTasks": "Nessun task completato",
+    "increment": "Incremento",
+    "incrementInverse": "Incremento inverso",
+    "jobNotFound": "Job non trovato",
+    "priority": "Priorità",
+    "timeUnits": {
+      "year": "anno",
+      "years": "anni",
+      "month": "mese",
+      "months": "mesi",
+      "day": "giorno",
+      "days": "giorni",
+      "hour": "ora",
+      "hours": "ore",
+      "minute": "minuto",
+      "minutes": "minuti",
+      "second": "secondo",
+      "seconds": "secondi"
+    },
+    "layerTable": {
+      "layer": "Livello",
+      "mask": "Mask",
+      "minLength": "Lunghezza minima",
+      "maxLength": "Lunghezza massima",
+      "keyspace": "Keyspace",
+      "effectiveKeyspace": "Keyspace effettivo",
+      "progress": "Avanzamento",
+      "tasks": "Task",
+      "cracks": "Craccati",
+      "status": "Stato",
+      "running": "in esecuzione",
+      "total": "totale",
+      "failed": "{{count}} non riusciti"
+    },
+    "activeTasksTable": {
+      "agentId": "ID Agent",
+      "taskId": "ID Task",
+      "agent": "Agent",
+      "skip": "Skip",
+      "limit": "Limite",
+      "keyspaceRange": "Intervallo di keyspace",
+      "progress": "Avanzamento",
+      "speed": "Velocità",
+      "currentSpeed": "Velocità attuale",
+      "cracks": "Craccati",
+      "startedAt": "Avviato il"
+    },
+    "failedTasksTable": {
+      "agentId": "ID Agent",
+      "taskId": "ID Task",
+      "agent": "Agent",
+      "status": "Stato",
+      "retryCount": "Numero di tentativi",
+      "error": "Errore",
+      "errorMessage": "Messaggio di errore",
+      "lastUpdated": "Ultimo aggiornamento",
+      "failedAt": "Non riuscito il",
+      "actions": "Azioni"
+    },
+    "completedTasksTable": {
+      "agentId": "ID Agent",
+      "taskId": "ID Task",
+      "agent": "Agent",
+      "completedAt": "Completato il",
+      "keyspaceRange": "Intervallo di keyspace",
+      "finalProgress": "Avanzamento finale",
+      "averageSpeed": "Velocità media",
+      "cracks": "Craccati",
+      "cracksFound": "Craccati trovati"
+    },
+    "additionalArgs": "Argomenti aggiuntivi",
+    "attackModes": {
+      "dictionary": "Dizionario",
+      "combination": "Combinazione",
+      "bruteforce": "Forza bruta",
+      "hybridWordlistMask": "Ibrido Wordlist + Mask",
+      "hybridMaskWordlist": "Ibrido Mask + Wordlist",
+      "association": "Associazione",
+      "modeNumber": "Modalità {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Budget cloud raggiunto",
+      "cloud_cap_reached": "Limite di istanze cloud raggiunto",
+      "cloud_settling": "In attesa dell'avvio di un'istanza affittata",
+      "cloud_no_capacity": "Nessuna capacità cloud disponibile",
+      "cloud_dead_on_arrival": "Le istanze affittate non potevano riconnettersi",
+      "cloud_launch_failed": "Impossibile affittare un'istanza cloud",
+      "seenTimes_many": "Visto {{count}} volte",
+      "seenTimes_one": "Visto {{count}} volta",
+      "seenTimes_other": "Visto {{count}} volte",
+      "cloud_rental_too_short": "Il noleggio sarebbe troppo breve per essere utile",
+      "cloud_cracks_lost": "Le password craccate potrebbero essere andate perse",
+      "cloud_draining": "L'istanza cloud è in svuotamento (nessun nuovo lavoro)"
+    },
+    "client": "Cliente",
+    "presetJob": "Job predefinito",
+    "workflow": "Workflow",
+    "createdBy": "Creato da",
+    "system": "Sistema"
+  },
+  "common": {
+    "id": "ID",
+    "name": "Nome",
+    "status": "Stato",
+    "hashlist": "Hashlist",
+    "hashType": "Tipo di hash",
+    "attackMode": "Modalità di attacco",
+    "keyspace": "Keyspace",
+    "effectiveKeyspace": "Keyspace effettivo",
+    "processedKeyspace": "Keyspace elaborato",
+    "dispatchedKeyspace": "Keyspace inviato",
+    "progress": "Avanzamento",
+    "cracksFound": "Password craccate",
+    "createdAt": "Creato il",
+    "startedAt": "Avviato il",
+    "completedAt": "Completato il",
+    "error": "Errore",
+    "warning": "Avvertenza",
+    "maxAgents": "Agenti massimi",
+    "chunkSize": "Dimensione chunk",
+    "unassigned": "Non assegnato",
+    "noErrorMessage": "Nessun messaggio di errore",
+    "notAvailable": "N/D",
+    "back": "Indietro",
+    "rulesMultiplier": "(regole)"
+  },
+  "editableCell": {
+    "clickToEdit": "Fare clic per modificare"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Elimina job completati",
+      "message": "È sicuro di voler eliminare tutti i job completati? Questa azione non può essere annullata."
+    },
+    "forceComplete": {
+      "title": "Forza completamento job",
+      "warning": "Contrassegnerà tutte le task incomplete come completate e imposterà lo stato del job su completato.",
+      "onlyUseIf": "Utilizzare solo se:",
+      "reason1": "Il job ha effettivamente terminato l'elaborazione di tutto il lavoro",
+      "reason2": "Il job è bloccato nello stato in esecuzione/in sospeso",
+      "reason3": "Ha verificato che il keyspace sia stato completamente cercato",
+      "note": "Nota: stiamo lavorando a modi migliori per gestire i calcoli del keyspace e il rilevamento del completamento dei job in varie circostanze.",
+      "confirmation": "È sicuro di voler forzare il completamento di questo job?",
+      "completing": "Completamento...",
+      "button": "Forza completamento"
+    },
+    "deleteConfirm": {
+      "deleting": "Eliminazione..."
+    }
+  },
+  "buttons": {
+    "refresh": "Aggiorna",
+    "deleteFinished": "Elimina completati",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "save": "Salva",
+    "retry": "Riprova"
+  },
+  "success": {
+    "chunkSizeUpdated": "Dimensione chunk aggiornata correttamente. Le modifiche avranno effetto alla creazione della prossima task.",
+    "forceCompleted": "Job forzato al completamento con successo"
+  },
+  "form": {
+    "name": "Nome job",
+    "hashlist": "Seleziona hashlist",
+    "attackMode": "Modalità di attacco",
+    "wordlist": "Wordlist",
+    "rules": "Regole",
+    "priority": "Priorità",
+    "maxAgents": "Agenti massimi"
+  },
+  "autoRefresh": {
+    "on": "Aggiornamento automatico attivo",
+    "off": "Aggiornamento automatico inattivo"
+  },
+  "pagination": {
+    "jobsPerPage": "Job per pagina"
+  },
+  "filters": {
+    "searchPlaceholder": "Cerca job...",
+    "priority": "Priorità",
+    "status": "Stato",
+    "all": "Tutti"
+  },
+  "priority": {
+    "low": "Bassa",
+    "medium": "Media",
+    "high": "Alta",
+    "critical": "Critica",
+    "maximum": "Massima"
+  },
+  "lastUpdated": "Ultimo aggiornamento: {{time}}",
+  "filtered": "(filtrato)",
+  "loading": "Caricamento job...",
+  "archive": {
+    "showArchived": "Mostra archiviati",
+    "archive": "Archivia",
+    "unarchive": "Ripristina",
+    "archived": "Archiviato",
+    "archiveSelected": "Archivia selezionati",
+    "unarchiveSelected": "Ripristina selezionati",
+    "deleteSelected": "Elimina selezionati",
+    "selectedCount": "{{count}} selezionati",
+    "confirmBulkDelete": {
+      "title": "Conferma eliminazione in blocco",
+      "message_many": "È sicuro di voler eliminare {{count}} job? Questa azione non può essere annullata.",
+      "message_one": "È sicuro di voler eliminare {{count}} job? Questa azione non può essere annullata.",
+      "message_other": "È sicuro di voler eliminare {{count}} job? Questa azione non può essere annullata.",
+      "warning": "Questo eliminerà definitivamente i job selezionati e tutti i dati associati.",
+      "cancel": "Annulla",
+      "delete": "Elimina",
+      "deleting": "Eliminazione..."
+    },
+    "bulkArchiveSuccess_many": "{{count}} job archiviati con successo",
+    "bulkArchiveSuccess_one": "{{count}} job archiviato con successo",
+    "bulkArchiveSuccess_other": "{{count}} job archiviati con successo",
+    "bulkUnarchiveSuccess_many": "{{count}} job ripristinati con successo",
+    "bulkUnarchiveSuccess_one": "{{count}} job ripristinato con successo",
+    "bulkUnarchiveSuccess_other": "{{count}} job ripristinati con successo",
+    "bulkDeleteSuccess_many": "{{count}} job eliminati con successo",
+    "bulkDeleteSuccess_one": "{{count}} job eliminato con successo",
+    "bulkDeleteSuccess_other": "{{count}} job eliminati con successo"
+  },
+  "cloud": {
+    "projection": {
+      "title": "Rientrerà nel budget?",
+      "loadFailed": "Impossibile proiettare questo job",
+      "coverageLabel": "Copertura del budget",
+      "coverageValue": "{{pct}}% del lavoro rimanente è finanziato",
+      "timeToFinish": "Tempo previsto per completare",
+      "projectedCost": "Costo cloud previsto",
+      "availableBudget": "Budget disponibile",
+      "onpremSpeed": "Velocità on-prem",
+      "cloudSpeed": "Velocità cloud",
+      "unknown": "Sconosciuto",
+      "confirm": "Avvia",
+      "pessimistic": "Questo è un tipo di hash salato, quindi il throughput reale supererà questa stima quando i salt si craccheranno. Considerare la proiezione come il caso peggiore.",
+      "shortfallTitle": "Il budget si esaurisce prima che il lavoro sia completato",
+      "shortfallBody": "Alla velocità prevista, il budget copre {{pct}}% del keyspace rimanente. Il job si interromperà a un certo punto. Il progresso parziale potrebbe comunque valere la pena di pagare, ma dovrebbe essere una scelta deliberata.",
+      "shortfallAcknowledge": "Comprendo che questo job non rientrerà nel budget",
+      "metric": "Metrica",
+      "value": "Valore"
+    },
+    "cloudBurst": {
+      "label": "Consenti cloud burst per questo job",
+      "help": "Noleggia istanze GPU quando la flotta on-prem non riesce a stare al passo. Richiede che il cliente sia finanziato e abbia scelto di partecipare a un provider. Nulla viene noleggiato senza questo.",
+      "maxInstances": "Istanze noleggiate massime",
+      "maxInstancesHelp": "Separato dal limite di agenti massimi, che governa il pool on-prem condiviso. Lasciare vuoto per lasciare che il budget rimanente decida.",
+      "badge": "Cloud burst",
+      "thirdPartyBadge": "Host di terze parti",
+      "provisionNow": "Provisiona ora",
+      "provisionConfirm": "Noleggiare un'istanza cloud per questo job adesso?\n\nQuesto aggira le regole di fame e fine imminente dell'autoscaler e spenderà denaro dal budget del cliente. Il budget, la finestra di spesa, il limite per job e il consenso del provider rimangono applicabili.",
+      "provisionRequested": "Istanza cloud richiesta",
+      "provisionFailed": "Impossibile eseguire il provisioning di un'istanza cloud"
+    }
+  },
+  "progressBar": {
+    "overallProgress": "Avanzamento complessivo: {{percent}}%",
+    "noTasks": "Nessuna task ancora assegnata",
+    "notAvailable": "N/D",
+    "tooltip": {
+      "taskId": "ID task: {{id}}",
+      "status": "Stato: {{status}}",
+      "keyspace": "Keyspace: {{start}} - {{end}}",
+      "progress": "Avanzamento: {{percent}}%",
+      "speed": "Velocità: {{speed}}",
+      "cracksFound": "Password craccate: {{count}}",
+      "agentId": "ID agent: {{id}}"
+    },
+    "legend": {
+      "pending": "In sospeso",
+      "running": "In esecuzione",
+      "processing": "Elaborazione",
+      "completed": "Completato",
+      "processingError": "Errore di elaborazione",
+      "failed": "Non riuscito",
+      "crackFound": "Password craccata"
+    }
+  },
+  "benchmarkBlocklist": {
+    "title": "Periodi di raffreddamento benchmark",
+    "subtitle": "Agent attualmente nella lista nera per il benchmark di questo job dopo ripetuti fallimenti. Cancellare una voce per riprovare nel prossimo ciclo di pianificazione.",
+    "loadFailed": "Impossibile caricare la lista nera",
+    "clearSuccess": "Voce della lista nera cancellata — lo scheduler riproverà nel prossimo ciclo",
+    "clearFailedPrefix": "Impossibile cancellare: {{error}}",
+    "clearFailedDefault": "Impossibile cancellare la voce",
+    "expired": "scaduto",
+    "retryNow": "Riprova ora",
+    "scope": {
+      "thisJob": "questo job",
+      "global": "globale"
+    },
+    "columns": {
+      "agent": "Agent",
+      "scope": "Ambito",
+      "hashMode": "Hash / Modalità",
+      "failures": "Fallimenti",
+      "reason": "Motivo",
+      "expires": "Scade",
+      "action": "Azione"
+    }
+  },
+  "loopback": {
+    "title": "Loopback",
+    "subtitle": "Ogni loopback ripete la mutazione dell'attacco solo contro le password appena craccate, ripetendo finché non vengono trovati nuovi crack.",
+    "runningCount": "{{count}} in esecuzione",
+    "statusLabel": {
+      "waiting": "In attesa del completamento del round",
+      "active": "In loop",
+      "completed": "Fatto",
+      "failed": "Non riuscito",
+      "cancelled": "Annullato"
+    },
+    "roundLabel": "Round {{current}} / {{max}}",
+    "hashlistFallback": "Hashlist #{{id}}",
+    "jobCount_many": "{{count}} job",
+    "jobCount_one": "{{count}} job",
+    "jobCount_other": "{{count}} job",
+    "noJobsYet": "Nessun job registrato ancora.",
+    "loopsBackYes": "Sì",
+    "loopsBackFeedsDelta": "Alimenta delta",
+    "columns": {
+      "round": "Round",
+      "original": "Originale",
+      "job": "Job",
+      "role": "Ruolo",
+      "loopsBack": "Cicla indietro"
+    }
+  }
+}

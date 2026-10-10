@@ -17,6 +17,16 @@ export const supportedLanguages = {
     es: { nativeName: 'Español', countryCode: 'ES' },
     ru: { nativeName: 'Русский', countryCode: 'RU' },
     fr: { nativeName: 'Français', countryCode: 'FR' },
+    ja: { nativeName: '日本語', countryCode: 'JP' },
+    ko: { nativeName: '한국어', countryCode: 'KR' },
+    'pt-BR': { nativeName: 'Português (Brasil)', countryCode: 'BR' },
+    it: { nativeName: 'Italiano', countryCode: 'IT' },
+    pl: { nativeName: 'Polski', countryCode: 'PL' },
+    tr: { nativeName: 'Türkçe', countryCode: 'TR' },
+    uk: { nativeName: 'Українська', countryCode: 'UA' },
+    cs: { nativeName: 'Čeština', countryCode: 'CZ' },
+    vi: { nativeName: 'Tiếng Việt', countryCode: 'VN' },
+    id: { nativeName: 'Bahasa Indonesia', countryCode: 'ID' },
 } as const;
 
 export type SupportedLanguage = keyof typeof supportedLanguages;
@@ -51,8 +61,19 @@ i18n
     // Pass i18n instance to react-i18next
     .use(initReactI18next)
     .init({
-        // Fallback to English when translation is missing
-        fallbackLng: 'en',
+        // Only these codes are ever requested; regional browser codes (de-AT,
+        // pt-PT, zh-TW) resolve to the closest supported language.
+        supportedLngs: Object.keys(supportedLanguages),
+        nonExplicitSupportedLngs: true,
+        load: 'currentOnly',
+
+        // Fallback to English when a translation is missing; Portuguese
+        // variants use Brazilian Portuguese first.
+        fallbackLng: {
+            pt: ['pt-BR', 'en'],
+            'pt-PT': ['pt-BR', 'en'],
+            default: ['en'],
+        },
 
         // Debug mode only in development
         debug: import.meta.env.DEV,

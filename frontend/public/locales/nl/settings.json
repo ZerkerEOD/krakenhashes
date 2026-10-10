@@ -104,7 +104,9 @@
   "common": {
     "cancel": "Annuleren",
     "never": "Nooit",
-    "invalidDate": "Ongeldige datum"
+    "invalidDate": "Ongeldige datum",
+    "create": "Aanmaken",
+    "delete": "Verwijderen"
   },
   "mfa": {
     "title": "Tweefactorauthenticatie",
@@ -117,19 +119,142 @@
       "title": "Authenticatiemethoden",
       "totp": "Authenticator-app",
       "email": "E-mail",
-      "backupCodes": "Backupcodes"
+      "backupCodes": "Backupcodes",
+      "passkey": "Passkey"
     },
     "setup": {
       "scanQR": "Scan deze QR-code met uw authenticator-app",
       "enterCode": "Voer de code van uw app in om te verifiëren",
       "backupCodesGenerated": "Bewaar deze backupcodes op een veilige plaats"
+    },
+    "methodSelection": {
+      "title": "Kies MFA-methode",
+      "description": "Selecteer hoe u uw identiteit wilt verifiëren wanneer u zich aanmeldt.",
+      "authenticatorDescription": "Gebruik een tijdgebaseerde code van een authenticator-app zoals Google Authenticator, Authy of 1Password.",
+      "passkeyDescription": "Gebruik een beveiligingssleutel, vingerafdruk, gezichtsherkenning of apparaat-PIN voor snelle en veilige authenticatie."
+    },
+    "card": {
+      "title": "Multifactorauthenticatie",
+      "requiredByPolicy": "MFA is vereist volgens het beveiligingsbeleid van uw organisatie",
+      "enableLabel": "Multifactorauthenticatie inschakelen",
+      "preferredMethod": "Voorkeurs-MFA-methode",
+      "preferredMethodNames": {
+        "authenticator": "Authenticator",
+        "email": "E-mail",
+        "passkey": "Passkey"
+      },
+      "emailAuth": "E-mailauthenticatie",
+      "emailRequired": "Vereist voor accountbeveiliging",
+      "optional": "Optioneel",
+      "required": "Vereist",
+      "configured": "Geconfigureerd",
+      "notConfigured": "Niet geconfigureerd",
+      "disable": "Uitschakelen",
+      "setup": "Instellen",
+      "passkeys": "Passkeys",
+      "passkeysRegistered_one": "{{count}} passkey geregistreerd",
+      "passkeysRegistered_other": "{{count}} passkeys geregistreerd",
+      "addPasskey": "Passkey toevoegen",
+      "passkeyAdded": "Toegevoegd: {{date}}",
+      "passkeyLastUsed": " | Laatst gebruikt: {{date}}",
+      "rename": "Hernoemen",
+      "delete": "Verwijderen",
+      "passkeysUnsupported": "Passkeys worden niet ondersteund in deze browser. Gebruik een moderne browser om passkey-authenticatie in te schakelen.",
+      "backupCodesRemaining_one": "{{count}} backupcode nog beschikbaar",
+      "backupCodesRemaining_other": "{{count}} backupcodes nog beschikbaar",
+      "noBackupCodes": "Geen backupcodes beschikbaar",
+      "regenerate": "Opnieuw genereren",
+      "generate": "Genereren"
+    },
+    "dialogs": {
+      "cancel": "Annuleren",
+      "close": "Sluiten",
+      "warning": "Waarschuwing",
+      "setupAuthenticatorTitle": "Authenticator-app instellen",
+      "qrAlt": "QR-code",
+      "manualEntry": "Voer deze code handmatig in als u de QR-code niet kunt scannen: <strong>{{secret}}</strong>",
+      "scanInstructions": "Scan deze QR-code met uw authenticator-app (bijv. Google Authenticator, Authy)",
+      "verificationCode": "Verificatiecode",
+      "verificationPlaceholder": "Voer de 6-cijferige code in",
+      "verify": "Verifiëren",
+      "backupCodesTitle": "Backupcodes",
+      "generateBackupPrompt": "Genereer backupcodes voor gebruik wanneer u geen toegang hebt tot uw primaire authenticatiemethode",
+      "generateBackupCodes": "Backupcodes genereren",
+      "saveCodesWarning": "Sla deze codes op een veilige plek op. Ze zullen niet opnieuw worden weergegeven!",
+      "copied": "Gekopieerd!",
+      "copyAll": "ALLE CODES KOPIËREN",
+      "regenerateWarning": "Dit invalideert al uw bestaande backupcodes. Weet u zeker dat u nieuwe wilt genereren?",
+      "generateNewCodes": "Nieuwe codes genereren",
+      "disableAuthWarning": "Weet u zeker dat u de authenticator wilt uitschakelen? Dit verwijdert het van uw account en u zult het opnieuw moeten instellen als u het in de toekomst wilt gebruiken.",
+      "disableAuthenticator": "Authenticator uitschakelen",
+      "addPasskeyTitle": "Passkey toevoegen",
+      "addPasskeyDescription": "Registreer een nieuwe passkey (beveiligingssleutel, vingerafdruk of apparaat) voor tweefactorauthenticatie.",
+      "passkeyName": "Passkeynaam",
+      "passkeyNamePlaceholder": "bijv. YubiKey, MacBook Touch ID, Bitwarden",
+      "webauthnUnsupported": "WebAuthn wordt niet ondersteund in deze browser. Gebruik een moderne browser.",
+      "webauthnUnsupportedBrowsers": "WebAuthn wordt niet ondersteund in deze browser. Gebruik een moderne browser zoals Chrome, Firefox, Safari of Edge.",
+      "registering": "Registreren...",
+      "registerPasskey": "Passkey registreren",
+      "renamePasskeyTitle": "Passkey hernoemen",
+      "saving": "Opslaan...",
+      "save": "Opslaan",
+      "deletePasskeyTitle": "Passkey verwijderen",
+      "deletePasskeyConfirm": "Weet u zeker dat u de passkey \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan gemaakt worden.",
+      "deleting": "Verwijderen...",
+      "delete": "Verwijderen",
+      "setupPasskeyTitle": "Passkey instellen voor MFA",
+      "setupPasskeyDescription": "Registreer een passkey om multifactorauthenticatie in te schakelen. Gebruik een beveiligingssleutel, vingerafdruk, gezichtsherkenning of apparaat-PIN.",
+      "registerAndEnable": "Registreren en MFA inschakelen"
+    },
+    "messages": {
+      "loadFailed": "Kon MFA-instellingen niet laden",
+      "disabled": "MFA succesvol uitgeschakeld",
+      "passkeyBrowserRequired": "Passkey-authenticatie is vereist, maar uw browser ondersteunt WebAuthn niet. Gebruik een moderne browser zoals Chrome, Firefox, Safari of Edge om MFA in te schakelen.",
+      "enabledEmail": "MFA ingeschakeld met e-mailauthenticatie",
+      "noMethods": "Er zijn geen MFA-methoden beschikbaar. Neem contact op met uw beheerder.",
+      "toggleFailed": "Kon MFA niet in-/uitschakelen",
+      "passkeyNameRequired": "Voer een naam in voor de passkey",
+      "passkeyRegisteredSaveCodes": "Passkey succesvol geregistreerd! Sla uw backupcodes op.",
+      "passkeyRegisteredNoCodes": "Passkey succesvol geregistreerd. U kunt backupcodes genereren via de MFA-instellingen.",
+      "authenticatorSetupFailed": "Kon authenticator niet instellen",
+      "authenticatorSetup": "Authenticator-app is succesvol ingesteld",
+      "verifyFailed": "Kon code niet verifiëren",
+      "backupCodesGenerated": "Nieuwe backupcodes zijn gegenereerd",
+      "backupCodesFailed": "Kon backupcodes niet genereren",
+      "preferredUpdated": "Voorkeurs-MFA-methode succesvol bijgewerkt",
+      "preferredFailed": "Kon voorkeurs-MFA-methode niet bijwerken",
+      "disableAuthFailed": "Kon authenticator niet uitschakelen",
+      "authenticatorDisabled": "Authenticator is succesvol uitgeschakeld",
+      "newBackupCodesFailed": "Kon nieuwe backupcodes niet genereren",
+      "newBackupCodesGenerated": "Nieuwe backupcodes zijn succesvol gegenereerd",
+      "invalidResponse": "Ongeldig responsformaat van server",
+      "passkeyRegistered": "Passkey succesvol geregistreerd",
+      "passkeyDeleted": "Passkey succesvol verwijderd",
+      "passkeyDeleteFailed": "Kon passkey niet verwijderen",
+      "passkeyRenamed": "Passkey succesvol hernoemd",
+      "passkeyRenameFailed": "Kon passkey niet hernoemen"
     }
   },
   "linkedAccounts": {
     "title": "Gekoppelde accounts",
     "noAccounts": "Geen gekoppelde accounts",
     "link": "Account koppelen",
-    "unlink": "Ontkoppelen"
+    "unlink": "Ontkoppelen",
+    "description": "Externe authenticatieproviders gekoppeld aan uw account",
+    "noAccountsMessage": "Er zijn geen externe accounts gekoppeld aan uw profiel. U kunt accounts koppelen door in te loggen via een SSO-provider.",
+    "emailLabel": "E-mail: {{email}}",
+    "usernameLabel": "Gebruikersnaam: {{username}}",
+    "lastLoginLinked": "Laatste aanmelding: {{lastLogin}} | Gekoppeld: {{linked}}",
+    "unlinkTooltip": "Account ontkoppelen",
+    "errors": {
+      "loadFailed": "Laden van gekoppelde accounts mislukt",
+      "unlinkFailed": "Ontkoppelen van account mislukt"
+    },
+    "unlinkDialog": {
+      "title": "Account ontkoppelen",
+      "warning": "U kunt niet meer inloggen met deze provider.",
+      "confirmation": "Weet u zeker dat u uw {{provider}}-account wilt ontkoppelen?"
+    }
   },
   "notifications": {
     "title": "Meldingen",
@@ -148,11 +273,112 @@
       "light": "Licht",
       "dark": "Donker",
       "system": "Systeem"
-    }
+    },
+    "languageHelper": "Geldt alleen voor deze browser.",
+    "themeHelper": "Systeem volgt uw besturingssysteeminstelling."
   },
   "errors": {
     "updateFailed": "Bijwerken van instellingen mislukt",
     "passwordMismatch": "Wachtwoorden komen niet overeen",
     "invalidPassword": "Ongeldig huidig wachtwoord"
+  },
+  "nav": {
+    "description": "Uw account, beveiliging en voorkeuren.",
+    "groupAccount": "Account",
+    "profile": "Profiel",
+    "profileDesc": "E-mailadres, taal en uiterlijk.",
+    "security": "Beveiliging",
+    "securityDesc": "Wachtwoord, tweefactorauthenticatie, gekoppelde accounts en het CA-certificaat.",
+    "notifications": "Meldingen",
+    "notificationsDesc": "Welke gebeurtenissen u bereiken en hoe.",
+    "api": "API-sleutel",
+    "apiDesc": "Persoonlijke sleutel voor de HTTP-API.",
+    "charsets": "Opgeslagen karaktersets",
+    "charsetsDesc": "Aangepaste karaktersets voor maskeraanvallen."
+  },
+  "savedCharsets": {
+    "title": "Opgeslagen karaktersets",
+    "description": "Beheer uw persoonlijke aangepaste karaktersets voor gebruik in maskergebaseerde aanvallen. Ondersteunt inline-definities en binaire .hcchr karaktersetbestanden.",
+    "createCharset": "Karakterset aanmaken",
+    "sections": {
+      "mine": "Mijn karaktersets",
+      "team": "Teamkaraktersets",
+      "global": "Globale karaktersets",
+      "globalSubtitle": "Deze karaktersets worden beheerd door beheerders en zijn voor iedereen beschikbaar."
+    },
+    "columns": {
+      "name": "Naam",
+      "team": "Team",
+      "definition": "Definitie / Info",
+      "description": "Beschrijving",
+      "created": "Aangemaakt"
+    },
+    "typeLabels": {
+      "file": "Bestand",
+      "hex": "Hex"
+    },
+    "uniqueBytes_one": "{{count}} unieke byte",
+    "uniqueBytes_other": "{{count}} unieke bytes",
+    "hexBytes_one": "{{count}} byte",
+    "hexBytes_other": "{{count}} bytes",
+    "rowActions": {
+      "edit": "Bewerken",
+      "delete": "Verwijderen"
+    },
+    "empty": "Geen karaktersets in deze categorie.",
+    "dialogs": {
+      "create": {
+        "title": "Persoonlijke karakterset aanmaken"
+      },
+      "edit": {
+        "title": "Karakterset bewerken"
+      },
+      "delete": {
+        "title": "Karakterset verwijderen",
+        "confirmation": "Weet u zeker dat u de karakterset \"{{name}}\" wilt verwijderen?"
+      },
+      "modeToggle": {
+        "inline": "Inline-definitie",
+        "file": "Bestandsupload (.hcchr)"
+      },
+      "fields": {
+        "name": "Naam",
+        "namePlaceholder": "bijv. DES Full Charset",
+        "definition": "Definitie",
+        "definitionPlaceholderHex": "bijv. 41424344 (hex-byteparen)",
+        "definitionPlaceholderPlain": "bijv. ?u?d of abcdef0123456789",
+        "definitionHelperHex": "Hex-byteparen — elk paar = één karaktersetbyte. {{bytes}}",
+        "definitionHelperHexBytes_one": "{{count}} byte",
+        "definitionHelperHexBytes_other": "{{count}} bytes",
+        "definitionHelperPlain": "Hashcat-karaktersetdefinitie. Gebruik ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H of letterlijke tekens.",
+        "hexTooltip": "Wanneer ingeschakeld, wordt de definitie geïnterpreteerd als hex-byteparen (bijv. 41424344 = bytes A, B, C, D). Taken die deze karakterset gebruiken, injecteren automatisch --hex-charset.",
+        "hexLabel": "Hex-gecodeerde definitie",
+        "selectFile": ".hcchr-bestand selecteren",
+        "fileSizeBytes_one": "{{count}} byte",
+        "fileSizeBytes_other": "{{count}} bytes",
+        "fileHelperText": "Binair karaktersetbestand met onbewerkte bytewaarden (max 1023 bytes, tot 256 unieke bytes).",
+        "fileCharsetInfo_one": "Bestandskarakterset: {{count}} unieke byte. Alleen naam en beschrijving kunnen worden bewerkt.",
+        "fileCharsetInfo_other": "Bestandskarakterset: {{count}} unieke bytes. Alleen naam en beschrijving kunnen worden bewerkt.",
+        "description": "Beschrijving",
+        "descriptionPlaceholder": "Optionele beschrijving van het doel van deze karakterset"
+      },
+      "update": "Bijwerken",
+      "upload": "Uploaden"
+    },
+    "messages": {
+      "createSuccess": "Karakterset succesvol aangemaakt",
+      "uploadSuccess": "Bestandskarakterset succesvol geüpload",
+      "updateSuccess": "Karakterset succesvol bijgewerkt",
+      "deleteSuccess": "Karakterset succesvol verwijderd"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Alleen .hcchr-bestanden zijn toegestaan",
+      "fileTooLarge": "Bestand te groot (max 1023 bytes — hashcat-leesbufferlimiet)",
+      "nameRequired": "Naam is vereist",
+      "definitionRequired": "Definitie is vereist",
+      "selectFile": "Selecteer een .hcchr-bestand",
+      "deleteFailed": "Verwijderen van karakterset mislukt: {{message}}",
+      "globalDeleteForbidden": "Globale karaktersets kunnen alleen door beheerders in het beheerderspaneel worden verwijderd"
+    }
   }
 }

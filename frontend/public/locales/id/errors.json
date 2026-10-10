@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Koneksi gagal. Periksa jaringan Anda.",
+    "timeout": "Permintaan melebihi batas waktu. Silakan coba lagi.",
+    "serverUnavailable": "Server tidak tersedia. Silakan coba lagi nanti."
+  },
+  "authentication": {
+    "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
+    "sessionExpired": "Sesi Anda telah kedaluwarsa. Silakan masuk lagi.",
+    "invalidToken": "Token autentikasi tidak valid.",
+    "loginRequired": "Silakan masuk untuk melanjutkan."
+  },
+  "validation": {
+    "required": "Bidang ini diperlukan.",
+    "invalidEmail": "Silakan masukkan alamat email yang valid.",
+    "invalidFormat": "Format tidak valid.",
+    "tooShort": "Harus minimal {{min}} karakter.",
+    "tooLong": "Tidak boleh lebih dari {{max}} karakter.",
+    "passwordRequirements": "Kata sandi harus berisi minimal 8 karakter, termasuk huruf besar, huruf kecil, angka, dan karakter khusus."
+  },
+  "api": {
+    "badRequest": "Permintaan tidak valid. Periksa input Anda.",
+    "notFound": "Sumber daya yang diminta tidak ditemukan.",
+    "conflict": "Terjadi konflik. Sumber daya mungkin sudah ada.",
+    "serverError": "Terjadi kesalahan server internal.",
+    "rateLimited": "Terlalu banyak permintaan. Tunggu dan coba lagi."
+  },
+  "file": {
+    "tooLarge": "File terlalu besar. Ukuran maksimal adalah {{maxSize}}.",
+    "invalidType": "Tipe file tidak valid. Tipe yang diizinkan: {{allowedTypes}}.",
+    "uploadFailed": "Pengunggahan file gagal. Coba lagi."
+  },
+  "generic": {
+    "unknownError": "Terjadi kesalahan yang tidak diketahui.",
+    "tryAgain": "Coba lagi.",
+    "contactSupport": "Jika masalah berlanjut, hubungi dukungan."
+  }
+}

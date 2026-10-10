@@ -1,0 +1,501 @@
+{
+  "title": "ハッシュリスト",
+  "uploadButton": "ハッシュリストをアップロード",
+  "page": {
+    "title": "ハッシュリスト管理",
+    "description": "クラッキング操作用のパスワードハッシュリストをアップロードおよび管理します"
+  },
+  "columns": {
+    "name": "名前",
+    "hashType": "ハッシュタイプ",
+    "totalHashes": "合計ハッシュ値数",
+    "crackedHashes": "クラック済み",
+    "progress": "クラック済み（%）",
+    "client": "クライアント",
+    "status": "ステータス",
+    "createdAt": "作成日",
+    "actions": "アクション"
+  },
+  "filters": {
+    "filterByName": "名前でフィルタ",
+    "status": "ステータス",
+    "all": "すべて"
+  },
+  "status": {
+    "uploading": "アップロード中",
+    "processing": "処理中",
+    "ready": "準備完了",
+    "error": "エラー"
+  },
+  "table": {
+    "noHashlists": "ハッシュリストが見つかりません。"
+  },
+  "details": {
+    "title": "ハッシュリストの詳細",
+    "overview": "概要",
+    "hashes": "ハッシュ値",
+    "jobs": "ジョブ",
+    "stats": "統計"
+  },
+  "upload": {
+    "title": "新しいハッシュリストをアップロード",
+    "name": "ハッシュリスト名",
+    "hashType": "ハッシュタイプ",
+    "client": "クライアント（オプション）",
+    "file": "ハッシュファイル",
+    "selectFile": "ファイルを選択",
+    "uploading": "アップロード中...",
+    "cancel": "キャンセル",
+    "executableBlocked": "このファイルは実行可能バイナリのようで、ハッシュリストとしてアップロードできません。",
+    "description": "説明",
+    "methodLabel": "アップロード方法",
+    "methodAriaLabel": "アップロードモード",
+    "fileAriaLabel": "ファイルアップロード",
+    "pasteAriaLabel": "ハッシュ値を貼り付け",
+    "uploadFile": "ファイルをアップロード",
+    "pasteHashes": "ハッシュ値を貼り付け",
+    "dropHere": "ハッシュリストファイルをここにドロップ...",
+    "dragAndDrop": "ハッシュリストファイルをドラッグアンドドロップするか、クリックして選択します",
+    "allFileTypesExceptExecutables": "実行可能ファイルを除くすべてのファイルタイプが受け入れられます",
+    "fileSizeKB": "{{size}} KB",
+    "clear": "クリア",
+    "hashCount_other": "{{count}} 個のハッシュ値",
+    "hashCountDetected_other": "{{count}} 個のハッシュ値が検出されました",
+    "pasteHashesLabel": "ハッシュ値をここに貼り付けます（1行に1つ）",
+    "pasteHashesPlaceholder": "ハッシュ値を1行に1つ入力します...&#10;&#10;例：&#10;5f4dcc3b5aa765d61d8327deb882cf99&#10;098f6bcd4621d373cade4e832627b4f6&#10;5d41402abc4b2a76b9719d911017c592",
+    "pasteHashesHelper": "ハッシュ値を上に貼り付けます（1行に1つ）",
+    "excludeFromGlobalPotfile": "グローバルpotファイルから除外",
+    "excludeFromGlobalPotfileHelper": "このハッシュリストからのクラック済みパスワードはグローバルpotファイルに保存されません",
+    "globalPotfileDisabledNotice": "注：グローバルpotファイルは現在、管理者設定により無効になっています。",
+    "excludeFromClientPotfile": "クライアントpotファイルから除外",
+    "excludeFromClientPotfileHelper": "このハッシュリストからのクラック済みパスワードはクライアント固有のpotファイルに保存されません",
+    "clientPotfilesDisabledNotice": "注：クライアントpotファイルは管理者設定により無効になっています。",
+    "uploadButtonLabel": "ハッシュリストをアップロード",
+    "selectTeamForNewClient": "新しいクライアントのチームを選択してください。",
+    "validationCancelled": "アップロードがキャンセルされました。ファイルを修正してもう一度試してください。",
+    "errors": {
+      "nameRequired": "名前が必要です",
+      "hashTypeRequired": "ハッシュタイプが必要です",
+      "clientRequired": "クライアントが必要です",
+      "noHashesToUpload": "アップロードするハッシュ値がありません",
+      "uploadFailedWithStatus": "アップロードに失敗しました（HTTP {{status}}）",
+      "uploadFailedWithMessage": "アップロードに失敗しました：{{message}}",
+      "uploadFailedUnknown": "アップロードに失敗しました（不明なエラー）",
+      "uploadErrorPrefix": "ハッシュリストのアップロードエラー：{{message}}",
+      "unknownError": "不明なエラーが発生しました"
+    },
+    "linkDialog": {
+      "title": "LM/NTLMハッシュ値が検出されました",
+      "detected": "pwdump形式ファイルが検出されました：",
+      "lmCount_other": "{{count}} 個のLMハッシュ値（空白以外）",
+      "ntlmCount_other": "{{count}} 個のNTLMハッシュ値",
+      "blankLmCount_other": "{{count}} 個の空白のLMハッシュ値（空のパスワード - スキップされます）",
+      "question": "別々のクラッキングワークフロー用に2つのリンクされたハッシュリストを作成しますか？",
+      "explanation": "「{{lmName}}」と「{{ntlmName}}」というリンクされたハッシュリストが作成されます。",
+      "uploadSingle": "1つのリストとしてアップロード",
+      "createLinked": "リンクされたリストを作成"
+    }
+  },
+  "actions": {
+    "viewDetails": "詳細を表示",
+    "createJob": "ジョブを作成",
+    "download": "ダウンロード",
+    "delete": "削除"
+  },
+  "createJob": {
+    "additionalArgs": "追加のhashcat引数（オプション）",
+    "additionalArgsHelper": "このジョブの追加のhashcatフラグ。エージェントレベルのフラグは競合時に優先されます。",
+    "title": "「{{name}}」のジョブを作成",
+    "successRedirect": "ジョブが正常に作成されました！ジョブページにリダイレクトしています...",
+    "successDefault": "ジョブが正常に作成されました！",
+    "loadingDefault": "作成中...",
+    "loadingCreating": "ジョブを作成中...",
+    "loadingKeyspace": "キースペースを計算中...",
+    "cancel": "キャンセル",
+    "submit": "ジョブを作成",
+    "canInterrupt": "割り込み可能",
+    "tabs": {
+      "workflows": "ワークフロー",
+      "presetJobs": "プリセットジョブ",
+      "customJob": "カスタムジョブ"
+    },
+    "attackModes": {
+      "dictionary": "辞書",
+      "combination": "組み合わせ",
+      "bruteforce": "ブルートフォース",
+      "hybridWordlistMask": "ハイブリッド ワードリスト + マスク",
+      "hybridMaskWordlist": "ハイブリッド マスク + ワードリスト",
+      "association": "アソシエーション",
+      "modeFallback": "モード {{mode}}"
+    },
+    "errors": {
+      "selectWorkflow": "少なくとも1つのワークフローを選択してください",
+      "selectPresetJob": "少なくとも1つのプリセットジョブを選択してください",
+      "wordlistRequired": "選択した攻撃モードには少なくとも1つのワードリストが必要です",
+      "combinationRequiresTwo": "組み合わせ攻撃は両方のワードリストが選択されている必要があります",
+      "maskRequired": "選択した攻撃モードにはマスクが必要です",
+      "associationMixedWorkFactors": "アソシエーション攻撃は、混合ワークファクタを持つハッシュリストでは実行できません",
+      "associationWordlistRequired": "アソシエーション攻撃にはアソシエーションワードリストが必要です",
+      "chunkDurationMin": "チャンク期間は最低5秒である必要があります",
+      "chunkDurationMax": "チャンク期間は24時間（86400秒）を超えることはできません",
+      "partialFailure": "{{message}}。作成されませんでした：{{details}}",
+      "unnamedItem": "項目",
+      "createFailed": "ジョブの作成に失敗しました",
+      "loadFailed": "利用可能なジョブの読み込みに失敗しました"
+    },
+    "workflows": {
+      "empty": "利用可能なワークフローがありません。最初に管理パネルでワークフローを作成してください。",
+      "jobNameHelper": "名前は各ワークフロー名に追加されます",
+      "description": "実行するワークフローを1つ以上選択します。複数のワークフローを選択できます - それぞれが独自のジョブ実行シーケンスを作成します。ループバック設定はワークフロー自体で設定されます —「ループバック」でタグ付けされたワークフローは、新しくクラック済みのパスワードに対してその適格ステップを自動的に再実行します。",
+      "jobsCount_other": "{{count}} 個のジョブ",
+      "loopbackAllEligible": "ループバック：すべて適格",
+      "loopbackSteps_other": "ループバック：{{count}} ステップ",
+      "jobsList": "ジョブ：{{names}}",
+      "selectedCount_other": "{{count}} 個のワークフローを選択"
+    },
+    "presetJobs": {
+      "empty": "利用可能なプリセットジョブがありません。最初に管理パネルでプリセットジョブを作成してください。",
+      "jobNameHelper": "名前は各ジョブタイプと一緒に追加されます（例：「山田 - potファイル実行」）",
+      "description": "実行するプリセットジョブを1つ以上選択します。複数のジョブを選択できます - 別々のジョブ実行として作成されます。",
+      "priorityLabel": "優先度：{{priority}}",
+      "selectedCount_other": "{{count}} 個のジョブを選択"
+    },
+    "loopback": {
+      "label": "新しいクラックがなくなるまでループバック",
+      "helperEligible": "選択したジョブを実行してから、変異可能なもの（ストレート + ルール、またはハイブリッド攻撃）を新しくクラック済みのパスワードに対してのみ再実行し、新しいクラックが見つからなくなるまで繰り返します。",
+      "helperSelectEligible": "ループバックを有効にするために、下記から適格なプリセット（ストレート + ルール、またはハイブリッド攻撃）を選択します。",
+      "helperNoneEligible": "選択したジョブのどれもループバックする変異がありません（これらはワードリストのみ、ブルートフォース、またはアソシエーションです）。",
+      "helperFilterConflict": "このジョブに対して事前フィルタリングが有効な場合、ループバックは利用できません。",
+      "helperCustom": "この攻撃を実行してから、その変異（ルールまたはマスク）を新しくクラック済みのパスワードに対してのみ再実行し、新しいクラックが見つからなくなるまで繰り返します。"
+    },
+    "filter": {
+      "enableLabel": "このジョブの選択したワードリストを事前フィルタリング",
+      "ephemeralNotice": "このフィルタリング済みリストはこのジョブのみで使用される一時的なものです。再利用可能なフィルタリング済みワードリストを作成するには、ワードリスト管理を使用します。生成はバックグラウンドで実行されます。準備ができたら、ジョブが自動的に開始されます。"
+    },
+    "association": {
+      "explainer": "アソシエーション攻撃は各ハッシュ値を対応するワードリスト行に1:1でマップします。ワードリスト行数は合計ハッシュ値数（{{hashCount}}）と一致する必要があります。",
+      "falsePositiveWarning": "<strong>注：</strong>アソシエーション攻撃は誤検知を生成する可能性があります。クラック済みハッシュをダウンロードし、ハッシュリストを削除してから再アップロードし、辞書攻撃で確認することで結果を検証することをお勧めします。",
+      "wordlistLabel": "アソシエーションワードリスト",
+      "selectWordlist": "アソシエーションワードリストを選択",
+      "wordlistOptionLabel": "{{name}}（{{lines}} 行、{{size}} KB）",
+      "wordlistHelper": "ハッシュリストのアソシエーションワードリストセクションを経由してアソシエーションワードリストをアップロードします"
+    },
+    "cloud": {
+      "allowBurst": "クラウドバーストを許可",
+      "allowBurstHelper": "オンプレミスフリートが追いつけないときはGPUインスタンスを借ります。クライアントの資金提供とプロバイダーへのオプトインが必要です。",
+      "allowPeerHosts": "ピアが操作するホストを許可（Vast.ai、RunPod Community）",
+      "peerHostsWarning": "これらは他の人のマシンです。ホストの所有者はコンテナに対してルート権限を持っているため、このクライアントのハッシュ、ワードリスト、およびクラック済みプレーンテキストは第三者が読み取ることができ、<strong>ホスト上での保存時には暗号化されていません</strong>。本番環境またはクライアントエンゲージメントデータにはお勧めできません。これをオフのままにして、クライアントがそれを許可する場合、ジョブは引き続きセキュアキャパシティ（AWS、RunPod Secure Cloud）を使用します。",
+      "maxInstances": "最大クラウドインスタンス数",
+      "maxInstancesHelper": "オンプレミスプールを管理する最大エージェント数とは別です。空白のままにすると、予算が決定します。"
+    },
+    "form": {
+      "jobName": "ジョブ名（オプション）",
+      "jobNamePlaceholder": "空白の場合は名前が自動生成されます",
+      "jobNameHelper": "空白の場合、攻撃構成に基づいて名前が自動生成されます",
+      "attackModeLabel": "攻撃モード",
+      "attackModeDictionary": "辞書攻撃",
+      "attackModeCombination": "組み合わせ攻撃",
+      "attackModeBruteforce": "ブルートフォース攻撃",
+      "attackModeHybridWordlistMask": "ハイブリッド ワードリスト + マスク",
+      "attackModeHybridMaskWordlist": "ハイブリッド マスク + ワードリスト",
+      "attackModeAssociation": "アソシエーション攻撃",
+      "associationBlockedMixed": "（ブロック：混合ワークファクタ）",
+      "associationNoWordlists": "（アップロードされたワードリストがありません）",
+      "binaryVersionHelper": "バイナリバージョンパターンを選択",
+      "wordlists": "ワードリスト",
+      "selectWordlists": "ワードリストを選択",
+      "ruleOptional": "ルール（オプション）",
+      "ruleOptionLabel_other": "{{name}}（{{count}} ルール）",
+      "selectRule": "ルールを選択",
+      "firstWordlist": "最初のワードリスト",
+      "secondWordlist": "2番目のワードリスト",
+      "selectFirstWordlist": "最初のワードリストを選択",
+      "selectSecondWordlist": "2番目のワードリストを選択",
+      "categoryClientSpecific": "クライアント固有",
+      "categoryGlobal": "グローバル",
+      "wordlistOptionWithLines": "{{name}}（{{lines}} 行）",
+      "wordlistOptionWithSize": "{{name}}（{{size}} MB）",
+      "clientPotfileName_other": "クライアントpotファイル（{{count, number}} パスワード）",
+      "mask": "マスク",
+      "maskPlaceholder": "例：?u?l?l?l?l?d?d",
+      "maskHelper": "?l = 小文字、?u = 大文字、?d = 数字、?s = 特殊文字、?1-?4 = カスタム",
+      "incrementModeLabel": "インクリメントモード",
+      "incrementModeOff": "オフ",
+      "incrementModeForward": "インクリメント（L→R）",
+      "incrementModeInverse": "インクリメント逆向き（R→L）",
+      "incrementModeHelper": "インクリメントはまず短いマスクを試し、徐々に長くしていきます",
+      "minLength": "最小長",
+      "maxLength": "最大長",
+      "priority": "優先度",
+      "priorityHelper": "優先度が高いジョブが最初に実行されます（1～1000）",
+      "chunkDuration": "チャンク期間（秒）",
+      "chunkDurationHelper": "各チャンクの時間（秒）（5～86400秒）",
+      "maxAgents": "最大エージェント数",
+      "maxAgentsHelper": "最大エージェント数（0 = 無制限）",
+      "allowHighPriorityOverride": "高優先度のオーバーライドを許可",
+      "additionalArgsPlaceholder": "例：-w 4 -O --force"
+    }
+  },
+  "confirmDelete": {
+    "title": "削除を確認",
+    "message": "本当にハッシュリスト「{{name}}」を削除してもよろしいですか？この操作は元に戻せません。",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "deleting": "削除中...",
+    "removeFromGlobalPotfile": "グローバルpotファイルからクラック済みパスワードを削除",
+    "removeFromClientPotfile": "クライアントpotファイルからクラック済みパスワードを削除"
+  },
+  "deletionProgress": {
+    "title": "ハッシュリストを削除中",
+    "successTitle": "ハッシュリストが正常に削除されました",
+    "complete": "削除が完了しました！",
+    "failed": "削除に失敗しました",
+    "summary": "概要：",
+    "totalProcessed": "処理されたハッシュの合計：{{value}}",
+    "orphansDeleted": "削除された孤立ハッシュ：{{value}}",
+    "sharedPreserved": "保持された共有ハッシュ：{{value}}",
+    "jobsDeleted": "削除されたジョブ：{{value}}",
+    "duration": "期間：{{duration}}",
+    "phase": "フェーズ{{current}}/{{total}}：{{label}}",
+    "phases": {
+      "preparing": "準備中...",
+      "removingHashes": "ハッシュを削除中",
+      "clearingReferences": "タスク参照をクリア中",
+      "cleaningOrphans": "孤立ハッシュをクリーニング中",
+      "finalizing": "削除を完了中"
+    },
+    "units": {
+      "hashes": "ハッシュ",
+      "references": "参照"
+    },
+    "error": "エラー：{{error}}",
+    "done": "完了",
+    "close": "閉じる"
+  },
+  "notifications": {
+    "deleteSuccess": "ハッシュリストが正常に削除されました",
+    "uploadSuccess": "ハッシュリストが正常にアップロードされました",
+    "downloaded": "{{filename}}をダウンロードしました",
+    "archiveSuccess": "ハッシュリストが正常にアーカイブされました",
+    "unarchiveSuccess": "ハッシュリストが正常にアーカイブ解除されました",
+    "bulkArchiveSuccess_other": "{{count}}個のハッシュリストが正常にアーカイブされました",
+    "bulkUnarchiveSuccess_other": "{{count}}個のハッシュリストが正常にアーカイブ解除されました"
+  },
+  "errors": {
+    "loadFailed": "ハッシュリストの取得に失敗しました。",
+    "uploadFailed": "ハッシュリストのアップロードに失敗しました",
+    "deleteFailed": "削除に失敗しました：{{error}}"
+  },
+  "archive": {
+    "showArchived": "アーカイブを表示",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "archived": "アーカイブ済み",
+    "selectedCount": "{{count}}個選択",
+    "archiveSelected": "選択したものをアーカイブ",
+    "unarchiveSelected": "選択したものをアーカイブ解除",
+    "deleteSelected": "選択したものを削除",
+    "confirmBulkDelete": {
+      "title": "一括削除を確認",
+      "message_other": "本当に{{count}}個のハッシュリストを削除してもよろしいですか？この操作は元に戻せません。",
+      "warning": "選択したハッシュリストと関連するすべてのデータが永久に削除されます。"
+    },
+    "bulkDeleteSuccess_other": "{{count}}個のハッシュリストが正常に削除されました"
+  },
+  "hashDetails": {
+    "title": "ハッシュの詳細",
+    "originalHash": "元のハッシュ値",
+    "password": "パスワード",
+    "cracked": "クラック済み",
+    "crackedAt": "クラック日時"
+  },
+  "detail": {
+    "backToHashlists": "ハッシュリストに戻る",
+    "viewCrackedHashes": "クラック済みハッシュを表示",
+    "noDescription": "説明なし",
+    "statusLabel": "ステータス：",
+    "hashType": "ハッシュタイプ：{{name}}",
+    "clientLabel": "クライアント：",
+    "noClient": "なし",
+    "editClient": "クライアントを編集",
+    "created": "作成日：{{date}}",
+    "crackProgress": "クラック進捗（{{cracked}}/{{total}}）",
+    "fallbackHashlistName": "ハッシュリスト",
+    "processingProgress": {
+      "lines": "{{processed}} / {{total}}行",
+      "rate": "（{{rate}}/秒）",
+      "eta": "• ETA：{{eta}}"
+    },
+    "deletionBanner": {
+      "title": "このハッシュリストは削除中です - {{phase}}",
+      "progress": "{{checked}} / {{total}}（{{percent}}%）"
+    },
+    "validationBanner": {
+      "loading": "読み込み中…",
+      "resumeReview": "レビューを再開",
+      "title": "このハッシュリストは一時停止中で、検証の判断を待っています。",
+      "message": "ハッシュの検証で<strong>{{invalidCount}}</strong>/<strong>{{totalLines}}</strong>行が不正な形式としてマークされました。レビューダイアログを開いて、有効なハッシュで続行するか、ハッシュタイプを変更するか、アップロードをキャンセルしてください。"
+    },
+    "jobsRun": {
+      "title": "実行されたジョブ",
+      "subtitle": "このハッシュリストに対して実行されたジョブ（アーカイブされたものを含む）。",
+      "empty": "このハッシュリストに対してまだジョブが実行されていません"
+    },
+    "editClientDialog": {
+      "title": "クライアント割り当てを編集",
+      "description": "このハッシュリストのクライアントを選択するか、空のままにしてクライアント割り当てを削除してください。",
+      "save": "保存",
+      "saving": "保存中..."
+    },
+    "notifications": {
+      "clientUpdated": "クライアントが正常に更新されました",
+      "processingResumed": "処理が再開されました。",
+      "uploadCancelled": "アップロードがキャンセルされました。"
+    },
+    "errors": {
+      "deleteFailed": "ハッシュリストの削除に失敗しました",
+      "clientUpdateFailed": "クライアントの更新に失敗しました",
+      "clientNotFound": "クライアントが見つかりません",
+      "clientLookupFailed": "クライアントの検索に失敗しました",
+      "downloadFailed": "ファイルのダウンロードに失敗しました",
+      "downloadHashlistFailed": "ハッシュリストのダウンロードに失敗しました",
+      "serverError": "サーバーエラー（{{status}}）",
+      "loadInvalidHashesFailed": "不正なハッシュの読み込みに失敗しました"
+    }
+  },
+  "associationWordlists": {
+    "header": "クライアント固有のワードリスト",
+    "blocked": "ブロック済み",
+    "blockedTooltip": "ハッシュリストの混在する作業要因によりアソシエーション攻撃がブロックされています",
+    "delete": "削除",
+    "uploadAssociation": "アソシエーションワードリストをアップロード",
+    "uploadClient": "クライアントワードリストをアップロード",
+    "uploadingPercent": "アップロード中...{{percent}}%",
+    "emptyAssociation": "アソシエーションワードリストはまだアップロードされていません。",
+    "emptyClient": "クライアントワードリストはまだアップロードされていません。",
+    "mixedWorkFactorsWarning": "このハッシュリストは混在する作業要因を持っています。異なるbcryptコストまたは同様の可変作業要因を持つハッシュリストではアソシエーション攻撃を実行できません。ワードリストのアップロードは可能ですが、アソシエーション攻撃ジョブの作成はブロックされます。",
+    "explainer": "アソシエーションワードリストは各ハッシュをパスワード候補に行番号で1対1でマップします。ワードリストはこのハッシュリストのハッシュ数と一致するために、正確に<strong>{{lines}}</strong>行である必要があります。",
+    "tabs": {
+      "associationAttack": "アソシエーション攻撃",
+      "clientWordlists": "クライアントワードリスト"
+    },
+    "columns": {
+      "fileName": "ファイル名",
+      "lineCount": "行数",
+      "fileSize": "ファイルサイズ",
+      "status": "ステータス",
+      "uploaded": "アップロード",
+      "actions": "アクション"
+    },
+    "status": {
+      "ready": "準備完了",
+      "lineCountMismatch": "行数不一致",
+      "lineCountMismatchTooltip": "{{expected}}行を予期していましたが、{{actual}}行が取得されました"
+    },
+    "deleteConfirm": {
+      "title": "ワードリストを削除",
+      "message": "「{{fileName}}」を削除しますか？これは元に戻せません。"
+    },
+    "clientWordlists": {
+      "noClientNotice": "クライアントワードリストはクライアントに関連付けられたハッシュリストでのみ利用可能です。",
+      "description": "クライアントワードリストはこのクライアントのすべてのハッシュリストで利用可能です。これらはアソシエーション攻撃だけでなく、任意の攻撃モードで使用できます。"
+    },
+    "clientPotfile": {
+      "title": "クライアントpotファイル（自動生成）",
+      "description": "このpotファイルはこのクライアントのすべてのクラック済みパスワードを含みます。ハッシュがクラックされたときに自動的に更新されます。",
+      "passwordCount_other": "{{count}}個のパスワード",
+      "updated": "更新日：{{date}}"
+    },
+    "notifications": {
+      "associationDeleted": "アソシエーションワードリストが削除されました",
+      "clientDeleted": "クライアントワードリストが削除されました",
+      "associationUploaded": "アソシエーションワードリストが正常にアップロードされました",
+      "clientUploaded": "クライアントワードリストが正常にアップロードされました"
+    },
+    "errors": {
+      "deleteFailed": "ワードリストの削除に失敗しました",
+      "uploadFailed": "ワードリストのアップロードに失敗しました",
+      "loadAssociationFailed": "アソシエーションワードリストの読み込みに失敗しました",
+      "loadClientFailed": "クライアントワードリストの読み込みに失敗しました",
+      "lineCountMismatch": "ワードリストは{{wordlistLines}}行ですが、ハッシュリストは{{hashlistLines}}個の有効なハッシュを持っています。"
+    }
+  },
+  "clientAutocomplete": {
+    "label": "クライアント",
+    "placeholder": "クライアントを選択...",
+    "createNewClient": "新しいクライアントを作成",
+    "newClientDetails": "新しいクライアントの詳細",
+    "team": "チーム",
+    "teamHelper": "新しいクライアントはこのチームに割り当てられます。",
+    "clientName": "クライアント名",
+    "description": "説明",
+    "contactInfo": "連絡先情報",
+    "dataRetention": "データ保持期間（月）",
+    "dataRetentionPlaceholderDefault": "システムのデフォルト：{{months}}",
+    "dataRetentionPlaceholderUnset": "設定なし（無期限に保持）",
+    "dataRetentionHelperDefault": "システムのデフォルト（{{months}}月）を使用するために空のままにしてください。0を設定して永遠に保持してください。",
+    "dataRetentionHelperUnset": "システムのデフォルトを使用するために空のままにしてください。0を設定して永遠に保持してください。",
+    "excludeFromGlobalPotfile": "グローバルpotファイルから除外",
+    "excludeFromGlobalPotfileHelper": "このクライアントからのクラック済みパスワードはグローバルpotファイルに追加されません。",
+    "excludeFromClientPotfile": "クライアントpotファイルから除外",
+    "excludeFromClientPotfileHelper": "このクライアントからのクラック済みパスワードはクライアントpotファイルに追加されません。",
+    "errors": {
+      "fetchFailed": "クライアントの取得に失敗しました"
+    }
+  },
+  "hashesTable": {
+    "title": "ハッシュ",
+    "subtitle": "{{cracked}}/{{total}}がクラック済み（{{pct}}%）",
+    "searchPlaceholder": "ハッシュを検索...",
+    "ariaLabel": "ハッシュリストのハッシュテーブル",
+    "copiedToClipboard": "クリップボードにコピーしました",
+    "copyPassword": "パスワードをコピー",
+    "copyHash": "ハッシュ値をコピー",
+    "loadFailed": "ハッシュの読み込みに失敗しました",
+    "columns": {
+      "originalHash": "元のハッシュ値",
+      "username": "ユーザー名",
+      "domain": "ドメイン",
+      "password": "パスワード",
+      "status": "ステータス"
+    },
+    "status": {
+      "cracked": "クラック済み",
+      "partial": "部分的",
+      "pending": "保留中"
+    }
+  },
+  "validationPreview": {
+    "title": "ハッシュ検証：不正な形式の行をレビュー",
+    "modeFallback": "モード{{id}}",
+    "truncatedNotice": "不正な行のうち、最初の10,000行がレビュー用に記録されます。追加の不正な行がファイルに存在しますが、ここには表示されていません。",
+    "hashTypeLabel": "ハッシュタイプ",
+    "hashTypeOptionLabel": "{{id}} - {{name}}",
+    "revalidating": "再検証中…",
+    "revalidateButton": "再検証",
+    "cancelAndFix": "キャンセルして修正",
+    "cancelling": "キャンセル中…",
+    "starting": "開始中…",
+    "proceedButton": "{{validCount}}個の有効なハッシュで続行",
+    "noInvalidLines": "表示する不正な行はありません。",
+    "allInvalid": {
+      "body1": "<em>{{hashlistName}}</em>の{{totalLines}}行のうち、<strong>どれも</strong><strong>{{hashTypeName}}</strong>と一致しません。ハッシュタイプの選択が間違っている可能性があります。",
+      "body2": "下で正しいタイプを選択して<strong>再検証</strong>をクリックしてください - ファイルはアップロードされたままなので、最初からやり直す必要はありません。"
+    },
+    "notAllInvalid": {
+      "body": "<em>{{hashlistName}}</em>の<strong>{{totalLines}}</strong>行のうち<strong>{{invalidCount}}</strong>行が検証に失敗し、続行するとスキップされます。<strong>{{validCount}}</strong>個の有効なハッシュがインポートされます。"
+    },
+    "chooseActionText": "<strong>有効なハッシュで続行</strong>を選択して{{validCount}}個の有効なハッシュをインポートするか（リストされた悪い行は無視されます）、<strong>キャンセルして修正</strong>を選択してこのアップロードを削除して、ソースファイルを修正してもう一度試してください。",
+    "columns": {
+      "line": "行",
+      "hashTruncated": "ハッシュ値（切り詰め）",
+      "reason": "理由"
+    },
+    "errors": {
+      "loadInvalidHashesFailed": "不正なハッシュの読み込みに失敗しました",
+      "proceedFailed": "続行に失敗しました",
+      "cancelFailed": "キャンセルに失敗しました",
+      "revalidationFailed": "再検証に失敗しました"
+    }
+  }
+}

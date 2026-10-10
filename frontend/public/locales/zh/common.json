@@ -38,6 +38,7 @@
     "disabled": "已禁用",
     "active": "活跃",
     "inactive": "不活跃",
+    "updating": "更新中",
     "pending": "待处理",
     "completed": "已完成",
     "failed": "失败",
@@ -73,17 +74,18 @@
     "areYouSure": "确定吗？",
     "cannotBeUndone": "此操作无法撤销。",
     "confirmDelete": "确认删除",
-    "confirmAction": "确认操作"
+    "confirmAction": "确认操作",
+    "typeToConfirm": "输入 {{text}} 以确认"
   },
   "time": {
     "justNow": "刚刚",
-    "minutesAgo": "{{count}} 分钟前",
-    "minutesAgo_plural": "{{count}} 分钟前",
-    "hoursAgo": "{{count}} 小时前",
-    "hoursAgo_plural": "{{count}} 小时前",
-    "daysAgo": "{{count}} 天前",
-    "daysAgo_plural": "{{count}} 天前",
-    "never": "从未"
+    "minutesAgo_other": "{{count}} 分钟前",
+    "hoursAgo_other": "{{count}} 小时前",
+    "daysAgo_other": "{{count}} 天前",
+    "never": "从未",
+    "minutesAgo_one": "{{count}} 分钟前",
+    "hoursAgo_one": "{{count}} 小时前",
+    "daysAgo_one": "{{count}} 天前"
   },
   "fileUpload": {
     "dragAndDrop": "将文件拖放到此处，或点击选择",
@@ -126,7 +128,17 @@
     "logoAltBranded": "{{appName}} 徽标"
   },
   "table": {
+    "clearSearch": "清除搜索",
+    "clearSelection": "清除选择",
+    "selectedCount": "已选择 {{count}} 个",
+    "expandRow": "展开行",
+    "collapseRow": "折叠行",
+    "showAll": "显示全部",
+    "showFewer": "显示较少",
+    "showingOf": "显示 {{shown}} / {{total}}",
+    "actions": "操作",
     "noResults": "未找到结果",
+    "rowsPerPage": "每页行数",
     "loading": "正在加载数据...",
     "emptyState": "暂无数据显示"
   },
@@ -139,7 +151,8 @@
       "frontend": "前端",
       "agent": "代理版本",
       "api": "API 版本",
-      "database": "数据库"
+      "database": "数据库",
+      "build": "构建"
     },
     "projectInfo": {
       "title": "项目信息",
@@ -157,5 +170,177 @@
     "tooltip": "不是有效文本。确切密码为 {{value}}。显示的字符只是猜测（Windows-1252），并非真实密码。",
     "copyExact": "复制确切值（用于 hashcat）",
     "copyGuess": "复制猜测值（不精确）"
+  },
+  "empty": {
+    "noData": "暂无数据",
+    "noResults": "无结果",
+    "noResultsHint": "尝试调整您的搜索或筛选器。"
+  },
+  "theme": {
+    "appearance": "外观",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "系统"
+  },
+  "status": {
+    "job": {
+      "preparing": "准备中",
+      "pending": "待处理",
+      "running": "运行中",
+      "paused": "已暂停",
+      "processing": "处理中",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "archived": "已归档"
+    },
+    "task": {
+      "pending": "待处理",
+      "assigned": "已分配",
+      "reconnect_pending": "重新连接中",
+      "running": "运行中",
+      "processing": "处理中",
+      "processing_error": "处理错误",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "agent": {
+      "pending": "待处理",
+      "active": "在线",
+      "inactive": "离线",
+      "error": "错误",
+      "disabled": "已禁用",
+      "updating": "更新中",
+      "online": "在线",
+      "offline": "离线"
+    },
+    "hashlist": {
+      "uploading": "上传中",
+      "processing": "处理中",
+      "ready": "就绪",
+      "error": "错误",
+      "deleting": "删除中",
+      "ready_with_errors": "就绪但有错误",
+      "awaiting_validation_decision": "等待审查",
+      "cancelled": "已取消"
+    },
+    "verification": {
+      "pending": "待处理",
+      "verified": "已验证",
+      "failed": "失败",
+      "deleted": "已删除"
+    },
+    "cloud": {
+      "requested": "已请求",
+      "launching": "启动中",
+      "provisioning": "部署中",
+      "syncing": "同步中",
+      "running": "运行中",
+      "draining": "排空中",
+      "terminating": "终止中",
+      "terminated": "已终止",
+      "failed": "失败"
+    },
+    "loopback": {
+      "waiting": "等待中",
+      "active": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "audit": {
+      "info": "信息",
+      "warning": "警告",
+      "critical": "严重"
+    },
+    "diagnostic": {
+      "info": "信息",
+      "warning": "警告",
+      "error": "错误"
+    },
+    "sync": {
+      "pending": "待处理",
+      "in_progress": "进行中",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "generic": {
+      "success": "成功",
+      "ok": "OK",
+      "healthy": "健康",
+      "enabled": "已启用",
+      "active": "活跃",
+      "verified": "已验证",
+      "warning": "警告",
+      "degraded": "降级",
+      "error": "错误",
+      "failed": "失败",
+      "critical": "严重",
+      "info": "信息",
+      "running": "运行中",
+      "pending": "待处理",
+      "queued": "已排队",
+      "disabled": "已禁用",
+      "inactive": "不活跃",
+      "unknown": "未知"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "自定义字符集（可选 - 定义 ?1 至 ?4 供掩码使用）",
+    "hexTooltip": "启用后，内联字符集定义将被解释为十六进制字节对（例如 41424344 = ABCD）。文件字符集不受影响。",
+    "hexEncodedLabel": "十六进制编码字符集",
+    "charsetSlotLabel": "字符集 {{slot}}（-{{slot}})",
+    "fileValue_other": "【文件：{{name}} — {{count}} 个字节】",
+    "fileHelperUsed_other": "{{count}} 个唯一字节",
+    "fileHelperUnused_other": "{{count}} 个唯一字节（未在掩码中引用）",
+    "placeholderHex": "例如 41424344（十六进制字节对）",
+    "placeholderPlain": "例如 ?u?d 或 abcdef0123456789",
+    "inlineHelperBytes_other": "{{count}} 个字节",
+    "inlineHelperBytesUnused_other": "{{count}} 个字节（未在掩码中引用）",
+    "inlineHelperChars_other": "{{count}} 个字符",
+    "inlineHelperCharsUnused_other": "{{count}} 个字符（未在掩码中引用）",
+    "referencedNotDefined": "在掩码中被引用但未定义",
+    "savedLabel": "已保存",
+    "typeLabels": {
+      "file": "文件",
+      "hex": "十六进制"
+    },
+    "optionUniqueBytes_other": "{{count}} 个唯一字节",
+    "optionBytesHex_other": "{{count}} 个字节（十六进制）",
+    "willEnableHex": " — 将启用十六进制模式",
+    "willDisableHex": " — 将禁用十六进制模式",
+    "estimatedKeyspace": "预估密钥空间：{{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} 字节",
+    "slotSizeChars": "?{{slot}} = {{size}} 字符"
+  },
+  "teamFilter": {
+    "label": "团队",
+    "allTeams": "所有团队",
+    "adminBadge": "管理员"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "需要输入密码",
+    "currentPasswordLabel": "当前密码"
+  },
+  "hashDetailModal": {
+    "title": "哈希详情",
+    "hashValue": "哈希值",
+    "copied": "已复制！",
+    "copyHash": "复制哈希",
+    "copyPlaintext": "复制明文",
+    "originalHash": "原始哈希（来自文件）",
+    "status": "状态",
+    "cracked": "已破解",
+    "notCracked": "未破解",
+    "hashType": "哈希类型",
+    "typeId": "类型 ID：{{id}}",
+    "username": "用户名",
+    "crackedText": "破解文本",
+    "hashlist": "哈希列表",
+    "lastUpdated": "最后更新",
+    "crackedAt": "破解时间",
+    "hashCopied": "哈希已复制到剪贴板",
+    "crackedTextCopied": "破解文本已复制到剪贴板"
   }
 }

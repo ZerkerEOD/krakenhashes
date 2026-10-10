@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Dashboard",
+    "jobs": "Job",
+    "agents": "Agent",
+    "hashlists": "Hashlist",
+    "crackedHashes": "Hash craccati",
+    "wordlists": "Wordlist",
+    "rules": "Regole",
+    "clientManagement": "Gestione clienti",
+    "teams": "Team",
+    "analytics": "Analisi",
+    "about": "Informazioni",
+    "logout": "Esci"
+  },
+  "admin": {
+    "title": "Amministrazione",
+    "settings": "Impostazioni",
+    "userManagement": "Gestione utenti",
+    "customCharsets": "Charset personalizzati",
+    "presetJobs": "Job predefiniti",
+    "jobWorkflows": "Workflow job",
+    "diagnostics": "Diagnostica",
+    "auditLog": "Registro di audit",
+    "jobAnalytics": "Analisi job",
+    "teamManagement": "Gestione team",
+    "cloudFleet": "Flotta cloud",
+    "binaries": "Binari",
+    "hashTypes": "Tipi di hash",
+    "vouchers": "Voucher",
+    "clients": "Clienti",
+    "teams": "Team"
+  },
+  "userMenu": {
+    "userSettings": "Impostazioni utente",
+    "savedCharsets": "Charset salvati",
+    "logout": "Esci",
+    "user": "Utente"
+  },
+  "aria": {
+    "toggleDrawer": "Attiva/disattiva pannello",
+    "mainNavigation": "Navigazione principale",
+    "adminNavigation": "Navigazione amministrativa",
+    "downloadCaCert": "Scarica certificato CA"
+  },
+  "groups": {
+    "resources": "Risorse",
+    "peopleAccess": "Persone e accesso",
+    "operations": "Operazioni"
+  }
+}

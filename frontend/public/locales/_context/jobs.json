@@ -1,0 +1,43 @@
+{
+  "columns": {
+    "keyspace": "Total number of candidate passwords hashcat will try for this job (hashcat's 'keyspace').",
+    "agents": "Number of cracking agents (machines) currently assigned to this job, not browser user-agents."
+  },
+  "row": {
+    "rulesLabel": "Suffix appended after a count to show it already includes the rules multiplier, e.g. '500 (rules)'."
+  },
+  "common": {
+    "rulesMultiplier": "Suffix appended after a count to show it already includes the rules multiplier, e.g. '500 (rules)'."
+  },
+  "details": {
+    "incrementMode": "Hashcat's increment mode: tries masks across a range of password lengths instead of one fixed length.",
+    "incrementRange": "The minimum-to-maximum password-length range used by increment mode.",
+    "associationHints": "Data for hashcat's association attack: pairs each hash with one specific candidate (e.g. a username-keyed wordlist line).",
+    "splittingMode": "How this job's keyspace is divided into dispatchable chunks across agents.",
+    "additionalArgs": "Extra raw hashcat command-line flags appended to this job's attack.",
+    "layerTable": {
+      "effectiveKeyspace": "This layer's keyspace after being self-healed/corrected from real hashcat progress, as opposed to the initial estimate."
+    }
+  },
+  "cloud": {
+    "cloudBurst": {
+      "badge": "Indicates this job is allowed to rent cloud GPU instances when the on-prem fleet is busy.",
+      "thirdPartyBadge": "Indicates the rented instance comes from an external cloud provider, not the organization's own hardware."
+    }
+  },
+  "benchmarkBlocklist": {
+    "scope": {
+      "global": "The agent is blocklisted for this hash type/mode across ALL jobs, not just the current one."
+    },
+    "columns": {
+      "hashMode": "The hash type + attack mode combination this benchmark-failure blocklist entry applies to."
+    }
+  },
+  "loopback": {
+    "columns": {
+      "original": "Label shown in the Round column for round 0 — the original attack job, before any loopback rounds.",
+      "loopsBack": "Whether this job's cracked results will themselves be re-run next round, or only feed the next round's delta wordlist."
+    },
+    "loopsBackFeedsDelta": "Shown when this job's cracks are only used to build the next loopback round's delta wordlist, without this job itself looping again."
+  }
+}

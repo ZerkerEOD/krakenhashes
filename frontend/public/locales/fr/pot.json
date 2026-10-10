@@ -10,7 +10,8 @@
     "allCrackedHashes": "Tous les hashes cassés"
   },
   "navigation": {
-    "backToAll": "Retour à tous les hashes cassés"
+    "backToAll": "Retour à tous les hashes cassés",
+    "backToSource": "Retour"
   },
   "client": {
     "title": "Hashes cassés - Vue client",
@@ -40,8 +41,9 @@
     "placeholder": "Rechercher dans la base...",
     "filterPlaceholder": "Filtrer cette page...",
     "button": "Rechercher",
-    "resultsFound": "{{count}} résultat trouvé",
-    "resultsFound_plural": "{{count}} résultats trouvés",
+    "resultsFound_many": "{{count}} résultats trouvés",
+    "resultsFound_one": "{{count}} résultat trouvé",
+    "resultsFound_other": "{{count}} résultats trouvés",
     "noResults": "Aucun résultat",
     "searching": "Recherche..."
   },
@@ -85,5 +87,11 @@
   },
   "filter": {
     "filteredBy": "Filtré par {{param}} : {{value}}"
+  },
+  "breadcrumb": "Hashes cassés",
+  "sourceLabel": {
+    "job": "Job",
+    "client": "Client",
+    "hashlist": "Hashlist"
   }
 }

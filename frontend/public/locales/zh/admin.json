@@ -19,8 +19,9 @@
     "jobExecution": "任务执行",
     "monitoring": "监控",
     "agentDownloads": "代理下载",
-    "cloudProvisioning": "Cloud Provisioning",
-    "serverCertificate": "Server Certificate"
+    "notifications": "通知",
+    "cloudProvisioning": "云部署",
+    "serverCertificate": "服务器证书"
   },
   "common": {
     "cancel": "取消",
@@ -45,7 +46,9 @@
     "unknownError": "未知错误",
     "dialogs": {
       "confirmDeleteNamed": "确定要删除 \"{{name}}\" 吗？"
-    }
+    },
+    "download": "下载",
+    "confirm": "确认"
   },
   "users": {
     "title": "用户管理",
@@ -142,7 +145,7 @@
       "accountEnabled": "用户账户已启用",
       "accountUnlocked": "用户账户已解锁",
       "sessionTerminated": "会话终止成功",
-      "allSessionsTerminated": "成功终止 {{count}} 个会话",
+      "allSessionsTerminated_other": "成功终止了 {{count}} 个会话",
       "apiKeyRevoked": "API 密钥撤销成功"
     },
     "dialogs": {
@@ -218,7 +221,7 @@
       "activityInformation": "活动信息",
       "passwordChanged": "密码修改时间",
       "failedLoginAttempts": "失败登录尝试",
-      "attemptsCount": "{{count}} 次尝试",
+      "attemptsCount_other": "{{count}} 次尝试",
       "disabledAt": "禁用时间",
       "activeSessions": "活跃会话",
       "noActiveSessions": "无活跃会话",
@@ -236,7 +239,16 @@
         "success": "成功",
         "failed": "失败",
         "failureReason": "失败原因"
-      }
+      },
+      "teams": "团队",
+      "teamName": "团队",
+      "teamDescription": "描述",
+      "noTeams": "不属于任何团队",
+      "ownedAgents": "拥有的代理",
+      "noOwnedAgents": "此用户未拥有任何代理",
+      "agentName": "代理",
+      "agentVersion": "版本",
+      "agentLastSeen": "最后在线"
     }
   },
   "clients": {
@@ -249,7 +261,8 @@
       "cracked": "已破解",
       "retention": "保留期（月）",
       "createdAt": "创建时间",
-      "actions": "操作"
+      "actions": "操作",
+      "wordlists": "字典"
     },
     "form": {
       "clientName": "客户名称",
@@ -259,15 +272,28 @@
       "dataRetentionHelperText": "留空使用系统默认值。输入 0 表示永久保留。",
       "excludeFromPotfile": "从 potfile 中排除（不保存破解的密码）",
       "excludeFromPotfileHelperText": "为有严格数据保留要求的客户启用此选项",
-      "cloudInherit": "Cloud burst: this client will inherit the server default — {{state}}, ${{amount}} per {{period}}. Change it in Cloud Provisioning → Client Budgets.",
-      "cloudInheritUnfunded": "Cloud burst: no default budget is set, so this client starts unfunded and cannot rent paid capacity. Set a default in Cloud Provisioning → Client Budgets.",
-      "cloudInheritUnknown": "Cloud burst settings are inherited from the server defaults in Cloud Provisioning → Client Budgets.",
-      "cloudEnabledWord": "enabled",
-      "cloudDisabledWord": "disabled"
+      "cloudInherit": "云爆发：此客户将继承服务器默认值 — {{state}}，每 {{period}} ${{amount}}。在云部署 → 客户预算中更改。",
+      "cloudInheritUnfunded": "云爆发：未设置默认预算，因此此客户未获得资金，无法租用付费容量。在云部署 → 客户预算中设置默认值。",
+      "cloudInheritUnknown": "云爆发设置继承自云部署 → 客户预算中的服务器默认值。",
+      "cloudEnabledWord": "启用",
+      "cloudDisabledWord": "禁用",
+      "excludeFromClientPotfile": "从客户 potfile 中排除",
+      "excludeFromClientPotfileHelperText": "选中此选项时，此客户的已破解密码不会添加到其客户专用 potfile 中。",
+      "clientPotfileSettings": "potfile 删除设置",
+      "useSystemDefault": "使用系统默认值",
+      "alwaysRemove": "始终删除",
+      "neverRemove": "永不删除",
+      "assignToTeam": "分配至团队",
+      "assignToTeamHelperText": "新客户将被分配给此团队。现有客户的重新分配请通过团队管理进行。",
+      "removeFromGlobalPotfileOnDelete": "删除时从全局 potfile 中移除",
+      "removeFromGlobalPotfileHelperText": "控制删除哈希列表时是否从全局 potfile 中移除密码。",
+      "removeFromClientPotfileOnDelete": "删除时从客户 potfile 中移除",
+      "removeFromClientPotfileHelperText": "控制删除哈希列表时是否从客户 potfile 中移除密码。"
     },
     "validation": {
       "nameRequired": "客户名称为必填项。",
-      "retentionInvalid": "保留期必须是非负数或留空（使用默认值）。"
+      "retentionInvalid": "保留期必须是非负数或留空（使用默认值）。",
+      "teamRequired": "启用团队时需要选择团队"
     },
     "errors": {
       "loadFailed": "加载客户失败。请尝试刷新。",
@@ -291,6 +317,57 @@
       "deleteClient": {
         "title": "确认删除",
         "confirmation": "确定要删除客户 \"{{name}}\" 吗？此操作无法撤销。关联的哈希列表可能会根据保留策略立即删除或成为孤立数据。"
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "名称",
+        "status": "状态",
+        "total": "哈希",
+        "cracked": "已破解",
+        "created": "创建时间"
+      },
+      "notFound": "客户未找到",
+      "notFoundHint": "可能已删除，或属于您不是成员的团队。",
+      "backToClients": "返回客户",
+      "breadcrumb": "客户",
+      "manageWordlists": "字典和 potfile",
+      "stats": {
+        "hashlists": "哈希列表",
+        "cracked": "已破解",
+        "jobs": "任务",
+        "active": "{{count}} 个活跃任务",
+        "wordlists": "字典",
+        "hasPotfile": "客户 potfile 存在"
+      },
+      "hashlists": "哈希列表",
+      "noHashlists": "此客户尚无哈希列表",
+      "jobs": "任务",
+      "noJobs": "此客户未运行任何任务",
+      "teams": "团队",
+      "noTeams": "未分配给任何团队",
+      "policy": "保留期和 potfile",
+      "retention": "数据保留期",
+      "retentionDefault": "系统默认值",
+      "retentionForever": "永久保留",
+      "retentionMonths_other": "{{count}} 个月",
+      "globalPotfile": "全局 potfile",
+      "excluded": "已排除",
+      "included": "已包含",
+      "clientPotfile": "客户 potfile",
+      "contact": "联系方式",
+      "lastActivity": "最后活动"
+    },
+    "bulkAssign": {
+      "dialogTitle": "将客户分配至团队",
+      "dialogDescription_other": "将 {{count}} 个选定的客户分配给一个团队。已在选定团队中的客户将被跳过。",
+      "selectTeam": "选择团队",
+      "assignButton": "分配",
+      "fallbackTeamName": "团队",
+      "success_other": "已将 {{count}} 个客户分配给 {{team}}",
+      "successWithSkipped_other": "已将 {{count}} 个客户分配给 {{team}}（{{skipped}} 个已分配）",
+      "errors": {
+        "assignFailed": "无法将客户分配给团队"
       }
     }
   },
@@ -376,10 +453,10 @@
         "confirmation": "确定要删除字典 \"{{name}}\" 吗？此操作无法撤销。",
         "cascadeWarning": "删除字典 \"{{name}}\" 还将删除以下内容：",
         "checkingDependencies": "正在检查依赖项...",
-        "jobsCount": "{{count}} 个任务（待处理/运行中/失败）：",
-        "presetJobsCount": "{{count}} 个预设任务：",
-        "workflowStepsCount": "{{count}} 个工作流步骤：",
-        "emptyWorkflowsCount": "{{count}} 个空工作流将被删除：",
+        "jobsCount_other": "{{count}} 个任务（待处理/运行中/失败）：",
+        "presetJobsCount_other": "{{count}} 个预设任务：",
+        "workflowStepsCount_other": "{{count}} 个工作流步骤：",
+        "emptyWorkflowsCount_other": "{{count}} 个空工作流将被删除：",
         "noHashlist": "无哈希列表",
         "step": "步骤 {{order}}",
         "andMore": "...还有 {{count}} 个",
@@ -387,6 +464,58 @@
         "confirmationPlaceholder": "输入 {{id}} 以确认",
         "idMismatch": "ID 不匹配",
         "deleteAll": "全部删除"
+      }
+    },
+    "filterForm": {
+      "helpText": "所有条件都结合使用（AND）— 单词必须满足您设置的每个条件。如果您的正则表达式比长度字段更严格（例如最小长度 8 但正则表达式需要 12+），则更严格的规则优先。下面的估计反映了组合结果。",
+      "minLength": "最小长度",
+      "maxLength": "最大长度",
+      "requiredClasses": "必需的字符类别",
+      "uppercase": "大写字母",
+      "lowercase": "小写字母",
+      "digit": "数字",
+      "special": "特殊字符",
+      "minClasses": "最少类别数（1-4）",
+      "minClassesHelp": "例如：3 = 至少 4 个类别中的 3 个",
+      "regexLabel": "正则表达式（RE2）",
+      "regexHelperDefault": "例如：^.{10,16}$",
+      "regexLookaroundError": "环视断言（(?=…)、(?!…)、(?<=…)、(?<!…)）不受后端正则表达式引擎（RE2）支持。请改用长度/类别过滤器。",
+      "regexInvalidDefault": "无效的正则表达式",
+      "estimating": "估计中…",
+      "previewTooltip": "通过对源字典的开始部分进行采样来估计。对于已排序的列表，真实总数可能有所不同。",
+      "previewLabel": "~{{countDisplay}} 个候选项（样本的 {{rateDisplay}}%）",
+      "previewUnavailable": "预览不可用"
+    },
+    "filtered": {
+      "badge": "已筛选",
+      "regeneratingBadge": "重新生成中…",
+      "regeneratingTooltip": "父级已更改；此筛选字典正在重新生成（尽可能仅重新筛选新条目）。",
+      "staleBadge": "陈旧",
+      "staleTooltip": "自生成以来父级已更改。筛选字典在其父级更改时会自动重新生成；您也可以立即重新生成。",
+      "namePlaceholder": "{{name}}（已筛选）",
+      "wordCount_other": "{{count}} 个单词",
+      "plaintextChip": "纯文本",
+      "compressedChip": "压缩",
+      "messages": {
+        "generating": "正在生成筛选字典",
+        "createFailed": "无法创建筛选字典",
+        "regenerating": "已启动筛选字典的完全重新生成",
+        "regenerateFailed": "无法重新生成筛选字典"
+      },
+      "createDialog": {
+        "title": "创建筛选字典",
+        "description": "生成一个新字典，仅包含符合您条件的源字典行。结果可在任务中重复使用，并根据其父级进行跟踪。",
+        "sourceWordlistLabel": "源字典",
+        "nameLabel": "名称",
+        "create": "创建"
+      },
+      "regenerateDialog": {
+        "title": "重新生成筛选字典？",
+        "autoInfo": "筛选字典通常在其父级更改时<strong>由后端自动重新生成</strong>，您无需手动执行此操作。",
+        "manualHint": "仅当您知道<strong>父级中单词的顺序已更改</strong>（单词已编辑、删除或重新排序，而不仅仅是追加到末尾）时，才手动重新生成。",
+        "warningWithExample": "这将运行<strong>完全重新生成</strong>— 整个父级将被重新筛选，对于大型字典（例如 “{{name}}”）可能需要一段时间。",
+        "warningNoExample": "这将运行<strong>完全重新生成</strong>— 整个父级将被重新筛选，对于大型字典可能需要一段时间。",
+        "confirmButton": "完全重新生成"
       }
     }
   },
@@ -469,10 +598,10 @@
         "confirmation": "确定要删除规则 \"{{name}}\" 吗？此操作无法撤销。",
         "cascadeWarning": "删除规则 \"{{name}}\" 还将删除以下内容：",
         "checkingDependencies": "正在检查依赖项...",
-        "jobsCount": "{{count}} 个任务（待处理/运行中/失败）：",
-        "presetJobsCount": "{{count}} 个预设任务：",
-        "workflowStepsCount": "{{count}} 个工作流步骤：",
-        "emptyWorkflowsCount": "{{count}} 个空工作流将被删除：",
+        "jobsCount_other": "{{count}} 个任务（待处理/运行中/失败）：",
+        "presetJobsCount_other": "{{count}} 个预设任务：",
+        "workflowStepsCount_other": "{{count}} 个工作流步骤：",
+        "emptyWorkflowsCount_other": "{{count}} 个空工作流将被删除：",
         "noHashlist": "无哈希列表",
         "step": "步骤 {{order}}",
         "andMore": "...还有 {{count}} 个",
@@ -545,8 +674,9 @@
         "firstWordlist": "第一个字典",
         "secondWordlist": "第二个字典",
         "allowHighPriorityOverride": "允许高优先级覆盖（可以中断运行中的任务）",
-        "cloudBurstEnabled": "Allow cloud burst",
-        "cloudMaxInstances": "Max cloud instances",
+        "additionalArgs": "其他 Hashcat 参数",
+        "cloudBurstEnabled": "允许云爆发",
+        "cloudMaxInstances": "最大云实例数",
         "cloudAllowCommunityHosts": "允许第三方机器（Vast.ai、RunPod Community）"
       },
       "incrementModes": {
@@ -566,14 +696,16 @@
         "maxAgents": "最大代理数（0 = 无限制）",
         "allowHighPriorityOverride": "启用后，此任务可以中断低优先级的运行中任务以获取其代理",
         "wordlistsNotUsed": "此攻击模式不使用字典",
-        "selectWordlists": "选择正好 {{count}} 个字典",
+        "selectWordlists_other": "正好选择 {{count}} 个字典",
         "rulesNotUsed": "此攻击模式不使用规则",
         "selectRule": "可选择一个规则文件来应用变换",
         "firstWordlist": "此列表中的词将用作第一部分",
         "secondWordlist": "此列表中的词将附加到第一部分",
-        "cloudBurstEnabled": "Rent GPU instances for jobs created from this preset when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.",
-        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
-        "cloudAllowCommunityHosts": "这些是他人的机器。机器所有者对容器拥有 root 权限，因此该客户的哈希、字典和破解出的明文可被第三方读取，且在主机上不加密存储。不建议用于生产或客户项目数据。若保持关闭，任务仍可使用安全算力（AWS、RunPod Secure Cloud），前提是客户允许。"
+        "additionalArgs": "此任务的额外 hashcat 标志。代理级标志在冲突时优先。",
+        "cloudBurstEnabled": "当本地 GPU 机群无法跟上时，为从此预设创建的任务租用 GPU 实例。需要客户获得资金并选择加入提供商。",
+        "cloudMaxInstances": "与管理共享本地池的最大代理数分开。留空以让剩余预算决定。",
+        "cloudAllowCommunityHosts": "这些是他人的机器。机器所有者对容器拥有 root 权限，因此该客户的哈希、字典和破解出的明文可被第三方读取，且在主机上不加密存储。不建议用于生产或客户项目数据。若保持关闭，任务仍可使用安全算力（AWS、RunPod Secure Cloud），前提是客户允许。",
+        "prefilteredWordlistHint": "要在预设任务中使用预筛选字典，请先在字典管理中创建它 — 然后它将出现在此列表中。内联临时筛选仅适用于一次性自定义任务。"
       },
       "errors": {
         "nameRequired": "任务名称为必填项",
@@ -593,6 +725,50 @@
       "messages": {
         "createSuccess": "预设任务创建成功",
         "updateSuccess": "预设任务更新成功"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "直接攻击",
+          "description": "使用字典中的单词，可选地应用规则来转换它们",
+          "wordlistRequirement": "需要恰好 1 个字典",
+          "rulesRequirement": "0 个或 1 个规则文件",
+          "maskRequirement": "不需要掩码"
+        },
+        "combination": {
+          "name": "组合攻击",
+          "description": "组合来自两个字典的单词（第一个单词 + 第二个单词）",
+          "wordlistRequirement": "需要恰好 2 个字典",
+          "rulesRequirement": "不需要规则",
+          "maskRequirement": "不需要掩码"
+        },
+        "bruteForce": {
+          "name": "暴力破解（掩码）",
+          "description": "基于模式/掩码生成密码",
+          "wordlistRequirement": "不需要字典",
+          "rulesRequirement": "不需要规则",
+          "maskRequirement": "需要掩码（例如，?u?l?l?l?d?d）"
+        },
+        "hybridWordlistMask": {
+          "name": "混合：字典 + 掩码",
+          "description": "将掩码生成的字符附加到字典中的单词",
+          "wordlistRequirement": "需要恰好 1 个字典",
+          "rulesRequirement": "不需要规则",
+          "maskRequirement": "需要掩码（例如，?d?d?d?d）"
+        },
+        "hybridMaskWordlist": {
+          "name": "混合：掩码 + 字典",
+          "description": "将掩码生成的字符前置到字典中的单词",
+          "wordlistRequirement": "需要恰好 1 个字典",
+          "rulesRequirement": "不需要规则",
+          "maskRequirement": "需要掩码（例如，?d?d?d?d）"
+        },
+        "association": {
+          "name": "关联攻击（未实现）",
+          "description": "此攻击模式目前未实现",
+          "wordlistRequirement": "N/A",
+          "rulesRequirement": "N/A",
+          "maskRequirement": "N/A"
+        }
       }
     }
   },
@@ -605,7 +781,7 @@
     "canInterrupt": "可中断",
     "normal": "普通",
     "loopbackAllEligible": "全部符合条件的步骤",
-    "loopbackStepCount": "{{count}} 个步骤",
+    "loopbackStepCount_other": "{{count}} 个步骤",
     "columns": {
       "name": "名称",
       "description": "描述",
@@ -630,8 +806,8 @@
       "noJobsAdded": "此工作流尚未添加任务。在上方搜索并添加预设任务。",
       "priority": "优先级：{{priority}}",
       "binary": "二进制：{{name}}",
-      "wordlistCount": "{{count}} 个字典",
-      "ruleCount": "{{count}} 个规则",
+      "wordlistCount_other": "{{count}} 个字典",
+      "ruleCount_other": "{{count}} 个规则",
       "loopback": {
         "masterToggle": "为所有符合条件的步骤启用回环",
         "masterHelperText": "启用后，先运行整个工作流，然后每个符合条件的步骤（直接攻击 + 规则，或字典 ± 掩码的混合攻击）仅针对新破解出的密码重新运行，并智能重复，直到不再有新的破解结果。不产生变形的步骤（仅字典、暴力破解、关联攻击）仍会将其新破解结果送入循环。启用此项时，下方的单个步骤开关将被禁用。",
@@ -660,8 +836,8 @@
         "updateSuccess": "工作流更新成功"
       },
       "cloudBurst": {
-        "toggle": "Allow cloud burst for every step",
-        "helperText": "Applies to all steps, overriding each preset's own setting. Set at the workflow level so one rented instance can carry the whole workflow instead of being torn down and re-rented between steps."
+        "toggle": "为所有步骤启用云爆发",
+        "helperText": "应用于所有步骤，覆盖每个预设自己的设置。在工作流级别设置，以便一个租用的实例可以处理整个工作流，而不是在步骤之间被销毁和重新租用。"
       }
     }
   },
@@ -698,11 +874,35 @@
       "cannotDeleteLast": "无法删除最后一个活跃的 {{type}} 二进制",
       "cannotDeleteOnly": "无法删除此类型唯一的二进制",
       "setDefaultSuccess": "默认二进制更新成功",
-      "setDefaultFailed": "设置默认二进制失败"
+      "setDefaultFailed": "设置默认二进制失败",
+      "addSuccess": "二进制已成功添加",
+      "addFailed": "无法添加二进制"
     },
     "deleteDialog": {
       "title": "确认删除",
       "message": "确定要删除二进制 \"{{fileName}}\" 吗？此操作无法撤销。"
+    },
+    "form": {
+      "addDialogTitle": "新增二进制",
+      "sourceLabel": "来源",
+      "downloadFromUrl": "从 URL 下载",
+      "uploadFile": "上传文件",
+      "binaryTypeLabel": "二进制类型",
+      "johnPending": "John the Ripper（支持待处理）",
+      "compressionTypeLabel": "压缩类型",
+      "sourceUrlLabel": "源 URL",
+      "sourceUrlHelp": "用于下载二进制的 URL（例如，https://hashcat.net/beta/hashcat-6.2.6%2B813.7z）",
+      "selectArchiveFile": "选择存档文件",
+      "uploadHelp": "上传包含二进制文件的 .7z、.zip、.tar.gz 或 .tar.xz 存档",
+      "fileNameLabel": "文件名",
+      "fileNameHelp": "从 URL/文件自动填充，但如果需要可以修改",
+      "versionLabel": "版本",
+      "versionHelp": "从文件名自动检测。为自定义构建覆盖。",
+      "descriptionLabel": "描述",
+      "descriptionHelp": "关于此二进制的可选说明（例如，自定义构建详情）",
+      "setAsDefault": "设置为默认二进制",
+      "selectFileRequired": "请选择要上传的文件",
+      "uploadBinarySubmit": "上传二进制文件"
     }
   },
   "diagnostics": {
@@ -856,7 +1056,8 @@
       "maxCodeAttempts": "最大验证码尝试次数",
       "maxCodeAttemptsHelper": "锁定前的最大失败验证码尝试次数",
       "backupCodesCount": "备份代码数量",
-      "backupCodesCountHelper": "要生成的备份代码数量"
+      "backupCodesCountHelper": "要生成的备份代码数量",
+      "requireMfaHelper": "每个用户登录时都必须完成双因素身份验证。需要配置电子邮件提供商以便发送验证码。"
     },
     "webauthn": {
       "title": "WebAuthn / 通行密钥配置",
@@ -891,18 +1092,24 @@
     "messages": {
       "updateSuccess": "身份验证设置更新成功",
       "updateFailed": "更新身份验证设置失败"
+    },
+    "teams": {
+      "title": "多团队隔离",
+      "description": "启用后，客户、哈希列表、任务和代理将被限制在各自的团队范围内，用户仅能查看其所在团队拥有的内容。",
+      "enable": "启用团队",
+      "enableHelper": "现有数据已放入默认团队。"
     }
   },
   "ssoSettings": {
     "pageTitle": "SSO 设置",
     "pageDescription": "配置单点登录提供者和身份验证选项",
     "warnings": {
-      "ephemeralKeyTitle": "SSO Encryption Key Not Configured",
-      "ephemeralKeyDescription": "SSO provider secrets (client secrets, bind passwords, private keys) are currently encrypted with a temporary key that will be lost when the server restarts. Any configured SSO providers will stop working after a restart.",
-      "ephemeralKeyInstructions": "To fix this, generate a persistent encryption key by running:",
-      "ephemeralKeyAddToEnv": "Then add the following to your .env file and restart the server:",
+      "ephemeralKeyTitle": "SSO 加密密钥未配置",
+      "ephemeralKeyDescription": "SSO 提供商机密（客户端密钥、绑定密码、私钥）当前使用临时密钥加密，服务器重启时将丢失。任何已配置的 SSO 提供商在重启后都将停止工作。",
+      "ephemeralKeyInstructions": "要解决此问题，请运行以下命令生成持久加密密钥：",
+      "ephemeralKeyAddToEnv": "然后将以下内容添加到您的 .env 文件并重启服务器：",
       "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
-      "ephemeralKeyCopied": "Command copied to clipboard"
+      "ephemeralKeyCopied": "命令已复制到剪贴板"
     },
     "authMethods": {
       "title": "身份验证方式",
@@ -1017,274 +1224,6 @@
       "saveProviderFailed": "保存提供者失败"
     }
   },
-  "settings": {
-    "saved": "设置保存成功",
-    "saveFailed": "保存设置失败"
-  },
-  "clientSettings": {
-    "title": "客户设置",
-    "retentionPeriod": "默认数据保留期（月）",
-    "retentionHelperText": "新客户的默认保留期（0 = 永久保留）",
-    "saveButton": "保存设置",
-    "errors": {
-      "invalidRetention": "保留期必须是非负数",
-      "saveFailed": "保存客户设置失败"
-    },
-    "messages": {
-      "updateSuccess": "客户设置更新成功"
-    }
-  },
-  "systemSettings": {
-    "title": "系统设置",
-    "priority": {
-      "title": "优先级设置",
-      "tooltip": "配置可分配给任务和预设任务的最大优先级值。这有助于在整个组织中保持一致的优先级范围。",
-      "maxPriority": "最大任务优先级",
-      "helperText": "设置最大优先级值（1-1,000,000）。任务和预设任务不能超过此优先级。",
-      "saveButton": "保存设置",
-      "saving": "保存中...",
-      "reset": "重置"
-    },
-    "priorityInfo": {
-      "title": "优先级系统信息",
-      "description": "优先级系统使用从 0 到配置的最大优先级的范围。数值越大表示优先级越高。",
-      "currentMax": "当前最大值",
-      "note": "您不能将最大优先级设置为低于任何现有预设任务的优先级。如需调整，请先更新或删除高优先级的预设任务。",
-      "recommended": "按组织规模推荐的范围：",
-      "small": "小型组织：0-100",
-      "medium": "中大型组织：0-1,000",
-      "large": "超大工作量组织：0-10,000"
-    },
-    "agentScheduling": {
-      "title": "代理调度",
-      "tooltip": "全局启用或禁用代理调度系统。启用后，可以为代理配置每日调度。",
-      "enable": "启用代理调度系统",
-      "description": "启用后，可以为代理配置每日调度。只有在当前时间安排中的代理才会被分配任务。",
-      "note": "各个代理还必须启用调度并配置了调度计划才能生效。"
-    },
-    "agentOverflow": {
-      "title": "代理溢出分配",
-      "tooltip": "配置当每个优先级的每个任务都达到其 max_agents 限制后，如何分配剩余的空闲代理。",
-      "modeLabel": "溢出分配模式",
-      "priorityFifoMode": "优先级 - 先进先出",
-      "priorityRoundRobinMode": "优先级 - 轮询",
-      "enforceMaxAgentsMode": "强制 max_agents",
-      "maxAgentsFifoMode": "最大代理数 - 先进先出",
-      "maxAgentsRoundRobinMode": "最大代理数 - 轮询",
-      "priorityFifoDescription": "当多个相同优先级的任务超出其 max_agents 限制时，最早创建的任务将获得所有额外的代理。",
-      "priorityRoundRobinDescription": "额外的代理将均匀分配给所有相同优先级的任务，每次一个代理，确保公平分配。",
-      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
-      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
-      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
-    },
-    "hashlist": {
-      "title": "哈希列表设置",
-      "tooltip": "配置与哈希列表上传和管理相关的设置",
-      "requireClient": "哈希列表需要客户",
-      "requireClientDescription": "启用后，用户上传新哈希列表时必须分配客户。这有助于更好地按客户组织和跟踪哈希列表。",
-      "batchSize": "批量导入批次大小",
-      "batchSizeHelper": "上传期间每批处理的哈希数。默认：100,000。大型哈希列表（47M+）建议：500,000-1,000,000",
-      "performanceGuide": "性能指南：",
-      "performance100k": "100K（默认）：适合大多数用例",
-      "performance500k": "500K：适合大型哈希列表，可能提高吞吐量",
-      "performance1m": "1M：最适合超大型哈希列表（50M+），需要更多内存"
-    },
-    "potfile": {
-      "title": "Potfile 设置",
-      "tooltip": "配置 potfile 如何处理已破解的密码以供后续任务重用",
-      "maxBatchSize": "最大批次大小",
-      "maxBatchSizeHelper": "每个批处理周期处理的暂存密码数量（1,000 - 500,000）",
-      "batchInterval": "批处理间隔（秒）",
-      "batchIntervalHelper": "pot 文件批处理周期之间的秒数（10 - 600）",
-      "description": "potfile 收集所有任务中破解的密码，并在后续攻击中重用。更大的批次大小每次处理更多密码，但每个周期需要更长时间。",
-      "processingRate": "处理速率",
-      "passwordsPerSecond": "密码/秒",
-      "currentSettings": "当前设置",
-      "passwordsEvery": "个密码，每",
-      "seconds": "秒"
-    },
-    "errors": {
-      "loadFailed": "加载系统设置失败",
-      "maxPriorityRequired": "最大优先级为必填项",
-      "maxPriorityPositive": "最大优先级必须是正数",
-      "maxPriorityMax": "最大优先级不能超过 1,000,000",
-      "saveFailed": "保存系统设置失败",
-      "batchSizeRange": "批次大小必须在 {{min}} 和 {{max}} 之间",
-      "intervalRange": "间隔必须在 {{min}} 和 {{max}} 秒之间"
-    },
-    "messages": {
-      "updateSuccess": "系统设置更新成功",
-      "schedulingUpdated": "代理调度设置已更新",
-      "schedulingFailed": "更新调度设置失败",
-      "overflowUpdated": "代理溢出分配模式已更新",
-      "overflowFailed": "更新溢出分配模式失败",
-      "hashlistClientUpdated": "哈希列表客户要求已更新",
-      "hashlistBatchUpdated": "哈希列表批次大小已更新",
-      "potfileBatchUpdated": "Potfile 批次大小已更新",
-      "potfileIntervalUpdated": "Potfile 批处理间隔已更新",
-      "updateFailed": "更新设置失败"
-    }
-  },
-  "jobExecution": {
-    "title": "任务执行设置",
-    "description": "配置任务如何在代理之间执行和分配",
-    "chunking": {
-      "title": "任务分块",
-      "defaultChunkDuration": "默认分块时长",
-      "defaultChunkDurationHelper": "每个任务块的持续时间",
-      "chunkFluctuation": "分块波动百分比",
-      "chunkFluctuationHelper": "最终块的允许波动",
-      "minutes": "分钟"
-    },
-    "agentConfig": {
-      "title": "代理配置",
-      "hashlistRetention": "哈希列表保留期",
-      "hashlistRetentionHelper": "代理保留哈希列表的时长",
-      "maxConcurrentJobs": "每个代理最大并发任务数",
-      "maxConcurrentJobsHelper": "代理可以同时运行的最大任务数",
-      "progressReporting": "进度报告间隔",
-      "progressReportingHelper": "代理报告进度的频率",
-      "benchmarkCache": "基准缓存时长",
-      "benchmarkCacheHelper": "缓存代理基准测试的时长",
-      "benchmarkHistoryRetention": "基准历史保留期",
-      "benchmarkHistoryRetentionHelper": "保留基准历史记录的天数（0 = 无限制）",
-      "speedtestTimeout": "速度测试超时",
-      "speedtestTimeoutHelper": "等待速度测试完成的最大时间",
-      "reconnectGrace": "重连宽限期",
-      "reconnectGraceHelper": "服务器重启后等待代理重新连接的时间",
-      "days": "天",
-      "seconds": "秒",
-      "minutes": "分钟"
-    },
-    "jobControl": {
-      "title": "任务控制",
-      "allowInterruption": "允许任务中断",
-      "allowInterruptionHelper": "高优先级任务可以中断正在运行的任务",
-      "realtimeNotifications": "实时破解通知",
-      "realtimeNotificationsHelper": "当哈希被破解时发送通知",
-      "refreshInterval": "任务刷新间隔",
-      "refreshIntervalHelper": "在 UI 中刷新任务状态的频率",
-      "maxRetryAttempts": "最大分块重试次数",
-      "maxRetryAttemptsHelper": "失败分块的重试次数",
-      "jobsPerPage": "每页任务数",
-      "jobsPerPageHelper": "任务列表的默认分页大小",
-      "keyspaceTimeout": "密钥空间计算超时",
-      "keyspaceTimeoutHelper": "hashcat --keyspace 和 --total-candidates 命令的最大时间。对于大型字典/规则文件请增加此值。"
-    },
-    "potfile": {
-      "title": "Potfile 设置",
-      "enablePotfile": "启用 Potfile",
-      "enablePotfileHelper": "自动存储已破解的密码以供将来的任务使用。单个哈希列表仍可被排除。"
-    },
-    "ruleSplitting": {
-      "title": "规则拆分",
-      "enableRuleSplitting": "启用规则拆分",
-      "enableRuleSplittingHelper": "自动拆分大型规则文件以进行分布式处理",
-      "threshold": "规则拆分阈值",
-      "thresholdHelper": "当任务时间超过分块时间此倍数时进行拆分",
-      "minRules": "最小拆分规则数",
-      "minRulesHelper": "不拆分规则数少于此值的文件",
-      "maxChunks": "最大规则块数",
-      "maxChunksHelper": "每个文件创建的最大块数",
-      "chunkDirectory": "规则块目录",
-      "chunkDirectoryHelper": "临时规则块的存储目录"
-    },
-    "buttons": {
-      "save": "保存设置"
-    },
-    "errors": {
-      "loadFailed": "加载设置失败",
-      "outOfRange": "{{label}} 必须介于 {{min}} 和 {{max}} 之间"
-    },
-    "messages": {
-      "updateSuccess": "任务执行设置更新成功",
-      "loadFailed": "加载任务执行设置失败",
-      "saveFailed": "保存设置失败"
-    }
-  },
-  "monitoring": {
-    "title": "监控设置",
-    "metricsRetention": {
-      "title": "📊 指标保留期",
-      "description": "配置在不同详细级别保留指标的时长。数据会随时间从细粒度级联到聚合。",
-      "realtimeData": "实时数据保留期",
-      "realtimeDataHelper": "保留近期活动的细粒度指标的天数（例如 7 天）",
-      "dailyAggregates": "每日聚合保留期",
-      "dailyAggregatesHelper": "实时期后存储每日汇总的天数（例如 30 天）",
-      "weeklyAggregates": "每周聚合保留期",
-      "weeklyAggregatesHelper": "保留长期趋势作为每周汇总的天数（例如 365 天）"
-    },
-    "aggregation": {
-      "title": "⚙️ 聚合设置",
-      "enableAggregation": "启用自动聚合",
-      "enableAggregationDescription": "自动合并旧指标以节省存储空间，同时保留趋势",
-      "interval": "聚合间隔",
-      "intervalHelper": "运行聚合过程的频率",
-      "hourly": "每小时",
-      "daily": "每天",
-      "weekly": "每周"
-    },
-    "cascading": {
-      "title": "级联聚合的工作原理：",
-      "realtime": "实时数据为近期活动提供详细指标",
-      "daily": "实时期后，数据聚合为每日汇总",
-      "weekly": "每日期后，数据进一步聚合为每周汇总",
-      "benefit": "这种方法在保留历史趋势的同时保持图表可读性"
-    },
-    "buttons": {
-      "save": "保存设置",
-      "saving": "保存中..."
-    },
-    "errors": {
-      "loadFailed": "加载设置失败。请重试。",
-      "saveFailed": "保存设置失败。请重试。"
-    },
-    "messages": {
-      "updateSuccess": "监控设置保存成功"
-    }
-  },
-  "agentDownloads": {
-    "title": "代理文件传输设置",
-    "description": "配置代理如何从后端下载文件。这些设置适用于所有已连接的代理。",
-    "concurrentDownloads": {
-      "title": "并发下载数",
-      "description": "可以同时下载的最大文件数"
-    },
-    "downloadTimeout": {
-      "title": "下载超时",
-      "description": "单个文件下载允许的最长时间",
-      "helper": "1 分钟到 24 小时（1440 分钟）之间",
-      "unit": "分钟"
-    },
-    "retryAttempts": {
-      "title": "重试次数",
-      "description": "下载失败时的重试次数"
-    },
-    "progressInterval": {
-      "title": "进度报告间隔",
-      "description": "代理报告下载进度的频率",
-      "helper": "1 秒到 5 分钟（300 秒）之间",
-      "unit": "秒"
-    },
-    "chunkSize": {
-      "title": "分块大小",
-      "description": "用于将来恢复功能的下载分块大小",
-      "helper": "1 MB 到 100 MB 之间",
-      "unit": "MB"
-    },
-    "applyNote": "更改将在代理下次连接时生效。当前已连接的代理将自动接收更新。",
-    "buttons": {
-      "save": "保存设置",
-      "saving": "保存中..."
-    },
-    "errors": {
-      "loadFailed": "加载代理下载设置失败",
-      "saveFailed": "更新代理下载设置失败"
-    },
-    "messages": {
-      "updateSuccess": "代理下载设置更新成功"
-    }
-  },
   "emailSettings": {
     "tabs": {
       "providerConfiguration": "提供者配置",
@@ -1377,13 +1316,25 @@
         "securityEvent": "安全事件",
         "jobCompletion": "任务完成",
         "adminError": "管理员错误",
-        "mfaCode": "MFA 验证码"
+        "mfaCode": "MFA 验证码",
+        "securityPasswordChanged": "密码已更改",
+        "securityMfaDisabled": "双因素身份验证已禁用",
+        "securitySuspiciousLogin": "可疑登录",
+        "jobStarted": "任务已开始",
+        "jobFailed": "任务失败",
+        "firstCrack": "首次破解",
+        "taskCompleted": "子任务已完成",
+        "agentOffline": "代理离线",
+        "agentError": "代理错误",
+        "webhookFailure": "Webhook失败"
       },
       "buttons": {
         "create": "创建模板",
         "cancel": "取消",
         "test": "测试",
-        "save": "保存"
+        "save": "保存",
+        "edit": "编辑",
+        "delete": "删除"
       },
       "table": {
         "name": "名称",
@@ -1402,8 +1353,407 @@
         "deleteSuccess": "模板删除成功",
         "deleteFailed": "删除模板失败",
         "testSuccess": "测试邮件发送成功",
-        "testFailed": "发送测试邮件失败"
+        "testFailed": "发送测试邮件失败",
+        "saveFailed": "保存模板失败"
       }
+    }
+  },
+  "settings": {
+    "saved": "设置保存成功",
+    "saveFailed": "保存设置失败"
+  },
+  "clientSettings": {
+    "title": "客户设置",
+    "retentionPeriod": "默认数据保留期（月）",
+    "retentionHelperText": "新客户的默认保留期（0 = 永久保留）",
+    "saveButton": "保存设置",
+    "errors": {
+      "invalidRetention": "保留期必须是非负数",
+      "saveFailed": "保存客户设置失败"
+    },
+    "messages": {
+      "updateSuccess": "客户设置更新成功"
+    }
+  },
+  "systemSettings": {
+    "title": "系统设置",
+    "priority": {
+      "title": "优先级设置",
+      "tooltip": "配置可分配给任务和预设任务的最大优先级值。这有助于在整个组织中保持一致的优先级范围。",
+      "maxPriority": "最大任务优先级",
+      "helperText": "设置最大优先级值（1-1,000,000）。任务和预设任务不能超过此优先级。",
+      "saveButton": "保存设置",
+      "saving": "保存中...",
+      "reset": "重置"
+    },
+    "priorityInfo": {
+      "title": "优先级系统信息",
+      "description": "优先级系统使用从 0 到配置的最大优先级的范围。数值越大表示优先级越高。",
+      "currentMax": "当前最大值",
+      "note": "您不能将最大优先级设置为低于任何现有预设任务的优先级。如需调整，请先更新或删除高优先级的预设任务。",
+      "recommended": "按组织规模推荐的范围：",
+      "small": "小型组织：0-100",
+      "medium": "中大型组织：0-1,000",
+      "large": "超大工作量组织：0-10,000"
+    },
+    "agentScheduling": {
+      "title": "代理调度",
+      "tooltip": "全局启用或禁用代理调度系统。启用后，可以为代理配置每日调度。",
+      "enable": "启用代理调度系统",
+      "description": "启用后，可以为代理配置每日调度。只有在当前时间安排中的代理才会被分配任务。",
+      "note": "各个代理还必须启用调度并配置了调度计划才能生效。"
+    },
+    "agentOverflow": {
+      "title": "代理溢出分配",
+      "tooltip": "配置当每个优先级的每个任务都达到其 max_agents 限制后，如何分配剩余的空闲代理。",
+      "modeLabel": "溢出分配模式",
+      "priorityFifoMode": "优先级 - 先进先出",
+      "priorityRoundRobinMode": "优先级 - 轮询",
+      "enforceMaxAgentsMode": "强制 max_agents",
+      "maxAgentsFifoMode": "最大代理数 - 先进先出",
+      "maxAgentsRoundRobinMode": "最大代理数 - 轮询",
+      "priorityFifoDescription": "当多个相同优先级的任务超出其 max_agents 限制时，最早创建的任务将获得所有额外的代理。",
+      "priorityRoundRobinDescription": "额外的代理将均匀分配给所有相同优先级的任务，每次一个代理，确保公平分配。",
+      "enforceMaxAgentsDescription": "严格限制每个任务不超过其 max_agents 限制 — 无溢出。多余代理保持空闲。最可预测但可能浪费容量。",
+      "maxAgentsFifoDescription": "所有优先级的任务先填充至其 max_agents 限制（严格上限）。任何剩余代理随后分配给总体上最旧的任务 — 绕过优先级。在确保每个任务获得基本配额的同时最大化吞吐量。",
+      "maxAgentsRoundRobinDescription": "所有优先级的任务先填充至其 max_agents 限制（严格上限）。任何剩余代理随后轮流分配给所有任务 — 绕过优先级。在基准配额之外实现公平分配的同时最大化吞吐量。"
+    },
+    "hashlist": {
+      "title": "哈希列表设置",
+      "tooltip": "配置与哈希列表上传和管理相关的设置",
+      "requireClient": "哈希列表需要客户",
+      "requireClientDescription": "启用后，用户上传新哈希列表时必须分配客户。这有助于更好地按客户组织和跟踪哈希列表。",
+      "batchSize": "批量导入批次大小",
+      "batchSizeHelper": "上传期间每批处理的哈希数。默认：100,000。大型哈希列表（47M+）建议：500,000-1,000,000",
+      "performanceGuide": "性能指南：",
+      "performance100k": "100K（默认）：适合大多数用例",
+      "performance500k": "500K：适合大型哈希列表，可能提高吞吐量",
+      "performance1m": "1M：最适合超大型哈希列表（50M+），需要更多内存"
+    },
+    "potfile": {
+      "title": "Potfile 设置",
+      "tooltip": "配置 potfile 如何处理已破解的密码以供后续任务重用",
+      "maxBatchSize": "最大批次大小",
+      "maxBatchSizeHelper": "每个批处理周期处理的暂存密码数量（1,000 - 500,000）",
+      "batchInterval": "批处理间隔（秒）",
+      "batchIntervalHelper": "pot 文件批处理周期之间的秒数（10 - 600）",
+      "description": "potfile 收集所有任务中破解的密码，并在后续攻击中重用。更大的批次大小每次处理更多密码，但每个周期需要更长时间。",
+      "processingRate": "处理速率",
+      "passwordsPerSecond": "密码/秒",
+      "currentSettings": "当前设置",
+      "passwordsEvery": "个密码，每",
+      "seconds": "秒"
+    },
+    "speedTest": {
+      "title": "速度测试（基准测试）",
+      "tooltip": "调整代理在速度测试失败前等待 hashcat 生成可用基准的时长。压缩字典需要明显更多的时间进行 dictstat 预处理。",
+      "timeoutUncompressed": "超时：纯文本字典（秒）",
+      "timeoutUncompressedHelper": "代理等待纯文本字典给出有效速率读数的最大秒数。默认值：120。",
+      "timeoutCompressed": "超时：压缩字典（秒）",
+      "timeoutCompressedHelper": "用于 .gz / .zip / .xz 字典的最大秒数 — 这三种格式是 hashcat 原生支持的。这些格式需要更长时间来解压和 dictstat 预处理。默认值：300。",
+      "minStatusUpdates": "最小状态更新数",
+      "minStatusUpdatesHelper": "代理在返回结果前必须收集的 hashcat --status-json 更新次数下限。默认值：3。",
+      "minUpdatesLowWarning": "低于 3 的值可能产生不准确的读数：GPU 可能还未完全启动。",
+      "description": "如果代理超时但没有生成非零速率，基准测试报告为失败，任务会显示管理员可处理的错误。分块管道也会拒绝分派 1 候选任务，因此陈旧的 0 H/s 基准测试无法无限循环。"
+    },
+    "errors": {
+      "loadFailed": "加载系统设置失败",
+      "maxPriorityRequired": "最大优先级为必填项",
+      "maxPriorityPositive": "最大优先级必须是正数",
+      "maxPriorityMax": "最大优先级不能超过 1,000,000",
+      "saveFailed": "保存系统设置失败",
+      "batchSizeRange": "批次大小必须在 {{min}} 和 {{max}} 之间",
+      "intervalRange": "间隔必须在 {{min}} 和 {{max}} 秒之间",
+      "speedTestTimeoutRange": "速度测试超时必须在 {{min}} 和 {{max}} 秒之间",
+      "minStatusUpdatesRange": "最小状态更新数必须在 {{min}} 和 {{max}} 之间"
+    },
+    "messages": {
+      "updateSuccess": "系统设置更新成功",
+      "schedulingUpdated": "代理调度设置已更新",
+      "schedulingFailed": "更新调度设置失败",
+      "overflowUpdated": "代理溢出分配模式已更新",
+      "overflowFailed": "更新溢出分配模式失败",
+      "hashlistClientUpdated": "哈希列表客户要求已更新",
+      "hashlistBatchUpdated": "哈希列表批次大小已更新",
+      "potfileBatchUpdated": "Potfile 批次大小已更新",
+      "potfileIntervalUpdated": "Potfile 批处理间隔已更新",
+      "speedTestTimeoutUpdated": "速度测试超时已更新",
+      "speedTestMinUpdatesUpdated": "速度测试最小状态更新数已更新",
+      "updateFailed": "更新设置失败"
+    }
+  },
+  "jobExecution": {
+    "title": "任务执行设置",
+    "description": "配置任务如何在代理之间执行和分配",
+    "chunking": {
+      "title": "任务分块",
+      "defaultChunkDuration": "默认分块时长",
+      "defaultChunkDurationHelper": "每个任务块的持续时间",
+      "minChunkSeconds": "最小分块时长",
+      "minChunkSecondsHelper": "单个分块实际执行时间的下限；防止产生微小的孤立分块",
+      "minutes": "分钟",
+      "overrunTolerance": "分块超时容限",
+      "overrunToleranceHelper": "分块在被守卫停止并重新分派剩余部分前，可以超过其计划时长的时间。",
+      "overrunGuard": "启用分块超时守卫",
+      "overrunGuardHelper": "停止运行时长远超其计划分块时长的子任务，并重新分派未完成的部分。",
+      "chunkFluctuation": "分块波动百分比",
+      "chunkFluctuationHelper": "最终块的允许波动"
+    },
+    "agentConfig": {
+      "title": "代理配置",
+      "hashlistRetention": "哈希列表保留期",
+      "hashlistRetentionHelper": "代理保留哈希列表的时长",
+      "maxConcurrentJobs": "每个代理最大并发任务数",
+      "maxConcurrentJobsHelper": "代理可以同时运行的最大任务数",
+      "progressReporting": "进度报告间隔",
+      "progressReportingHelper": "代理报告进度的频率",
+      "benchmarkCache": "基准缓存时长",
+      "benchmarkCacheHelper": "缓存代理基准测试的时长",
+      "benchmarkHistoryRetention": "基准历史保留期",
+      "benchmarkHistoryRetentionHelper": "保留基准历史记录的天数（0 = 无限制）",
+      "reconnectGrace": "重连宽限期",
+      "reconnectGraceHelper": "服务器重启后等待代理重新连接的时间",
+      "days": "天",
+      "seconds": "秒",
+      "minutes": "分钟",
+      "speedtestTimeout": "速度测试超时",
+      "speedtestTimeoutHelper": "等待速度测试完成的最大时间"
+    },
+    "jobControl": {
+      "title": "任务控制",
+      "allowInterruption": "允许任务中断",
+      "allowInterruptionHelper": "高优先级任务可以中断正在运行的任务",
+      "realtimeNotifications": "实时破解通知",
+      "realtimeNotificationsHelper": "当哈希被破解时发送通知",
+      "refreshInterval": "任务刷新间隔",
+      "refreshIntervalHelper": "在 UI 中刷新任务状态的频率",
+      "maxRetryAttempts": "最大分块重试次数",
+      "maxRetryAttemptsHelper": "失败分块的重试次数",
+      "jobsPerPage": "每页任务数",
+      "jobsPerPageHelper": "任务列表的默认分页大小",
+      "keyspaceTimeout": "密钥空间计算超时",
+      "keyspaceTimeoutHelper": "hashcat --keyspace 和 --total-candidates 命令的最大时间。对于大型字典/规则文件请增加此值。"
+    },
+    "potfile": {
+      "title": "Potfile 设置",
+      "enablePotfile": "启用 Potfile",
+      "enablePotfileHelper": "自动存储已破解的密码以供将来的任务使用。单个哈希列表仍可被排除。",
+      "maxBatchSize": "最大批处理大小",
+      "maxBatchSizeHelper": "每个批处理周期中处理的暂存密码数（1,000 - 500,000）",
+      "batchInterval": "批处理间隔",
+      "batchIntervalHelper": "potfile 批处理周期之间的秒数（10 - 600）",
+      "enableClientPotfiles": "启用客户 potfile",
+      "enableClientPotfilesHelper": "除全局 potfile 外，为每个客户保留单独的 potfile。",
+      "removeGlobalDefault": "删除哈希列表时从全局 potfile 中删除（默认）",
+      "removeClientDefault": "删除哈希列表时从客户 potfile 中删除（默认）"
+    },
+    "scheduler": {
+      "title": "调度器（v2）",
+      "description": "用于 v2 调度器子任务活跃性和超时处理的高级调优。默认设置对大多数部署都是安全的。",
+      "taskHeartbeatTimeout": "子任务心跳超时",
+      "taskHeartbeatTimeoutHelper": "在将运行中的子任务标记为丢失并恢复之前，无活跃信号的秒数",
+      "taskStartupGrace": "子任务启动宽限期",
+      "taskStartupGraceHelper": "首次进度前的额外宽限期（文件下载、解压、autotune）",
+      "networkGrace": "网络宽限期",
+      "networkGraceHelper": "断开连接时触发恢复前的 WebSocket 重新连接容限",
+      "overrunGuardEnabled": "分块超时守卫",
+      "overrunGuardEnabledHelper": "停止运行时长超出分块目标、超过下方容限的子任务",
+      "overrunTolerance": "超时容限",
+      "overrunToleranceHelper": "宽限窗口：当实际执行时间超出分块目标的比例达到此百分比时停止"
+    },
+    "buttons": {
+      "save": "保存设置"
+    },
+    "errors": {
+      "loadFailed": "加载设置失败",
+      "outOfRange": "{{label}} 必须介于 {{min}} 和 {{max}} 之间"
+    },
+    "messages": {
+      "updateSuccess": "任务执行设置更新成功",
+      "loadFailed": "加载任务执行设置失败",
+      "saveFailed": "保存设置失败"
+    },
+    "keyspaceBenchmark": {
+      "title": "密钥空间和基准测试",
+      "caption": "KrakenHashes 可以花多长时间来测量攻击。第一个设置限制服务器在创建任务时测量字典的时长；速度测试设置限制代理测量其自身哈希速率的时长。它们是不同的阶段 — 增加一个不会影响另一个。",
+      "keyspaceTimeout": "密钥空间计算超时",
+      "keyspaceTimeoutHelper": "服务器端。创建任务时允许 hashcat --keyspace / --total-candidates 的时间。在后台运行，因此增加此值不会使任务创建变慢。如果超过，直接攻击将回退到字典字数并通知用户。",
+      "speedTestUncompressed": "代理速度测试超时",
+      "speedTestUncompressedHelper": "代理端。代理对未压缩字典进行基准测试的实际执行时间限制。",
+      "speedTestCompressed": "代理速度测试超时（压缩）",
+      "speedTestCompressedHelper": "代理端。用于压缩字典的更长限制，hashcat 在报告速率前必须先解压。",
+      "minStatusUpdates": "最小状态更新数",
+      "minStatusUpdatesHelper": "速度测试在其结果可信前必须生成多少个 hashcat 状态报告。较低的值会冒着在 GPU 尚未稳定时记录速率的风险。",
+      "cacheDuration": "基准测试缓存时长",
+      "cacheDurationHelper": "已记录的基准测试在请求代理重新测量前保持有效的时长。",
+      "historyRetention": "基准测试历史保留期",
+      "historyRetentionHelper": "保留单个基准测试记录用于趋势分析的时长。",
+      "hours": "小时",
+      "days": "天"
+    },
+    "benchmarkReliability": {
+      "title": "基准测试可靠性",
+      "caption": "基准测试重复失败时会发生什么。这些设置可防止一个故障代理或一个故障任务配置通过重复运行无法成功的基准测试而耗尽整个机群。",
+      "failureThreshold": "失败阈值",
+      "failureThresholdHelper": "在阻止列表中列出一个代理/任务/攻击组合前，其连续基准测试失败的次数。",
+      "hardFailureCap": "硬失败上限",
+      "hardFailureCapHelper": "对一个组合的基准测试尝试的绝对上限，无论上述阈值如何。",
+      "blocklistCooldown": "阻止列表冷却期",
+      "blocklistCooldownHelper": "阻止列表中的代理/任务/攻击组合在可能被重试前保持被阻止的时长。",
+      "stormThreshold": "基准测试风暴阈值",
+      "stormThresholdHelper": "在风暴窗口内触发管理员通知的基准测试失败数。",
+      "stormWindow": "基准测试风暴窗口",
+      "stormWindowHelper": "计算风暴阈值失败的时间段。",
+      "streakReset": "连续失败次数重置",
+      "streakResetHelper": "代理在其连续失败次数重置为零前必须无基准测试失败的时长。",
+      "quarantineStreak": "隔离连续失败次数",
+      "quarantineStreakHelper": "在代理本身因基准测试而被隔离前，任意组合的连续失败数。",
+      "quarantineDistinct": "隔离不同组合",
+      "quarantineDistinctHelper": "在将代理视为故障而不是任务前，必须失败多少个不同的攻击/哈希类型组合。"
+    },
+    "scheduling": {
+      "title": "调度与分配",
+      "overflowMode": "代理溢出分配模式",
+      "overflowModeHelper": "任务达到其最大代理数限制后，剩余代理如何分配。",
+      "maxConcurrentJobs": "每个代理的最大并发任务数",
+      "maxConcurrentJobsHelper": "单个代理一次可处理的任务数。",
+      "agentScheduling": "启用代理调度",
+      "agentSchedulingHelper": "全局启用每个代理的工作时间表。禁用时，代理时间表将被忽略。",
+      "jobInterruption": "允许任务中断",
+      "jobInterruptionHelper": "抢占的全局开关。任务必须同时具备自己的高优先级覆盖标志和非零优先级，才会发生任何中断。",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "轮询",
+        "enforceMaxAgents": "强制执行最大代理数",
+        "maxAgentsFifo": "最大代理数，然后 FIFO",
+        "maxAgentsRoundRobin": "最大代理数，然后轮询"
+      }
+    },
+    "taskHealth": {
+      "title": "子任务健康状况",
+      "caption": "当运行中的子任务被视为丢失时，以及工作如何被积极地恢复。设置过紧会驱逐健康子任务；过松则会导致失效子任务长达数小时占用其密钥空间。",
+      "heartbeatTimeout": "子任务心跳超时",
+      "heartbeatTimeoutHelper": "运行中的子任务在被视为丢失并重新打开其密钥空间前，可以无心跳的时长。",
+      "startupGrace": "子任务启动宽限期",
+      "startupGraceHelper": "分配后在心跳规则生效前允许的额外时间，覆盖 hashcat 启动和文件加载。",
+      "networkGrace": "网络宽限期",
+      "networkGraceHelper": "为短暂的网络中断提供短暂容限，避免错过的心跳立即被计入。",
+      "reconnectGrace": "重新连接宽限期",
+      "reconnectGraceHelper": "断开连接的代理可以重新连接并回收其运行中子任务的时长。",
+      "offlineBuffer": "代理离线缓冲",
+      "offlineBufferHelper": "短暂离线代理的消息在被丢弃前被缓冲的时长。",
+      "maxRetryAttempts": "最大分块重试次数",
+      "maxRetryAttemptsHelper": "失败分块在子任务失败前被重试的次数。设置为 0 可禁用重试。",
+      "progressInterval": "进度报告间隔",
+      "progressIntervalHelper": "代理报告进度的频率。较低的值提供更精细的进度但产生更多负载。",
+      "hashlistRetention": "代理哈希列表保留期",
+      "hashlistRetentionHelper": "代理完成后保留下载的哈希列表的时长。"
+    },
+    "loopback": {
+      "title": "回环",
+      "maxRounds": "最大回环轮次",
+      "maxRoundsHelper": "即使仍在发现新破解，回环会话针对新破解明文重复运行攻击的次数达到此上限后也会停止。"
+    },
+    "jobNotifications": {
+      "title": "任务通知",
+      "realtimeCracks": "实时破解通知",
+      "realtimeCracksHelper": "在哈希被破解时通知。可能在非常大的任务上增加明显负载。"
+    },
+    "ruleSplitting": {
+      "title": "规则拆分",
+      "enableRuleSplitting": "启用规则拆分",
+      "enableRuleSplittingHelper": "自动拆分大型规则文件以进行分布式处理",
+      "threshold": "规则拆分阈值",
+      "thresholdHelper": "当任务时间超过分块时间此倍数时进行拆分",
+      "minRules": "最小拆分规则数",
+      "minRulesHelper": "不拆分规则数少于此值的文件",
+      "maxChunks": "最大规则块数",
+      "maxChunksHelper": "每个文件创建的最大块数",
+      "chunkDirectory": "规则块目录",
+      "chunkDirectoryHelper": "临时规则块的存储目录"
+    }
+  },
+  "monitoring": {
+    "title": "监控设置",
+    "metricsRetention": {
+      "title": "📊 指标保留期",
+      "description": "配置在不同详细级别保留指标的时长。数据会随时间从细粒度级联到聚合。",
+      "realtimeData": "实时数据保留期",
+      "realtimeDataHelper": "保留近期活动的细粒度指标的天数（例如 7 天）",
+      "dailyAggregates": "每日聚合保留期",
+      "dailyAggregatesHelper": "实时期后存储每日汇总的天数（例如 30 天）",
+      "weeklyAggregates": "每周聚合保留期",
+      "weeklyAggregatesHelper": "保留长期趋势作为每周汇总的天数（例如 365 天）"
+    },
+    "aggregation": {
+      "title": "⚙️ 聚合设置",
+      "enableAggregation": "启用自动聚合",
+      "enableAggregationDescription": "自动合并旧指标以节省存储空间，同时保留趋势",
+      "interval": "聚合间隔",
+      "intervalHelper": "运行聚合过程的频率",
+      "hourly": "每小时",
+      "daily": "每天",
+      "weekly": "每周"
+    },
+    "cascading": {
+      "title": "级联聚合的工作原理：",
+      "realtime": "实时数据为近期活动提供详细指标",
+      "daily": "实时期后，数据聚合为每日汇总",
+      "weekly": "每日期后，数据进一步聚合为每周汇总",
+      "benefit": "这种方法在保留历史趋势的同时保持图表可读性"
+    },
+    "buttons": {
+      "save": "保存设置",
+      "saving": "保存中..."
+    },
+    "errors": {
+      "loadFailed": "加载设置失败。请重试。",
+      "saveFailed": "保存设置失败。请重试。"
+    },
+    "messages": {
+      "updateSuccess": "监控设置保存成功"
+    }
+  },
+  "agentDownloads": {
+    "title": "代理文件传输设置",
+    "description": "配置代理如何从后端下载文件。这些设置适用于所有已连接的代理。",
+    "concurrentDownloads": {
+      "title": "并发下载数",
+      "description": "可以同时下载的最大文件数"
+    },
+    "downloadTimeout": {
+      "title": "下载超时",
+      "description": "单个文件下载允许的最长时间",
+      "helper": "1 分钟到 24 小时（1440 分钟）之间",
+      "unit": "分钟"
+    },
+    "retryAttempts": {
+      "title": "重试次数",
+      "description": "下载失败时的重试次数"
+    },
+    "progressInterval": {
+      "title": "进度报告间隔",
+      "description": "代理报告下载进度的频率",
+      "helper": "1 秒到 5 分钟（300 秒）之间",
+      "unit": "秒"
+    },
+    "chunkSize": {
+      "title": "分块大小",
+      "description": "用于将来恢复功能的下载分块大小",
+      "helper": "1 MB 到 100 MB 之间",
+      "unit": "MB"
+    },
+    "applyNote": "更改将在代理下次连接时生效。当前已连接的代理将自动接收更新。",
+    "buttons": {
+      "save": "保存设置",
+      "saving": "保存中..."
+    },
+    "errors": {
+      "loadFailed": "加载代理下载设置失败",
+      "saveFailed": "更新代理下载设置失败"
+    },
+    "messages": {
+      "updateSuccess": "代理下载设置更新成功"
     }
   },
   "hashTypes": {
@@ -1411,7 +1761,7 @@
     "description": "管理密码破解操作支持的哈希类型",
     "addHashType": "添加哈希类型",
     "searchPlaceholder": "搜索哈希类型...",
-    "hashTypesFound": "找到 {{count}} 种哈希类型",
+    "hashTypesFound_other": "找到 {{count}} 个哈希类型",
     "table": {
       "id": "ID",
       "name": "名称",
@@ -1470,180 +1820,240 @@
   },
   "cloud": {
     "intro": {
-      "title": "Cloud GPU provisioning",
-      "body": "Rent GPU instances on demand when the on-prem fleet cannot keep up. Instances join your existing VPN, receive only the files their job needs, and are torn down automatically. Spend is committed against a per-client budget before an instance boots, so a cap is a real limit rather than an after-the-fact measurement.",
-      "fleetLink": "View the live fleet"
+      "title": "云 GPU 部署",
+      "body": "当本地机群无法跟上时按需租赁 GPU 实例。实例加入您现有的 VPN，仅接收其任务所需的文件，并自动被销毁。实例启动前，支出就已从客户预算中预留，因此预算上限是真实的限制，而不是事后才衡量的结果。",
+      "fleetLink": "查看实时机群"
     },
     "sections": {
-      "providers": "Providers",
-      "clients": "Client budgets",
-      "policy": "Threshold policy",
+      "providers": "提供商",
+      "clients": "客户预算",
+      "policy": "阈值策略",
       "rules": "预配规则",
-      "system": "Limits & operations"
+      "system": "限制与操作"
     },
     "providers": {
-      "title": "Cloud providers",
-      "description": "Where rented instances come from, and how they reach this server.",
-      "add": "Add provider",
-      "addTitle": "Add cloud provider",
-      "editTitle": "Edit cloud provider",
-      "edit": "Edit",
-      "delete": "Delete",
-      "save": "Save",
-      "saved": "Provider saved",
-      "saveFailed": "Failed to save provider",
-      "deleted": "Provider deleted",
-      "deleteFailed": "Failed to delete provider",
-      "deleteTitle": "Delete provider?",
-      "deleteBody": "Delete \"{{name}}\"? This fails while any rented instance still references it.",
-      "loadFailed": "Failed to load providers",
-      "empty": "No cloud providers configured. Nothing will be rented.",
-      "enabled": "Enabled",
-      "disabled": "Disabled",
-      "noCredentials": "No credentials",
-      "noVpn": "No VPN",
-      "credentialExpired": "Credential expired",
-      "credentialExpiresIn": "Expires in {{days}}d",
-      "limitsValue": "{{instances}} max, {{rate}}/hr cap",
-      "thirdPartyBadge": "Runs on third-party machines",
-      "preflight": "Preflight",
-      "preflightTitle": "Preflight report",
-      "preflightOk": "This provider can launch instances.",
-      "preflightFailed": "Preflight request failed",
-      "preflightFailedBody": "This provider cannot launch instances yet.",
-      "preflightIdentity": "Authenticated as {{identity}}",
-      "preflightQuota": "Quota: {{used}} of {{limit}} in use ({{source}})",
+      "title": "云提供商",
+      "description": "租赁实例的来源及其如何到达此服务器。",
+      "add": "添加提供商",
+      "addTitle": "添加云提供商",
+      "editTitle": "编辑云提供商",
+      "edit": "编辑",
+      "delete": "删除",
+      "save": "保存",
+      "saved": "提供商已保存",
+      "saveFailed": "保存提供商失败",
+      "deleted": "提供商已删除",
+      "deleteFailed": "删除提供商失败",
+      "deleteTitle": "删除提供商？",
+      "deleteBody": "删除\"{{name}}\"？当任何租赁实例仍然引用它时会失败。",
+      "loadFailed": "加载提供商失败",
+      "empty": "未配置云提供商。将不会租赁任何内容。",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "noCredentials": "无凭证",
+      "noVpn": "无 VPN",
+      "credentialExpired": "凭证已过期",
+      "credentialExpiresIn": "在 {{days}}d 后过期",
+      "limitsValue": "{{instances}} 最大，{{rate}}/hr 上限",
+      "thirdPartyBadge": "在第三方机器上运行",
+      "preflight": "预检",
+      "preflightTitle": "预检报告",
+      "preflightOk": "此提供商可以启动实例。",
+      "preflightFailed": "预检请求失败",
+      "preflightFailedBody": "此提供商尚无法启动实例。",
+      "preflightIdentity": "以 {{identity}} 身份认证",
+      "preflightQuota": "配额：已使用 {{used}} 个，共 {{limit}} 个（{{source}}）",
       "preflightSections": {
-        "missing_permissions": "Missing permissions",
-        "inconclusive": "Could not be verified (treated as failure)",
-        "errors": "Errors",
-        "warnings": "Warnings"
+        "missing_permissions": "缺少权限",
+        "inconclusive": "无法验证（视为失败）",
+        "errors": "错误",
+        "warnings": "警告"
       },
-      "acknowledge": "Acknowledge",
-      "acknowledged": "Acknowledgement recorded",
-      "ackFailed": "Failed to record acknowledgement",
-      "ackTitle": "Acknowledge third-party data exposure",
+      "acknowledge": "确认",
+      "acknowledged": "确认已记录",
+      "ackFailed": "记录确认失败",
+      "ackTitle": "确认第三方数据暴露",
       "ackBody": {
         "vastai": "Vast.ai 在个人机器上出租 GPU，其运营者对容器拥有 root 访问权限。放置在那里的哈希、字典和破解的明文均可被第三方看到。这与 AWS 或 RunPod Secure Cloud 有本质区别。",
         "runpod_community": "RunPod Community Cloud 在第三方机器上出租 GPU，其所有者对容器拥有 root 访问权限。放置在那里的哈希、字典和破解的明文均可被第三方看到。RunPod 的认证仅覆盖 Secure Cloud。"
       },
-      "ackConfirm": "Do you accept this exposure for workloads sent to this provider?",
-      "ackAccept": "I understand and accept",
-      "ephemeralKeyTitle": "Encryption key is ephemeral",
-      "ephemeralKeyBody": "KH_ENCRYPTION_KEY is not set, so a random key was generated at startup. Every stored credential becomes unreadable after the next restart. Set KH_ENCRYPTION_KEY before saving provider credentials.",
-      "vpnSection": "VPN connectivity",
-      "vpnSectionHelp": "This server is never exposed to the internet, so rented instances join the VPN you already run. OpenVPN is not supported: it needs /dev/net/tun and CAP_NET_ADMIN, which Vast.ai's unprivileged containers do not provide.",
+      "ackConfirm": "您接受向此提供商发送工作负载所带来的这一风险吗？",
+      "ackAccept": "我理解并接受",
+      "ephemeralKeyTitle": "加密密钥是临时的",
+      "ephemeralKeyBody": "未设置 KH_ENCRYPTION_KEY，因此在启动时生成了随机密钥。每次重启后，所有存储的凭证都将变得不可读。在保存提供商凭证前，请设置 KH_ENCRYPTION_KEY。",
+      "vpnSection": "VPN 连接",
+      "vpnSectionHelp": "此服务器从不暴露于互联网，因此租赁的实例加入您已运行的 VPN。不支持 OpenVPN：它需要 /dev/net/tun 和 CAP_NET_ADMIN，而 Vast.ai 的非特权容器不提供这些。",
       "reusableKeyWarning": {
-        "tailscale": "A reusable key is shared by every instance and expires — Tailscale caps auth keys at 90 days. Once it lapses, provisioning is refused rather than launching instances that cannot connect. An OAuth client lets KrakenHashes mint a single-use ephemeral tagged key per instance instead.",
-        "netbird": "A reusable setup key is shared by every instance, so the same secret reaches every rented host. Set Credential expires at below if the key has an expiry — provisioning is then refused once it lapses instead of launching instances that cannot connect; leave it blank for a key that never expires. Tag or group is ignored for this credential type: the group and the ephemeral flag come from the key's own configuration in NetBird. An access token lets KrakenHashes mint a single-use ephemeral setup key per instance and set the group itself."
+        "tailscale": "可重用密钥由每个实例共享并会过期——Tailscale 将授权密钥限制为 90 天。一旦过期，部署将被拒绝，而不是启动无法连接的实例。OAuth 客户端让 KrakenHashes 为每个实例生成单次使用的临时标记密钥。",
+        "netbird": "可重用设置密钥由每个实例共享，因此相同的密钥到达每个租赁的主机。如果密钥有过期时间，请在下面设置凭证过期时间——部署将在过期后被拒绝，而不是启动无法连接的实例；留空表示密钥永不过期。此凭证类型忽略标记或组：组和临时标志来自 NetBird 中的密钥自身配置。访问令牌让 KrakenHashes 为每个实例生成单次使用的临时设置密钥并自行设置组。"
       },
-      "staticConfigWarning": "WireGuard uses a static peer config: there is no per-instance credential and no automatic deregistration when an instance dies. Tailscale or NetBird is safer.",
+      "staticConfigWarning": "WireGuard 使用静态对等配置：没有按实例分配的凭证，实例终止时也不会自动注销。Tailscale 或 NetBird 更安全。",
       "kinds": {
-        "aws": "AWS EC2 (your own account)",
-        "vastai": "Vast.ai (third-party machines)",
-        "mock": "Mock (local test agents, no cost)",
+        "aws": "AWS EC2（您自己的账户）",
+        "vastai": "Vast.ai（第三方机器）",
+        "mock": "Mock（本地测试代理，无成本）",
         "runpod": "RunPod Secure Cloud（SOC 2 数据中心）",
         "runpod_community": "RunPod Community Cloud（第三方机器）"
       },
       "credentialKinds": {
-        "oauth": "OAuth client — mint one ephemeral key per instance (recommended)",
-        "pat": "Access token — mint one ephemeral key per instance (recommended)",
-        "reusable_key": "Reusable key — shared by every instance",
-        "static_config": "Static config — no per-instance credential"
+        "oauth": "OAuth 客户端——为每个实例生成一个临时密钥（推荐）",
+        "pat": "访问令牌——为每个实例生成一个临时密钥（推荐）",
+        "reusable_key": "可重用密钥——由每个实例共享",
+        "static_config": "静态配置——没有按实例分配的凭证"
       },
       "vpnCredentialHelp": {
-        "oauth": "Tailscale OAuth client as client_id:client_secret. Needs the auth_keys scope and the tag selected.",
-        "pat": "NetBird personal access token or service-user token.",
-        "reusable_key": "The pre-authorized key every instance will use.",
-        "static_config": "The full WireGuard peer configuration."
+        "oauth": "Tailscale OAuth 客户端为 client_id:client_secret 格式。需要 auth_keys 范围，并选择标记。",
+        "pat": "NetBird 个人访问令牌或服务用户令牌。",
+        "reusable_key": "每个实例都将使用的预授权密钥。",
+        "static_config": "完整的 WireGuard 对等配置。"
       },
       "columns": {
-        "name": "Name",
-        "provider": "Provider",
-        "status": "Status",
+        "name": "名称",
+        "provider": "提供商",
+        "status": "状态",
         "vpn": "VPN",
-        "limits": "Limits",
-        "actions": "Actions"
+        "limits": "限制",
+        "actions": "操作"
       },
       "fields": {
-        "name": "Name",
-        "provider": "Provider",
-        "credentials": "Provider credentials",
-        "credentialsHelp": "API credentials for {{provider}}. Stored encrypted and never returned.",
-        "credentialsKeepHelp": "Leave blank to keep the stored credential unchanged.",
-        "maxConcurrent": "Maximum concurrent instances",
-        "maxHourlyCents": "Maximum hourly rate (cents)",
-        "maxHourlyHelp": "Offers above this rate are never rented, whatever the budget allows.",
-        "vpnProvider": "VPN provider",
-        "credentialKind": "Credential type",
-        "vpnCredential": "VPN credential",
-        "credentialExpiry": "Credential expires at",
-        "credentialExpiryHelp": "Optional — leave blank for a key that never expires. Provisioning is refused after this time, and you will be warned as it approaches.",
-        "vpnTag": "Tag or group",
-        "vpnTagHelp": "e.g. tag:kraken-worker. Required for Tailscale OAuth; scopes what these nodes may reach.",
-        "backendVpnHost": "This server's address on the VPN",
-        "backendVpnHostHelp": "The KH_HOST value cloud agents use. The server certificate must cover it — add it under the Server Certificate tab and click Apply & Reissue, or agents will fail TLS hostname verification.",
-        "enabled": "Enabled",
-        "awsAccessKeyId": "AWS access key ID",
-        "awsAccessKeyIdHelp": "An IAM user or role key scoped to EC2 provisioning. Stored encrypted and never returned.",
-        "awsSecretAccessKey": "AWS secret access key",
-        "awsRegion": "Region",
-        "awsRegionHelp": "e.g. us-east-2. Every other AWS field below must live in this region.",
-        "awsSubnet": "Subnet ID",
-        "awsSubnetHelp": "e.g. subnet-0abc123. Must auto-assign a public IP, or the instance cannot reach your VPN's control plane.",
-        "awsSecurityGroups": "Security group IDs",
-        "awsSecurityGroupsHelp": "Comma-separated, e.g. sg-0abc123. Needs outbound access only; no inbound rule is required.",
-        "awsAmiSsm": "AMI SSM parameter",
-        "awsAmiSsmHelp": "Resolved at launch, so the image never goes stale. e.g. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
-        "awsAmiId": "AMI ID (overrides the SSM parameter)",
-        "awsAmiIdHelp": "Pin a specific image instead. Leave blank to resolve through SSM. One of the two is required.",
-        "awsInstanceProfile": "IAM instance profile ARN",
-        "awsInstanceProfileHelp": "Optional. Only needed if the agent itself must call AWS APIs.",
-        "awsRootVolume": "Root volume (GB)",
-        "awsRootVolumeHelp": "A floor; a job's file set may need more. Must be at least the AMI's snapshot size or the launch fails.",
-        "awsEbsRate": "EBS rate (cents/GB-month)",
-        "awsEbsRateHelp": "gp3 storage price. Left at 0 the budget reserves nothing for disk.",
-        "awsUseSpot": "Use spot capacity",
-        "awsUseSpotHelp": "Spot requests are one-time and terminate on interruption. Discounts on current-generation GPU are often modest, so this is not automatically cheaper. Spot and on-demand draw on separate vCPU quotas.",
-        "awsInstanceType": "Instance type",
-        "awsHourlyCents": "Cents/hour",
-        "awsGpuModel": "GPU model",
-        "awsGpuCount": "GPUs",
-        "awsVram": "VRAM/GPU",
-        "mockAgentBinary": "Agent binary path",
-        "mockAgentBinaryHelp": "Path to an agent binary the server can execute with --test-mode.",
-        "mockBackendHost": "Backend host for spawned agents",
-        "mockBackendHostHelp": "e.g. localhost:31337.",
-        "mockHourlyRate": "Simulated rate (cents/hour)",
-        "mockBootDelay": "Simulated boot delay (seconds)",
-        "mockFailLaunch": "Fault: fail every launch",
-        "mockDropLaunchResponse": "Fault: drop the launch response (instance runs but is reported failed)",
-        "mockNeverRegister": "Fault: instance never registers",
-        "mockFailDestroy": "Fault: fail every destroy",
-        "vpnTagIgnoredHelp": "Ignored for a NetBird reusable key: group membership and the ephemeral flag come from the setup key's own configuration in NetBird. Used only on the access-token path, as auto_groups on each minted key.",
+        "name": "名称",
+        "provider": "提供商",
+        "credentials": "提供商凭证",
+        "credentialsHelp": "{{provider}} 的 API 凭证。已加密存储，永远不会返回。",
+        "credentialsKeepHelp": "留空以保持存储的凭证不变。",
+        "maxConcurrent": "最大并发实例数",
+        "maxHourlyCents": "最大每小时费率（美分）",
+        "maxHourlyHelp": "超过此费率的优惠永远不会被租用，无论预算是否允许。",
+        "vpnProvider": "VPN 提供商",
+        "credentialKind": "凭证类型",
+        "vpnCredential": "VPN 凭证",
+        "credentialExpiry": "凭证过期时间",
+        "credentialExpiryHelp": "可选——留空表示永不过期的密钥。此时间后部署将被拒绝，在接近时您将收到警告。",
+        "vpnTag": "标记或组",
+        "vpnTagHelp": "例如 tag:kraken-worker。Tailscale OAuth 需要；限制这些节点可以到达的范围。",
+        "backendVpnHost": "此服务器在 VPN 上的地址",
+        "backendVpnHostHelp": "云代理使用的 KH_HOST 值。服务器证书必须包含它——在服务器证书选项卡下添加它，然后单击应用并重新颁发，否则代理将无法通过 TLS 主机名验证。",
+        "enabled": "已启用",
+        "awsAccessKeyId": "AWS 访问密钥 ID",
+        "awsAccessKeyIdHelp": "限定于 EC2 部署的 IAM 用户或角色密钥。已加密存储，永远不会返回。",
+        "awsSecretAccessKey": "AWS 私有访问密钥",
+        "awsRegion": "区域",
+        "awsRegionHelp": "例如 us-east-2。下面的所有其他 AWS 字段都必须位于此区域内。",
+        "awsSubnet": "子网 ID",
+        "awsSubnetHelp": "例如 subnet-0abc123。必须自动分配公共 IP，否则实例无法到达您的 VPN 控制平面。",
+        "awsSecurityGroups": "安全组 ID",
+        "awsSecurityGroupsHelp": "逗号分隔，例如 sg-0abc123。仅需要出站访问；不需要入站规则。",
+        "awsAmiSsm": "AMI SSM 参数",
+        "awsAmiSsmHelp": "在启动时解析，因此映像永不过时。例如 /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "AMI ID（覆盖 SSM 参数）",
+        "awsAmiIdHelp": "改为固定特定映像。留空以通过 SSM 解析。两者之一是必需的。",
+        "awsInstanceProfile": "IAM 实例配置 ARN",
+        "awsInstanceProfileHelp": "可选。仅当代理本身必须调用 AWS API 时才需要。",
+        "awsRootVolume": "根卷（GB）",
+        "awsRootVolumeHelp": "一个下限；任务的文件集可能需要更多。必须至少为 AMI 的快照大小，否则启动失败。",
+        "awsEbsRate": "EBS 费率（美分/GB-月）",
+        "awsEbsRateHelp": "gp3 存储价格。设置为 0 时预算对磁盘不保留任何资金。",
+        "awsUseSpot": "使用竞价实例",
+        "awsUseSpotHelp": "竞价请求是一次性的，在中断时终止。当前代 GPU 的折扣通常很小，因此这不一定更便宜。竞价和按需使用分开的 vCPU 配额。",
+        "awsInstanceType": "实例类型",
+        "awsHourlyCents": "美分/小时",
+        "awsGpuModel": "GPU 型号",
+        "awsGpuCount": "GPU 数量",
+        "awsVram": "显存/GPU",
+        "mockAgentBinary": "代理二进制路径",
+        "mockAgentBinaryHelp": "服务器可以使用 --test-mode 执行的代理二进制文件的路径。",
+        "mockBackendHost": "生成的代理的后端主机",
+        "mockBackendHostHelp": "例如 localhost:31337。",
+        "mockHourlyRate": "模拟费率（美分/小时）",
+        "mockBootDelay": "模拟启动延迟（秒）",
+        "mockFailLaunch": "故障：每次启动都失败",
+        "mockDropLaunchResponse": "故障：丢弃启动响应（实例运行但被报告为失败）",
+        "mockNeverRegister": "故障：实例从不注册",
+        "mockFailDestroy": "故障：每次销毁都失败",
+        "vpnTagIgnoredHelp": "对于 NetBird 可重用密钥，此设置将被忽略：组成员身份和临时标志来自该设置密钥在 NetBird 中的自身配置。仅在访问令牌路径上使用，作为每个生成密钥的 auto_groups。",
         "vpnUrl": {
-          "netbird": "NetBird management URL",
-          "tailscale": "Tailscale login server (Headscale)"
+          "netbird": "NetBird 管理 URL",
+          "tailscale": "Tailscale 登录服务器（Headscale）"
         },
         "vpnUrlHelp": {
-          "netbird": "Your self-hosted NetBird management server, e.g. https://netbird.example.com. Used both to mint setup keys and to start the client. Leave blank for NetBird's hosted service.",
-          "tailscale": "Only for a self-hosted control server. Note that access-token minting always uses api.tailscale.com and does not support Headscale."
-        }
+          "netbird": "您自托管的 NetBird 管理服务器，例如 https://netbird.example.com。用于生成设置密钥和启动客户端。留空使用 NetBird 的托管服务。",
+          "tailscale": "仅适用于自托管控制服务器。注意访问令牌生成始终使用 api.tailscale.com，不支持 Headscale。"
+        },
+        "vastCountries": "国家/地区（逗号分隔）",
+        "vastCountriesHelp": "Vast.ai 国家/地区代码，例如 US、DE、SE。空表示任何地方。针对报告的地理位置不区分大小写地匹配，因此 'US' 匹配 'US, Texas'。也用作您的数据驻留控制。",
+        "vastGpuModels": "允许的 GPU 型号（逗号分隔）",
+        "vastGpuModelsHelp": "空表示任何显卡。基于规范化密钥匹配，因此 'rtx_4090' 匹配 'NVIDIA GeForce RTX 4090' 和 'RTX 4090'。扩大此列表是提高可用性的最便宜方式。",
+        "vastDeniedGpuModels": "拒绝的 GPU 型号（逗号分隔）",
+        "vastDeniedGpuModelsHelp": "始终覆盖允许列表。这是“那张卡一直出问题，别再租它了”这种情况下的紧急开关。",
+        "vastMinReliability": "最小主机可靠性（0-1）",
+        "vastMinReliabilityHelp": "Vast.ai 自己的主机可靠性分数。0 表示禁用此下限。未报告分数的主机会被保留。以少量可用性换取更少的失败租赁——在分块执行过程中终止实例的主机，仍已因其启用而获得报酬。",
+        "vastAllowUnverified": "允许未验证的主机（提高可用性；未审查的机器）",
+        "vastAllowResidential": "允许住宅主机（提高可用性；家用机器，不是数据中心）",
+        "runpodDataCenters": "数据中心（逗号分隔）",
+        "runpodDataCentersHelp": "RunPod 数据中心 ID，例如 EU-RO-1、US-KS-2。留空是最宽泛的设置，而不是最狭窄的——RunPod 自己的调度程序随后可能会将 pod 放在任何地方。这与 AWS 可用区相反，在那里留空仍会将您固定在一个可用区。可为数据驻留设置此项，或使启动重试循环遍历真正独立的资源池。",
+        "runpodGpuTypes": "允许的 GPU 类型（逗号分隔）",
+        "runpodGpuTypesHelp": "RunPod gpuType ID 完全如在可用性网格中显示的，例如 'NVIDIA GeForce RTX 4090'。空表示此级别携带的每张卡。",
+        "runpodDiskGb": "容器磁盘下限（GB）",
+        "runpodDiskGbHelp": "一个下限，不是上限：任务的文件集需要更多时将获得更多。容器磁盘会在 pod 重启时被擦除，且永远不会挂载网络卷——网络卷会比 pod 存活更久，并在终止后保留已破解的明文。",
+        "runpodDiskRate": "容器磁盘（美分/GB-月）",
+        "runpodDiskRateHelp": "构成预算预留中的存储部分。向上取整，因为低估存储的预留会让客户超出被告知是硬性上限的额度。",
+        "runpodSelfDestruct": "当 VPN 失联时允许 pod 自我删除（仅限安全级别）",
+        "runpodSelfDestructHelp": "添加第三条销毁通道，以便 pod 在失去联系时可以自行删除，与 Vast.ai 的做法一致。RunPod 没有按 pod 限定的凭证，因此这会在每个 pod 中放置一个账户范围的密钥——一个可以创建和删除账户上每个其他 pod 的密钥。请在凭证 JSON 中提供一个单独的、权限更窄的密钥作为 self_destruct_api_key，而不是重复使用您的部署密钥。社区级别永远不提供此功能。"
       },
       "peerWarningTitle": "第三方硬件",
       "peerWarningBody": {
         "vastai": "Vast.ai 实例运行在您无法控制的个人机器上。仅在客户数据允许向第三方公开时启用，并需逐客户确认。",
         "runpod_community": "RunPod Community Cloud 运行在第三方机器上，其所有者对容器拥有 root 权限。RunPod 的 SOC 2、ISO 27001 和 PCI DSS 认证仅覆盖 Secure Cloud，不适用于此层级。仅在客户数据允许向第三方公开时启用。"
       },
-      "awsSection": "AWS placement and pricing",
-      "awsSectionHelp": "Where instances launch and what they cost. EC2 exposes no machine-readable GPU model or hourly rate to this code, so both are declared here.",
-      "awsInstanceTypes": "Instance types offered",
-      "awsInstanceTypesHelp": "Only the types listed here can be rented. Declare the rate you are willing to be billed at — round up, since the budget reserves against this number and nothing cross-checks it against an invoice. Declaring the GPU model and count is what enables cost-per-work ranking; without it, ranking falls back to price per hour.",
-      "awsAddInstanceType": "Add instance type",
-      "awsRemoveInstanceType": "Remove",
-      "mockSection": "Mock behaviour and fault injection",
-      "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
-      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it.",
+      "awsSection": "AWS 放置和定价",
+      "awsSectionHelp": "实例启动的位置及其成本。EC2 不向此代码公开机器可读的 GPU 型号或每小时费率，因此两者都在此处声明。",
+      "awsInstanceTypes": "提供的实例类型",
+      "awsInstanceTypesHelp": "仅此处列出的类型可以被租用。请声明您愿意被收取的费率——向上取整，因为预算会按此数字进行预留，而且不会有任何机制将其与账单核对。声明 GPU 型号和数量后，系统才能按单位工作成本进行排名；若未声明，排名会回退到按每小时价格计算。",
+      "awsAddInstanceType": "添加实例类型",
+      "awsRemoveInstanceType": "移除",
+      "mockSection": "Mock 行为和故障注入",
+      "mockSectionHelp": "Mock 提供商会生成本地代理 --test-mode 进程。这些故障开关可以在不重新编译的情况下触发失败分支。",
+      "providerNotImplemented": "此提供商尚没有适配器：后端会在启动时以 \"unsupported cloud provider\" 拒绝它。它可以被保存，但无法从中部署任何内容。",
+      "zones": {
+        "title": "放置和硬件",
+        "help": "勾选您愿意租用的每个位置和每个 GPU。容量通常同时取决于硬件与放置的组合，而不是仅取决于其中一项，因此每个勾选的单元格都是获得一台机器的一次独立机会——只勾选一个单元格，意味着一旦遭到容量拒绝就无处可回退。将某一行的显卡全部勾选，表示“任何我已批准的硬件”都可以，包括之后新增的硬件。",
+        "probe": "检查可用性",
+        "probeHelp": "从 AWS 读取实时可用区、子网、供应情况、竞价价格和放置分数数据。只读：不会启动任何实例，也不会产生任何费用。",
+        "probeIdle": "加载此提供商的实时可用区、子网和竞价价格。",
+        "probeFailed": "无法从 AWS 读取容量。",
+        "saveFirst": "请先保存提供商。可用性是使用已保存的凭证和区域读取的，因此未保存的表单没有可查询的内容。",
+        "selectAll": "选择所有可用区",
+        "colZone": "可用区",
+        "colSubnet": "子网",
+        "notOffered": "EC2 在此可用区不提供此实例类型。这一点是确定的——此处的启动会以 Unsupported 失败。",
+        "unusable": "此放置无法启动。请参阅其名称旁的注释。",
+        "freeIps_other": "{{count}} 个免费 IP",
+        "scoreHelp": "AWS 针对此卡在此可用区给出的 1-10 分排名，证据较弱：在此账户中，该区域内每个可用区的评分都是 1/10，而其中一个可用区几分钟后便首次启动成功。该评分决定先尝试哪个池，但从不会把池从列表中移除。请将其与可用区名称旁显示的所有类型评分进行比较。",
+        "spotVsConfigured": "此处 Spot 报价为 {{spot}}/小时；您为此类型配置的费率为 {{configured}}/小时。预留金额按配置费率计算，因此当定价低于实时费率时，会对您被告知为硬性上限的预算造成预留不足。",
+        "poolCount_other": "已选择 {{count}} 个容量池",
+        "poolCountWarning": "一个池就是一次机会。当它耗尽后，启动重试循环再无去处，部署就会停止，直到容量恢复为止。请勾选更多可用区、更多实例类型，或两者兼顾。",
+        "poolCountOk": "某个池遭到容量拒绝时，会按最可能成功优先的顺序转向下一个池。",
+        "legacyOverridden": "可用区已配置，因此上方单个的子网 ID（{{subnet}}）会被忽略。若取消勾选所有可用区，它将作为回退使用。",
+        "combinedScore": "所有类型：{{score}}/10",
+        "combinedScoreHelp": "AWS 针对您在此可用区中所有已定价实例类型整体给出的位置评分，这与单张卡各自的评分是不同的问题——而且通常是好得多的答案。在一个区域内、一分钟内测得：g6.xlarge 单独评分为 1/10，而 g4dn + g5 + g6 合计评分为 9/10。广度不是对稀缺性的对冲，它本身就是被评分的对象。",
+        "availableCount": "{{count}} 台空闲",
+        "availableCountHelp": "现在可租用机器的实时统计数量。这是真实库存，是界面上最强的信号——远胜于仅代表意见的位置评分。",
+        "livePriceHelp": "提供商现在对此收取的费用。",
+        "trust": {
+          "definitive": "确切",
+          "measured": "实时",
+          "advisory": "仅供参考"
+        },
+        "axesModeNote": "此提供商将国家与 GPU 型号存储为两个独立列表，因此勾选一张卡会将其应用到每个已选国家/地区。下方每个单元格的计数和价格仍然真实，且特定于该国家/地区。"
+      },
+      "vastSection": "Vast.ai 位置和硬件政策",
+      "vastSectionHelp": "此提供商可租赁的国家和卡。将列表留空表示无限制，这是最宽的池，也是默认值。",
+      "vastTierWarningTitle": "您正在打开未经验证的主机层级",
+      "vastTierWarningBody": "这是 Vast.ai 上可获得的单一最大可用性提升，但也会将客户的哈希、字典、potfile 和已破解的明文置于 Vast.ai 未经验证的机器上。每个 Vast 主机本身就已对容器拥有 root 权限；这些开关移除了唯一把范围限制在 Vast 已核实主机上的过滤条件。未经验证的层级也正是“连接卡住”和“驱动故障”报告集中出现的地方，因此部分额外可用性只是虚幻的——即使一次租用从未能产生有效工作，其启用成本依然由您承担。",
+      "runpodSection": "RunPod 位置和硬件政策",
+      "runpodSectionHelp": "此提供商可租赁的数据中心和 GPU 类型。RunPod 的价格是实时的，因此此处无需声明费率——这与 AWS 不同。",
+      "runpodCommunityTeardownTitle": "Community 销毁仅依赖后端回收进程",
+      "runpodCommunityTeardownBody": "RunPod 不提供按单个 pod 划分范围的凭证，因此 Community pod 没有安全的自行删除方式：唯一可用的密钥是账户范围的，而 Community 主机的运营方对容器拥有 root 权限，会从环境变量中读取该密钥。容器内部运行的期限机制仍会终止 hashcat 并结束数据暴露，但无法停止 pod 计费。若该后端宕机或卡死，Community pod 会持续计费，直到您在「云机群」页面手动将其销毁为止。请为允许使用此层级的任何客户设置较低的实例 TTL 上限与较小的预算上限。",
       "experimentalChip": "实验性",
       "experimentalTooltip": "实验性 — 尚未测试。此适配器从未用真实资金在真实提供商上完整跑通。预期会有缺陷；请监控您的作业并反馈发现的问题。",
       "experimentalTitle": "实验性 — 尚未测试",
@@ -1654,170 +2064,172 @@
       "reportDiagnosticsLink": "通过 Discord 发送诊断（勿放入 issue）"
     },
     "budgets": {
-      "title": "Client budgets",
-      "description": "What each client may spend, and which providers their data may go to. Clients with blank fields follow the server defaults below.",
-      "loadFailed": "Failed to load client budgets",
-      "empty": "No clients exist yet. Create a client first, then fund it here.",
-      "edit": "Edit",
-      "editTitle": "Cloud settings — {{name}}",
-      "saved": "Client cloud settings saved",
-      "saveFailed": "Failed to save client cloud settings",
-      "enabled": "Enabled",
-      "disabled": "Disabled",
-      "unfunded": "No budget",
-      "noProviders": "No providers allowed",
-      "ttlValue": "{{minutes}} min",
-      "spendSummary": "{{used}} of {{cap}} committed ({{pct}}%)",
-      "acknowledged": "Acknowledgement recorded",
-      "acknowledgedChip": "Acknowledged",
-      "ackFailed": "Failed to record acknowledgement",
-      "ackTitle": "Acknowledge third-party exposure for this client",
-      "ackWarningTitle": "This client's data would leave your control",
-      "ackWarningBody": "Allowing Vast.ai for {{name}} means this client's hashes, wordlists and cracked plaintexts may be placed on machines owned by third parties who have root access to the container.",
-      "ackConfirm": "Do you accept this exposure for this client?",
-      "ackAccept": "I understand and accept",
+      "title": "客户预算",
+      "description": "每个客户可能花费的金额，以及其数据可能流向哪些提供商。字段留空的客户将遵循下方的服务器默认值。",
+      "loadFailed": "加载客户预算失败",
+      "empty": "目前还没有客户。请先创建一个客户，再在此处为其设置预算。",
+      "edit": "编辑",
+      "editTitle": "云设置——{{name}}",
+      "saved": "客户云设置已保存",
+      "saveFailed": "保存客户云设置失败",
+      "enabled": "启用",
+      "disabled": "禁用",
+      "unfunded": "无预算",
+      "noProviders": "不允许任何提供商",
+      "ttlValue": "{{minutes}} 分钟",
+      "spendSummary": "{{used}} / {{cap}} 已提交（{{pct}}%）",
+      "acknowledged": "确认已记录",
+      "acknowledgedChip": "已确认",
+      "ackFailed": "记录确认失败",
+      "ackTitle": "为此客户确认第三方暴露",
+      "ackWarningTitle": "此客户的数据将离开您的控制",
+      "ackWarningBody": "允许 {{name}} 使用 Vast.ai，意味着该客户的哈希、字典和已破解的明文可能被放置在第三方拥有的机器上，而这些第三方对容器拥有 root 访问权限。",
+      "ackConfirm": "您是否接受此客户所面临的这一暴露风险？",
+      "ackAccept": "我理解并接受",
       "actions": {
-        "none": "Within budget",
-        "notify": "Threshold reached",
-        "stop_provisioning": "Provisioning stopped",
-        "drain": "Draining",
-        "hard_stop": "Hard stop"
+        "none": "在预算内",
+        "notify": "已达到阈值",
+        "stop_provisioning": "部署已停止",
+        "drain": "排空中",
+        "hard_stop": "硬停止"
       },
       "columns": {
-        "client": "Client",
-        "status": "Status",
-        "providers": "Allowed providers",
-        "spend": "Spend",
-        "ttl": "Max TTL",
-        "actions": "Actions"
+        "client": "客户",
+        "status": "状态",
+        "providers": "允许的提供商",
+        "spend": "支出",
+        "ttl": "最大 TTL",
+        "actions": "操作"
       },
       "fields": {
-        "budget": "Budget",
-        "budgetHelp": "Spend ceiling for the current budget period. Leave blank to inherit the server default; a client only ends up unfunded if no default is set either.",
-        "ttl": "Maximum instance lifetime (minutes)",
-        "ttlHelp": "An instance is destroyed at this age regardless of progress. Leave blank to use the system default.",
-        "providers": "Allowed providers",
-        "providersHelp": "Empty means nothing may be rented for this client. Allowing AWS while forbidding Vast.ai is a normal configuration.",
-        "enabled": "Cloud burst",
-        "period": "Budget period",
-        "periodHelp": "Leave blank to inherit the server default."
+        "budget": "预算",
+        "budgetHelp": "当前预算期间的支出上限。留空则继承服务器默认值；只有在未设置默认值的情况下，客户才会最终没有预算。",
+        "ttl": "最大实例生命周期（分钟）",
+        "ttlHelp": "达到此生命周期时长后，实例将被销毁，无论进度如何。留空则使用系统默认值。",
+        "providers": "允许的提供商",
+        "providersHelp": "留空表示该客户无法租赁任何资源。允许 AWS 同时禁止 Vast.ai，属于正常配置。",
+        "enabled": "云突发",
+        "period": "预算期间",
+        "periodHelp": "留空以继承服务器默认值。"
       },
       "errors": {
-        "invalidBudget": "Budget must be a number, e.g. 25.00",
-        "negativeBudget": "Budget must not be negative",
-        "invalidTtl": "Maximum lifetime must be a positive number of minutes",
-        "enabledWithoutBudget": "Set a budget before enabling cloud burst — an unfunded client can never provision anything.",
-        "enabledWithoutProvider": "Allow at least one provider before enabling cloud burst."
+        "invalidBudget": "预算必须是数字，例如 25.00",
+        "negativeBudget": "预算不能为负数",
+        "invalidTtl": "最大生命周期必须是以分钟为单位的正数。",
+        "enabledWithoutBudget": "启用云突发前，先设置预算——没有预算的客户永远无法预置任何内容。",
+        "enabledWithoutProvider": "启用云突发前至少允许一个提供商。"
       },
       "peerTooltip": "第三方硬件：该客户的数据将可被机器所有者读取。",
       "defaults": {
-        "title": "Server defaults",
-        "description": "Values a client uses when it has not set its own. Leaving a client's field blank means it follows the default here, so changing this changes every client still inheriting.",
-        "summary": "{{amount}} per {{period}}",
-        "summaryUnset": "No default budget set — clients that inherit stay unfunded",
-        "budget": "Default budget",
-        "budgetHelp": "Leave blank for no default: inheriting clients then stay unfunded and cannot burst.",
-        "period": "Default budget period",
-        "enabled": "Clients may burst to paid capacity by default",
-        "providers": "Default providers",
-        "providersHelp": "Applied to any client whose own provider list is empty.",
-        "peerAckNote": "Peer-operated providers still require a per-client acknowledgement. Defaulting them in does not grant that consent — each client must still be acknowledged individually before its data can go there.",
-        "appliesNow": "Cloud burst is enabled by default and a default budget is set, so every client still inheriting can now provision paid capacity.",
-        "save": "Save defaults",
-        "saved": "Defaults saved",
-        "saveFailed": "Failed to save defaults",
-        "fundedButDisabled": "A default budget is set but cloud burst is off by default, so no inheriting client can provision anything. Tick the box above to make the budget usable.",
-        "enabledWithoutProviders": "Cloud burst is on by default but no default providers are selected, so inheriting clients still cannot rent anything. Choose at least one provider above.",
-        "willEnableTitle": "This will let {{count}} client(s) rent paid capacity",
-        "willEnableBody": "These clients have no settings of their own, so they follow the defaults above. Saving lets each of them provision cloud instances and spend against this budget. To keep a client out, set its own Cloud burst to Disabled.",
-        "andMore": "+{{count}} more",
-        "confirmTitle": "Enable cloud spending for {{count}} client(s)?",
-        "confirmBody": "{{count}} client(s) currently cannot rent anything. Saving these defaults gives each of them a {{amount}} ceiling per {{period}} and permission to spend it. The budget is per client, not shared, so this is the total exposure multiplied by the number of clients listed.",
-        "confirmAlternative": "Prefer to opt in one at a time? Cancel, leave cloud burst off by default, and set Cloud burst and a budget on each client individually instead.",
-        "confirmAccept": "Enable {{count}} client(s)"
+        "title": "服务器默认值",
+        "description": "当客户未设置自己的值时所使用的默认值。将客户的字段留空，即表示遵循此处的默认值，因此修改这些默认值会影响所有仍在继承默认值的客户。",
+        "summary": "{{amount}}/{{period}}",
+        "summaryUnset": "未设置默认预算——继承该设置的客户将始终没有预算",
+        "budget": "默认预算",
+        "budgetHelp": "留空表示不设默认值：继承该设置的客户将没有预算，也无法突发。",
+        "period": "默认预算期间",
+        "enabled": "客户默认可以突发到付费容量",
+        "providers": "默认提供商",
+        "providersHelp": "适用于自身提供商列表为空的任何客户。",
+        "peerAckNote": "对等运营的提供商仍需要逐个客户单独确认。将其设为默认并不能代替该同意——在数据可以流向那里之前，每个客户仍必须单独获得确认。",
+        "appliesNow": "云突发默认启用，并设置了默认预算，因此仍在继承的每个客户现在都可以预置付费容量。",
+        "save": "保存默认值",
+        "saved": "默认值已保存",
+        "saveFailed": "保存默认值失败",
+        "fundedButDisabled": "设置了默认预算，但云突发默认关闭，因此没有继承的客户可以预置任何内容。勾选上面的框以使预算可用。",
+        "enabledWithoutProviders": "云突发默认打开，但未选择默认提供商，因此继承的客户仍然无法租赁任何内容。在上面选择至少一个提供商。",
+        "willEnableTitle_other": "这将让 {{count}} 个客户租赁付费容量",
+        "willEnableBody": "这些客户没有自己的设置，因此它们遵循上方的默认值。保存后，每个客户都可以预置云实例，并按此预算进行支出。若要将某个客户排除在外，请将其自身的云突发设置为「禁用」。",
+        "andMore": "+{{count}} 个",
+        "confirmTitle_other": "为 {{count}} 个客户启用云支出？",
+        "confirmBody_other": "{{count}} 个客户目前无法租赁任何内容。保存这些默认值会为每个客户提供 {{amount}}/{{period}} 的上限，以及动用该预算的权限。预算按客户单独计算，并非共享，因此总风险敞口等于该上限乘以列出的客户数量。",
+        "confirmAlternative": "更希望逐个为客户单独启用吗？取消此操作，让云突发默认保持关闭，然后分别为每个客户设置云突发和预算。",
+        "confirmAccept_other": "启用 {{count}} 个客户"
       },
       "periods": {
-        "monthly": "month",
-        "quarterly": "quarter",
-        "semiannual": "six months"
+        "monthly": "月",
+        "quarterly": "季度",
+        "semiannual": "六个月"
       },
-      "inheritLabel": "Inherit default ({{value}})",
-      "on": "Enabled",
-      "off": "Disabled",
-      "inheriting": "inheriting"
+      "inheritLabel": "继承默认值（{{value}}）",
+      "on": "启用",
+      "off": "禁用",
+      "inheriting": "继承中"
     },
     "policy": {
-      "title": "Spend threshold policy",
-      "description": "What happens as a client approaches its cap. These thresholds decide how gracefully the cap is reached; what actually prevents an overrun is that an instance's whole lifetime cost is committed before it boots.",
-      "loadFailed": "Failed to load the threshold policy",
-      "saved": "Threshold policy saved",
-      "saveFailed": "Failed to save the threshold policy",
-      "overageWarning": "Overage is allowed: reservations may exceed the remaining budget. The cap becomes advisory rather than absolute.",
-      "hardStopAboveCapNote": "Hard stop is set to {{pct}}% but overage is off, so reservations still cannot exceed 100% of the budget. Enable overage if you intend to allow spending past the cap.",
+      "title": "支出阈值政策",
+      "description": "当客户接近其预算上限时会发生什么。这些阈值决定了上限被触及的过程有多平稳；真正能防止超支的，是实例的整个生命周期成本在其启动前就已被提交。",
+      "loadFailed": "加载阈值政策失败",
+      "saved": "阈值政策已保存",
+      "saveFailed": "保存阈值政策失败",
+      "overageWarning": "允许超额：预留金额可能超出剩余预算。上限将变为建议性而非绝对限制。",
+      "hardStopAboveCapNote": "硬停止设置为 {{pct}}%，但超额已关闭，因此预留仍不能超过预算的 100%。如果您打算允许支出超过上限，请启用超额。",
       "fields": {
-        "notifyEnabled": "Notify me as spend approaches the cap",
-        "notifyPct": "Notify at (% of budget)",
-        "notifyPctHelp": "Sends a notification once. Turn the checkbox off to never notify.",
-        "stopProvisionPct": "Stop provisioning at (%)",
-        "stopProvisionPctHelp": "No new instances are launched past this point. Running instances continue.",
-        "drainPct": "Start draining at (%)",
-        "drainPctHelp": "No new work is dispatched; in-flight chunks are allowed to finish.",
-        "hardStopPct": "Hard stop at (%)",
-        "hardStopPctHelp": "Instances are destroyed immediately, finishing or not.",
-        "drainTimeout": "Drain timeout (seconds)",
-        "drainTimeoutHelp": "How long an instance may keep finishing its chunk before it is destroyed anyway.",
-        "allowOverage": "Allow spending past the cap",
-        "allowOverageHelp": "Leave off to make the cap absolute. With it off, a $10 budget stops at $10."
+        "notifyEnabled": "当支出接近上限时通知我",
+        "notifyPct": "在（预算的 %）处通知",
+        "notifyPctHelp": "发送一次通知。关闭复选框以永不通知。",
+        "stopProvisionPct": "在（%）处停止部署",
+        "stopProvisionPctHelp": "此后将不再启动新实例；正在运行的实例会继续运行。",
+        "drainPct": "在（%）处开始排空",
+        "drainPctHelp": "不再分派新工作；允许正在进行的分块完成。",
+        "hardStopPct": "在（%）处硬停止",
+        "hardStopPctHelp": "实例立即被销毁，无论是否完成。",
+        "drainTimeout": "排空超时（秒）",
+        "drainTimeoutHelp": "实例在被强制销毁前，可以继续完成其分块的最长时间。",
+        "allowOverage": "允许支出超过上限",
+        "allowOverageHelp": "关闭此选项可使上限成为绝对限制。关闭后，$10 预算就会恰好在 $10 处停止。"
       },
       "errors": {
-        "notifyRange": "The notify threshold must be between 1% and the stop-provisioning threshold.",
-        "stopBeforeDrain": "The stop-provisioning threshold must not exceed the drain threshold.",
-        "drainBeforeHardStop": "The drain threshold must not exceed the hard-stop threshold.",
-        "negativeTimeout": "The drain timeout must not be negative."
+        "notifyRange": "通知阈值必须在 1% 和停止部署阈值之间。",
+        "stopBeforeDrain": "停止部署阈值不能超过排空阈值。",
+        "drainBeforeHardStop": "排空阈值不能超过硬停止阈值。",
+        "negativeTimeout": "排空超时不能为负数。"
       }
     },
     "fleet": {
-      "title": "Cloud Fleet",
-      "description": "Every rented instance that may still be costing money.",
-      "loadFailed": "Failed to load the fleet",
-      "empty": "No instances are running. Nothing is being billed.",
-      "summary": "{{count}} live instance(s), {{hourly}}/hr, {{reserved}} committed.",
-      "destroy": "Destroy",
-      "destroyed": "Instance destroyed",
-      "destroyFailed": "The provider refused to destroy this instance — it is still billing",
-      "destroyTitle": "Destroy instance?",
-      "destroyBody": "Destroy \"{{label}}\" now? Billing stops as soon as the provider confirms.",
-      "destroyJobWarning": "This instance is working a job. Its in-flight chunk is lost and will be re-dispatched elsewhere.",
-      "teardownFailingTitle": "Teardown is failing",
-      "teardownFailingBody": "{{count}} instance(s) could not be destroyed and are still accruing cost. Check the provider console.",
-      "teardownFailingTooltip": "Teardown failed; this instance is still billing",
-      "estimated": "est.",
-      "estimatedTooltip": "Estimated from elapsed time and rate; the provider's own figure lands later.",
-      "perHour": "{{rate}}/hr",
-      "ttlExpired": "Expired",
+      "title": "云机群",
+      "description": "每个可能仍在产生费用的租赁实例。",
+      "loadFailed": "加载云机群失败",
+      "empty": "没有正在运行的实例。当前没有任何费用产生。",
+      "summary_other": "{{count}} 个正在运行的实例，{{hourly}}/小时，{{reserved}} 已提交。",
+      "destroy": "销毁",
+      "destroyed": "实例已销毁",
+      "destroyFailed": "提供商拒绝销毁此实例——它仍在计费",
+      "destroyTitle": "销毁实例？",
+      "destroyBody": "确定要立即销毁「{{label}}」吗？提供商确认后，计费会立即停止。",
+      "destroyJobWarning": "此实例正在执行任务。其正在处理中的分块将会丢失，并被重新分派到别处。",
+      "teardownFailingTitle": "销毁持续失败",
+      "teardownFailingBody_other": "{{count}} 个实例无法被销毁，仍在产生成本。请检查提供商控制台。",
+      "teardownFailingTooltip": "销毁失败；此实例仍在计费",
+      "estimated": "预估",
+      "estimatedTooltip": "根据已用时间和速率估算；提供商的最终数字稍后显示。",
+      "perHour": "{{rate}}/小时",
+      "ttlExpired": "已过期",
       "states": {
-        "requested": "Requested",
-        "launching": "Launching",
-        "provisioning": "Provisioning",
-        "syncing": "Syncing files",
-        "running": "Running",
-        "draining": "Draining",
-        "terminating": "Terminating",
-        "terminated": "Terminated",
-        "failed": "Failed"
+        "requested": "已请求",
+        "launching": "启动中",
+        "provisioning": "部署中",
+        "syncing": "同步文件",
+        "running": "运行中",
+        "draining": "排空中",
+        "terminating": "终止中",
+        "terminated": "已终止",
+        "failed": "失败"
       },
       "columns": {
-        "label": "Instance",
-        "state": "State",
-        "client": "Client",
+        "label": "实例",
+        "state": "状态",
+        "client": "客户",
         "gpu": "GPU",
-        "rate": "Rate",
-        "spend": "Spend",
-        "ttl": "TTL left",
-        "disk": "Disk",
-        "actions": "Actions"
+        "rate": "费率",
+        "spend": "支出",
+        "ttl": "剩余 TTL",
+        "disk": "磁盘",
+        "actions": "操作",
+        "agent": "代理",
+        "job": "任务"
       },
-      "experimentalRunningTitle": "{{count}} 个实例运行在实验性提供商上",
+      "experimentalRunningTitle_other": "{{count}} 个实例在实验性提供商上运行",
       "experimentalRunningBody": "{{providers}} 尚未用真实资金完整验证。请确认这些实例确实进入「terminated」状态，而不要想当然：释放是任何新适配器中测试最少的环节，未被释放的实例会持续计费，直到您在此处销毁它。请反馈您观察到的情况。",
       "experimentalTooltip": "{{provider}} 是实验性提供商 — 尚未测试。预期会有缺陷；请确认作业完成后该实例确实被释放。"
     },
@@ -1859,41 +2271,41 @@
       }
     },
     "system": {
-      "ceilings": "Spend and concurrency ceilings",
-      "ceilingsHelp": "Absolute system-wide limits, applied before any client budget is consulted.",
-      "work": "Work sizing and teardown",
-      "workHelp": "How much work a rented instance is given at a time, and how quickly an idle one is released. Per-chunk overhead is billed at rental rates, so these trade throughput against waste.",
-      "reconciliation": "Reconciliation",
-      "reconciliationHelp": "How often the database is checked against what the provider is actually running, and how long an unrecognised instance is tolerated before it is destroyed.",
-      "capDisabledWarning": "Cloud provisioning is currently DISABLED: the global monthly cap is 0. Providers, client budgets and cloud-enabled jobs will all be configured correctly and nothing will ever be rented. Set a non-zero cap to enable it.",
-      "saved": "Setting saved",
-      "saveFailed": "Failed to save setting",
-      "loadFailed": "Failed to load cloud settings",
+      "ceilings": "支出和并发上限",
+      "ceilingsHelp": "绝对系统级限制，在查看任何客户预算之前应用。",
+      "work": "工作量分配和销毁",
+      "workHelp": "一次给租赁实例分配多少工作量，以及闲置实例释放的速度。按分块计的开销按租赁费率计费，因此这些需要权衡吞吐量和浪费。",
+      "reconciliation": "核对",
+      "reconciliationHelp": "多久核对一次数据库与提供商实际运行的情况，以及未识别的实例在被销毁前可被容忍多长时间。",
+      "capDisabledWarning": "云部署当前已禁用：全球月度上限为 0。提供商、客户预算和已启用云的任务都将被正确配置，但不会租赁任何实例。设置非零上限以启用。",
+      "saved": "设置已保存",
+      "saveFailed": "保存设置失败",
+      "loadFailed": "加载云设置失败",
       "units": {
         "seconds": "s",
         "minutes": "min"
       },
       "fields": {
-        "monthlyCap": "Global monthly spend cap",
-        "monthlyCapHelp": "Across all clients and providers. 0 disables cloud provisioning entirely — it is not unlimited.",
-        "concurrentCap": "Global concurrent instance cap",
-        "concurrentCapHelp": "Maximum rented instances at once, across every provider and client. 0 means unlimited, still bounded by budgets and provider quotas.",
+        "monthlyCap": "全球月度支出上限",
+        "monthlyCapHelp": "跨所有客户和提供商。0 禁用云部署——这不是无限制。",
+        "concurrentCap": "全球并发实例上限",
+        "concurrentCapHelp": "同时租赁的最大实例数，跨所有提供商和客户。0 表示无限制，但仍受预算和提供商配额限制。",
         "defaultMaxInstancesPerJob": "每个作业的默认最大实例数",
         "defaultMaxInstancesPerJobHelp": "未设置自身上限的作业最多可租用的实例数。以前留空表示不限量，在纯云端部署中这意味着只有客户预算能阻止等待中的作业每分钟租用一个实例。作业自身设置的值仍然优先。设为 0 可恢复不限量。",
         "chunkDuration": "云端最小分块时长",
         "chunkDurationHelp": "云端代理的最小分块时长。租用的 GPU 在 hashcat 启动、自动调优内核和加载字典期间都在计费，因此即使作业请求更短，云端分块也会被提升到此值。请求更长时长的作业保留其自身设置。始终会被压缩到实例的剩余生命周期内。设为 0 可禁用此下限。",
-        "teardownSlack": "Teardown slack",
-        "teardownSlackHelp": "Reserved at the end of an instance's lifetime for drain and destroy, so a chunk is never planned past the point the instance dies.",
-        "idleDrain": "Idle drain",
-        "idleDrainHelp": "Destroy a rented instance after this long with no pending work. Bounds how much you pay for a GPU that has run out of things to do.",
+        "teardownSlack": "销毁缓冲",
+        "teardownSlackHelp": "为实例生命周期末尾的排空和销毁预留时间，确保分块的安排永远不会超出实例终止的时刻。",
+        "idleDrain": "闲置排空",
+        "idleDrainHelp": "在没有待处理工作的情况下，经过这段时间后销毁租赁实例。限制您为已没有工作可做的 GPU 支付的金额。",
         "commissioningGrace": "启动宽限期",
         "commissioningGraceHelp": "从代理注册时算起，超过此时长仍未分配任何任务的租用实例将被销毁。冷启动实例需要先下载文件并运行基准测试，因此设置为低于约 20 分钟会在启动过程中销毁健康实例——而由于作业仍在等待，系统会立即租用另一个。设为 0 可禁用。",
-        "reaperInterval": "Reaper interval",
-        "reaperIntervalHelp": "How often to reconcile the database against provider inventory and destroy anything that should not exist.",
-        "orphanGrace": "Orphan grace period",
-        "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
-        "agentImage": "Agent image",
-        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this.",
+        "reaperInterval": "清理间隔",
+        "reaperIntervalHelp": "多久对数据库和提供商库存进行一次核对，并销毁任何不应存在的内容。",
+        "orphanGrace": "孤立实例宽限期",
+        "orphanGraceHelp": "在提供商账户上找到的、数据库中没有匹配行的实例，经过这段时间后销毁。这是唯一的恢复方式，适用于启动记录从未写入数据库的情况。",
+        "agentImage": "代理镜像",
+        "agentImageHelp": "例如 zerkereod/krakenhashes-agent-cloud:cloud-gpu。留空以回退到 KH_CLOUD_AGENT_IMAGE，然后回退到内置默认值。请注意，内置默认值是 :latest，只有在发布打上标签后才会存在——预发布部署必须设置此项。",
         "defaultBurstEnabled": "为所有作业启用云端扩容",
         "defaultBurstEnabledHelp": "将所有作业视为已启用云端扩容，无需在每个预设、工作流和作业上逐一勾选。适用于没有本地 GPU 的部署，此时租用是唯一能执行任务的方式。客户预算和实例上限仍然生效。立即生效，包括已在队列中的作业。",
         "defaultClient": "默认计费客户",
@@ -1902,127 +2314,127 @@
         "crackDrainGrace": "破解结果上传宽限期",
         "crackDrainGraceHelp": "销毁租用实例前，最多等待此时长，让其仍持有的任务完成已破解密码的上传。从该任务最后一次写入时开始计算，而非从任务开始时计算，因此正在工作的代理永远不会被销毁，卡住的代理也不会被无限等待。必须大于闲置回收时间且小于 30 分钟。设为 0 会立即销毁，可能永久丢失已找到的破解结果——它们无法从一台已不存在的机器上重新发送。"
       },
-      "agent": "Cloud agent image",
-      "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
-      "save": "Save changes",
-      "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)",
+      "agent": "云代理镜像",
+      "agentHelp": "租赁实例拉取和运行的容器镜像。它必须是注册表中存在的标签：缺失的标签不是启动错误——实例启动，拉取失败，主机约一分钟后自行终止，并被计费。",
+      "save": "保存更改",
+      "discard": "丢弃",
+      "unsaved_other": "{{count}} 个未保存的更改",
       "eligibility": "纯云端部署",
       "eligibilityHelp": "决定作业是否会被考虑租用云端算力。以上各项限制的是可以花多少钱；此项决定是否花钱。"
     }
   },
   "serverCertificate": {
-    "title": "Server Certificate",
-    "description": "Manage the addresses the server's TLS certificate covers. Agents can only connect to an address listed here.",
-    "apply": "Apply & Reissue",
+    "title": "服务器证书",
+    "description": "管理服务器 TLS 证书覆盖的地址。代理只能连接到此处列出的地址。",
+    "apply": "应用并重新颁发",
     "warning": {
-      "title": "KrakenHashes is an internal tool",
-      "body": "It must never be reachable from the public internet. It handles cracked credentials, so only private and VPN addresses can be added to the certificate — public IP addresses are rejected. If this deployment is exposed publicly, take it offline before continuing."
+      "title": "KrakenHashes 是内部工具",
+      "body": "它不能从公网访问。它处理已破解的凭证，因此只能将私有和 VPN 地址添加到证书中——公网 IP 地址被拒绝。如果此部署被公开暴露，请在继续前使其离线。"
     },
     "summary": {
-      "title": "Current certificate",
-      "unavailable": "The server certificate could not be read.",
-      "subject": "Subject",
-      "issuer": "Issuer",
-      "validity": "Valid",
-      "serial": "Serial",
-      "covers": "This certificate is valid for",
-      "coversNothing": "This certificate lists no addresses at all. No agent can connect.",
-      "daysRemaining": "{{count}} days left",
-      "caSubject": "Certificate authority",
-      "caExpires": "CA expires",
-      "caFingerprint": "CA fingerprint (SHA-256)",
-      "pending": "{{count}} address(es) have been saved but are not in the certificate yet. Click Apply & Reissue.",
-      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES or KH_ADDITIONAL_DNS_NAMES is still set in the environment. It is no longer read — these settings replace it. Remove the variable to avoid confusion."
+      "title": "当前证书",
+      "unavailable": "无法读取服务器证书。",
+      "subject": "主题",
+      "issuer": "颁发者",
+      "validity": "有效期",
+      "serial": "序列号",
+      "covers": "此证书覆盖以下地址：",
+      "coversNothing": "此证书根本不列出任何地址。没有代理可以连接。",
+      "daysRemaining_other": "剩余 {{count}} 天",
+      "caSubject": "证书颁发机构",
+      "caExpires": "CA 过期",
+      "caFingerprint": "CA 指纹 (SHA-256)",
+      "pending_other": "{{count}} 个地址已保存但还未在证书中。点击应用并重新颁发。",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES 或 KH_ADDITIONAL_DNS_NAMES 仍在环境中设置。它不再被读取——这些设置替代了它。删除变量以避免混淆。"
     },
     "sans": {
-      "title": "Addresses this certificate should cover",
+      "title": "此证书应覆盖的地址",
       "add": "Add",
-      "empty": "No additional addresses configured.",
-      "unsaved": "You have unsaved changes. Click Apply & Reissue to put them into the certificate.",
-      "lockedTooltip": "Always included. Removing it would break the internal proxy and health checks.",
+      "empty": "未配置其他地址。",
+      "unsaved": "您有未保存的更改。点击应用并重新颁发以将其放入证书中。",
+      "lockedTooltip": "始终包括。删除它会破坏内部反向代理和健康检查。",
       "ip": {
-        "title": "IP addresses",
-        "help": "Private and VPN addresses only: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local, and IPv6 ULA.",
+        "title": "IP 地址",
+        "help": "仅限私有和 VPN 地址：10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local 和 IPv6 ULA。",
         "placeholder": "192.168.1.50"
       },
       "dns": {
-        "title": "DNS names",
-        "help": "Hostnames agents and browsers use to reach this server.",
+        "title": "DNS 名称",
+        "help": "代理和浏览器用来访问此服务器的主机名。",
         "placeholder": "kraken.internal"
       }
     },
     "validation": {
-      "invalid_format": "\"{{address}}\" is not a valid address.",
-      "public_ip": "{{address}} is a public IP address and cannot be added. KrakenHashes is an internal-only tool. It handles cracked credentials and must never be reachable from the internet. Only private addresses (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local and IPv6 ULA) can be added. If this is your VPN's address, the VPN is using address space that belongs to someone else on the internet — change its network range to a private or CGNAT range.",
-      "duplicate": "{{address}} is already in the list.",
-      "bind_address": "{{address}} is a bind address, not a reachable one. No client connects to it.",
-      "multicast": "{{address}} is a multicast address and cannot identify a server.",
-      "wildcard_dns": "Wildcard names are not supported.",
-      "has_port": "Enter only the hostname, with no port.",
-      "is_ip": "That is an IP address. Add it to the IP address list instead.",
-      "too_long": "That name is longer than the 253-character limit."
+      "invalid_format": "\"{{address}}\" 不是有效的地址。",
+      "public_ip": "{{address}} 是公网 IP 地址，无法添加。KrakenHashes 是内部专用工具。它处理已破解的凭证，不能从互联网访问。只能添加私有地址 (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local 和 IPv6 ULA)。如果这是您的 VPN 地址，则 VPN 使用的地址空间属于互联网上的其他人——将其网络范围更改为私有或 CGNAT 范围。",
+      "duplicate": "{{address}} 已在列表中。",
+      "bind_address": "{{address}} 是绑定地址，不是可访问的地址。没有客户端连接到它。",
+      "multicast": "{{address}} 是多播地址，无法标识服务器。",
+      "wildcard_dns": "不支持通配符名称。",
+      "has_port": "仅输入主机名，不包括端口。",
+      "is_ip": "那是 IP 地址。请改为将其添加到 IP 地址列表。",
+      "too_long": "该名称超过 253 个字符的限制。"
     },
     "discovered": {
-      "title": "Discovered addresses",
-      "help": "Addresses seen reaching this server that the certificate does not cover. Nothing here is applied automatically.",
-      "empty": "No addresses discovered yet. Start an agent, or open this page from the address your agents use, and it will appear here.",
-      "address": "Address",
-      "source": "Source",
-      "reportedBy": "Reported by",
-      "lastSeen": "Last seen",
-      "hits": "Hits",
-      "actions": "Actions",
+      "title": "发现的地址",
+      "help": "观察到连接此服务器但证书未覆盖的地址。此处的任何内容都不会自动应用。",
+      "empty": "尚未发现地址。启动代理或从代理使用的地址打开此页面，它将出现在此处。",
+      "address": "地址",
+      "source": "来源",
+      "reportedBy": "报告者",
+      "lastSeen": "最后看到",
+      "hits": "连接次数",
+      "actions": "操作",
       "add": "Add",
-      "added": "{{address}} added. Click Apply & Reissue to put it into the certificate.",
-      "dismiss": "Dismiss",
-      "pending": "Pending reissue",
+      "added": "{{address}} 已添加。点击应用并重新颁发以将其放入证书中。",
+      "dismiss": "忽略",
+      "pending": "待重新颁发",
       "sources": {
-        "agent_tls_failure": "Agent TLS failure",
-        "host_header": "Browser / Host header",
+        "agent_tls_failure": "代理 TLS 失败",
+        "host_header": "浏览器 / Host 头",
         "tls_sni": "TLS SNI",
-        "manual": "Manual"
+        "manual": "手动"
       },
       "sourceHelp": {
-        "agent_tls_failure": "An authenticated agent reported that it could not verify this server's certificate for this address.",
-        "host_header": "Observed in a request's Host header. Anyone who can reach this server can influence this value — confirm it before adding.",
-        "tls_sni": "Observed as the server name in a TLS handshake.",
-        "manual": "Added by an administrator."
+        "agent_tls_failure": "一个经过身份验证的代理报告说它无法为此地址验证此服务器的证书。",
+        "host_header": "在请求的 Host 头中观察到。任何能够访问此服务器的人都可以影响此值——添加前请确认。",
+        "tls_sni": "在 TLS 握手中观察到的服务器名称。",
+        "manual": "由管理员添加。"
       }
     },
     "reissue": {
-      "doneTitle": "Certificate reissued",
-      "noChangeTitle": "No change needed",
-      "noChangeBody": "The certificate already covers every configured address and is not close to expiry.",
-      "changes": "Changes",
-      "validUntil": "The new certificate is valid until {{date}}.",
-      "backendReloaded": "The API on port 31337 is already serving the new certificate. No restart was needed.",
-      "nginxReloaded": "The web UI on port 443 was reloaded and is serving the new certificate.",
-      "nginxFailed": "The web UI on port 443 is still serving the previous certificate",
-      "backup": "Previous certificate material was backed up to {{path}}.",
-      "agentsReconnect": "Agents that were failing will reconnect on their own within 30 seconds. No agent restart is needed.",
-      "agentsRefetch": "Every agent must re-fetch the CA. Agents do this automatically the next time a handshake fails, but browsers that trusted the old CA must install the new one by hand.",
-      "close": "Close",
-      "nginxFailedBody": "The API is already serving the new certificate, so agents are unaffected. The web UI on port 443 will keep presenting the previous one until KrakenHashes is restarted."
+      "doneTitle": "证书已重新颁发",
+      "noChangeTitle": "不需要更改",
+      "noChangeBody": "证书已覆盖所有配置的地址，且距离过期还远。",
+      "changes": "更改",
+      "validUntil": "新证书有效期至 {{date}}。",
+      "backendReloaded": "端口 31337 上的 API 已在提供新证书。不需要重新启动。",
+      "nginxReloaded": "端口 443 上的 Web UI 已重新加载并正在提供新证书。",
+      "nginxFailed": "端口 443 上的 Web UI 仍在提供先前的证书",
+      "backup": "先前的证书材料已备份到 {{path}}。",
+      "agentsReconnect": "失败的代理将在 30 秒内自动重新连接。不需要重新启动代理。",
+      "agentsRefetch": "每个代理必须重新获取 CA。代理在下次握手失败时会自动执行此操作，但信任旧 CA 的浏览器必须手动安装新 CA。",
+      "close": "关闭",
+      "nginxFailedBody": "API 已在提供新证书，所以代理不受影响。端口 443 上的 Web UI 将继续显示先前的证书，直到 KrakenHashes 重新启动。"
     },
     "confirmRemoval": {
-      "title": "Remove addresses from the certificate?",
-      "body": "The following addresses are in the current certificate and will be removed: {{addresses}}. Any agent connecting on one of them will stop being able to connect until it is added back.",
-      "cancel": "Cancel",
-      "confirm": "Remove and reissue"
+      "title": "从证书中删除地址？",
+      "body": "以下地址在当前证书中并将被删除：{{addresses}}。任何在其中一个地址上连接的代理将无法连接，直到重新添加为止。",
+      "cancel": "取消",
+      "confirm": "删除并重新颁发"
     },
     "rotateCa": {
-      "section": "Advanced",
-      "title": "Rotate the certificate authority",
-      "warning": "Rotating the certificate authority issues a brand-new CA and re-signs the server and agent certificates. Every agent must re-download the CA before it can reconnect, and every browser that trusted the old CA will show warnings until the new ca.crt is installed. Only do this if the CA private key may have been exposed.",
-      "instruction": "Type {{phrase}} to confirm.",
-      "action": "Rotate CA"
+      "section": "高级",
+      "title": "轮换证书颁发机构",
+      "warning": "轮换证书颁发机构会颁发一个全新的 CA 并重新签署服务器和代理证书。每个代理必须重新下载 CA 才能重新连接，而且信任旧 CA 的每个浏览器都会显示警告，直到安装新的 ca.crt。仅在 CA 私钥可能被泄露时执行此操作。",
+      "instruction": "输入 {{phrase}} 以确认。",
+      "action": "轮换 CA"
     },
     "banner": {
-      "title": "{{count}} agent(s) cannot verify this server's certificate",
-      "body": "{{agents}} is connecting to {{address}}, which is not listed in the server certificate. It will keep retrying and cannot come online until the certificate is reissued.",
-      "anAgent": "An agent",
-      "action": "Fix in Server Certificate settings"
+      "title_other": "{{count}} 个代理无法验证此服务器的证书",
+      "body": "{{agents}} 正连接到 {{address}}，该地址未在服务器证书中列出。它将继续重试，直到证书重新颁发后才能上线。",
+      "anAgent": "一个代理",
+      "action": "在服务器证书设置中修复"
     }
   },
   "branding": {
@@ -2057,6 +2469,646 @@
       "removeFailed": "移除图片失败",
       "invalidHex": "请输入十六进制颜色，例如 #1e88e5",
       "tooLarge": "文件过大（最大 {{max}} KB）"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "设置部分",
+    "groups": {
+      "general": "常规",
+      "security": "安全",
+      "jobs": "任务",
+      "agents": "代理",
+      "integrations": "集成",
+      "cloud": "云"
+    },
+    "sections": {
+      "branding": "品牌",
+      "brandingDesc": "应用程序名称、颜色、徽标和网站图标。",
+      "data": "数据",
+      "dataDesc": "保留期默认设置和哈希列表摄入。",
+      "storage": "存储",
+      "storageDesc": "网络共享存储用于字典和规则。",
+      "certificate": "证书",
+      "certificateDesc": "服务器证书名称和地址。",
+      "authentication": "身份验证",
+      "authenticationDesc": "密码策略、锁定和会话。",
+      "mfa": "多因素",
+      "mfaDesc": "MFA 策略和通行密钥信赖方。",
+      "sso": "单点登录",
+      "ssoDesc": "身份提供商和用户预置。",
+      "access": "访问模型",
+      "accessDesc": "多团队隔离。",
+      "execution": "执行",
+      "executionDesc": "分块、密钥空间和基准测试。",
+      "scheduling": "调度",
+      "schedulingDesc": "代理分配和任务优先级。",
+      "potfile": "Potfile 与回环",
+      "potfileDesc": "Potfile 行为和回环轮次。",
+      "health": "健康",
+      "healthDesc": "心跳、宽限期和离线缓冲。",
+      "downloads": "下载",
+      "downloadsDesc": "代理如何从服务器获取文件。",
+      "updates": "更新",
+      "updatesDesc": "自动代理二进制更新。",
+      "monitoring": "监控",
+      "monitoringDesc": "指标保留期和聚合。",
+      "email": "电子邮件",
+      "emailDesc": "提供商配置和模板。",
+      "webhooks": "Webhook",
+      "webhooksDesc": "全局 webhook 和用户 webhook。",
+      "notifications": "通知",
+      "notificationsDesc": "哪些任务事件会发送通知。",
+      "providers": "提供商",
+      "providersDesc": "云 GPU 提供商凭证。",
+      "budgets": "客户预算",
+      "budgetsDesc": "每个客户的月度上限。",
+      "policy": "阈值策略",
+      "policyDesc": "支出阈值级别。",
+      "rules": "部署规则",
+      "rulesDesc": "自动扩展器何时可以支出。",
+      "limits": "限制",
+      "limitsDesc": "系统级上限和时序。"
+    }
+  },
+  "hub": {
+    "pageDescription": "配置此服务器的所有内容，按其影响范围分组。字段在您离开时自动保存，除非该部分另有说明。",
+    "navLabel": "概览",
+    "attentionTitle": "需要关注",
+    "attentionSubtitle": "影响服务器运行的问题。",
+    "allGood": "一切正常",
+    "allGoodHint": "未检测到任何配置问题。",
+    "loadFailed": "无法加载设置状态。",
+    "overviewTitle": "状态",
+    "attentionCount": "{{count}} 项待审查",
+    "browseTitle": "所有设置",
+    "loading": "检查中…",
+    "cards": {
+      "email": "电子邮件",
+      "certificate": "证书",
+      "sso": "单点登录",
+      "binaries": "二进制",
+      "cloud": "云",
+      "storage": "存储",
+      "webhook": "全局webhook"
+    },
+    "detail": {
+      "emailConfigured": "已配置（{{provider}}）",
+      "emailNotConfigured": "未配置提供者",
+      "certUnmanaged": "在 KrakenHashes 外管理（{{mode}}）",
+      "certDays": "剩余 {{days}} 天",
+      "certPending": "尚未签发",
+      "ssoProviders_other": "已启用 {{count}} 个提供者",
+      "binaries": "{{verified}}/{{total}} 已验证",
+      "cloudNoProviders": "未配置提供者",
+      "cloudCap": "{{providers}} 个提供者，月度上限 {{cap}}",
+      "storageLocal": "本地存储",
+      "storageReachable": "共享已挂载且可访问",
+      "storageUnreachable": "共享不可访问",
+      "webhookOff": "已禁用",
+      "webhookOn": "已启用",
+      "webhookNoUrl": "已启用但未配置 URL"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "无法检查状态",
+      "emailNotConfigured": "电子邮件未配置；无法发送 MFA 代码和通知。",
+      "certExpiring": "服务器证书将在 {{days}} 天后过期。",
+      "ssoEphemeralKey": "SSO 使用短期签名密钥；重启后会话不会保存。",
+      "noVerifiedBinary": "没有可用的已验证 hashcat 二进制；无法运行任务。",
+      "cloudCapZero": "云提供者已配置但月度上限为 0，因此不会部署任何资源。",
+      "shareUnreachable": "网络共享已启用但不可访问。",
+      "migration": "存储迁移 {{state}}。",
+      "webhookNoUrl": "全局webhook已启用但未配置 URL。"
+    },
+    "severity": {
+      "default": "信息",
+      "success": "OK",
+      "warning": "警告",
+      "error": "错误"
+    }
+  },
+  "fieldState": {
+    "saving": "保存中…",
+    "saved": "已保存",
+    "error": "未保存",
+    "minSelected": "至少选择 {{count}} 项",
+    "autosaveHint": "自动保存",
+    "autosaveHintLong": "每个字段在您离开时自动保存。",
+    "applyHint": "需要应用",
+    "applyHintLong": "此处的更改只有在应用后才会生效。"
+  },
+  "unsaved": {
+    "title": "未保存的更改",
+    "body": "您有未应用的更改。离开此页面并放弃这些更改吗？",
+    "stay": "留下",
+    "leave": "离开"
+  },
+  "agentAutoUpdate": {
+    "title": "自动更新",
+    "description": "允许服务器向连接的代理推送新的代理二进制。",
+    "enable": "启用代理自动更新",
+    "maxConcurrent": "并发更新",
+    "maxConcurrentHelper": "有多少个代理可以同时更新。",
+    "maxAttempts": "每个代理的尝试次数",
+    "maxAttemptsHelper": "在此数量的更新失败后放弃代理。",
+    "healthTimeout": "健康检查超时",
+    "healthTimeoutHelper": "在将更新标记为失败之前，等待已更新代理重新连接的时长。",
+    "applyNote": "代理将在下次签入时获取这些值。"
+  },
+  "networkShare": {
+    "intro": "在网络共享上存储字典和规则，这样服务器就不需要大容量本地磁盘。操作员在服务器主机上（通过 docker-compose，作为 <code>KH_SHARE_DIR</code>）和任何网络直连代理主机上挂载共享；KrakenHashes 仅读取挂载的路径——它永远不会连接到共享本身或存储其凭证。云 GPU 代理不挂载共享：它们通过 VPN 从服务器下载字典和规则。",
+    "migrationLocked": "正在进行迁移（{{state}}）。在迁移完成前配置被锁定。",
+    "server": {
+      "title": "服务器存储挂载",
+      "description": "服务器从此操作员挂载的路径读取字典和规则（在 docker-compose 中设置为 <code>KH_SHARE_DIR</code>）。KrakenHashes 不连接到共享本身——挂载是操作员的责任。",
+      "mountedPath": "挂载路径（只读）",
+      "shareDirNotSet": "KH_SHARE_DIR 未设置——在 docker-compose 中挂载共享",
+      "servingFromShare": "服务来源：网络共享",
+      "servingFromLocal": "服务来源：本地磁盘",
+      "shareReachable": "共享可访问",
+      "shareNotMounted": "共享未挂载",
+      "migrationChip": "迁移：{{state}}",
+      "lastValidated": "最后验证于 {{date}}",
+      "enable": "启用网络共享",
+      "saving": "保存中…",
+      "save": "保存配置",
+      "validating": "验证中…",
+      "validate": "验证服务器挂载",
+      "validatedOk": "OK"
+    },
+    "validation": {
+      "mountPath": "挂载路径：<code>{{path}}</code>",
+      "unset": "（未设置）",
+      "yes": "是",
+      "no": "否",
+      "summary": "已挂载：{{mounted}} · 可写：{{writable}} · 可用：{{free}} · 写入：{{write}} MB/s · 读取：{{read}} MB/s"
+    },
+    "migration": {
+      "title": "数据迁移",
+      "descriptionToShare": "将现有字典和规则复制到网络共享并切换活跃存储后端。这是一个维护操作：新任务在机群排空时停止分派，然后字典和规则上传被冻结，文件被复制并验证校验和后进行切换。根据数据大小，这可能需要很长时间，在此期间服务器将无法上传文件或分派新任务。客户字典、关联字典、二进制、字符集和哈希列表始终保留在本地。",
+      "descriptionToLocal": "将现有字典和规则复制回本地磁盘并切换活跃存储后端。这是一个维护操作：新任务在机群排空时停止分派，然后字典和规则上传被冻结，文件被复制并验证校验和后进行切换。根据数据大小，这可能需要很长时间，在此期间服务器将无法上传文件或分派新任务。客户字典、关联字典、二进制、字符集和哈希列表始终保留在本地。",
+      "phase": "阶段：{{phase}}",
+      "directionToShare": "本地 → 共享",
+      "directionToLocal": "共享 → 本地",
+      "waitingTasks_other": "等待 {{count}} 个子任务完成",
+      "earliestLock": " — 最早锁定 {{time}}",
+      "filesProgress": "{{done}}/{{total}} 个文件 · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "取消中…",
+      "abort": "中止迁移",
+      "abortHelp": "在下一个检查点停止迁移（如果共享缓慢或卡住会很有用）。存储将保留在当前后端，分派随即恢复；已复制的文件会保留，重试时将被重用。",
+      "complete": "迁移完成。",
+      "failed": "迁移失败。",
+      "migrateToShare": "将字典和规则迁移到共享",
+      "migrateToLocal": "迁移回本地磁盘",
+      "enableFirst": "启用共享并在迁移前确认其验证通过。"
+    },
+    "agent": {
+      "title": "本地代理挂载命令（可选）",
+      "description": "这些字段<b>仅</b>用于为设置为 <b>network_direct</b> 层级的本地代理生成挂载命令。服务器（上方）和云 GPU 代理<b>不</b>使用它们——云代理通过 VPN 下载。它们不是秘密；凭证永远不会被存储或发送。",
+      "protocol": "协议",
+      "protocolHelp": "SMB 在 Windows/macOS/Linux 代理中最便携；NFS 通过 VPN 以只读导出方式效果很好。",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "代理挂载的共享主机（VPN 地址）",
+      "hostHelp": "代理通过 VPN 到达共享的地址——不是服务器设置（服务器使用其上方挂载的路径）。",
+      "exportPath": "导出路径",
+      "shareName": "共享名称",
+      "mountOptions": "挂载选项（每行一个 key=value）",
+      "runThis": "在代理主机上运行此命令，然后在其代理页面上将该代理的存储层设置为“网络直连”并输入挂载路径：",
+      "replaceSmb": "运行前替换 <code>&lt;MOUNT_PATH&gt;</code>、<code>&lt;USERNAME&gt;</code> 和 <code>&lt;PASSWORD&gt;</code> ——命令仍包含占位符。",
+      "replaceNfs": "运行前替换 <code>&lt;MOUNT_PATH&gt;</code> ——命令仍包含占位符。",
+      "softSmb": "命令包含 <code>soft</code> 选项，这样如果共享缓慢或断开，挂载会快速失败而不是挂起（内核的 <code>hard</code> 默认值）。这与代理的故障关闭共享检查配对，当挂载不可读时重新路由工作。<b>network_direct</b> 用于低延迟/局域网邻近的共享——改为将远程或高延迟共享放在 <b>on_demand</b>/<b>full_cache</b> 下载层上。通过上方设置覆盖任何选项。",
+      "softNfs": "命令包含 <code>soft</code>、<code>timeo</code> 和 <code>retrans</code> 选项，这样如果共享缓慢或断开，挂载会快速失败而不是挂起（内核的 <code>hard</code> 默认值）。这与代理的故障关闭共享检查配对，当挂载不可读时重新路由工作。<b>network_direct</b> 用于低延迟/局域网邻近的共享——改为将远程或高延迟共享放在 <b>on_demand</b>/<b>full_cache</b> 下载层上。通过上方设置覆盖任何选项。",
+      "otherOs": "macOS：使用 <code>mount_smbfs</code>（SMB）或 <code>mount -t nfs</code>（NFS）。Windows：针对 <code>{{uncPath}}</code> 使用 <code>net use</code>。代理仅从挂载中读取。这些字段与上方的<b>保存配置</b>一起保存。"
+    },
+    "confirm": {
+      "title": "开始数据迁移？",
+      "intro": "这将：",
+      "step1": "停止分派新任务并等待运行的子任务完成（代理重新连接最多需要约 12 分钟，如果有长期任务运行可能更长）。",
+      "step2": "冻结字典和规则上传，并在文件复制和校验和验证期间提供维护页面。",
+      "step3ToShare": "完成后将活跃存储后端切换到网络共享。",
+      "step3ToLocal": "完成后将活跃存储后端切换到本地磁盘。",
+      "outro": "之后暂停的任务将自动恢复。如果任何操作失败，存储保持不变，服务器保持运行。",
+      "cancel": "取消",
+      "start": "开始迁移"
+    },
+    "toast": {
+      "loadFailed": "未能加载网络共享配置",
+      "migrationStarted": "迁移已开始。",
+      "startFailed": "未能开始迁移",
+      "migrationCanceled": "迁移已取消——存储保持不变。",
+      "cancelFailed": "未能取消迁移",
+      "saved": "网络共享配置已保存。",
+      "saveFailed": "未能保存配置",
+      "validated": "共享验证成功。",
+      "validationProblems": "共享验证报告了问题。",
+      "validationFailed": "验证运行失败"
+    }
+  },
+  "jobAnalytics": {
+    "title": "任务性能分析",
+    "description": "跨代理分析任务执行性能、哈希速率和基准测试历史。",
+    "loadFiltersFailed": "未能加载筛选选项",
+    "tabs": {
+      "jobPerformance": "任务性能",
+      "successRate": "成功率",
+      "benchmarkHistory": "基准测试历史"
+    },
+    "summary": {
+      "totalJobs": "总任务数",
+      "totalJobsSubtitle": "{{completed}} 个已完成，{{failed}} 个失败",
+      "totalCracks": "总破解数",
+      "totalCracksSubtitle": "跨所有筛选的任务",
+      "avgSpeed": "平均速度",
+      "avgSpeedSubtitle": "每个任务的平均哈希速率",
+      "avgDuration": "平均持续时间",
+      "avgDurationSubtitle": "已处理 {{keys}} 个密钥"
+    },
+    "hashRateChart": {
+      "title": "哈希速率时间线",
+      "daily": "每日",
+      "weekly": "每周",
+      "empty": "所选筛选条件无时间线数据",
+      "hashRate": "哈希速率",
+      "tooltipHashRate": "哈希速率：{{speed}}",
+      "tooltipJobs": "任务：{{count}}"
+    },
+    "benchmarkChart": {
+      "title": "基准速度趋势",
+      "agent": "代理",
+      "selectAgent": "选择代理",
+      "hashType": "哈希类型",
+      "attackMode": "攻击模式",
+      "all": "全部",
+      "range90d": "90天",
+      "range1y": "1年",
+      "rangeAll": "全部",
+      "selectAgentPrompt": "选择一个代理以查看基准趋势",
+      "empty": "未找到此代理的基准测试历史",
+      "speed": "速度",
+      "tooltipSpeed": "速度：{{speed}}"
+    },
+    "filters": {
+      "title": "筛选",
+      "active": "已启用",
+      "dateStart": "开始日期",
+      "dateEnd": "结束日期",
+      "hashlist": "哈希列表",
+      "status": "状态",
+      "minKeyspace": "最小密钥空间",
+      "maxKeyspace": "最大密钥空间",
+      "reset": "重置",
+      "apply": "应用"
+    },
+    "attackModes": {
+      "straight": "直接攻击",
+      "combination": "组合",
+      "bruteforce": "暴力破解",
+      "hybridWlMask": "混合 字典+掩码",
+      "hybridMaskWl": "混合 掩码+字典",
+      "association": "关联攻击",
+      "modeNumber": "模式 {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "基准测试历史",
+      "empty": "未找到基准测试历史",
+      "columns": {
+        "date": "日期",
+        "agentFallback": "代理 #{{id}}",
+        "status": "状态"
+      },
+      "success": "成功",
+      "failed": "失败"
+    },
+    "successRate": {
+      "title": "按任务配置的成功率",
+      "subtitle": "按字典、规则、攻击模式和哈希类型分组。预设任务包括匹配的自定义任务。",
+      "empty": "所选筛选条件无成功率数据",
+      "preset": "预设",
+      "columns": {
+        "configuration": "配置",
+        "runs": "运行次数",
+        "hashes": "哈希",
+        "cracks": "破解",
+        "successRate": "成功率",
+        "avgDuration": "平均持续时间",
+        "totalCompute": "总计算时间"
+      }
+    },
+    "jobExecution": {
+      "title": "任务执行详情",
+      "empty": "所选筛选条件未找到任务",
+      "noTaskData": "无可用的子任务数据",
+      "taskBreakdown": "子任务分解（{{tasksPhrase}}，{{metricsPhrase}}）",
+      "taskCount_other": "{{count}} 个子任务",
+      "metricPointCount_other": "{{count}} 个指标点",
+      "columns": {
+        "name": "名称",
+        "attack": "攻击",
+        "duration": "持续时间",
+        "keyspace": "密钥空间",
+        "agents": "代理",
+        "progress": "进度",
+        "benchmark": "基准",
+        "started": "已开始",
+        "completed": "已完成"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "字典管理 - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "客户字典 ({{count}})",
+      "clientPotfile": "客户 potfile",
+      "associationWordlists": "关联字典 ({{count}})"
+    },
+    "columns": {
+      "fileName": "文件名称",
+      "lineCount": "行数",
+      "fileSize": "文件大小",
+      "uploaded": "上传时间",
+      "hashlist": "哈希列表",
+      "actions": "操作"
+    },
+    "hashlistFallback": "哈希列表 #{{id}}",
+    "clientTab": {
+      "info": "客户字典可用于此客户的所有哈希列表。这些可与任何攻击模式一起使用。",
+      "uploadWordlist": "上传字典",
+      "uploading": "上传中... {{progress}}%",
+      "noWordlists": "尚未上传任何客户字典。"
+    },
+    "potfileTab": {
+      "noPotfile": "客户 potfile 尚不存在。当此客户的哈希列表的哈希被破解时，它将自动创建。",
+      "autoGenerated": "客户 potfile（自动生成）",
+      "description": "此 potfile 包含此客户的所有已破解密码。当哈希被破解时，它会自动更新。",
+      "passwordCount_other": "{{countDisplay}} 个密码",
+      "md5Chip": "MD5：{{hash}}...",
+      "updatedChip": "更新时间：{{date}}",
+      "downloadPotfile": "下载 potfile"
+    },
+    "associationTab": {
+      "info": "关联字典按哈希列表划分，并按行号将每个哈希 1:1 映射到密码候选。它们从哈希列表详情页面上传和管理。此视图显示此客户所有哈希列表中的所有关联字典。",
+      "noWordlists": "未找到此客户哈希列表的关联字典。"
+    },
+    "messages": {
+      "wordlistDeleted": "客户字典已删除",
+      "associationDeleted": "关联字典已删除",
+      "deleteFailed": "删除字典失败",
+      "uploadSuccess": "客户字典上传成功",
+      "uploadFailed": "上传字典失败",
+      "downloaded": "已下载 {{filename}}",
+      "downloadFailed": "下载文件失败"
+    },
+    "deleteConfirm": {
+      "title": "删除字典",
+      "message": "确定要删除 \"{{fileName}}\" 吗？此操作无法撤销。"
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "团队管理",
+      "titleMine": "我的团队",
+      "description": "管理系统中的所有团队",
+      "descriptionMine": "您所属的团队",
+      "createTeam": "创建团队",
+      "bulkAssignHint": "要一次性将多个客户分配给团队，请使用<link>客户管理</link>页面上的批量分配功能。",
+      "columns": {
+        "name": "团队名称",
+        "description": "描述",
+        "members": "成员",
+        "clients": "客户",
+        "hashlists": "哈希列表",
+        "agents": "代理",
+        "created": "创建时间"
+      },
+      "rowActions": {
+        "manage": "管理团队",
+        "edit": "编辑团队",
+        "delete": "删除团队"
+      },
+      "empty": "未找到团队",
+      "emptyMine": "您还不是任何团队的成员。",
+      "viewDetails": "查看详情",
+      "memberCount_other": "{{count}} 个成员",
+      "clientCount_other": "{{count}} 个客户",
+      "hashlistCount_other": "{{count}} 个哈希列表",
+      "agentCount_other": "{{count}} 个代理",
+      "dialogs": {
+        "create": {
+          "title": "创建新团队",
+          "nameLabel": "团队名称",
+          "descriptionLabel": "描述",
+          "creatingButton": "创建中..."
+        },
+        "delete": {
+          "title": "删除团队",
+          "confirmation": "确定要删除团队 \"{{name}}\" 吗？这将移除所有团队成员资格和客户分配。"
+        }
+      },
+      "messages": {
+        "createSuccess": "团队创建成功",
+        "deleteSuccess": "团队删除成功",
+        "updateSuccess": "团队更新成功"
+      },
+      "errors": {
+        "loadFailed": "加载团队失败",
+        "createFailed": "创建团队失败",
+        "deleteFailed": "删除团队失败",
+        "updateFailed": "更新团队失败"
+      }
+    },
+    "detail": {
+      "notFound": "未找到团队",
+      "noDescription": "无描述",
+      "breadcrumb": "团队",
+      "editTeam": "编辑团队",
+      "confirmActionTitle": "确认操作",
+      "tabs": {
+        "members": "成员 ({{count}})",
+        "clients": "客户 ({{count}})",
+        "trustedTeams": "受信任的团队 ({{count}})",
+        "agents": "代理 ({{count}})"
+      },
+      "addMember": "添加成员",
+      "assignClient": "分配客户",
+      "addTrust": "添加信任关系",
+      "trustInfo": "信任另一个团队允许他们的代理运行您团队的任务。这是一种单向关系——信任团队 B 不会让您的代理访问团队 B 的任务。",
+      "agentsInfo": "<strong>直接</strong>代理由此团队的成员拥有。<strong>受信任的</strong>代理来自您已建立信任关系的团队。",
+      "systemOwner": "系统",
+      "columns": {
+        "username": "用户名",
+        "email": "电子邮件",
+        "role": "角色",
+        "joined": "加入时间",
+        "clientName": "客户名称",
+        "description": "描述",
+        "trustedTeam": "受信任的团队",
+        "trustedSince": "信任时间",
+        "agentName": "代理名称",
+        "status": "状态",
+        "version": "版本",
+        "owner": "所有者",
+        "source": "来源"
+      },
+      "roles": {
+        "member": "成员",
+        "admin": "管理员",
+        "adminManager": "管理员（团队管理者）"
+      },
+      "source": {
+        "direct": "直接",
+        "trusted": "受信任的 {{team}}",
+        "trustedBadge": "受信任",
+        "unknown": "未知"
+      },
+      "rowActions": {
+        "removeMember": "移除成员",
+        "removeClientFromTeam": "从团队中移除客户",
+        "removeTrust": "移除信任关系"
+      },
+      "empty": {
+        "noMembers": "此团队中没有成员",
+        "noClients": "没有客户分配给此团队",
+        "noTrustedTeams": "无受信任的团队。只有系统代理和此团队自己的代理可以运行任务。",
+        "noAgents": "没有可供此团队访问的代理",
+        "noAgentsHint": "添加拥有代理的团队成员或建立信任关系。"
+      },
+      "confirm": {
+        "removeMember": "确定要移除此成员吗？",
+        "removeClient": "确定要从此团队中移除 \"{{name}}\" 吗？团队成员将失去对此客户数据的访问权限。",
+        "removeTrust": "确定要移除此信任关系吗？此团队的代理将无法再运行您的任务。"
+      },
+      "messages": {
+        "memberAdded": "成员添加成功",
+        "memberRemoved": "成员已移除",
+        "roleUpdated": "角色已更新",
+        "teamUpdated": "团队更新成功",
+        "clientAssigned": "客户已分配给团队",
+        "clientRemoved": "客户已从团队中移除",
+        "trustAdded": "信任关系已添加",
+        "trustRemoved": "信任关系已移除"
+      },
+      "errors": {
+        "loadFailed": "加载团队数据失败",
+        "addMemberFailed": "添加成员失败",
+        "removeMemberFailed": "移除成员失败",
+        "updateRoleFailed": "更新角色失败",
+        "loadClientsFailed": "加载客户失败",
+        "assignClientFailed": "分配客户失败",
+        "removeClientFailed": "移除客户失败",
+        "updateTeamFailed": "更新团队失败",
+        "loadTeamNamesFailed": "加载团队名称失败",
+        "addTrustFailed": "添加信任关系失败",
+        "removeTrustFailed": "移除信任关系失败"
+      },
+      "dialogs": {
+        "cancel": "取消",
+        "editTeam": {
+          "title": "编辑团队",
+          "nameLabel": "团队名称",
+          "descriptionLabel": "描述",
+          "saveButton": "保存",
+          "savingButton": "保存中..."
+        },
+        "addMember": {
+          "title": "添加团队成员",
+          "searchLabel": "搜索用户",
+          "searchPlaceholder": "输入至少 2 个字符...",
+          "typeToSearch": "输入以搜索...",
+          "noUsersFound": "未找到用户",
+          "roleLabel": "角色",
+          "addButton": "添加成员"
+        },
+        "addTrust": {
+          "title": "添加受信任的团队",
+          "info": "受信任团队的成员拥有的代理将被允许运行此团队的任务。",
+          "selectLabel": "选择要信任的团队",
+          "searchPlaceholder": "搜索团队...",
+          "noTeamsAvailable": "无可用团队",
+          "optionLabel_other": "{{name}}（{{count}} 个代理）"
+        },
+        "assignClient": {
+          "title": "将客户分配给团队",
+          "info": "分配客户将授予所有团队成员对此客户的哈希列表、任务和已破解数据的访问权限。",
+          "selectLabel": "选择客户",
+          "searchPlaceholder": "搜索客户...",
+          "noClientsAvailable": "没有未分配的客户可用"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "自定义字符集管理",
+    "description": "管理所有预设任务和用户可用的全局自定义字符集。支持内联定义和二进制 .hcchr 字符集文件。",
+    "createCharset": "创建字符集",
+    "columns": {
+      "name": "名称",
+      "type": "类型",
+      "definition": "定义 / 信息",
+      "description": "描述",
+      "created": "创建时间"
+    },
+    "typeLabels": {
+      "file": "文件",
+      "inline": "内联",
+      "hex": "十六进制"
+    },
+    "uniqueBytes_other": "{{count}} 个唯一字节",
+    "rowActions": {
+      "edit": "编辑",
+      "delete": "删除"
+    },
+    "empty": "未找到自定义字符集。创建一个以开始使用。",
+    "dialogs": {
+      "create": {
+        "title": "创建自定义字符集"
+      },
+      "edit": {
+        "title": "编辑自定义字符集"
+      },
+      "delete": {
+        "title": "删除字符集",
+        "confirmation": "确定要删除字符集 \"{{name}}\" 吗？"
+      },
+      "modeToggle": {
+        "inline": "内联定义",
+        "file": "文件上传 (.hcchr)"
+      },
+      "fields": {
+        "name": "名称",
+        "namePlaceholder": "例如，DES 完整字符集",
+        "definition": "定义",
+        "definitionPlaceholderHex": "例如，41424344（十六进制字节对）",
+        "definitionPlaceholderPlain": "例如，?u?d 或 abcdef0123456789",
+        "definitionHelperHex": "十六进制字节对——每对 = 一个字符集字节。{{bytes}}",
+        "definitionHelperHexBytes_other": "{{count}} 个字节",
+        "definitionHelperPlain": "Hashcat 字符集定义。使用 ?l、?u、?d、?s、?a、?b、?h、?H 或文字字符。",
+        "hexTooltip": "启用后，定义解释为十六进制字节对（例如，41424344 = 字节 A、B、C、D）。使用此字符集的任务将自动注入 --hex-charset。",
+        "hexLabel": "十六进制编码的定义",
+        "selectFile": "选择 .hcchr 文件",
+        "fileSizeBytes_other": "{{count}} 个字节",
+        "fileHelperText": "包含原始字节值的二进制字符集文件（最多 1023 字节，最多 256 个唯一字节）。用于 DES 破解、NTLMv1 和特定于语言的编码。",
+        "fileCharsetInfo_other": "文件字符集：{{count}} 个唯一字节。只能编辑名称和描述。",
+        "description": "描述",
+        "descriptionPlaceholder": "此字符集用途的可选描述"
+      },
+      "update": "更新",
+      "upload": "上传"
+    },
+    "messages": {
+      "createSuccess": "字符集创建成功",
+      "uploadSuccess": "文件字符集上传成功",
+      "updateSuccess": "字符集更新成功",
+      "deleteSuccess": "字符集删除成功"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "只允许 .hcchr 文件",
+      "fileTooLarge": "文件过大（最多 1023 字节——hashcat 读取缓冲区限制）",
+      "nameRequired": "名称为必填项",
+      "definitionRequired": "定义为必填项",
+      "selectFile": "请选择 .hcchr 文件",
+      "loadFailed": "加载字符集失败：{{message}}",
+      "deleteFailed": "删除字符集失败：{{message}}"
     }
   }
 }

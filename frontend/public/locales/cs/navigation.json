@@ -1,0 +1,52 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Přehled",
+    "jobs": "Úlohy",
+    "agents": "Agenti",
+    "hashlists": "Hashlisty",
+    "crackedHashes": "Prolomené hashe",
+    "wordlists": "Slovníky",
+    "rules": "Pravidla",
+    "clientManagement": "Správa klientů",
+    "teams": "Týmy",
+    "analytics": "Analytika",
+    "about": "O aplikaci",
+    "logout": "Odhlásit se"
+  },
+  "admin": {
+    "title": "Administrace",
+    "settings": "Nastavení",
+    "userManagement": "Správa uživatelů",
+    "customCharsets": "Vlastní sady znaků",
+    "presetJobs": "Přednastavené úlohy",
+    "jobWorkflows": "Pracovní postupy",
+    "diagnostics": "Diagnostika",
+    "auditLog": "Auditní log",
+    "jobAnalytics": "Analytika úloh",
+    "teamManagement": "Správa týmů",
+    "cloudFleet": "Cloudová flotila",
+    "binaries": "Binární soubory",
+    "hashTypes": "Typy hashů",
+    "vouchers": "Vouchery",
+    "clients": "Klienti",
+    "teams": "Týmy"
+  },
+  "userMenu": {
+    "userSettings": "Nastavení uživatele",
+    "savedCharsets": "Uložené sady znaků",
+    "logout": "Odhlásit se",
+    "user": "Uživatel"
+  },
+  "aria": {
+    "toggleDrawer": "Přepnout boční panel",
+    "mainNavigation": "Hlavní navigace",
+    "adminNavigation": "Správcovská navigace",
+    "downloadCaCert": "Stáhnout certifikát CA"
+  },
+  "groups": {
+    "resources": "Prostředky",
+    "peopleAccess": "Lidé a přístup",
+    "operations": "Operace"
+  }
+}

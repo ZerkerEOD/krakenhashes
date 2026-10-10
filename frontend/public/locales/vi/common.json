@@ -1,0 +1,341 @@
+{
+  "buttons": {
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "edit": "Chỉnh sửa",
+    "create": "Tạo",
+    "submit": "Gửi",
+    "close": "Đóng",
+    "confirm": "Xác nhận",
+    "retry": "Thử lại",
+    "refresh": "Làm mới",
+    "download": "Tải xuống",
+    "upload": "Tải lên",
+    "copy": "Sao chép",
+    "search": "Tìm kiếm",
+    "filter": "Lọc",
+    "clearFilters": "Xóa bộ lọc",
+    "loadAll": "Tải tất cả",
+    "signIn": "Đăng nhập",
+    "logIn": "Đăng nhập",
+    "logout": "Đăng xuất"
+  },
+  "labels": {
+    "loading": "Đang tải...",
+    "noData": "Không có dữ liệu",
+    "error": "Đã xảy ra lỗi",
+    "success": "Thành công",
+    "warning": "Cảnh báo",
+    "info": "Thông tin",
+    "required": "Bắt buộc",
+    "optional": "Tùy chọn",
+    "all": "Tất cả",
+    "none": "Không có",
+    "yes": "Có",
+    "no": "Không",
+    "enabled": "Bật",
+    "disabled": "Tắt",
+    "active": "Hoạt động",
+    "inactive": "Không hoạt động",
+    "updating": "Đang cập nhật",
+    "pending": "Đang chờ",
+    "completed": "Hoàn thành",
+    "failed": "Thất bại",
+    "unknown": "Không xác định"
+  },
+  "pagination": {
+    "rowsPerPage": "Hàng trên mỗi trang",
+    "page": "Trang {{current}} của {{total}}",
+    "showing": "Hiển thị {{from}}-{{to}} của {{total}}",
+    "first": "Trang đầu",
+    "last": "Trang cuối",
+    "next": "Trang tiếp theo",
+    "previous": "Trang trước"
+  },
+  "language": {
+    "selectLanguage": "Chọn ngôn ngữ",
+    "currentLanguage": "Ngôn ngữ hiện tại"
+  },
+  "clipboard": {
+    "copied": "Đã sao chép vào bộ nhớ tạm",
+    "copyFailed": "Không thể sao chép vào bộ nhớ tạm"
+  },
+  "errors": {
+    "networkError": "Lỗi mạng. Vui lòng kiểm tra kết nối của bạn.",
+    "serverError": "Lỗi máy chủ. Vui lòng thử lại sau.",
+    "unknownError": "Đã xảy ra lỗi không xác định",
+    "validationError": "Vui lòng kiểm tra đầu vào của bạn và thử lại",
+    "permissionDenied": "Quyền truy cập bị từ chối",
+    "notFound": "Không tìm thấy",
+    "sessionExpired": "Phiên của bạn đã hết hạn. Vui lòng đăng nhập lại."
+  },
+  "confirmations": {
+    "areYouSure": "Bạn có chắc chắn không?",
+    "cannotBeUndone": "Hành động này không thể hoàn tác.",
+    "confirmDelete": "Xác nhận xóa",
+    "confirmAction": "Xác nhận hành động",
+    "typeToConfirm": "Nhập {{text}} để xác nhận"
+  },
+  "time": {
+    "justNow": "Vừa xong",
+    "minutesAgo_other": "{{count}} phút trước",
+    "hoursAgo_other": "{{count}} giờ trước",
+    "daysAgo_other": "{{count}} ngày trước",
+    "never": "Không bao giờ"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Kéo và thả tệp ở đây hoặc nhấp để chọn",
+    "selectFile": "Chọn tệp",
+    "uploading": "Đang tải lên...",
+    "uploadSuccess": "Tệp được tải lên thành công",
+    "uploadFailed": "Tải lên tệp thất bại",
+    "chooseFile": "Chọn tệp",
+    "description": "Mô tả",
+    "loading": "Đang tải..."
+  },
+  "binaryVersionSelector": {
+    "label": "Phiên bản binary",
+    "helperText": "Chọn mẫu phiên bản binary cho công việc này",
+    "default": "Mặc định",
+    "majorVersion": "Phiên bản chính (Phiên bản phụ mới nhất)",
+    "minorVersion": "Phiên bản phụ (Bản vá mới nhất)",
+    "exactVersion": "Phiên bản chính xác",
+    "loading": "Đang tải...",
+    "loadingVersions": "Đang tải các phiên bản binary...",
+    "loadError": "Không thể tải các phiên bản binary"
+  },
+  "passwordValidation": {
+    "requirements": "Yêu cầu mật khẩu:",
+    "minLength": "Ít nhất {{length}} ký tự",
+    "uppercase": "Ít nhất một chữ cái viết hoa",
+    "lowercase": "Ít nhất một chữ cái viết thường",
+    "number": "Ít nhất một chữ số",
+    "specialChar": "Ít nhất một ký tự đặc biệt"
+  },
+  "footer": {
+    "documentation": "Tài liệu",
+    "issues": "Vấn đề",
+    "loading": "Đang tải...",
+    "release": "Phát hành v{{version}}",
+    "versionUnavailable": "Phiên bản không khả dụng"
+  },
+  "layout": {
+    "logoAlt": "Logo KrakenHashes",
+    "logoAltBranded": "Logo {{appName}}"
+  },
+  "table": {
+    "clearSearch": "Xóa tìm kiếm",
+    "clearSelection": "Xóa lựa chọn",
+    "selectedCount": "{{count}} được chọn",
+    "expandRow": "Mở rộng hàng",
+    "collapseRow": "Thu gọn hàng",
+    "showAll": "Hiển thị tất cả",
+    "showFewer": "Hiển thị ít hơn",
+    "showingOf": "Hiển thị {{shown}} của {{total}}",
+    "actions": "Hành động",
+    "noResults": "Không có kết quả nào phù hợp với bộ lọc của bạn",
+    "rowsPerPage": "Hàng trên mỗi trang"
+  },
+  "about": {
+    "title": "Về KrakenHashes",
+    "versionInfo": {
+      "title": "Thông tin phiên bản",
+      "release": "Phát hành",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Phiên bản Agent",
+      "api": "Phiên bản API",
+      "database": "Cơ sở dữ liệu",
+      "build": "Build"
+    },
+    "projectInfo": {
+      "title": "Thông tin dự án",
+      "description": "KrakenHashes là hệ thống quản lý bẻ khóa mật khẩu phân tán được thiết kế để phối hợp và quản lý các tác vụ bẻ khóa mật khẩu trên nhiều agent.",
+      "license": "Đây là một dự án mã nguồn mở được cấp phép theo GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "Kho GitHub"
+    },
+    "errors": {
+      "fetchFailed": "Không thể tải thông tin phiên bản"
+    },
+    "titleBranded": "Về {{appName}}"
+  },
+  "hexPassword": {
+    "tag": "HEX",
+    "tooltip": "Không phải văn bản hợp lệ. Mật khẩu chính xác là {{value}}. Các ký tự hiển thị là một dự đoán tốt nhất (Windows-1252), không phải mật khẩu thực.",
+    "copyExact": "Sao chép giá trị chính xác (cho hashcat)",
+    "copyGuess": "Sao chép dự đoán tốt nhất (không chính xác)"
+  },
+  "empty": {
+    "noData": "Chưa có gì ở đây",
+    "noResults": "Không có kết quả",
+    "noResultsHint": "Hãy thử điều chỉnh tìm kiếm hoặc bộ lọc của bạn."
+  },
+  "theme": {
+    "appearance": "Giao diện",
+    "light": "Sáng",
+    "dark": "Tối",
+    "system": "Hệ thống"
+  },
+  "status": {
+    "job": {
+      "preparing": "Đang chuẩn bị",
+      "pending": "Đang chờ",
+      "running": "Đang chạy",
+      "paused": "Bị tạm dừng",
+      "processing": "Đang xử lý",
+      "completed": "Hoàn thành",
+      "failed": "Thất bại",
+      "cancelled": "Bị hủy",
+      "archived": "Được lưu trữ"
+    },
+    "task": {
+      "pending": "Đang chờ",
+      "assigned": "Được phân công",
+      "reconnect_pending": "Đang kết nối lại",
+      "running": "Đang chạy",
+      "processing": "Đang xử lý",
+      "processing_error": "Lỗi xử lý",
+      "completed": "Hoàn thành",
+      "failed": "Thất bại",
+      "cancelled": "Bị hủy"
+    },
+    "agent": {
+      "pending": "Đang chờ",
+      "active": "Trực tuyến",
+      "inactive": "Ngoại tuyến",
+      "error": "Lỗi",
+      "disabled": "Tắt",
+      "updating": "Đang cập nhật",
+      "online": "Trực tuyến",
+      "offline": "Ngoại tuyến"
+    },
+    "hashlist": {
+      "uploading": "Đang tải lên",
+      "processing": "Đang xử lý",
+      "ready": "Sẵn sàng",
+      "error": "Lỗi",
+      "deleting": "Đang xóa",
+      "ready_with_errors": "Sẵn sàng với lỗi",
+      "awaiting_validation_decision": "Đang chờ xem xét",
+      "cancelled": "Bị hủy"
+    },
+    "verification": {
+      "pending": "Đang chờ",
+      "verified": "Đã xác minh",
+      "failed": "Thất bại",
+      "deleted": "Bị xóa"
+    },
+    "cloud": {
+      "requested": "Được yêu cầu",
+      "launching": "Đang khởi động",
+      "provisioning": "Đang cấp phát",
+      "syncing": "Đang đồng bộ",
+      "running": "Đang chạy",
+      "draining": "Đang rút dần",
+      "terminating": "Đang chấm dứt",
+      "terminated": "Đã chấm dứt",
+      "failed": "Thất bại"
+    },
+    "loopback": {
+      "waiting": "Đang chờ",
+      "active": "Hoạt động",
+      "completed": "Hoàn thành",
+      "failed": "Thất bại",
+      "cancelled": "Bị hủy"
+    },
+    "audit": {
+      "info": "Thông tin",
+      "warning": "Cảnh báo",
+      "critical": "Nghiêm trọng"
+    },
+    "diagnostic": {
+      "info": "Thông tin",
+      "warning": "Cảnh báo",
+      "error": "Lỗi"
+    },
+    "sync": {
+      "pending": "Đang chờ",
+      "in_progress": "Đang tiến hành",
+      "completed": "Hoàn thành",
+      "failed": "Thất bại"
+    },
+    "generic": {
+      "success": "Thành công",
+      "ok": "OK",
+      "healthy": "Tốt",
+      "enabled": "Bật",
+      "active": "Hoạt động",
+      "verified": "Đã xác minh",
+      "warning": "Cảnh báo",
+      "degraded": "Suy giảm",
+      "error": "Lỗi",
+      "failed": "Thất bại",
+      "critical": "Nghiêm trọng",
+      "info": "Thông tin",
+      "running": "Đang chạy",
+      "pending": "Đang chờ",
+      "queued": "Đang xếp hàng",
+      "disabled": "Tắt",
+      "inactive": "Không hoạt động",
+      "unknown": "Không xác định"
+    }
+  },
+  "charsetInputs": {
+    "subtitle": "Charset tùy chỉnh (tùy chọn - định nghĩa ?1 đến ?4 để sử dụng trong mask)",
+    "hexTooltip": "Khi bật, các định nghĩa charset nội tuyến sẽ được diễn giải thành cặp byte hex (ví dụ: 41424344 = ABCD). Charset từ tệp không bị ảnh hưởng.",
+    "hexEncodedLabel": "Charset được mã hóa hex",
+    "charsetSlotLabel": "Charset {{slot}} (-{{slot}})",
+    "fileValue_other": "[Tệp: {{name}} — {{count}} byte]",
+    "fileHelperUsed_other": "{{count}} byte duy nhất",
+    "fileHelperUnused_other": "{{count}} byte duy nhất (không được tham chiếu trong mask)",
+    "placeholderHex": "ví dụ: 41424344 (cặp byte hex)",
+    "placeholderPlain": "ví dụ: ?u?d hoặc abcdef0123456789",
+    "inlineHelperBytes_other": "{{count}} byte",
+    "inlineHelperBytesUnused_other": "{{count}} byte (không được tham chiếu trong mask)",
+    "inlineHelperChars_other": "{{count}} ký tự",
+    "inlineHelperCharsUnused_other": "{{count}} ký tự (không được tham chiếu trong mask)",
+    "referencedNotDefined": "Được tham chiếu trong mask nhưng không được định nghĩa",
+    "savedLabel": "Đã lưu",
+    "typeLabels": {
+      "file": "Tệp",
+      "hex": "Hex"
+    },
+    "optionUniqueBytes_other": "{{count}} byte duy nhất",
+    "optionBytesHex_other": "{{count}} byte (hex)",
+    "willEnableHex": " — sẽ bật chế độ hex",
+    "willDisableHex": " — sẽ tắt chế độ hex",
+    "estimatedKeyspace": "Keyspace ước tính: {{value}}",
+    "slotSizeBytes": "?{{slot}} = {{size}} byte",
+    "slotSizeChars": "?{{slot}} = {{size}} ký tự"
+  },
+  "teamFilter": {
+    "label": "Nhóm",
+    "allTeams": "Tất cả nhóm",
+    "adminBadge": "Admin"
+  },
+  "passwordConfirm": {
+    "passwordRequired": "Mật khẩu là bắt buộc.",
+    "currentPasswordLabel": "Mật khẩu hiện tại"
+  },
+  "hashDetailModal": {
+    "title": "Chi tiết hash",
+    "hashValue": "Giá trị hash",
+    "copied": "Đã sao chép!",
+    "copyHash": "Sao chép hash",
+    "copyPlaintext": "Sao chép plaintext",
+    "originalHash": "Hash gốc (từ tệp)",
+    "status": "Trạng thái",
+    "cracked": "Đã bẻ khóa",
+    "notCracked": "Chưa bẻ khóa",
+    "hashType": "Loại hash",
+    "typeId": "ID loại: {{id}}",
+    "username": "Tên người dùng",
+    "crackedText": "Văn bản đã bẻ khóa",
+    "hashlist": "Danh sách hash",
+    "lastUpdated": "Cập nhật lần cuối",
+    "crackedAt": "Thời điểm bẻ khóa",
+    "hashCopied": "Hash đã được sao chép vào clipboard",
+    "crackedTextCopied": "Văn bản đã bẻ khóa đã được sao chép vào clipboard"
+  }
+}

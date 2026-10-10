@@ -1,0 +1,164 @@
+{
+  "title": "Přehled",
+  "welcome": "Vítejte v KrakenHashes",
+  "stats": {
+    "title": "Přehled",
+    "totalJobs": "Celkem úloh",
+    "activeJobs": "Aktivní úlohy",
+    "completedJobs": "Dokončené úlohy",
+    "totalHashes": "Celkem hashů",
+    "crackedHashes": "Prolomené hashe",
+    "crackRate": "Procento prolomení",
+    "activeAgents": "Aktivní agenti",
+    "totalAgents": "Celkem agentů"
+  },
+  "recentActivity": {
+    "title": "Poslední aktivita",
+    "noActivity": "Žádná poslední aktivita",
+    "viewAll": "Všechna oznámení"
+  },
+  "quickActions": {
+    "title": "Rychlé akce",
+    "createJob": "Vytvořit úlohu",
+    "uploadHashlist": "Nahrát Hashlist",
+    "viewAgents": "Zobrazit agenty"
+  },
+  "agents": {
+    "title": "Vaši agenti",
+    "loadError": "Nepodařilo se načíst agenty: {{message}}",
+    "noAgents": "Žádní registrovaní agenti",
+    "hashRate": "Rychlost hashování",
+    "notAvailable": "Nedostupné",
+    "job": "Úloha",
+    "unnamedJob": "Nepojmenovaná úloha",
+    "noActiveTask": "Žádný aktivní úkol"
+  },
+  "pagination": {
+    "previous": "Předchozí",
+    "next": "Další",
+    "pageOf": "Stránka {{current}} z {{total}}"
+  },
+  "jobs": {
+    "title": "Vaše úlohy",
+    "total": "Celkem",
+    "autoRefreshOn": "Automatické",
+    "autoRefreshOff": "Vypnuto",
+    "lastUpdated": "Poslední aktualizace: {{time}}",
+    "loadError": "Nepodařilo se načíst úlohy: {{message}}",
+    "noJobs": "Žádné úlohy nenalezeny. Vytvořte novou úlohu, abyste mohli začít."
+  },
+  "buttons": {
+    "refresh": "Obnovit",
+    "deleteFinished": "Odstranit dokončené"
+  },
+  "filters": {
+    "status": "Stav",
+    "priority": "Priorita",
+    "all": "Vše",
+    "searchPlaceholder": "Hledat úlohy...",
+    "clear": "Vymazat filtry"
+  },
+  "status": {
+    "pending": "Čekající",
+    "running": "Spuštěno",
+    "paused": "Pozastaveno",
+    "completed": "Dokončeno",
+    "failed": "Selhalo",
+    "cancelled": "Zrušeno"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Odstranit dokončené úlohy",
+      "message": "Opravdu chcete odstranit všechny dokončené úlohy? Tuto akci nelze vrátit zpět."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Nepodařilo se odstranit dokončené úlohy",
+    "deleteJobFailed": "Nepodařilo se odstranit úlohu",
+    "retryJobFailed": "Nepodařilo se zopakovat úlohu",
+    "updateJobFailed": "Nepodařilo se aktualizovat úlohu"
+  },
+  "hashlistOverview": {
+    "title": "Přehled Hashlistů",
+    "loadError": "Nepodařilo se načíst hashlisty",
+    "noHashlists": "Žádné hashlisty nenalezeny",
+    "columns": {
+      "name": "Jméno",
+      "client": "Klient",
+      "status": "Stav",
+      "total": "Celkem",
+      "cracked": "Prolomeno",
+      "progress": "Pokrok"
+    },
+    "status": {
+      "ready": "Připraveno",
+      "error": "Chyba",
+      "uploading": "Nahrávání",
+      "processing": "Zpracování"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Žádné úlohy nenalezeny",
+    "noJobsHint": "Vytvořte novou úlohu ze stránky Hashlisty, abyste mohli začít.",
+    "completedJobs": "Dokončené úlohy",
+    "columns": {
+      "jobName": "Název úlohy",
+      "hashlist": "Hashlist / Přednastavení",
+      "createdBy": "Vytvořil",
+      "progress": "Pokrok",
+      "keyspace": "Keyspace",
+      "cracked": "Prolomeno",
+      "agents": "Agenti",
+      "priority": "Priorita",
+      "maxAgents": "Max. agentů",
+      "actions": "Akce"
+    }
+  },
+  "kpi": {
+    "runningJobs": "Spuštěné úlohy",
+    "queued": "{{count}} ve frontě",
+    "agentsOnline": "Agenti online",
+    "agentProblems": "{{count}} vyžadující pozornost",
+    "hashRate": "Rychlost hashování",
+    "cracks24h": "Prolomeno (24h)",
+    "cracks7d": "{{count}} za 7 dní",
+    "crackRate": "Procento prolomení",
+    "hashlistTotals": "{{cracked}} z {{total}} hashů",
+    "failed24h": "Selhalo (24h)",
+    "completed24h": "{{count}} dokončeno"
+  },
+  "agentHealth": {
+    "title": "Stav agentů",
+    "viewAll": "Všichni agenti",
+    "utilization": "Využití GPU",
+    "temperature": "Nejteplejší GPU",
+    "lastSeen": "Naposledy viděno {{when}}",
+    "warnings": {
+      "error": "Chyba",
+      "offline": "Offline",
+      "update_failed": "Aktualizace selhala",
+      "stale_heartbeat": "Bez kontroly činnosti",
+      "gpu_hot": "GPU přehřátá"
+    }
+  },
+  "recentCracks": {
+    "title": "Nedávné prolomení",
+    "viewAll": "Všechny prolomené hashe",
+    "empty": "Zatím nic neprolomeno",
+    "copy": "Kopírovat plaintext",
+    "copied": "Zkopírováno"
+  },
+  "activeJobs": {
+    "title": "Aktivní úlohy",
+    "showing": "Zobrazuji 10 z {{total}}",
+    "viewAll": "Všechny úlohy",
+    "empty": "Nic neběží",
+    "emptyHint": "Spusťte úlohu z hashlistu.",
+    "goHashlists": "Jít na Hashlisty"
+  },
+  "welcomeUser": "Vítejte zpět, {{name}}",
+  "autoRefresh": {
+    "on": "Živě",
+    "off": "Pozastaveno"
+  }
+}

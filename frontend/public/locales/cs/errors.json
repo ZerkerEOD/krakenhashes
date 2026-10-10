@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Připojení se nezdařilo. Zkontrolujte prosím vaši síť.",
+    "timeout": "Časový limit požadavku vypršel. Zkuste to prosím znovu.",
+    "serverUnavailable": "Server je nedostupný. Zkuste to prosím později."
+  },
+  "authentication": {
+    "unauthorized": "Nejste oprávněni provádět tuto akci.",
+    "sessionExpired": "Vaše relace vypršela. Prosím, přihlaste se znovu.",
+    "invalidToken": "Neplatný ověřovací token.",
+    "loginRequired": "Prosím, přihlaste se, abyste mohli pokračovat."
+  },
+  "validation": {
+    "required": "Toto pole je povinné.",
+    "invalidEmail": "Prosím, zadejte platnou e-mailovou adresu.",
+    "invalidFormat": "Neplatný formát.",
+    "tooShort": "Musí obsahovat alespoň {{min}} znaků.",
+    "tooLong": "Nesmí obsahovat více než {{max}} znaků.",
+    "passwordRequirements": "Heslo musí obsahovat alespoň 8 znaků, včetně velkého písmene, malého písmene, čísla a speciálního znaku."
+  },
+  "api": {
+    "badRequest": "Neplatný požadavek. Zkontrolujte prosím svůj vstup.",
+    "notFound": "Požadovaný zdroj nebyl nalezen.",
+    "conflict": "Došlo ke konfliktu. Prostředek již může existovat.",
+    "serverError": "Došlo k interní chybě serveru.",
+    "rateLimited": "Příliš mnoho požadavků. Prosím, počkejte a zkuste to znovu."
+  },
+  "file": {
+    "tooLarge": "Soubor je příliš velký. Maximální velikost je {{maxSize}}.",
+    "invalidType": "Neplatný typ souboru. Povolené typy: {{allowedTypes}}.",
+    "uploadFailed": "Nahrávání souboru se nezdařilo. Zkuste to prosím znovu."
+  },
+  "generic": {
+    "unknownError": "Došlo k neznámé chybě.",
+    "tryAgain": "Zkuste to prosím znovu.",
+    "contactSupport": "Pokud problém přetrvává, obraťte se prosím na podporu."
+  }
+}

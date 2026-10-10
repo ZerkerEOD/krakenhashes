@@ -1,0 +1,3238 @@
+{
+  "title": "Параметри адміністрування",
+  "sections": {
+    "general": "Основні параметри",
+    "authentication": "Автентифікація",
+    "email": "Параметри електронної пошти",
+    "security": "Безпека",
+    "sso": "Єдиний вхід (SSO)",
+    "monitoring": "Моніторинг"
+  },
+  "tabs": {
+    "emailSettings": "Параметри електронної пошти",
+    "authenticationSettings": "Параметри автентифікації",
+    "ssoSettings": "Параметри SSO",
+    "binaryManagement": "Керування виконуваними файлами",
+    "systemSettings": "Системні параметри",
+    "clientSettings": "Параметри клієнта",
+    "hashTypes": "Типи хешів",
+    "jobExecution": "Виконання завдань",
+    "monitoring": "Моніторинг",
+    "agentDownloads": "Завантаження агентів",
+    "notifications": "Сповіщення",
+    "cloudProvisioning": "Виділення хмарних ресурсів",
+    "serverCertificate": "Сертифікат сервера"
+  },
+  "common": {
+    "cancel": "Скасувати",
+    "create": "Створити",
+    "edit": "Редагувати",
+    "delete": "Видалити",
+    "save": "Зберегти",
+    "saveChanges": "Зберегти зміни",
+    "copyToClipboard": "Скопіювати до буфера обміну",
+    "never": "Ніколи",
+    "invalidDate": "Недійсна дата",
+    "all": "Усі",
+    "yes": "Так",
+    "no": "Ні",
+    "note": "Примітка",
+    "default": "За замовчуванням",
+    "on": "Увімкнено",
+    "off": "Вимкнено",
+    "none": "Жодне",
+    "unlimited": "Без обмежень",
+    "close": "Закрити",
+    "unknownError": "Невідома помилка",
+    "dialogs": {
+      "confirmDeleteNamed": "Ви впевнені, що хочете видалити \"{{name}}\"?"
+    },
+    "download": "Завантажити",
+    "confirm": "Підтвердити"
+  },
+  "users": {
+    "title": "Керування користувачами",
+    "description": "Керування обліковими записами користувачів та дозволами",
+    "addUser": "Додати користувача",
+    "createUser": "Створити користувача",
+    "columns": {
+      "username": "Ім'я користувача",
+      "email": "Електронна пошта",
+      "role": "Роль",
+      "status": "Статус",
+      "createdAt": "Створено",
+      "lastLogin": "Останній вхід",
+      "actions": "Дії",
+      "provider": "Постачальник",
+      "providerLocal": "Локальний",
+      "mfa": "MFA",
+      "apiKey": "Ключ API",
+      "lastApiUse": "Останнє використання API"
+    },
+    "roles": {
+      "admin": "Адміністратор",
+      "user": "Користувач",
+      "system": "Система"
+    },
+    "status": {
+      "active": "Активний",
+      "pending": "Очікує схвалення",
+      "disabled": "Вимкнений",
+      "locked": "Заблокований"
+    },
+    "actions": {
+      "edit": "Редагувати користувача",
+      "delete": "Видалити користувача",
+      "approve": "Схвалити",
+      "disable": "Вимкнути",
+      "enable": "Увімкнути",
+      "unlock": "Розблокувати",
+      "resetPassword": "Скинути пароль",
+      "disableMfa": "Вимкнути MFA",
+      "revokeApiKey": "Відкликати ключ API",
+      "cannotDeleteSystem": "Неможливо видалити системних користувачів",
+      "terminateSession": "Завершити сеанс",
+      "terminateAllSessions": "Завершити всі сеанси"
+    },
+    "apiKey": {
+      "none": "Відсутній"
+    },
+    "validation": {
+      "usernameRequired": "Ім'я користувача обов'язкове",
+      "emailRequired": "Електронна пошта обов'язкова",
+      "emailInvalid": "Недійсний формат електронної пошти",
+      "passwordRequired": "Пароль обов'язковий",
+      "passwordMinLength": "не менше {{value}} символів",
+      "passwordUppercase": "одну велику літеру",
+      "passwordLowercase": "одну малу літеру",
+      "passwordNumber": "одну цифру",
+      "passwordSpecial": "один спеціальний символ",
+      "passwordMustContain": "Пароль повинен містити {{requirements}}",
+      "confirmPasswordRequired": "Будь ласка, підтвердіть пароль",
+      "passwordsMismatch": "Паролі не збігаються"
+    },
+    "errors": {
+      "loadFailed": "Не вдалось завантажити користувачів. Спробуйте оновити сторінку.",
+      "loadDetailsFailed": "Не вдалось завантажити деталі користувача",
+      "loadSessionsFailed": "Не вдалось завантажити сеанси",
+      "loadLoginAttemptsFailed": "Не вдалось завантажити спроби входу",
+      "loadApiKeyFailed": "Не вдалось завантажити інформацію про ключ API",
+      "createFailed": "Не вдалось створити користувача",
+      "updateFailed": "Не вдалось оновити користувача",
+      "deleteFailed": "Не вдалось видалити користувача",
+      "enableFailed": "Не вдалось увімкнути користувача",
+      "disableFailed": "Не вдалось вимкнути користувача",
+      "unlockFailed": "Не вдалось розблокувати обліковий запис",
+      "reasonRequired": "Будь ласка, вкажіть причину для вимикання цього користувача",
+      "passwordResetFailed": "Не вдалось скинути пароль",
+      "mfaDisableFailed": "Не вдалось вимкнути MFA",
+      "accountStatusFailed": "Не вдалось оновити статус облікового запису",
+      "terminateSessionFailed": "Не вдалось завершити сеанс",
+      "terminateAllSessionsFailed": "Не вдалось завершити всі сеанси",
+      "revokeApiKeyFailed": "Не вдалось відкликати ключ API",
+      "userNotFound": "Користувача не знайдено"
+    },
+    "messages": {
+      "createSuccess": "Користувач успішно створений",
+      "updateSuccess": "Деталі користувача успішно оновлені",
+      "deleteSuccess": "Користувач успішно видалений",
+      "enableSuccess": "Користувач успішно увімкнений",
+      "disableSuccess": "Користувач успішно вимкнений",
+      "passwordResetSuccess": "Пароль успішно скинутий!",
+      "passwordCopied": "Пароль скопійований до буфера обміну",
+      "mfaDisableSuccess": "MFA успішно вимкнена",
+      "accountDisabled": "Обліковий запис користувача вимкнений",
+      "accountEnabled": "Обліковий запис користувача увімкнений",
+      "accountUnlocked": "Обліковий запис користувача розблокований",
+      "sessionTerminated": "Сеанс успішно завершений",
+      "allSessionsTerminated_few": "Завершено {{count}} сеанси успішно",
+      "allSessionsTerminated_many": "Завершено {{count}} сеансів успішно",
+      "allSessionsTerminated_one": "Завершено {{count}} сеанс успішно",
+      "allSessionsTerminated_other": "Завершено {{count}} сеансів успішно",
+      "apiKeyRevoked": "Ключ API успішно відкликаний"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Створити нового користувача",
+        "password": "Пароль",
+        "confirmPassword": "Підтвердіть пароль",
+        "roleHelperText": "Виберіть роль користувача в системі"
+      },
+      "disableUser": {
+        "title": "Вимкнути обліковий запис користувача",
+        "description": "Будь ласка, вкажіть причину для вимикання цього облікового запису користувача. Це буде зафіксовано в журналі аудиту.",
+        "reasonLabel": "Причина для вимикання",
+        "reasonPlaceholder": "наприклад, Компрометація облікового запису, Порушення умов, Запит користувача тощо",
+        "disableAccount": "Вимкнути обліковий запис"
+      },
+      "deleteUser": {
+        "title": "Видалити обліковий запис користувача",
+        "warning": "Цю дію неможливо скасувати. Користувач буде остаточно видалений із системи.",
+        "confirmation": "Ви впевнені, що хочете видалити користувача <strong>{{username}}</strong>?",
+        "dataNote": "Усі пов'язані дані будуть збережені, але користувач більше не зможе входити до системи."
+      },
+      "resetPassword": {
+        "title": "Скинути пароль користувача",
+        "generateTemporary": "Згенерувати тимчасовий пароль",
+        "newPassword": "Новий пароль",
+        "passwordHelperText": "Повинен складатися з не менше ніж 8 символів"
+      },
+      "disableMfa": {
+        "title": "Вимкнути MFA",
+        "confirmation": "Ви впевнені, що хочете вимкнути MFA для цього користувача? Їм потрібно буде налаштувати її знову, якщо це необхідно."
+      },
+      "terminateSession": {
+        "title": "Завершити сеанс?",
+        "description": "Це завершить сеанс користувача на цьому пристрої. Користувачу потрібно буде увійти знову, щоб продовжити користування застосунком.",
+        "terminate": "Завершити"
+      },
+      "terminateAllSessions": {
+        "title": "Завершити всі сеанси?",
+        "description": "Це завершить сеанси користувача на ВСІХ пристроях, включно з поточним сеансом. Користувачу потрібно буде увійти знову. Цю дію неможливо скасувати.",
+        "warning": "Це включає будь-які активні робочі сеанси!",
+        "terminateAll": "Завершити всі"
+      },
+      "revokeApiKey": {
+        "title": "Відкликати ключ API користувача?",
+        "warning": "Це негайно вимкне API-доступ для цього користувача. Будь-які застосунки, які використовують цей ключ, перестануть працювати.",
+        "confirmation": "Ви впевнені, що хочете відкликати ключ API цього користувача?"
+      }
+    },
+    "detail": {
+      "title": "Деталі користувача",
+      "backToUsers": "Назад до користувачів",
+      "userInformation": "Інформація про користувача",
+      "userId": "ID користувача",
+      "systemUserReadOnly": "Системних користувачів неможливо змінювати",
+      "accountStatus": "Статус облікового запису",
+      "accountStatusLabel": "Статус облікового запису",
+      "enabled": "Увімкнений",
+      "disabled": "Вимкнений",
+      "noReasonProvided": "Причина не надана",
+      "lockStatus": "Статус блокування",
+      "lockedUntil": "Заблокований до {{date}}",
+      "notLocked": "Не заблокований",
+      "mfaStatus": "Статус MFA",
+      "mfaEnabled": "Увімкнена ({{types}})",
+      "mfaDisabled": "Вимкнена",
+      "apiKeyManagement": "Керування ключем API",
+      "apiKeyStatus": "Статус ключа API",
+      "noApiKeyGenerated": "Ключ API не згенерований",
+      "created": "Створено",
+      "lastUsed": "Останнє використання",
+      "apiKeySecurityNote": "Адміністратори можуть відкликати ключі API, але не можуть переглядати ключ у відкритому тексті з причин безпеки.",
+      "activityInformation": "Інформація про активність",
+      "passwordChanged": "Пароль змінено",
+      "failedLoginAttempts": "Невдалі спроби входу",
+      "attemptsCount_few": "{{count}} спроби",
+      "attemptsCount_many": "{{count}} спроб",
+      "attemptsCount_one": "{{count}} спроба",
+      "attemptsCount_other": "{{count}} спроб",
+      "disabledAt": "Вимкнено",
+      "activeSessions": "Активні сеанси",
+      "noActiveSessions": "Немає активних сеансів",
+      "loginHistory": "Історія входів",
+      "noLoginAttempts": "Спроб входу не знайдено",
+      "temporaryPassword": "Тимчасовий пароль",
+      "sharePasswordSecurely": "Будь ласка, поділіться цим паролем безпечно з користувачем.",
+      "sessions": {
+        "ipAddress": "IP-адреса",
+        "deviceBrowser": "Пристрій / Браузер",
+        "lastActive": "Остання активність"
+      },
+      "loginAttempts": {
+        "timestamp": "Мітка часу",
+        "success": "Успіх",
+        "failed": "Невдача",
+        "failureReason": "Причина невдачі"
+      },
+      "teams": "Команди",
+      "teamName": "Команда",
+      "teamDescription": "Опис",
+      "noTeams": "Не є учасником жодної команди",
+      "ownedAgents": "Власні агенти",
+      "noOwnedAgents": "Цей користувач не володіє жодним агентом",
+      "agentName": "Агент",
+      "agentVersion": "Версія",
+      "agentLastSeen": "Останнє підключення"
+    }
+  },
+  "clients": {
+    "title": "Управління клієнтами",
+    "addClient": "Додати клієнта",
+    "columns": {
+      "name": "Назва",
+      "description": "Опис",
+      "contact": "Контакт",
+      "cracked": "Зламаних",
+      "retention": "Період збереження (місяців)",
+      "createdAt": "Створено",
+      "actions": "Дії",
+      "wordlists": "Словники"
+    },
+    "form": {
+      "clientName": "Назва клієнта",
+      "description": "Опис",
+      "contactInfo": "Контактна інформація",
+      "dataRetention": "Період збереження даних (місяців)",
+      "dataRetentionHelperText": "Залишіть порожнім, щоб використовувати системне за замовчуванням. Введіть 0, щоб зберігати назавжди.",
+      "excludeFromPotfile": "Виключити з potfile (не зберігати зламані паролі)",
+      "excludeFromPotfileHelperText": "Увімкніть це для клієнтів із суворими вимогами до періоду збереження",
+      "cloudInherit": "Хмарне розширення: цей клієнт унаслідує системне за замовчуванням — {{state}}, ${{amount}} за {{period}}. Змініть це у Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnfunded": "Хмарне розширення: не встановлено бюджету за замовчуванням, тому цей клієнт стартує без фінансування й не може орендувати платну потужність. Встановіть бюджет за замовчуванням у Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnknown": "Параметри хмарного розширення наслідуються із системних налаштувань у Cloud Provisioning → Client Budgets.",
+      "cloudEnabledWord": "увімкнено",
+      "cloudDisabledWord": "вимкнено",
+      "excludeFromClientPotfile": "Виключити з potfile клієнта",
+      "excludeFromClientPotfileHelperText": "Якщо позначено, зламані паролі для цього клієнта НЕ додаватимуться до potfile клієнта.",
+      "clientPotfileSettings": "Параметри видалення potfile",
+      "useSystemDefault": "Використовувати системне за замовчуванням",
+      "alwaysRemove": "Завжди видаляти",
+      "neverRemove": "Ніколи не видаляти",
+      "assignToTeam": "Призначити команді",
+      "assignToTeamHelperText": "Новий клієнт буде призначено цій команді. Перепризначення існуючого клієнта керується через Admin Team Management.",
+      "removeFromGlobalPotfileOnDelete": "Видалити з глобального potfile при видаленні",
+      "removeFromGlobalPotfileHelperText": "Контролює, чи будуть паролі видалені з глобального potfile при видаленні списку хешів.",
+      "removeFromClientPotfileOnDelete": "Видалити з potfile клієнта при видаленні",
+      "removeFromClientPotfileHelperText": "Контролює, чи будуть паролі видалені з potfile клієнта при видаленні списку хешів."
+    },
+    "validation": {
+      "nameRequired": "Назва клієнта обов'язкова.",
+      "retentionInvalid": "Період збереження має бути невід'ємним числом або порожнім (за замовчуванням).",
+      "teamRequired": "Вибір команди обов'язковий, коли команди увімкнені"
+    },
+    "errors": {
+      "loadFailed": "Не вдалося завантажити клієнтів. Будь ласка, спробуйте оновити.",
+      "loadDefaultSettingsFailed": "Не вдалося завантажити параметри клієнта за замовчуванням.",
+      "saveFailed": "Не вдалося зберегти клієнта.",
+      "deleteFailed": "Не вдалося видалити клієнта."
+    },
+    "messages": {
+      "createSuccess": "Клієнт успішно створено",
+      "updateSuccess": "Клієнт успішно оновлено",
+      "deleteSuccess": "Клієнт успішно видалено"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Додати нового клієнта",
+        "createButton": "Створити клієнта"
+      },
+      "editClient": {
+        "title": "Редагувати клієнта"
+      },
+      "deleteClient": {
+        "title": "Підтвердження видалення",
+        "confirmation": "Ви впевнені, що хочете видалити клієнта \"{{name}}\"? Цю дію не можна скасувати. Пов'язані списки хешів можуть бути одразу видалені або залишені осиротілими на основі політики збереження."
+      }
+    },
+    "detail": {
+      "columns": {
+        "name": "Назва",
+        "status": "Статус",
+        "total": "Хеші",
+        "cracked": "Зламаних",
+        "created": "Створено"
+      },
+      "notFound": "Клієнта не знайдено",
+      "notFoundHint": "Можливо, його видалено або він належить команді, учасником якої ви не є.",
+      "backToClients": "Повернутися до клієнтів",
+      "breadcrumb": "Клієнти",
+      "manageWordlists": "Словники та potfile",
+      "stats": {
+        "hashlists": "Списки хешів",
+        "cracked": "Зламаних",
+        "jobs": "Завдання",
+        "active": "{{count}} активних",
+        "wordlists": "Словники",
+        "hasPotfile": "Potfile клієнта присутній"
+      },
+      "hashlists": "Списки хешів",
+      "noHashlists": "Поки що немає списків хешів для цього клієнта",
+      "jobs": "Завдання",
+      "noJobs": "Для цього клієнта не запускалися завдання",
+      "teams": "Команди",
+      "noTeams": "Не призначено жодній команді",
+      "policy": "Період збереження та potfile",
+      "retention": "Період збереження даних",
+      "retentionDefault": "Системне за замовчуванням",
+      "retentionForever": "Зберігати назавжди",
+      "retentionMonths_few": "{{count}} місяці",
+      "retentionMonths_many": "{{count}} місяців",
+      "retentionMonths_one": "{{count}} місяць",
+      "retentionMonths_other": "{{count}} місяця",
+      "globalPotfile": "Глобальний potfile",
+      "excluded": "Виключено",
+      "included": "Включено",
+      "clientPotfile": "Potfile клієнта",
+      "contact": "Контакт",
+      "lastActivity": "Остання активність"
+    },
+    "bulkAssign": {
+      "dialogTitle": "Призначити клієнтів команді",
+      "dialogDescription_few": "Призначити {{count}} вибраних клієнтів команді. Клієнти, вже в обраній команді, будуть пропущені.",
+      "dialogDescription_many": "Призначити {{count}} вибраних клієнтів команді. Клієнти, вже в обраній команді, будуть пропущені.",
+      "dialogDescription_one": "Призначити {{count}} вибраного клієнта команді. Клієнти, вже в обраній команді, будуть пропущені.",
+      "dialogDescription_other": "Призначити {{count}} вибраного клієнта команді. Клієнти, вже в обраній команді, будуть пропущені.",
+      "selectTeam": "Виберіть команду",
+      "assignButton": "Призначити",
+      "fallbackTeamName": "команда",
+      "success_few": "Призначено {{count}} клієнтів {{team}}",
+      "success_many": "Призначено {{count}} клієнтів {{team}}",
+      "success_one": "Призначено {{count}} клієнта {{team}}",
+      "success_other": "Призначено {{count}} клієнта {{team}}",
+      "successWithSkipped_few": "Призначено {{count}} клієнтів {{team}} ({{skipped}} уже призначені)",
+      "successWithSkipped_many": "Призначено {{count}} клієнтів {{team}} ({{skipped}} уже призначені)",
+      "successWithSkipped_one": "Призначено {{count}} клієнта {{team}} ({{skipped}} уже призначений)",
+      "successWithSkipped_other": "Призначено {{count}} клієнта {{team}} ({{skipped}} уже призначені)",
+      "errors": {
+        "assignFailed": "Не вдалося призначити клієнтів команді"
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Управління словниками",
+    "description": "Керуйте словниками для зламування паролів",
+    "uploadWordlist": "Завантажити словник",
+    "refresh": "Оновити",
+    "loading": "Завантаження словників...",
+    "noWordlistsFound": "Словники не знайдені",
+    "tryDifferentSearch": "Спробуйте інший пошуковий термін",
+    "uploadToGetStarted": "Завантажте словник, щоб почати",
+    "noDescription": "Опис не надано",
+    "searchPlaceholder": "Пошук словників...",
+    "tabs": {
+      "all": "Усі словники",
+      "general": "Загальні",
+      "specialized": "Спеціалізовані",
+      "targeted": "Цільові",
+      "custom": "Користувацькі"
+    },
+    "columns": {
+      "name": "Назва",
+      "status": "Статус",
+      "type": "Тип",
+      "size": "Розмір",
+      "wordCount": "Кількість слів",
+      "updated": "Оновлено",
+      "actions": "Дії"
+    },
+    "status": {
+      "verified": "Верифіковано",
+      "pending": "Очікується",
+      "failed": "Помилка",
+      "missing": "Файл відсутній на диску",
+      "missingSince": "Файл відсутній на диску з {{date}}. Завантажте його повторно або видаліть запис."
+    },
+    "types": {
+      "general": "Загальні",
+      "specialized": "Спеціалізовані",
+      "targeted": "Цільові",
+      "custom": "Користувацькі"
+    },
+    "fields": {
+      "name": "Назва",
+      "description": "Опис",
+      "wordlistType": "Тип словника"
+    },
+    "tooltips": {
+      "refreshMetadata": "Оновити метаінформацію",
+      "download": "Завантажити",
+      "edit": "Редагувати",
+      "delete": "Видалити"
+    },
+    "errors": {
+      "loadFailed": "Не вдалося завантажити словники",
+      "uploadFailed": "Не вдалося завантажити словник",
+      "deleteFailed": "Не вдалося видалити словник",
+      "downloadFailed": "Не вдалося завантажити словник",
+      "refreshFailed": "Не вдалося оновити метаінформацію словника",
+      "updateFailed": "Не вдалося оновити словник: {{error}}",
+      "sessionExpired": "Ваш сеанс закінчився. Будь ласка, увійдіть знову."
+    },
+    "messages": {
+      "uploadSuccess": "Словник успішно завантажено",
+      "duplicateWordlist": "Словник \"{{name}}\" уже існує",
+      "deleteSuccess": "Словник \"{{name}}\" успішно видалено",
+      "updateSuccess": "Словник успішно оновлено",
+      "refreshSuccess": "Метаінформація словника успішно оновлена"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Завантажити словник",
+        "fileUploadTitle": "Завантажте файл словника",
+        "fileUploadDescription": "Виберіть файл словника для завантаження. Підтримувані формати: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Редагувати словник"
+      },
+      "delete": {
+        "title": "Підтвердження видалення",
+        "cascadeTitle": "Підтвердження каскадного видалення",
+        "confirmation": "Ви впевнені, що хочете видалити словник \"{{name}}\"? Цю дію не можна скасувати.",
+        "cascadeWarning": "Видалення словника \"{{name}}\" також видалить наступне:",
+        "checkingDependencies": "Перевірка залежностей...",
+        "jobsCount_few": "{{count}} завдання (очікуються/активні/помилка):",
+        "jobsCount_many": "{{count}} завдань (очікуються/активні/помилка):",
+        "jobsCount_one": "{{count}} завдання (очікується/активне/помилка):",
+        "jobsCount_other": "{{count}} завдання (очікуються/активні/помилка):",
+        "presetJobsCount_few": "{{count}} шаблони завдання:",
+        "presetJobsCount_many": "{{count}} шаблонів завдання:",
+        "presetJobsCount_one": "{{count}} шаблон завдання:",
+        "presetJobsCount_other": "{{count}} шаблона завдання:",
+        "workflowStepsCount_few": "{{count}} кроки робочого процесу:",
+        "workflowStepsCount_many": "{{count}} кроків робочого процесу:",
+        "workflowStepsCount_one": "{{count}} крок робочого процесу:",
+        "workflowStepsCount_other": "{{count}} кроку робочого процесу:",
+        "emptyWorkflowsCount_few": "{{count}} порожні робочі процеси буде видалено:",
+        "emptyWorkflowsCount_many": "{{count}} порожніх робочих процесів буде видалено:",
+        "emptyWorkflowsCount_one": "{{count}} порожній робочий процес буде видалено:",
+        "emptyWorkflowsCount_other": "{{count}} порожнього робочого процесу буде видалено:",
+        "noHashlist": "Немає списку хешів",
+        "step": "Крок {{order}}",
+        "andMore": "...та ще {{count}}",
+        "confirmationPrompt": "Щоб підтвердити це каскадне видалення, введіть ID словника: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Введіть {{id}} для підтвердження",
+        "idMismatch": "ID не збігається",
+        "deleteAll": "Видалити всі"
+      }
+    },
+    "filterForm": {
+      "helpText": "Усі критерії поєднуються (AND) — слово має задовольняти кожен з них. Якщо ваш regex строгіший за поля довжини (напр., мін. довжина 8, але regex вимагає 12+), строгіше правило перемагає. Оцінка нижче відображає об'єднаний результат.",
+      "minLength": "Мін. довжина",
+      "maxLength": "Макс. довжина",
+      "requiredClasses": "Необхідні класи символів",
+      "uppercase": "Великі літери",
+      "lowercase": "Малі літери",
+      "digit": "Цифра",
+      "special": "Спеціальні",
+      "minClasses": "Мін. кількість класів (1-4)",
+      "minClassesHelp": "напр., 3 = щонайменше 3 з 4 класів",
+      "regexLabel": "Regex (RE2)",
+      "regexHelperDefault": "напр., ^.{10,16}$",
+      "regexLookaroundError": "Lookarounds ((?=…), (?!…), (?<=…), (?<!…)) не підтримуються рушієм regex на бекенді (RE2). Натомість використовуйте фільтри довжини/класу.",
+      "regexInvalidDefault": "Неправильний регулярний вираз",
+      "estimating": "Оцінювання…",
+      "previewTooltip": "Оцінено за допомогою вибірки початку вихідного словника. Для відсортованих списків справжня кількість може відрізнятися.",
+      "previewLabel": "~{{countDisplay}} кандидатів ({{rateDisplay}}% від вибірки)",
+      "previewUnavailable": "Попередній перегляд недоступний"
+    },
+    "filtered": {
+      "badge": "Відфільтровано",
+      "regeneratingBadge": "Регенерується…",
+      "regeneratingTooltip": "Батьківський словник змінився; цей відфільтрований словник регенерується (тільки нові записи повторно фільтруються, якщо можливо).",
+      "staleBadge": "Застарілий",
+      "staleTooltip": "Батьківський словник змінився з моменту його створення. Відфільтровані словники автоматично регенеруються, коли змінюється їхній батьківський словник; ви також можете регенерувати зараз.",
+      "namePlaceholder": "{{name}} (відфільтровано)",
+      "wordCount_few": "{{count}} слова",
+      "wordCount_many": "{{count}} слів",
+      "wordCount_one": "{{count}} слово",
+      "wordCount_other": "{{count}} слова",
+      "plaintextChip": "простий текст",
+      "compressedChip": "стиснено",
+      "messages": {
+        "generating": "Відфільтрований словник генерується",
+        "createFailed": "Не вдалося створити відфільтрований словник",
+        "regenerating": "Розпочато повну регенерацію відфільтрованого словника",
+        "regenerateFailed": "Не вдалося регенерувати відфільтрований словник"
+      },
+      "createDialog": {
+        "title": "Створити відфільтрований словник",
+        "description": "Генерує новий словник, що містить лише рядки вихідного словника, які відповідають вашим критеріям. Результат повторно використовується в завданнях і відстежується щодо його батьківського словника.",
+        "sourceWordlistLabel": "Вихідний словник",
+        "nameLabel": "Назва",
+        "create": "Створити"
+      },
+      "regenerateDialog": {
+        "title": "Регенерувати відфільтрований словник?",
+        "autoInfo": "Відфільтровані словники зазвичай регенеруються <strong>автоматично на бекенді</strong> кожного разу, коли їхній батьківський словник змінюється — вам не потрібно це робити вручну.",
+        "manualHint": "Регенеруйте вручну лише якщо ви знаєте, що <strong>порядок слів у батьківському словнику змінився</strong> (слова були відредаговані, видалені або переупорядковані, а не просто додані в кінець).",
+        "warningWithExample": "Це виконує <strong>повну регенерацію</strong> — весь батьківський словник повторно фільтрується, що може зайняти деякий час для великих словників (напр., \"{{name}}\").",
+        "warningNoExample": "Це виконує <strong>повну регенерацію</strong> — весь батьківський словник повторно фільтрується, що може зайняти деякий час для великих словників.",
+        "confirmButton": "Регенерувати повністю"
+      }
+    }
+  },
+  "rules": {
+    "title": "Управління правилами",
+    "description": "Керувати правилами Hashcat для зламування паролів",
+    "uploadRule": "Завантажити правило",
+    "refresh": "Оновити",
+    "loading": "Завантаження правил...",
+    "noRulesFound": "Правил не знайдено",
+    "tryDifferentSearch": "Спробуйте інший пошуковий термін",
+    "uploadToGetStarted": "Завантажте правило, щоб почати",
+    "noDescription": "Опис не надано",
+    "searchPlaceholder": "Пошук правил...",
+    "tabs": {
+      "all": "Усі правила",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Назва",
+      "status": "Статус",
+      "type": "Тип",
+      "size": "Розмір",
+      "ruleCount": "Кількість правил",
+      "updated": "Оновлено",
+      "actions": "Дії"
+    },
+    "status": {
+      "verified": "Перевірено",
+      "pending": "Очікує",
+      "failed": "Помилка",
+      "ready": "Готово",
+      "processing": "Обробляється",
+      "missing": "Файл відсутній на диску",
+      "missingSince": "Файл відсутній на диску з {{date}}. Завантажте його знову або видаліть запис."
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Назва",
+      "description": "Опис",
+      "ruleType": "Тип правила"
+    },
+    "tooltips": {
+      "download": "Завантажити",
+      "edit": "Редагувати",
+      "delete": "Видалити"
+    },
+    "errors": {
+      "loadFailed": "Не вдалось завантажити правила",
+      "uploadFailed": "Не вдалось завантажити правило",
+      "deleteFailed": "Не вдалось видалити правило",
+      "downloadFailed": "Не вдалось завантажити правило",
+      "updateFailed": "Не вдалось оновити правило: {{error}}",
+      "verifyFailed": "Не вдалось перевірити правило",
+      "sessionExpired": "Ваш сеанс закінчився. Будь ласка, увійдіть знову."
+    },
+    "messages": {
+      "uploadSuccess": "Правило успішно завантажено",
+      "duplicateRule": "Правило \"{{name}}\" вже існує",
+      "deleteSuccess": "Правило \"{{name}}\" успішно видалено",
+      "updateSuccess": "Правило успішно оновлено",
+      "verifySuccess": "Правило \"{{name}}\" успішно перевірено"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Завантажити правило",
+        "fileUploadTitle": "Завантажте файл правила",
+        "fileUploadDescription": "Виберіть файл правила для завантаження. Підтримувані формати: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Редагувати правило"
+      },
+      "delete": {
+        "title": "Підтвердіть видалення",
+        "cascadeTitle": "Підтвердіть каскадне видалення",
+        "confirmation": "Ви впевнені, що хочете видалити правило \"{{name}}\"? Цю дію неможливо скасувати.",
+        "cascadeWarning": "Видалення правила \"{{name}}\" також видалить наступне:",
+        "checkingDependencies": "Перевірка залежностей...",
+        "jobsCount_few": "{{count}} завдання (очікує/виконується/помилка):",
+        "jobsCount_many": "{{count}} завдань (очікує/виконується/помилка):",
+        "jobsCount_one": "{{count}} завдання (очікує/виконується/помилка):",
+        "jobsCount_other": "{{count}} завдань (очікує/виконується/помилка):",
+        "presetJobsCount_few": "{{count}} шаблони завдання:",
+        "presetJobsCount_many": "{{count}} шаблонів завдання:",
+        "presetJobsCount_one": "{{count}} шаблон завдання:",
+        "presetJobsCount_other": "{{count}} шаблонів завдання:",
+        "workflowStepsCount_few": "{{count}} кроки робочого процесу:",
+        "workflowStepsCount_many": "{{count}} кроків робочого процесу:",
+        "workflowStepsCount_one": "{{count}} крок робочого процесу:",
+        "workflowStepsCount_other": "{{count}} кроків робочого процесу:",
+        "emptyWorkflowsCount_few": "{{count}} порожні робочі процеси будуть видалені:",
+        "emptyWorkflowsCount_many": "{{count}} порожніх робочих процесів будуть видалені:",
+        "emptyWorkflowsCount_one": "{{count}} порожній робочий процес буде видалений:",
+        "emptyWorkflowsCount_other": "{{count}} порожніх робочих процесів будуть видалені:",
+        "noHashlist": "Немає списку хешів",
+        "step": "Крок {{order}}",
+        "andMore": "...та ще {{count}}",
+        "confirmationPrompt": "Щоб підтвердити каскадне видалення, введіть ID правила: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Введіть {{id}} для підтвердження",
+        "idMismatch": "ID не збігається",
+        "deleteAll": "Видалити все"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Управління шаблонами завдань",
+    "createNew": "Створити шаблон завдання",
+    "confirmDelete": "Ви впевнені, що хочете видалити цей шаблон завдання?",
+    "noJobsFound": "Шаблонів завдань не знайдено. Створіть один, щоб почати.",
+    "keyspaceNotCalculated": "Не розраховано",
+    "calculating": "Розрахунок...",
+    "calculateKeyspace": "Розрахувати простір ключів",
+    "calculateAllMissingKeyspaces": "Розрахувати всі відсутні простори ключів",
+    "calculatingKeyspaces": "Розрахунок...",
+    "calculatingAllKeyspacesMessage": "Розрахунок просторів ключів для всіх шаблонів завдань. Це може займати деякий час...",
+    "canInterruptRunningJobs": "Може переривати завдання, що виконуються",
+    "columns": {
+      "name": "Назва",
+      "description": "Опис",
+      "attackMode": "Режим атаки",
+      "priority": "Пріоритет",
+      "highPriorityOverride": "Пріоритетне переривання",
+      "maxAgents": "Максимум агентів",
+      "keyspace": "Простір ключів",
+      "binaryVersion": "Версія виконуваного файлу",
+      "wordlists": "Словники",
+      "rules": "Правила",
+      "createdAt": "Створено",
+      "actions": "Дії"
+    },
+    "messages": {
+      "deleteSuccess": "Шаблон завдання успішно видалено",
+      "deleteFailed": "Не вдалось видалити шаблон завдання: {{error}}",
+      "fetchError": "Помилка завантаження шаблонів завдань: {{error}}",
+      "deleteError": "Помилка видалення шаблону завдання: {{error}}",
+      "keyspaceRecalculateSuccess": "Простір ключів успішно перераховано",
+      "keyspaceRecalculateFailed": "Не вдалось перерахувати простір ключів: {{error}}",
+      "keyspaceAllComplete": "Оновлено {{updated}}, пропущено {{skipped}}, не вдалось {{failed}}",
+      "keyspaceAllFailed": "Не вдалось перерахувати простори ключів: {{error}}"
+    },
+    "form": {
+      "createTitle": "Створити шаблон завдання",
+      "editTitle": "Редагувати шаблон завдання",
+      "createJob": "Створити шаблон завдання",
+      "updateJob": "Оновити шаблон завдання",
+      "attackModeRequirements": "Вимоги режиму атаки",
+      "wordlistSelectionCombination": "Вибір словників (комбінований режим)",
+      "selectFirstWordlist": "Виберіть перший словник",
+      "selectSecondWordlist": "Виберіть другий словник",
+      "fields": {
+        "jobName": "Назва завдання",
+        "attackMode": "Режим атаки",
+        "priority": "Пріоритет",
+        "chunkSize": "Тривалість блоку (секунди)",
+        "maxAgents": "Максимум агентів",
+        "maskPattern": "Шаблон маски",
+        "incrementMode": "Режим інкременту",
+        "incrementMin": "Мінімальна довжина інкременту",
+        "incrementMax": "Максимальна довжина інкременту",
+        "wordlists": "Словники",
+        "rules": "Правила",
+        "mask": "Маска",
+        "ruleOptional": "Правило (необов'язково)",
+        "firstWordlist": "Перший словник",
+        "secondWordlist": "Другий словник",
+        "allowHighPriorityOverride": "Дозволити пріоритетне переривання (може переривати завдання, що виконуються)",
+        "additionalArgs": "Додаткові аргументи Hashcat",
+        "cloudBurstEnabled": "Дозволити хмарне розширення",
+        "cloudMaxInstances": "Максимум хмарних інстансів",
+        "cloudAllowCommunityHosts": "Дозволити хости приватних операторів (Vast.ai, RunPod Community)"
+      },
+      "incrementModes": {
+        "off": "Вимкнено (використати повну маску)",
+        "increment": "Інкремент (від 1 до максимуму)",
+        "incrementInverse": "Інкремент у зворотному порядку (від максимуму до 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Виберіть версію виконуваного файлу Hashcat для використання",
+        "priority": "Завдання з вищим пріоритетом виконуються першими (0-{{maxPriority}})",
+        "maskPattern": "Шаблон маски Hashcat (напр., ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=нижній регістр, ?u=верхній регістр, ?d=цифра, ?s=спецсимвол, ?a=усі",
+        "incrementMode": "Використовуйте режим інкременту, щоб перевірити маски різної довжини",
+        "incrementMin": "Мінімальна довжина маски для перевірки",
+        "incrementMax": "Максимальна довжина маски для перевірки",
+        "chunkSize": "Тривалість кожного робочого блоку в секундах",
+        "maxAgents": "Максимальна кількість агентів (0 = без обмежень)",
+        "allowHighPriorityOverride": "Якщо увімкнено, це завдання може переривати завдання з нижчим пріоритетом, що виконуються, щоб забрати їхніх агентів",
+        "wordlistsNotUsed": "Словники не використовуються для цього режиму атаки",
+        "selectWordlists_few": "Виберіть рівно {{count}} словники",
+        "selectWordlists_many": "Виберіть рівно {{count}} словників",
+        "selectWordlists_one": "Виберіть рівно {{count}} словник",
+        "selectWordlists_other": "Виберіть рівно {{count}} словників",
+        "rulesNotUsed": "Правила не використовуються для цього режиму атаки",
+        "selectRule": "За бажанням виберіть файл правил, щоб застосувати перетворення",
+        "firstWordlist": "Слова з цього списку будуть використані як перша частина",
+        "secondWordlist": "Слова з цього списку будуть додані до першої частини",
+        "additionalArgs": "Додаткові прапорці Hashcat для цього завдання. Прапорці рівня агента мають пріоритет у разі конфліктів.",
+        "cloudBurstEnabled": "Орендувати інстанси GPU для завдань, створених на основі цього шаблону, коли локальний парк агентів не встигає. Клієнт повинен бути профінансований і дати згоду на провайдера.",
+        "cloudMaxInstances": "Окремо від параметра \"Максимум агентів\", який керує спільним локальним пулом. Залиште порожнім, щоб рішення залежало від залишку бюджету.",
+        "cloudAllowCommunityHosts": "Це чужі машини. Власник хоста має права root у контейнері, тому хеші, словники та зламані відкриті тексти цього клієнта можуть бути прочитані третьою стороною і не зашифровані на хості в стані спокою. Не рекомендується для продакшн-середовища або даних клієнтських проєктів. Залиште це вимкненим, і завдання все одно будуть використовувати безпечні потужності (AWS, RunPod Secure Cloud), якщо клієнт це дозволяє.",
+        "prefilteredWordlistHint": "Щоб використати попередньо відфільтрований словник у шаблоні завдання, спочатку створіть його в розділі \"Управління словниками\" — після цього він з'явиться у цьому списку. Вбудоване тимчасове фільтрування доступне лише для одноразових довільних завдань."
+      },
+      "errors": {
+        "nameRequired": "Назва завдання є обов'язковою",
+        "binaryVersionRequired": "Версія виконуваного файлу є обов'язковою",
+        "straightModeWordlist": "Словникова атака вимагає рівно 1 словник",
+        "combinationModeWordlists": "Комбінована атака вимагає рівно 2 словники",
+        "selectBothWordlists": "Виберіть обидва словники для комбінованого режиму",
+        "bruteForceModeMask": "Режим перебору вимагає маску",
+        "hybridModeWordlist": "Гібридна атака вимагає рівно 1 словник",
+        "hybridModeMask": "Гібридна атака вимагає маску",
+        "associationModeNotImplemented": "Асоціативна атака не реалізована",
+        "noWordlistsAvailable": "Словники відсутні. Спочатку завантажте словники.",
+        "loadFailed": "Не вдалось завантажити шаблон завдання",
+        "loadFormDataFailed": "Не вдалось завантажити дані форми",
+        "saveFailed": "Не вдалось зберегти шаблон завдання"
+      },
+      "messages": {
+        "createSuccess": "Шаблон завдання успішно створено",
+        "updateSuccess": "Шаблон завдання успішно оновлено"
+      },
+      "attackModes": {
+        "straight": {
+          "name": "Словникова атака",
+          "description": "Використовує слова зі словника, за бажанням застосовуючи правило для їх трансформації",
+          "wordlistRequirement": "Потрібен рівно 1 словник",
+          "rulesRequirement": "0 або 1 файл правил",
+          "maskRequirement": "Маска не потрібна"
+        },
+        "combination": {
+          "name": "Комбінована атака",
+          "description": "Поєднує слова з двох словників (first_word + second_word)",
+          "wordlistRequirement": "Потрібно рівно 2 словники",
+          "rulesRequirement": "Правила не потрібні",
+          "maskRequirement": "Маска не потрібна"
+        },
+        "bruteForce": {
+          "name": "Перебір (маска)",
+          "description": "Генерує паролі на основі шаблону/маски",
+          "wordlistRequirement": "Словник не потрібен",
+          "rulesRequirement": "Правила не потрібні",
+          "maskRequirement": "Потрібна маска (напр., ?u?l?l?l?d?d)"
+        },
+        "hybridWordlistMask": {
+          "name": "Гібрид: словник + маска",
+          "description": "Додає символи, згенеровані за маскою, до слів зі словника",
+          "wordlistRequirement": "Потрібен рівно 1 словник",
+          "rulesRequirement": "Правила не потрібні",
+          "maskRequirement": "Потрібна маска (напр., ?d?d?d?d)"
+        },
+        "hybridMaskWordlist": {
+          "name": "Гібрид: маска + словник",
+          "description": "Додає символи, згенеровані за маскою, перед словами зі словника",
+          "wordlistRequirement": "Потрібен рівно 1 словник",
+          "rulesRequirement": "Правила не потрібні",
+          "maskRequirement": "Потрібна маска (напр., ?d?d?d?d)"
+        },
+        "association": {
+          "name": "Асоціативна атака (не реалізовано)",
+          "description": "Цей режим атаки наразі не реалізований",
+          "wordlistRequirement": "Н/Д",
+          "rulesRequirement": "Н/Д",
+          "maskRequirement": "Н/Д"
+        }
+      }
+    }
+  },
+  "workflows": {
+    "title": "Керування робочими процесами",
+    "create": "Створити робочий процес",
+    "deleteTitle": "Видалити робочий процес",
+    "confirmDelete": "Ви впевнені, що хочете видалити робочий процес \"{{name}}\"?",
+    "noWorkflowsFound": "Робочих процесів не знайдено. Створіть один, щоб почати.",
+    "canInterrupt": "Може перервати",
+    "normal": "Звичайний",
+    "loopbackAllEligible": "Усі відповідні",
+    "loopbackStepCount_few": "{{count}} кроки",
+    "loopbackStepCount_many": "{{count}} кроків",
+    "loopbackStepCount_one": "{{count}} крок",
+    "loopbackStepCount_other": "{{count}} кроку",
+    "columns": {
+      "name": "Назва",
+      "description": "Опис",
+      "steps": "Кроки",
+      "jobCount": "Завдання",
+      "highPriority": "Режим пріоритету",
+      "loopback": "Loopback",
+      "created": "Створено",
+      "lastUpdated": "Останнє оновлення",
+      "actions": "Дії"
+    },
+    "messages": {
+      "loadFailed": "Не вдалося завантажити робочі процеси",
+      "deleteFailed": "Не вдалося видалити робочий процес"
+    },
+    "form": {
+      "createTitle": "Створити робочий процес",
+      "editTitle": "Редагувати робочий процес",
+      "createWorkflow": "Створити робочий процес",
+      "saveChanges": "Зберегти зміни",
+      "workflowSteps": "Кроки робочого процесу",
+      "noJobsAdded": "До цього робочого процесу поки не додано завдань. Шукайте та додавайте шаблони завдань вище.",
+      "priority": "Пріоритет: {{priority}}",
+      "binary": "Виконуваний файл: {{name}}",
+      "wordlistCount_few": "{{count}} словники",
+      "wordlistCount_many": "{{count}} словників",
+      "wordlistCount_one": "{{count}} словник",
+      "wordlistCount_other": "{{count}} словника",
+      "ruleCount_few": "{{count}} правила",
+      "ruleCount_many": "{{count}} правил",
+      "ruleCount_one": "{{count}} правило",
+      "ruleCount_other": "{{count}} правила",
+      "loopback": {
+        "masterToggle": "Увімкнути loopback для всіх відповідних кроків",
+        "masterHelperText": "Коли ввімкнено, весь робочий процес запускається, потім кожен відповідний крок (словникова + правила або гібридна атака словник ± маска) повторно запускається тільки проти новозламаних паролів — повторюючись розумно, поки не будуть знайдені нові зламання. Немутуючі кроки (тільки словник, перебір, асоціативна атака) все ще подають свої нові зламання в цикл. Перемикачі для кожного кроку нижче вимикаються, поки це ввімкнено.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Немає чого мутувати (тільки словник, перебір, асоціативна атака або комбінатор). Цей крок все ще подає свої нові зламання в цикл, але не повторно запускається.",
+        "tooltipMasterOn": "Loopback на рівні робочого процесу ввімкнено, тому він застосовується до кожного відповідного кроку.",
+        "tooltipStep": "Повторно запустити цей крок тільки проти новозламаних паролів, поки не будуть знайдені нові зламання."
+      },
+      "fields": {
+        "workflowName": "Назва робочого процесу",
+        "searchPresetJobs": "Пошук шаблонів завдань"
+      },
+      "helperText": {
+        "searchPresetJobs": "Пошукайте шаблони завдань для додавання до цього робочого процесу"
+      },
+      "errors": {
+        "nameRequired": "Назва робочого процесу обов'язкова",
+        "presetJobRequired": "Потрібен принаймні один шаблон завдання",
+        "noPresetJobsAvailable": "Немає доступних шаблонів завдань. Спочатку створіть шаблони завдань.",
+        "loadFailed": "Не вдалося завантажити робочий процес",
+        "loadFormDataFailed": "Не вдалося завантажити дані форми",
+        "saveFailed": "Не вдалося зберегти робочий процес"
+      },
+      "messages": {
+        "createSuccess": "Робочий процес успішно створено",
+        "updateSuccess": "Робочий процес успішно оновлено"
+      },
+      "cloudBurst": {
+        "toggle": "Дозволити хмарний сплеск для кожного кроку",
+        "helperText": "Застосовується до всіх кроків, перевизначаючи власне налаштування кожного шаблону. Встановіть на рівні робочого процесу, щоб один орендований екземпляр міг виконати весь робочий процес, замість того щоб бути знищеним і повторно орендованим між кроками."
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Керування виконуваними файлами",
+    "title": "Виконувані файли Hashcat",
+    "addBinary": "Додати виконуваний файл",
+    "showingActiveOnly": "Показано тільки активні виконувані файли",
+    "showingAll": "Показано всі виконувані файли",
+    "noBinaries": "Виконуваних файлів не знайдено",
+    "noActiveBinaries": "Активних виконуваних файлів не знайдено",
+    "default": "За замовчуванням",
+    "verifyBinary": "Перевірити виконуваний файл",
+    "deleteBinary": "Видалити виконуваний файл",
+    "sourceUpload": "Завантаження",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Версія",
+      "type": "Тип",
+      "source": "Джерело",
+      "size": "Розмір",
+      "status": "Статус",
+      "default": "За замовчуванням",
+      "lastVerified": "Останнє перевірено",
+      "actions": "Дії"
+    },
+    "messages": {
+      "fetchFailed": "Не вдалося отримати виконувані файли",
+      "verifySuccess": "Виконуваний файл успішно перевірено",
+      "verifyFailed": "Не вдалося перевірити виконуваний файл",
+      "deleteSuccess": "Виконуваний файл успішно видалено",
+      "deleteFailed": "Не вдалося видалити виконуваний файл",
+      "cannotDeleteLast": "Не можна видалити останній активний {{type}} виконуваний файл",
+      "cannotDeleteOnly": "Не можна видалити єдиний виконуваний файл цього типу",
+      "setDefaultSuccess": "Виконуваний файл за замовчуванням успішно оновлено",
+      "setDefaultFailed": "Не вдалося встановити виконуваний файл за замовчуванням",
+      "addSuccess": "Виконуваний файл успішно додано",
+      "addFailed": "Не вдалося додати виконуваний файл"
+    },
+    "deleteDialog": {
+      "title": "Підтвердити видалення",
+      "message": "Ви впевнені, що хочете видалити виконуваний файл \"{{fileName}}\"? Цю дію неможливо скасувати."
+    },
+    "form": {
+      "addDialogTitle": "Додати новий виконуваний файл",
+      "sourceLabel": "Джерело",
+      "downloadFromUrl": "Завантажити з URL",
+      "uploadFile": "Завантажити файл",
+      "binaryTypeLabel": "Тип виконуваного файлу",
+      "johnPending": "John the Ripper (підтримка в очікуванні)",
+      "compressionTypeLabel": "Тип стиснення",
+      "sourceUrlLabel": "URL джерела",
+      "sourceUrlHelp": "URL для завантаження виконуваного файлу (наприклад, https://hashcat.net/beta/hashcat-6.2.6%2B813.7z)",
+      "selectArchiveFile": "Вибрати архівний файл",
+      "uploadHelp": "Завантажте архів .7z, .zip, .tar.gz або .tar.xz, що містить виконуваний файл",
+      "fileNameLabel": "Назва файлу",
+      "fileNameHelp": "Автоматично заповнено з URL/файлу, але може бути змінено, якщо потрібно",
+      "versionLabel": "Версія",
+      "versionHelp": "Автоматично виявлено з назви файлу. Перевизначте для користувацьких збірок.",
+      "descriptionLabel": "Опис",
+      "descriptionHelp": "Додаткові примітки про цей виконуваний файл (наприклад, деталі користувацької збірки)",
+      "setAsDefault": "Встановити як виконуваний файл за замовчуванням",
+      "selectFileRequired": "Будь ласка, виберіть файл для завантаження",
+      "uploadBinarySubmit": "Завантажити виконуваний файл"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Системна діагностика",
+    "diagnosticPackage": "Пакет діагностики",
+    "diagnosticPackageDescription": "Завантажте пакет діагностики, що містить системну інформацію, журнали та деталі конфігурації для усунення неполадок.",
+    "refreshData": "Оновити дані",
+    "hours": "Години",
+    "hoursTooltip": "Кількість годин журналів для включення",
+    "includeAgentLogs": "Включити журнали агентів",
+    "includeNginxLogs": "Включити журнали Nginx",
+    "includePostgresLogs": "Включити журнали PostgreSQL",
+    "preparing": "Підготовка...",
+    "downloadDiagnostics": "Завантажити діагностику",
+    "systemInfo": "Системна інформація",
+    "runtime": "Середовище виконання",
+    "cpus": "ЦПУ",
+    "goroutines": "Горутини",
+    "memory": "Пам'ять",
+    "heap": "Купа",
+    "system": "Система",
+    "gcRuns": "Запуски GC",
+    "database": "База даних",
+    "size": "Розмір",
+    "connections": "З'єднання",
+    "agents": "Агенти",
+    "connected": "Підключено",
+    "withDebugStatus": "Зі статусом налагодження",
+    "serverDebugStatus": "Статус налагодження сервера",
+    "serverDebugDescription": "Увімкніть докладне логування для сервера. Це збільшить розміри файлів журналу та може вплинути на продуктивність.",
+    "debugEnabled": "Налагодження увімкнено",
+    "debugDisabled": "Налагодження вимкнено",
+    "level": "Рівень",
+    "enableDebug": "Увімкнути налагодження",
+    "disableDebug": "Вимкнути налагодження",
+    "loadingServerDebugStatus": "Завантаження статусу налагодження сервера...",
+    "serverLogs": "Журнали сервера",
+    "serverLogsDescription": "Керуйте файлами журналу сервера. Очищення журналів є постійним і не може бути скасовано.",
+    "refreshLogStats": "Оновити статистику журналів",
+    "directory": "Каталог",
+    "files": "Файли",
+    "actions": "Дії",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Усього",
+    "purge": "Очистити",
+    "purgeAll": "Очистити все",
+    "loadingLogStatistics": "Завантаження статистики журналів...",
+    "agentDebugStatus": "Статус налагодження агентів",
+    "enableAll": "Увімкнути все",
+    "disableAll": "Вимкнути все",
+    "noAgentsWithDebugStatus": "Немає доступних агентів зі статусом налагодження",
+    "agentId": "ID агента",
+    "logLevel": "Рівень журналу",
+    "fileLogging": "Логування у файл",
+    "logFileSize": "Розмір файлу журналу",
+    "buffer": "Буфер",
+    "lastUpdated": "Останнє оновлення",
+    "viewLogs": "Переглянути журнали",
+    "purgeLogs": "Очистити журнали",
+    "agentLogs": "Журнали агента",
+    "agent": "Агент",
+    "allLevels": "Усі рівні",
+    "refresh": "Оновити",
+    "showingEntries": "Показано {{shown}} з {{total}} записів",
+    "filtered": "відфільтровано",
+    "truncated": "обрізано",
+    "time": "Час",
+    "message": "Повідомлення",
+    "location": "Місцезнаходження",
+    "noEntriesForLevel": "Немає записів для рівня {{level}}",
+    "noLogEntriesAvailable": "Немає доступних записів журналу",
+    "logFileContent": "Вміст файлу журналу",
+    "noLogsAvailable": "Немає доступних журналів",
+    "securityWarning": "Попередження безпеки",
+    "postgresLogsWarning": "Журнали PostgreSQL можуть містити конфіденційні дані. Розгляньте можливість їх очищення після усунення неполадок.",
+    "nginxLogsWarning": "Журнали доступу Nginx можуть містити чутливі дані запиту. Розгляньте можливість їх очищення після усунення неполадок.",
+    "sensitiveNginxLogsWarning": "Журнали доступу Nginx можуть містити конфіденційну інформацію, включаючи маркери автентифікації в заголовках запиту та параметрах запиту.",
+    "sensitivePostgresLogsWarning": "Журнали PostgreSQL можуть містити конфіденційну інформацію, включаючи запити з даними користувачів, паролями та деталями з'єднання.",
+    "sensitiveLogsTestEnvironmentWarning": "Включайте ці журнали тільки для середовищ тестування чи розробки, або коли це абсолютно необхідно для налагодження.",
+    "sensitiveLogsProductionWarning": "Не включайте чутливі журнали в пакети діагностики продакшн-середовища, якими діляться зовні.",
+    "iUnderstandIncludeLogs": "Я розумію, включити журнали",
+    "allServerLogs": "всі журнали сервера",
+    "directoryLogs": "журнали {{directory}}",
+    "purgeServerLogs": "Очистити журнали сервера",
+    "confirmPurgeLogs": "Ви впевнені, що хочете очистити {{dirLabel}}?",
+    "cannotBeUndone": "Цю дію неможливо скасувати.",
+    "purgeAgentLogs": "Очистити журнали агента",
+    "confirmPurgeAgentLogs": "Ви впевнені, що хочете очистити журнали для агента {{agentId}}?",
+    "enable": "Увімкнути",
+    "disable": "Вимкнути",
+    "serverDebugModeTitle": "{{action}} режим налагодження сервера",
+    "serverDebugModeMessage": "Це змінить рівень логування сервера. Сервер Nginx буде перезавантажено для застосування змін.",
+    "serverDebugModeWarning": "Сторінка на короткий час перепідключиться після застосування змін.",
+    "reconnectingToServer": "Перепідключення до сервера",
+    "pleaseWaitReconnecting": "Будь ласка, чекайте, поки сервер перезавантажується...",
+    "nginxLogsTooltip": "Попередження: може містити чутливі дані запиту",
+    "postgresLogsTooltip": "Попередження: може містити чутливі запити до бази даних",
+    "messages": {
+      "loadFailed": "Не вдалося завантажити дані діагностики:",
+      "logStatsFailed": "Не вдалося завантажити статистику журналів:",
+      "purgeFailed": "Не вдалося очистити журнали:",
+      "reconnectionTimedOut": "Час очікування перепідключення минув. Будь ласка, оновіть сторінку.",
+      "toggleDebugFailed": "Не вдалося перемкнути режим налагодження:",
+      "downloadFailed": "Не вдалося завантажити діагностику:",
+      "toggleAgentDebugFailed": "Не вдалося перемкнути налагодження агента:",
+      "toggleAllAgentsDebugFailed": "Не вдалося перемкнути налагодження для всіх агентів:",
+      "fetchAgentLogsFailed": "Не вдалося отримати журнали агента:",
+      "purgeAgentLogsFailed": "Не вдалося очистити журнали агента:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Параметри автентифікації",
+    "unsavedChanges": "Ви маєте незбережені зміни. Натисніть 'Зберегти параметри', щоб застосувати їх.",
+    "saving": "Збереження...",
+    "saveSettings": "Зберегти параметри",
+    "resetToSaved": "Скинути на збережене",
+    "passwordPolicy": {
+      "title": "Політика паролів",
+      "minLength": "Мінімальна довжина пароля",
+      "requireUppercase": "Вимагати великих літер",
+      "requireLowercase": "Вимагати малих літер",
+      "requireNumbers": "Вимагати цифр",
+      "requireSpecialChars": "Вимагати спеціальних символів"
+    },
+    "accountSecurity": {
+      "title": "Безпека облікового запису",
+      "maxFailedAttempts": "Максимум невдалих спроб входу",
+      "lockoutDuration": "Тривалість блокування (хвилини)",
+      "jwtExpiry": "Закінчення дії JWT (хвилини)",
+      "notificationAggregation": "Агрегація сповіщень (хвилини)",
+      "notificationAggregationHelper": "Як довго агрегувати подібні сповіщення перед відправленням"
+    },
+    "mfa": {
+      "title": "Багатофакторна автентифікація",
+      "requireMfa": "Вимагати багатофакторну автентифікацію від всіх користувачів",
+      "requireMfaEmailRequired": "Вимагати багатофакторну автентифікацію (потребує поштового шлюзу)",
+      "allowedMethods": "Дозволені методи багатофакторної автентифікації",
+      "methodEmail": "Код електронної пошти",
+      "methodAuthenticator": "Застосунок автентифікації (TOTP)",
+      "methodPasskey": "Ключ доступу (WebAuthn)",
+      "methodPasskeyNotSupported": "Ключ доступу (не підтримується в цьому браузері)",
+      "codeSettings": "Параметри коду",
+      "emailCodeValidity": "Дійсність коду електронної пошти (хвилини)",
+      "emailCodeValidityHelper": "Як довго коди перевірки електронної пошти залишаються дійсними",
+      "codeCooldown": "Тайм-аут запиту коду (хвилини)",
+      "codeCooldownHelper": "Мінімальний час між запитами коду",
+      "codeExpiry": "Закінчення дії коду (хвилини)",
+      "codeExpiryHelper": "Як довго коди багатофакторної автентифікації залишаються дійсними",
+      "maxCodeAttempts": "Максимум спроб введення коду",
+      "maxCodeAttemptsHelper": "Максимум невдалих спроб введення коду перед блокуванням",
+      "backupCodesCount": "Кількість резервних кодів",
+      "backupCodesCountHelper": "Кількість резервних кодів для генерування",
+      "requireMfaHelper": "Кожен користувач повинен пройти багатофакторну автентифікацію під час входу. Потребує налаштованого поштового провайдера для доставки кодів."
+    },
+    "webauthn": {
+      "title": "Конфігурація WebAuthn / ключа доступу",
+      "notSupported": "WebAuthn не підтримується в цьому браузері.",
+      "requiresDomain": "Ключі доступу вимагають правильного домену та HTTPS. Налаштуйте параметри домену нижче.",
+      "rpId": "Relying Party ID",
+      "rpIdHelper": "Ваше ім'я домену (наприклад, krakenhashes.example.com)",
+      "rpDisplayName": "Ім'я для відображення",
+      "rpDisplayNameHelper": "Ім'я, яке відображається користувачам під час реєстрації ключа доступу",
+      "allowedOrigins": "Дозволені джерела",
+      "allowedOriginsHelper": "Одне джерело на рядок (наприклад, https://krakenhashes.example.com)",
+      "configured": "WebAuthn налаштовано і готово до використання.",
+      "save": "Зберегти параметри WebAuthn"
+    },
+    "session": {
+      "title": "Управління сеансами",
+      "tokenCleanupInterval": "Інтервал очищення токенів (секунди)",
+      "tokenCleanupIntervalHelper": "Як часто очищувати застарілі токени",
+      "maxConcurrentSessions": "Максимум одночасних сеансів",
+      "maxConcurrentSessionsHelper": "Максимум сеансів на користувача (0 = без обмежень)",
+      "absoluteTimeout": "Абсолютне закінчення дії сеансу (години)",
+      "absoluteTimeoutHelper": "Примусова повторна автентифікація після цього часу (0 = вимкнено)"
+    },
+    "errors": {
+      "loadFailed": "Не вдалося завантажити параметри автентифікації",
+      "noSettingsToSave": "Немає параметрів для збереження",
+      "saveFailed": "Не вдалося зберегти параметри",
+      "emailProviderRequired": "Поштовий провайдер потрібен для багатофакторної автентифікації на основі електронної пошти",
+      "webauthnSaveFailed": "Не вдалося зберегти параметри WebAuthn",
+      "resetFailed": "Не вдалося скинути параметри"
+    },
+    "messages": {
+      "updateSuccess": "Параметри автентифікації успішно оновлені",
+      "updateFailed": "Не вдалося оновити параметри автентифікації"
+    },
+    "teams": {
+      "title": "Багатокомандна ізоляція",
+      "description": "При ввімкненні клієнти, списки хешів, завдання та агенти обмежуються командами, і користувачі бачать лише те, що має їхні команди.",
+      "enable": "Увімкнути команди",
+      "enableHelper": "Існуючі дані розміщуються в Команді за замовчуванням."
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "Параметри SSO",
+    "pageDescription": "Налаштуйте провайдерів SSO та параметри автентифікації",
+    "warnings": {
+      "ephemeralKeyTitle": "Ключ шифрування SSO не налаштовано",
+      "ephemeralKeyDescription": "Секрети провайдера SSO (секрети клієнта, паролі Bind, приватні ключі) зараз зашифровані тимчасовим ключем, який буде втрачено після перезавантаження сервера. Будь-які налаштовані провайдери SSO припинять роботу після перезавантаження.",
+      "ephemeralKeyInstructions": "Щоб виправити це, згенеруйте постійний ключ шифрування, запустивши:",
+      "ephemeralKeyAddToEnv": "Потім додайте наступне до вашого файлу .env та перезавантажте сервер:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Команда скопійована до буфера обміну"
+    },
+    "authMethods": {
+      "title": "Методи автентифікації",
+      "description": "Ввімкніть або вимкніть методи автентифікації глобально",
+      "localAuth": "Локальна автентифікація",
+      "localAuthDescription": "Вхід за ім'ям користувача та паролем",
+      "ldapAuth": "LDAP автентифікація",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "SAML автентифікація",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "OAuth/OIDC автентифікація",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Створення облікових записів користувачів",
+      "description": "Налаштуйте автоматичне створення користувачів із входів SSO",
+      "autoCreateUsers": "Автоматично створювати користувачів",
+      "autoCreateUsersDescription": "Автоматично створювати облікові записи користувачів для нових входів SSO",
+      "autoEnableUsers": "Автоматично вмикати користувачів",
+      "autoEnableUsersDescription": "Автоматично вмикати новостворених користувачів SSO (інакше потрібне схвалення адміністратора)"
+    },
+    "providers": {
+      "title": "Провайдери SSO",
+      "addProvider": "Додати провайдера",
+      "noProviders": "Немає налаштованих провайдерів SSO. Натисніть \"Додати провайдера\", щоб створити один.",
+      "enabled": "Ввімкнено",
+      "disabled": "Вимкнено",
+      "callbackUrl": "URL зворотного виклику",
+      "acsUrl": "ACS URL",
+      "metadata": "Метадані",
+      "viewXml": "Переглянути XML",
+      "testConnection": "Перевірити з'єднання",
+      "downloadCertificate": "Завантажити сертифікат SP"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Видалити провайдера",
+        "confirmation": "Ви впевнені, що хочете видалити провайдера \"{{name}}\"? Цю дію не можна скасувати, і вона від'єднає всі пов'язані ідентичності користувачів."
+      },
+      "providerForm": {
+        "addTitle": "Додати провайдера",
+        "editTitle": "Редагувати провайдера",
+        "providerName": "Ім'я провайдера",
+        "providerType": "Тип провайдера",
+        "enabled": "Ввімкнено"
+      }
+    },
+    "ldapConfig": {
+      "title": "Конфігурація LDAP",
+      "serverUrl": "URL сервера",
+      "serverUrlHelper": "Використовуйте ldaps:// для безпечних з'єднань",
+      "baseDn": "Base DN",
+      "userSearchFilter": "Фільтр пошуку користувачів",
+      "userSearchFilterHelper": "Використовуйте {{username}} як заповнювач",
+      "bindDn": "Bind DN (опціонально)",
+      "bindPassword": "Пароль Bind",
+      "emailAttribute": "Атрибут електронної пошти",
+      "usernameAttribute": "Атрибут імені користувача",
+      "usernameAttributeHelper": "LDAP атрибут, що містить ім'я користувача (наприклад, sAMAccountName, uid)",
+      "connectionTimeout": "Тайм-аут з'єднання (секунди)",
+      "useStartTls": "Використовувати StartTLS",
+      "skipCertVerify": "Пропустити перевірку сертифіката (лише для тестування)"
+    },
+    "samlConfig": {
+      "title": "Конфігурація SAML",
+      "spEntityId": "SP Entity ID",
+      "spEntityIdHelper": "Ідентифікатор SAML вашого застосунку",
+      "idpEntityId": "IdP Entity ID",
+      "idpSsoUrl": "IdP SSO URL",
+      "idpCertificate": "Сертифікат IdP",
+      "emailAttribute": "Атрибут електронної пошти",
+      "usernameAttribute": "Атрибут імені користувача",
+      "usernameAttributeHelper": "SAML атрибут, що містить ім'я користувача (наприклад, uid, username)",
+      "requireSignedAssertions": "Вимагати підписані твердження"
+    },
+    "oauthConfig": {
+      "title": "Конфігурація OAuth/OIDC",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "ID клієнта",
+      "clientSecret": "Секрет клієнта",
+      "discoveryUrl": "URL виявлення",
+      "discoveryUrlHelper": "Кінцева точка виявлення OIDC (автоматично налаштовує інші URL)",
+      "authorizationUrl": "URL авторизації",
+      "tokenUrl": "URL токена",
+      "userInfoUrl": "URL інформації користувача",
+      "scopes": "Області доступу",
+      "scopesHelper": "Список, розділений пробілами",
+      "emailAttribute": "Атрибут електронної пошти",
+      "usernameAttribute": "Атрибут імені користувача",
+      "usernameAttributeHelper": "Твердження, що містить ім'я користувача (наприклад, preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Не вдалося завантажити параметри SSO",
+      "settingsUpdated": "Параметри SSO успішно оновлені",
+      "updateFailed": "Не вдалося оновити параметри SSO",
+      "loadProviderFailed": "Не вдалося завантажити деталі провайдера",
+      "providerDeleted": "Провайдер успішно видалений",
+      "deleteFailed": "Не вдалося видалити провайдера",
+      "testSuccess": "Тест з'єднання успішний",
+      "testFailed": "Тест з'єднання не пройшов",
+      "certificateDownloaded": "Сертифікат успішно завантажено",
+      "certificateNotFound": "Сертифікат не знайдено в метаданих",
+      "certificateDownloadFailed": "Не вдалося завантажити сертифікат",
+      "providerUpdated": "Провайдер успішно оновлений",
+      "providerCreated": "Провайдер успішно створений",
+      "saveProviderFailed": "Не вдалося зберегти провайдера"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Конфігурація провайдера",
+      "emailTemplates": "Шаблони електронної пошти"
+    },
+    "provider": {
+      "titles": {
+        "current": "Поточна конфігурація електронної пошти",
+        "create": "Створити конфігурацію електронної пошти",
+        "edit": "Редагувати конфігурацію електронної пошти"
+      },
+      "labels": {
+        "provider": "Провайдер",
+        "apiKey": "Ключ API",
+        "password": "Пароль",
+        "smtpHost": "SMTP хост",
+        "port": "Порт",
+        "username": "Ім'я користувача",
+        "encryption": "Шифрування",
+        "fromEmail": "Електронна пошта відправника",
+        "fromName": "Ім'я відправника",
+        "domain": "Домен",
+        "region": "Регіон",
+        "monthlyLimit": "Місячний ліміт",
+        "skipTlsVerify": "Пропустити перевірку сертифіката TLS (небезпечно, не рекомендується)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "Адреса електронної пошти для тестування"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Залиште порожнім, щоб зберегти поточне значення.",
+        "monthlyLimit": "Залиште порожнім для необмеженого ліміту.",
+        "mailgunFromEmail": "Звичайно noreply@yourdomain",
+        "fromName": "Ім'я для відображення в електронних листах"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Немає (Порт 25)",
+        "encryptionStarttls": "STARTTLS (Порт 587)",
+        "encryptionTls": "TLS/SSL (Порт 465)",
+        "regionUS": "US (api.mailgun.net)",
+        "regionEU": "EU (api.eu.mailgun.net)"
+      },
+      "buttons": {
+        "edit": "Редагувати конфігурацію",
+        "cancel": "Скасувати",
+        "testConnection": "Перевірити з'єднання",
+        "save": "Зберегти конфігурацію",
+        "saveOnly": "Лише зберегти",
+        "saveAndTest": "Зберегти та перевірити",
+        "sendTestEmail": "Надіслати тестовий лист"
+      },
+      "dialogs": {
+        "test": {
+          "title": "Тестування конфігурації електронної пошти",
+          "content": "Введіть адресу електронної пошти для надсилання тестового листа:"
+        },
+        "save": {
+          "title": "Зберегти конфігурацію",
+          "content": "Бажаєте перевірити конфігурацію після збереження?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "Перевірка сертифіката TLS вимкнена",
+        "tlsVerifyWarning": "Вимкнення перевірки TLS робить ваше з'єднання вразливим до атак man-in-the-middle. Використовуйте це лише для тестування з самопідписаними сертифікатами."
+      },
+      "messages": {
+        "testSuccess": "Тестовий лист успішно відправлений",
+        "testFailed": "Не вдалося надіслати тестовий лист",
+        "saveSuccess": "Конфігурація успішно збережена",
+        "saveFailed": "Не вдалося зберегти конфігурацію",
+        "loadFailed": "Не вдалося завантажити конфігурацію"
+      }
+    },
+    "templates": {
+      "title": "Шаблони електронної пошти",
+      "createTemplate": "Створити шаблон електронної пошти",
+      "editTemplate": "Редагувати шаблон електронної пошти",
+      "labels": {
+        "templateType": "Тип шаблону",
+        "name": "Назва",
+        "subject": "Тема",
+        "htmlContent": "HTML вміст",
+        "textContent": "Текстовий вміст"
+      },
+      "menuItems": {
+        "securityEvent": "Подія безпеки",
+        "jobCompletion": "Завершення завдання",
+        "adminError": "Помилка адміністратора",
+        "mfaCode": "Код багатофакторної автентифікації",
+        "securityPasswordChanged": "Пароль змінено",
+        "securityMfaDisabled": "Багатофакторна автентифікація вимкнена",
+        "securitySuspiciousLogin": "Підозрілий вхід",
+        "jobStarted": "Завдання розпочато",
+        "jobFailed": "Завдання не виконано",
+        "firstCrack": "Перший зламаний хеш",
+        "taskCompleted": "Задача завершена",
+        "agentOffline": "Агент офлайн",
+        "agentError": "Помилка агента",
+        "webhookFailure": "Збій вебхука"
+      },
+      "buttons": {
+        "create": "Створити шаблон",
+        "cancel": "Скасувати",
+        "test": "Перевірити",
+        "save": "Зберегти",
+        "edit": "Редагувати",
+        "delete": "Видалити"
+      },
+      "table": {
+        "name": "Назва",
+        "type": "Тип",
+        "subject": "Тема",
+        "actions": "Дії"
+      },
+      "preview": "Живий попередній перегляд (зі зразковими даними):",
+      "messages": {
+        "loadSuccess": "Шаблони успішно завантажені",
+        "loadFailed": "Не вдалося завантажити шаблони",
+        "createSuccess": "Шаблон створено успішно",
+        "createFailed": "Не вдалося створити шаблон",
+        "updateSuccess": "Шаблон оновлено успішно",
+        "updateFailed": "Не вдалося оновити шаблон",
+        "deleteSuccess": "Шаблон видалено успішно",
+        "deleteFailed": "Не вдалося видалити шаблон",
+        "testSuccess": "Тестовий лист відправлено успішно",
+        "testFailed": "Не вдалося відправити тестовий лист",
+        "saveFailed": "Не вдалося зберегти шаблон"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Параметри збережено успішно",
+    "saveFailed": "Не вдалося зберегти параметри"
+  },
+  "clientSettings": {
+    "title": "Параметри клієнта",
+    "retentionPeriod": "Період збереження за замовчуванням (місяці)",
+    "retentionHelperText": "Період збереження за замовчуванням для нових клієнтів (0 = зберігати назавжди)",
+    "saveButton": "Зберегти параметри",
+    "errors": {
+      "invalidRetention": "Період збереження має бути невід'ємним числом",
+      "saveFailed": "Не вдалося зберегти параметри клієнта"
+    },
+    "messages": {
+      "updateSuccess": "Параметри клієнта оновлено успішно"
+    }
+  },
+  "systemSettings": {
+    "title": "Параметри системи",
+    "priority": {
+      "title": "Параметри пріоритету",
+      "tooltip": "Налаштуйте максимальне значення пріоритету, яке можна призначити завданням та шаблонам завдань. Це допомагає дотримуватися однакових діапазонів пріоритету у вашій організації.",
+      "maxPriority": "Максимальний пріоритет завдання",
+      "helperText": "Встановіть максимальне значення пріоритету (1-1 000 000). Завдання та шаблони завдань не можуть перевищувати цей пріоритет.",
+      "saveButton": "Зберегти параметри",
+      "saving": "Збереження...",
+      "reset": "Скинути"
+    },
+    "priorityInfo": {
+      "title": "Інформація про систему пріоритету",
+      "description": "Система пріоритету використовує діапазон від 0 до вашого налаштованого максимального пріоритету. Вищі числа означають вищий пріоритет.",
+      "currentMax": "Поточний максимум",
+      "note": "Ви не можете встановити максимальний пріоритет нижче, ніж будь-який існуючий пріоритет шаблону завдання. Якщо потрібно, спочатку оновіть або видаліть високопріоритетні шаблони завдань.",
+      "recommended": "Рекомендовані діапазони за розміром організації:",
+      "small": "Невелика організація: 0-100",
+      "medium": "Середня/велика організація: 0-1 000",
+      "large": "Організація з божевільним навантаженням: 0-10 000"
+    },
+    "agentScheduling": {
+      "title": "Розпланування агентів",
+      "tooltip": "Увімкніть або вимкніть систему розпланування агентів у всій системі. Коли ввімкнено, агентам можна встановити щоденні розклади.",
+      "enable": "Увімкнути систему розпланування агентів",
+      "description": "Коли ввімкнено, агентам можна встановити щоденні розклади. Завдання призначатимуться лише агентам, запланованим на поточний час.",
+      "note": "Окремі агенти повинні також мати увімкнене розпланування та налаштовані розклади, щоб це набрало чинності."
+    },
+    "agentOverflow": {
+      "title": "Розподіл надлишкових агентів",
+      "tooltip": "Налаштуйте, як розповсюджуються вільні агенти після того, як кожне завдання на кожному рівні пріоритету заповнить свій ліміт max_agents.",
+      "modeLabel": "Режим розподілу надлишку",
+      "priorityFifoMode": "Пріоритет - FIFO",
+      "priorityRoundRobinMode": "Пріоритет - Round Robin",
+      "enforceMaxAgentsMode": "Примусовий максимум агентів",
+      "maxAgentsFifoMode": "Максимум агентів - FIFO",
+      "maxAgentsRoundRobinMode": "Максимум агентів - Round Robin",
+      "priorityFifoDescription": "Рівні заповнюються спочатку найвищим пріоритетом. Як тільки рівень досягне max_agents, решта агентів накопичуються на НАЙСТАРІШОМУ завданні в цьому рівні — перевищуючи його ліміт. Завдання з нижчим пріоритетом можуть залишитися без ресурсів, поки вищі рівні не будуть вичерпані.",
+      "priorityRoundRobinDescription": "Рівні заповнюються спочатку найвищим пріоритетом. Як тільки рівень досягне max_agents, решта агентів рівномірно розподіляються між завданнями цього рівня — перевищуючи їхні ліміти. Завдання з нижчим пріоритетом можуть залишитися без ресурсів.",
+      "enforceMaxAgentsDescription": "Строго обмежує кожне завдання лімітом max_agents — без надлишку. Надлишкові агенти залишаються неактивними. Найпередбачуваніше; може призвести до марнування потужності.",
+      "maxAgentsFifoDescription": "Усі завдання на всіх рівнях пріоритету спочатку заповнюють max_agents (суворі ліміти). Решта агентів потім накопичуються на НАЙСТАРІШОМУ завданні загалом — обходячи пріоритет. Максимізує пропускну спроможність, даючи кожному завданню його базовий показник.",
+      "maxAgentsRoundRobinDescription": "Усі завдання на всіх рівнях пріоритету спочатку заповнюють max_agents (суворі ліміти). Решта агентів потім рівномірно розподіляються серед УСІХ завдань — обходячи пріоритет. Максимізує пропускну спроможність зі справедливим розподілом за межами базового показника."
+    },
+    "hashlist": {
+      "title": "Параметри списку хешів",
+      "tooltip": "Налаштуйте параметри, пов'язані з завантаженням та управлінням списком хешів",
+      "requireClient": "Вимагати клієнта для списків хешів",
+      "requireClientDescription": "Коли ввімкнено, користувачі повинні призначити клієнта при завантаженні нових списків хешів. Це допомагає підтримувати кращу організацію та відстеження списків хешів за клієнтом.",
+      "batchSize": "Розмір партії масового імпорту",
+      "batchSizeHelper": "Кількість хешів, оброблених за партію під час завантаження. За замовчуванням: 100 000. Рекомендується: 500 000-1 000 000 для великих списків хешів (47M+)",
+      "performanceGuide": "Посібник з продуктивності:",
+      "performance100k": "100K (за замовчуванням): добре для більшості випадків використання",
+      "performance500k": "500K: краще для великих списків хешів, може покращити пропускну спроможність",
+      "performance1m": "1M: найкраще для дуже великих списків хешів (50M+), потребує більше оперативної пам'яті"
+    },
+    "potfile": {
+      "title": "Параметри potfile",
+      "tooltip": "Налаштуйте, як potfile обробляє зламані паролі для повторного використання в завданнях",
+      "maxBatchSize": "Максимальний розмір партії",
+      "maxBatchSizeHelper": "Кількість паролів у буфері для обробки в кожному циклі партії (1 000 - 500 000)",
+      "batchInterval": "Інтервал партії (секунди)",
+      "batchIntervalHelper": "Секунди між циклами обробки партій potfile (10 - 600)",
+      "description": "potfile збирає зламані паролі з усіх завдань і повторно використовує їх у наступних атаках. Більші розміри партій обробляють більше паролів одночасно, але займають більше часу за цикл.",
+      "processingRate": "Швидкість обробки",
+      "passwordsPerSecond": "паролів/секунду",
+      "currentSettings": "Поточні параметри",
+      "passwordsEvery": "паролів кожні",
+      "seconds": "секунди"
+    },
+    "speedTest": {
+      "title": "Тестування швидкості",
+      "tooltip": "Налаштуйте, як довго агенти очікують, поки hashcat виробить придатне тестування швидкості перед невдачею. Стиснені словники потребують значно більше часу для dictstat-препроцесування.",
+      "timeoutUncompressed": "Часове обмеження: прості текстові словники (секунди)",
+      "timeoutUncompressedHelper": "Максимальна кількість секунд, які агент буде очікувати дійсного показника швидкості на простих текстових словниках. За замовчуванням: 120.",
+      "timeoutCompressed": "Часове обмеження: стиснені словники (секунди)",
+      "timeoutCompressedHelper": "Максимальна кількість секунд для .gz / .zip / .xz словників — три формати, які hashcat читає нативно. Їм потрібно більше часу для розпакування та dictstat-препроцесування. За замовчуванням: 300.",
+      "minStatusUpdates": "Мінімальні оновлення стану",
+      "minStatusUpdatesHelper": "Мінімальна кількість hashcat --status-json тактів, які агент повинен зібрати перед повертанням результату. За замовчуванням: 3.",
+      "minUpdatesLowWarning": "Значення нижче 3 можуть дати неточні показання: GPU можуть не завершити розгін.",
+      "description": "Якщо час очікування агента вичерпується без отримання ненульової швидкості, тестування швидкості позначається як невдале, а завдання виводить помилку, яку може виправити адміністратор. Конвеєр розбиття на блоки також відмовляється відправляти задачу з 1 кандидатом, тому застаріле тестування швидкості 0 H/s не може циклюватися нескінченно."
+    },
+    "errors": {
+      "loadFailed": "Не вдалося завантажити параметри системи",
+      "maxPriorityRequired": "Максимальний пріоритет необхідний",
+      "maxPriorityPositive": "Максимальний пріоритет має бути додатним числом",
+      "maxPriorityMax": "Максимальний пріоритет не може перевищувати 1 000 000",
+      "saveFailed": "Не вдалося зберегти параметри системи",
+      "batchSizeRange": "Розмір партії має бути між {{min}} та {{max}}",
+      "intervalRange": "Інтервал має бути між {{min}} та {{max}} секундами",
+      "speedTestTimeoutRange": "Часове обмеження тестування швидкості має бути між {{min}} та {{max}} секундами",
+      "minStatusUpdatesRange": "Мінімальні оновлення стану мають бути між {{min}} та {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Параметри системи оновлено успішно",
+      "schedulingUpdated": "Параметр розпланування агентів оновлено",
+      "schedulingFailed": "Не вдалося оновити параметр розпланування",
+      "overflowUpdated": "Режим розподілу надлишкових агентів оновлено",
+      "overflowFailed": "Не вдалося оновити режим розподілу надлишку",
+      "hashlistClientUpdated": "Вимога клієнта для списку хешів оновлена",
+      "hashlistBatchUpdated": "Розмір партії списку хешів оновлено",
+      "potfileBatchUpdated": "Розмір партії potfile оновлено",
+      "potfileIntervalUpdated": "Інтервал партії potfile оновлено",
+      "speedTestTimeoutUpdated": "Часове обмеження тестування швидкості оновлено",
+      "speedTestMinUpdatesUpdated": "Мінімальні оновлення стану тестування швидкості оновлені",
+      "updateFailed": "Не вдалося оновити параметр"
+    }
+  },
+  "jobExecution": {
+    "title": "Параметри виконання завдання",
+    "description": "Налаштуйте, як завдання виконуються та розповсюджуються серед агентів",
+    "chunking": {
+      "title": "Розбиття завдання на блоки",
+      "defaultChunkDuration": "Тривалість блоку за замовчуванням",
+      "defaultChunkDurationHelper": "Цільовий реальний час на блок (scheduler-v2 підбирає розмір блоку кожного агента, щоб досягти цього часу)",
+      "minChunkSeconds": "Мінімальна тривалість блоку",
+      "minChunkSecondsHelper": "Мінімум реального часу одного блоку; запобігає появі крихітних блоків-сиріт",
+      "minutes": "хвилини",
+      "overrunTolerance": "Допуск на перевищення тривалості блоку",
+      "overrunToleranceHelper": "На скільки далі від запланованої тривалості блок може працювати перед тим, як захист зупинить його та повторно відправить решту.",
+      "overrunGuard": "Увімкнути захист від перевищення блоку",
+      "overrunGuardHelper": "Зупиняє задачу, яка працює далеко за межами запланованої тривалості блоку, та повторно відправляє недокінчену частину."
+    },
+    "agentConfig": {
+      "title": "Конфігурація агента",
+      "hashlistRetention": "Період збереження списку хешів",
+      "hashlistRetentionHelper": "Як довго агенти зберігають списки хешів",
+      "maxConcurrentJobs": "Максимум одночасних завдань на агента",
+      "maxConcurrentJobsHelper": "Максимальна кількість завдань, які агент може виконувати одночасно",
+      "progressReporting": "Інтервал звітування про прогрес",
+      "progressReportingHelper": "Як часто агенти звітують про прогрес",
+      "benchmarkCache": "Тривалість кешу тестування швидкості",
+      "benchmarkCacheHelper": "Як довго кешувати тестування швидкості агента",
+      "benchmarkHistoryRetention": "Період збереження історії тестування швидкості",
+      "benchmarkHistoryRetentionHelper": "Дні для збереження записів історії тестування швидкості (0 = без обмежень)",
+      "reconnectGrace": "Період льготи на перепідключення",
+      "reconnectGraceHelper": "Час очікування на перепідключення агентів після перезавантаження сервера",
+      "days": "дні",
+      "seconds": "секунди",
+      "minutes": "хвилини"
+    },
+    "jobControl": {
+      "title": "Керування завданнями",
+      "allowInterruption": "Дозволити переривання завдання",
+      "allowInterruptionHelper": "Завдання з вищим пріоритетом можуть переривати запущені завдання",
+      "realtimeNotifications": "Сповіщення про зламування в реальному часі",
+      "realtimeNotificationsHelper": "Надсилайте сповіщення при зламуванні хешів",
+      "refreshInterval": "Інтервал оновлення завдання",
+      "refreshIntervalHelper": "Як часто оновлювати стан завдання у користувацькому інтерфейсі",
+      "maxRetryAttempts": "Максимум спроб повторення блоку",
+      "maxRetryAttemptsHelper": "Кількість разів для повторення невдалих блоків",
+      "jobsPerPage": "Завдання на сторінку",
+      "jobsPerPageHelper": "Розмір пагінації за замовчуванням для списків завдань",
+      "keyspaceTimeout": "Часове обмеження розрахунку простору ключів",
+      "keyspaceTimeoutHelper": "Максимальний час для команд hashcat --keyspace та --total-candidates. Збільште для великих словників/правил."
+    },
+    "potfile": {
+      "title": "Параметри potfile",
+      "enablePotfile": "Увімкнути potfile",
+      "enablePotfileHelper": "Автоматично зберігайте зламані паролі для використання у майбутніх завданнях. Окремі списки хешів все ще можна виключити.",
+      "maxBatchSize": "Максимальний розмір партії",
+      "maxBatchSizeHelper": "Кількість паролів у буфері для обробки в кожному циклі партії (1 000 - 500 000)",
+      "batchInterval": "Інтервал партії",
+      "batchIntervalHelper": "Секунди між циклами обробки партій potfile (10 - 600)",
+      "enableClientPotfiles": "Увімкнути potfile клієнтів",
+      "enableClientPotfilesHelper": "Зберігайте окремий potfile для кожного клієнта на додаток до глобального.",
+      "removeGlobalDefault": "Видалити з глобального potfile при видаленні списку хешів (за замовчуванням)",
+      "removeClientDefault": "Видалити з potfile клієнта при видаленні списку хешів (за замовчуванням)"
+    },
+    "scheduler": {
+      "title": "Планувальник (v2)",
+      "description": "Розширене налаштування для живості задач планувальника v2 та обробки перевищення. За замовчуванням безпечно для більшості розгортань.",
+      "taskHeartbeatTimeout": "Часове обмеження сигналу активності задачі",
+      "taskHeartbeatTimeoutHelper": "Секунди без сигналу активності перед тим, як запущена задача буде позначена як втрачена та відновлена",
+      "taskStartupGrace": "Період льготи на запуск задачі",
+      "taskStartupGraceHelper": "Додаткова льгота перед першим прогресом (завантаження файлу, розпакування, autotune)",
+      "networkGrace": "Період льготи на мережу",
+      "networkGraceHelper": "Допуск на перепідключення WebSocket перед запуском відновлення при відключенні",
+      "overrunGuardEnabled": "Захист від перевищення блоку",
+      "overrunGuardEnabledHelper": "Зупиніть задачі, які виходять за межі свого цільового блоку, перевищуючи допуск нижче",
+      "overrunTolerance": "Допуск на перевищення",
+      "overrunToleranceHelper": "Вікно льготи: зупиніть, коли реальний час перевищує цільовий блок на цей відсоток"
+    },
+    "buttons": {
+      "save": "Зберегти параметри"
+    },
+    "errors": {
+      "loadFailed": "Не вдалося завантажити параметри",
+      "outOfRange": "{{label}} має бути між {{min}} та {{max}}"
+    },
+    "messages": {
+      "updateSuccess": "Параметри виконання завдання оновлено успішно",
+      "loadFailed": "Не вдалося завантажити параметри виконання завдання",
+      "saveFailed": "Не вдалося зберегти параметри"
+    },
+    "keyspaceBenchmark": {
+      "title": "Простір ключів та тестування швидкості",
+      "caption": "Як довго KrakenHashes може витратити на вимірювання атаки. Перший параметр обмежує СЕРВЕР, що вимірює словник при створенні завдання; параметри тестування швидкості обмежують АГЕНТА, що вимірює його власну швидкість хешування. Це різні етапи — збільшення одного не впливає на інший.",
+      "keyspaceTimeout": "Часове обмеження розрахунку простору ключів",
+      "keyspaceTimeoutHelper": "На боці сервера. Час, дозволений для hashcat --keyspace / --total-candidates при створенні завдання. Працює на фоні, тому збільшення цього не уповільнює створення завдання. Якщо перевищено, пряма атака повертається до кількості слів у словнику та повідомляє користувача.",
+      "speedTestUncompressed": "Часове обмеження тестування швидкості агента",
+      "speedTestUncompressedHelper": "На боці агента. Реальний часовий ліміт для тестування швидкості агента на нестисненому словнику.",
+      "speedTestCompressed": "Часове обмеження тестування швидкості агента (стиснений)",
+      "speedTestCompressedHelper": "На боці агента. Більш довгий ліміт для стиснених словників, які hashcat повинен розпакувати перед тим, як звітувати про швидкість.",
+      "minStatusUpdates": "Мінімальні оновлення стану",
+      "minStatusUpdatesHelper": "Скільки звітів стану hashcat повинно видати тестування швидкості перед тим, як його результат буде довіреним. Низькі значення ризикують записати швидкість, зняту до того, як GPU встановилась.",
+      "cacheDuration": "Тривалість кешу тестування швидкості",
+      "cacheDurationHelper": "Як довго записане тестування швидкості залишається дійсним перед тим, як агента попросять повторно виміряти.",
+      "historyRetention": "Період збереження історії тестування швидкості",
+      "historyRetentionHelper": "Як довго ведуться окремі записи тестування швидкості для аналізу тенденцій.",
+      "hours": "години",
+      "days": "дні"
+    },
+    "benchmarkReliability": {
+      "title": "Надійність тестування швидкості",
+      "caption": "Що відбувається при повторних невдачах тестування швидкості. Вони захищають від одного поганого агента або однієї поганої конфігурації завдання, що спожирає парк шляхом повторного запуску тестування швидкості, яке не може пройти успішно.",
+      "failureThreshold": "Поріг невдачі",
+      "failureThresholdHelper": "Послідовні невдачі тестування швидкості для однієї комбінації агента/завдання/атаки перед тим, як її буде внесено до чорного списку.",
+      "hardFailureCap": "Жорсткий ліміт невдач",
+      "hardFailureCapHelper": "Абсолютний ліміт на спроби тестування швидкості для комбінації, незалежно від порога вище.",
+      "blocklistCooldown": "Період очікування блокування",
+      "blocklistCooldownHelper": "Як довго заблокована комбінація агента/завдання/атаки залишається заблокованою перед тим, як її можна повторити.",
+      "stormThreshold": "Поріг бурі тестування швидкості",
+      "stormThresholdHelper": "Кількість невдач тестування швидкості всередині вікна бурі, яка запускає сповіщення адміністратора.",
+      "stormWindow": "Вікно бурі тестування швидкості",
+      "stormWindowHelper": "Період, протягом якого підраховуються невдачі, що зараховуються до порога бурі.",
+      "streakReset": "Скидання серії невдач",
+      "streakResetHelper": "Як довго агент повинен бути без невдачі тестування швидкості перед скиданням його серії невдач на нуль.",
+      "quarantineStreak": "Серія невдач до карантину",
+      "quarantineStreakHelper": "Послідовні невдачі в будь-якій комбінації перед тим, як сам агент буде поміщений на карантин і виключений з тестування швидкості.",
+      "quarantineDistinct": "Різні комбінації до карантину",
+      "quarantineDistinctHelper": "Скільки РІЗНИХ комбінацій атаки/типу хешу повинно не вдатися, перш ніж агент буде розглядатися як несправний, а не завдання."
+    },
+    "scheduling": {
+      "title": "Планування та розподіл",
+      "overflowMode": "Режим розподілу надлишкових агентів",
+      "overflowModeHelper": "Як розподіляються агенти, які залишилися після того, як завдання досягнуть свого ліміту максимуму агентів.",
+      "maxConcurrentJobs": "Максимум одночасних завдань на агента",
+      "maxConcurrentJobsHelper": "Скільки завдань один агент може виконувати одночасно.",
+      "agentScheduling": "Увімкнути планування агентів",
+      "agentSchedulingHelper": "Глобально вмикає графіки робочих годин на агента. Коли це вимкнено, графіки агентів ігноруються.",
+      "jobInterruption": "Дозволити переривання завдань",
+      "jobInterruptionHelper": "Глобальний гейт для витіснення. Завдання ТАКОЖ повинно мати власний прапорець пріоритетного переривання та ненульовий пріоритет, перш ніж щось буде переривано.",
+      "overflowModes": {
+        "fifo": "FIFO",
+        "roundRobin": "Циклічний розподіл",
+        "enforceMaxAgents": "Примусовий максимум агентів",
+        "maxAgentsFifo": "Максимум агентів, потім FIFO",
+        "maxAgentsRoundRobin": "Максимум агентів, потім циклічний розподіл"
+      }
+    },
+    "taskHealth": {
+      "title": "Здоров'я задач",
+      "caption": "Коли запущена задача вважається втраченою та як агресивно відновлюється робота. Установіть їх занадто жорстко, і здорові задачі будуть вилучені; занадто м'яко, і мертва задача утримуватиме свій простір ключів годинами.",
+      "heartbeatTimeout": "Час очікування сигналу активності задачі",
+      "heartbeatTimeoutHelper": "Як довго запущена задача може обходитися без сигналу активності перед тим, як вона буде розглядатися як втрачена та її простір ключів буде повторно відкритий.",
+      "startupGrace": "Пільговий період запуску задачі",
+      "startupGraceHelper": "Додатковий час, дозволений після призначення, перш ніж почнуть діяти правила сигналу активності; охоплює запуск hashcat та завантаження файлів.",
+      "networkGrace": "Пільговий період мережі",
+      "networkGraceHelper": "Короткий допуск для тимчасових переривань мережі, перш ніж пропущений сигнал активності буде враховуватися.",
+      "reconnectGrace": "Пільговий період повторного підключення",
+      "reconnectGraceHelper": "Як довго відключений агент може повторно підключитися та повернути свою запущену задачу.",
+      "offlineBuffer": "Період очікування агента в автономному режимі",
+      "offlineBufferHelper": "Як довго повідомлення для ненадовго автономного агента буферизуються, перш ніж бути видаленими.",
+      "maxRetryAttempts": "Максимум спроб повторення блоку",
+      "maxRetryAttemptsHelper": "Скільки разів невдалий блок повторюється перш ніж задача не вдасться. Встановіть на 0, щоб вимкнути повторні спроби.",
+      "progressInterval": "Інтервал звітування про прогрес",
+      "progressIntervalHelper": "Як часто агенти звітують про прогрес. Нижчі значення дають детальніший прогрес, але більше навантаження.",
+      "hashlistRetention": "Період збереження списку хешів агента",
+      "hashlistRetentionHelper": "Як довго агенти зберігають завантажений список хешів після завершення роботи з ним."
+    },
+    "loopback": {
+      "title": "Loopback",
+      "maxRounds": "Максимум раундів loopback",
+      "maxRoundsHelper": "Граничний ліміт безпеки на те, скільки разів сеанс loopback повторно запускає атаку на нові зламані відкриті тексти, перш ніж зупиниться, навіть якщо він все ще знаходить нові зломи."
+    },
+    "jobNotifications": {
+      "title": "Сповіщення завдань",
+      "realtimeCracks": "Сповіщення про зламані хеші в реальному часі",
+      "realtimeCracksHelper": "Сповіщати по мірі зламання хешів. Можна додати помітне навантаження на дуже великі завдання."
+    }
+  },
+  "monitoring": {
+    "title": "Параметри моніторингу",
+    "metricsRetention": {
+      "title": "📊 Періоди збереження метрик",
+      "description": "Установіть, як довго зберігати метрики на різних рівнях деталізації. Дані каскадують від дрібногранульованих до агрегованих з часом.",
+      "realtimeData": "Період збереження даних у реальному часі",
+      "realtimeDataHelper": "Дні для збереження дрібногранульованих метрик для недавної активності (наприклад, 7 днів)",
+      "dailyAggregates": "Період збереження щоденних агрегацій",
+      "dailyAggregatesHelper": "Дні для зберігання щоденних резюме після періоду реального часу (наприклад, 30 днів)",
+      "weeklyAggregates": "Період збереження тижневих агрегацій",
+      "weeklyAggregatesHelper": "Дні для збереження довгострокових тенденцій як тижневих резюме (наприклад, 365 днів)"
+    },
+    "aggregation": {
+      "title": "⚙️ Параметри агрегації",
+      "enableAggregation": "Увімкнути автоматичну агрегацію",
+      "enableAggregationDescription": "Автоматично консолідувати старіші метрики для економії місця на диску, зберігаючи тенденції",
+      "interval": "Інтервал агрегації",
+      "intervalHelper": "Як часто запускати процес агрегації",
+      "hourly": "Щогодинно",
+      "daily": "Щодня",
+      "weekly": "Щотижня"
+    },
+    "cascading": {
+      "title": "Як працює каскадна агрегація:",
+      "realtime": "Дані у реальному часі надають детальні метрики для недавної активності",
+      "daily": "Після періоду реального часу дані агрегуються в щоденні резюме",
+      "weekly": "Після щоденного періоду дані далі агрегуються в тижневі резюме",
+      "benefit": "Цей підхід зберігає діаграми читаними, зберігаючи історичні тенденції"
+    },
+    "buttons": {
+      "save": "Зберегти параметри",
+      "saving": "Збереження..."
+    },
+    "errors": {
+      "loadFailed": "Не вдалося завантажити параметри. Будь ласка, спробуйте ще раз.",
+      "saveFailed": "Не вдалося зберегти параметри. Будь ласка, спробуйте ще раз."
+    },
+    "messages": {
+      "updateSuccess": "Параметри моніторингу успішно збережені"
+    }
+  },
+  "agentDownloads": {
+    "title": "Параметри передачі файлів агента",
+    "description": "Установіть, як агенти завантажують файли з бекенду. Ці параметри застосовуються до всіх підключених агентів.",
+    "concurrentDownloads": {
+      "title": "Одночасні завантаження",
+      "description": "Максимальна кількість файлів, які можна завантажити одночасно"
+    },
+    "downloadTimeout": {
+      "title": "Час очікування завантаження",
+      "description": "Максимальний час, дозволений для одного завантаження файлу",
+      "helper": "Між 1 хвилиною та 24 годинами (1440 хвилин)",
+      "unit": "хвилини"
+    },
+    "retryAttempts": {
+      "title": "Повторні спроби",
+      "description": "Кількість повторних спроб для невдалих завантажень"
+    },
+    "progressInterval": {
+      "title": "Інтервал звітування про прогрес",
+      "description": "Як часто агенти звітують про прогрес завантаження",
+      "helper": "Між 1 секундою та 5 хвилинами (300 секунд)",
+      "unit": "секунди"
+    },
+    "chunkSize": {
+      "title": "Розмір блоку",
+      "description": "Розмір блоку завантаження для майбутньої можливості відновлення",
+      "helper": "Між 1 МБ та 100 МБ",
+      "unit": "МБ"
+    },
+    "applyNote": "Зміни будуть застосовані до агентів при їх наступному підключенні. Наразі підключені агенти отримають оновлення автоматично.",
+    "buttons": {
+      "save": "Зберегти параметри",
+      "saving": "Збереження..."
+    },
+    "errors": {
+      "loadFailed": "Не вдалося отримати параметри завантаження агента",
+      "saveFailed": "Не вдалося оновити параметри завантаження агента"
+    },
+    "messages": {
+      "updateSuccess": "Параметри завантаження агента успішно оновлені"
+    }
+  },
+  "hashTypes": {
+    "title": "Управління типами хешів",
+    "description": "Керувати підтримуваними типами хешів для операцій зламання паролів",
+    "addHashType": "Додати тип хешу",
+    "searchPlaceholder": "Пошук типів хешів...",
+    "hashTypesFound_few": "Знайдено {{count}} типи хешів",
+    "hashTypesFound_many": "Знайдено {{count}} типів хешів",
+    "hashTypesFound_one": "Знайдено {{count}} тип хешу",
+    "hashTypesFound_other": "Знайдено {{count}} типів хешів",
+    "table": {
+      "id": "ID",
+      "name": "Назва",
+      "description": "Опис",
+      "example": "Приклад",
+      "slow": "Повільний",
+      "salted": "Засолений",
+      "actions": "Дії",
+      "loading": "Завантаження типів хешів...",
+      "noResults": "Типів хешів не знайдено"
+    },
+    "dialog": {
+      "addTitle": "Додати новий тип хешу",
+      "editTitle": "Редагувати тип хешу",
+      "hashIdLabel": "ID хешу (номер режиму Hashcat)",
+      "hashIdHelper": "наприклад, 1000 для NTLM",
+      "nameLabel": "Назва",
+      "descriptionLabel": "Опис",
+      "exampleLabel": "Приклад хешу",
+      "exampleHelper": "Приклад цього формату хешу",
+      "slowLabel": "Повільний алгоритм хешування",
+      "saltedLabel": "Засолений тип хешу (наприклад, NTLMv2, bcrypt)",
+      "processingInfo": "Цей тип хешу потребує спеціальної обробки. Логіка обробки керується програмно.",
+      "cancel": "Скасувати",
+      "save": "Зберегти",
+      "saving": "Збереження..."
+    },
+    "validation": {
+      "hashIdRequired": "ID хешу обов'язковий і повинен бути позитивним",
+      "hashIdExists": "Цей ID хешу вже існує",
+      "nameRequired": "Назва обов'язкова"
+    },
+    "tooltips": {
+      "requiresProcessing": "Потребує спеціальної обробки",
+      "processing": "Обробка",
+      "slowAlgorithm": "Повільний алгоритм хешування (обчислювально дорогий)",
+      "salted": "Використовує сіль на хеш (впливає на розрахунок простору ключів)"
+    },
+    "confirmDelete": {
+      "title": "Підтвердіть видалення",
+      "warning": "Цей тип хешу наразі ввімкнено. Його видалення може вплинути на існуючу функціональність.",
+      "cancel": "Скасувати",
+      "delete": "Видалити",
+      "deleting": "Видалення..."
+    },
+    "messages": {
+      "createSuccess": "Тип хешу успішно створений",
+      "createFailed": "Не вдалося створити тип хешу",
+      "updateSuccess": "Тип хешу успішно оновлений",
+      "updateFailed": "Не вдалося оновити тип хешу",
+      "deleteSuccess": "Тип хешу успішно видалений",
+      "deleteFailed": "Не вдалося видалити тип хешу",
+      "deleteInUse": "Не можна видалити: цей тип хешу використовується існуючими списками хешів",
+      "loadFailed": "Не вдалося завантажити типи хешів. Будь ласка, спробуйте оновити сторінку."
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "Виділення хмарних GPU",
+      "body": "Орендуйте GPU інстанси за запитом, коли локальний парк не встигає. Інстанси приєднуються до вашої існуючої VPN, отримують лише файли, необхідні для свого завдання, та автоматично знищуються. Витрати резервуються в межах бюджету клієнта перед завантаженням інстансу, тому ліміт є реальним лімітом, а не вимірюванням після факту.",
+      "fleetLink": "Переглянути поточний парк"
+    },
+    "sections": {
+      "providers": "Провайдери",
+      "clients": "Бюджети клієнтів",
+      "policy": "Політика порогу",
+      "rules": "Правила виділення ресурсів",
+      "system": "Ліміти та операції"
+    },
+    "providers": {
+      "title": "Хмарні провайдери",
+      "description": "Звідки беруться орендовані інстанси та як вони дістаються до цього сервера.",
+      "add": "Додати провайдера",
+      "addTitle": "Додати хмарного провайдера",
+      "editTitle": "Редагувати хмарного провайдера",
+      "edit": "Редагувати",
+      "delete": "Видалити",
+      "save": "Зберегти",
+      "saved": "Провайдер збережений",
+      "saveFailed": "Не вдалося зберегти провайдера",
+      "deleted": "Провайдер видалений",
+      "deleteFailed": "Не вдалося видалити провайдера",
+      "deleteTitle": "Видалити провайдера?",
+      "deleteBody": "Видалити \"{{name}}\"? Це не вдається, поки будь-який орендований інстанс все ще посилається на нього.",
+      "loadFailed": "Не вдалося завантажити провайдерів",
+      "empty": "Не налаштовано жодних хмарних провайдерів. Нічого не буде орендовано.",
+      "enabled": "Ввімкнено",
+      "disabled": "Вимкнено",
+      "noCredentials": "Немає облікових даних",
+      "noVpn": "Немає VPN",
+      "credentialExpired": "Облікові дані закінчилися",
+      "credentialExpiresIn": "Закінчується через {{days}}д",
+      "limitsValue": "{{instances}} макс, {{rate}}/год ліміт",
+      "thirdPartyBadge": "Працює на машинах третьої сторони",
+      "preflight": "Перевірка готовності",
+      "preflightTitle": "Звіт перевірки готовності",
+      "preflightOk": "Цей провайдер може запускати інстанси.",
+      "preflightFailed": "Запит перевірки готовності не вдався",
+      "preflightFailedBody": "Цей провайдер ще не може запускати інстанси.",
+      "preflightIdentity": "Автентифіковано як {{identity}}",
+      "preflightQuota": "Квота: {{used}} з {{limit}} у використанні ({{source}})",
+      "preflightSections": {
+        "missing_permissions": "Відсутні дозволи",
+        "inconclusive": "Не вдалося перевірити (розглядається як невдача)",
+        "errors": "Помилки",
+        "warnings": "Попередження"
+      },
+      "acknowledge": "Підтвердити",
+      "acknowledged": "Підтвердження записано",
+      "ackFailed": "Не вдалося записати підтвердження",
+      "ackTitle": "Підтвердіть розкриття даних третьої сторони",
+      "ackBody": {
+        "vastai": "Vast.ai орендує GPU на машинах, що належать окремим особам, оператори яких мають root-доступ до контейнера. Хеші, словники та зламані відкриті тексти, розміщені там, видимі третій стороні. Це категорично відрізняється від AWS або RunPod Secure Cloud, де інстанси працюють у вашому власному обліковому записі або в ЦОД SOC 2.",
+        "runpod_community": "RunPod Community Cloud орендує GPU на машинах, якими керують сторонні користувачі, власники яких мають root-доступ до контейнера. Хеші, словники та зламані відкриті тексти, розміщені там, видимі третій стороні. Атестації відповідності RunPod охоплюють лише Secure Cloud і не поширюються на цей рівень."
+      },
+      "ackConfirm": "Ви приймаєте це розкриття для навантажень, надісланих цьому провайдеру?",
+      "ackAccept": "Я розумію та приймаю",
+      "ephemeralKeyTitle": "Ключ шифрування є короткотривалим",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY не встановлений, тому випадковий ключ був створений при запуску. Усі збережені облікові дані стають нечитаними після наступного перезавантаження. Встановіть KH_ENCRYPTION_KEY перед збереженням облікових даних провайдера.",
+      "vpnSection": "Підключення VPN",
+      "vpnSectionHelp": "Цей сервер ніколи не доступний з інтернету, тому орендовані інстанси приєднуються до VPN, який ви вже використовуєте. OpenVPN не підтримується: йому потрібні /dev/net/tun та CAP_NET_ADMIN, яких непривілейовані контейнери Vast.ai не надають.",
+      "reusableKeyWarning": {
+        "tailscale": "Ключ для повторного використання спільно використовується кожним інстансом та закінчується — Tailscale обмежує ключі автентифікації на 90 днів. Як тільки він закінчується, виділення ресурсів відхиляється, а не запускає інстанси, які не можуть підключитися. OAuth клієнт дозволяє KrakenHashes створювати одноразовий короткотривалий помічений ключ на кожен інстанс.",
+        "netbird": "Ключ установки для повторного використання спільно використовується кожним інстансом, тому той самий секрет досягає кожного орендованого хоста. Якщо ключ має строк дії, вкажіть дату закінчення облікових даних нижче — тоді виділення ресурсів відхиляється, щойно він закінчується, замість запуску інстансів, які не можуть підключитися; залиште це поле порожнім для ключа, який ніколи не закінчується. Тег або група ігнорується для цього типу облікових даних: група та ефемерний прапорець беруться з власної конфігурації ключа в NetBird. Токен доступу дозволяє KrakenHashes створювати одноразовий короткотривалий ключ установки на кожен інстанс та встановлювати саму групу."
+      },
+      "staticConfigWarning": "WireGuard використовує статичну конфігурацію пірів: немає облікових даних на інстанс та немає автоматичного скасування реєстрації, коли інстанс вмирає. Tailscale або NetBird безпечніше.",
+      "kinds": {
+        "aws": "AWS EC2 (ваш власний обліковий запис)",
+        "vastai": "Vast.ai (машини третьої сторони)",
+        "mock": "Mock (локальні тестові агенти, без витрат)",
+        "runpod": "RunPod Secure Cloud (ЦОД SOC 2)",
+        "runpod_community": "RunPod Community Cloud (машини, керовані сторонніми користувачами)"
+      },
+      "credentialKinds": {
+        "oauth": "OAuth клієнт — створити один короткотривалий ключ на інстанс (рекомендується)",
+        "pat": "Токен доступу — створити один короткотривалий ключ на інстанс (рекомендується)",
+        "reusable_key": "Ключ для повторного використання — спільно використовується кожним інстансом",
+        "static_config": "Статична конфігурація — немає облікових даних на інстанс"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "Клієнт Tailscale OAuth як client_id:client_secret. Потрібна область auth_keys та вибраний тег.",
+        "pat": "Токен особистого доступу NetBird або токен сервісного користувача.",
+        "reusable_key": "Попередньо авторизований ключ, який будуть використовувати всі інстанси.",
+        "static_config": "Повна конфігурація однорангового вузла WireGuard."
+      },
+      "columns": {
+        "name": "Назва",
+        "provider": "Постачальник",
+        "status": "Стан",
+        "vpn": "VPN",
+        "limits": "Обмеження",
+        "actions": "Дії"
+      },
+      "fields": {
+        "name": "Назва",
+        "provider": "Постачальник",
+        "credentials": "Облікові дані постачальника",
+        "credentialsHelp": "Облікові дані API для {{provider}}. Зберігаються в зашифрованому вигляді та ніколи не повертаються.",
+        "credentialsKeepHelp": "Залиште пустим, щоб зберегти облікові дані без змін.",
+        "maxConcurrent": "Максимум одночасних інстансів",
+        "maxHourlyCents": "Максимальна погодинна ставка (центи)",
+        "maxHourlyHelp": "Пропозиції вище цієї ставки ніколи не беруться в оренду, незалежно від дозволеного бюджету.",
+        "vpnProvider": "Постачальник VPN",
+        "credentialKind": "Тип облікових даних",
+        "vpnCredential": "Облікові дані VPN",
+        "credentialExpiry": "Дата закінчення дії облікових даних",
+        "credentialExpiryHelp": "Опціонально — залиште пустим для ключа, який не закінчується. Після цього часу запити на виділення ресурсів відхилятимуться, а ви отримаєте попередження, коли строк наближатиметься.",
+        "vpnTag": "Тег або група",
+        "vpnTagHelp": "напр. tag:kraken-worker. Обов'язково для Tailscale OAuth; визначає, до чого мають доступ ці вузли.",
+        "backendVpnHost": "Адреса цього сервера у VPN",
+        "backendVpnHostHelp": "Значення KH_HOST, яке використовують хмарні агенти. Сертифікат сервера повинен його охоплювати — додайте його на вкладці Server Certificate і натисніть Apply & Reissue, або агенти не пройдуть перевірку імені хосту TLS.",
+        "enabled": "Увімкнено",
+        "awsAccessKeyId": "ID ключа доступу AWS",
+        "awsAccessKeyIdHelp": "Ключ користувача IAM або ролі, обмежений виділенням ресурсів EC2. Зберігається в зашифрованому вигляді та ніколи не повертається.",
+        "awsSecretAccessKey": "Таємний ключ доступу AWS",
+        "awsRegion": "Регіон",
+        "awsRegionHelp": "напр. us-east-2. Усі інші поля AWS нижче повинні знаходитися в цьому регіоні.",
+        "awsSubnet": "ID підмережі",
+        "awsSubnetHelp": "напр. subnet-0abc123. Повинна автоматично призначити публічну IP-адресу, інакше інстанс не зможе дістатися площини управління вашого VPN.",
+        "awsSecurityGroups": "ID груп безпеки",
+        "awsSecurityGroupsHelp": "Розділені комами, напр. sg-0abc123. Потребує лише вихідного доступу; правило вхідного трафіку не потрібне.",
+        "awsAmiSsm": "Параметр AMI SSM",
+        "awsAmiSsmHelp": "Розв'язується під час запуску, тому образ ніколи не застаріває. напр. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "ID AMI (перевизначає параметр SSM)",
+        "awsAmiIdHelp": "Натомість закріпіть конкретний образ. Залиште пустим, щоб розв'язати через SSM. Один із двох обов'язковий.",
+        "awsInstanceProfile": "ARN профілю інстансу IAM",
+        "awsInstanceProfileHelp": "Опціонально. Потрібно лише якщо сам агент повинен викликати API AWS.",
+        "awsRootVolume": "Кореневий том (ГБ)",
+        "awsRootVolumeHelp": "Мінімум; набір файлів завдання може потребувати більше. Повинен бути щонайменше розміром знімка AMI, інакше запуск не вдасться.",
+        "awsEbsRate": "Ставка EBS (центи/ГБ-місяць)",
+        "awsEbsRateHelp": "Ціна сховища gp3. Якщо залишити на 0, бюджет нічого не зарезервує на диск.",
+        "awsUseSpot": "Використовувати ємність Spot",
+        "awsUseSpotHelp": "Запити Spot одноразові і завершуються при перериванні. Знижки на сучасні GPU часто скромні, тому це не обов'язково дешевше. Spot і on-demand використовують окремі квоти vCPU.",
+        "awsInstanceType": "Тип інстансу",
+        "awsHourlyCents": "Центи/година",
+        "awsGpuModel": "Модель GPU",
+        "awsGpuCount": "Кількість GPU",
+        "awsVram": "VRAM/GPU",
+        "mockAgentBinary": "Шлях до виконуваного файла агента",
+        "mockAgentBinaryHelp": "Шлях до виконуваного файла агента, який сервер може виконати з --test-mode.",
+        "mockBackendHost": "Хост сервера для породжених агентів",
+        "mockBackendHostHelp": "напр. localhost:31337.",
+        "mockHourlyRate": "Імітована ставка (центи/година)",
+        "mockBootDelay": "Імітована затримка завантаження (секунди)",
+        "mockFailLaunch": "Збій: невдача кожного запуску",
+        "mockDropLaunchResponse": "Збій: втратити відповідь запуску (інстанс виконується, але повідомляється про помилку)",
+        "mockNeverRegister": "Збій: інстанс ніколи не реєструється",
+        "mockFailDestroy": "Збій: невдача кожного знищення",
+        "vpnTagIgnoredHelp": "Ігнорується для повторно використовуваного ключа NetBird: членство в групі та тимчасовий прапорець походять із власної конфігурації ключа налаштування в NetBird. Використовується лише на шляху access-token, як auto_groups на кожному створеному ключі.",
+        "vpnUrl": {
+          "netbird": "URL управління NetBird",
+          "tailscale": "Сервер входу Tailscale (Headscale)"
+        },
+        "vpnUrlHelp": {
+          "netbird": "Ваш власний сервер керування NetBird, напр. https://netbird.example.com. Використовується як для створення ключів налаштування, так і для запуску клієнта. Залиште пустим для розміщеної служби NetBird.",
+          "tailscale": "Лише для власного сервера керування. Зауважте, що створення токенів доступу завжди використовує api.tailscale.com і не підтримує Headscale."
+        },
+        "vastCountries": "Країни (розділені комами)",
+        "vastCountriesHelp": "Коди країн Vast.ai, напр. US, DE, SE. Пусте означає будь-де. Порівнюється без урахування регістру зі звітною геолокацією, тому 'US' збігається з 'US, Texas'. Також служить контролем розташування ваших даних.",
+        "vastGpuModels": "Дозволені моделі GPU (розділені комами)",
+        "vastGpuModelsHelp": "Пусте означає будь-яку карту. Порівнюється за нормалізованим ключем, тому 'rtx_4090' збігається з 'NVIDIA GeForce RTX 4090' і 'RTX 4090'. Розширення цього списку — найдешевший спосіб підвищити доступність.",
+        "vastDeniedGpuModels": "Заборонені моделі GPU (розділені комами)",
+        "vastDeniedGpuModelsHelp": "Завжди має пріоритет над списком дозволених моделей. Це аварійний важіль для 'ця карта постійно дає збої, припиніть її орендування'.",
+        "vastMinReliability": "Мінімальна надійність хосту (0-1)",
+        "vastMinReliabilityHelp": "Власний рейтинг надійності хостів Vast.ai. 0 вимикає цей мінімальний поріг. Хости, які не повідомляють оцінку, зберігаються. Жертвує невеликою доступністю заради меншої кількості невдалих оренд — хост, який втрачає інстанс посередині блоку роботи, усе ще отримав оплату за його запуск.",
+        "vastAllowUnverified": "Дозволити непідтверджені хости (підвищує доступність; неперевірені машини)",
+        "vastAllowResidential": "Дозволити житлові хости (підвищує доступність; домашні машини, не центри обробки даних)",
+        "runpodDataCenters": "Центри обробки даних (розділені комами)",
+        "runpodDataCentersHelp": "ID центрів обробки даних RunPod, напр. EU-RO-1, US-KS-2. ПУСТЕ Є НАЙШИРШИМ НАЛАШТУВАННЯМ, не найвужчим — власний планувальник RunPod може потім розмістити pod будь-де. Це протилежно зонам AWS, де залишення його пустим все ще прив'язує вас до однієї. Встановіть його для розташування даних або щоб контур повторних спроб запуску проходив справді незалежні пули.",
+        "runpodGpuTypes": "Дозволені типи GPU (розділені комами)",
+        "runpodGpuTypesHelp": "ID типів GPU RunPod точно такі, як вони з'являються в сітці доступності, напр. 'NVIDIA GeForce RTX 4090'. Пусте означає кожну карту, яку має цей рівень.",
+        "runpodDiskGb": "Мінімум диску контейнера (ГБ)",
+        "runpodDiskGbHelp": "Мінімум, не максимум: завдання, набір файлів якого потребує більше, отримає більше. Диск контейнера видаляється при перезавантаженні pod, і жоден мережевий том ніколи не приєднується — він пережив би pod і зберіг би зламані відкриті тексти після припинення.",
+        "runpodDiskRate": "Диск контейнера (центи/ГБ-місяць)",
+        "runpodDiskRateHelp": "Враховується в частині резервування сховища в бюджеті. Округлюється в більший бік, оскільки резервування, яке недооцінює обсяг сховища, дозволяє клієнту перевищити ліміт, який йому назвали жорстким.",
+        "runpodSelfDestruct": "Дозволити кожному pod видаляти себе, якщо VPN впаде (лише рівень Secure)",
+        "runpodSelfDestructHelp": "Додає третю рейку знищення, щоб pod міг ВИДАЛИТИ СЕБЕ, коли втратить контакт — так само, як у Vast.ai. RunPod не має облікових даних, обмежених окремим pod, тому це розміщує ключ НА РІВНІ ОБЛІКОВОГО ЗАПИСУ всередину кожного pod — ключ, який може створювати та видаляти будь-який інший pod на обліковому записі. Постачайте окремий, вужчий ключ як self_destruct_api_key в JSON облікових даних замість повторного використання вашого ключа виділення ресурсів. Ніколи недоступно на рівні Community."
+      },
+      "peerWarningTitle": "Апаратне забезпечення третьої сторони",
+      "peerWarningBody": {
+        "vastai": "Інстанси Vast.ai працюють на машинах, що належать приватним власникам і перебувають поза вашим контролем. Увімкніть це лише для клієнтів, дані яких можуть бути розкриті третій стороні, і також підтвердіть це окремо для кожного клієнта.",
+        "runpod_community": "RunPod Community Cloud працює на машинах, керованих пірами, власники яких мають root-доступ до контейнера. Свідоцтва SOC 2, ISO 27001 та PCI DSS від RunPod охоплюють лише Secure Cloud, а не цей рівень. Увімкніть це лише для клієнтів, дані яких можуть бути розкриті третій стороні, і також підтвердіть це окремо для кожного клієнта."
+      },
+      "awsSection": "Розміщення та ціноутворення AWS",
+      "awsSectionHelp": "Де запускаються інстанси та скільки вони коштують. EC2 не надає цьому коду машинозчитуваних даних про модель GPU чи погодинну ставку, тому обидва значення зазначаються тут вручну.",
+      "awsInstanceTypes": "Пропоновані типи інстансів",
+      "awsInstanceTypesHelp": "Орендувати можна лише типи, перелічені тут. Вкажіть ставку, за якою ви готові оплачувати оренду, — округліть у більший бік, оскільки бюджет резервує кошти на основі цього числа, і ніщо не звіряє його з фактичним рахунком. Зазначення моделі та кількості GPU вмикає ранжування за вартістю роботи; без цього ранжування повертається до ціни за годину.",
+      "awsAddInstanceType": "Додати тип інстансу",
+      "awsRemoveInstanceType": "Видалити",
+      "mockSection": "Імітована поведінка та впровадження помилок",
+      "mockSectionHelp": "Імітований постачальник породжує локальні процеси агента --test-mode. Перемикачі збоїв запускають гілки відмов без перекомпіляції.",
+      "providerNotImplemented": "Цей постачальник ще не має адаптера: сервер відхиляє його з повідомленням \"unsupported cloud provider\" під час запуску. Його можна зберегти, але з нього неможливо нічого виділити.",
+      "zones": {
+        "title": "Розміщення та апаратне забезпечення",
+        "help": "Позначте кожне місце і кожен GPU, який ви готові орендувати. Ємність зазвичай належить парі (апаратне забезпечення, розміщення), а не кожному з них окремо, тому кожна позначена комірка — це один незалежний шанс отримати машину: якщо позначена лише одна комірка, у разі відмови в ємності не буде куди відступити. Якщо в рядку позначені всі карти, це означає \"будь-яке апаратне забезпечення, яке я затвердив\", включно з усім, що буде додано пізніше.",
+        "probe": "Перевірити доступність",
+        "probeHelp": "Отримує актуальні дані про зони, підмережі, пропозиції, ціни Spot та оцінки розміщення з AWS. Лише для читання: нічого не запускає і нічого не коштує.",
+        "probeIdle": "завантажити актуальні зони, підмережі та ціни Spot для цього постачальника.",
+        "probeFailed": "Не вдалося прочитати ємність з AWS.",
+        "saveFirst": "Спочатку збережіть постачальника. Доступність перевіряється за допомогою збережених облікових даних і регіону, тому незбережена форма не має даних для запиту.",
+        "selectAll": "Вибрати всі придатні зони",
+        "colZone": "Зона",
+        "colSubnet": "Підмережа",
+        "notOffered": "EC2 не пропонує цей тип інстансу в цій зоні. Це остаточно — запуск тут завершиться помилкою Unsupported.",
+        "unusable": "У це розміщення неможливо запустити. Див. примітку поруч із його назвою.",
+        "freeIps_few": "{{count}} вільні IP",
+        "freeIps_many": "{{count}} вільних IP",
+        "freeIps_one": "{{count}} вільна IP",
+        "freeIps_other": "{{count}} вільних IP",
+        "scoreHelp": "Власне ранжування AWS від 1 до 10 для ЦІЄЇ карти в ЦІЙ зоні, і слабкий доказ: кожна зона в цьому регіоні отримала 1/10 на цьому обліковому записі за кілька хвилин до того, як запуск в одній із них вдався з першої спроби. Це визначає, який пул пробують першим. Воно ніколи не видаляє пул зі списку. Порівняйте це з оцінкою для всіх типів поруч із назвою зони.",
+        "spotVsConfigured": "Зараз Spot коштує {{spot}}/год тут; ваша налаштована ставка для цього типу — {{configured}}/год. Резервування використовує НАЛАШТОВАНЕ значення, тому встановлення ціни нижче поточної ставки призводить до недостатнього резервування відносно ліміту бюджету, який мав бути жорстким.",
+        "poolCount_few": "{{count}} пули ємності вибрано",
+        "poolCount_many": "{{count}} пулів ємності вибрано",
+        "poolCount_one": "{{count}} пул ємності вибрано",
+        "poolCount_other": "{{count}} пулів ємності вибрано",
+        "poolCountWarning": "Один пул — один шанс. Коли він вичерпується, контур повторних спроб запуску не має куди звернутися, і виділення ресурсів просто зупиняється до повернення ємності. Позначте більше зон, більше типів інстансів або обидва варіанти.",
+        "poolCountOk": "Відмова в ємності одного пулу передається до наступного — у порядку від найімовірнішого варіанта до найменш імовірного.",
+        "legacyOverridden": "Зони налаштовані, тому єдиний ID підмережі вище ({{subnet}}) ігнорується. Він залишається як запасний варіант, якщо жодна зона не позначена.",
+        "combinedScore": "всі типи: {{score}}/10",
+        "combinedScoreHelp": "Оцінка розміщення AWS для УСІХ ваших тарифікованих типів екземплярів, розглянутих разом у цій зоні, — це інше питання, ніж оцінка окремої картки, і зазвичай значно краща відповідь. Виміряно в одному регіоні за одну хвилину: g6.xlarge самостійно набрав 1/10, тоді як g4dn + g5 + g6 разом набрали 9/10. Різноманітність — не страховка від дефіциту; це саме те, що оцінюється.",
+        "availableCount": "{{count}} вільних",
+        "availableCountHelp": "Актуальна кількість машин, доступних для оренди прямо зараз. Це реальний запас і найсильніший сигнал на екрані — значно кращий за оцінку розміщення, яка є лише думкою.",
+        "livePriceHelp": "Те, що постачальник стягує за це прямо зараз.",
+        "trust": {
+          "definitive": "остаточна",
+          "measured": "актуальна",
+          "advisory": "лише консультативна"
+        },
+        "axesModeNote": "Цей постачальник зберігає країни та моделі GPU як два незалежні списки, тому активація картки застосовується в кожній вибраній країні. Кількості та ціни в кожній комірці нижче все ще реальні та специфічні для цієї країни."
+      },
+      "vastSection": "Політика розміщення та обладнання Vast.ai",
+      "vastSectionHelp": "Які країни та які картки цей постачальник може орендувати. Залишення списку порожнім означає відсутність обмежень, що дає найширший пул і є типовою установкою.",
+      "vastTierWarningTitle": "Ви відкриваєте неперевірений рівень хостів",
+      "vastTierWarningBody": "Це найбільше збільшення доступності на Vast.ai, і воно розміщує хеші клієнта, словники, potfile та зламані відкриті тексти на машинах, які Vast.ai не перевіряв. Кожен хост Vast вже має root над контейнером; ці перемикачі видаляють один фільтр, який тримає його на перевірених хостах Vast. Неперевірений рівень також один з місць, де концентруються звіти про «застрягання при з'єднанні» та «поганий драйвер», тому деяка частина додаткової доступності є ілюзорною — оренда, яка ніколи не доходить до корисної роботи, все одно коштує вам введення в експлуатацію.",
+      "runpodSection": "Політика розміщення та обладнання RunPod",
+      "runpodSectionHelp": "Які дата-центри та типи GPU цей постачальник може орендувати. Ціни RunPod оновлюються в реальному часі, тому тут немає тарифів для оголошення — на відміну від AWS.",
+      "runpodCommunityTeardownTitle": "Знищення Community-подів — лише серверний збирач",
+      "runpodCommunityTeardownBody": "RunPod не видає облікові дані, прив'язані до окремого пода, тому для Community-подів немає безпечного способу видалити себе: єдиний ключ, який би спрацював, прив'язаний до облікового запису, а оператор Community має root над контейнером і прочитав би його з середовища. Дедлайн у гостьовій системі все ще вбиває hashcat і припиняє експозицію даних, але НЕ МОЖЕ зупинити тарифікацію пода. Якщо цей бекенд вимкнений або завис, под Community тарифікується, доки ви не знищите його вручну зі сторінки Cloud Fleet. Встановіть низьку стелю TTL екземпляра та невелику кришку бюджету на будь-якого клієнта, якому дозволено використовувати цей рівень.",
+      "experimentalChip": "Експериментально",
+      "experimentalTooltip": "Експериментально — ще не перевірено. Цей адаптер ще ніколи не запускали від кінця до кінця на справжньому постачальнику, витрачаючи справжні гроші. Очікуйте помилок; слідкуйте за своїми завданнями та повідомляйте про те, що ви знайдете.",
+      "experimentalTitle": "Експериментально — ще не перевірено",
+      "experimentalBody": "Цей постачальник не доведений від кінця до кінця зі справжніми грошима: завантаження, введення в експлуатацію, зламування, чистий випуск та відшкодування бюджету не всі спостерігалися разом. Він повинен функціонувати, і він матиме помилки. Почніть із невеликої кришки бюджету та низького ліміту екземпляра, і слідкуйте на сторінці Cloud Fleet за екземплярами, які не випускаються. Будь ласка, повідомляйте про все, що йде не так.",
+      "testedChip": "Перевірено",
+      "testedTooltip": "Перевірено — запускали від кінця до кінця на справжньому постачальнику зі справжніми грошима, через завантаження, зламування, чистий випуск та врегульоване відшкодування бюджету.",
+      "reportIssueLink": "Повідомити про помилку на GitHub",
+      "reportDiagnosticsLink": "Надіслати діагностику на Discord (не у звіті про помилку)"
+    },
+    "budgets": {
+      "title": "Бюджети клієнтів",
+      "description": "Скільки кожен клієнт може витратити та яким постачальникам дозволено отримувати його дані. Клієнти з порожніми полями дотримуються типових установок сервера нижче.",
+      "loadFailed": "Не вдалось завантажити бюджети клієнтів",
+      "empty": "Клієнтів ще не існує. Спочатку створіть клієнта, а потім профінансуйте його тут.",
+      "edit": "Редагувати",
+      "editTitle": "Параметри хмари — {{name}}",
+      "saved": "Параметри хмари клієнта збережені",
+      "saveFailed": "Не вдалось зберегти параметри хмари клієнта",
+      "enabled": "Увімкнено",
+      "disabled": "Вимкнено",
+      "unfunded": "Без бюджету",
+      "noProviders": "Постачальники не дозволені",
+      "ttlValue": "{{minutes}} хв",
+      "spendSummary": "{{used}} з {{cap}} зарезервовано ({{pct}}%)",
+      "acknowledged": "Підтвердження записано",
+      "acknowledgedChip": "Підтверджено",
+      "ackFailed": "Не вдалось записати підтвердження",
+      "ackTitle": "Підтвердіть експозицію третьої сторони для цього клієнта",
+      "ackWarningTitle": "Дані цього клієнта залишили б ваш контроль",
+      "ackWarningBody": "Дозвіл Vast.ai для {{name}} означає, що хеші цього клієнта, словники та зламані відкриті тексти можуть бути розміщені на машинах, власниками яких є треті сторони, які мають root доступ до контейнера.",
+      "ackConfirm": "Ви приймаєте цю експозицію для цього клієнта?",
+      "ackAccept": "Я розумію та приймаю",
+      "actions": {
+        "none": "У межах бюджету",
+        "notify": "Поріг досягнутий",
+        "stop_provisioning": "Виділення ресурсів зупинено",
+        "drain": "Виведення з роботи",
+        "hard_stop": "Жорстка зупинка"
+      },
+      "columns": {
+        "client": "Клієнт",
+        "status": "Стан",
+        "providers": "Дозволені постачальники",
+        "spend": "Витрачено",
+        "ttl": "Макс TTL",
+        "actions": "Дії"
+      },
+      "fields": {
+        "budget": "Бюджет",
+        "budgetHelp": "Стеля витрат на поточний бюджетний період. Залиште порожнім, щоб успадкувати типову установку сервера; клієнт залишається без фінансування лише якщо типова установка також не встановлена.",
+        "ttl": "Максимальний час життя екземпляра (хвилини)",
+        "ttlHelp": "Екземпляр знищується в цьому віці незалежно від прогресу. Залиште порожнім, щоб використовувати типову установку системи.",
+        "providers": "Дозволені постачальники",
+        "providersHelp": "Порожній означає, що нічого не може бути орендовано для цього клієнта. Дозвіл AWS при забороні Vast.ai є звичайною конфігурацією.",
+        "enabled": "Хмарне розширення",
+        "period": "Бюджетний період",
+        "periodHelp": "Залиште порожнім, щоб успадкувати типову установку сервера."
+      },
+      "errors": {
+        "invalidBudget": "Бюджет має бути числом, наприклад 25.00",
+        "negativeBudget": "Бюджет не повинен бути від'ємним",
+        "invalidTtl": "Максимальний час життя має бути позитивною кількістю хвилин",
+        "enabledWithoutBudget": "Встановіть бюджет перед увімкненням хмарного розширення — клієнт без фінансування ніколи не зможе нічого виділити.",
+        "enabledWithoutProvider": "Дозвольте принаймні одного постачальника перед увімкненням хмарного розширення."
+      },
+      "peerTooltip": "Обладнання третіх сторін: дані цього клієнта будуть доступні власнику машини.",
+      "defaults": {
+        "title": "Типові установки сервера",
+        "description": "Значення, які клієнт використовує, коли він не встановив свої власні. Залишення поля клієнта порожнім означає, що воно дотримується типової установки тут, тому зміна цього змінює кожного клієнта, який все ще успадковує.",
+        "summary": "{{amount}} за {{period}}",
+        "summaryUnset": "Типовий бюджет не встановлено — клієнти, які успадковують, залишаються без фінансування",
+        "budget": "Типовий бюджет",
+        "budgetHelp": "Залиште порожнім для відсутності типової установки: клієнти, які успадковують, залишаються без фінансування і не можуть розширюватися.",
+        "period": "Типовий бюджетний період",
+        "enabled": "Клієнти можуть розширюватися на оплачену потужність за типовою установкою",
+        "providers": "Типові постачальники",
+        "providersHelp": "Застосовується до будь-якого клієнта, чий власний список постачальників порожній.",
+        "peerAckNote": "Постачальники, керовані третіми сторонами, все ще вимагають підтвердження для кожного клієнта. Встановлення їх типовими не надає цієї згоди — кожен клієнт все ще повинен бути підтверджений індивідуально, перш ніж його дані можуть туди потрапити.",
+        "appliesNow": "Хмарне розширення увімкнено за типовою установкою та типовий бюджет встановлено, тому кожен клієнт, який все ще успадковує, тепер може виділити оплачену потужність.",
+        "save": "Зберегти типові установки",
+        "saved": "Типові установки збережені",
+        "saveFailed": "Не вдалось зберегти типові установки",
+        "fundedButDisabled": "Типовий бюджет встановлено, але хмарне розширення вимкнено за типовою установкою, тому жодний клієнт, який успадковує, не може нічого виділити. Позначте поле вище, щоб зробити бюджет придатним.",
+        "enabledWithoutProviders": "Хмарне розширення увімкнено за типовою установкою, але типові постачальники не вибрані, тому клієнти, які успадковують, все ще не можуть орендувати нічого. Виберіть принаймні одного постачальника вище.",
+        "willEnableTitle_few": "Це дозволить {{count}} клієнтам орендувати оплачену потужність",
+        "willEnableTitle_many": "Це дозволить {{count}} клієнтам орендувати оплачену потужність",
+        "willEnableTitle_one": "Це дозволить {{count}} клієнту орендувати оплачену потужність",
+        "willEnableTitle_other": "Це дозволить {{count}} клієнтам орендувати оплачену потужність",
+        "willEnableBody": "Ці клієнти не мають власних параметрів, тому вони дотримуються типових установок вище. Збереження дозволяє кожному з них виділити хмарні екземпляри та витрачати в межах цього бюджету. Щоб виключити клієнта, встановіть для нього власне «Хмарне розширення» на «Вимкнено».",
+        "andMore": "+{{count}} більше",
+        "confirmTitle_few": "Увімкнути хмарні витрати для {{count}} клієнтів?",
+        "confirmTitle_many": "Увімкнути хмарні витрати для {{count}} клієнтів?",
+        "confirmTitle_one": "Увімкнути хмарні витрати для {{count}} клієнта?",
+        "confirmTitle_other": "Увімкнути хмарні витрати для {{count}} клієнтів?",
+        "confirmBody_few": "{{count}} клієнти наразі не можуть орендувати нічого. Збереження цих типових установок дає кожному з них стелю {{amount}} за {{period}} та дозвіл витратити це. Бюджет за клієнтом, не спільний, тому це є загальною експозицією, помноженою на кількість перелічених клієнтів.",
+        "confirmBody_many": "{{count}} клієнтів наразі не можуть орендувати нічого. Збереження цих типових установок дає кожному з них стелю {{amount}} за {{period}} та дозвіл витратити це. Бюджет за клієнтом, не спільний, тому це є загальною експозицією, помноженою на кількість перелічених клієнтів.",
+        "confirmBody_one": "{{count}} клієнт наразі не може орендувати нічого. Збереження цих типових установок дає йому стелю {{amount}} за {{period}} та дозвіл витратити це. Бюджет за клієнтом, не спільний, тому це є загальною експозицією, помноженою на кількість перелічених клієнтів.",
+        "confirmBody_other": "{{count}} клієнтів наразі не можуть орендувати нічого. Збереження цих типових установок дає кожному з них стелю {{amount}} за {{period}} та дозвіл витратити це. Бюджет за клієнтом, не спільний, тому це є загальною експозицією, помноженою на кількість перелічених клієнтів.",
+        "confirmAlternative": "Вважаєте за краще мати справу окремо? Скасуйте, залиште хмарне розширення вимкненим за типовою установкою та встановіть Хмарне розширення та бюджет на кожному клієнті окремо.",
+        "confirmAccept_few": "Увімкнути {{count}} клієнтів",
+        "confirmAccept_many": "Увімкнути {{count}} клієнтів",
+        "confirmAccept_one": "Увімкнути {{count}} клієнта",
+        "confirmAccept_other": "Увімкнути {{count}} клієнтів"
+      },
+      "periods": {
+        "monthly": "місяць",
+        "quarterly": "квартал",
+        "semiannual": "шість місяців"
+      },
+      "inheritLabel": "Успадкувати типову установку ({{value}})",
+      "on": "Увімкнено",
+      "off": "Вимкнено",
+      "inheriting": "успадковується"
+    },
+    "policy": {
+      "title": "Політика порогу витрат",
+      "description": "Що відбувається, коли клієнт наближається до своєї кришки. Ці пороги визначають, наскільки плавно досягається кришка; те, що насправді запобігає перевищенню, — це те, що вартість усього часу життя екземпляра резервується ще до його завантаження.",
+      "loadFailed": "Не вдалось завантажити політику порогу",
+      "saved": "Політика порогу збережена",
+      "saveFailed": "Не вдалось зберегти політику порогу",
+      "overageWarning": "Надлишок дозволений: резервування можуть перевищити залишковий бюджет. Кришка стає рекомендаційною, а не абсолютною.",
+      "hardStopAboveCapNote": "Жорстка зупинка встановлена на {{pct}}%, але надлишок вимкнений, тому резервування все ще не можуть перевищити 100% бюджету. Увімкніть надлишок, якщо ви маєте намір дозволити витратам перевищити кришку.",
+      "fields": {
+        "notifyEnabled": "Сповіщайте мене, коли витрати наближаються до кришки",
+        "notifyPct": "Сповіщати при (% бюджету)",
+        "notifyPctHelp": "Відправляє сповіщення один раз. Вимкніть прапорець, щоб ніколи не сповіщати.",
+        "stopProvisionPct": "Зупинити виділення ресурсів при (%)",
+        "stopProvisionPctHelp": "Нові екземпляри не запускаються після цієї точки. Запущені екземпляри продовжуються.",
+        "drainPct": "Почати виведення з роботи при (%)",
+        "drainPctHelp": "Нову роботу не надсилається; блокам, що вже виконуються, дозволяється завершитися.",
+        "hardStopPct": "Жорстка зупинка при (%)",
+        "hardStopPctHelp": "Інстанси знищуються негайно, незалежно від того, встигли вони завершити роботу чи ні.",
+        "drainTimeout": "Час очікування виведення з роботи (секунди)",
+        "drainTimeoutHelp": "Як довго інстанс може ще завершувати свій блок, перш ніж його знищать попри це.",
+        "allowOverage": "Дозволити витрати понад ліміт",
+        "allowOverageHelp": "Залиште вимкненим, щоб зробити ліміт абсолютним. Коли вимкнено, бюджет $10 зупиняє витрати рівно на $10."
+      },
+      "errors": {
+        "notifyRange": "Поріг сповіщення має бути від 1% до порога зупинки виділення ресурсів.",
+        "stopBeforeDrain": "Поріг зупинки виділення ресурсів не повинен перевищувати поріг виведення з роботи.",
+        "drainBeforeHardStop": "Поріг виведення з роботи не повинен перевищувати поріг негайної зупинки.",
+        "negativeTimeout": "Час очікування виведення з роботи не може бути від'ємним."
+      }
+    },
+    "fleet": {
+      "title": "Парк хмарних інстансів",
+      "description": "Кожен орендований інстанс, який ще може тарифікуватися.",
+      "loadFailed": "Не вдалося завантажити парк інстансів",
+      "empty": "Немає запущених інстансів. Нічого не тарифікується.",
+      "summary_few": "{{count}} інстанси запущені, {{hourly}}/год, {{reserved}} зарезервовано.",
+      "summary_many": "{{count}} інстансів запущено, {{hourly}}/год, {{reserved}} зарезервовано.",
+      "summary_one": "{{count}} інстанс запущений, {{hourly}}/год, {{reserved}} зарезервовано.",
+      "summary_other": "{{count}} інстансів запущено, {{hourly}}/год, {{reserved}} зарезервовано.",
+      "destroy": "Знищити",
+      "destroyed": "Інстанс знищений",
+      "destroyFailed": "Постачальник відмовився знищити цей інстанс — він ще тарифікується",
+      "destroyTitle": "Знищити інстанс?",
+      "destroyBody": "Знищити «{{label}}» зараз? Тарифікація зупиниться, як тільки постачальник підтвердить.",
+      "destroyJobWarning": "Цей інстанс виконує завдання. Його активний блок буде втрачено та перерозподілено в іншому місці.",
+      "teardownFailingTitle": "Помилка при знищенні",
+      "teardownFailingBody_few": "{{count}} інстанси не вдалося знищити, вони досі тарифікуються. Перевірте консоль постачальника.",
+      "teardownFailingBody_many": "{{count}} інстансів не вдалося знищити, вони досі тарифікуються. Перевірте консоль постачальника.",
+      "teardownFailingBody_one": "{{count}} інстанс не вдалося знищити, він досі тарифікується. Перевірте консоль постачальника.",
+      "teardownFailingBody_other": "{{count}} інстансів не вдалося знищити, вони досі тарифікуються. Перевірте консоль постачальника.",
+      "teardownFailingTooltip": "Помилка при знищенні; цей інстанс ще тарифікується",
+      "estimated": "приб.",
+      "estimatedTooltip": "Оцінено за витраченим часом і тарифом; остаточна сума від постачальника надійде пізніше.",
+      "perHour": "{{rate}}/год",
+      "ttlExpired": "Закінчився",
+      "states": {
+        "requested": "Запитано",
+        "launching": "Запуск",
+        "provisioning": "Виділення ресурсів",
+        "syncing": "Синхронізація файлів",
+        "running": "Запущено",
+        "draining": "Виведення з роботи",
+        "terminating": "Припинення",
+        "terminated": "Припинено",
+        "failed": "Помилка"
+      },
+      "columns": {
+        "label": "Інстанс",
+        "state": "Стан",
+        "client": "Клієнт",
+        "gpu": "GPU",
+        "rate": "Тариф",
+        "spend": "Витрати",
+        "ttl": "Залишок TTL",
+        "disk": "Диск",
+        "actions": "Дії",
+        "agent": "Агент",
+        "job": "Завдання"
+      },
+      "experimentalRunningTitle_few": "{{count}} інстанси запущені на експериментальному постачальнику",
+      "experimentalRunningTitle_many": "{{count}} інстансів запущено на експериментальному постачальнику",
+      "experimentalRunningTitle_one": "{{count}} інстанс запущений на експериментальному постачальнику",
+      "experimentalRunningTitle_other": "{{count}} інстансів запущено на експериментальному постачальнику",
+      "experimentalRunningBody": "{{providers}} не доведено повністю з реальними грошима. Спостерігайте, як ці інстанси досягають статусу «припинено», а не просто припускайте, що вони його досягнуть: шлях знищення — найменш протестована частина будь-якого нового адаптера, а інстанс, який ніколи не звільняється, тарифікується, поки ви не знищите його тут. Будь ласка, повідомте про те, що ви бачите.",
+      "experimentalTooltip": "{{provider}} — експериментальний постачальник, ще не протестований. Очікуйте помилок; переконайтеся, що цей інстанс насправді звільняється по завершенні його завдання."
+    },
+    "rules": {
+      "title": "Коли система може витрачати",
+      "description": "Бюджети визначають, скільки можна витратити. Ці правила визначають, коли можна витрачати хоч щось. Без них автомасштабувальник орендує потужність уже після першого циклу голодування — для будь-якого завдання, в будь-яку годину, без жодного обмеження на одне завдання.",
+      "inheritTitle": "Це стандартні налаштування системи",
+      "inheritBody": "Клієнти успадковують кожне поле окремо, тому зміна значення за замовчуванням тут впливає на кожного клієнта, який не перевизначив це конкретне поле. Перевизначення для окремих клієнтів редагуються на екрані клієнта.",
+      "saved": "Правила виділення ресурсів збережені",
+      "saveFailed": "Не вдалося зберегти правила виділення ресурсів",
+      "loadFailed": "Не вдалося завантажити правила виділення ресурсів",
+      "save": "Зберегти правила",
+      "fields": {
+        "minJobPriority": "Мінімальний пріоритет завдання",
+        "minStarvation": "Мінімальний час голодування (хвилини)",
+        "skipIfFinishing": "Пропустити, якщо завершується протягом (хвилин)",
+        "maxSpendPerJob": "Максимум витрат на завдання",
+        "windowEnabled": "Обмежити виділення ресурсів часовим вікном",
+        "windowStart": "Вікно відкривається",
+        "windowEnd": "Вікно закривається",
+        "windowTz": "Часовий пояс"
+      },
+      "helperText": {
+        "minJobPriority": "Абсолютний пріоритет, не відсоток. Ваша поточна межа — {{ceiling}}.",
+        "floorOff": "Без нижньої межі: будь-яке завдання, для якого увімкнено хмарне розширення, підлягає автоматичному виділенню ресурсів.",
+        "minStarvation": "Як довго завдання повинно залишатися без жодного прогресу, перш ніж буде орендована платна потужність. 0 орендує вже на першому циклі голодування. Застосовується тільки до автомасштабувальника.",
+        "skipIfFinishing": "Не орендувати потужність для завдання, яке, за прогнозом, завершиться так скоро на наявних ресурсах — орендованому інстансу потрібно 5-10 хвилин на завантаження і синхронізацію. 0 ніколи не пропускає.",
+        "maxSpendPerJob": "Ліміт витрат на хмару за весь час існування одного завдання, без помісячного обмеження. Порожнє значення означає відсутність ліміту. Застосовується завжди, зокрема й при ручному виділенні ресурсів адміністратором.",
+        "windowEnabled": "Керує лише запуском. Інстанси ніколи не знищуються через те, що вікно закрилося, — TTL і виведення з роботи при простої самі визначають знищення.",
+        "windowTz": "Ім'я IANA, наприклад America/Chicago. Залиште порожнім для UTC.",
+        "windowWrap": "Час закриття, що настає раніше часу відкриття, означає перехід через північ — це звичний спосіб задати «оренду лише вночі». Якщо встановити однакові значення для обох, вікно вважається завжди відкритим."
+      },
+      "bands": {
+        "minimal": "Мінімальний",
+        "low": "Низький",
+        "normal": "Нормальний",
+        "high": "Високий",
+        "critical": "Критичний"
+      }
+    },
+    "system": {
+      "ceilings": "Межі витрат і одночасних інстансів",
+      "ceilingsHelp": "Абсолютні загальносистемні обмеження, які застосовуються раніше, ніж враховується бюджет будь-якого клієнта.",
+      "work": "Розмір блоків і знищення",
+      "workHelp": "Скільки роботи видається орендованому інстансу за один раз і як швидко звільняється інстанс, що простоює. Накладні витрати на кожен блок тарифікуються за орендною ставкою, тож ці параметри балансують між пропускною здатністю та втратами.",
+      "reconciliation": "Узгодження",
+      "reconciliationHelp": "Як часто базу даних перевіряють на відповідність тому, що насправді запущено у постачальника, і як довго нерозпізнаний інстанс допускається існувати, перш ніж його знищать.",
+      "capDisabledWarning": "Виділення хмарних ресурсів наразі ВИМКНЕНО: глобальний місячний ліміт дорівнює 0. Постачальники, бюджети клієнтів і завдання з увімкненим хмарним розширенням можуть бути налаштовані правильно, але нічого ніколи не буде орендовано. Встановіть ненульовий ліміт, щоб увімкнути це.",
+      "saved": "Параметр збережено",
+      "saveFailed": "Не вдалося зберегти параметр",
+      "loadFailed": "Не вдалося завантажити параметри хмари",
+      "units": {
+        "seconds": "с",
+        "minutes": "хв"
+      },
+      "fields": {
+        "monthlyCap": "Глобальний місячний ліміт витрат",
+        "monthlyCapHelp": "Для всіх клієнтів і постачальників разом. 0 повністю вимикає виділення хмарних ресурсів — це не означає необмежений ліміт.",
+        "concurrentCap": "Глобальний ліміт одночасних інстансів",
+        "concurrentCapHelp": "Максимальна кількість орендованих інстансів одночасно, для всіх постачальників і клієнтів разом. 0 означає необмежену кількість, але вона все одно обмежується бюджетами та квотами постачальників.",
+        "defaultMaxInstancesPerJob": "Максимум інстансів на завдання за замовчуванням",
+        "defaultMaxInstancesPerJobHelp": "Максимальна кількість орендованих інстансів для завдання, яке не задає власний ліміт. Раніше порожнє значення означало необмежений ліміт, що в розгортаннях лише в хмарі залишало бюджет клієнта єдиним, що зупиняло голодуюче завдання від оренди щохвилини. Значення для окремого завдання все одно має пріоритет над цим. 0 відновлює необмежений режим.",
+        "chunkDuration": "Мінімальна тривалість хмарного блоку",
+        "chunkDurationHelp": "Мінімальна тривалість блоку для хмарних агентів. Орендований GPU тарифікується, поки hashcat запускається, автонастроює ядра та завантажує словник, тож хмарні блоки обмежуються знизу цим значенням, навіть якщо завдання запитує менше. Завдання, що запитує БІЛЬШЕ, зберігає своє власне значення. Завжди обрізається до часу, що залишився інстансу. Встановіть 0, щоб вимкнути цю нижню межу.",
+        "teardownSlack": "Резерв часу на знищення",
+        "teardownSlackHelp": "Резервується в кінці терміну дії інстансу для виведення з роботи та знищення, щоб блок ніколи не планувався далі моменту, коли інстанс припиняє існування.",
+        "idleDrain": "Виведення з роботи при простої",
+        "idleDrainHelp": "Знищити орендований інстанс після такого часу без очікуваної роботи. Обмежує, скільки ви платите за GPU, якому більше немає що робити.",
+        "commissioningGrace": "Пільговий період введення в експлуатацію",
+        "commissioningGraceHelp": "Знищити орендований інстанс, якому ще не було призначено жодної задачі, якщо минуло стільки часу з моменту реєстрації його агента. Холодному інстансу потрібно спочатку завантажити свої файли та виконати тестування швидкості, тож встановлення значення нижче приблизно 20 хвилин знищує справні інстанси ще під час запуску — а оскільки завдання все ще очікує, негайно орендується інший. 0 вимикає цю перевірку.",
+        "reaperInterval": "Інтервал очищення",
+        "reaperIntervalHelp": "Як часто узгоджувати базу даних із переліком інстансів постачальника та знищувати все, що не повинно існувати.",
+        "orphanGrace": "Пільговий період для осиротілих інстансів",
+        "orphanGraceHelp": "Знищити інстанси, знайдені в обліковому записі постачальника без відповідного рядка в базі даних, після такого часу. Це єдиний спосіб відновлення для запуску, запис про який так і не з'явився в базі.",
+        "agentImage": "Образ агента",
+        "agentImageHelp": "Наприклад, zerkereod/krakenhashes-agent-cloud:cloud-gpu. Залиште порожнім, щоб використати KH_CLOUD_AGENT_IMAGE, а потім вбудоване значення за замовчуванням. Зауважте, що вбудоване значення за замовчуванням — :latest, яке існує лише після того, як позначено релізний тег — розгортання до релізу повинні встановити це значення.",
+        "defaultBurstEnabled": "Увімкнути хмарне розширення для кожного завдання",
+        "defaultBurstEnabledHelp": "Вважає кожне завдання таким, що має увімкнене хмарне розширення, без потреби позначати цю опцію в кожному шаблоні завдання, робочому процесі чи завданні. Призначено для розгортань без власних GPU на місці, де оренда — єдиний спосіб виконати роботу. Бюджети клієнтів і ліміти інстансів все одно застосовуються. Діє негайно, зокрема й для завдань, що вже перебувають у черзі.",
+        "defaultClient": "Клієнт для тарифікації за замовчуванням",
+        "defaultClientHelp": "Витрати на хмару для списку хешів, що не має власного клієнта, тарифікуються сюди. Якщо залишити Немає, непризначена робота взагалі не зможе орендувати потужність. Бюджети, ліміти інстансів та шкала порогів застосовуються до обраного клієнта точно так само, як завжди, — клієнт із назвою на зразок «Непризначена робота» забезпечує чесність звіту про витрати.",
+        "defaultClientNone": "Немає — непризначена робота не може використовувати хмару",
+        "crackDrainGrace": "Пільговий період вивантаження зламаних паролів",
+        "crackDrainGraceHelp": "Перед знищенням орендованого інстансу зачекати до такого часу, поки задача, яку він ще виконує, завершить вивантаження зламаних паролів. Відраховується від останнього запису в цю задачу, а не від її початку, тож агент, що працює, ніколи не буде знищений, а завислий — не очікується вічно. Має бути довшим за виведення з роботи при простої й коротшим за 30 хвилин. 0 означає негайне знищення, що може безповоротно втратити вже знайдені агентом зламані паролі — їх неможливо повторно надіслати з машини, якої більше не існує."
+      },
+      "agent": "Образ хмарного агента",
+      "agentHelp": "Образ контейнера, який завантажують і запускають орендовані інстанси. Це повинен бути тег, що існує в реєстрі: відсутній тег — не помилка запуску, інстанс завантажується, завантаження образу не вдається, і хост самостійно завершує роботу приблизно через хвилину, причому тарифікується.",
+      "save": "Зберегти зміни",
+      "discard": "Відхилити",
+      "unsaved_few": "{{count}} незбережені зміни",
+      "unsaved_many": "{{count}} незбережених змін",
+      "unsaved_one": "{{count}} незбережена зміна",
+      "unsaved_other": "{{count}} незбережених змін",
+      "eligibility": "Розгортання лише в хмарі",
+      "eligibilityHelp": "Чи розглядаються завдання для оренди взагалі. Все вище обмежує, скільки можна витратити; це визначає, чи витрачається щось узагалі."
+    }
+  },
+  "serverCertificate": {
+    "title": "Сертифікат сервера",
+    "description": "Керуйте адресами, які покриває TLS-сертифікат сервера. Агенти можуть підключатися лише до адрес, перелічених тут.",
+    "apply": "Застосувати і перевипустити",
+    "warning": {
+      "title": "KrakenHashes — внутрішній інструмент",
+      "body": "Він ніколи не повинен бути доступний з публічного інтернету. Він обробляє зламані облікові дані, тому до сертифіката можна додавати лише приватні та VPN-адреси — публічні IP-адреси відхиляються. Якщо це розгортання доступне публічно, вимкніть його, перш ніж продовжити."
+    },
+    "summary": {
+      "title": "Поточний сертифікат",
+      "unavailable": "Не вдалося прочитати сертифікат сервера.",
+      "subject": "Суб'єкт",
+      "issuer": "Видавець",
+      "validity": "Термін дії",
+      "serial": "Серійний номер",
+      "covers": "Цей сертифікат дійсний для",
+      "coversNothing": "Цей сертифікат не включає жодних адрес. Жоден агент не може підключитися.",
+      "daysRemaining_few": "{{count}} дні залишилися",
+      "daysRemaining_many": "{{count}} днів залишилося",
+      "daysRemaining_one": "{{count}} день залишився",
+      "daysRemaining_other": "{{count}} днів залишилося",
+      "caSubject": "Центр сертифікації",
+      "caExpires": "Закінчення дії ЦС",
+      "caFingerprint": "Відбиток ЦС (SHA-256)",
+      "pending_few": "{{count}} адреси збережено, але їх ще немає в сертифікаті. Натисніть Застосувати та перевидати.",
+      "pending_many": "{{count}} адрес збережено, але їх ще немає в сертифікаті. Натисніть Застосувати та перевидати.",
+      "pending_one": "{{count}} адреса збережена, але її ще немає в сертифікаті. Натисніть Застосувати та перевидати.",
+      "pending_other": "{{count}} адрес збережено, але їх ще немає в сертифікаті. Натисніть Застосувати та перевидати.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES або KH_ADDITIONAL_DNS_NAMES все ще встановлено в середовищі. Вона більше не читається — ці параметри замінили її. Видаліть змінну, щоб уникнути плутанини."
+    },
+    "sans": {
+      "title": "Адреси, які повинен охоплювати цей сертифікат",
+      "add": "Додати",
+      "empty": "Немає налаштованих додаткових адрес.",
+      "unsaved": "Ви маєте незбережені зміни. Натисніть Застосувати та перевидати, щоб внести їх у сертифікат.",
+      "lockedTooltip": "Завжди включено. Його видалення порушило б роботу внутрішнього проксі та перевірок працездатності.",
+      "ip": {
+        "title": "IP-адреси",
+        "help": "Тільки приватні та VPN-адреси: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local та IPv6 ULA.",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "DNS-імена",
+        "help": "Імена хостів, які агенти та браузери використовують для доступу до цього сервера.",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "«{{address}}» не є дійсною адресою.",
+      "public_ip": "{{address}} — це публічна IP-адреса і не може бути додана. KrakenHashes — це тільки внутрішній інструмент. Він обробляє зламані облікові дані та ніколи не повинен бути доступний з інтернету. Можна додати тільки приватні адреси (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local та IPv6 ULA). Якщо це адреса вашої VPN, то VPN використовує адресний простір, який належить комусь іншому в інтернеті — змініть її мережевий діапазон на приватний або CGNAT діапазон.",
+      "duplicate": "{{address}} уже є в списку.",
+      "bind_address": "{{address}} — це адреса прив'язки, а не досяжна адреса. Жоден клієнт не підключається до неї.",
+      "multicast": "{{address}} — це адреса багатоадресної передачі і не може ідентифікувати сервер.",
+      "wildcard_dns": "Шаблонні імена не підтримуються.",
+      "has_port": "Введіть тільки ім'я хоста без порту.",
+      "is_ip": "Це IP-адреса. Натомість додайте її до списку IP-адрес.",
+      "too_long": "Це ім'я перевищує ліміт у 253 символи."
+    },
+    "discovered": {
+      "title": "Виявлені адреси",
+      "help": "Адреси, які досягли цього сервера, але сертифікат не охоплює. Тут нічого не застосовується автоматично.",
+      "empty": "Поки адреси не виявлено. Запустіть агента або відкрийте цю сторінку з адреси, яку використовують ваші агенти, і вона з'явиться тут.",
+      "address": "Адреса",
+      "source": "Джерело",
+      "reportedBy": "Хто повідомив",
+      "lastSeen": "Востаннє помічено",
+      "hits": "Спроби",
+      "actions": "Дії",
+      "add": "Додати",
+      "added": "{{address}} додана. Натисніть Застосувати та перевидати, щоб внести її в сертифікат.",
+      "dismiss": "Відхилити",
+      "pending": "Очікує перевидання",
+      "sources": {
+        "agent_tls_failure": "Помилка TLS агента",
+        "host_header": "Браузер / заголовок Host",
+        "tls_sni": "TLS SNI",
+        "manual": "Вручну"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "Автентифікований агент повідомив, що не зміг перевірити сертифікат цього сервера для цієї адреси.",
+        "host_header": "Помічено в заголовку Host запиту. Будь-хто, хто може досягти цього сервера, може вплинути на це значення — підтвердіть його перед додаванням.",
+        "tls_sni": "Помічено як ім'я сервера під час TLS-рукостискання.",
+        "manual": "Додано адміністратором."
+      }
+    },
+    "reissue": {
+      "doneTitle": "Сертифікат перевидано",
+      "noChangeTitle": "Змін не потрібно",
+      "noChangeBody": "Сертифікат уже охоплює кожну налаштовану адресу, і до завершення терміну його дії ще далеко.",
+      "changes": "Зміни",
+      "validUntil": "Новий сертифікат дійсний до {{date}}.",
+      "backendReloaded": "API на порту 31337 уже передає новий сертифікат. Перезавантаження не було потрібне.",
+      "nginxReloaded": "Веб-інтерфейс на порту 443 був перезавантажений і передає новий сертифікат.",
+      "nginxFailed": "Веб-інтерфейс на порту 443 все ще передає попередній сертифікат",
+      "backup": "Резервну копію попереднього матеріалу сертифіката збережено в {{path}}.",
+      "agentsReconnect": "Агенти, які не могли підключитися, підключаться знову самостійно протягом 30 секунд. Перезавантаження агента не потрібне.",
+      "agentsRefetch": "Кожен агент повинен повторно отримати ЦС. Агенти роблять це автоматично при наступній помилці рукостискання, але браузери, які довіряли старому ЦС, повинні встановити новий вручну.",
+      "close": "Закрити",
+      "nginxFailedBody": "API уже передає новий сертифікат, тому агенти не постраждали. Веб-інтерфейс на порту 443 продовжуватиме показувати попередній сертифікат до перезавантаження KrakenHashes."
+    },
+    "confirmRemoval": {
+      "title": "Видалити адреси з сертифіката?",
+      "body": "Наступні адреси знаходяться в поточному сертифікаті і будуть видалені: {{addresses}}. Будь-який агент, що підключається до однієї з них, не зможе підключатися, поки її не буде додано назад.",
+      "cancel": "Скасувати",
+      "confirm": "Видалити та перевидати"
+    },
+    "rotateCa": {
+      "section": "Додатково",
+      "title": "Ротація центру сертифікації",
+      "warning": "Ротація центру сертифікації видає абсолютно новий ЦС і повторно підписує сертифікати сервера та агента. Кожен агент повинен повторно завантажити ЦС перед повторним підключенням, і кожен браузер, який довіряв старому ЦС, показуватиме попередження до встановлення нового ca.crt. Робіть це тільки якщо приватний ключ ЦС міг бути розкритий.",
+      "instruction": "Введіть {{phrase}} для підтвердження.",
+      "action": "Виконати ротацію ЦС"
+    },
+    "banner": {
+      "title_few": "{{count}} агенти не можуть перевірити сертифікат цього сервера",
+      "title_many": "{{count}} агентів не можуть перевірити сертифікат цього сервера",
+      "title_one": "{{count}} агент не може перевірити сертифікат цього сервера",
+      "title_other": "{{count}} агентів не можуть перевірити сертифікат цього сервера",
+      "body": "{{agents}} підключається до {{address}}, яка не вказана в сертифікаті сервера. Продовжуватиме повторні спроби і не зможе вийти в мережу до перевидання сертифіката.",
+      "anAgent": "Агент",
+      "action": "Виправити в параметрах «Сертифікат сервера»"
+    }
+  },
+  "branding": {
+    "title": "Брендування",
+    "description": "Представляйте цей екземпляр під назвою, кольорами та логотипом вашої організації. Все тут застосовується до веб-інтерфейсу, вкладки браузера, електронних листів сповіщень (через змінну шаблона AppName), нових реєстрацій автентифікатора та експорту аналітичних звітів у PDF.",
+    "attributionNote": "Атрибуція «на базі KrakenHashes» завжди показується поруч із користувацькою назвою та в експортованих PDF. Вона додається сервером і не може бути видалена.",
+    "identity": "Ідентичність та кольори",
+    "appName": "Назва застосунку",
+    "appNameHelper": "Показується в заголовку, сторінці входу, електронних листах та звітах. Залиште порожньо для KrakenHashes.",
+    "pageTitle": "Назва сторінки браузера",
+    "pageTitleHelper": "Фактична назва: {{title}}",
+    "primaryColor": "Основний колір акценту",
+    "secondaryColor": "Вторинний колір акценту",
+    "colorHint": "Шістнадцяткові кольори (#rrggbb). Темне тло залишається фіксованим; виберіть акценти, які залишаються читабельними на темних поверхнях. Основний колір також використовується для ліній і смуг у звітах PDF.",
+    "save": "Зберегти брендування",
+    "logo": "Логотип",
+    "logoHint": "PNG або JPEG, до 2 МБ та 2048×2048 пікселів. Використовується в заголовку, сторінці входу та звітах PDF (зображення RGB найкраще відображаються).",
+    "favicon": "Значок браузера",
+    "faviconHint": "PNG або ICO, до 512 КБ та 512×512 пікселів. Браузери агресивно кешують значки; можливо, знадобиться одне жорстке перезавантаження.",
+    "upload": "Завантажити",
+    "replace": "Замінити",
+    "remove": "Видалити",
+    "messages": {
+      "saved": "Брендування збережено",
+      "uploaded": "Зображення завантажено",
+      "removed": "Зображення видалено"
+    },
+    "errors": {
+      "loadFailed": "Не вдалося завантажити параметри брендування",
+      "saveFailed": "Не вдалося зберегти параметри брендування",
+      "uploadFailed": "Не вдалося завантажити зображення",
+      "removeFailed": "Не вдалося видалити зображення",
+      "invalidHex": "Введіть шістнадцятковий колір, наприклад #1e88e5",
+      "tooLarge": "Файл занадто великий (макс {{max}} КБ)"
+    }
+  },
+  "settingsNav": {
+    "ariaLabel": "Розділи параметрів",
+    "groups": {
+      "general": "Загальні",
+      "security": "Безпека",
+      "jobs": "Завдання",
+      "agents": "Агенти",
+      "integrations": "Інтеграції",
+      "cloud": "Хмара"
+    },
+    "sections": {
+      "branding": "Брендування",
+      "brandingDesc": "Назва застосунку, кольори, логотип та значок браузера.",
+      "data": "Дані",
+      "dataDesc": "Період збереження за замовчуванням та завантаження списків хешів.",
+      "storage": "Сховище",
+      "storageDesc": "Сховище мережевого ресурсу для словників та правил.",
+      "certificate": "Сертифікат",
+      "certificateDesc": "Імена сертифіката сервера та адреси.",
+      "authentication": "Автентифікація",
+      "authenticationDesc": "Політика паролів, блокування та сеанси.",
+      "mfa": "Багатофакторна автентифікація",
+      "mfaDesc": "Політика MFA та сторона, що покладається на ключі доступу.",
+      "sso": "Єдиний вхід",
+      "ssoDesc": "Постачальники ідентичності та виділення ресурсів.",
+      "access": "Модель доступу",
+      "accessDesc": "Ізоляція між командами.",
+      "execution": "Виконання",
+      "executionDesc": "Розбиття на блоки, простір ключів та тестування швидкості.",
+      "scheduling": "Планування",
+      "schedulingDesc": "Розподіл агентів та пріоритет завдання.",
+      "potfile": "Potfile та loopback",
+      "potfileDesc": "Поведінка potfile та раунди loopback.",
+      "health": "Працездатність",
+      "healthDesc": "Сигнали активності, періоди відстрочки та період очікування.",
+      "downloads": "Завантаження",
+      "downloadsDesc": "Як агенти отримують файли з сервера.",
+      "updates": "Оновлення",
+      "updatesDesc": "Автоматичне оновлення виконуваних файлів агента.",
+      "monitoring": "Моніторинг",
+      "monitoringDesc": "Період збереження метрик та агрегування.",
+      "email": "Електронна пошта",
+      "emailDesc": "Конфігурація постачальника та шаблони.",
+      "webhooks": "Вебхуки",
+      "webhooksDesc": "Глобальний вебхук та користувацькі вебхуки.",
+      "notifications": "Сповіщення",
+      "notificationsDesc": "Які події завдання сповіщають.",
+      "providers": "Постачальники",
+      "providersDesc": "Облікові дані постачальника хмарних GPU.",
+      "budgets": "Бюджети клієнтів",
+      "budgetsDesc": "Щомісячні ліміти для кожного клієнта.",
+      "policy": "Політика порогів",
+      "policyDesc": "Шкала порогів витрат.",
+      "rules": "Правила виділення ресурсів",
+      "rulesDesc": "Коли автомасштабування може витратити.",
+      "limits": "Ліміти",
+      "limitsDesc": "Системні ліміти та часові параметри."
+    }
+  },
+  "hub": {
+    "pageDescription": "Все, що налаштовує цей сервер, згруповане за тим, на що це впливає. Поля зберігаються, коли ви їх залишаєте, якщо в розділі не вказано інше.",
+    "navLabel": "Огляд",
+    "attentionTitle": "Потребує уваги",
+    "attentionSubtitle": "Проблеми, які впливають на роботу сервера.",
+    "allGood": "Все виглядає добре",
+    "allGoodHint": "Не виявлено проблем із конфігурацією.",
+    "loadFailed": "Не вдалося завантажити статус параметрів.",
+    "overviewTitle": "Стан",
+    "attentionCount": "{{count}} для перегляду",
+    "browseTitle": "Усі параметри",
+    "loading": "Перевірка…",
+    "cards": {
+      "email": "Електронна пошта",
+      "certificate": "Сертифікат",
+      "sso": "Єдиний вхід",
+      "binaries": "Виконувані файли",
+      "cloud": "Хмара",
+      "storage": "Сховище",
+      "webhook": "Глобальний вебхук"
+    },
+    "detail": {
+      "emailConfigured": "Налаштовано ({{provider}})",
+      "emailNotConfigured": "Постачальник не налаштований",
+      "certUnmanaged": "Керування за межами KrakenHashes ({{mode}})",
+      "certDays": "{{days}} днів залишилося",
+      "certPending": "Ще не видано",
+      "ssoProviders_few": "{{count}} постачальники ввімкнено",
+      "ssoProviders_many": "{{count}} постачальників ввімкнено",
+      "ssoProviders_one": "{{count}} постачальник ввімкнено",
+      "ssoProviders_other": "{{count}} постачальників ввімкнено",
+      "binaries": "{{verified}} з {{total}} перевірено",
+      "cloudNoProviders": "Постачальники не налаштовані",
+      "cloudCap": "{{providers}} постачальників, щомісячний ліміт {{cap}}",
+      "storageLocal": "Локальне сховище",
+      "storageReachable": "Ресурс змонтований та доступний",
+      "storageUnreachable": "Ресурс недоступний",
+      "webhookOff": "Вимкнено",
+      "webhookOn": "Ввімкнено",
+      "webhookNoUrl": "Ввімкнено без URL"
+    },
+    "attention": {
+      "ok": "OK",
+      "probeFailed": "Статус не вдалося перевірити",
+      "emailNotConfigured": "Електронна пошта не налаштована; коди MFA та сповіщення не можуть бути надіслані.",
+      "certExpiring": "Сертифікат сервера закінчується через {{days}} днів.",
+      "ssoEphemeralKey": "SSO використовує тимчасовий ключ підпису; сеанси не збережуться після перезавантаження.",
+      "noVerifiedBinary": "Немає доступного перевіреного виконуваного файлу hashcat; завдання не можуть виконуватися.",
+      "cloudCapZero": "Постачальники хмари налаштовані, але щомісячний ліміт дорівнює 0, тому ресурси не будуть виділені.",
+      "shareUnreachable": "Мережевий ресурс ввімкнений, але недоступний.",
+      "migration": "Міграція сховища — {{state}}.",
+      "webhookNoUrl": "Глобальний вебхук ввімкнений, але не має URL."
+    },
+    "severity": {
+      "default": "Інформація",
+      "success": "OK",
+      "warning": "Попередження",
+      "error": "Помилка"
+    }
+  },
+  "fieldState": {
+    "saving": "Збереження…",
+    "saved": "Збережено",
+    "error": "Не збережено",
+    "minSelected": "Виберіть щонайменше {{count}}",
+    "autosaveHint": "Зберігається автоматично",
+    "autosaveHintLong": "Кожне поле зберігається автоматично, щойно ви його залишаєте.",
+    "applyHint": "Потрібно застосувати",
+    "applyHintLong": "Зміни вступають в силу лише після того, як ви їх застосуєте."
+  },
+  "unsaved": {
+    "title": "Незбережені зміни",
+    "body": "У вас є зміни, які не були застосовані. Залишити цю сторінку й скасувати їх?",
+    "stay": "Залишитися",
+    "leave": "Залишити"
+  },
+  "agentAutoUpdate": {
+    "title": "Автоматичне оновлення",
+    "description": "Дозволити серверу надсилати нові виконувані файли агентів підключеним агентам.",
+    "enable": "Увімкнути автоматичне оновлення агентів",
+    "maxConcurrent": "Одночасні оновлення",
+    "maxConcurrentHelper": "Скільки агентів можуть оновлюватися одночасно.",
+    "maxAttempts": "Спроб на агент",
+    "maxAttemptsHelper": "Припинити спроби оновлення агента після такої кількості невдалих оновлень.",
+    "healthTimeout": "Час очікування перевірки стану",
+    "healthTimeoutHelper": "Як довго чекати перепідключення оновленого агента, перш ніж позначити оновлення невдалим.",
+    "applyNote": "Агенти отримають ці значення під час наступного підключення."
+  },
+  "networkShare": {
+    "intro": "Зберігайте словники й правила на мережевому ресурсі, щоб сервер не потребував великого локального диска. Оператор монтує ресурс на хості сервера (через docker-compose як <code>KH_SHARE_DIR</code>) й на будь-якому хості агента з прямим мережевим доступом; KrakenHashes лише читає монтований шлях — він ніколи не підключається до самого ресурсу й не зберігає його облікові дані. Хмарні GPU-агенти не монтують ресурс: вони завантажують словники й правила з сервера через VPN.",
+    "migrationLocked": "Міграція в процесі ({{state}}). Конфігурація заблокована до її завершення.",
+    "server": {
+      "title": "Монтування сховища сервера",
+      "description": "Сервер читає словники й правила з цього монтованого оператором шляху (встановлюється в docker-compose як <code>KH_SHARE_DIR</code>). KrakenHashes не підключається до самого ресурсу — монтування є відповідальністю оператора.",
+      "mountedPath": "Монтований шлях (лише для читання)",
+      "shareDirNotSet": "KH_SHARE_DIR не встановлено — монтуйте ресурс в docker-compose",
+      "servingFromShare": "Обслуговування з: мережевого ресурсу",
+      "servingFromLocal": "Обслуговування з: локального диска",
+      "shareReachable": "Ресурс доступний",
+      "shareNotMounted": "Ресурс не змонтовано.",
+      "migrationChip": "Міграція: {{state}}",
+      "lastValidated": "Востаннє перевірено {{date}}",
+      "enable": "Увімкнути мережевий ресурс",
+      "saving": "Збереження…",
+      "save": "Зберегти конфігурацію",
+      "validating": "Перевірка…",
+      "validate": "Перевірити монтування сервера",
+      "validatedOk": "ОК"
+    },
+    "validation": {
+      "mountPath": "Шлях монтування: <code>{{path}}</code>",
+      "unset": "(не встановлено)",
+      "yes": "так",
+      "no": "ні",
+      "summary": "Змонтовано: {{mounted}} · Доступно для запису: {{writable}} · Вільно: {{free}} · Запис: {{write}} MB/s · Читання: {{read}} MB/s"
+    },
+    "migration": {
+      "title": "Міграція даних",
+      "descriptionToShare": "Скопіюйте існуючі словники й правила на мережевий ресурс і перемкніть активний бекенд сховища. Це операція обслуговування: нові завдання припиняються розповсюджуватися, поки парк виводиться з роботи, потім завантаження словників/правил заморожується й файли копіюються й перевіряються контрольною сумою перед перемиканням. Залежно від розміру даних це може зайняти тривалий час, і сервер буде недоступний для завантажень і нових завдань тим часом. Словники клієнтів й асоціативні словники, виконувані файли, набори символів і списки хешів завжди залишаються локальними.",
+      "descriptionToLocal": "Скопіюйте існуючі словники й правила назад на локальний диск і перемкніть активний бекенд сховища. Це операція обслуговування: нові завдання припиняються розповсюджуватися, поки парк виводиться з роботи, потім завантаження словників/правил заморожується й файли копіюються й перевіряються контрольною сумою перед перемиканням. Залежно від розміру даних це може зайняти тривалий час, і сервер буде недоступний для завантажень і нових завдань тим часом. Словники клієнтів й асоціативні словники, виконувані файли, набори символів і списки хешів завжди залишаються локальними.",
+      "phase": "Фаза: {{phase}}",
+      "directionToShare": "локально → ресурс",
+      "directionToLocal": "ресурс → локально",
+      "waitingTasks_few": "Очікування {{count}} задачі для завершення",
+      "waitingTasks_many": "Очікування {{count}} задач для завершення",
+      "waitingTasks_one": "Очікування {{count}} задача для завершення",
+      "waitingTasks_other": "Очікування {{count}} задач для завершення",
+      "earliestLock": " — найраніше блокування {{time}}",
+      "filesProgress": "{{done}}/{{total}} файлів · {{bytesDone}} / {{bytesTotal}}",
+      "canceling": "Скасування…",
+      "abort": "Скасувати міграцію",
+      "abortHelp": "Зупиняє міграцію на наступному контрольному пункті (корисно, якщо ресурс повільний або зависнув). Сховище залишається на поточному бекенді й розповсюдження відновлюється; вже скопійовані файли залишаються й будуть повторно використані, якщо ви повторите спробу.",
+      "complete": "Міграція завершена.",
+      "failed": "Міграція не вдалася.",
+      "migrateToShare": "Мігрувати словники й правила на ресурс",
+      "migrateToLocal": "Мігрувати назад на локальний диск",
+      "enableFirst": "Увімкніть ресурс і підтвердіть його перевірку перед міграцією."
+    },
+    "agent": {
+      "title": "Команда монтування для агентів на місцях (необов'язково)",
+      "description": "Ці поля використовуються <b>лише</b> для генерування команди монтування для агентів на місцях, встановлених на рівень <b>network_direct</b>. Сервер (вище) та хмарні GPU-агенти їх <b>не</b> використовують — хмарні агенти завантажують дані через VPN. Вони не є таємницею; облікові дані ніколи не зберігаються й не надсилаються.",
+      "protocol": "Протокол",
+      "protocolHelp": "SMB є найбільш портативним для агентів Windows/macOS/Linux; NFS добре працює через VPN з експортом лише для читання.",
+      "smb": "SMB / CIFS",
+      "nfs": "NFS",
+      "host": "Хост ресурсу, з якого агенти монтують (адреса VPN)",
+      "hostHelp": "Адреса ресурсу так, як її бачать агенти через VPN — це не параметр сервера (сервер використовує свій монтований шлях вище).",
+      "exportPath": "Шлях експорту",
+      "shareName": "Ім'я ресурсу",
+      "mountOptions": "Параметри монтування (один ключ=значення на рядок)",
+      "runThis": "Запустіть це на хості агента, потім встановіть для цього агента рівень сховища на \"Прямий мережевий доступ\" із шляхом монтування на його сторінці агента:",
+      "replaceSmb": "Замініть <code>&lt;MOUNT_PATH&gt;</code>, <code>&lt;USERNAME&gt;</code> і <code>&lt;PASSWORD&gt;</code> перед запуском — команда все ще містить заповнювачі.",
+      "replaceNfs": "Замініть <code>&lt;MOUNT_PATH&gt;</code> перед запуском — команда все ще містить заповнювачі.",
+      "softSmb": "Команда включає <code>soft</code>, щоб монтування швидко завершувалося помилкою, якщо ресурс повільний або стає недоступним, замість зависання (стандартний режим ядра — <code>hard</code>). Це узгоджується з перевіркою доступності ресурсу на агенті, яка блокує використання й перенаправляє роботу, якщо монтування недоступне для читання. <b>network_direct</b> призначений для ресурсів із низькою затримкою, розташованих поруч у локальній мережі (LAN) — дальні або повільні ресурси розміщуйте натомість на рівнях завантаження <b>on_demand</b>/<b>full_cache</b>. Перевизначте будь-який параметр, встановивши його вище.",
+      "softNfs": "Команда включає <code>soft</code>, <code>timeo</code> й <code>retrans</code>, щоб монтування швидко завершувалося помилкою, якщо ресурс повільний або стає недоступним, замість зависання (стандартний режим ядра — <code>hard</code>). Це узгоджується з перевіркою доступності ресурсу на агенті, яка блокує використання й перенаправляє роботу, якщо монтування недоступне для читання. <b>network_direct</b> призначений для ресурсів із низькою затримкою, розташованих поруч у локальній мережі (LAN) — дальні або повільні ресурси розміщуйте натомість на рівнях завантаження <b>on_demand</b>/<b>full_cache</b>. Перевизначте будь-який параметр, встановивши його вище.",
+      "otherOs": "macOS: використовуйте <code>mount_smbfs</code> (SMB) або <code>mount -t nfs</code> (NFS). Windows: використовуйте <code>net use</code> до <code>{{uncPath}}</code>. Агент завжди лише читає з монтування. Ці поля зберігаються за допомогою <b>Зберегти конфігурацію</b> вище."
+    },
+    "confirm": {
+      "title": "Розпочати міграцію даних?",
+      "intro": "Це буде:",
+      "step1": "Припинити розповсюдження нових завдань і чекати завершення задач, що виконуються (до ~12 хвилин для перепідключення агентів, більше, якщо виконуються довгі завдання).",
+      "step2": "Заморозити завантаження словників/правил і подати сторінку обслуговування під час копіювання й перевірки файлів контрольною сумою.",
+      "step3ToShare": "Перемкнути активний бекенд сховища на мережевий ресурс, коли завершено.",
+      "step3ToLocal": "Перемкнути активний бекенд сховища на локальний диск, коли завершено.",
+      "outro": "Призупинені завдання автоматично відновлюються після цього. Якщо щось не вдасться, сховище залишається незмінним, і сервер залишається робочим.",
+      "cancel": "Скасувати",
+      "start": "Розпочати міграцію"
+    },
+    "toast": {
+      "loadFailed": "Помилка при завантаженні конфігурації мережевого ресурсу",
+      "migrationStarted": "Міграція розпочата.",
+      "startFailed": "Помилка при запуску міграції",
+      "migrationCanceled": "Міграція скасована — сховище залишено без змін.",
+      "cancelFailed": "Помилка при скасуванні міграції",
+      "saved": "Конфігурація мережевого ресурсу збережена.",
+      "saveFailed": "Помилка при збереженні конфігурації",
+      "validated": "Ресурс успішно перевірено.",
+      "validationProblems": "Перевірка ресурсу виявила проблеми.",
+      "validationFailed": "Помилка при запуску перевірки"
+    }
+  },
+  "jobAnalytics": {
+    "title": "Аналітика продуктивності завдань",
+    "description": "Аналізуйте продуктивність виконання завдань, швидкість хешування й історію тестування швидкості на ваших агентах.",
+    "loadFiltersFailed": "Помилка при завантаженні параметрів фільтру",
+    "tabs": {
+      "jobPerformance": "Продуктивність завдань",
+      "successRate": "Рівень успіху",
+      "benchmarkHistory": "Історія тестування швидкості"
+    },
+    "summary": {
+      "totalJobs": "Всього завдань",
+      "totalJobsSubtitle": "{{completed}} завершено, {{failed}} невдало",
+      "totalCracks": "Всього зломів",
+      "totalCracksSubtitle": "Для всіх відфільтрованих завдань",
+      "avgSpeed": "Середня швидкість",
+      "avgSpeedSubtitle": "Середня швидкість хешування на завдання",
+      "avgDuration": "Середня тривалість",
+      "avgDurationSubtitle": "{{keys}} оброблених ключів"
+    },
+    "hashRateChart": {
+      "title": "Часова шкала швидкості хешування",
+      "daily": "Щодня",
+      "weekly": "Щотижня",
+      "empty": "Немає даних часової шкали для вибраних фільтрів",
+      "hashRate": "Швидкість хешування",
+      "tooltipHashRate": "Швидкість хешування: {{speed}}",
+      "tooltipJobs": "Завдання: {{count}}"
+    },
+    "benchmarkChart": {
+      "title": "Тенденції тестування швидкості",
+      "agent": "Агент",
+      "selectAgent": "Вибрати агента",
+      "hashType": "Тип хешу",
+      "attackMode": "Режим атаки",
+      "all": "Все",
+      "range90d": "90д",
+      "range1y": "1р",
+      "rangeAll": "Все",
+      "selectAgentPrompt": "Виберіть агента, щоб переглянути тенденції тестування швидкості",
+      "empty": "Не знайдено історії тестування швидкості для цього агента",
+      "speed": "Швидкість",
+      "tooltipSpeed": "Швидкість: {{speed}}"
+    },
+    "filters": {
+      "title": "Фільтри",
+      "active": "Активні",
+      "dateStart": "Дата початку",
+      "dateEnd": "Дата завершення",
+      "hashlist": "Список хешів",
+      "status": "Статус",
+      "minKeyspace": "Мін. простір ключів",
+      "maxKeyspace": "Макс. простір ключів",
+      "reset": "Скинути",
+      "apply": "Застосувати"
+    },
+    "attackModes": {
+      "straight": "Пряма",
+      "combination": "Комбінація",
+      "bruteforce": "Перебір",
+      "hybridWlMask": "Гібридна словник+маска",
+      "hybridMaskWl": "Гібридна маска+словник",
+      "association": "Асоціативна",
+      "modeNumber": "Режим {{mode}}"
+    },
+    "benchmarkHistory": {
+      "title": "Історія тестування швидкості",
+      "empty": "Не знайдено історії тестування швидкості",
+      "columns": {
+        "date": "Дата",
+        "agentFallback": "Агент #{{id}}",
+        "status": "Статус"
+      },
+      "success": "Успіх",
+      "failed": "Невдача"
+    },
+    "successRate": {
+      "title": "Рівень успіху за конфігурацією завдання",
+      "subtitle": "Згруповано за словником, правилами, режимом атаки й типом хешу. Шаблони завдань включають відповідні користувацькі завдання.",
+      "empty": "Немає даних рівня успіху для вибраних фільтрів",
+      "preset": "Шаблон",
+      "columns": {
+        "configuration": "Конфігурація",
+        "runs": "Запуски",
+        "hashes": "Хеші",
+        "cracks": "Зломи",
+        "successRate": "Рівень успіху",
+        "avgDuration": "Середня тривалість",
+        "totalCompute": "Загальний час обчислень"
+      }
+    },
+    "jobExecution": {
+      "title": "Деталі виконання завдання",
+      "empty": "Не знайдено завдань для вибраних фільтрів",
+      "noTaskData": "Дані задач недоступні",
+      "taskBreakdown": "Розподіл задач ({{tasksPhrase}}, {{metricsPhrase}})",
+      "taskCount_few": "{{count}} задачі",
+      "taskCount_many": "{{count}} задач",
+      "taskCount_one": "{{count}} задача",
+      "taskCount_other": "{{count}} задач",
+      "metricPointCount_few": "{{count}} точки метрики",
+      "metricPointCount_many": "{{count}} точок метрики",
+      "metricPointCount_one": "{{count}} точка метрики",
+      "metricPointCount_other": "{{count}} точок метрики",
+      "columns": {
+        "name": "Ім'я",
+        "attack": "Атака",
+        "duration": "Тривалість",
+        "keyspace": "Простір ключів",
+        "agents": "Агенти",
+        "progress": "Прогрес",
+        "benchmark": "Тестування швидкості",
+        "started": "Розпочато",
+        "completed": "Завершено"
+      }
+    }
+  },
+  "clientWordlistDialog": {
+    "title": "Управління словниками - {{clientName}}",
+    "tabs": {
+      "clientWordlists": "Словники клієнта ({{count}})",
+      "clientPotfile": "potfile клієнта",
+      "associationWordlists": "Асоціативні словники ({{count}})"
+    },
+    "columns": {
+      "fileName": "Назва файлу",
+      "lineCount": "Кількість рядків",
+      "fileSize": "Розмір файлу",
+      "uploaded": "Завантажено",
+      "hashlist": "Список хешів",
+      "actions": "Дії"
+    },
+    "hashlistFallback": "Список хешів #{{id}}",
+    "clientTab": {
+      "info": "Словники клієнта доступні для всіх списків хешів цього клієнта. Їх можна використовувати в будь-якому режимі атаки.",
+      "uploadWordlist": "Завантажити словник",
+      "uploading": "Завантаження... {{progress}}%",
+      "noWordlists": "Словники клієнта ще не завантажено."
+    },
+    "potfileTab": {
+      "noPotfile": "potfile клієнта ще не існує. Він буде автоматично створений, коли будуть зламані хеші з списків хешів цього клієнта.",
+      "autoGenerated": "potfile клієнта (автоматично створений)",
+      "description": "Цей potfile містить усі зламані паролі для цього клієнта. Він автоматично оновлюється, коли зламано хеші.",
+      "passwordCount_few": "{{countDisplay}} паролі",
+      "passwordCount_many": "{{countDisplay}} паролів",
+      "passwordCount_one": "{{countDisplay}} пароль",
+      "passwordCount_other": "{{countDisplay}} паролів",
+      "md5Chip": "MD5: {{hash}}...",
+      "updatedChip": "Оновлено: {{date}}",
+      "downloadPotfile": "Завантажити potfile"
+    },
+    "associationTab": {
+      "info": "Асоціативні словники прив'язані до конкретного списку хешів і зіставляють кожен хеш з одним кандидатом пароля 1:1 за номером рядка. Вони завантажуються та керуються зі сторінки деталей списку хешів. Цей вигляд показує всі асоціативні словники для всіх списків хешів цього клієнта.",
+      "noWordlists": "Асоціативні словники не знайдено для списків хешів цього клієнта."
+    },
+    "messages": {
+      "wordlistDeleted": "Словник клієнта видалено",
+      "associationDeleted": "Асоціативний словник видалено",
+      "deleteFailed": "Не вдалося видалити словник",
+      "uploadSuccess": "Словник клієнта успішно завантажено",
+      "uploadFailed": "Не вдалося завантажити словник",
+      "downloaded": "Завантажено {{filename}}",
+      "downloadFailed": "Не вдалося завантажити файл"
+    },
+    "deleteConfirm": {
+      "title": "Видалити словник",
+      "message": "Видалити \"{{fileName}}\"? Це не можна скасувати."
+    }
+  },
+  "teams": {
+    "list": {
+      "title": "Управління командами",
+      "titleMine": "Мої команди",
+      "description": "Керувати всіма командами в системі",
+      "descriptionMine": "Команди, до яких ви належите",
+      "createTeam": "Створити команду",
+      "bulkAssignHint": "Щоб призначити кількох клієнтів команді одразу, використовуйте функцію масового призначення на сторінці <link>Управління клієнтами</link>.",
+      "columns": {
+        "name": "Назва команди",
+        "description": "Опис",
+        "members": "Учасники",
+        "clients": "Клієнти",
+        "hashlists": "Списки хешів",
+        "agents": "Агенти",
+        "created": "Створено"
+      },
+      "rowActions": {
+        "manage": "Керувати командою",
+        "edit": "Редагувати команду",
+        "delete": "Видалити команду"
+      },
+      "empty": "Команди не знайдено",
+      "emptyMine": "Ви ще не належите до жодної команди.",
+      "viewDetails": "Переглянути деталі",
+      "memberCount_few": "{{count}} учасники",
+      "memberCount_many": "{{count}} учасників",
+      "memberCount_one": "{{count}} учасник",
+      "memberCount_other": "{{count}} учасників",
+      "clientCount_few": "{{count}} клієнти",
+      "clientCount_many": "{{count}} клієнтів",
+      "clientCount_one": "{{count}} клієнт",
+      "clientCount_other": "{{count}} клієнтів",
+      "hashlistCount_few": "{{count}} списки хешів",
+      "hashlistCount_many": "{{count}} списків хешів",
+      "hashlistCount_one": "{{count}} список хешів",
+      "hashlistCount_other": "{{count}} списків хешів",
+      "agentCount_few": "{{count}} агенти",
+      "agentCount_many": "{{count}} агентів",
+      "agentCount_one": "{{count}} агент",
+      "agentCount_other": "{{count}} агентів",
+      "dialogs": {
+        "create": {
+          "title": "Створити нову команду",
+          "nameLabel": "Назва команди",
+          "descriptionLabel": "Опис",
+          "creatingButton": "Створення..."
+        },
+        "delete": {
+          "title": "Видалити команду",
+          "confirmation": "Ви впевнені, що хочете видалити команду \"{{name}}\"? Це призведе до видалення всіх учасників команди та призначень клієнтів."
+        }
+      },
+      "messages": {
+        "createSuccess": "Команду успішно створено",
+        "deleteSuccess": "Команду успішно видалено",
+        "updateSuccess": "Команду успішно оновлено"
+      },
+      "errors": {
+        "loadFailed": "Не вдалося завантажити команди",
+        "createFailed": "Не вдалося створити команду",
+        "deleteFailed": "Не вдалося видалити команду",
+        "updateFailed": "Не вдалося оновити команду"
+      }
+    },
+    "detail": {
+      "notFound": "Команду не знайдено",
+      "noDescription": "Без опису",
+      "breadcrumb": "Команди",
+      "editTeam": "Редагувати команду",
+      "confirmActionTitle": "Підтвердження дії",
+      "tabs": {
+        "members": "Учасники ({{count}})",
+        "clients": "Клієнти ({{count}})",
+        "trustedTeams": "Довірені команди ({{count}})",
+        "agents": "Агенти ({{count}})"
+      },
+      "addMember": "Додати учасника",
+      "assignClient": "Призначити клієнта",
+      "addTrust": "Додати довіру",
+      "trustInfo": "Довіра до іншої команди дозволяє її агентам виконувати завдання вашої команди. Це односторонні відносини — довіра до команди B не надає вашим агентам доступу до завдань команди B.",
+      "agentsInfo": "<strong>Прямі</strong> агенти належать учасникам цієї команди. <strong>Довірені</strong> агенти надходять від команд, з якими встановлено довірчі відносини.",
+      "systemOwner": "Система",
+      "columns": {
+        "username": "Ім'я користувача",
+        "email": "Електронна пошта",
+        "role": "Роль",
+        "joined": "Приєднано",
+        "clientName": "Назва клієнта",
+        "description": "Опис",
+        "trustedTeam": "Довірена команда",
+        "trustedSince": "Дата довіри",
+        "agentName": "Назва агента",
+        "status": "Статус",
+        "version": "Версія",
+        "owner": "Власник",
+        "source": "Джерело"
+      },
+      "roles": {
+        "member": "Учасник",
+        "admin": "Адміністратор",
+        "adminManager": "Адміністратор (керівник команди)"
+      },
+      "source": {
+        "direct": "Прямий",
+        "trusted": "Довірений від {{team}}",
+        "trustedBadge": "Довірений",
+        "unknown": "Невідомий"
+      },
+      "rowActions": {
+        "removeMember": "Видалити учасника",
+        "removeClientFromTeam": "Видалити клієнта з команди",
+        "removeTrust": "Видалити довіру"
+      },
+      "empty": {
+        "noMembers": "У цій команді немає учасників",
+        "noClients": "Цій команді не призначено жодного клієнта",
+        "noTrustedTeams": "Довірених команд немає. Виконувати завдання можуть лише системні агенти та власні агенти цієї команди.",
+        "noAgents": "Немає агентів, доступних цій команді",
+        "noAgentsHint": "Додайте до команди учасників з агентами або встановіть довірчі відносини."
+      },
+      "confirm": {
+        "removeMember": "Ви впевнені, що хочете видалити цього учасника?",
+        "removeClient": "Ви впевнені, що хочете видалити \"{{name}}\" з цієї команди? Учасники команди втратять доступ до даних цього клієнта.",
+        "removeTrust": "Видалити ці довірчі відносини? Агенти цієї команди більше не зможуть виконувати ваші завдання."
+      },
+      "messages": {
+        "memberAdded": "Учасника успішно додано",
+        "memberRemoved": "Учасника видалено",
+        "roleUpdated": "Роль оновлено",
+        "teamUpdated": "Команду успішно оновлено",
+        "clientAssigned": "Клієнта призначено команді",
+        "clientRemoved": "Клієнта видалено з команди",
+        "trustAdded": "Довіру додано",
+        "trustRemoved": "Довіру видалено"
+      },
+      "errors": {
+        "loadFailed": "Не вдалося завантажити дані команди",
+        "addMemberFailed": "Не вдалося додати учасника",
+        "removeMemberFailed": "Не вдалося видалити учасника",
+        "updateRoleFailed": "Не вдалося оновити роль",
+        "loadClientsFailed": "Не вдалося завантажити клієнтів",
+        "assignClientFailed": "Не вдалося призначити клієнта",
+        "removeClientFailed": "Не вдалося видалити клієнта",
+        "updateTeamFailed": "Не вдалося оновити команду",
+        "loadTeamNamesFailed": "Не вдалося завантажити назви команд",
+        "addTrustFailed": "Не вдалося додати довіру",
+        "removeTrustFailed": "Не вдалося видалити довіру"
+      },
+      "dialogs": {
+        "cancel": "Скасувати",
+        "editTeam": {
+          "title": "Редагувати команду",
+          "nameLabel": "Назва команди",
+          "descriptionLabel": "Опис",
+          "saveButton": "Зберегти",
+          "savingButton": "Збереження..."
+        },
+        "addMember": {
+          "title": "Додати учасника команди",
+          "searchLabel": "Пошук користувачів",
+          "searchPlaceholder": "Введіть принаймні 2 символи...",
+          "typeToSearch": "Введіть текст для пошуку...",
+          "noUsersFound": "Користувачів не знайдено",
+          "roleLabel": "Роль",
+          "addButton": "Додати учасника"
+        },
+        "addTrust": {
+          "title": "Додати довірену команду",
+          "info": "Агенти, що належать учасникам довіреної команди, зможуть виконувати завдання цієї команди.",
+          "selectLabel": "Виберіть команду для довіри",
+          "searchPlaceholder": "Пошук команд...",
+          "noTeamsAvailable": "Немає доступних команд",
+          "optionLabel_few": "{{name}} ({{count}} агенти)",
+          "optionLabel_many": "{{name}} ({{count}} агентів)",
+          "optionLabel_one": "{{name}} ({{count}} агент)",
+          "optionLabel_other": "{{name}} ({{count}} агентів)"
+        },
+        "assignClient": {
+          "title": "Призначити клієнта команді",
+          "info": "Призначення клієнта надає всім учасникам команди доступ до списків хешів, завдань і зламаних даних цього клієнта.",
+          "selectLabel": "Виберіть клієнта",
+          "searchPlaceholder": "Пошук клієнтів...",
+          "noClientsAvailable": "Немає непризначених клієнтів"
+        }
+      }
+    }
+  },
+  "customCharsets": {
+    "title": "Управління власними наборами символів",
+    "description": "Керуйте глобальними власними наборами символів, доступними всім шаблонам завдань та користувачам. Підтримує як вбудовані визначення, так і бінарні файли наборів символів .hcchr.",
+    "createCharset": "Створити набір символів",
+    "columns": {
+      "name": "Назва",
+      "type": "Тип",
+      "definition": "Визначення / Інформація",
+      "description": "Опис",
+      "created": "Створено"
+    },
+    "typeLabels": {
+      "file": "Файл",
+      "inline": "Вбудоване",
+      "hex": "Hex"
+    },
+    "uniqueBytes_few": "{{count}} унікальні байти",
+    "uniqueBytes_many": "{{count}} унікальних байтів",
+    "uniqueBytes_one": "{{count}} унікальний байт",
+    "uniqueBytes_other": "{{count}} унікальних байтів",
+    "rowActions": {
+      "edit": "Редагувати",
+      "delete": "Видалити"
+    },
+    "empty": "Власних наборів символів не знайдено. Створіть один для початку.",
+    "dialogs": {
+      "create": {
+        "title": "Створення власного набору символів"
+      },
+      "edit": {
+        "title": "Редагування власного набору символів"
+      },
+      "delete": {
+        "title": "Видалення набору символів",
+        "confirmation": "Ви впевнені, що хочете видалити набір символів \"{{name}}\"?"
+      },
+      "modeToggle": {
+        "inline": "Вбудоване визначення",
+        "file": "Завантаження файлу (.hcchr)"
+      },
+      "fields": {
+        "name": "Назва",
+        "namePlaceholder": "напр., DES Full Charset",
+        "definition": "Визначення",
+        "definitionPlaceholderHex": "напр., 41424344 (шістнадцяткові пари байтів)",
+        "definitionPlaceholderPlain": "напр., ?u?d або abcdef0123456789",
+        "definitionHelperHex": "Шістнадцяткові пари байтів — кожна пара = один байт набору символів. {{bytes}}",
+        "definitionHelperHexBytes_few": "{{count}} байти",
+        "definitionHelperHexBytes_many": "{{count}} байтів",
+        "definitionHelperHexBytes_one": "{{count}} байт",
+        "definitionHelperHexBytes_other": "{{count}} байтів",
+        "definitionHelperPlain": "Визначення набору символів hashcat. Використовуйте ?l, ?u, ?d, ?s, ?a, ?b, ?h, ?H або літеральні символи.",
+        "hexTooltip": "Якщо увімкнено, визначення інтерпретується як шістнадцяткові пари байтів (напр., 41424344 = байти A, B, C, D). Завдання, що використовують цей набір символів, автоматично додають --hex-charset.",
+        "hexLabel": "Визначення у шістнадцятковому форматі",
+        "selectFile": "Вибрати файл .hcchr",
+        "fileSizeBytes_few": "{{count}} байти",
+        "fileSizeBytes_many": "{{count}} байтів",
+        "fileSizeBytes_one": "{{count}} байт",
+        "fileSizeBytes_other": "{{count}} байтів",
+        "fileHelperText": "Бінарний файл набору символів, що містить сирі значення байтів (макс. 1023 байти, до 256 унікальних байтів). Використовується для зламування DES, NTLMv1 та мовно-специфічних кодувань.",
+        "fileCharsetInfo_few": "Набір символів файлу: {{count}} унікальні байти. Можна редагувати тільки назву та опис.",
+        "fileCharsetInfo_many": "Набір символів файлу: {{count}} унікальних байтів. Можна редагувати тільки назву та опис.",
+        "fileCharsetInfo_one": "Набір символів файлу: {{count}} унікальний байт. Можна редагувати тільки назву та опис.",
+        "fileCharsetInfo_other": "Набір символів файлу: {{count}} унікальних байтів. Можна редагувати тільки назву та опис.",
+        "description": "Опис",
+        "descriptionPlaceholder": "Додатковий опис того, для чого використовується цей набір символів"
+      },
+      "update": "Оновити",
+      "upload": "Завантажити"
+    },
+    "messages": {
+      "createSuccess": "Набір символів успішно створено",
+      "uploadSuccess": "Набір символів файлу успішно завантажено",
+      "updateSuccess": "Набір символів успішно оновлено",
+      "deleteSuccess": "Набір символів успішно видалено"
+    },
+    "errors": {
+      "onlyHcchrAllowed": "Дозволені тільки файли .hcchr",
+      "fileTooLarge": "Файл занадто великий (макс. 1023 байти — ліміт буфера читання hashcat)",
+      "nameRequired": "Назва обов'язкова",
+      "definitionRequired": "Визначення обов'язкове",
+      "selectFile": "Будь ласка, виберіть файл .hcchr",
+      "loadFailed": "Не вдалося завантажити набори символів: {{message}}",
+      "deleteFailed": "Не вдалося видалити набір символів: {{message}}"
+    }
+  }
+}

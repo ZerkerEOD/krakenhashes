@@ -1,0 +1,164 @@
+{
+  "title": "Інформаційна панель",
+  "welcome": "Ласкаво просимо до KrakenHashes",
+  "stats": {
+    "title": "Огляд",
+    "totalJobs": "Усього завдань",
+    "activeJobs": "Активні завдання",
+    "completedJobs": "Завершені завдання",
+    "totalHashes": "Усього хешів",
+    "crackedHashes": "Зламані хеші",
+    "crackRate": "Відсоток зламаних",
+    "activeAgents": "Активні агенти",
+    "totalAgents": "Усього агентів"
+  },
+  "recentActivity": {
+    "title": "Недавня активність",
+    "noActivity": "Немає недавньої активності",
+    "viewAll": "Усі сповіщення"
+  },
+  "quickActions": {
+    "title": "Швидкі дії",
+    "createJob": "Створити завдання",
+    "uploadHashlist": "Завантажити список хешів",
+    "viewAgents": "Переглянути агентів"
+  },
+  "agents": {
+    "title": "Ваші агенти",
+    "loadError": "Не вдалося завантажити агентів: {{message}}",
+    "noAgents": "Агенти не зареєстровані",
+    "hashRate": "Швидкість хешування",
+    "notAvailable": "Недоступно",
+    "job": "Завдання",
+    "unnamedJob": "Безіменне завдання",
+    "noActiveTask": "Немає активної задачі"
+  },
+  "pagination": {
+    "previous": "Попередня",
+    "next": "Наступна",
+    "pageOf": "Сторінка {{current}} з {{total}}"
+  },
+  "jobs": {
+    "title": "Ваші завдання",
+    "total": "Усього",
+    "autoRefreshOn": "Авто",
+    "autoRefreshOff": "Вимкнено",
+    "lastUpdated": "Останнє оновлення: {{time}}",
+    "loadError": "Не вдалося завантажити завдання: {{message}}",
+    "noJobs": "Завдання не знайдено. Створіть нове завдання для початку."
+  },
+  "buttons": {
+    "refresh": "Оновити",
+    "deleteFinished": "Видалити завершені"
+  },
+  "filters": {
+    "status": "Статус",
+    "priority": "Пріоритет",
+    "all": "Усі",
+    "searchPlaceholder": "Пошук завдань...",
+    "clear": "Очистити фільтри"
+  },
+  "status": {
+    "pending": "Очікує",
+    "running": "Виконується",
+    "paused": "Призупинено",
+    "completed": "Завершено",
+    "failed": "Помилка",
+    "cancelled": "Скасовано"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Видалити завершені завдання",
+      "message": "Ви впевнені, що хочете видалити всі завершені завдання? Цю дію не можна скасувати."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Не вдалося видалити завершені завдання",
+    "deleteJobFailed": "Не вдалося видалити завдання",
+    "retryJobFailed": "Не вдалося повторити завдання",
+    "updateJobFailed": "Не вдалося оновити завдання"
+  },
+  "hashlistOverview": {
+    "title": "Огляд списків хешів",
+    "loadError": "Не вдалося завантажити списки хешів",
+    "noHashlists": "Списки хешів не знайдено",
+    "columns": {
+      "name": "Назва",
+      "client": "Клієнт",
+      "status": "Статус",
+      "total": "Усього",
+      "cracked": "Зламано",
+      "progress": "Прогрес"
+    },
+    "status": {
+      "ready": "Готово",
+      "error": "Помилка",
+      "uploading": "Завантаження",
+      "processing": "Обробка"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Завдання не знайдено",
+    "noJobsHint": "Створіть нове завдання зі сторінки Управління списком хешів для початку.",
+    "completedJobs": "Завершені завдання",
+    "columns": {
+      "jobName": "Назва завдання",
+      "hashlist": "Список хешів / Шаблон",
+      "createdBy": "Автор",
+      "progress": "Прогрес",
+      "keyspace": "Простір ключів",
+      "cracked": "Зламано",
+      "agents": "Агенти",
+      "priority": "Пріоритет",
+      "maxAgents": "Максимум агентів",
+      "actions": "Дії"
+    }
+  },
+  "kpi": {
+    "runningJobs": "Виконувані завдання",
+    "queued": "{{count}} в черзі",
+    "agentsOnline": "Агенти онлайн",
+    "agentProblems": "{{count}} потребують уваги",
+    "hashRate": "Швидкість хешування",
+    "cracks24h": "Зламано (24 год)",
+    "cracks7d": "{{count}} за 7 днів",
+    "crackRate": "Відсоток зламаних",
+    "hashlistTotals": "{{cracked}} з {{total}} хешів",
+    "failed24h": "Помилки (24 год)",
+    "completed24h": "{{count}} завершено"
+  },
+  "agentHealth": {
+    "title": "Здоров'я агентів",
+    "viewAll": "Усі агенти",
+    "utilization": "Завантаження GPU",
+    "temperature": "Найгарячіший GPU",
+    "lastSeen": "Останній раз онлайн {{when}}",
+    "warnings": {
+      "error": "Помилка",
+      "offline": "Офлайн",
+      "update_failed": "Оновлення не вдалося",
+      "stale_heartbeat": "Немає сигналу активності",
+      "gpu_hot": "GPU гарячий"
+    }
+  },
+  "recentCracks": {
+    "title": "Нещодавно зламані хеші",
+    "viewAll": "Усі зламані хеші",
+    "empty": "Поки що нічого не зламано",
+    "copy": "Скопіювати відкритий текст",
+    "copied": "Скопійовано"
+  },
+  "activeJobs": {
+    "title": "Активні завдання",
+    "showing": "Показано 10 з {{total}}",
+    "viewAll": "Усі завдання",
+    "empty": "Нічого не виконується",
+    "emptyHint": "Розпочніть завдання зі списку хешів.",
+    "goHashlists": "Перейти до списків хешів"
+  },
+  "welcomeUser": "З поверненням, {{name}}",
+  "autoRefresh": {
+    "on": "Наживо",
+    "off": "Призупинено"
+  }
+}

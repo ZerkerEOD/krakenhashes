@@ -1,0 +1,397 @@
+{
+  "language": "pl",
+  "formality": "Formal, professional register. Prefer impersonal/infinitive phrasing for UI chrome (buttons, labels, status text) over direct address. Where direct address to the user is unavoidable (account/session messages, confirmations), use formal 'Pan/Pani' conjugation, not the informal 'ty' — this is professional pentest/security tooling used across teams and client engagements, not a consumer app.",
+  "styleNotes": "Keep hashcat/security jargon that has no natural Polish equivalent in English (per doNotTranslate and the keepEnglish-flagged terms below) rather than coining awkward neologisms — this matches how Polish security professionals actually talk. Button and action labels use the imperative verb form ('Zastosuj', 'Archiwizuj', 'Zamontuj'), never a bare noun or infinitive. Translated nouns keep correct Polish gender/number agreement on any adjective built from them — 'hasz' is masculine ('złamany hasz', plural 'złamane hasze'), 'reguła'/'maska' are feminine. 'job' (zadanie) and 'task' (podzadanie) must stay visibly different strings in the UI even though both derive from the same root — they are different levels of the scheduling model and collapsing them to one word creates ambiguity.",
+  "terms": {
+    "hash": {
+      "translation": "hasz",
+      "keepEnglish": false,
+      "note": "Singular noun; Polish security professionals often use 'hasz' or keep 'hash' depending on context. Use 'hasz' in UI."
+    },
+    "hashlist": {
+      "translation": "lista haszy",
+      "keepEnglish": false,
+      "note": "Feminine noun; refers to the uploaded password hash collection"
+    },
+    "hash type": {
+      "translation": "typ hasza",
+      "keepEnglish": false,
+      "note": "Refers to the hashcat mode designation (e.g., NTLM, SHA256)"
+    },
+    "crack": {
+      "translation": "łamać",
+      "keepEnglish": false,
+      "note": "Verb: 'łamać hasło' or 'łamać hasz'; sometimes 'złamać' (perfective)"
+    },
+    "cracked": {
+      "translation": "złamany",
+      "keepEnglish": false,
+      "note": "Adjective, cited in masculine singular (dictionary form); agrees with the noun in gender/number: 'złamany hasz', 'złamana reguła', plural 'złamane hasze'."
+    },
+    "cracked hashes": {
+      "translation": "złamane hasze",
+      "keepEnglish": false,
+      "note": "Plural of 'hasz' (masculine-inanimate plural takes '-e': 'hasze', not 'hashe'); refers to recovered hash:plaintext pairs."
+    },
+    "plaintext": {
+      "translation": "tekst jawny",
+      "keepEnglish": false,
+      "note": "Recovered password in clear form"
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "hashcat-specific filename; industry standard kept as English"
+    },
+    "client potfile": {
+      "translation": "potfile klienta",
+      "keepEnglish": false,
+      "note": "Per-client potfile instance"
+    },
+    "wordlist": {
+      "translation": "wordlista",
+      "keepEnglish": false,
+      "note": "Dictionary file of candidate passwords. 'Wordlista' is the Polonized borrowing Polish pentesters actually use ('wordlista do ataku słownikowego'), parallel to 'hasz'/'maska'; literal 'lista słów' is an understandable but less idiomatic alternate."
+    },
+    "rule": {
+      "translation": "reguła",
+      "keepEnglish": false,
+      "note": "Feminine noun; hashcat password mangling rule; 'reguły' plural"
+    },
+    "rule file": {
+      "translation": "plik reguł",
+      "keepEnglish": false,
+      "note": "File containing hashcat rules"
+    },
+    "mask": {
+      "translation": "maska",
+      "keepEnglish": false,
+      "note": "Feminine noun; hashcat mask pattern like ?u?l?l?d; Polish security pros use 'maska'"
+    },
+    "charset": {
+      "translation": "zestaw znaków",
+      "keepEnglish": false,
+      "note": "Custom character set for masks; Polish: 'zestaw znaków' or 'charset' kept in some contexts"
+    },
+    "attack mode": {
+      "translation": "tryb ataku",
+      "keepEnglish": false,
+      "note": "Masculine noun; refers to straight, combination, brute-force, or hybrid modes"
+    },
+    "brute force": {
+      "translation": "atak brute force",
+      "keepEnglish": true,
+      "note": "'Brute force' is kept as the compound technical term (same treatment as 'potfile'/'webhook') rather than forced into an awkward literal 'atak siłowy'; only 'atak' is translated."
+    },
+    "dictionary attack": {
+      "translation": "atak słownikowy",
+      "keepEnglish": false,
+      "note": "Straight wordlist attack"
+    },
+    "hybrid attack": {
+      "translation": "atak hybrydowy",
+      "keepEnglish": false,
+      "note": "Wordlist + mask combined attack"
+    },
+    "association attack": {
+      "translation": "atak asocjacyjny",
+      "keepEnglish": false,
+      "note": "hashcat association mode (mode 9)"
+    },
+    "keyspace": {
+      "translation": "przestrzeń kluczy",
+      "keepEnglish": false,
+      "note": "Total candidate count for an attack; 'przestrzeń kluczy' or sometimes kept as 'keyspace'"
+    },
+    "effective keyspace": {
+      "translation": "efektywna przestrzeń kluczy",
+      "keepEnglish": false,
+      "note": "Keyspace after rules multiply it"
+    },
+    "chunk": {
+      "translation": "porcja",
+      "keepEnglish": false,
+      "note": "Feminine noun; a slice of job keyspace assigned to one agent; 'porcja' or 'porcja zadania'"
+    },
+    "task": {
+      "translation": "podzadanie",
+      "keepEnglish": false,
+      "note": "Deliberately NOT 'zadanie' (that's 'job') — this is the chunk-level assignment running on one agent. Keeping it as 'podzadanie' (sub-task) avoids the UI showing the identical word for two different levels of the scheduling model. 'jedno podzadanie na agencie'."
+    },
+    "job": {
+      "translation": "zadanie",
+      "keepEnglish": false,
+      "note": "Neuter noun; a cracking job against a hashlist. Kept distinct from 'task'→'podzadanie' so the two scheduling levels don't collide on the same Polish word."
+    },
+    "preset job": {
+      "translation": "szablon zadania",
+      "keepEnglish": false,
+      "note": "Saved, reusable attack configuration template"
+    },
+    "workflow": {
+      "translation": "przepływ pracy",
+      "keepEnglish": false,
+      "note": "Ordered sequence of preset jobs; 'przepływ pracy' or 'workflow' in technical context"
+    },
+    "loopback": {
+      "translation": "pętla zwrotna",
+      "keepEnglish": false,
+      "note": "Re-run attack with newly cracked passwords until dry; 'pętla zwrotna' (feedback loop) captures the iterative re-run. Avoid 'logowanie zwrotne' — that reads as 'reverse login' and has nothing to do with this feature."
+    },
+    "priority": {
+      "translation": "priorytet",
+      "keepEnglish": false,
+      "note": "Masculine noun; scheduling priority; 'priorytet zadania'"
+    },
+    "max agents": {
+      "translation": "maksymalna liczba agentów",
+      "keepEnglish": false,
+      "note": "Maximum agents a job may use; shortened: 'maks. agentów'"
+    },
+    "overflow": {
+      "translation": "nadmiar",
+      "keepEnglish": false,
+      "note": "Extra agents beyond the limit; masculine noun; 'nadmiar agentów'"
+    },
+    "benchmark": {
+      "translation": "test wydajności",
+      "keepEnglish": false,
+      "note": "hashcat speed test for a hash type on an agent"
+    },
+    "hash rate": {
+      "translation": "hashrate",
+      "keepEnglish": true,
+      "note": "Throughput metric (hashes computed per second, hashcat's H/s figure) — independent of whether anything is actually cracked, so avoid 'szybkość łamania' ('cracking speed'), which wrongly implies a success rate. 'Hashrate' is the term Polish GPU/cracking communities actually use, kept English like 'potfile'."
+    },
+    "progress": {
+      "translation": "postęp",
+      "keepEnglish": false,
+      "note": "Masculine noun; how much of the keyspace is completed; 'postęp zadania'"
+    },
+    "agent": {
+      "translation": "agent",
+      "keepEnglish": true,
+      "note": "Machine running KrakenHashes agent and hashcat; English term standard in Polish security tech"
+    },
+    "device": {
+      "translation": "urządzenie",
+      "keepEnglish": false,
+      "note": "Neuter noun; a GPU/CPU on an agent; feminine in some contexts: 'karta graficzna'"
+    },
+    "claim code": {
+      "translation": "kod rejestracyjny",
+      "keepEnglish": false,
+      "note": "One-time or reusable code to register an agent"
+    },
+    "voucher": {
+      "translation": "kod rejestracyjny",
+      "keepEnglish": false,
+      "note": "Same product concept as 'claim code' per the source glossary — use the identical Polish term so the UI doesn't look like it has two different registration mechanisms. Do not translate this separately as 'kod dostępu'."
+    },
+    "heartbeat": {
+      "translation": "heartbeat",
+      "keepEnglish": true,
+      "note": "Periodic agent check-in. Polish networking/ops usage keeps 'heartbeat' in English (same treatment as 'ping', 'keep-alive') rather than the unnatural literal 'sygnał życia'."
+    },
+    "offline buffer": {
+      "translation": "bufor offline",
+      "keepEnglish": false,
+      "note": "Grace period before an agent is marked offline; 'bufor offline' mirrors the English term order and reads naturally as a settings label (e.g. 'Bufor offline (s)'). Longer paraphrase 'okres przed oznaczeniem offline' is fine in help text."
+    },
+    "auto-update": {
+      "translation": "automatyczna aktualizacja",
+      "keepEnglish": false,
+      "note": "Feminine noun; automatic agent binary update; can abbreviate to 'auto-aktualizacja'"
+    },
+    "binary": {
+      "translation": "plik binarny",
+      "keepEnglish": false,
+      "note": "hashcat binary version managed by server; neuter noun; informal: 'binarka'"
+    },
+    "client": {
+      "translation": "klient",
+      "keepEnglish": false,
+      "note": "Masculine noun; customer/engagement the hashlists belong to"
+    },
+    "team": {
+      "translation": "zespół",
+      "keepEnglish": false,
+      "note": "Masculine noun; group of users sharing clients, hashlists and agents"
+    },
+    "member": {
+      "translation": "członek",
+      "keepEnglish": false,
+      "note": "Masculine noun; user in a team; feminine form 'członkini' if applicable"
+    },
+    "owner": {
+      "translation": "właściciel",
+      "keepEnglish": false,
+      "note": "Masculine noun; user an agent or resource belongs to; feminine: 'właścicielka'"
+    },
+    "retention": {
+      "translation": "okres przechowywania",
+      "keepEnglish": false,
+      "note": "Matches the standard Polish RODO/GDPR phrase 'okres przechowywania danych' for a data-retention period. Bare 'przechowywanie' reads as 'storage', not specifically the retention-period setting."
+    },
+    "archive": {
+      "translation": "archiwizuj",
+      "keepEnglish": false,
+      "note": "This is a UI action (hide from default lists without deleting), so the glossary form is the imperative button verb, consistent with 'apply'→'zastosuj'. Noun form: 'archiwum'; infinitive: 'archiwizować'."
+    },
+    "analytics report": {
+      "translation": "raport analityczny",
+      "keepEnglish": false,
+      "note": "Adjective form is the natural Polish compound for this kind of report (cf. 'raport analityczny' in Polish BI tools); genitive 'raport analizy' reads as a literal, less idiomatic translation."
+    },
+    "password reuse": {
+      "translation": "ponowne użycie hasła",
+      "keepEnglish": false,
+      "note": "Same password used by several accounts; neuter noun 'użycie'"
+    },
+    "hash reuse": {
+      "translation": "ponowne użycie hasza",
+      "keepEnglish": false,
+      "note": "Same hash appearing for several accounts; neuter noun 'użycie'"
+    },
+    "complexity": {
+      "translation": "złożoność",
+      "keepEnglish": false,
+      "note": "Feminine noun; password character-class complexity; 'złożoność hasła'"
+    },
+    "entropy": {
+      "translation": "entropia",
+      "keepEnglish": false,
+      "note": "Feminine noun; password entropy in bits; technical term kept similar to English"
+    },
+    "domain": {
+      "translation": "domena",
+      "keepEnglish": false,
+      "note": "Feminine noun; Windows/AD domain of an account; 'domena AD'"
+    },
+    "username": {
+      "translation": "nazwa użytkownika",
+      "keepEnglish": false,
+      "note": "Feminine noun; account name; also 'login' in Polish"
+    },
+    "audit log": {
+      "translation": "dziennik audytu",
+      "keepEnglish": false,
+      "note": "Masculine noun; security event log; 'log audytu' also used"
+    },
+    "dashboard": {
+      "translation": "pulpit nawigacyjny",
+      "keepEnglish": false,
+      "note": "Home overview page; masculine noun; established Polish software term (e.g. Power BI); 'panel' or 'dashboard' sometimes kept"
+    },
+    "settings": {
+      "translation": "ustawienia",
+      "keepEnglish": false,
+      "note": "Neuter plural noun; configuration pages; 'preferencje' when referring to user preferences"
+    },
+    "autosave": {
+      "translation": "automatyczne zapisywanie",
+      "keepEnglish": false,
+      "note": "Saved automatically when leaving a field; neuter noun; 'auto-zapis' (shorter form)"
+    },
+    "apply": {
+      "translation": "zastosuj",
+      "keepEnglish": false,
+      "note": "Button text; imperative verb form; 'zastosować' (infinitive)"
+    },
+    "certificate": {
+      "translation": "certyfikat",
+      "keepEnglish": false,
+      "note": "Masculine noun; server TLS certificate; 'certyfikat serwera'"
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "Subject Alternative Name on certificate; technical acronym kept as English"
+    },
+    "network share": {
+      "translation": "udział sieciowy",
+      "keepEnglish": false,
+      "note": "Masculine noun; SMB/NFS share for wordlist storage. This is the established term from Polish Windows localization; 'zasób sieciowy' also acceptable"
+    },
+    "mount": {
+      "translation": "zamontuj",
+      "keepEnglish": false,
+      "note": "This is a UI action (attach a network share to a path), so the glossary form is the imperative button verb, consistent with 'apply'→'zastosuj' and 'archive'→'archiwizuj'. Infinitive 'montować' / perfective 'zamontować'; status once attached: 'zamontowany'."
+    },
+    "cloud fleet": {
+      "translation": "flota instancji w chmurze",
+      "keepEnglish": false,
+      "note": "Rented cloud GPU instances; the prepositional 'w chmurze' reads more naturally than the genitive chain 'instancji chmury'. Shorter adjective form 'flota chmurowa' works where space is tight."
+    },
+    "provisioning": {
+      "translation": "inicjowanie",
+      "keepEnglish": false,
+      "note": "Starting cloud instances automatically; neuter noun 'inicjowanie'; 'aprowizacja' (alternate seen in some translated cloud docs)"
+    },
+    "budget": {
+      "translation": "budżet",
+      "keepEnglish": false,
+      "note": "Masculine noun; monthly cloud spending limit; 'budżet miesięczny'"
+    },
+    "threshold": {
+      "translation": "próg",
+      "keepEnglish": false,
+      "note": "Masculine noun; percentage of budget triggering action; 'próg budżetu'"
+    },
+    "drain": {
+      "translation": "opróżnianie",
+      "keepEnglish": false,
+      "note": "Admin-initiated graceful state: stop assigning new work to an agent, let its running tasks finish. 'Opróżnianie' (draining, process noun) fits a status badge ('Opróżnianie…'); action-button imperative is 'Opróżnij'. Avoid 'wyczerpanie' ('exhaustion/depletion') — it reads as a passive negative state, not a deliberate admin action."
+    },
+    "teardown": {
+      "translation": "likwidacja",
+      "keepEnglish": false,
+      "note": "Destroying a cloud instance; 'likwidacja' is the term actually used in Polish cloud/infra operations ('likwidacja zasobów'). 'Rozebranie' is literal 'disassembly' and reads oddly applied to a software instance. Verb: 'likwidować'."
+    },
+    "webhook": {
+      "translation": "webhook",
+      "keepEnglish": true,
+      "note": "HTTP callback for notifications; technical term kept as English in Polish security industry"
+    },
+    "notification": {
+      "translation": "powiadomienie",
+      "keepEnglish": false,
+      "note": "Neuter noun; in-app/email/webhook message; 'powiadomienia' (plural)"
+    },
+    "two-factor authentication": {
+      "translation": "uwierzytelnianie dwuskładnikowe",
+      "keepEnglish": false,
+      "note": "MFA; neuter noun; also 'uwierzytelnianie dwuczynnikowe'. In practice Polish UIs most often just keep the acronym '2FA' untranslated rather than using a Polish abbreviation — don't invent one (there is no established Polish abbreviation like 'UDF')."
+    },
+    "backup codes": {
+      "translation": "kody zapasowe",
+      "keepEnglish": false,
+      "note": "Masculine plural noun; one-time MFA recovery codes; also 'kody odzyskiwania'"
+    },
+    "authenticator app": {
+      "translation": "aplikacja uwierzytelniająca",
+      "keepEnglish": false,
+      "note": "TOTP app; feminine noun; also 'aplikacja TOTP'"
+    },
+    "session": {
+      "translation": "sesja",
+      "keepEnglish": false,
+      "note": "Feminine noun; logged-in browser session; 'sesja logowania'"
+    },
+    "API key": {
+      "translation": "klucz API",
+      "keepEnglish": false,
+      "note": "Masculine noun; personal key for HTTP API; 'klucz dostępu API'"
+    },
+    "branding": {
+      "translation": "branding",
+      "keepEnglish": true,
+      "note": "Custom app name, colours and logo. 'Branding' is a fully assimilated loanword in Polish business/marketing usage, and matches KrakenHashes's own 'Branding' settings tab. Literal 'znakowanie' means physical marking/labelling and doesn't carry the brand-identity sense."
+    },
+    "diagnostics": {
+      "translation": "diagnostyka",
+      "keepEnglish": false,
+      "note": "Feminine noun; troubleshooting/debug tools page; 'narzędzia diagnostyki'"
+    }
+  }
+}

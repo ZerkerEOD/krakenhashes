@@ -8,16 +8,13 @@
   "viewAll": "Alle Benachrichtigungen anzeigen",
   "deleteSelected": "{{count}} ausgewählte löschen",
   "selectAll": "Alle auswählen",
-
   "aria": {
     "bellButton": "Benachrichtigungen anzeigen"
   },
-
   "center": {
     "title": "Benachrichtigungszentrum",
     "description": "Ihre Benachrichtigungen anzeigen und verwalten"
   },
-
   "filters": {
     "category": "Kategorie",
     "status": "Status",
@@ -26,15 +23,14 @@
     "unread": "Ungelesen",
     "read": "Gelesen"
   },
-
   "categories": {
     "job": "Auftrag",
     "agent": "Agent",
     "security": "Sicherheit",
     "system": "System"
   },
-
   "types": {
+    "header": "Benachrichtigungstyp",
     "job_started": "Auftrag gestartet",
     "job_completed": "Auftrag abgeschlossen",
     "job_failed": "Auftrag fehlgeschlagen",
@@ -47,7 +43,6 @@
     "security_password_changed": "Passwort geändert",
     "webhook_failure": "Webhook-Fehler"
   },
-
   "typeDescriptions": {
     "job_started": "Wenn ein Auftrag startet",
     "job_completed": "Wenn ein Auftrag erfolgreich abgeschlossen wird",
@@ -61,13 +56,11 @@
     "security_password_changed": "Wenn Passwort geändert wird (obligatorisch)",
     "webhook_failure": "Wenn Webhook-Zustellung fehlschlägt"
   },
-
   "channels": {
     "inApp": "In-App",
     "email": "E-Mail",
     "webhook": "Webhook"
   },
-
   "settings": {
     "title": "Benachrichtigungseinstellungen",
     "description": "Konfigurieren Sie, wie und wann Sie Benachrichtigungen erhalten",
@@ -85,7 +78,6 @@
     "noWebhooksConfigured": "Keine aktiven Webhooks konfiguriert",
     "toggleAll": "Alle umschalten"
   },
-
   "webhooks": {
     "title": "Webhook-Konfiguration",
     "description": "Verwalten Sie Ihre Webhook-Integrationen",
@@ -110,9 +102,18 @@
     "test": "Webhook testen",
     "testUrl": "URL testen",
     "testSuccess": "Webhook-Test erfolgreich",
-    "testFailed": "Webhook-Test fehlgeschlagen"
+    "testFailed": "Webhook-Test fehlgeschlagen",
+    "secretExists": "Geheimnis ist gesetzt. Lassen Sie das Feld leer, um das aktuelle Geheimnis zu behalten, oder geben Sie einen neuen Wert ein, um es zu ersetzen.",
+    "invalidJson": "Ungültiges JSON-Format",
+    "noWebhooks": "Keine Webhooks konfiguriert. Erstellen Sie einen, um Benachrichtigungen über Webhook zu empfangen.",
+    "updated": "Webhook aktualisiert",
+    "created": "Webhook erstellt",
+    "deleted": "Webhook gelöscht",
+    "secretEditHelp": "Lassen Sie das Feld leer, um das vorhandene Geheimnis zu behalten",
+    "validation": {
+      "nameAndUrl": "Name und URL sind erforderlich"
+    }
   },
-
   "admin": {
     "title": "Benachrichtigungseinstellungen",
     "globalWebhook": {
@@ -140,7 +141,6 @@
       "empty": "Keine Benutzer-Webhooks konfiguriert"
     }
   },
-
   "auditLog": {
     "title": "Audit-Protokoll",
     "description": "Sicherheits- und kritische Ereignisse aller Benutzer",
@@ -175,21 +175,30 @@
     },
     "errors": {
       "loadFailed": "Audit-Protokoll konnte nicht geladen werden"
-    }
+    },
+    "system": "System"
   },
-
   "systemAlert": {
     "title": "Systemwarnung",
     "dismiss": "Verwerfen",
     "dismissAll": "Alle verwerfen"
   },
-
   "errors": {
     "fetchFailed": "Benachrichtigungen konnten nicht geladen werden",
     "markReadFailed": "Benachrichtigung konnte nicht als gelesen markiert werden",
     "deleteFailed": "Benachrichtigungen konnten nicht gelöscht werden",
+    "saveFailed": "Einstellungen konnten nicht gespeichert werden",
     "webhookCreateFailed": "Webhook konnte nicht erstellt werden",
     "webhookUpdateFailed": "Webhook konnte nicht aktualisiert werden",
-    "webhookDeleteFailed": "Webhook konnte nicht gelöscht werden"
+    "webhookDeleteFailed": "Webhook konnte nicht gelöscht werden",
+    "webhookSaveFailed": "Webhook konnte nicht gespeichert werden"
+  },
+  "common": {
+    "actions": "Aktionen",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "delete": "Löschen"
   }
 }

@@ -1,0 +1,13 @@
+{
+  "title": "'Pot' is short for hashcat's potfile; this page lists every hash that has been cracked.",
+  "columns": {
+    "originalHash": "The original hash string as uploaded/cracked, not the recovered password.",
+    "domain": "The Windows/AD domain extracted from the hash (e.g. NTLM, Kerberos), not a web domain."
+  },
+  "filter": {
+    "filteredBy": "{{param}} is the name of the filter field (e.g. 'client', 'hashlist'); {{value}} is its current value."
+  },
+  "navigation": {
+    "backToSource": "Generic back button; returns to whichever list (job, client, or hashlist page) the user came from."
+  }
+}

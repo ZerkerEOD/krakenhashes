@@ -16,7 +16,14 @@
     "idle": "空闲",
     "error": "错误",
     "enabled": "已启用",
-    "disabled": "已禁用"
+    "disabled": "已禁用",
+    "updatePending": "待更新",
+    "updateFailed": "更新失败",
+    "updating": "更新中",
+    "updateStatus": "更新状态",
+    "currentVersion": "当前版本",
+    "targetVersion": "更新至",
+    "standaloneNotice": "这是独立代理，不会自动更新。"
   },
   "details": {
     "title": "代理详情",
@@ -36,7 +43,8 @@
     "type": "类型",
     "name": "名称",
     "runtime": "运行时",
-    "specs": "规格"
+    "specs": "规格",
+    "defaultDeviceType": "GPU"
   },
   "actions": {
     "viewDetails": "查看详情",
@@ -44,7 +52,8 @@
     "restart": "重启",
     "deactivateVoucher": "停用凭证",
     "removeAgent": "移除代理",
-    "clearBusyStatus": "清除忙碌状态"
+    "clearBusyStatus": "清除忙碌状态",
+    "retry": "重试"
   },
   "vouchers": {
     "title": "凭证",
@@ -56,15 +65,53 @@
     "available": "可用",
     "claimed": "已认领",
     "continuous": "连续使用",
-    "singleUse": "一次性"
+    "singleUse": "一次性",
+    "pageTitle": "注册码管理",
+    "pageDescription": "代理用来在此服务器上注册的注册码。",
+    "generate": "生成注册码",
+    "includeInactive": "包含不活跃项",
+    "active": "活跃",
+    "inactive": "不活跃",
+    "systemLabel": "系统",
+    "manage": "管理注册码"
   },
   "downloads": {
+    "expectedVersion": "预期：v{{version}}",
     "title": "代理下载",
     "selectPlatform": "选择平台",
     "downloadAgent": "下载代理",
     "version": "版本 {{version}}",
     "download": "下载",
     "copyUrl": "复制 URL",
+    "copied": "已复制！"
+  },
+  "version": {
+    "updateAvailable": "有可用更新",
+    "upToDate": "已是最新版本"
+  },
+  "install": {
+    "sectionTitle": "安装代理",
+    "sectionBlurb": "选择您的操作系统以获取确切的安装命令。自动更新启动器将保持代理为最新版本；独立二进制文件需手动管理。",
+    "dialogTitle": "在 {{os}} 上安装代理",
+    "mode": "模式",
+    "modeAutoUpdate": "自动更新（推荐）",
+    "modeStandalone": "独立",
+    "architecture": "架构",
+    "key": "注册码（密钥）",
+    "registerLater": "稍后注册（无注册码）",
+    "registerLaterNote": "未选择注册码——代理需要注册码才能注册。请在上面生成一个或稍后注册。",
+    "generateCode": "生成新注册码",
+    "serverUrl": "服务器 URL",
+    "noBinaries": "此平台暂无可用的二进制文件。",
+    "serviceTitle": "安装为服务（登录时启动）",
+    "serviceRootUnix": "以您的用户身份从此文件夹运行并在登录时启动——不需要 root。对于在登录前启动的系统范围服务，请添加 --system（需要 sudo）。",
+    "serviceRootWindows": "通过计划任务以您的用户身份在登录时运行——不需要管理员。对于系统服务，请在提升的 PowerShell 中添加 --system。",
+    "runTitle": "在终端中运行",
+    "downloadTitle": "直接下载",
+    "downloadButton": "下载",
+    "launcherBlurb": "启动器监控代理并在发布新版本时自动更新其二进制文件。",
+    "standaloneBlurb": "独立代理不会自动更新——重新下载即可升级。",
+    "copy": "复制",
     "copied": "已复制！"
   },
   "errors": {
@@ -140,7 +187,8 @@
       "continuousLabel": "连续使用（代码可重复使用）",
       "claimCodeLabel": "您的认领代码：",
       "continuousDescription": "此代码可多次用于注册代理。",
-      "singleUseDescription": "此代码只能使用一次。"
+      "singleUseDescription": "此代码只能使用一次。",
+      "systemLabel": "系统代理（服务所有团队）"
     },
     "clearStatus": {
       "title": "清除忙碌状态",
@@ -183,7 +231,9 @@
     "owner": "所有者",
     "machineName": "机器名称",
     "operatingSystem": "操作系统",
-    "agentVersion": "代理版本"
+    "agentVersion": "代理版本",
+    "systemOwner": "系统",
+    "registeredBy": "由 {{name}} 注册"
   },
   "common": {
     "unknown": "未知",
@@ -215,7 +265,10 @@
     "temperature": "温度",
     "utilization": "利用率",
     "fanSpeed": "风扇转速",
-    "hashRate": "哈希速率"
+    "hashRate": "哈希速率",
+    "noDataAvailable": "无可用数据",
+    "deviceFallback": "设备 {{id}}",
+    "allDevices": "所有设备"
   },
   "placeholders": {
     "enterHashcatParameters": "输入 Hashcat 参数..."
@@ -261,6 +314,56 @@
       "24Hours": "全天候",
       "24HoursDesc1": "所有日期：00:00 - 23:59",
       "24HoursDesc2": "代理持续运行"
+    }
+  },
+  "diagReasons": {
+    "noCompatibleJob": "没有兼容的任务",
+    "blocklisted": "基准测试已列入黑名单",
+    "benchmarking": "正在运行基准测试",
+    "outsideSchedule": "不在计划工作时间内",
+    "agentDisabled": "代理已禁用",
+    "shuttingDown": "正在关闭",
+    "rejectionCooldown": "子任务拒绝冷却期",
+    "noSchedulableWork": "没有任务有工作可分配",
+    "atCapacity": "兼容的任务已满容"
+  },
+  "activity": {
+    "currentWork": "当前工作",
+    "job": "任务",
+    "taskStatus": "子任务状态",
+    "jobProgress": "任务进度",
+    "taskProgress": "子任务进度",
+    "keyspaceRange": "密钥空间范围",
+    "started": "已启动",
+    "lastCheckpoint": "最后检查点",
+    "whyNotWorking": "此代理为什么未工作",
+    "recentFailuresAlert_other": "最近的子任务失败（过去几分钟内 {{count}} 个）",
+    "lastFailedJob": "最后失败的任务：",
+    "lastFailureTime": "最后失败 {{time}}",
+    "lastSeenTime": "最后在线 {{time}}",
+    "occurrencesSuffix_other": " · {{countDisplay}} 次",
+    "idleNoDiagnostics": "此代理处于空闲状态。过去几分钟内没有调度诊断——它可能离线、已禁用或只是在等待工作。"
+  },
+  "storage": {
+    "title": "存储层级",
+    "tiers": {
+      "fullCache": "完整缓存——保留所有列表",
+      "onDemand": "按需——下载 + LRU 驱逐",
+      "networkDirect": "网络直连——从挂载的共享中读取"
+    },
+    "helperText": {
+      "fullCache": "在本地下载并保留所有字典/规则（最快启动）。",
+      "onDemand": "通过 HTTP 按每个子任务下载并在磁盘压力下驱逐最近最少使用的列表。",
+      "networkDirect": "直接从挂载在此代理主机上的网络共享中读取字典/规则（无本地副本）。"
+    },
+    "mountPathLabel": "网络共享挂载路径（只读，在代理主机上）",
+    "mountPathHelper": "操作员在此代理的主机上挂载共享；代理只从中读取。凭证由操作员输入，永远不由服务器发送。",
+    "messages": {
+      "enterMountPathHint": "输入此代理主机上的只读挂载路径，然后自动保存。",
+      "tierUpdated": "存储层级已更新",
+      "tierUpdateFailed": "更新存储层级失败",
+      "mountPathUpdated": "挂载路径已更新",
+      "mountPathUpdateFailed": "更新挂载路径失败"
     }
   }
 }

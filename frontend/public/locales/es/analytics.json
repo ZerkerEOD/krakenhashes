@@ -19,7 +19,18 @@
     "endDate": "Fecha de fin",
     "customPatterns": "Patrones personalizados (separados por comas)",
     "customPatternsPlaceholder": "ej., goog, ggl, micro, soft",
-    "customPatternsHelper": "Agrega variaciones personalizadas del nombre de la organizacion para verificar"
+    "customPatternsHelper": "Agrega variaciones personalizadas del nombre de la organizacion para verificar",
+    "quickSelect": "Selección rápida",
+    "datePresets": {
+      "lastMonth": "Últimos 30 días",
+      "lastQuarter": "Últimos 3 meses",
+      "last6Months": "Últimos 6 meses",
+      "lastYear": "Últimos 12 meses",
+      "priorMonth": "Mes anterior",
+      "priorQuarter": "Trimestre anterior",
+      "prior6Months": "6 meses anteriores",
+      "priorYear": "Año anterior"
+    }
   },
   "hashlistSelection": {
     "title": "Listas de hashes",
@@ -32,7 +43,8 @@
     "cracked": "Descifrados",
     "status": "Estado",
     "active": "Activo",
-    "archived": "Archivado"
+    "archived": "Archivado",
+    "titleWithCount": "{{title}} ({{selected}}/{{total}})"
   },
   "table": {
     "dateRange": "Rango de fechas",
@@ -58,7 +70,16 @@
     "retry": "Reintentar",
     "delete": "Eliminar",
     "exportHcmask": "Exportar .hcmask",
-    "exportTxt": "Exportar .txt"
+    "exportTxt": "Exportar .txt",
+    "exportInternalPdf": "PDF interno",
+    "exportExternalPdf": "PDF externo"
+  },
+  "pdfExport": {
+    "internalConfirmTitle": "¿Exportar informe interno?",
+    "internalConfirmBody": "El PDF interno contiene contraseñas en texto plano, nombres de usuario y valores de hash recuperados. Manéjalo y almacénalo solo a través de canales seguros aprobados. Esta exportación se registra en el registro de auditoría.",
+    "confirm": "Descargar PDF interno",
+    "cancel": "Cancelar",
+    "error": "No se pudo generar el PDF. Por favor, inténtalo de nuevo."
   },
   "messages": {
     "selectClient": "Por favor selecciona un cliente",
@@ -80,7 +101,8 @@
     "copiedSuccess": "Nombres de usuario copiados al portapapeles!",
     "noRecommendations": "Sin recomendaciones especificas en este momento. Las politicas de contrasenas parecen adecuadas.",
     "top50Hashes": "Mostrando los 50 hashes mas reutilizados",
-    "top50PartialCracks": "Mostrando los 50 principales descifrados parciales"
+    "top50PartialCracks": "Mostrando los 50 principales descifrados parciales",
+    "confirmDeleteReport": "¿Eliminar este informe de análisis? No se puede deshacer."
   },
   "sections": {
     "lengthDistribution": "Distribucion de longitud",
@@ -117,7 +139,8 @@
     "kerberos": "Kerberos",
     "encryptionTypes": "Tipos de cifrado",
     "linkedHashCorrelation": "Correlacion de hashes vinculados LM/NTLM",
-    "reusedPasswords": "Contrasenas reutilizadas por ocurrencia"
+    "reusedPasswords": "Contrasenas reutilizadas por ocurrencia",
+    "overviewWithDomain": "{{base}} - {{domain}}"
   },
   "charts": {
     "count": "Cantidad",
@@ -197,7 +220,8 @@
     "totalEstimatedKeyspace": "Espacio de claves estimado total",
     "underOrEqual7Chars": "<=7 caracteres:",
     "8To14Chars": "8-14 caracteres:",
-    "partiallyCracked": "Parcialmente descifrados:"
+    "partiallyCracked": "Parcialmente descifrados:",
+    "domainFilterTabs": "Pestañas de filtro de dominio"
   },
   "cards": {
     "totalHashes": "Total de hashes",
@@ -334,11 +358,15 @@
     "chars": "caracteres"
   },
   "pagination": {
-    "masks": "{{from}}-{{to}} de {{count}} mascaras"
+    "masks_many": "{{from}}-{{to}} de {{count}} máscaras",
+    "masks_one": "{{from}}-{{to}} de {{count}} máscara",
+    "masks_other": "{{from}}-{{to}} de {{count}} máscaras"
   },
   "export": {
     "header": "# Mascaras de Hashcat LM a NTLM",
-    "generatedFrom": "# Generado de {{count}} contrasenas LM descifradas",
+    "generatedFrom_many": "# Generado a partir de {{count}} contraseñas LM descifradas",
+    "generatedFrom_one": "# Generado a partir de {{count}} contraseña LM descifrada",
+    "generatedFrom_other": "# Generado a partir de {{count}} contraseñas LM descifradas",
     "totalMasks": "# Total de mascaras: {{count}}",
     "totalKeyspace": "# Espacio de claves estimado total: {{keyspace}}",
     "format": "# Formato: mascara | patron | cantidad | % coincidencia | espacio de claves | ejemplo"
@@ -394,5 +422,13 @@
     "largestSingleReach": "Mayor alcance de una sola cuenta",
     "computers": "Equipos",
     "notApplicable": "n/d"
+  },
+  "bloodhoundUpload": {
+    "attachButton": "Adjuntar volcado de BloodHound (opcional)",
+    "filesSelected_many": "{{count}} archivos seleccionados",
+    "filesSelected_one": "{{count}} archivo seleccionado",
+    "filesSelected_other": "{{count}} archivos seleccionados",
+    "clear": "Limpiar",
+    "helperText": "Carga un archivo .zip de SharpHound (o archivos .json de BloodHound) para enriquecer el informe con análisis de privilegios de AD. El volcado se procesa en memoria y nunca se almacena — vuelve a cargarlo para analizarlo de nuevo."
   }
 }

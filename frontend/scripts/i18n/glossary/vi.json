@@ -1,0 +1,355 @@
+{
+  "language": "vi",
+  "formality": "Neutral-polite 'bạn' for direct address in instructions/errors; prefer impersonal, subject-less imperative phrasing for buttons and labels, as Vietnamese software UI conventionally does. Avoid both overly formal pronouns ('quý khách', 'ngài') and casual/intimate ones ('mày', 'cậu') — this is professional security tooling for pentesters, not a consumer app.",
+  "styleNotes": "1. Keep hashcat/pentest jargon that Vietnamese security professionals already use verbatim in English (hash, wordlist, mask, charset, keyspace, chunk, potfile, entropy, agent, voucher, heartbeat, binary, webhook, SAN, loopback, brute force, domain, benchmark, association attack) instead of coining unfamiliar Vietnamese equivalents. 2. For short compound UI labels use Vietnamese noun+modifier word order (e.g. 'agent tối đa', 'agent dư'), not an English-order calque. 3. Watch for Vietnamese words with a strong unrelated everyday meaning that would mislead users in this context — e.g. 'điểm chuẩn' (university admission cutoff) for benchmark, 'tiến trình' (OS process) for progress, bare 'chứng chỉ' (diploma) for a TLS certificate — and pick an unambiguous alternative instead. 4. Keep one Vietnamese term per English concept across the whole UI (e.g. 'archive' and 'retention' must not both become 'lưu trữ'; 'claim code' should read as a 'voucher' code since the product treats them as synonyms).",
+  "terms": {
+    "hash": {
+      "translation": "hash",
+      "keepEnglish": true,
+      "note": "Universal term in Vietnamese security/IT; no localization needed"
+    },
+    "hashlist": {
+      "translation": "danh sách hash",
+      "keepEnglish": false,
+      "note": "Descriptive translation; 'danh sách' = list"
+    },
+    "hash type": {
+      "translation": "loại hash",
+      "keepEnglish": false,
+      "note": "Standard Vietnamese for hash classification"
+    },
+    "crack": {
+      "translation": "bẻ khóa",
+      "keepEnglish": false,
+      "note": "'khai thác' means to exploit a vulnerability — a different infosec concept; 'bẻ khóa' is the standard Vietnamese verb for recovering a password from a hash"
+    },
+    "cracked": {
+      "translation": "đã bẻ khóa",
+      "keepEnglish": false,
+      "note": "Past-participle form of the corrected verb 'bẻ khóa', not 'khai thác' (exploit)"
+    },
+    "cracked hashes": {
+      "translation": "hash đã bẻ khóa",
+      "keepEnglish": false
+    },
+    "plaintext": {
+      "translation": "plaintext",
+      "keepEnglish": true,
+      "note": "Technical term; Vietnamese counterpart 'văn bản rõ' rarely used in security tools"
+    },
+    "potfile": {
+      "translation": "potfile",
+      "keepEnglish": true,
+      "note": "Hashcat-specific filename format; kept in all languages"
+    },
+    "client potfile": {
+      "translation": "potfile của khách hàng",
+      "keepEnglish": false
+    },
+    "wordlist": {
+      "translation": "wordlist",
+      "keepEnglish": true,
+      "note": "Hashcat/pentest term Vietnamese security professionals write verbatim, parallel to 'mask'/'charset'/'keyspace'; 'danh sách từ' is understandable but not how practitioners actually say it"
+    },
+    "rule": {
+      "translation": "quy tắc",
+      "keepEnglish": false,
+      "note": "Standard for hashcat rules"
+    },
+    "rule file": {
+      "translation": "tệp quy tắc",
+      "keepEnglish": false
+    },
+    "mask": {
+      "translation": "mask",
+      "keepEnglish": true,
+      "note": "Hashcat mask syntax term; no Vietnamese equivalent in professional usage"
+    },
+    "charset": {
+      "translation": "charset",
+      "keepEnglish": true,
+      "note": "Technical charset terminology retained in Vietnamese security tools"
+    },
+    "attack mode": {
+      "translation": "chế độ tấn công",
+      "keepEnglish": false
+    },
+    "brute force": {
+      "translation": "brute force",
+      "keepEnglish": true,
+      "note": "Widely used in Vietnamese security documentation; 'vét cạn' less common"
+    },
+    "dictionary attack": {
+      "translation": "tấn công từ điển",
+      "keepEnglish": false
+    },
+    "hybrid attack": {
+      "translation": "tấn công hỗn hợp",
+      "keepEnglish": false
+    },
+    "association attack": {
+      "translation": "association attack",
+      "keepEnglish": true,
+      "note": "hashcat mode 9; no established Vietnamese term exists for this niche feature, and a literal 'tấn công liên kết' risks reading as a generic 'linked attack'"
+    },
+    "keyspace": {
+      "translation": "keyspace",
+      "keepEnglish": true,
+      "note": "Standard in Vietnamese security contexts; 'không gian khóa' rarely used"
+    },
+    "effective keyspace": {
+      "translation": "keyspace hiệu dụng",
+      "keepEnglish": false,
+      "note": "'hiệu dụng' (effective/resultant value, as in 'điện áp hiệu dụng' = RMS voltage) is the correct technical modifier for a computed total; 'hiệu quả' means efficient/produces good results, the wrong nuance"
+    },
+    "chunk": {
+      "translation": "chunk",
+      "keepEnglish": true,
+      "note": "Common term in Vietnamese cracking systems; no standard translation"
+    },
+    "task": {
+      "translation": "tác vụ",
+      "keepEnglish": false
+    },
+    "job": {
+      "translation": "công việc",
+      "keepEnglish": false
+    },
+    "preset job": {
+      "translation": "công việc cài sẵn",
+      "keepEnglish": false
+    },
+    "workflow": {
+      "translation": "quy trình làm việc",
+      "keepEnglish": false
+    },
+    "loopback": {
+      "translation": "loopback",
+      "keepEnglish": true,
+      "note": "Technical term in attack methodology; Vietnamese equivalent 'vòng lặp' not used in this context"
+    },
+    "priority": {
+      "translation": "ưu tiên",
+      "keepEnglish": false
+    },
+    "max agents": {
+      "translation": "agent tối đa",
+      "keepEnglish": false
+    },
+    "overflow": {
+      "translation": "agent dư",
+      "keepEnglish": false,
+      "note": "Noun+adjective order matches 'agent tối đa'; 'dư' (surplus/extra) matches the definition and fixes the English-order calque 'tràn agent'"
+    },
+    "benchmark": {
+      "translation": "benchmark",
+      "keepEnglish": true,
+      "note": "'điểm chuẩn' means university admission cutoff score in everyday Vietnamese and would badly confuse users; 'benchmark' is the standard loanword for a speed test in Vietnamese tech/security usage"
+    },
+    "hash rate": {
+      "translation": "tốc độ hash",
+      "keepEnglish": false
+    },
+    "progress": {
+      "translation": "tiến độ",
+      "keepEnglish": false,
+      "note": "'tiến trình' means 'process' (OS/computing sense, e.g. Task Manager) and would clash with this app's job/task/agent terminology; 'tiến độ' is the standard term for completion progress (e.g. 'thanh tiến độ' = progress bar)"
+    },
+    "agent": {
+      "translation": "agent",
+      "keepEnglish": true,
+      "note": "Universal term in distributed computing; retained across Vietnamese documentation"
+    },
+    "device": {
+      "translation": "thiết bị",
+      "keepEnglish": false
+    },
+    "claim code": {
+      "translation": "mã voucher",
+      "keepEnglish": false,
+      "note": "Matches 'voucher', its synonym per the glossary definition; 'mã yêu cầu' (request code) doesn't convey registering/claiming an agent"
+    },
+    "voucher": {
+      "translation": "voucher",
+      "keepEnglish": true,
+      "note": "Registration voucher concept; 'voucher' used in Vietnamese e-commerce/tech; alternative 'phiếu'"
+    },
+    "heartbeat": {
+      "translation": "heartbeat",
+      "keepEnglish": true,
+      "note": "Technical networking term; Vietnamese 'nhịp tim' not used in this context"
+    },
+    "offline buffer": {
+      "translation": "thời gian gia hạn ngoại tuyến",
+      "keepEnglish": false,
+      "note": "This is a grace/wait period before an agent is marked offline, not a data buffer; 'bộ đệm' would mislead technical users into thinking of a memory/data buffer"
+    },
+    "auto-update": {
+      "translation": "tự động cập nhật",
+      "keepEnglish": false
+    },
+    "binary": {
+      "translation": "binary",
+      "keepEnglish": true,
+      "note": "Commonly 'binary' in Vietnamese; 'tệp nhị phân' is overly formal"
+    },
+    "client": {
+      "translation": "khách hàng",
+      "keepEnglish": false,
+      "note": "Business entity; 'khách hàng' more natural than keeping 'client'"
+    },
+    "team": {
+      "translation": "nhóm",
+      "keepEnglish": false
+    },
+    "member": {
+      "translation": "thành viên",
+      "keepEnglish": false
+    },
+    "owner": {
+      "translation": "chủ sở hữu",
+      "keepEnglish": false
+    },
+    "retention": {
+      "translation": "thời gian lưu giữ",
+      "keepEnglish": false
+    },
+    "archive": {
+      "translation": "lưu trữ",
+      "keepEnglish": false
+    },
+    "analytics report": {
+      "translation": "báo cáo phân tích",
+      "keepEnglish": false
+    },
+    "password reuse": {
+      "translation": "tái sử dụng mật khẩu",
+      "keepEnglish": false
+    },
+    "hash reuse": {
+      "translation": "tái sử dụng hash",
+      "keepEnglish": false
+    },
+    "complexity": {
+      "translation": "độ phức tạp",
+      "keepEnglish": false
+    },
+    "entropy": {
+      "translation": "entropy",
+      "keepEnglish": true,
+      "note": "Technical information-theory term; no practical Vietnamese translation in security UI"
+    },
+    "domain": {
+      "translation": "domain",
+      "keepEnglish": true,
+      "note": "Windows/AD domain; Vietnamese sysadmins and pentesters say 'domain' verbatim ('domain controller', 'gia nhập domain'); 'miền' reads as a generic/geographic term and is not used for AD domains in practice"
+    },
+    "username": {
+      "translation": "tên người dùng",
+      "keepEnglish": false
+    },
+    "audit log": {
+      "translation": "nhật ký kiểm toán",
+      "keepEnglish": false,
+      "note": "Standard formal Vietnamese security/compliance term for an audit trail (used in VN ISO 27001/PCI-DSS translations)"
+    },
+    "dashboard": {
+      "translation": "trang tổng quan",
+      "keepEnglish": false,
+      "note": "'bảng điều khiển' implies an active control panel; this is a passive home overview page, which Vietnamese software (e.g. WordPress) renders as 'trang tổng quan'"
+    },
+    "settings": {
+      "translation": "cài đặt",
+      "keepEnglish": false
+    },
+    "autosave": {
+      "translation": "tự động lưu",
+      "keepEnglish": false
+    },
+    "apply": {
+      "translation": "áp dụng",
+      "keepEnglish": false,
+      "note": "Standard button label in Vietnamese UI"
+    },
+    "certificate": {
+      "translation": "chứng chỉ số",
+      "keepEnglish": false,
+      "note": "Bare 'chứng chỉ' reads as an educational/professional diploma in Vietnamese; TLS/X.509 certificates are 'chứng chỉ số' (digital certificate) in Vietnamese hosting/security usage"
+    },
+    "SAN": {
+      "translation": "SAN",
+      "keepEnglish": true,
+      "note": "X.509 certificate technical acronym; kept across all languages"
+    },
+    "network share": {
+      "translation": "chia sẻ mạng",
+      "keepEnglish": false
+    },
+    "mount": {
+      "translation": "gắn kết",
+      "keepEnglish": false
+    },
+    "cloud fleet": {
+      "translation": "đội GPU đám mây",
+      "keepEnglish": false
+    },
+    "provisioning": {
+      "translation": "cấp phát",
+      "keepEnglish": false
+    },
+    "budget": {
+      "translation": "ngân sách",
+      "keepEnglish": false
+    },
+    "threshold": {
+      "translation": "ngưỡng",
+      "keepEnglish": false
+    },
+    "drain": {
+      "translation": "rút dần",
+      "keepEnglish": false,
+      "note": "Conveys letting running work finish while not accepting new work (graceful wind-down); 'xả' (flush/discharge) suggests forceful draining and misses that nuance"
+    },
+    "teardown": {
+      "translation": "tháo dỡ",
+      "keepEnglish": false
+    },
+    "webhook": {
+      "translation": "webhook",
+      "keepEnglish": true,
+      "note": "Standard across Vietnamese technical documentation; retained API concept"
+    },
+    "notification": {
+      "translation": "thông báo",
+      "keepEnglish": false
+    },
+    "two-factor authentication": {
+      "translation": "xác thực hai yếu tố",
+      "keepEnglish": false
+    },
+    "backup codes": {
+      "translation": "mã dự phòng",
+      "keepEnglish": false
+    },
+    "authenticator app": {
+      "translation": "ứng dụng xác thực",
+      "keepEnglish": false
+    },
+    "session": {
+      "translation": "phiên",
+      "keepEnglish": false
+    },
+    "API key": {
+      "translation": "khóa API",
+      "keepEnglish": false
+    },
+    "branding": {
+      "translation": "thương hiệu",
+      "keepEnglish": false
+    },
+    "diagnostics": {
+      "translation": "chẩn đoán",
+      "keepEnglish": false
+    }
+  }
+}
