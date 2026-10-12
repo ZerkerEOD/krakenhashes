@@ -39,7 +39,7 @@ With the release of version 2.0.0, it should be a working for it's intended uses
 
 -   Penetration testing teams coordinating attacks
 -   Forensic investigators recovering protected evidence
--   Red teams executing credential stuffing attacks
+-   Red teams validating credential hygiene and password policy
 -   Research analyzing hash vulnerabilities
 -   Security training environments
 
