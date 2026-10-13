@@ -83,6 +83,28 @@ import App from './App';
 // Initialize i18n - must be imported before App
 import './i18n';
 
+// Self-heal stale dynamic-import chunks after a redeploy: when Vite can't fetch a
+// lazily-imported chunk (its content-hash changed since this tab loaded index.html),
+// reload once to pull the fresh index + chunks instead of dead-ending in the
+// ErrorBoundary. Guarded with a 10s cooldown so a genuinely-missing chunk can't loop.
+window.addEventListener('vite:preloadError', () => {
+  const KEY = 'kh:preload-reloaded-at';
+  let last = 0;
+  try {
+    last = Number(sessionStorage.getItem(KEY) || 0);
+  } catch {
+    /* sessionStorage unavailable (e.g. private mode) — fall through and reload once */
+  }
+  if (Date.now() - last > 10_000) {
+    try {
+      sessionStorage.setItem(KEY, String(Date.now()));
+    } catch {
+      /* ignore write failure */
+    }
+    window.location.reload();
+  }
+});
+
 // Loading fallback component for i18n lazy loading
 const I18nLoadingFallback = () => (
     <Box

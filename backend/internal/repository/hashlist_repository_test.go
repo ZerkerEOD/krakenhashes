@@ -100,10 +100,10 @@ func TestHashlistRepository_GetByID_WithExcludeFromPotfile(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name               string
-		hashlistID         int64
-		expectedExcluded   bool
-		description        string
+		name             string
+		hashlistID       int64
+		expectedExcluded bool
+		description      string
 	}{
 		{
 			name:             "retrieve excluded hashlist",
@@ -325,4 +325,29 @@ func TestHashlistRepository_IsExcludedFromPotfile_PerformanceCheck(t *testing.T)
 		"IsExcludedFromPotfile should be fast (avg: %v)", avgDuration)
 
 	t.Logf("IsExcludedFromPotfile average execution time: %v (%d iterations)", avgDuration, iterations)
+}
+
+// TestHashlistRepository_ListWithTeamFilter_EmptyReturnsNonNilSlice guards issue #114:
+// a teams-enabled list for a team with no matching (or only-archived) hashlists must
+// return a non-nil empty slice so the JSON response is [] and not null. A null `data`
+// crashes the frontend live-query predicate and the Hashlist view errors out instead
+// of rendering an empty table.
+func TestHashlistRepository_ListWithTeamFilter_EmptyReturnsNonNilSlice(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	repo := NewHashListRepository(db)
+	ctx := context.Background()
+
+	// Teams enabled, scoped to a team that has no client_teams mappings → zero rows.
+	params := ListHashlistsParams{
+		Limit:        50,
+		Offset:       0,
+		TeamsEnabled: true,
+		TeamIDs:      []uuid.UUID{uuid.New()},
+	}
+
+	hashlists, total, err := repo.ListWithTeamFilter(ctx, params)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), total, "expected zero hashlists for a team with no mappings")
+	assert.NotNil(t, hashlists, "must be a non-nil slice so JSON marshals to [] not null (issue #114)")
+	assert.Len(t, hashlists, 0)
 }

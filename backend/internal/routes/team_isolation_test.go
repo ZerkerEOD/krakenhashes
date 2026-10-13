@@ -358,3 +358,28 @@ func TestTeamIsolation_FixtureSanity(t *testing.T) {
 		t.Fatalf("owner potfile download: want 200 with fixture content, got %d %q", rec.Code, rec.Body.String())
 	}
 }
+
+// TestHashlistList_EmptyTeam_ReturnsEmptyArray guards issue #114 at the HTTP boundary:
+// userB is in Team B, whose Client B has no hashlists seeded. The list endpoint must
+// return 200 with "data":[] — not "data":null (which crashes the frontend Hashlist
+// view's live-query predicate) and not a 500.
+func TestHashlistList_EmptyTeam_ReturnsEmptyArray(t *testing.T) {
+	requireTestDB(t)
+	database := testutil.SetupTestDB(t)
+	f := seedIsolationFixtures(t, database, true)
+	teamSvc := newTeamService(database)
+	teamSvc.InvalidateTeamsEnabledCache()
+	router := newIsolationRouter(t, database, f.dataDir, teamSvc)
+
+	rec := do(router, f.userB, "GET", "/api/hashlists", "", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("userB GET /api/hashlists: want 200, got %d %s", rec.Code, strings.TrimSpace(rec.Body.String()))
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, `"data":null`) {
+		t.Fatalf("issue #114 regression: empty team list returned null data: %s", body)
+	}
+	if !strings.Contains(body, `"data":[]`) {
+		t.Fatalf("expected \"data\":[] for a team with no hashlists, got: %s", body)
+	}
+}

@@ -126,7 +126,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
       queryFn: async () => (await api.get<ApiHashlistResponse>('/api/hashlists', { params })).data,
       placeholderData: keepPreviousData,
     },
-    { tier: 'list', when: (d) => Boolean(d?.data.some((h) => h.status === 'uploading' || h.status === 'processing' || h.status === 'deleting')) }
+    { tier: 'list', when: (d) => Boolean(d?.data?.some((h) => h.status === 'uploading' || h.status === 'processing' || h.status === 'deleting')) }
   );
   const hashlists = query.data?.data ?? [];
   const rowCount = query.data?.total_count ?? 0;
