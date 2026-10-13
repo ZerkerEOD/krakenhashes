@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import PotTable from '../components/pot/PotTable';
 import { potService } from '../services/pot';
 import { api } from '../services/api';
+import { useToast } from '../components/ui';
 
 interface HashlistOption {
   id: number;
@@ -15,6 +16,7 @@ interface HashlistOption {
 export default function Pot() {
   const { t } = useTranslation('pot');
   const navigate = useNavigate();
+  const toast = useToast();
   const [hashlists, setHashlists] = useState<HashlistOption[]>([]);
   const [hashlistsLoading, setHashlistsLoading] = useState(false);
 
@@ -22,18 +24,22 @@ export default function Pot() {
     const loadHashlists = async () => {
       try {
         setHashlistsLoading(true);
-        const response = await api.get('/api/hashlists');
-        const withCracks = (response.data.hashlists || [])
+        // The list endpoint returns { data: [...] } and defaults to 50 rows; pass a
+        // high limit so every hashlist that has cracks can appear in the picker.
+        const response = await api.get('/api/hashlists', { params: { limit: 1000 } });
+        const withCracks = (response.data.data || [])
           .filter((h: any) => h.cracked_hashes > 0)
           .map((h: any) => ({ id: h.id, name: h.name, cracked_hashes: h.cracked_hashes }));
         setHashlists(withCracks);
       } catch (err) {
         console.error('Error loading hashlists:', err);
+        toast.error(t('errors.loadHashlistFailed') as string);
       } finally {
         setHashlistsLoading(false);
       }
     };
     loadHashlists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async (limit: number, offset: number, search?: string) => {
