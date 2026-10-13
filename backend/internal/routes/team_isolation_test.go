@@ -383,3 +383,45 @@ func TestHashlistList_EmptyTeam_ReturnsEmptyArray(t *testing.T) {
 		t.Fatalf("expected \"data\":[] for a team with no hashlists, got: %s", body)
 	}
 }
+
+// TestTeamIsolation_ClientList covers team scoping + ?team_id= narrowing on the
+// clients list (team-filter backend): a user sees only their own team's clients, a
+// foreign team_id never widens a non-admin, and an admin can narrow by team_id.
+func TestTeamIsolation_ClientList(t *testing.T) {
+	requireTestDB(t)
+	database := testutil.SetupTestDB(t)
+	f := seedIsolationFixtures(t, database, true)
+	teamSvc := newTeamService(database)
+	teamSvc.InvalidateTeamsEnabledCache()
+	router := newIsolationRouter(t, database, f.dataDir, teamSvc)
+
+	body := func(u *models.User, path string) string {
+		rec := do(router, u, "GET", path, "", "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s as %s: want 200, got %d %s", path, u.Username, rec.Code, rec.Body.String())
+		}
+		return rec.Body.String()
+	}
+	has := func(s, sub string) bool { return strings.Contains(s, sub) }
+
+	// userA (Team A) sees Client A only.
+	if b := body(f.userA, "/api/clients"); !has(b, "Client A") || has(b, "Client B") {
+		t.Fatalf("userA clients: want Client A only, got %s", b)
+	}
+	// userB (Team B) sees Client B only.
+	if b := body(f.userB, "/api/clients"); !has(b, "Client B") || has(b, "Client A") {
+		t.Fatalf("userB clients: want Client B only, got %s", b)
+	}
+	// A foreign team_id never widens a non-admin.
+	if b := body(f.userA, "/api/clients?team_id="+f.teamB.String()); !has(b, "Client A") || has(b, "Client B") {
+		t.Fatalf("userA with Team B id: want Client A only, got %s", b)
+	}
+	// Admin is unrestricted by default.
+	if b := body(f.admin, "/api/clients"); !has(b, "Client A") || !has(b, "Client B") {
+		t.Fatalf("admin clients: want both, got %s", b)
+	}
+	// Admin can narrow to one team via team_id.
+	if b := body(f.admin, "/api/clients?team_id="+f.teamA.String()); !has(b, "Client A") || has(b, "Client B") {
+		t.Fatalf("admin scoped to Team A: want Client A only, got %s", b)
+	}
+}

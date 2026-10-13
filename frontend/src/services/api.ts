@@ -225,7 +225,8 @@ export const updateDefaultClientRetentionSetting = (payload: UpdateClientSetting
 // Client Management APIs (available to all authenticated users)
 
 // List all clients
-export const listClients = () => api.get<{data: Client[]}>('/api/clients');
+export const listClients = (teamId?: string) =>
+  api.get<{data: Client[]}>('/api/clients', { params: teamId ? { team_id: teamId } : undefined });
 
 // Get a single client by ID
 export const getClient = (id: string) => api.get<{data: Client}>(`/api/clients/${id}`);
