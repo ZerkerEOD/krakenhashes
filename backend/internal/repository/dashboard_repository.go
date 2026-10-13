@@ -405,7 +405,7 @@ func (r *DashboardRepository) ListAgentHealth(ctx context.Context, scope Dashboa
 		SELECT a.id, a.name, a.status, a.is_enabled, a.last_heartbeat, a.version,
 		       a.update_pending, a.update_error, a.last_error, a.owner_id, o.username,
 		       jt.job_execution_id, je.name, je.overall_progress_percent,
-		       m.gpu_utilization, m.gpu_temp, m.hash_rate, m.power_usage, lt.ts
+		       m.gpu_utilization, m.gpu_temp, hr.hash_rate, m.power_usage, lt.ts
 		FROM agents a
 		LEFT JOIN users o ON o.id = a.owner_id
 		LEFT JOIN LATERAL (
@@ -426,12 +426,20 @@ func (r *DashboardRepository) ListAgentHealth(ctx context.Context, scope Dashboa
 			SELECT
 				AVG(pm.value) FILTER (WHERE pm.metric_type = 'utilization') AS gpu_utilization,
 				MAX(pm.value) FILTER (WHERE pm.metric_type = 'temperature') AS gpu_temp,
-				SUM(pm.value) FILTER (WHERE pm.metric_type = 'hash_rate')   AS hash_rate,
 				SUM(pm.value) FILTER (WHERE pm.metric_type = 'power_usage') AS power_usage
 			FROM agent_performance_metrics pm
 			WHERE pm.agent_id = a.id AND pm.aggregation_level = 'realtime'
 			  AND lt.ts IS NOT NULL AND pm.timestamp > lt.ts - INTERVAL '60 seconds'
 		) m ON true
+		LEFT JOIN LATERAL (
+			-- #111: an agent's live hashrate is the sum of its running tasks' speed
+			-- (same source as GetAggregateHashRate), which is naturally 0 when nothing
+			-- runs. The previous metric-sample SUM over-counted every sample in the
+			-- window and never zeroed once an idle agent's last sample aged past the anchor.
+			SELECT COALESCE(SUM(rt.benchmark_speed), 0) AS hash_rate
+			FROM job_tasks rt
+			WHERE rt.agent_id = a.id AND rt.status = 'running'
+		) hr ON true
 		WHERE a.retired_at IS NULL` + idFilter + `
 		ORDER BY
 		  CASE a.status WHEN 'error' THEN 0 WHEN 'inactive' THEN 1 WHEN 'pending' THEN 2 WHEN 'updating' THEN 3 WHEN 'disabled' THEN 5 ELSE 4 END,
