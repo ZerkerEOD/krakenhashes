@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Team } from '../types/team';
-import { teamsService } from '../services/teams';
+import { teamsService, adminTeamsService } from '../services/teams';
 import { useAuth } from './AuthContext';
 
 interface TeamFilterContextType {
@@ -15,7 +15,7 @@ interface TeamFilterContextType {
 const TeamFilterContext = createContext<TeamFilterContextType | undefined>(undefined);
 
 export const TeamFilterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, isAuth } = useAuth();
+  const { user, isAuth, userRole } = useAuth();
   const [teamsEnabled, setTeamsEnabled] = useState(false);
   const [userTeams, setUserTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -41,8 +41,11 @@ export const TeamFilterProvider: React.FC<{ children: ReactNode }> = ({ children
       setTeamsEnabled(enabled);
 
       if (enabled) {
-        // Load user's teams
-        const teams = await teamsService.listUserTeams();
+        // Admins can filter by any team, so populate the picker from all teams;
+        // regular users only see (and can filter by) the teams they belong to.
+        const teams = userRole === 'admin'
+          ? await adminTeamsService.listAllTeams()
+          : await teamsService.listUserTeams();
         setUserTeams(teams);
 
         // Restore selected team from localStorage AFTER teams finish loading
@@ -73,7 +76,7 @@ export const TeamFilterProvider: React.FC<{ children: ReactNode }> = ({ children
   useEffect(() => {
     loadTeamData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuth, user?.id]);
+  }, [isAuth, user?.id, userRole]);
 
   // Save selected team to localStorage
   useEffect(() => {
