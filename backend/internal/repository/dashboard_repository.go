@@ -395,6 +395,12 @@ func (r *DashboardRepository) ListAgentHealth(ctx context.Context, scope Dashboa
 		args = append(args, pq.Array(ids))
 		idFilter = " AND a.id = ANY($1::int[])"
 	}
+	// #113: gate the current-job lookup so a shared agent never leaks a running
+	// job's name, id, or progress to a team that does not own the job. Reuses the
+	// same hashlist->client->client_teams team gate (and owner gate) as the other
+	// dashboard queries; an out-of-scope job resolves to NULL. Empty string for an
+	// admin / unrestricted scope, so their view is unchanged.
+	jobScope := teamClause(scope, &args) + jobOwnerClause(scope, &args)
 	query := `
 		SELECT a.id, a.name, a.status, a.is_enabled, a.last_heartbeat, a.version,
 		       a.update_pending, a.update_error, a.last_error, a.owner_id, o.username,
@@ -403,8 +409,11 @@ func (r *DashboardRepository) ListAgentHealth(ctx context.Context, scope Dashboa
 		FROM agents a
 		LEFT JOIN users o ON o.id = a.owner_id
 		LEFT JOIN LATERAL (
-			SELECT t.job_execution_id FROM job_tasks t
-			WHERE t.agent_id = a.id AND t.status IN ('assigned','running','processing')
+			SELECT t.job_execution_id
+			FROM job_tasks t
+			JOIN job_executions je ON je.id = t.job_execution_id
+			JOIN hashlists h ON h.id = je.hashlist_id
+			WHERE t.agent_id = a.id AND t.status IN ('assigned','running','processing')` + jobScope + `
 			ORDER BY t.started_at DESC NULLS LAST, t.created_at DESC LIMIT 1
 		) jt ON true
 		LEFT JOIN job_executions je ON je.id = jt.job_execution_id
