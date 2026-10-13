@@ -28,6 +28,7 @@ import type { GridColDef, GridRowId, GridSortModel } from '@mui/x-data-grid';
 import { AxiosError } from 'axios';
 import { api, deleteHashlist, archiveHashlist, unarchiveHashlist } from '../../services/api';
 import { useDeletionProgress } from '../../contexts/DeletionProgressContext';
+import { useTeamFilter } from '../../contexts/TeamFilterContext';
 import useDebounce from '../../hooks/useDebounce';
 import { useLiveQuery } from '../../hooks/useLiveQuery';
 import { qk } from '../../services/queryKeys';
@@ -94,6 +95,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
   const confirm = useConfirm();
   const queryClient = useQueryClient();
   const { startTracking, isDeleting, getDeletion, startBulkDeletion, isBulkDeleting } = useDeletionProgress();
+  const { teamsEnabled, selectedTeamId } = useTeamFilter();
 
   const [sortModel, setSortModel] = useState<GridSortModel>([{ field: 'createdAt', sort: 'desc' }]);
   const [page, setPage] = useState(0);
@@ -117,8 +119,9 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
     if (debouncedName) p.name_like = debouncedName;
     if (statusFilter) p.status = statusFilter;
     if (showArchived) p.include_archived = 'true';
+    if (teamsEnabled && selectedTeamId) p.team_id = selectedTeamId;
     return p;
-  }, [sortBy, order, pageSize, page, debouncedName, statusFilter, showArchived]);
+  }, [sortBy, order, pageSize, page, debouncedName, statusFilter, showArchived, teamsEnabled, selectedTeamId]);
 
   const query = useLiveQuery<ApiHashlistResponse, AxiosError>(
     {
