@@ -123,7 +123,7 @@ func (p *CertbotProvider) detectChallengeType() string {
 		return "dns-01"
 	}
 	if strings.Contains(extraArgs, "--standalone") ||
-	   strings.Contains(extraArgs, "--preferred-challenges http") {
+		strings.Contains(extraArgs, "--preferred-challenges http") {
 		debug.Debug("Detected HTTP-01 challenge from EXTRA_ARGS")
 		return "http-01"
 	}
@@ -471,7 +471,7 @@ func (p *CertbotProvider) renewCertificates() error {
 // shouldRenew checks if certificates should be renewed (30 days before expiry)
 func (p *CertbotProvider) shouldRenew() bool {
 	certPath := filepath.Join(p.config.CertsDir, "live", p.config.CertbotConfig.Domain, "fullchain.pem")
-	
+
 	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
 		debug.Error("Failed to read certificate for renewal check: %v", err)
@@ -593,13 +593,13 @@ func (p *CertbotProvider) GetClientCertificate() ([]byte, []byte, error) {
 // Cleanup performs cleanup operations
 func (p *CertbotProvider) Cleanup() error {
 	debug.Debug("Cleaning up certbot provider")
-	
+
 	// Remove Cloudflare credentials file
 	credPath := filepath.Join(p.config.CertsDir, "cloudflare.ini")
 	if err := os.Remove(credPath); err != nil && !os.IsNotExist(err) {
 		debug.Warning("Failed to remove Cloudflare credentials: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -634,4 +634,14 @@ func (p *CertbotProvider) StartAutoRenewal() {
 // decodePEMBlock decodes the first PEM block from the given data
 func decodePEMBlock(data []byte) (*pem.Block, []byte) {
 	return pem.Decode(data)
+}
+
+// SupportsMTLS is false: agent mTLS needs the internal self-signed CA, which
+// this mode does not maintain.
+func (p *CertbotProvider) SupportsMTLS() bool { return false }
+
+// GenerateAgentCertificate is unsupported here; agents in this TLS mode
+// authenticate with the API key over the legacy listener.
+func (p *CertbotProvider) GenerateAgentCertificate(commonName string) ([]byte, []byte, string, error) {
+	return nil, nil, "", fmt.Errorf("agent mTLS requires the internal self-signed CA (KH_TLS_MODE=self-signed)")
 }

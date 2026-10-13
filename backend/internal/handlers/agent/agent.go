@@ -731,3 +731,71 @@ func (h *AgentHandler) RetryUpdate(w http.ResponseWriter, r *http.Request) {
 		"message": "Agent update state reset; it will be retried when idle",
 	})
 }
+
+// RevokeAgent hard-kills an agent: it invalidates the agent's credentials (API
+// key via the is_revoked gate, client certificate via the revocation list),
+// severs any live WebSocket, and retains the row for history. This is distinct
+// from disable, which only pauses scheduling. Admin only.
+func (h *AgentHandler) RevokeAgent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if !middleware.IsAdminFromContext(ctx) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+		return
+	}
+
+	// Resolve the acting user for the audit trail (revoked_by). Best-effort.
+	var revokedBy uuid.UUID
+	if s, ok := ctx.Value("user_id").(string); ok && s != "" {
+		if u, perr := uuid.Parse(s); perr == nil {
+			revokedBy = u
+		}
+	}
+
+	// Confirm the agent exists so we return a clean 404.
+	if _, err := h.service.GetAgent(ctx, id); err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Agent not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get agent %d: %v", id, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.service.RevokeAgent(ctx, id, revokedBy); err != nil {
+		debug.Error("Failed to revoke agent %d: %v", id, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	debug.Info("Agent %d revoked", id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ListRevokedAgents returns revoked agents for the Revoked tab. Admin only.
+func (h *AgentHandler) ListRevokedAgents(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if !middleware.IsAdminFromContext(ctx) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	agents, err := h.service.ListRevokedAgents(ctx)
+	if err != nil {
+		debug.Error("Failed to list revoked agents: %v", err)
+		http.Error(w, "Failed to list revoked agents", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if len(agents) == 0 {
+		_, _ = w.Write([]byte("[]"))
+		return
+	}
+	if err := json.NewEncoder(w).Encode(agents); err != nil {
+		debug.Error("Failed to encode revoked agents: %v", err)
+	}
+}

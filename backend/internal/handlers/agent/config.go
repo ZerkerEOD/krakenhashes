@@ -18,7 +18,18 @@ type ConfigResponse struct {
 	} `json:"websocket"`
 	HeartbeatInterval int    `json:"heartbeat_interval"`
 	ServerVersion     string `json:"server_version"`
+	// MTLSEnabled tells the agent whether the server verifies per-agent client
+	// certificates on the HTTPS listener; the agent uses it to decide whether to
+	// migrate to a per-agent certificate.
+	MTLSEnabled bool `json:"mtls_enabled"`
 }
+
+// mtlsEnabled records whether agent mTLS is active (set once at startup).
+var mtlsEnabled bool
+
+// SetMTLSEnabled records whether the server has agent mTLS active. Called once
+// at startup; read by GetConfig so agents learn to migrate to a per-agent cert.
+func SetMTLSEnabled(v bool) { mtlsEnabled = v }
 
 // GetConfig returns the current server configuration for agents
 // This is a public endpoint (no authentication required) so agents
@@ -62,6 +73,7 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 	response := ConfigResponse{
 		HeartbeatInterval: heartbeatInterval,
 		ServerVersion:     serverVersion,
+		MTLSEnabled:       mtlsEnabled,
 	}
 	response.WebSocket.WriteWait = writeWait
 	response.WebSocket.PongWait = pongWait

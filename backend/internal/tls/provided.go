@@ -12,13 +12,13 @@ import (
 
 // ProvidedProvider implements the Provider interface using user-provided certificates
 type ProvidedProvider struct {
-	config         *ProviderConfig
-	serverCert     *x509.Certificate
-	serverKey      interface{}
-	caCert         *x509.Certificate
-	caCertPool     *x509.CertPool
-	certChain      []*x509.Certificate // Full certificate chain for server
-	tlsCert        tls.Certificate     // Prepared TLS certificate
+	config     *ProviderConfig
+	serverCert *x509.Certificate
+	serverKey  interface{}
+	caCert     *x509.Certificate
+	caCertPool *x509.CertPool
+	certChain  []*x509.Certificate // Full certificate chain for server
+	tlsCert    tls.Certificate     // Prepared TLS certificate
 }
 
 // NewProvidedProvider creates a new provider for user-provided certificates
@@ -307,4 +307,14 @@ func validateKeyPair(cert *x509.Certificate, key interface{}) error {
 	// If we can create a tls.Certificate, the pair is valid
 	// The actual validation happens in prepareTLSCertificate
 	return nil
+}
+
+// SupportsMTLS is false: agent mTLS needs the internal self-signed CA, which
+// this mode does not maintain.
+func (p *ProvidedProvider) SupportsMTLS() bool { return false }
+
+// GenerateAgentCertificate is unsupported here; agents in this TLS mode
+// authenticate with the API key over the legacy listener.
+func (p *ProvidedProvider) GenerateAgentCertificate(commonName string) ([]byte, []byte, string, error) {
+	return nil, nil, "", fmt.Errorf("agent mTLS requires the internal self-signed CA (KH_TLS_MODE=self-signed)")
 }

@@ -80,12 +80,28 @@ func (h *CertificateRenewalHandler) HandleCertificateRenewal(w http.ResponseWrit
 
 	debug.Info("Certificate renewal requested by agent %d", agent.ID)
 
-	// Get client certificate and key
-	certPEM, keyPEM, err := h.tlsProvider.GetClientCertificate()
-	if err != nil {
-		debug.Error("Failed to get client certificate: %v", err)
-		http.Error(w, "Failed to generate client certificate", http.StatusInternalServerError)
-		return
+	// Reissue the agent's client certificate. In self-signed mode we mint a fresh
+	// per-agent certificate for mTLS and record its serial; other TLS modes hand
+	// back the shared client cert and the agent stays on the API-key path.
+	var certPEM, keyPEM []byte
+	if h.tlsProvider.SupportsMTLS() {
+		var serial string
+		certPEM, keyPEM, serial, err = h.tlsProvider.GenerateAgentCertificate(strconv.Itoa(agent.ID))
+		if err != nil {
+			debug.Error("Failed to generate per-agent client certificate: %v", err)
+			http.Error(w, "Failed to generate client certificate", http.StatusInternalServerError)
+			return
+		}
+		if serr := h.agentRepo.SetClientCertSerial(r.Context(), agent.ID, serial); serr != nil {
+			debug.Warning("Failed to store client cert serial for agent %d (cert still valid): %v", agent.ID, serr)
+		}
+	} else {
+		certPEM, keyPEM, err = h.tlsProvider.GetClientCertificate()
+		if err != nil {
+			debug.Error("Failed to get client certificate: %v", err)
+			http.Error(w, "Failed to generate client certificate", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Prepare response

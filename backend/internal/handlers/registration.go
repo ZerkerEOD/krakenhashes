@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
@@ -74,17 +75,35 @@ func (h *RegistrationHandler) HandleRegistration(w http.ResponseWriter, r *http.
 
 	debug.Info("Successfully registered agent with ID: %d", agent.ID)
 
-	// Get client certificate
-	debug.Info("Getting client certificate for agent %d", agent.ID)
-	certPEM, keyPEM, err := h.tlsProvider.GetClientCertificate()
-	if err != nil {
-		debug.Error("Failed to get client certificate: %v", err)
-		// Delete the agent since certificate retrieval failed
-		if err := h.agentService.DeleteAgent(r.Context(), agent.ID); err != nil {
-			debug.Error("Failed to delete agent after certificate retrieval failure: %v", err)
+	// Issue the agent's client certificate. In self-signed mode we mint a
+	// per-agent certificate (CommonName = agent ID) for mTLS and record its
+	// serial for revocation; other TLS modes fall back to the shared client
+	// certificate and those agents authenticate with the API key.
+	var certPEM, keyPEM []byte
+	if h.tlsProvider.SupportsMTLS() {
+		var serial string
+		certPEM, keyPEM, serial, err = h.tlsProvider.GenerateAgentCertificate(strconv.Itoa(agent.ID))
+		if err != nil {
+			debug.Error("Failed to generate per-agent client certificate: %v", err)
+			if derr := h.agentService.DeleteAgent(r.Context(), agent.ID); derr != nil {
+				debug.Error("Failed to delete agent after certificate failure: %v", derr)
+			}
+			http.Error(w, "Failed to generate client certificate", http.StatusInternalServerError)
+			return
 		}
-		http.Error(w, "Failed to get client certificate", http.StatusInternalServerError)
-		return
+		if serr := h.agentService.SetClientCertSerial(r.Context(), agent.ID, serial); serr != nil {
+			debug.Warning("Failed to store client cert serial for agent %d (cert still valid): %v", agent.ID, serr)
+		}
+	} else {
+		certPEM, keyPEM, err = h.tlsProvider.GetClientCertificate()
+		if err != nil {
+			debug.Error("Failed to get client certificate: %v", err)
+			if derr := h.agentService.DeleteAgent(r.Context(), agent.ID); derr != nil {
+				debug.Error("Failed to delete agent after certificate retrieval failure: %v", derr)
+			}
+			http.Error(w, "Failed to get client certificate", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Get CA certificate

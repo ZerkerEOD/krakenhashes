@@ -18,7 +18,7 @@ import {
   LoopbackSession,
 } from '../types/adminJobs';
 import { AgentSchedule, AgentScheduleDTO, AgentSchedulingInfo } from '../types/scheduling';
-import { AgentWithTask } from '../types/agent';
+import { AgentWithTask, RevokedAgent } from '../types/agent';
 
 // Use relative URLs for API endpoints to work through nginx proxy
 // This allows the application to work regardless of hostname/IP
@@ -795,3 +795,24 @@ export const getProcessingProgress = async (hashlistId: string): Promise<Process
 
 // Export API_URL for SSE service
 export { API_URL }; 
+// --- Agent revoke (admin only) -------------------------------------------
+// Revoke is a hard, permanent action distinct from "disable": it invalidates
+// the agent's client certificate, severs its connection, and moves it to the
+// revoked list. Bringing the agent back requires re-registration with a new
+// claim code.
+
+// List revoked agents (admin only). Returns [] when none.
+export const getRevokedAgents = async (): Promise<RevokedAgent[]> => {
+  const url = '/api/agents/revoked';
+  logApiCall('GET', url);
+  const response = await api.get<RevokedAgent[]>(url);
+  logApiResponse('GET', url, response.data);
+  return response.data || [];
+};
+
+// Revoke an active agent (admin only). Backend returns 204 on success.
+export const revokeAgent = async (agentId: string | number): Promise<void> => {
+  const url = `/api/agents/${agentId}/revoke`;
+  logApiCall('POST', url);
+  await api.post(url);
+};

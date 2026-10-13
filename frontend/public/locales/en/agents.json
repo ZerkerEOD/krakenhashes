@@ -52,6 +52,7 @@
     "restart": "Restart",
     "deactivateVoucher": "Deactivate Voucher",
     "removeAgent": "Remove Agent",
+    "revokeAgent": "Revoke Agent",
     "clearBusyStatus": "Clear Busy Status",
     "retry": "Retry"
   },
@@ -113,6 +114,7 @@
     "generateFailed": "Failed to generate claim code",
     "deactivateFailed": "Failed to deactivate voucher",
     "removeFailed": "Failed to remove agent",
+    "revokeFailed": "Failed to revoke agent",
     "clearBusyFailed": "Failed to clear busy status",
     "fetchDetailsFailed": "Failed to fetch agent details",
     "agentNotFound": "Agent not found",
@@ -137,6 +139,7 @@
   "sections": {
     "activeVouchers": "Active Claim Vouchers",
     "activeAgents": "Active Agents",
+    "revokedAgents": "Revoked Agents",
     "basicInfo": "Basic Information",
     "systemInfo": "System Information",
     "debugConfiguration": "Debug Configuration",
@@ -187,13 +190,23 @@
       "title": "Clear Busy Status",
       "description": "This agent appears to be stuck in a busy state without an active task. Clearing the busy status will allow it to accept new tasks.",
       "confirmation": "Are you sure you want to clear the busy status?"
+    },
+    "revoke": {
+      "title": "Revoke Agent",
+      "intro": "You are about to revoke \"{{name}}\". This is not the same as disabling it.",
+      "bulletPermanent": "This action is permanent and cannot be undone.",
+      "bulletCredentials": "The agent's credentials (client certificate) are invalidated immediately.",
+      "bulletConnection": "The agent's current connection is severed and it will no longer be able to reconnect.",
+      "bulletReregister": "Bringing this machine back requires re-registering it with a new claim code."
     }
   },
   "messages": {
     "noVouchers": "No active vouchers",
     "noAgents": "No agents registered",
+    "noRevokedAgents": "No revoked agents",
     "noDevices": "No devices",
     "busyStatusCleared": "Busy status cleared successfully",
+    "agentRevoked": "Agent revoked successfully",
     "deviceStatusUpdated": "Device status updated successfully",
     "runtimeUpdated": "Runtime updated to {{runtime}} successfully",
     "schedulingSettingsUpdated": "Scheduling settings updated",
@@ -338,6 +351,14 @@
     "occurrencesSuffix_one": " · {{countDisplay}} occurrence",
     "occurrencesSuffix_other": " · {{countDisplay}} occurrences",
     "idleNoDiagnostics": "This agent is idle. No scheduling diagnostics in the last few minutes — it may be offline, disabled, or simply waiting for work."
+  },
+  "revoked": {
+    "columns": {
+      "revokedAt": "Revoked At",
+      "revokedBy": "Revoked By",
+      "lastSeen": "Last Seen",
+      "certSerial": "Cert Serial"
+    }
   },
   "storage": {
     "title": "Storage tier",

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	// Aliased: internal/handlers/tls below already takes the name `tls`.
 	cryptotls "crypto/tls"
 	"net/http"
@@ -880,6 +881,42 @@ func main() {
 	} else {
 		debug.Warning("WebSocket handler unavailable - agents will refresh certificates on reconnect only")
 	}
+
+	// Agent mTLS on the existing HTTPS listener (issue #104). When the internal
+	// self-signed CA can issue and verify per-agent certs, the HTTPS listener
+	// verifies a client certificate IF the peer presents one: nginx (browser
+	// traffic) and legacy API-key agents send none and pass through, while a
+	// migrated agent presents its per-agent cert and ServeWS treats the
+	// connection as mTLS. A present certificate whose serial is revoked is
+	// rejected at the handshake. provided/certbot deployments have no internal
+	// CA, so this is skipped and agents stay on API-key auth. CA pinning + VPN
+	// remain the anti-abuse guarantee; this only adds server-side verification
+	// of per-agent identity and revocation.
+	mtlsEnabled := false
+	if routes.WSHandler != nil && tlsProvider.SupportsMTLS() {
+		caPool, caErr := tlsProvider.GetCACertPool()
+		if caErr != nil {
+			debug.Error("Agent mTLS disabled: cannot load CA pool: %v", caErr)
+		} else {
+			if err := agentService.ReloadRevocations(context.Background()); err != nil {
+				debug.Error("Failed to load agent revocations (mTLS verify may under-block until next reload): %v", err)
+			}
+			agentService.SetDisconnectFunc(routes.WSHandler.DisconnectAgent)
+			serverTLSConfig.ClientAuth = cryptotls.VerifyClientCertIfGiven
+			serverTLSConfig.ClientCAs = caPool
+			serverTLSConfig.VerifyConnection = func(cs cryptotls.ConnectionState) error {
+				if len(cs.PeerCertificates) > 0 && agentService.IsSerialRevoked(cs.PeerCertificates[0].SerialNumber.Text(16)) {
+					return errors.New("client certificate revoked")
+				}
+				return nil
+			}
+			mtlsEnabled = true
+			debug.Info("Agent mTLS enabled on the HTTPS listener (verify-if-present)")
+		}
+	} else if routes.WSHandler != nil {
+		debug.Info("Agent mTLS disabled: TLS mode has no internal CA (agents authenticate via API key)")
+	}
+	agent.SetMTLSEnabled(mtlsEnabled)
 
 	// Create HTTPS server
 	debug.Info("Creating HTTPS server")

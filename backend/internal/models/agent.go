@@ -356,3 +356,16 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(temp)
 }
+
+// RevokedAgent is the read model for the Revoked tab of agent management.
+type RevokedAgent struct {
+	ID                int            `json:"id"`
+	Name              string         `json:"name"`
+	Status            string         `json:"status"`
+	Version           string         `json:"version"`
+	LastHeartbeat     time.Time      `json:"lastHeartbeat"`
+	CreatedAt         time.Time      `json:"createdAt"`
+	RevokedAt         sql.NullTime   `json:"revokedAt"`
+	ClientCertSerial  sql.NullString `json:"clientCertSerial"`
+	RevokedByUsername sql.NullString `json:"revokedByUsername"`
+}

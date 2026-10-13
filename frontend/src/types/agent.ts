@@ -233,3 +233,45 @@ export interface BinaryPatternsResponse {
     /** ID of the current default binary */
     defaultBinaryId: number | null;
 } 
+/**
+ * Go `sql.NullString` as serialized to JSON.
+ */
+export interface NullString {
+    String: string;
+    Valid: boolean;
+}
+
+/**
+ * Go `sql.NullTime` as serialized to JSON.
+ */
+export interface NullTime {
+    Time: string;
+    Valid: boolean;
+}
+
+/**
+ * A revoked agent as returned by `GET /api/agents/revoked` (admin only).
+ *
+ * Revoke is a hard, permanent action distinct from "disable": it invalidates
+ * the agent's client certificate, severs its connection, and moves it out of
+ * the active list while retaining its history. Nullable columns arrive in the
+ * Go `sql.Null*` JSON shape (`{ Valid, String/Time }`).
+ *
+ * @interface RevokedAgent
+ */
+export interface RevokedAgent {
+    id: number;
+    name: string;
+    status: string;
+    version: string;
+    /** ISO timestamp of the agent's last heartbeat before revocation. */
+    lastHeartbeat: string;
+    /** ISO timestamp of agent creation. */
+    createdAt: string;
+    /** When the agent was revoked (nullable). */
+    revokedAt: NullTime;
+    /** Serial of the client certificate that was revoked (nullable). */
+    clientCertSerial: NullString;
+    /** Username of the admin who revoked the agent (nullable). */
+    revokedByUsername: NullString;
+}
