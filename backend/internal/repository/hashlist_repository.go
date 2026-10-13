@@ -501,7 +501,7 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 	}
 	defer rows.Close()
 
-	var hashlists []models.HashList
+	hashlists := []models.HashList{} // non-nil so an empty result marshals to [] not null (issue #114)
 	for rows.Next() {
 		var hashlist models.HashList
 		var clientID sql.Null[uuid.UUID]                // Use sql.Null for nullable UUID
@@ -1707,7 +1707,7 @@ func (r *HashListRepository) ListWithTeamFilter(ctx context.Context, params List
 	}
 	defer rows.Close()
 
-	var hashlists []models.HashList
+	hashlists := []models.HashList{} // non-nil so an empty result marshals to [] not null (issue #114)
 	for rows.Next() {
 		var h models.HashList
 		var clientID sql.Null[uuid.UUID]
