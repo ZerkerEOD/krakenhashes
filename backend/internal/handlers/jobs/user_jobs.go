@@ -3065,21 +3065,7 @@ func (h *UserJobsHandler) ClearBenchmarkBlocklistEntry(w http.ResponseWriter, r 
 // non-admin can never widen their view. Admins are unrestricted unless they
 // pass ?scope=teams, which limits them to their own memberships as well.
 func jobListTeamFilter(ctx context.Context, r *http.Request) (bool, []uuid.UUID) {
-	if !middleware.IsTeamsEnabledFromContext(ctx) {
-		return false, nil
-	}
-	isAdmin := middleware.IsAdminFromContext(ctx)
-	if param := r.URL.Query().Get("team_id"); param != "" {
-		if teamID, err := uuid.Parse(param); err == nil && (isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID)) {
-			return true, []uuid.UUID{teamID}
-		}
-	}
-	if isAdmin && r.URL.Query().Get("scope") != "teams" {
-		return false, nil
-	}
-	teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
-	if teamIDs == nil {
-		teamIDs = []uuid.UUID{} // fail-closed: empty = no access
-	}
-	return true, teamIDs
+	// Delegates to the shared authorization chokepoint; kept as a thin wrapper so the
+	// existing job_list_team_filter_test exercises the chokepoint through it.
+	return middleware.ResolveRequestTeamScope(ctx, r)
 }

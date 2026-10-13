@@ -73,14 +73,14 @@ func (h *ClientHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 	var clients []models.Client
 	var err error
 
-	// Filter by team access when teams enabled and user is not admin
-	if h.teamService != nil && h.teamService.IsTeamsEnabled(ctx) && !middleware.IsAdminFromContext(ctx) {
-		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
-		if teamIDs != nil && len(teamIDs) > 0 {
-			clients, err = h.clientRepo.ListWithCrackedCountsByTeamIDs(ctx, teamIDs)
+	// Team scoping via the shared chokepoint: ?team_id= narrows (admins to any team,
+	// members to a team they belong to); non-admins fall back to their own teams;
+	// admins are unrestricted by default. An empty team set fails closed.
+	if teamsEnabled, teamIDs := middleware.ResolveRequestTeamScope(ctx, r); teamsEnabled {
+		if len(teamIDs) == 0 {
+			clients = []models.Client{} // fail closed: no teams = empty result
 		} else {
-			// Fail closed: no teams or middleware error = empty result
-			clients = []models.Client{}
+			clients, err = h.clientRepo.ListWithCrackedCountsByTeamIDs(ctx, teamIDs)
 		}
 	} else {
 		clients, err = h.clientRepo.ListWithCrackedCounts(ctx)

@@ -197,3 +197,34 @@ func getUserRoleFromContext(ctx context.Context) string {
 func IsAdminFromContext(ctx context.Context) bool {
 	return getUserRoleFromContext(ctx) == "admin"
 }
+
+// ResolveRequestTeamScope is the single authorization chokepoint for team-filterable
+// list endpoints: it returns whether the request is team-restricted and, if so, the
+// exact set of team IDs the caller may see.
+//
+// With teams disabled there is no restriction. Otherwise ?team_id= narrows to that
+// team when the caller is an admin or a member; a missing, malformed, or foreign
+// team_id falls back to the caller's own teams (empty slice = nothing), so a non-admin
+// can never widen their view. Admins are unrestricted unless they pass ?scope=teams.
+// The team_id is uuid-validated here; callers MUST pass the returned IDs to SQL as
+// bound parameters, and the route MUST sit behind TeamAccessMiddleware so the
+// teams-enabled / user-team-ids context values are populated.
+func ResolveRequestTeamScope(ctx context.Context, r *http.Request) (teamsEnabled bool, teamIDs []uuid.UUID) {
+	if !IsTeamsEnabledFromContext(ctx) {
+		return false, nil
+	}
+	isAdmin := IsAdminFromContext(ctx)
+	if param := r.URL.Query().Get("team_id"); param != "" {
+		if teamID, err := uuid.Parse(param); err == nil && (isAdmin || IsUserInTeamFromContext(ctx, teamID)) {
+			return true, []uuid.UUID{teamID}
+		}
+	}
+	if isAdmin && r.URL.Query().Get("scope") != "teams" {
+		return false, nil
+	}
+	ids := GetUserTeamIDsFromContext(ctx)
+	if ids == nil {
+		ids = []uuid.UUID{} // fail-closed: empty = no access
+	}
+	return true, ids
+}

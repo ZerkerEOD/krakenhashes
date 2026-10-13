@@ -65,14 +65,14 @@ export const AdminClients: React.FC = () => {
     const [search, setSearch] = useState('');
 
     const toast = useToast();
-    const { teamsEnabled } = useTeamFilter();
+    const { teamsEnabled, selectedTeamId: filterTeamId } = useTeamFilter();
     const { userRole } = useAuth();
 
     const fetchClients = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await listClients();
+            const response = await listClients(teamsEnabled && filterTeamId ? filterTeamId : undefined);
             console.log("[AdminClients] Fetched clients data:", response.data);
             setClients(response.data.data || []);
         } catch (err) {
@@ -82,7 +82,7 @@ export const AdminClients: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, [toast, teamsEnabled, filterTeamId]);
 
     const fetchDefaultRetention = useCallback(async () => {
         console.log("[AdminClients] Fetching default retention...");
