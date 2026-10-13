@@ -52,6 +52,7 @@ const (
 		LEFT JOIN users u ON a.created_by_id = u.id
 		LEFT JOIN users o ON a.owner_id = o.id
 		WHERE ($1::text IS NULL OR a.status = $1)
+		  AND a.is_revoked = false
 		  -- Retired cloud agents are hidden by DEFAULT, not permanently.
 		  --
 		  -- retired_at is written on teardown but was read by exactly one query
@@ -115,7 +116,7 @@ const (
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
-		WHERE a.api_key = $1`
+		WHERE a.api_key = $1 AND a.is_revoked = false`
 )
 
 // User queries
@@ -422,3 +423,45 @@ const BulkEnableMFAQuery = `
 		AND account_enabled = true
 		AND account_locked = false;
 `
+
+// Agent revoke + mTLS per-agent certificate queries.
+const (
+	// SetAgentClientCertSerial records the serial of the per-agent mTLS cert
+	// most recently issued to an agent.
+	SetAgentClientCertSerial = `
+        UPDATE agents SET client_cert_serial = $2, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1`
+
+	// GetAgentClientCertSerial reads an agent's current cert serial (for revoke).
+	GetAgentClientCertSerial = `SELECT client_cert_serial FROM agents WHERE id = $1`
+
+	// RevokeAgentByID flips an agent to the revoked state. Disable (status) is
+	// deliberately untouched; this is the separate hard-kill path. No-op if the
+	// agent is already revoked.
+	RevokeAgentByID = `
+        UPDATE agents
+        SET is_revoked = true, revoked_at = CURRENT_TIMESTAMP, revoked_by = $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1 AND is_revoked = false`
+
+	// InsertRevokedCertSerial adds a serial to the revocation list the mTLS
+	// verify callback consults. Idempotent.
+	InsertRevokedCertSerial = `
+        INSERT INTO revoked_cert_serials (serial, agent_id)
+        VALUES ($1, $2) ON CONFLICT (serial) DO NOTHING`
+
+	// LoadRevokedAgentIDs and LoadRevokedCertSerials seed the in-memory
+	// revocation cache at startup.
+	LoadRevokedAgentIDs    = `SELECT id FROM agents WHERE is_revoked = true`
+	LoadRevokedCertSerials = `SELECT serial FROM revoked_cert_serials`
+
+	// GetRevokedAgents backs the Revoked tab in agent management.
+	GetRevokedAgents = `
+        SELECT a.id, a.name, a.status, a.version, a.last_heartbeat,
+               a.created_at, a.revoked_at, a.client_cert_serial,
+               r.username AS revoked_by_username
+        FROM agents a
+        LEFT JOIN users r ON a.revoked_by = r.id
+        WHERE a.is_revoked = true
+        ORDER BY a.revoked_at DESC NULLS LAST`
+)

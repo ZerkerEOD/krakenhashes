@@ -1268,3 +1268,103 @@ func (r *AgentRepository) ListIdleUpdatePending(ctx context.Context) ([]int, err
 	}
 	return ids, rows.Err()
 }
+
+// SetClientCertSerial records the serial of the per-agent mTLS certificate most
+// recently issued to an agent.
+func (r *AgentRepository) SetClientCertSerial(ctx context.Context, id int, serial string) error {
+	if _, err := r.db.ExecContext(ctx, queries.SetAgentClientCertSerial, id, serial); err != nil {
+		return fmt.Errorf("failed to set client cert serial for agent %d: %w", id, err)
+	}
+	return nil
+}
+
+// RevokeAgent flips an agent to the revoked state and, in the same transaction,
+// adds its current cert serial (if any) to the revocation list. Disable/status
+// is not touched. Returns the revoked serial (may be "") and whether a change
+// occurred (false => already revoked).
+func (r *AgentRepository) RevokeAgent(ctx context.Context, id int, revokedBy uuid.UUID) (string, bool, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var cur sql.NullString
+	if err := tx.QueryRowContext(ctx, queries.GetAgentClientCertSerial, id).Scan(&cur); err != nil {
+		return "", false, fmt.Errorf("failed to read agent %d: %w", id, err)
+	}
+
+	res, err := tx.ExecContext(ctx, queries.RevokeAgentByID, id, revokedBy)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to revoke agent %d: %w", id, err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return "", false, tx.Commit() // already revoked
+	}
+
+	if cur.Valid && cur.String != "" {
+		if _, err := tx.ExecContext(ctx, queries.InsertRevokedCertSerial, cur.String, id); err != nil {
+			return "", false, fmt.Errorf("failed to record revoked serial: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", false, fmt.Errorf("failed to commit revoke of agent %d: %w", id, err)
+	}
+	return cur.String, true, nil
+}
+
+// LoadRevokedAgentIDs returns the IDs of all revoked agents (revocation cache seed).
+func (r *AgentRepository) LoadRevokedAgentIDs(ctx context.Context) ([]int, error) {
+	rows, err := r.db.QueryContext(ctx, queries.LoadRevokedAgentIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load revoked agent ids: %w", err)
+	}
+	defer rows.Close()
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// LoadRevokedCertSerials returns all revoked cert serials (revocation cache seed).
+func (r *AgentRepository) LoadRevokedCertSerials(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, queries.LoadRevokedCertSerials)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load revoked cert serials: %w", err)
+	}
+	defer rows.Close()
+	var serials []string
+	for rows.Next() {
+		var sn string
+		if err := rows.Scan(&sn); err != nil {
+			return nil, err
+		}
+		serials = append(serials, sn)
+	}
+	return serials, rows.Err()
+}
+
+// ListRevoked returns revoked agents for the Revoked tab.
+func (r *AgentRepository) ListRevoked(ctx context.Context) ([]models.RevokedAgent, error) {
+	rows, err := r.db.QueryContext(ctx, queries.GetRevokedAgents)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list revoked agents: %w", err)
+	}
+	defer rows.Close()
+	var out []models.RevokedAgent
+	for rows.Next() {
+		var a models.RevokedAgent
+		if err := rows.Scan(&a.ID, &a.Name, &a.Status, &a.Version, &a.LastHeartbeat,
+			&a.CreatedAt, &a.RevokedAt, &a.ClientCertSerial, &a.RevokedByUsername); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}

@@ -198,6 +198,7 @@ nav:
     - Architecture:
       - Scheduler v2 Overview: reference/architecture/scheduler-v2-overview.md
       - Cloud GPU Provisioning: reference/architecture/cloud-provisioning.md
+      - Agent mTLS Authentication: reference/architecture/agent-mtls.md
       - Association Attack: reference/architecture/association-attack.md
       - Benchmark Workflow: reference/architecture/benchmark-workflow.md
       - Binary Version Patterns: reference/architecture/binary-version-patterns.md

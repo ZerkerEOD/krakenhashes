@@ -228,38 +228,62 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		debug.Info("TLS connection verified for %s", r.RemoteAddr)
 	}
 
-	// Get API key from header
-	apiKey := r.Header.Get("X-API-Key")
-	if apiKey == "" {
-		debug.Error("No API key provided from %s", r.RemoteAddr)
-		http.Error(w, "API key required", http.StatusUnauthorized)
-		return
+	// Identify the agent. The HTTPS listener verifies a client certificate if one
+	// is presented (verify-if-present). A per-agent certificate (CommonName = the
+	// agent ID) authenticates as mTLS. No certificate (nginx browser traffic, or
+	// provided/certbot mode where mTLS is off) uses the API key. The legacy shared
+	// cert (CN "KrakenHashes Client") is NOT a per-agent identity and is rejected
+	// here on purpose: an up-to-date agent renews to a per-agent cert before
+	// connecting (auto-migration), so it never presents the shared cert.
+	var agent *models.Agent
+	if r.TLS != nil && len(r.TLS.VerifiedChains) > 0 && len(r.TLS.VerifiedChains[0]) > 0 {
+		leaf := r.TLS.VerifiedChains[0][0]
+		certAgentID, perr := strconv.Atoi(leaf.Subject.CommonName)
+		if perr != nil {
+			debug.Error("mTLS client cert CN %q is not an agent ID from %s", leaf.Subject.CommonName, r.RemoteAddr)
+			http.Error(w, "Invalid client certificate identity", http.StatusUnauthorized)
+			return
+		}
+		if h.agentService.IsAgentRevoked(certAgentID) || h.agentService.IsSerialRevoked(leaf.SerialNumber.Text(16)) {
+			debug.Warning("Rejecting revoked agent %d (mTLS) from %s", certAgentID, r.RemoteAddr)
+			http.Error(w, "Agent revoked", http.StatusForbidden)
+			return
+		}
+		a, err := h.agentService.GetByID(r.Context(), certAgentID)
+		if err != nil {
+			debug.Error("mTLS cert for unknown agent %d from %s: %v", certAgentID, r.RemoteAddr, err)
+			http.Error(w, "Unknown agent", http.StatusUnauthorized)
+			return
+		}
+		agent = a
+		debug.Info("mTLS client certificate validated for agent %d from %s", agent.ID, r.RemoteAddr)
+	} else {
+		apiKey := r.Header.Get("X-API-Key")
+		if apiKey == "" {
+			debug.Error("No API key provided from %s", r.RemoteAddr)
+			http.Error(w, "API key required", http.StatusUnauthorized)
+			return
+		}
+		agentID := r.Header.Get("X-Agent-ID")
+		if agentID == "" {
+			debug.Error("No agent ID provided from %s", r.RemoteAddr)
+			http.Error(w, "Agent ID required", http.StatusUnauthorized)
+			return
+		}
+		a, err := h.agentService.GetByAPIKey(r.Context(), apiKey)
+		if err != nil {
+			debug.Error("Invalid API key from %s: %v", r.RemoteAddr, err)
+			http.Error(w, "Invalid API key", http.StatusUnauthorized)
+			return
+		}
+		if fmt.Sprintf("%d", a.ID) != agentID {
+			debug.Error("Agent ID mismatch from %s: provided=%s, actual=%d", r.RemoteAddr, agentID, a.ID)
+			http.Error(w, "Invalid agent ID", http.StatusUnauthorized)
+			return
+		}
+		agent = a
+		debug.Info("API key validated for agent %d from %s", agent.ID, r.RemoteAddr)
 	}
-
-	// Get agent ID from header
-	agentID := r.Header.Get("X-Agent-ID")
-	if agentID == "" {
-		debug.Error("No agent ID provided from %s", r.RemoteAddr)
-		http.Error(w, "Agent ID required", http.StatusUnauthorized)
-		return
-	}
-
-	// Validate API key and get agent
-	agent, err := h.agentService.GetByAPIKey(r.Context(), apiKey)
-	if err != nil {
-		debug.Error("Invalid API key from %s: %v", r.RemoteAddr, err)
-		http.Error(w, "Invalid API key", http.StatusUnauthorized)
-		return
-	}
-
-	// Verify agent ID matches
-	if fmt.Sprintf("%d", agent.ID) != agentID {
-		debug.Error("Agent ID mismatch from %s: provided=%s, actual=%d", r.RemoteAddr, agentID, agent.ID)
-		http.Error(w, "Invalid agent ID", http.StatusUnauthorized)
-		return
-	}
-
-	debug.Info("API key validated for agent %d from %s", agent.ID, r.RemoteAddr)
 
 	// Configure WebSocket upgrader
 	upgrader.EnableCompression = true
@@ -3172,5 +3196,18 @@ func (h *Handler) reconcileAgentState(client *Client, response *wsservice.StateS
 				}
 			}
 		}
+	}
+}
+
+// DisconnectAgent force-closes a connected agent's WebSocket if present. Used by
+// revoke to sever a live connection immediately. No-op if the agent is not
+// currently connected.
+func (h *Handler) DisconnectAgent(agentID int) {
+	h.mu.RLock()
+	c, ok := h.clients[agentID]
+	h.mu.RUnlock()
+	if ok && c != nil && c.conn != nil {
+		debug.Info("Force-closing WebSocket for revoked agent %d", agentID)
+		_ = c.conn.Close()
 	}
 }

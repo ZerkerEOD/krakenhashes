@@ -128,6 +128,10 @@ You can manually create a `.env` file for agent registration instead of using co
    - Set `KH_CLAIM_CODE` to your claim code (get from Admin UI)
    - Adjust directory paths as needed
 3. Run the agent without any flags: `./krakenhashes-agent`
+
+!!! info "mTLS is automatic"
+    On a self-signed backend the agent upgrades to mutual-TLS (per-agent certificate) authentication by itself, over the same `KH_PORT`. There is nothing to configure and no extra port to open; the agent obtains and presents its certificate on connect. See [Agent mTLS Authentication](../reference/architecture/agent-mtls.md).
+
 4. After successful registration, the claim code will be automatically commented out
 
 Note: The agent reads from the `.env` file, not from system environment variables. This prevents conflicts when running the agent and backend on the same host.

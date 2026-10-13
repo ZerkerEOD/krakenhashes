@@ -260,6 +260,15 @@ The network-share storage backend and per-agent storage tiers are a good model o
 
 Full details: [Storage Architecture](../admin-guide/resource-management/storage.md#network-share-storage) and the [Network Share Storage architecture](../reference/architecture/network-share-storage.md) reference. The same "check release notes → review `.env.example` diff → enable in Admin" flow applies to any opt-in feature a release introduces.
 
+### Agent mTLS migrates automatically
+
+Agent mutual-TLS authentication is the exception to the opt-in pattern: it turns itself on. After you upgrade a **self-signed** deployment, agents migrate from API-key to per-agent-certificate (mTLS) auth **automatically, on their next connection** — over the existing agent port, with no new port, no `.env` variable, and no Admin toggle. New agents use mTLS from registration; existing agents renew their certificate once and reconnect. API-key and mTLS agents interoperate throughout, so the migration is invisible and needs nothing from you.
+
+- **Self-signed mode only.** In `provided`/`certbot` TLS modes there is no internal CA to issue agent certificates, so agents stay on API-key auth and nothing changes.
+- **Revoke vs disable.** A new **Revoke** action (Admin → Agents → the agent's menu) is the hard kill: it invalidates an agent's credentials, severs its connection, and moves it to a Revoked list; bringing it back needs a new claim code. **Disable** is unchanged — it only pauses scheduling and the agent's credentials stay valid.
+
+Full details: [Agent mTLS Authentication](../reference/architecture/agent-mtls.md).
+
 !!! note "Database columns for a new feature arrive with the migration"
     Opt-in features that need new tables/columns get them automatically when migrations run on backend startup (above) — the schema is ready even while the feature stays off. You only *enable* the behavior; you don't run any extra schema step.
 

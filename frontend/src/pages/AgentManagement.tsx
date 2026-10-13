@@ -24,12 +24,15 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  Clear as ClearIcon
+  Clear as ClearIcon,
+  Block as BlockIcon,
 } from '@mui/icons-material';
 import type { GridColDef } from '@mui/x-data-grid';
 import { Agent, ClaimVoucher, AgentDevice } from '../types/agent';
@@ -37,8 +40,9 @@ import { ROUTES } from '../constants/routes';
 import { useAuth } from '../contexts/AuthContext';
 import GenerateVoucherDialog from '../components/vouchers/GenerateVoucherDialog';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
-import { api } from '../services/api';
+import { api, revokeAgent } from '../services/api';
 import AgentInstall from '../components/agent/AgentInstall';
+import RevokedAgents from '../components/agent/RevokedAgents';
 import SanFailureBanner from '../components/admin/certificates/SanFailureBanner';
 import { formatAgentVersion, agentVersionStatus } from '../utils/agentVersion';
 import { DataTable, EntityLink, PageHeader, StatusChip, useConfirm, useToast } from '../components/ui';
@@ -69,6 +73,8 @@ export default function AgentManagement() {
   const [claimCode, setClaimCode] = useState<string>('');
   const [clearBusyDialogOpen, setClearBusyDialogOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [tab, setTab] = useState(0);
+  const isAdmin = userRole === 'admin';
 
   // --- Queries (React Query keeps previous data on refetch, so background
   // polling updates the tables in place without blanking the page) ---
@@ -159,6 +165,41 @@ export default function AgentManagement() {
           throw new Error(getErrorMessage(err) || tr('errors.removeFailed'));
         }
         queryClient.invalidateQueries({ queryKey: ['agents'] });
+      },
+    });
+  };
+
+  // Revoke is a hard, permanent action distinct from the Disable toggle:
+  // it invalidates the agent's client certificate, severs its connection, and
+  // moves it to the Revoked view. Admin only; requires type-to-confirm.
+  const handleRevokeAgent = async (agent: Agent) => {
+    await confirm({
+      title: tr('dialogs.revoke.title'),
+      message: (
+        <Box>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            {tr('dialogs.revoke.intro', { name: agent.name || agent.id })}
+          </Typography>
+          <Box component="ul" sx={{ pl: 3, m: 0 }}>
+            <li>{tr('dialogs.revoke.bulletPermanent')}</li>
+            <li>{tr('dialogs.revoke.bulletCredentials')}</li>
+            <li>{tr('dialogs.revoke.bulletConnection')}</li>
+            <li>{tr('dialogs.revoke.bulletReregister')}</li>
+          </Box>
+        </Box>
+      ),
+      severity: 'danger',
+      requireText: agent.name || agent.id,
+      confirmLabel: tr('actions.revokeAgent'),
+      action: async () => {
+        try {
+          await revokeAgent(agent.id);
+        } catch (err) {
+          throw new Error(getErrorMessage(err) || tr('errors.revokeFailed'));
+        }
+        toast.success(tr('messages.agentRevoked'));
+        queryClient.invalidateQueries({ queryKey: ['agents'] });
+        queryClient.invalidateQueries({ queryKey: ['revoked-agents'] });
       },
     });
   };
@@ -333,8 +374,22 @@ export default function AgentManagement() {
         </Box>
       )}
 
-      {/* Active Agents Table */}
+      {/* Agent tables. Admins get Active / Revoked tabs; the Active list is
+          unchanged and still includes disabled agents. Non-admins see the
+          Active list only (no tabs), exactly as before. */}
       <Box sx={{ mt: 4 }}>
+        {isAdmin && (
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v)}
+            sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Tab label={tr('sections.activeAgents')} />
+            <Tab label={tr('sections.revokedAgents')} />
+          </Tabs>
+        )}
+
+        {(!isAdmin || tab === 0) && (
         <DataTable<Agent>
           rows={agents}
           columns={columns}
@@ -359,6 +414,15 @@ export default function AgentManagement() {
               },
             },
             {
+              key: 'revoke',
+              label: tr('actions.revokeAgent'),
+              icon: <BlockIcon fontSize="small" />,
+              danger: true,
+              hidden: !isAdmin,
+              placement: 'menu',
+              onClick: (a) => handleRevokeAgent(a),
+            },
+            {
               key: 'remove',
               label: tr('actions.removeAgent'),
               icon: <DeleteIcon fontSize="small" />,
@@ -370,6 +434,9 @@ export default function AgentManagement() {
           emptyState={{ title: tr('messages.noAgents') }}
           tableKey="agents"
         />
+        )}
+
+        {isAdmin && tab === 1 && <RevokedAgents />}
       </Box>
 
       {/* Clear Busy Status Confirmation Dialog */}

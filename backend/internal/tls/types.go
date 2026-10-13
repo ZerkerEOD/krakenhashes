@@ -77,6 +77,13 @@ type Provider interface {
 	ExportCACertificate() ([]byte, error)
 	// GetClientCertificate returns the client certificate and private key in PEM format
 	GetClientCertificate() ([]byte, []byte, error)
+	// SupportsMTLS reports whether per-agent client certificates can be issued
+	// and verified (requires an internal CA; true only for self-signed mode).
+	SupportsMTLS() bool
+	// GenerateAgentCertificate issues a per-agent client certificate (CommonName
+	// = agent identifier) signed by the internal CA. Returns cert PEM, key PEM,
+	// and the serial (hex) for revocation. Errors when there is no internal CA.
+	GenerateAgentCertificate(commonName string) (certPEM []byte, keyPEM []byte, serial string, err error)
 	// Cleanup performs any necessary cleanup
 	Cleanup() error
 }

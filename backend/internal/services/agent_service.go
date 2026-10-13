@@ -43,6 +43,17 @@ type AgentService struct {
 	compatInvalidator func(ctx context.Context, agentID int)
 	tokens            map[string]downloadToken
 	tokenMutex        sync.RWMutex
+
+	// Revocation cache: consulted by the mTLS verify callback (per-handshake), so
+	// it must not hit the DB. Seeded at startup by ReloadRevocations and updated
+	// on RevokeAgent.
+	revocationMu    sync.RWMutex
+	revokedAgentIDs map[int]bool
+	revokedSerials  map[string]bool
+
+	// disconnectFn severs a live agent WebSocket (wired to the WS handler at
+	// startup). Called on revoke so a misbehaving agent is cut off immediately.
+	disconnectFn func(agentID int)
 }
 
 type downloadToken struct {
@@ -1138,4 +1149,93 @@ func (s *AgentService) ClearAgentBusyStatus(ctx context.Context, agentID int) er
 
 	debug.Info("Manually cleared busy status for agent %d", agentID)
 	return nil
+}
+
+// SetDisconnectFunc wires the WS-sever callback used on revoke. Safe to leave
+// unset (revoke still invalidates credentials; the agent just isn't force-closed).
+func (s *AgentService) SetDisconnectFunc(fn func(agentID int)) {
+	s.disconnectFn = fn
+}
+
+// ReloadRevocations seeds the in-memory revocation cache from the database.
+// Call once at startup, before the mTLS listener accepts connections.
+func (s *AgentService) ReloadRevocations(ctx context.Context) error {
+	ids, err := s.agentRepo.LoadRevokedAgentIDs(ctx)
+	if err != nil {
+		return err
+	}
+	serials, err := s.agentRepo.LoadRevokedCertSerials(ctx)
+	if err != nil {
+		return err
+	}
+	s.revocationMu.Lock()
+	defer s.revocationMu.Unlock()
+	s.revokedAgentIDs = make(map[int]bool, len(ids))
+	for _, id := range ids {
+		s.revokedAgentIDs[id] = true
+	}
+	s.revokedSerials = make(map[string]bool, len(serials))
+	for _, sn := range serials {
+		s.revokedSerials[sn] = true
+	}
+	return nil
+}
+
+// IsAgentRevoked reports whether an agent ID is revoked (cache-backed).
+func (s *AgentService) IsAgentRevoked(agentID int) bool {
+	s.revocationMu.RLock()
+	defer s.revocationMu.RUnlock()
+	return s.revokedAgentIDs[agentID]
+}
+
+// IsSerialRevoked reports whether a certificate serial is revoked (cache-backed).
+func (s *AgentService) IsSerialRevoked(serial string) bool {
+	s.revocationMu.RLock()
+	defer s.revocationMu.RUnlock()
+	return s.revokedSerials[serial]
+}
+
+// SetClientCertSerial records the serial of the per-agent mTLS cert issued to an agent.
+func (s *AgentService) SetClientCertSerial(ctx context.Context, id int, serial string) error {
+	return s.agentRepo.SetClientCertSerial(ctx, id, serial)
+}
+
+// RevokeAgent hard-kills an agent: invalidates its credentials (API key via the
+// is_revoked gate, cert via the revocation list), updates the revocation cache,
+// severs any live WebSocket, and drops it from scheduler compatibility. History
+// is retained. Disable is a separate, softer state and is not affected.
+func (s *AgentService) RevokeAgent(ctx context.Context, id int, revokedBy uuid.UUID) error {
+	serial, revoked, err := s.agentRepo.RevokeAgent(ctx, id, revokedBy)
+	if err != nil {
+		return err
+	}
+	if !revoked {
+		return nil // already revoked
+	}
+
+	s.revocationMu.Lock()
+	if s.revokedAgentIDs == nil {
+		s.revokedAgentIDs = make(map[int]bool)
+	}
+	s.revokedAgentIDs[id] = true
+	if serial != "" {
+		if s.revokedSerials == nil {
+			s.revokedSerials = make(map[string]bool)
+		}
+		s.revokedSerials[serial] = true
+	}
+	s.revocationMu.Unlock()
+
+	if s.disconnectFn != nil {
+		s.disconnectFn(id)
+	}
+	if s.compatInvalidator != nil {
+		s.compatInvalidator(ctx, id)
+	}
+	return nil
+}
+
+// ListRevokedAgents returns revoked agents for the Revoked tab.
+func (s *AgentService) ListRevokedAgents(ctx context.Context) ([]models.RevokedAgent, error) {
+	return s.agentRepo.ListRevoked(ctx)
 }

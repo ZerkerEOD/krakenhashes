@@ -482,6 +482,7 @@ type BackendConfig struct {
 	} `json:"websocket"`
 	HeartbeatInterval int    `json:"heartbeat_interval"`
 	ServerVersion     string `json:"server_version"`
+	MTLSEnabled       bool   `json:"mtls_enabled"`
 }
 
 // getEnvDuration gets a duration from an environment variable with a default value
@@ -1048,6 +1049,26 @@ func (c *Connection) connect() error {
 		}
 	}
 	c.agentID = agentIDInt
+
+	// Auto-migrate to mTLS (issue #104): if the server verifies per-agent client
+	// certificates and our current certificate is not a per-agent cert (its
+	// CommonName is not our agent ID), renew once to obtain one and reload it,
+	// then connect presenting it. provided/certbot servers report mtls_enabled
+	// false, so this never runs there.
+	if backendConfig != nil && backendConfig.MTLSEnabled && c.agentID > 0 {
+		if cn := currentClientCertCN(c.tlsConfig); cn != strconv.Itoa(c.agentID) {
+			debug.Info("Migrating agent to mTLS: current cert CN=%q is not the agent ID, renewing", cn)
+			if rErr := RenewCertificates(c.urlConfig); rErr != nil {
+				debug.Warning("mTLS migration: renewal failed, continuing with current credentials: %v", rErr)
+			} else if certPool, loadErr := loadCACertificate(c.urlConfig); loadErr == nil {
+				if clientCert, cErr := loadClientCertificate(); cErr == nil {
+					c.tlsConfig.RootCAs = certPool
+					c.tlsConfig.Certificates = []tls.Certificate{clientCert}
+					debug.Info("mTLS migration: reloaded per-agent certificate")
+				}
+			}
+		}
+	}
 
 	// Initialize message buffer if not already initialized
 	if c.messageBuffer == nil && c.agentID > 0 {
@@ -4624,4 +4645,25 @@ func (c *Connection) sendLogPurgeAck(requestID string, success bool, message str
 	} else {
 		debug.Warning("Failed to send log purge ack")
 	}
+}
+
+// currentClientCertCN returns the CommonName of the agent's currently loaded
+// client certificate, or "" if there is none or it cannot be parsed. Used to
+// detect whether the agent still holds the legacy shared cert and should
+// migrate to a per-agent certificate for mTLS.
+func currentClientCertCN(cfg *tls.Config) string {
+	if cfg == nil || len(cfg.Certificates) == 0 {
+		return ""
+	}
+	if leaf := cfg.Certificates[0].Leaf; leaf != nil {
+		return leaf.Subject.CommonName
+	}
+	if len(cfg.Certificates[0].Certificate) == 0 {
+		return ""
+	}
+	parsed, err := x509.ParseCertificate(cfg.Certificates[0].Certificate[0])
+	if err != nil {
+		return ""
+	}
+	return parsed.Subject.CommonName
 }

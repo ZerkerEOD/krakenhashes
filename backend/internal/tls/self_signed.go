@@ -752,38 +752,39 @@ func (p *SelfSignedProvider) ExportCACertificateToFile(path string) error {
 	return nil
 }
 
-// GenerateClientCertificate generates a client certificate signed by the CA
-func (p *SelfSignedProvider) GenerateClientCertificate(commonName string) (*tls.Certificate, error) {
-	debug.Info("Generating client certificate for: %s", commonName)
+// GenerateAgentCertificate mints a per-agent client certificate signed by the
+// internal CA, with the agent identifier as the CommonName. Only self-signed
+// mode has a CA key able to do this; provided/certbot modes return an error and
+// their agents stay on the API-key path. Returns cert PEM, key PEM, and the
+// certificate serial (hex) recorded for per-agent revocation.
+func (p *SelfSignedProvider) GenerateAgentCertificate(commonName string) ([]byte, []byte, string, error) {
+	debug.Info("Generating per-agent client certificate for: %s", commonName)
 
-	// Ensure CA key is loaded
-	if p.caKey == nil {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.caKey == nil || p.ca == nil {
 		debug.Error("CA private key not initialized")
-		return nil, fmt.Errorf("CA private key not initialized")
+		return nil, nil, "", fmt.Errorf("CA private key not initialized")
 	}
 
-	// Generate client key pair
-	debug.Debug("Generating client key pair with key size: %d", p.config.KeySize)
+	clientSerial, err := generateRandomSerial()
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to generate client serial: %w", err)
+	}
+
 	clientKey, err := rsa.GenerateKey(rand.Reader, p.config.KeySize)
 	if err != nil {
-		debug.Error("Failed to generate client key pair: %v", err)
-		return nil, fmt.Errorf("failed to generate client key pair: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to generate client key pair: %w", err)
 	}
 
-	// Generate subject key identifier for client
 	clientSubjectKeyID, err := generateSubjectKeyID(&clientKey.PublicKey)
 	if err != nil {
-		debug.Error("Failed to generate client subject key identifier: %v", err)
-		return nil, fmt.Errorf("failed to generate client subject key identifier: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to generate client subject key identifier: %w", err)
 	}
 
-	// Get CA subject key identifier
-	caSubjectKeyID := p.ca.SubjectKeyId
-
-	// Create client certificate template
-	debug.Debug("Creating client certificate template")
 	clientTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		SerialNumber: clientSerial,
 		Subject: pkix.Name{
 			Country:            []string{p.config.CADetails.Country},
 			Organization:       []string{p.config.CADetails.Organization},
@@ -797,44 +798,36 @@ func (p *SelfSignedProvider) GenerateClientCertificate(commonName string) (*tls.
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 		SubjectKeyId:          clientSubjectKeyID,
-		AuthorityKeyId:        caSubjectKeyID,
+		AuthorityKeyId:        p.ca.SubjectKeyId,
 	}
 
-	// Sign the client certificate with CA
-	debug.Debug("Signing client certificate with CA")
 	clientCertBytes, err := x509.CreateCertificate(rand.Reader, clientTemplate, p.ca, &clientKey.PublicKey, p.caKey)
 	if err != nil {
-		debug.Error("Failed to create client certificate: %v", err)
-		return nil, fmt.Errorf("failed to create client certificate: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to create client certificate: %w", err)
 	}
 
-	// Encode certificate to PEM
-	debug.Debug("Encoding client certificate to PEM")
-	certPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: clientCertBytes,
-	})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: clientCertBytes})
 	if certPEM == nil {
-		debug.Error("Failed to encode client certificate to PEM")
-		return nil, fmt.Errorf("failed to encode client certificate")
+		return nil, nil, "", fmt.Errorf("failed to encode client certificate")
 	}
 
-	// Encode private key to PEM
-	debug.Debug("Encoding client private key to PEM")
-	keyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(clientKey),
-	})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientKey)})
 	if keyPEM == nil {
-		debug.Error("Failed to encode client private key to PEM")
-		return nil, fmt.Errorf("failed to encode client private key")
+		return nil, nil, "", fmt.Errorf("failed to encode client private key")
 	}
 
-	debug.Info("Successfully generated client certificate")
-	return &tls.Certificate{
-		Certificate: [][]byte{certPEM},
-		PrivateKey:  keyPEM,
-	}, nil
+	serial := clientSerial.Text(16)
+	debug.Info("Successfully generated per-agent client certificate (serial %s)", serial)
+	return certPEM, keyPEM, serial, nil
+}
+
+// SupportsMTLS reports whether this provider can issue and verify per-agent
+// client certificates. It needs the internal CA key, so this is true only for
+// self-signed mode.
+func (p *SelfSignedProvider) SupportsMTLS() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.caKey != nil && p.ca != nil
 }
 
 // GetClientCertificate returns the client certificate and private key in PEM format
