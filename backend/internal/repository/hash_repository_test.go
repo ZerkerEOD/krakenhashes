@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/testutil"
 	"github.com/google/uuid"
@@ -49,6 +50,11 @@ func TestGetCrackedHashes_OrderedByCrackedAt(t *testing.T) {
 	require.Equal(t, "cccc", got[0].HashValue)
 	require.Equal(t, "bbbb", got[1].HashValue)
 	require.Equal(t, "aaaa", got[2].HashValue)
+
+	// cracked_at is now exposed on the model (scanned from the query), so the
+	// /pot DTO can render a "Cracked At" column.
+	require.NotNil(t, got[0].CrackedAt, "CrackedAt should be populated")
+	require.Equal(t, "2026-03-03T00:00:00Z", got[0].CrackedAt.UTC().Format(time.RFC3339))
 }
 
 // TestGetCrackedHashesByClientIDs_Executes guards the wrapped DISTINCT ON team-path

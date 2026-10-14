@@ -35,6 +35,7 @@
     "username": "Имя пользователя",
     "password": "Пароль",
     "hashType": "Тип хеша",
+    "crackedAt": "Дата взлома",
     "actions": "Действия"
   },
   "search": {

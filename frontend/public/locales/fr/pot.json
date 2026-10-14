@@ -35,6 +35,7 @@
     "username": "Nom d'utilisateur",
     "password": "Mot de passe",
     "hashType": "Type de hash",
+    "crackedAt": "Cassé le",
     "actions": "Actions"
   },
   "search": {

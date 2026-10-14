@@ -35,6 +35,7 @@
     "username": "Tên người dùng",
     "password": "Mật khẩu",
     "hashType": "Loại hash",
+    "crackedAt": "Bẻ khóa lúc",
     "actions": "Thao tác"
   },
   "search": {

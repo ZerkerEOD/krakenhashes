@@ -24,6 +24,7 @@ import { api } from '../../services/api';
 import { CrackedHash, PotResponse } from '../../services/pot';
 import CrackedPassword from '../common/CrackedPassword';
 import { toPotfilePlain } from '../../utils/hexPlain';
+import { formatDateTime } from '../../utils/formatters';
 import { DataTable, useToast } from '../ui';
 
 interface PotTableProps {
@@ -259,6 +260,13 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
         field: 'hash_type_id',
         headerName: t('columns.hashType') as string,
         width: 100,
+      },
+      {
+        field: 'cracked_at',
+        headerName: t('columns.crackedAt') as string,
+        width: 160,
+        // Server orders by crack time; show it so the ordering is legible. '-' for legacy rows.
+        renderCell: (p) => formatDateTime(p.row.cracked_at),
       },
     ],
     [t, copyToClipboard]

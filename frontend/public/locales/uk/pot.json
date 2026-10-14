@@ -35,6 +35,7 @@
     "username": "Ім'я користувача",
     "password": "Пароль",
     "hashType": "Тип хешу",
+    "crackedAt": "Зламано",
     "actions": "Дії"
   },
   "search": {

@@ -2,7 +2,8 @@
   "title": "'Pot' is short for hashcat's potfile; this page lists every hash that has been cracked.",
   "columns": {
     "originalHash": "The original hash string as uploaded/cracked, not the recovered password.",
-    "domain": "The Windows/AD domain extracted from the hash (e.g. NTLM, Kerberos), not a web domain."
+    "domain": "The Windows/AD domain extracted from the hash (e.g. NTLM, Kerberos), not a web domain.",
+    "crackedAt": "Column header: the date/time this hash was cracked (recovered). Mirror hashlists.json hashDetails.crackedAt. May be blank for legacy rows."
   },
   "filter": {
     "filteredBy": "{{param}} is the name of the filter field (e.g. 'client', 'hashlist'); {{value}} is its current value."
