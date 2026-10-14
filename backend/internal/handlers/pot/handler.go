@@ -274,7 +274,7 @@ func (h *Handler) HandleListCrackedHashesByHashlist(w http.ResponseWriter, r *ht
 	}
 
 	response := h.formatPotResponse(hashes, totalCount, params.Limit, params.Offset)
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		debug.Error("Failed to encode response: %v", err)
@@ -401,17 +401,17 @@ func (h *Handler) HandleListCrackedHashesByJob(w http.ResponseWriter, r *http.Re
 
 func (h *Handler) formatPotResponse(hashes []*models.Hash, totalCount int64, limit, offset int) PotResponse {
 	crackedHashes := make([]CrackedHashResponse, 0, len(hashes))
-	
+
 	for _, hash := range hashes {
 		displayHash := hash.HashValue
 		if hash.OriginalHash != "" {
 			displayHash = hash.OriginalHash
 		}
-		
+
 		if hash.HashTypeID == 1000 && hash.OriginalHash != "" {
 			displayHash = hash.OriginalHash
 		}
-		
+
 		crackedHashes = append(crackedHashes, CrackedHashResponse{
 			ID:           hash.ID,
 			OriginalHash: displayHash,
@@ -422,7 +422,7 @@ func (h *Handler) formatPotResponse(hashes []*models.Hash, totalCount int64, lim
 			CrackedAt:    hash.CrackedAt,
 		})
 	}
-	
+
 	return PotResponse{
 		Hashes:     crackedHashes,
 		TotalCount: totalCount,
@@ -550,19 +550,19 @@ func (h *Handler) HandleDownloadHashPassByHashlist(w http.ResponseWriter, r *htt
 		http.Error(w, "Failed to retrieve hashlist", http.StatusInternalServerError)
 		return
 	}
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
+
 	hashes, _, err := h.hashRepo.GetCrackedHashesByHashlist(ctx, hashlistID, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writeHashPassFormat(w, hashes, sanitizeFilename(hashlist.Name))
 }
 
@@ -709,19 +709,19 @@ func (h *Handler) HandleDownloadHashPassByClient(w http.ResponseWriter, r *http.
 		http.Error(w, "Failed to retrieve client", http.StatusInternalServerError)
 		return
 	}
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
+
 	hashes, _, err := h.hashRepo.GetCrackedHashesByClient(ctx, clientID, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writeHashPassFormat(w, hashes, sanitizeFilename(client.Name))
 }
 
@@ -748,19 +748,19 @@ func (h *Handler) HandleDownloadUserPassByClient(w http.ResponseWriter, r *http.
 		http.Error(w, "Failed to retrieve client", http.StatusInternalServerError)
 		return
 	}
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
+
 	hashes, _, err := h.hashRepo.GetCrackedHashesByClient(ctx, clientID, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writeUserPassFormat(w, hashes, sanitizeFilename(client.Name))
 }
 
@@ -787,19 +787,19 @@ func (h *Handler) HandleDownloadUserByClient(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Failed to retrieve client", http.StatusInternalServerError)
 		return
 	}
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
+
 	hashes, _, err := h.hashRepo.GetCrackedHashesByClient(ctx, clientID, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writeUserFormat(w, hashes, sanitizeFilename(client.Name))
 }
 
@@ -826,19 +826,19 @@ func (h *Handler) HandleDownloadPassByClient(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Failed to retrieve client", http.StatusInternalServerError)
 		return
 	}
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
+
 	hashes, _, err := h.hashRepo.GetCrackedHashesByClient(ctx, clientID, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writePassFormat(w, hashes, sanitizeFilename(client.Name))
 }
 
@@ -1430,7 +1430,7 @@ func (h *Handler) HandleDownloadPotfileByJob(w http.ResponseWriter, r *http.Requ
 func (h *Handler) writeHashPassFormat(w http.ResponseWriter, hashes []*models.Hash, context string) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-h-p.lst\"", context))
-	
+
 	for _, hash := range hashes {
 		displayHash := hash.HashValue
 		if hash.OriginalHash != "" {
@@ -1439,7 +1439,7 @@ func (h *Handler) writeHashPassFormat(w http.ResponseWriter, hashes []*models.Ha
 		if hash.HashTypeID == 1000 && hash.OriginalHash != "" {
 			displayHash = hash.OriginalHash
 		}
-		
+
 		fmt.Fprintf(w, "%s:%s\n", displayHash, *hash.Password)
 	}
 }
@@ -1447,7 +1447,7 @@ func (h *Handler) writeHashPassFormat(w http.ResponseWriter, hashes []*models.Ha
 func (h *Handler) writeUserPassFormat(w http.ResponseWriter, hashes []*models.Hash, context string) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-u-p.lst\"", context))
-	
+
 	for _, hash := range hashes {
 		if hash.Username != nil && *hash.Username != "" {
 			fmt.Fprintf(w, "%s:%s\n", *hash.Username, *hash.Password)
@@ -1458,7 +1458,7 @@ func (h *Handler) writeUserPassFormat(w http.ResponseWriter, hashes []*models.Ha
 func (h *Handler) writeUserFormat(w http.ResponseWriter, hashes []*models.Hash, context string) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-u.lst\"", context))
-	
+
 	for _, hash := range hashes {
 		if hash.Username != nil && *hash.Username != "" {
 			fmt.Fprintf(w, "%s\n", *hash.Username)
