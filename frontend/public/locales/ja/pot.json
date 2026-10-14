@@ -35,6 +35,7 @@
     "username": "ユーザー名",
     "password": "パスワード",
     "hashType": "ハッシュタイプ",
+    "crackedAt": "クラック日時",
     "actions": "アクション"
   },
   "search": {

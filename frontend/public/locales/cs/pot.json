@@ -35,6 +35,7 @@
     "username": "Uživatelské jméno",
     "password": "Heslo",
     "hashType": "Typ hashe",
+    "crackedAt": "Prolomeno dne",
     "actions": "Akce"
   },
   "search": {

@@ -971,7 +971,7 @@ func (r *HashRepository) GetCrackedHashes(ctx context.Context, params CrackedHas
 		countArgs = []interface{}{searchPattern}
 
 		query = `
-			SELECT id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated
+			SELECT id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated, cracked_at
 			FROM hashes
 			WHERE is_cracked = true AND (
 				original_hash ILIKE $1 OR
@@ -988,7 +988,7 @@ func (r *HashRepository) GetCrackedHashes(ctx context.Context, params CrackedHas
 		countArgs = nil
 
 		query = `
-			SELECT id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated
+			SELECT id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated, cracked_at
 			FROM hashes
 			WHERE is_cracked = true
 			ORDER BY COALESCE(cracked_at, last_updated) DESC, id DESC
@@ -1024,6 +1024,7 @@ func (r *HashRepository) GetCrackedHashes(ctx context.Context, params CrackedHas
 			&hash.IsCracked,
 			&hash.Password,
 			&hash.LastUpdated,
+			&hash.CrackedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan cracked hash row: %w", err)
 		}
@@ -1069,7 +1070,7 @@ func (r *HashRepository) GetCrackedHashesByHashlist(ctx context.Context, hashlis
 		countArgs = []interface{}{hashlistID, searchPattern}
 
 		query = `
-			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
 			FROM hashes h
 			JOIN hashlist_hashes hh ON h.id = hh.hash_id
 			WHERE hh.hashlist_id = $1 AND h.is_cracked = true AND (
@@ -1092,7 +1093,7 @@ func (r *HashRepository) GetCrackedHashesByHashlist(ctx context.Context, hashlis
 		countArgs = []interface{}{hashlistID}
 
 		query = `
-			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
 			FROM hashes h
 			JOIN hashlist_hashes hh ON h.id = hh.hash_id
 			WHERE hh.hashlist_id = $1 AND h.is_cracked = true
@@ -1129,6 +1130,7 @@ func (r *HashRepository) GetCrackedHashesByHashlist(ctx context.Context, hashlis
 			&hash.IsCracked,
 			&hash.Password,
 			&hash.LastUpdated,
+			&hash.CrackedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan cracked hash row for hashlist %d: %w", hashlistID, err)
 		}
@@ -1167,7 +1169,7 @@ func (r *HashRepository) GetCrackedHashesByClient(ctx context.Context, clientID 
 		countArgs = []interface{}{clientID, searchPattern}
 
 		query = `
-			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
 			FROM hashes h
 			JOIN hashlist_hashes hh ON h.id = hh.hash_id
 			JOIN hashlists hl ON hh.hashlist_id = hl.id
@@ -1192,7 +1194,7 @@ func (r *HashRepository) GetCrackedHashesByClient(ctx context.Context, clientID 
 		countArgs = []interface{}{clientID}
 
 		query = `
-			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
 			FROM hashes h
 			JOIN hashlist_hashes hh ON h.id = hh.hash_id
 			JOIN hashlists hl ON hh.hashlist_id = hl.id
@@ -1230,6 +1232,7 @@ func (r *HashRepository) GetCrackedHashesByClient(ctx context.Context, clientID 
 			&hash.IsCracked,
 			&hash.Password,
 			&hash.LastUpdated,
+			&hash.CrackedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan cracked hash row for client %s: %w", clientID, err)
 		}
@@ -1277,7 +1280,7 @@ func (r *HashRepository) GetCrackedHashesByClientIDs(ctx context.Context, client
 		countArgs = []interface{}{pq.Array(idStrs), searchPattern}
 
 		query = `
-			SELECT sub.id, sub.hash_value, sub.original_hash, sub.username, sub.domain, sub.hash_type_id, sub.is_cracked, sub.password, sub.last_updated
+			SELECT sub.id, sub.hash_value, sub.original_hash, sub.username, sub.domain, sub.hash_type_id, sub.is_cracked, sub.password, sub.last_updated, sub.cracked_at
 			FROM (
 				SELECT DISTINCT ON (h.id) h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
 				FROM hashes h
@@ -1306,7 +1309,7 @@ func (r *HashRepository) GetCrackedHashesByClientIDs(ctx context.Context, client
 		countArgs = []interface{}{pq.Array(idStrs)}
 
 		query = `
-			SELECT sub.id, sub.hash_value, sub.original_hash, sub.username, sub.domain, sub.hash_type_id, sub.is_cracked, sub.password, sub.last_updated
+			SELECT sub.id, sub.hash_value, sub.original_hash, sub.username, sub.domain, sub.hash_type_id, sub.is_cracked, sub.password, sub.last_updated, sub.cracked_at
 			FROM (
 				SELECT DISTINCT ON (h.id) h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
 				FROM hashes h
@@ -1346,6 +1349,7 @@ func (r *HashRepository) GetCrackedHashesByClientIDs(ctx context.Context, client
 			&hash.IsCracked,
 			&hash.Password,
 			&hash.LastUpdated,
+			&hash.CrackedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan cracked hash row for client IDs: %w", err)
 		}
@@ -1384,7 +1388,7 @@ func (r *HashRepository) GetCrackedHashesByJob(ctx context.Context, jobID uuid.U
 		countArgs = []interface{}{jobID, searchPattern}
 
 		query = `
-			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
 			FROM hashes h
 			JOIN hashlist_hashes hh ON h.id = hh.hash_id
 			JOIN job_executions j ON j.hashlist_id = hh.hashlist_id
@@ -1409,7 +1413,7 @@ func (r *HashRepository) GetCrackedHashesByJob(ctx context.Context, jobID uuid.U
 		countArgs = []interface{}{jobID}
 
 		query = `
-			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
 			FROM hashes h
 			JOIN hashlist_hashes hh ON h.id = hh.hash_id
 			JOIN job_executions j ON j.hashlist_id = hh.hashlist_id
@@ -1447,6 +1451,7 @@ func (r *HashRepository) GetCrackedHashesByJob(ctx context.Context, jobID uuid.U
 			&hash.IsCracked,
 			&hash.Password,
 			&hash.LastUpdated,
+			&hash.CrackedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan cracked hash row for job %s: %w", jobID, err)
 		}

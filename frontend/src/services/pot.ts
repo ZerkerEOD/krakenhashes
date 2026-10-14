@@ -7,6 +7,7 @@ export interface CrackedHash {
   hash_type_id: number;
   username?: string;
   domain?: string;
+  cracked_at?: string;  // ISO timestamp of when the hash was cracked (may be absent for legacy rows)
 }
 
 export interface PotResponse {

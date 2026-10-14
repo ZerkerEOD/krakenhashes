@@ -35,6 +35,7 @@
     "username": "Kullanıcı Adı",
     "password": "Parola",
     "hashType": "Hash Türü",
+    "crackedAt": "Kırıldığı Zaman",
     "actions": "İşlemler"
   },
   "search": {

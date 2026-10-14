@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -144,12 +145,13 @@ func handleAccessError(w http.ResponseWriter, err error) {
 }
 
 type CrackedHashResponse struct {
-	ID           uuid.UUID `json:"id"`
-	OriginalHash string    `json:"original_hash"`
-	Password     *string   `json:"password,omitempty"`
-	HashTypeID   int       `json:"hash_type_id"`
-	Username     *string   `json:"username,omitempty"`
-	Domain       *string   `json:"domain,omitempty"`
+	ID           uuid.UUID  `json:"id"`
+	OriginalHash string     `json:"original_hash"`
+	Password     *string    `json:"password,omitempty"`
+	HashTypeID   int        `json:"hash_type_id"`
+	Username     *string    `json:"username,omitempty"`
+	Domain       *string    `json:"domain,omitempty"`
+	CrackedAt    *time.Time `json:"cracked_at,omitempty"`
 }
 
 type PotResponse struct {
@@ -417,6 +419,7 @@ func (h *Handler) formatPotResponse(hashes []*models.Hash, totalCount int64, lim
 			HashTypeID:   hash.HashTypeID,
 			Username:     hash.Username,
 			Domain:       hash.Domain,
+			CrackedAt:    hash.CrackedAt,
 		})
 	}
 	

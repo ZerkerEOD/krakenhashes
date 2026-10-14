@@ -35,6 +35,7 @@
     "username": "Nazwa użytkownika",
     "password": "Hasło",
     "hashType": "Typ hasza",
+    "crackedAt": "Data złamania",
     "actions": "Czynności"
   },
   "search": {

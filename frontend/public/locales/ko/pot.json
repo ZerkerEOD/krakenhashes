@@ -35,6 +35,7 @@
     "username": "사용자명",
     "password": "비밀번호",
     "hashType": "해시 유형",
+    "crackedAt": "크래킹 시간",
     "actions": "동작"
   },
   "search": {
