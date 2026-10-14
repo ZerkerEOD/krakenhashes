@@ -435,8 +435,8 @@ func (r *HashRepository) BulkImportHashes(ctx context.Context, hashes []*models.
 	// md5(original_hash); a raw-text index cannot hold hashes over ~2.7 KB, GH #88)
 	// This is MUCH faster than NOT EXISTS subquery which did full table scans
 	insertResult, err := tx.ExecContext(ctx, `
-		INSERT INTO hashes (id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated)
-		SELECT gen_random_uuid(), t.hash_value, t.original_hash, t.username, t.domain, t.hash_type_id, t.is_cracked, t.password, NOW()
+		INSERT INTO hashes (id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated, cracked_at)
+		SELECT gen_random_uuid(), t.hash_value, t.original_hash, t.username, t.domain, t.hash_type_id, t.is_cracked, t.password, NOW(), CASE WHEN t.is_cracked THEN NOW() ELSE NULL END
 		FROM temp_hash_import t
 		ON CONFLICT (md5(original_hash)) DO NOTHING
 	`)
@@ -453,7 +453,8 @@ func (r *HashRepository) BulkImportHashes(ctx context.Context, hashes []*models.
 		    password = t.password,
 		    username = COALESCE(h.username, t.username),
 		    domain = COALESCE(h.domain, t.domain),
-		    last_updated = NOW()
+		    last_updated = NOW(),
+		    cracked_at = NOW()
 		FROM temp_hash_import t
 		WHERE md5(h.original_hash) = md5(t.original_hash)
 		  AND h.original_hash = t.original_hash
@@ -803,6 +804,7 @@ func (r *HashRepository) UpdateCrackStatusBatch(tx *sql.Tx, updates []HashUpdate
 			password = u.password,
 			username = COALESCE(h.username, u.username),
 			last_updated = u.cracked_at,
+			cracked_at = u.cracked_at,
 			cracked_by_task_id = COALESCE(u.task_id, h.cracked_by_task_id)
 		FROM (VALUES
 	`
@@ -837,7 +839,7 @@ func (r *HashRepository) UpdateCrackStatusBatch(tx *sql.Tx, updates []HashUpdate
 func (r *HashRepository) UpdateCrackStatus(tx *sql.Tx, hashID uuid.UUID, password string, crackedAt time.Time, username *string) error {
 	query := `
 		UPDATE hashes
-		SET is_cracked = TRUE, password = $1, username = COALESCE(username, $2), last_updated = $3
+		SET is_cracked = TRUE, password = $1, username = COALESCE(username, $2), last_updated = $3, cracked_at = $3
 		WHERE id = $4 AND is_cracked = FALSE -- Only update if not already cracked
 	`
 	result, err := tx.Exec(query, password, username, crackedAt, hashID)
@@ -977,7 +979,7 @@ func (r *HashRepository) GetCrackedHashes(ctx context.Context, params CrackedHas
 				username ILIKE $1 OR
 				domain ILIKE $1
 			)
-			ORDER BY last_updated DESC
+			ORDER BY COALESCE(cracked_at, last_updated) DESC, id DESC
 			LIMIT $2 OFFSET $3
 		`
 		queryArgs = []interface{}{searchPattern, params.Limit, params.Offset}
@@ -989,7 +991,7 @@ func (r *HashRepository) GetCrackedHashes(ctx context.Context, params CrackedHas
 			SELECT id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated
 			FROM hashes
 			WHERE is_cracked = true
-			ORDER BY last_updated DESC
+			ORDER BY COALESCE(cracked_at, last_updated) DESC, id DESC
 			LIMIT $1 OFFSET $2
 		`
 		queryArgs = []interface{}{params.Limit, params.Offset}
@@ -1076,7 +1078,7 @@ func (r *HashRepository) GetCrackedHashesByHashlist(ctx context.Context, hashlis
 				h.username ILIKE $2 OR
 				h.domain ILIKE $2
 			)
-			ORDER BY h.last_updated DESC
+			ORDER BY COALESCE(h.cracked_at, h.last_updated) DESC, h.id DESC
 			LIMIT $3 OFFSET $4
 		`
 		queryArgs = []interface{}{hashlistID, searchPattern, params.Limit, params.Offset}
@@ -1094,7 +1096,7 @@ func (r *HashRepository) GetCrackedHashesByHashlist(ctx context.Context, hashlis
 			FROM hashes h
 			JOIN hashlist_hashes hh ON h.id = hh.hash_id
 			WHERE hh.hashlist_id = $1 AND h.is_cracked = true
-			ORDER BY h.last_updated DESC
+			ORDER BY COALESCE(h.cracked_at, h.last_updated) DESC, h.id DESC
 			LIMIT $2 OFFSET $3
 		`
 		queryArgs = []interface{}{hashlistID, params.Limit, params.Offset}
@@ -1175,7 +1177,7 @@ func (r *HashRepository) GetCrackedHashesByClient(ctx context.Context, clientID 
 				h.username ILIKE $2 OR
 				h.domain ILIKE $2
 			)
-			ORDER BY h.last_updated DESC
+			ORDER BY COALESCE(h.cracked_at, h.last_updated) DESC, h.id DESC
 			LIMIT $3 OFFSET $4
 		`
 		queryArgs = []interface{}{clientID, searchPattern, params.Limit, params.Offset}
@@ -1195,7 +1197,7 @@ func (r *HashRepository) GetCrackedHashesByClient(ctx context.Context, clientID 
 			JOIN hashlist_hashes hh ON h.id = hh.hash_id
 			JOIN hashlists hl ON hh.hashlist_id = hl.id
 			WHERE hl.client_id = $1 AND h.is_cracked = true
-			ORDER BY h.last_updated DESC
+			ORDER BY COALESCE(h.cracked_at, h.last_updated) DESC, h.id DESC
 			LIMIT $2 OFFSET $3
 		`
 		queryArgs = []interface{}{clientID, params.Limit, params.Offset}
@@ -1275,17 +1277,21 @@ func (r *HashRepository) GetCrackedHashesByClientIDs(ctx context.Context, client
 		countArgs = []interface{}{pq.Array(idStrs), searchPattern}
 
 		query = `
-			SELECT DISTINCT ON (h.id) h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
-			FROM hashes h
-			JOIN hashlist_hashes hh ON h.id = hh.hash_id
-			JOIN hashlists hl ON hh.hashlist_id = hl.id
-			WHERE hl.client_id = ANY($1) AND h.is_cracked = true AND (
-				h.original_hash ILIKE $2 OR
-				h.password ILIKE $2 OR
-				h.username ILIKE $2 OR
-				h.domain ILIKE $2
-			)
-			ORDER BY h.id, h.last_updated DESC
+			SELECT sub.id, sub.hash_value, sub.original_hash, sub.username, sub.domain, sub.hash_type_id, sub.is_cracked, sub.password, sub.last_updated
+			FROM (
+				SELECT DISTINCT ON (h.id) h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
+				FROM hashes h
+				JOIN hashlist_hashes hh ON h.id = hh.hash_id
+				JOIN hashlists hl ON hh.hashlist_id = hl.id
+				WHERE hl.client_id = ANY($1) AND h.is_cracked = true AND (
+					h.original_hash ILIKE $2 OR
+					h.password ILIKE $2 OR
+					h.username ILIKE $2 OR
+					h.domain ILIKE $2
+				)
+				ORDER BY h.id, COALESCE(h.cracked_at, h.last_updated) DESC
+			) sub
+			ORDER BY COALESCE(sub.cracked_at, sub.last_updated) DESC, sub.id DESC
 			LIMIT $3 OFFSET $4
 		`
 		queryArgs = []interface{}{pq.Array(idStrs), searchPattern, params.Limit, params.Offset}
@@ -1300,12 +1306,16 @@ func (r *HashRepository) GetCrackedHashesByClientIDs(ctx context.Context, client
 		countArgs = []interface{}{pq.Array(idStrs)}
 
 		query = `
-			SELECT DISTINCT ON (h.id) h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
-			FROM hashes h
-			JOIN hashlist_hashes hh ON h.id = hh.hash_id
-			JOIN hashlists hl ON hh.hashlist_id = hl.id
-			WHERE hl.client_id = ANY($1) AND h.is_cracked = true
-			ORDER BY h.id, h.last_updated DESC
+			SELECT sub.id, sub.hash_value, sub.original_hash, sub.username, sub.domain, sub.hash_type_id, sub.is_cracked, sub.password, sub.last_updated
+			FROM (
+				SELECT DISTINCT ON (h.id) h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated, h.cracked_at
+				FROM hashes h
+				JOIN hashlist_hashes hh ON h.id = hh.hash_id
+				JOIN hashlists hl ON hh.hashlist_id = hl.id
+				WHERE hl.client_id = ANY($1) AND h.is_cracked = true
+				ORDER BY h.id, COALESCE(h.cracked_at, h.last_updated) DESC
+			) sub
+			ORDER BY COALESCE(sub.cracked_at, sub.last_updated) DESC, sub.id DESC
 			LIMIT $2 OFFSET $3
 		`
 		queryArgs = []interface{}{pq.Array(idStrs), params.Limit, params.Offset}
@@ -1384,7 +1394,7 @@ func (r *HashRepository) GetCrackedHashesByJob(ctx context.Context, jobID uuid.U
 				h.username ILIKE $2 OR
 				h.domain ILIKE $2
 			)
-			ORDER BY h.last_updated DESC
+			ORDER BY COALESCE(h.cracked_at, h.last_updated) DESC, h.id DESC
 			LIMIT $3 OFFSET $4
 		`
 		queryArgs = []interface{}{jobID, searchPattern, params.Limit, params.Offset}
@@ -1404,7 +1414,7 @@ func (r *HashRepository) GetCrackedHashesByJob(ctx context.Context, jobID uuid.U
 			JOIN hashlist_hashes hh ON h.id = hh.hash_id
 			JOIN job_executions j ON j.hashlist_id = hh.hashlist_id
 			WHERE j.id = $1 AND h.is_cracked = true
-			ORDER BY h.last_updated DESC
+			ORDER BY COALESCE(h.cracked_at, h.last_updated) DESC, h.id DESC
 			LIMIT $2 OFFSET $3
 		`
 		queryArgs = []interface{}{jobID, params.Limit, params.Offset}
