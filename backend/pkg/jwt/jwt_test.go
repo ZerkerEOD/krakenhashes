@@ -247,6 +247,60 @@ func TestGetUserRole(t *testing.T) {
 	})
 }
 
+// TestRememberClaim covers the "remember me" round-trip: a token minted with the
+// flag reports it via GetRemember, the plain GenerateToken wrapper is non-remember,
+// and a legacy token without the claim degrades to false (never errors on a valid
+// token) so an old session becomes a normal browser-close session.
+func TestRememberClaim(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-remember")
+	userID := uuid.NewString()
+
+	t.Run("remember=true round-trips", func(t *testing.T) {
+		tok, err := GenerateTokenWithRemember(userID, "user", 60, true)
+		require.NoError(t, err)
+		remember, err := GetRemember(tok)
+		require.NoError(t, err)
+		assert.True(t, remember)
+	})
+
+	t.Run("remember=false round-trips", func(t *testing.T) {
+		tok, err := GenerateTokenWithRemember(userID, "user", 60, false)
+		require.NoError(t, err)
+		remember, err := GetRemember(tok)
+		require.NoError(t, err)
+		assert.False(t, remember)
+	})
+
+	t.Run("GenerateToken wrapper is non-remember", func(t *testing.T) {
+		tok, err := GenerateToken(userID, "user", 60)
+		require.NoError(t, err)
+		remember, err := GetRemember(tok)
+		require.NoError(t, err)
+		assert.False(t, remember)
+	})
+
+	t.Run("legacy token without remember claim degrades to false", func(t *testing.T) {
+		legacy := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{})
+		claims := legacy.Claims.(jwt.MapClaims)
+		claims["user_id"] = userID
+		claims["role"] = "user"
+		claims["exp"] = time.Now().Add(time.Hour).Unix()
+		// Deliberately no "remember" claim.
+		tokenString, err := legacy.SignedString([]byte("test-secret-remember"))
+		require.NoError(t, err)
+
+		remember, err := GetRemember(tokenString)
+		assert.NoError(t, err)
+		assert.False(t, remember)
+	})
+
+	t.Run("invalid token errors", func(t *testing.T) {
+		remember, err := GetRemember("not.a.token")
+		assert.Error(t, err)
+		assert.False(t, remember)
+	})
+}
+
 func TestGenerateSecureToken(t *testing.T) {
 	// Generate multiple tokens to ensure they're unique
 	tokens := make(map[string]bool)

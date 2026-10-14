@@ -260,8 +260,8 @@ func TestTokenCookieHandling(t *testing.T) {
 	// Create test user (needed for database, not directly used in test assertions)
 	_ = testutil.CreateTestUser(t, db, "testuser", "test@example.com", testutil.DefaultTestPassword, "user")
 
-	t.Run("cookie attributes on login", func(t *testing.T) {
-		req := testutil.MakeRequest(t, http.MethodPost, "/auth/login", map[string]string{
+	t.Run("cookie attributes on login without remember", func(t *testing.T) {
+		req := testutil.MakeRequest(t, http.MethodPost, "/auth/login", map[string]interface{}{
 			"username": "testuser",
 			"password": testutil.DefaultTestPassword,
 		})
@@ -276,10 +276,27 @@ func TestTokenCookieHandling(t *testing.T) {
 		assert.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
 		assert.Equal(t, "/", cookie.Path)
 		assert.Equal(t, "example.com", cookie.Domain)
-		// Cookie MaxAge is jwt_expiry_minutes*60. SeedDefaults seeds
-		// jwt_expiry_minutes=60 (auth_settings), so 60*60 = 3600 seconds. The old
-		// value (7 days) predated the switch to the configurable auth setting.
-		assert.Equal(t, 60*60, cookie.MaxAge)
+		// Without "remember me" the auth cookie is a session cookie (MaxAge 0),
+		// so the browser clears it on close.
+		assert.Equal(t, 0, cookie.MaxAge)
+	})
+
+	t.Run("cookie attributes on login with remember", func(t *testing.T) {
+		req := testutil.MakeRequest(t, http.MethodPost, "/auth/login", map[string]interface{}{
+			"username": "testuser",
+			"password": testutil.DefaultTestPassword,
+			"remember": true,
+		})
+		req.Host = "example.com"
+		rr := httptest.NewRecorder()
+
+		handler.LoginHandler(rr, req)
+
+		cookie := testutil.AssertCookieSet(t, rr, "token")
+		// With "remember me" the cookie persists across a browser restart: a
+		// positive MaxAge far longer than the short JWT expiry. The exact value is
+		// covered by the RememberTokenMinutes/AuthCookieMaxAge unit tests.
+		assert.Greater(t, cookie.MaxAge, 60*60)
 	})
 
 	t.Run("cookie removal on logout", func(t *testing.T) {
