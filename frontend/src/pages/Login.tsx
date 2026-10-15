@@ -180,7 +180,7 @@ const Login: React.FC = () => {
     try {
       checkRateLimit();
 
-      const response = await login(credentials.username, credentials.password, rememberMe);
+      const response = await login(credentials.username, credentials.password);
       
       // Check if MFA is required
       if (response.mfa_required) {
@@ -213,9 +213,9 @@ const Login: React.FC = () => {
   };
 
   const handleLoginSuccess = async (token: string) => {
-    // "Remember me" is enforced server-side: the login request carries the flag
-    // and the backend sets a persistent cookie + long-lived token. No client-side
-    // persistence is needed (the old localStorage flag was never read).
+    if (rememberMe) {
+      localStorage.setItem('rememberMe', 'true');
+    }
     // Clear any stale state from a previous session before setting new auth
     setUserRole(null);
     setUser(null);

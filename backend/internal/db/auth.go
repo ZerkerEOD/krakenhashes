@@ -66,8 +66,7 @@ func (db *DB) GetUserByUsername(username string) (*models.User, error) {
 	return user, nil
 }
 
-// StoreToken stores a JWT token for a user using the configured JWT expiry and
-// returns the token ID.
+// StoreToken stores a JWT token for a user and returns the token ID
 func (db *DB) StoreToken(userID, token string) (uuid.UUID, error) {
 	// Get JWT expiry from auth settings
 	authSettings, err := db.GetAuthSettings()
@@ -76,19 +75,11 @@ func (db *DB) StoreToken(userID, token string) (uuid.UUID, error) {
 		return uuid.Nil, err
 	}
 
-	return db.StoreTokenWithExpiry(userID, token, authSettings.JWTExpiryMinutes)
-}
-
-// StoreTokenWithExpiry stores a JWT token with an explicit lifetime (minutes)
-// and returns the token ID. The DB expires_at must match the token's own exp:
-// the token cleanup service deletes rows where expires_at < now, so a long-lived
-// "remember me" token would otherwise be swept out from under a still-valid
-// cookie.
-func (db *DB) StoreTokenWithExpiry(userID, token string, expiryMinutes int) (uuid.UUID, error) {
-	expiresAt := time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
+	// Calculate expiration time based on JWT expiry setting
+	expiresAt := time.Now().Add(time.Duration(authSettings.JWTExpiryMinutes) * time.Minute)
 
 	var tokenID uuid.UUID
-	err := db.QueryRow(`
+	err = db.QueryRow(`
 		INSERT INTO tokens (user_id, token, expires_at)
 		VALUES ($1, $2, $3)
 		RETURNING id

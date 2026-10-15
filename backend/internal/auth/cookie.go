@@ -26,38 +26,6 @@ func GetCookieDomain(host string) string {
 	return host
 }
 
-// defaultRememberMinutes is the "remember me" session lifetime when no absolute
-// session timeout is configured (30 days). It's long enough to survive browser
-// restarts on an internal tool without being effectively unbounded.
-const defaultRememberMinutes = 30 * 24 * 60
-
-// RememberTokenMinutes returns the token (and session) lifetime in minutes for a
-// login or refresh, honoring the "remember me" choice. A normal session uses the
-// configured short JWT expiry. A "remember me" session lives for the absolute
-// session timeout (the maximum the admin allows) or, when no absolute cap is
-// set, a 30-day default -- long enough to survive a browser restart. The token
-// exp, the DB expires_at, the idle window and the cookie MaxAge all derive from
-// this single value so every logout gate agrees.
-func RememberTokenMinutes(jwtExpiryMinutes, sessionAbsoluteTimeoutHours int, remember bool) int {
-	if !remember {
-		return jwtExpiryMinutes
-	}
-	if sessionAbsoluteTimeoutHours > 0 {
-		return sessionAbsoluteTimeoutHours * 60
-	}
-	return defaultRememberMinutes
-}
-
-// AuthCookieMaxAge returns the auth-cookie MaxAge (seconds) for a login or
-// refresh. A normal session uses a session cookie (MaxAge 0) so the browser
-// clears it on close; a "remember me" session persists for the token lifetime.
-func AuthCookieMaxAge(tokenMinutes int, remember bool) int {
-	if !remember {
-		return 0 // session cookie -- cleared when the browser closes
-	}
-	return tokenMinutes * 60
-}
-
 // SetAuthCookie sets the authentication cookie with the given token
 // maxAge is in seconds
 func SetAuthCookie(w http.ResponseWriter, r *http.Request, token string, maxAge int) {

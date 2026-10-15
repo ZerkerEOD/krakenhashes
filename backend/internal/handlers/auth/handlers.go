@@ -19,21 +19,11 @@ import (
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-	// Remember carries the login form's "remember me" choice. When true the
-	// session is minted with a persistent cookie and a long-lived token so it
-	// survives a browser restart; when false it is a browser-close session.
-	Remember bool `json:"remember"`
 }
 
 // generateAuthToken creates a new JWT token for the user
 func (h *Handler) generateAuthToken(user *models.User, expiryMinutes int) (string, error) {
 	return jwt.GenerateToken(user.ID.String(), user.Role, expiryMinutes)
-}
-
-// generateAuthTokenRemember creates a new JWT token for the user carrying the
-// "remember me" choice (propagated on refresh so the session stays persistent).
-func (h *Handler) generateAuthTokenRemember(user *models.User, expiryMinutes int, remember bool) (string, error) {
-	return jwt.GenerateTokenWithRemember(user.ID.String(), user.Role, expiryMinutes, remember)
 }
 
 /*
@@ -374,20 +364,16 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If no MFA required, proceed with normal login.
-	// A "remember me" login gets a long-lived token + persistent cookie; a normal
-	// login keeps the short JWT and becomes a browser-close session cookie.
-	tokenMinutes := sharedAuth.RememberTokenMinutes(authSettings.JWTExpiryMinutes, authSettings.SessionAbsoluteTimeoutHours, req.Remember)
-	token, err := h.generateAuthTokenRemember(user, tokenMinutes, req.Remember)
+	// If no MFA required, proceed with normal login
+	token, err := h.generateAuthToken(user, authSettings.JWTExpiryMinutes)
 	if err != nil {
 		debug.Error("Failed to generate token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	// Store token and get token ID. The DB expiry must match the token lifetime
-	// so the cleanup service does not sweep a long-lived remember token early.
-	tokenID, err := h.db.StoreTokenWithExpiry(user.ID.String(), token, tokenMinutes)
+	// Store token and get token ID
+	tokenID, err := h.db.StoreToken(user.ID.String(), token)
 	if err != nil {
 		debug.Error("Failed to store token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -428,8 +414,8 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		// Don't fail the login for this
 	}
 
-	sharedAuth.SetAuthCookie(w, r, token, sharedAuth.AuthCookieMaxAge(tokenMinutes, req.Remember))
-	debug.Info("User '%s' successfully logged in (remember=%v)", req.Username, req.Remember)
+	sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+	debug.Info("User '%s' successfully logged in", req.Username)
 
 	json.NewEncoder(w).Encode(models.LoginResponse{
 		Success: true,
@@ -589,18 +575,8 @@ func (h *Handler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Preserve the "remember me" choice across refresh so the session stays
-	// persistent instead of silently downgrading to a browser-close session.
-	remember := false
-	if v := r.Context().Value("remember"); v != nil {
-		if b, ok := v.(bool); ok {
-			remember = b
-		}
-	}
-	tokenMinutes := sharedAuth.RememberTokenMinutes(authSettings.JWTExpiryMinutes, authSettings.SessionAbsoluteTimeoutHours, remember)
-
 	// Generate new token
-	token, err := jwt.GenerateTokenWithRemember(userID.(string), userRole.(string), tokenMinutes, remember)
+	token, err := jwt.GenerateToken(userID.(string), userRole.(string), authSettings.JWTExpiryMinutes)
 	if err != nil {
 		debug.Error("Failed to generate refresh token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -609,7 +585,7 @@ func (h *Handler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Swap tokens with grace period - old token remains valid for 5 minutes
 	// This prevents race conditions with concurrent in-flight requests
-	_, err = h.db.SwapTokenWithGrace(oldToken, token, userUUID, tokenMinutes)
+	_, err = h.db.SwapTokenWithGrace(oldToken, token, userUUID, authSettings.JWTExpiryMinutes)
 	if err != nil {
 		debug.Error("Failed to swap token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -617,8 +593,8 @@ func (h *Handler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set new auth cookie
-	sharedAuth.SetAuthCookie(w, r, token, sharedAuth.AuthCookieMaxAge(tokenMinutes, remember))
-	debug.Info("Token refreshed successfully for user: %s (remember=%v)", userID, remember)
+	sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+	debug.Info("Token refreshed successfully for user: %s", userID)
 
 	json.NewEncoder(w).Encode(models.LoginResponse{
 		Success: true,

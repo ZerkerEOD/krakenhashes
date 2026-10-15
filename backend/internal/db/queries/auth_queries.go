@@ -59,19 +59,14 @@ const (
 		SET last_activity = CURRENT_TIMESTAMP
 		WHERE token = $1`
 
-	// Check if token is expired based on idle timeout.
-	//
-	// The idle window is the token's own lifetime (expires_at - created_at), not
-	// a fixed jwt_expiry_minutes. For a normal token these are identical (it is
-	// minted as created_at + jwt_expiry_minutes), so behavior is unchanged. For a
-	// "remember me" token the lifetime is long, so the idle window scales with it
-	// and the session survives a browser-close gap instead of being idle-killed
-	// after the short JWT window.
+	// Check if token is expired based on idle timeout
 	IsTokenExpiredByIdleTimeout = `
 		SELECT EXISTS(
 			SELECT 1 FROM tokens t
+			JOIN auth_settings a
+			ON true
 			WHERE t.token = $1
-			AND t.last_activity < CURRENT_TIMESTAMP - (t.expires_at - t.created_at)
+			AND t.last_activity < CURRENT_TIMESTAMP - INTERVAL '1 minute' * a.jwt_expiry_minutes
 		)`
 
 	// User MFA Data Query
