@@ -164,13 +164,8 @@ func RequireAuth(database *db.DB) func(http.Handler) http.Handler {
 							if roleErr != nil {
 								debug.Error("[AUTH] Failed to get role for token refresh: %v", roleErr)
 							} else {
-								// Preserve the "remember me" choice so the sliding-window
-								// refresh keeps the session persistent, not downgraded.
-								remember, _ := jwt.GetRemember(cookie.Value)
-								tokenMinutes := auth.RememberTokenMinutes(authSettings.JWTExpiryMinutes, authSettings.SessionAbsoluteTimeoutHours, remember)
-
 								// Generate new token
-								newToken, tokenErr := jwt.GenerateTokenWithRemember(userID, role, tokenMinutes, remember)
+								newToken, tokenErr := jwt.GenerateToken(userID, role, authSettings.JWTExpiryMinutes)
 								if tokenErr != nil {
 									debug.Error("[AUTH] Failed to generate new token: %v", tokenErr)
 								} else {
@@ -180,13 +175,13 @@ func RequireAuth(database *db.DB) func(http.Handler) http.Handler {
 										debug.Error("[AUTH] Failed to parse user ID for token swap: %v", parseErr)
 									} else {
 										// Swap tokens atomically with grace period
-										_, swapErr := database.SwapTokenWithGrace(cookie.Value, newToken, userUUID, tokenMinutes)
+										_, swapErr := database.SwapTokenWithGrace(cookie.Value, newToken, userUUID, authSettings.JWTExpiryMinutes)
 										if swapErr != nil {
 											debug.Error("[AUTH] Failed to swap token: %v", swapErr)
 											// Continue with old token - request still proceeds
 										} else {
 											// Set new cookie with fresh expiry
-											auth.SetAuthCookie(w, r, newToken, auth.AuthCookieMaxAge(tokenMinutes, remember))
+											auth.SetAuthCookie(w, r, newToken, authSettings.JWTExpiryMinutes*60)
 											debug.Info("[AUTH] Token refreshed successfully via throttled refresh for user: %s", userID)
 											// Note: The old token remains valid for grace period (5 minutes)
 											// This handles concurrent requests from other tabs
@@ -219,10 +214,6 @@ func RequireAuth(database *db.DB) func(http.Handler) http.Handler {
 			// Add user ID and role to request context
 			ctx := context.WithValue(r.Context(), "user_id", userID)
 			ctx = context.WithValue(ctx, "user_role", role) // Add role to context
-			// Expose the "remember me" flag so the refresh handler keeps the
-			// session persistent when re-minting the token.
-			remember, _ := jwt.GetRemember(cookie.Value)
-			ctx = context.WithValue(ctx, "remember", remember)
 			r = r.WithContext(ctx)
 
 			if isSSERequest {

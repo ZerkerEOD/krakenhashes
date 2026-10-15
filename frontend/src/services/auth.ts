@@ -13,11 +13,11 @@ import {
   WebAuthnSettings
 } from '../types/auth';
 
-export const login = async (username: string, password: string, remember = false): Promise<LoginResponse> => {
+export const login = async (username: string, password: string): Promise<LoginResponse> => {
   try {
     const response = await api.post<LoginResponse>(
-      '/api/login',
-      { username, password, remember }
+      '/api/login', 
+      { username, password }
     );
     return response.data;
   } catch (error: unknown) {

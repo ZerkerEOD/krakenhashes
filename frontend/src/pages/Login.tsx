@@ -69,16 +69,49 @@ const RATE_LIMIT = {
   timeWindow: 1000, // 1 second
 };
 
+// "Remember me" persists ONLY the username so it can be pre-filled next time — it is
+// a convenience, not a session or credential. The password is never stored, and this
+// has no effect on the login session or its timeouts. Stored client-side and never
+// sent to the server; all access is guarded so a disabled/unavailable localStorage
+// (private mode, blocked storage) never breaks login.
+const REMEMBERED_USERNAME_KEY = 'kh.login.username';
+
+const readRememberedUsername = (): string => {
+  try {
+    return localStorage.getItem(REMEMBERED_USERNAME_KEY) ?? '';
+  } catch {
+    return '';
+  }
+};
+
+const writeRememberedUsername = (username: string): void => {
+  try {
+    localStorage.setItem(REMEMBERED_USERNAME_KEY, username);
+  } catch {
+    /* storage unavailable — pre-fill is best-effort */
+  }
+};
+
+const clearRememberedUsername = (): void => {
+  try {
+    localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+};
+
 const Login: React.FC = () => {
   const { t } = useTranslation('auth');
   const { branding } = useBranding();
   const { setAuth, setUser, setUserRole, checkAuthStatus } = useAuth();
-  const [credentials, setCredentials] = useState<LoginCredentials>({
-    username: '',
+  // Pre-fill the username from a prior "remember me" login (empty string if none).
+  const [credentials, setCredentials] = useState<LoginCredentials>(() => ({
+    username: readRememberedUsername(),
     password: ''
-  });
+  }));
   const [error, setError] = useState<string>('');
-  const [rememberMe, setRememberMe] = useState<boolean>(false);
+  // Reflect "remember me" as on when we have a remembered username to pre-fill.
+  const [rememberMe, setRememberMe] = useState<boolean>(() => readRememberedUsername() !== '');
   const [loading, setLoading] = useState<boolean>(false);
   const [mfaRequired, setMfaRequired] = useState<boolean>(false);
   const [mfaSession, setMfaSession] = useState<{
@@ -180,7 +213,7 @@ const Login: React.FC = () => {
     try {
       checkRateLimit();
 
-      const response = await login(credentials.username, credentials.password, rememberMe);
+      const response = await login(credentials.username, credentials.password);
       
       // Check if MFA is required
       if (response.mfa_required) {
@@ -213,9 +246,14 @@ const Login: React.FC = () => {
   };
 
   const handleLoginSuccess = async (token: string) => {
-    // "Remember me" is enforced server-side: the login request carries the flag
-    // and the backend sets a persistent cookie + long-lived token. No client-side
-    // persistence is needed (the old localStorage flag was never read).
+    // Remember Me = remember the username only, so it's pre-filled next time. The
+    // password is never stored and the session/timeouts are unaffected. Runs for
+    // both direct and MFA logins (credentials.username is still set during MFA).
+    if (rememberMe) {
+      writeRememberedUsername(credentials.username);
+    } else {
+      clearRememberedUsername();
+    }
     // Clear any stale state from a previous session before setting new auth
     setUserRole(null);
     setUser(null);
