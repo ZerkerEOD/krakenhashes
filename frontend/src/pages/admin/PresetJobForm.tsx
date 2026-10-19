@@ -145,6 +145,7 @@ const PresetJobFormPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [maxPriority, setMaxPriority] = useState<number>(1000);
+  const [maxAgentsLimit, setMaxAgentsLimit] = useState<number>(0); // 0 = no limit (GH #126)
   const [savedCharsets, setSavedCharsets] = useState<CustomCharset[]>([]);
 
   // Get current attack mode info
@@ -179,6 +180,7 @@ const PresetJobFormPage: React.FC = () => {
           systemDefaultChunkDuration = jobDefaults.default_chunk_duration;
         }
         setDefaultChunkDuration(systemDefaultChunkDuration);
+        setMaxAgentsLimit(jobDefaults?.max_agents_limit ?? 0);
 
         if (!formDataResponse.wordlists?.length) {
           setError(t('presetJobs.form.errors.noWordlistsAvailable') as string);
@@ -957,8 +959,12 @@ const PresetJobFormPage: React.FC = () => {
             onChange={handleChange}
             fullWidth
             margin="normal"
-            inputProps={{ min: 0 }}
-            helperText={t('presetJobs.form.helperText.maxAgents') as string}
+            inputProps={{ min: 0, max: maxAgentsLimit > 0 ? maxAgentsLimit : undefined }}
+            helperText={
+              maxAgentsLimit > 0
+                ? (t('presetJobs.form.helperText.maxAgentsLimited', { limit: maxAgentsLimit }) as string)
+                : (t('presetJobs.form.helperText.maxAgents') as string)
+            }
           />
         </Grid>
 

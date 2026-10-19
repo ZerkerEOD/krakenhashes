@@ -122,7 +122,10 @@ func (h *AdminJobsHandler) CreatePresetJob(w http.ResponseWriter, r *http.Reques
 
 	createdJob, err := h.presetJobService.CreatePresetJob(r.Context(), job)
 	if err != nil {
-		// Basic error handling, could check for specific validation errors
+		if errors.Is(err, services.ErrPresetValidation) {
+			httputil.RespondWithError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		debug.Error("Error creating preset job: %v", err)
 		httputil.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create preset job: %v", err))
 		return
@@ -245,6 +248,8 @@ func (h *AdminJobsHandler) UpdatePresetJob(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			httputil.RespondWithError(w, http.StatusNotFound, "Preset job not found")
+		} else if errors.Is(err, services.ErrPresetValidation) {
+			httputil.RespondWithError(w, http.StatusBadRequest, err.Error())
 		} else {
 			debug.Error("Error updating preset job %s: %v", id, err)
 			httputil.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update preset job: %v", err))

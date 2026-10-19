@@ -74,6 +74,10 @@ var numericSettingBounds = map[string]settingBound{
 	"progress_reporting_interval":    {1, 60},
 	"agent_hashlist_retention_hours": {1, 8760},
 
+	// Scheduling (GH #126): 0 = unlimited / no limit; ceiling of 1000 mirrors max_job_priority's scale.
+	"default_max_agents": {0, 1000},
+	"max_agents_limit":   {0, 1000},
+
 	// Jobs & potfile
 	"loopback_max_rounds":    {1, 100},
 	"potfile_max_batch_size": {1000, 1000000},

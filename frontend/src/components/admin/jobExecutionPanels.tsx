@@ -243,6 +243,24 @@ export const SchedulingPanel: React.FC = () => {
         />
       </Grid>
       <Grid item xs={12} md={6}>
+        <NumberSetting
+          settingKey="default_max_agents"
+          label={t('jobExecution.scheduling.defaultMaxAgents') as string}
+          helper={t('jobExecution.scheduling.defaultMaxAgentsHelper') as string}
+          min={0}
+          max={1000}
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <NumberSetting
+          settingKey="max_agents_limit"
+          label={t('jobExecution.scheduling.maxAgentsLimit') as string}
+          helper={t('jobExecution.scheduling.maxAgentsLimitHelper') as string}
+          min={0}
+          max={1000}
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
         <SwitchSetting
           settingKey="agent_scheduling_enabled"
           label={t('jobExecution.scheduling.agentScheduling') as string}

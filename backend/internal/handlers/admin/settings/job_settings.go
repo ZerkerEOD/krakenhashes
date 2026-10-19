@@ -60,6 +60,9 @@ type JobExecutionSettings struct {
 	BenchmarkHistoryRetentionDays int `json:"benchmark_history_retention_days"`
 	// Analytics settings
 	AnalyticsDefaultDateRangeMonths int `json:"analytics_default_date_range_months"`
+	// Max agents (GH #126): default for new custom jobs and the enforced ceiling.
+	DefaultMaxAgents int `json:"default_max_agents"`
+	MaxAgentsLimit   int `json:"max_agents_limit"`
 }
 
 // GetJobExecutionSettings returns all job execution settings
@@ -101,6 +104,9 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		"benchmark_history_retention_days",
 		// Analytics settings
 		"analytics_default_date_range_months",
+		// Max agents (GH #126)
+		"default_max_agents",
+		"max_agents_limit",
 	}
 
 	settings := JobExecutionSettings{
@@ -137,6 +143,9 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		BenchmarkHistoryRetentionDays: 365,
 		// Analytics defaults
 		AnalyticsDefaultDateRangeMonths: 12,
+		// Max agents defaults (GH #126): 0 = unlimited / no limit, unchanged behaviour
+		DefaultMaxAgents: 0,
+		MaxAgentsLimit:   0,
 	}
 
 	// Retrieve each setting
@@ -243,6 +252,14 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 				if val, err := strconv.Atoi(*setting.Value); err == nil {
 					settings.AnalyticsDefaultDateRangeMonths = val
 				}
+			case "default_max_agents":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.DefaultMaxAgents = val
+				}
+			case "max_agents_limit":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.MaxAgentsLimit = val
+				}
 			}
 		}
 	}
@@ -257,6 +274,8 @@ type UserJobDefaults struct {
 	PotfileEnabled                  bool `json:"potfile_enabled"`
 	DefaultDataRetentionMonths      *int `json:"default_data_retention_months"`
 	AnalyticsDefaultDateRangeMonths int  `json:"analytics_default_date_range_months"`
+	DefaultMaxAgents                int  `json:"default_max_agents"`
+	MaxAgentsLimit                  int  `json:"max_agents_limit"`
 }
 
 // GetJobDefaultsForUsers returns user-relevant job defaults (non-admin, read-only).
@@ -268,6 +287,8 @@ func (h *JobSettingsHandler) GetJobDefaultsForUsers(w http.ResponseWriter, r *ht
 		DefaultChunkDuration:            1200, // fallback: 20 minutes
 		PotfileEnabled:                  true, // fallback: enabled
 		AnalyticsDefaultDateRangeMonths: 12,   // fallback: 12 months
+		DefaultMaxAgents:                0,    // fallback: unlimited
+		MaxAgentsLimit:                  0,    // fallback: no limit
 	}
 
 	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration"); err == nil && setting.Value != nil {
@@ -293,6 +314,18 @@ func (h *JobSettingsHandler) GetJobDefaultsForUsers(w http.ResponseWriter, r *ht
 	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "analytics_default_date_range_months"); err == nil && setting.Value != nil {
 		if val, parseErr := strconv.Atoi(*setting.Value); parseErr == nil {
 			defaults.AnalyticsDefaultDateRangeMonths = val
+		}
+	}
+
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "default_max_agents"); err == nil && setting.Value != nil {
+		if val, parseErr := strconv.Atoi(*setting.Value); parseErr == nil {
+			defaults.DefaultMaxAgents = val
+		}
+	}
+
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "max_agents_limit"); err == nil && setting.Value != nil {
+		if val, parseErr := strconv.Atoi(*setting.Value); parseErr == nil {
+			defaults.MaxAgentsLimit = val
 		}
 	}
 
@@ -344,6 +377,9 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"benchmark_history_retention_days": strconv.Itoa(settings.BenchmarkHistoryRetentionDays),
 		// Analytics settings
 		"analytics_default_date_range_months": strconv.Itoa(settings.AnalyticsDefaultDateRangeMonths),
+		// Max agents (GH #126)
+		"default_max_agents": strconv.Itoa(settings.DefaultMaxAgents),
+		"max_agents_limit":   strconv.Itoa(settings.MaxAgentsLimit),
 	}
 
 	// Validate everything BEFORE writing anything. This endpoint writes all ~25

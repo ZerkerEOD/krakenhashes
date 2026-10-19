@@ -136,6 +136,68 @@ func (r *SystemSettingsRepository) SetMaxJobPriority(ctx context.Context, maxPri
 	return r.SetSetting(ctx, "max_job_priority", &value)
 }
 
+// GetMaxAgentsLimit retrieves the max_agents ceiling a user may request for a
+// job (GH #126). 0 means "no limit" and is the default, so behaviour is
+// unchanged until an admin raises it above zero.
+func (r *SystemSettingsRepository) GetMaxAgentsLimit(ctx context.Context) (int, error) {
+	setting, err := r.GetSetting(ctx, "max_agents_limit")
+	if err != nil {
+		if err == ErrNotFound {
+			return 0, nil // Default: no limit
+		}
+		return 0, err
+	}
+	if setting.Value == nil {
+		return 0, nil
+	}
+	limit, err := strconv.Atoi(*setting.Value)
+	if err != nil {
+		debug.Error("Invalid max_agents_limit value in database: %s", *setting.Value)
+		return 0, nil // Fail open to the previous (no-limit) behaviour on a bad value
+	}
+	return limit, nil
+}
+
+// ResolveMaxAgents applies the max_agents_limit policy (GH #126) to a requested
+// value and returns the value to persist, or an error to surface as HTTP 400.
+//
+// Policy (limit = max_agents_limit):
+//   - requested < 0           -> error (invalid)
+//   - limit <= 0              -> requested unchanged (enforcement disabled)
+//   - requested == 0          -> clamped to limit (0 = "unlimited" is not allowed
+//     once a ceiling exists; the job gets the ceiling)
+//   - requested > limit       -> error (rejected so the caller learns the cap)
+//   - 0 < requested <= limit  -> requested unchanged
+func (r *SystemSettingsRepository) ResolveMaxAgents(ctx context.Context, requested int) (int, error) {
+	if requested < 0 {
+		return 0, fmt.Errorf("max_agents cannot be negative")
+	}
+	limit, err := r.GetMaxAgentsLimit(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return ApplyMaxAgentsLimit(requested, limit)
+}
+
+// ApplyMaxAgentsLimit is the pure max_agents policy (GH #126), split out from
+// ResolveMaxAgents so it can be unit-tested without a database. See
+// ResolveMaxAgents for the policy description.
+func ApplyMaxAgentsLimit(requested, limit int) (int, error) {
+	if requested < 0 {
+		return 0, fmt.Errorf("max_agents cannot be negative")
+	}
+	if limit <= 0 {
+		return requested, nil
+	}
+	if requested == 0 {
+		return limit, nil
+	}
+	if requested > limit {
+		return 0, fmt.Errorf("max_agents %d exceeds the configured limit of %d", requested, limit)
+	}
+	return requested, nil
+}
+
 // UpdateSetting updates a specific setting's value by its key (alias for SetSetting with string value).
 func (r *SystemSettingsRepository) UpdateSetting(ctx context.Context, key string, value string) error {
 	return r.SetSetting(ctx, key, &value)

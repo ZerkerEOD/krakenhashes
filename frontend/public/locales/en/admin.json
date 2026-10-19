@@ -721,7 +721,8 @@
         "cloudBurstEnabled": "Rent GPU instances for jobs created from this preset when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.",
         "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
         "cloudAllowCommunityHosts": "These are someone else's machines. The host's owner has root over the container, so this client's hashes, wordlists and cracked plaintexts are readable by a third party and are not encrypted at rest on the host. Not recommended for production or client engagement data. Leave this off and jobs will still use secure capacity (AWS, RunPod Secure Cloud) if the client allows it.",
-        "prefilteredWordlistHint": "To use a pre-filtered wordlist in a preset job, create it first in Wordlist Management — it will then appear in this list. Inline ephemeral filtering is available only on one-off custom jobs."
+        "prefilteredWordlistHint": "To use a pre-filtered wordlist in a preset job, create it first in Wordlist Management — it will then appear in this list. Inline ephemeral filtering is available only on one-off custom jobs.",
+        "maxAgentsLimited": "Maximum number of agents (0 = unlimited; admin limit: {{limit}})"
       },
       "errors": {
         "nameRequired": "Job name is required",
@@ -1642,7 +1643,11 @@
         "enforceMaxAgents": "Enforce max agents",
         "maxAgentsFifo": "Max agents, then FIFO",
         "maxAgentsRoundRobin": "Max agents, then round robin"
-      }
+      },
+      "defaultMaxAgents": "Default Max Agents",
+      "defaultMaxAgentsHelper": "Default max agents pre-filled on new custom jobs (0 = unlimited).",
+      "maxAgentsLimit": "Max Agents Limit",
+      "maxAgentsLimitHelper": "Highest max agents a user may request per job (0 = no limit). Enforced on create and edit."
     },
     "taskHealth": {
       "title": "Task Health",

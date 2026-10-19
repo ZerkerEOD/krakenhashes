@@ -393,6 +393,14 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		}
 	}
 
+	// Enforce the admin max_agents ceiling on the instantiated job (GH #126), so
+	// preset- and workflow-derived jobs respect the same cap as custom jobs even
+	// when the preset itself is unlimited or predates the current limit.
+	resolvedMaxAgents, err := s.systemSettingsRepo.ResolveMaxAgents(ctx, presetJob.MaxAgents)
+	if err != nil {
+		return nil, fmt.Errorf("max agents: %w", err)
+	}
+
 	// Create job execution with all configuration copied from preset
 	jobExecution := &models.JobExecution{
 		PresetJobID:       &presetJobID, // Keep reference for audit trail
@@ -401,7 +409,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		Priority:          presetJob.Priority,
 		ProcessedKeyspace: models.NewBigInt(0),
 		AttackMode:        presetJob.AttackMode,
-		MaxAgents:         presetJob.MaxAgents,
+		MaxAgents:         resolvedMaxAgents,
 		// Carried from the preset so the opt-in survives into the job the
 		// scheduler actually reads.
 		CloudBurstEnabled: presetJob.CloudBurstEnabled,

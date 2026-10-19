@@ -63,6 +63,10 @@ export interface UserJobDefaults {
   potfile_enabled: boolean;
   default_data_retention_months: number | null;
   analytics_default_date_range_months: number;
+  // Max agents (GH #126): form pre-fill default and the enforced ceiling
+  // (0 = unlimited / no limit).
+  default_max_agents: number;
+  max_agents_limit: number;
 }
 
 export const getJobDefaultsForUsers = async (): Promise<UserJobDefaults> => {
