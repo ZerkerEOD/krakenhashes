@@ -205,6 +205,12 @@ func isValidAttackMode(mode models.AttackMode) bool {
 	}
 }
 
+// ErrPresetValidation marks a preset-job create/update failure as a caller
+// (400) error rather than an internal (500) one, so the HTTP handlers can map
+// validation failures — priority/max_agents over the limit, bad attack config,
+// etc. — to the right status (GH #126).
+var ErrPresetValidation = errors.New("validation failed")
+
 // validatePresetJob performs input validation for create/update operations.
 func (s *adminPresetJobService) validatePresetJob(ctx context.Context, params models.PresetJob, isUpdate bool, existingID uuid.UUID) error {
 	if params.Name == "" {
@@ -234,6 +240,18 @@ func (s *adminPresetJobService) validatePresetJob(ctx context.Context, params mo
 
 	if params.Priority > maxPriority {
 		return fmt.Errorf("priority %d exceeds the maximum allowed priority of %d", params.Priority, maxPriority)
+	}
+
+	// Check max_agents against the system limit (GH #126). 0 = unlimited is
+	// allowed on the template and clamped to the limit when a job is created.
+	if params.MaxAgents < 0 {
+		return errors.New("max agents cannot be negative")
+	}
+	maxAgentsLimit, err := s.systemSettingsRepo.GetMaxAgentsLimit(ctx)
+	if err != nil {
+		debug.Warning("Failed to get max_agents_limit setting, skipping check: %v", err)
+	} else if maxAgentsLimit > 0 && params.MaxAgents > maxAgentsLimit {
+		return fmt.Errorf("max agents %d exceeds the configured limit of %d", params.MaxAgents, maxAgentsLimit)
 	}
 
 	if params.ChunkSizeSeconds <= 0 {
@@ -386,7 +404,7 @@ func (s *adminPresetJobService) CreatePresetJob(ctx context.Context, params mode
 	// MaxAgents defaults to 0 (unlimited) if not set
 
 	if err := s.validatePresetJob(ctx, params, false, uuid.Nil); err != nil {
-		return nil, fmt.Errorf("validation failed: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrPresetValidation, err)
 	}
 
 	debug.Info("Creating preset job")
@@ -466,7 +484,7 @@ func (s *adminPresetJobService) UpdatePresetJob(ctx context.Context, id uuid.UUI
 	}
 
 	if err := s.validatePresetJob(ctx, params, true, id); err != nil {
-		return nil, fmt.Errorf("validation failed: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrPresetValidation, err)
 	}
 
 	debug.Info("Updating preset job ID: %s", id)

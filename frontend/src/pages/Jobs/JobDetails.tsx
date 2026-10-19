@@ -37,6 +37,7 @@ import JobProgressBar from '../../components/JobProgressBar';
 import BenchmarkBlocklistPanel from '../../components/jobs/BenchmarkBlocklistPanel';
 import CloudProjectionDialog from '../../components/jobs/CloudProjectionDialog';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
+import { getJobDefaultsForUsers } from '../../services/jobSettings';
 import { provisionInstanceForJob } from '../../services/cloud';
 
 /** Task as returned on the job detail payload (agent_name joined server-side). */
@@ -98,6 +99,7 @@ const JobDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [maxPriority, setMaxPriority] = useState<number>(1000); // Default to 1000
+  const [maxAgentsLimit, setMaxAgentsLimit] = useState<number>(0); // 0 = no limit (GH #126)
   
   // Edit states
   const [editingPriority, setEditingPriority] = useState(false);
@@ -160,6 +162,15 @@ const JobDetails: React.FC = () => {
         console.error('Failed to fetch max priority:', err);
         // Keep default of 1000 if fetch fails
       });
+
+    getJobDefaultsForUsers()
+      .then(defaults => {
+        setMaxAgentsLimit(defaults.max_agents_limit ?? 0);
+      })
+      .catch(err => {
+        console.error('Failed to fetch job defaults:', err);
+        // Keep default of 0 (no limit) if fetch fails
+      });
   }, []);
   
 
@@ -213,6 +224,10 @@ const JobDetails: React.FC = () => {
     const maxAgentsValue = parseInt(tempMaxAgents) || 0;
     if (maxAgentsValue < 0) {
       toast.error(t('validation.maxAgentsPositive'));
+      return;
+    }
+    if (maxAgentsLimit > 0 && maxAgentsValue > maxAgentsLimit) {
+      toast.error(t('validation.maxAgentsRangeLimited', { max: maxAgentsLimit }));
       return;
     }
 

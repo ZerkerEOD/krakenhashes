@@ -36,6 +36,15 @@ func TestValidateSettingValue(t *testing.T) {
 		{name: "network grace zero is accepted", key: "network_grace_seconds", value: "0"},
 		{name: "network grace past max is refused", key: "network_grace_seconds", value: "601", wantErr: true},
 
+		// Max agents settings (GH #126): bounds {0, 1000}, 0 is legal (unlimited / no limit).
+		{name: "default_max_agents zero is accepted", key: "default_max_agents", value: "0"},
+		{name: "default_max_agents mid is accepted", key: "default_max_agents", value: "4"},
+		{name: "default_max_agents past max is refused", key: "default_max_agents", value: "1001", wantErr: true, wantMsg: "between 0 and 1000"},
+		{name: "default_max_agents negative is refused", key: "default_max_agents", value: "-1", wantErr: true},
+		{name: "max_agents_limit zero is accepted", key: "max_agents_limit", value: "0"},
+		{name: "max_agents_limit mid is accepted", key: "max_agents_limit", value: "3"},
+		{name: "max_agents_limit past max is refused", key: "max_agents_limit", value: "1001", wantErr: true},
+
 		// Non-numeric input on a registered key.
 		{name: "non-numeric is refused", key: "keyspace_calculation_timeout_minutes", value: "abc", wantErr: true, wantMsg: "whole number"},
 		{name: "empty is refused", key: "keyspace_calculation_timeout_minutes", value: "", wantErr: true, wantMsg: "whole number"},

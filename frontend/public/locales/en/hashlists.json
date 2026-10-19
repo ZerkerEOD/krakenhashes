@@ -244,7 +244,8 @@
       "maxAgents": "Max Agents",
       "maxAgentsHelper": "Maximum number of agents (0 = unlimited)",
       "allowHighPriorityOverride": "Allow High Priority Override",
-      "additionalArgsPlaceholder": "e.g., -w 4 -O --force"
+      "additionalArgsPlaceholder": "e.g., -w 4 -O --force",
+      "maxAgentsHelperLimited": "Maximum number of agents (0 = max allowed; admin limit: {{limit}})"
     }
   },
   "confirmDelete": {

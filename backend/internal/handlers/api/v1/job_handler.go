@@ -188,11 +188,15 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate max_agents
-	if req.MaxAgents < 0 {
-		h.sendError(w, "VALIDATION_ERROR", "max_agents must be non-negative", http.StatusBadRequest)
+	// Validate and enforce the max_agents ceiling (GH #126). Resolving here
+	// (not at the apply sites below) means both the new-job and reuse branches
+	// persist the clamped value.
+	resolvedMaxAgents, err := h.systemSettingsRepo.ResolveMaxAgents(ctx, req.MaxAgents)
+	if err != nil {
+		h.sendError(w, "VALIDATION_ERROR", err.Error(), http.StatusBadRequest)
 		return
 	}
+	req.MaxAgents = resolvedMaxAgents
 
 	// Verify hashlist exists and user owns it
 	hashlist, err := h.hashlistRepo.GetByID(ctx, req.HashlistID)
@@ -630,12 +634,13 @@ func (h *JobHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 
 	// Update max_agents if specified
 	if req.MaxAgents != nil {
-		if *req.MaxAgents < 0 {
-			h.sendError(w, "VALIDATION_ERROR", "max_agents must be non-negative", http.StatusBadRequest)
+		resolvedMaxAgents, err := h.systemSettingsRepo.ResolveMaxAgents(ctx, *req.MaxAgents)
+		if err != nil {
+			h.sendError(w, "VALIDATION_ERROR", err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if err := h.jobExecRepo.UpdateMaxAgents(ctx, jobID, *req.MaxAgents); err != nil {
+		if err := h.jobExecRepo.UpdateMaxAgents(ctx, jobID, resolvedMaxAgents); err != nil {
 			debug.Error("Failed to update job max_agents: %v", err)
 			h.sendError(w, "INTERNAL_ERROR", "Failed to update max_agents", http.StatusInternalServerError)
 			return

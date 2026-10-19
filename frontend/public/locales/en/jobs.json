@@ -69,7 +69,8 @@
     "chunkSizeMax": "Chunk size cannot exceed 24 hours (86400 seconds)",
     "invalidNumber": "Please enter a valid number",
     "minValue": "Value must be at least {{min}}",
-    "maxValue": "Value must be at most {{max}}"
+    "maxValue": "Value must be at most {{max}}",
+    "maxAgentsRangeLimited": "Max agents must be between 1 and {{max}}"
   },
   "errors": {
     "loadFailed": "Failed to load jobs",

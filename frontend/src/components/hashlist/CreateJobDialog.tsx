@@ -166,6 +166,7 @@ export default function CreateJobDialog({
   // Custom job state
   const [combWordlist1, setCombWordlist1] = useState<string>('');
   const [combWordlist2, setCombWordlist2] = useState<string>('');
+  const [maxAgentsLimit, setMaxAgentsLimit] = useState<number>(0); // 0 = no limit (GH #126)
   const [customJob, setCustomJob] = useState({
     name: '',
     attack_mode: 0,
@@ -284,10 +285,15 @@ export default function CreateJobDialog({
         systemDefaultChunkDuration = jobDefaults.default_chunk_duration;
       }
 
+      // Seed the max_agents default and capture the enforced ceiling (GH #126).
+      const defaultMaxAgents = jobDefaults?.default_max_agents ?? 0;
+      setMaxAgentsLimit(jobDefaults?.max_agents_limit ?? 0);
+
       // Update chunk duration (binary_version defaults to 'default')
       setCustomJob(prev => ({
         ...prev,
-        chunk_duration: systemDefaultChunkDuration
+        chunk_duration: systemDefaultChunkDuration,
+        max_agents: defaultMaxAgents,
       }));
     } catch (err: any) {
       console.error('Failed to fetch available jobs:', err);
@@ -1407,11 +1413,19 @@ export default function CreateJobDialog({
                       type="number"
                       value={customJob.max_agents}
                       onChange={(e) => {
-                        const value = parseInt(e.target.value) || 0;
+                        let value = parseInt(e.target.value) || 0;
+                        if (value < 0) value = 0;
+                        if (maxAgentsLimit > 0 && value > maxAgentsLimit) {
+                          value = maxAgentsLimit;
+                        }
                         setCustomJob(prev => ({ ...prev, max_agents: value }));
                       }}
-                      inputProps={{ min: 0 }}
-                      helperText={t('createJob.form.maxAgentsHelper') as string}
+                      inputProps={{ min: 0, max: maxAgentsLimit > 0 ? maxAgentsLimit : undefined }}
+                      helperText={
+                        maxAgentsLimit > 0
+                          ? (t('createJob.form.maxAgentsHelperLimited', { limit: maxAgentsLimit }) as string)
+                          : (t('createJob.form.maxAgentsHelper') as string)
+                      }
                     />
                   </Grid>
 

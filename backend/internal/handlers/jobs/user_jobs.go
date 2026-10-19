@@ -1302,6 +1302,14 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			}
 		}
 
+		// Enforce the admin max_agents ceiling before building the job (GH #126).
+		resolvedMaxAgents, err := h.systemSettingsRepo.ResolveMaxAgents(ctx, req.CustomJob.MaxAgents)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		req.CustomJob.MaxAgents = resolvedMaxAgents
+
 		// Create custom job configuration (NO preset job creation)
 		config := services.CustomJobConfig{
 			Name:                      req.CustomJob.Name,
@@ -1953,7 +1961,12 @@ func (h *UserJobsHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if update.MaxAgents != nil {
-		if err := h.jobExecRepo.UpdateMaxAgents(ctx, jobID, *update.MaxAgents); err != nil {
+		resolvedMaxAgents, err := h.systemSettingsRepo.ResolveMaxAgents(ctx, *update.MaxAgents)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := h.jobExecRepo.UpdateMaxAgents(ctx, jobID, resolvedMaxAgents); err != nil {
 			debug.Error("Failed to update job max agents: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return

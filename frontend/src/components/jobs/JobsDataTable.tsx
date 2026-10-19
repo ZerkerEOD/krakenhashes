@@ -14,6 +14,7 @@ import type { DataTablePagination } from '../ui';
 import EditableCell from '../../pages/Jobs/EditableCell';
 import { api, archiveJob, unarchiveJob } from '../../services/api';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
+import { getJobDefaultsForUsers } from '../../services/jobSettings';
 import { formatters, formatDateTime } from '../../utils/formatters';
 import { calculateJobProgress, formatKeyspace, getKeyspaceTooltip } from '../../utils/jobProgress';
 import { getErrorMessage } from '../../utils/errors';
@@ -81,6 +82,8 @@ const JobsDataTable: React.FC<JobsDataTableProps> = ({
   const confirm = useConfirm();
   const { data: maxPriorityCfg } = useQuery({ queryKey: ['settings', 'max-priority', 'users'], queryFn: getMaxPriorityForUsers, staleTime: 60_000 });
   const maxPriority = maxPriorityCfg?.max_priority ?? 10;
+  const { data: jobDefaults } = useQuery({ queryKey: ['settings', 'job-defaults', 'users'], queryFn: getJobDefaultsForUsers, staleTime: 60_000 });
+  const maxAgentsLimit = jobDefaults?.max_agents_limit ?? 0; // 0 = no limit (GH #126)
 
   const patchJob = async (id: string, body: Record<string, number>) => {
     await api.patch(`/api/jobs/${id}`, body);
@@ -337,11 +340,17 @@ const JobsDataTable: React.FC<JobsDataTableProps> = ({
               <EditableCell
                 value={p.row.max_agents}
                 min={1}
-                max={100}
+                max={maxAgentsLimit > 0 ? maxAgentsLimit : 100}
                 onSave={(v) => patchJob(p.row.id, { max_agents: v })}
                 validation={(value) => {
                   const n = Number(value);
-                  return isNaN(n) || n < 1 || n > 100 ? (t('validation.maxAgentsRange') as string) : null;
+                  const ceiling = maxAgentsLimit > 0 ? maxAgentsLimit : 100;
+                  if (isNaN(n) || n < 1 || n > ceiling) {
+                    return maxAgentsLimit > 0
+                      ? (t('validation.maxAgentsRangeLimited', { max: ceiling }) as string)
+                      : (t('validation.maxAgentsRange') as string);
+                  }
+                  return null;
                 }}
               />
             </CellEditor>
@@ -350,7 +359,7 @@ const JobsDataTable: React.FC<JobsDataTableProps> = ({
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t, tDash, compact, maxPriority]);
+  }, [t, tDash, compact, maxPriority, maxAgentsLimit]);
 
   return (
     <DataTable<JobSummary>
