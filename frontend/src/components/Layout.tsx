@@ -136,10 +136,14 @@ const Layout: React.FC = () => {
           </Box>
           <TeamFilter />
           <Tooltip title={t('aria.downloadCaCert') as string}>
+            {/* Same-origin download: nginx proxies /ca.crt to the backend over HTTPS, so this
+                works through any VPN / port mapping without the browser reaching port 1337. */}
             <IconButton
               color="inherit"
               aria-label={t('aria.downloadCaCert') as string}
-              onClick={() => window.open(`http://${window.location.hostname}:1337/ca.crt`, '_blank')}
+              component="a"
+              href="/ca.crt"
+              download="krakenhashes-ca.crt"
               sx={{ ml: 1 }}
             >
               <DownloadIcon />

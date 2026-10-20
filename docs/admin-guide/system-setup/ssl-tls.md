@@ -68,13 +68,14 @@ itself, so you can add it with one click.
 ## Downloading the CA Certificate
 
 The CA certificate can be downloaded from:
-- **HTTP endpoint**: `http://your-server:1337/ca.crt` (direct download)
-- **Via the web interface**: Navigate to **User Settings** > **Profile Settings** and click **Download CA Certificate** in the Security section
+- **Via the web interface**: click the download icon in the application header, or go to **Settings** > **Security** and click **Download CA certificate**. Both download `https://your-server/ca.crt` from the same origin as the web UI, so they work through a VPN or reverse proxy without any extra ports.
+- **HTTPS endpoint**: `https://your-server/ca.crt` (same origin as the web UI)
+- **HTTP endpoint**: `http://your-server/ca.crt` on port 80, or `http://your-server:1337/ca.crt` directly from the backend. Port 1337 is the agent bootstrap port and should only be reachable by agents (see the Security guide); users should prefer the HTTPS endpoint.
 
 Save the file as `krakenhashes-ca.crt` for the following instructions.
 
 !!! note "Browser Certificate Warnings"
-    When accessing KrakenHashes with self-signed certificates before installing the CA, your browser will display a security warning. This is expected behavior. You can proceed past the warning (using "Advanced" > "Proceed anyway" or similar) to access the application and download the CA certificate from your profile settings.
+    When accessing KrakenHashes with self-signed certificates before installing the CA, your browser will display a security warning. This is expected behavior. You can proceed past the warning (using "Advanced" > "Proceed anyway" or similar) to access the application and download the CA certificate from the header icon or the Security settings page.
 
 !!! warning "WebSocket Features Require CA Installation"
     Real-time features like notifications use WebSocket connections (WSS). Unlike regular HTTPS requests, browsers **silently reject** WebSocket connections to servers with untrusted certificates - there is no option to proceed past the warning. If you're not receiving real-time notifications, ensure the CA certificate is properly installed and your browser has been restarted.

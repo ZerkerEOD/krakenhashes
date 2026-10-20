@@ -14,10 +14,14 @@ const CaCertificateCard: React.FC = () => {
         {t('security.caCertificate.description') as string}
       </Typography>
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        {/* Same-origin download: nginx proxies /ca.crt to the backend over HTTPS, so this
+            works through any VPN / port mapping without the browser reaching port 1337. */}
         <Button
           variant="contained"
           startIcon={<DownloadIcon />}
-          onClick={() => window.open(`http://${window.location.hostname}:1337/ca.crt`, '_blank')}
+          component="a"
+          href="/ca.crt"
+          download="krakenhashes-ca.crt"
         >
           {t('security.caCertificate.download') as string}
         </Button>
