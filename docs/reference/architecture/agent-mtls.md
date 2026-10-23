@@ -16,11 +16,18 @@ certificate only if the peer presents one**:
   through untouched and keeps using JWT.
 - A migrated agent presents its per-agent certificate; the backend verifies it against the internal
   CA and treats the connection as mTLS.
-- A legacy or not-yet-migrated agent presents no certificate and authenticates with its API key,
-  exactly as before.
+- A not-yet-migrated agent authenticates with its API key, exactly as before. This covers both a
+  3.x agent that has not renewed yet and a **2.x agent**: 2.x agents present the shared bootstrap
+  certificate (CommonName `KrakenHashes Client`) on every connection. The backend recognises that
+  certificate as "no per-agent identity" and falls back to the API key rather than rejecting it,
+  so a 2.x agent keeps working against a 3.x backend until you update it. This is a transitional
+  bridge, not a permanent API-key tier: the agent shows as "Update available", and the recommended
+  fix is to move it onto the launcher, which swaps the binary and keeps it current. On its next
+  connection as a 3.x agent it migrates to per-agent mTLS.
 
 Because the certificate is verified only when present, API-key agents and mTLS agents coexist on
-the same port with no cutover and no firewall change.
+the same port with no cutover and no firewall change. A verified certificate whose CommonName is
+anything other than an agent ID or the shared bootstrap name is rejected.
 
 ## Automatic migration
 

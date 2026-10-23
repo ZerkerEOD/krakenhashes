@@ -19,6 +19,12 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 )
 
+// LegacySharedClientCN is the CommonName of the shared bootstrap client
+// certificate every agent receives before registration. Pre-3.0 agents present
+// it on every connection; it carries no per-agent identity, so the WebSocket
+// handler treats it as "no certificate" and falls back to API-key auth.
+const LegacySharedClientCN = "KrakenHashes Client"
+
 // SelfSignedProvider implements the Provider interface for self-signed certificates
 type SelfSignedProvider struct {
 	config *ProviderConfig
@@ -583,8 +589,8 @@ func (p *SelfSignedProvider) issueClientLeaf(ca *x509.Certificate, caKey *rsa.Pr
 		Subject: pkix.Name{
 			Country:            []string{p.config.CADetails.Country},
 			Organization:       []string{p.config.CADetails.Organization},
-			OrganizationalUnit: []string{"KrakenHashes Client"},
-			CommonName:         "KrakenHashes Client",
+			OrganizationalUnit: []string{LegacySharedClientCN},
+			CommonName:         LegacySharedClientCN,
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(0, 0, p.config.Validity.Server),
