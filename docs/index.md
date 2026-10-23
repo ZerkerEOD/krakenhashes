@@ -3,9 +3,9 @@
 <div align="center">
 <h2>Distributed Password Cracking System for Security Professionals</h2>
 <p>
-<a href="https://github.com/ZerkerEOD/krakenhashes"><img src="https://img.shields.io/badge/Version-0.1.0--alpha-red.svg" alt="Version"></a>
+<a href="https://github.com/ZerkerEOD/krakenhashes/releases/latest"><img src="https://img.shields.io/github/v/release/ZerkerEOD/krakenhashes?label=Version" alt="Version"></a>
 <a href="https://github.com/ZerkerEOD/krakenhashes/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-blue.svg" alt="License"></a>
-<a href="https://discord.gg/taafA9cSFV"><img src="https://img.shields.io/discord/YOUR_DISCORD_ID?label=Discord&logo=discord" alt="Discord"></a>
+<a href="https://discord.gg/taafA9cSFV"><img src="https://img.shields.io/badge/Discord-join-5865F2.svg?logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 </div>
 

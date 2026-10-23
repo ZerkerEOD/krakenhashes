@@ -2,7 +2,7 @@
 
 This guide covers the procedures for updating KrakenHashes deployments, including pre-update checks, update processes, and rollback procedures.
 
-> **⚠️ IMPORTANT**: KrakenHashes is currently in **v0.1.0-alpha**. Breaking changes are expected between versions. Always review release notes and test updates in a non-production environment first.
+> **Upgrading from 2.x to 3.0?** Read [Upgrading to 3.0.0 from 2.x](#upgrading-to-300-from-2x) below before you start. Always review the release notes and test updates in a non-production environment first.
 
 !!! tip "Agents can update themselves"
     Agents installed via the launcher update **automatically** once the server is upgraded — you
@@ -13,6 +13,7 @@ This guide covers the procedures for updating KrakenHashes deployments, includin
 
 ## Table of Contents
 
+- [Upgrading to 3.0.0 from 2.x](#upgrading-to-300-from-2x)
 - [Pre-Update Checklist](#pre-update-checklist)
 - [Updating Docker Deployments](#updating-docker-deployments)
 - [Database Migration Procedures](#database-migration-procedures)
@@ -22,6 +23,41 @@ This guide covers the procedures for updating KrakenHashes deployments, includin
 - [Version Compatibility](#version-compatibility)
 - [Post-Update Verification](#post-update-verification)
 - [Troubleshooting](#troubleshooting)
+
+## Upgrading to 3.0.0 from 2.x
+
+3.0.0 is a major release. Existing deployments upgrade in place, but a few things need attention.
+
+### Before you start
+
+- **Back up the database.** Several 3.0 migrations rewrite data and one of them cannot be reversed (see below). Rolling back means restoring this backup: the 2.1.x backend refuses to start against a database that is ahead of its migrations.
+- **Plan for migration time on large `hashes` tables.** Two migrations hold a write lock on `hashes` for as long as they run: one rebuilds three indexes (needed to import long Kerberos hashes), the other backfills a new `cracked_at` column on every cracked row. On tens of millions of hashes expect minutes, not seconds; the backend is not reachable until they finish. Run `VACUUM ANALYZE hashes;` afterwards.
+- **The `$HEX[...]` cleanup is irreversible by design.** Passwords stored as `$HEX[...]` literals are decoded to their real bytes. The down migration is a no-op.
+- **Decide what to do with 2.x agents** (next section).
+
+### Agents
+
+- **2.x agents keep working** against a 3.0 backend, on their API key. The backend recognises the shared bootstrap certificate they present and does not treat it as an mTLS identity. They show as "Update available" on the Agent page.
+- **Auto-update cannot update them.** A 2.x binary does not understand the update command, so 3.0 deliberately never sends it to agents below 3.0.0. Update each one by hand (download from the Agent page or the GitHub release), or reinstall it through the [launcher](../agent-guide/auto-update.md) so it self-updates from then on. Once a 3.x agent connects it migrates to per-agent mTLS automatically ([details](../reference/architecture/agent-mtls.md)).
+- **Port 1337 (plain HTTP) is still needed, for agents only.** It serves the CA certificate and certificate renewal. 3.0 moved the browser's CA download to the HTTPS origin (`/ca.crt`), so users no longer need 1337, but agents do.
+- **Agents that dial the backend on a public IP:** certificate addresses (SANs) are now managed in Admin → Certificates and public IPs are not accepted. Your current certificate is untouched until you reissue it; before reissuing, make sure agents reach the backend by hostname or a private/VPN address.
+
+### Configuration
+
+- **No new required settings.** `diff .env.example .env` shows the new optional ones: `KH_SHARE_DIR`/`KH_SHARE_DIR_HOST` and `KH_MIGRATION_DRAIN_FLOOR_SECONDS` (network-share storage), `KH_ENCRYPTION_KEY`/`KH_ALLOW_EPHEMERAL_KEY`, `KH_INSTANCE_LOCK_WAIT`/`KH_ALLOW_MULTIPLE_INSTANCES`, `KH_MIGRATE_ALLOW_AHEAD` (dev only).
+- **Encryption key.** If `KH_ENCRYPTION_KEY` is unset, the backend generates one at `$KH_CONFIG_DIR/secrets/encryption.key` and refuses to start if it cannot read or create that file. `SSO_ENCRYPTION_KEY` is still honoured; never set both to different values or existing SSO secrets become unreadable.
+- **One backend per database.** The backend now takes an instance lock on the database. Blue/green or rolling deployments that briefly run two backends need `KH_ALLOW_MULTIPLE_INSTANCES=true`.
+- **Custom nginx configurations** (only if you mount your own): add the `map $http_upgrade $connection_upgrade` block from `docker/nginx/nginx.conf` and the `location = /ca.crt` block from the site templates, or nginx fails to start.
+
+### Removed or changed
+
+- **Rule splitting is gone**, replaced by keyspace splitting. The `rule_split_*`, `chunk_fluctuation_percentage` and `speedtest_timeout_seconds` settings and the preset-job "use rule splitting" flag are removed by migration. The agent-side port-swap and auth-mode settings are removed too.
+- **Stricter Multi-Team access checks.** 37 endpoints that did not check team membership now do and return 404 for resources outside the caller's teams. Users who relied on that gap lose access to those resources; grant team membership instead.
+- **Custom job creation returns `202 Accepted`** with status `preparing` instead of `201` when keyspace calculation runs in the background. API clients that waited for `201` should accept both.
+- **`max_agents` can be clamped.** Once an admin sets `max_agents_limit`, requests above it are rejected with `400`. The default (0) keeps 2.x behaviour.
+- **`GET /api/dashboard` was replaced** by the `/api/dashboard/{stats,recent-cracks,agent-health,attention,crack-trend}` endpoints.
+- **Remember Me** now only pre-fills the username; it no longer extends the session.
+- **Navigation moved.** Admin settings live in one hub with autosave, user settings pages are grouped, and the old routes redirect.
 
 ## Pre-Update Checklist
 
@@ -84,7 +120,7 @@ docker-compose down
 2. **Pull Latest Code**
 ```bash
 git fetch origin
-git checkout tags/v0.2.0  # Replace with target version
+git checkout tags/v3.0.0  # Replace with target version
 # OR for latest development
 git checkout master
 git pull origin master
@@ -137,29 +173,22 @@ docker-compose logs backend | grep -i migration
 docker-compose exec postgres psql -U krakenhashes -d krakenhashes -c "SELECT version, dirty FROM schema_migrations ORDER BY version DESC LIMIT 5;"
 ```
 
-### Manual Migration Control
+### Rehearsing Migrations First
 
-For production environments requiring manual migration control:
+Migrations always run on backend startup; there is no switch to turn that off. To see what a release will do to your data before upgrading production, rehearse it against a copy:
 
-1. **Disable Auto-Migration**
+1. **Restore your backup into a scratch database**
 ```bash
-# In .env, set:
-AUTO_MIGRATE=false
+createdb -U krakenhashes krakenhashes_rehearsal
+psql -U krakenhashes -d krakenhashes_rehearsal < backup_YYYYMMDD_HHMMSS.sql
 ```
 
-2. **Apply Migrations Manually**
+2. **Run the new release's migrations against it**
 ```bash
 cd backend
-
-# View pending migrations
-make migrate-status
-
-# Apply all pending migrations
-make migrate-up
-
-# Apply specific version
-migrate -path db/migrations -database "$DATABASE_URL" goto 20240115120000
+DATABASE_URL=postgres://krakenhashes:password@localhost/krakenhashes_rehearsal?sslmode=disable make migrate-up
 ```
+This also tells you how long the slow migrations take on your data.
 
 3. **Verify Migration Success**
 ```bash
@@ -192,43 +221,35 @@ make migrate-up
 
 ## Agent Update Process
 
-### Coordinated Agent Updates
+The backend image ships the matching agent and launcher binaries, so once the server is upgraded the new agent version is available from the Agent page.
 
-1. **Prepare New Agent Binary**
-```bash
-# New agent binaries are typically included in backend updates
-# Verify new version is available
-docker-compose exec backend ls -la /data/krakenhashes/binaries/
-```
+### Launcher-managed agents (automatic)
 
-2. **Notify Connected Agents**
-```bash
-# Agents will receive update notifications via WebSocket
-# Monitor agent update status in backend logs
-docker-compose logs -f backend | grep -i "agent.*update"
-```
+Agents installed through the launcher update themselves: the backend sends an update command to each idle, out-of-date agent (a few at a time, never one that is running a job), the launcher swaps the binary, health-checks the new version and rolls back if it fails. Watch progress on the Agent page or in the backend log.
 
-3. **Manual Agent Update** (if auto-update fails)
+The rollout limits live under Admin → Settings → Agents. See [Agent Auto-Update](../agent-guide/auto-update.md).
+
+### Standalone agents (manual)
+
+Agents that run without the launcher, and any 2.x agent, are updated by hand:
+
 ```bash
 # On each agent machine
-cd /path/to/agent
-./update.sh  # If provided
-
-# Or manually:
-systemctl stop krakenhashes-agent
-wget https://your-server/api/v1/binaries/agent/latest -O krakenhashes-agent
+systemctl stop krakenhashes-agent      # or: systemctl --user stop krakenhashes-agent
+# Download the new binary from Admin → Agents → Download, or from the GitHub release,
+# and replace the old one.
 chmod +x krakenhashes-agent
 systemctl start krakenhashes-agent
 ```
 
-### Agent Compatibility Check
+Or reinstall the agent through the launcher so this is the last manual update.
 
-Before updating:
+### Checking agent versions
+
+The Agent page lists each agent's version and flags those below the version the server expects. The expected version is also available without logging in:
+
 ```bash
-# Check agent versions
-docker-compose exec backend curl -s http://localhost:8080/api/v1/agents | jq '.[] | {id, version, last_seen}'
-
-# Verify compatibility matrix in release notes
+curl -sk https://your-server:31337/api/public/agent/version
 ```
 
 ## Enabling New Features After an Update
@@ -284,7 +305,7 @@ docker-compose down
 2. **Restore Previous Version**
 ```bash
 # Checkout previous version
-git checkout tags/v0.1.0  # Previous version
+git checkout tags/v2.1.2  # The version you upgraded from
 
 # Restore configuration
 cp backup/.env.20240115_120000 .env
@@ -328,13 +349,16 @@ docker-compose exec -T postgres psql -U krakenhashes -d krakenhashes < new_data.
 
 ### Compatibility Matrix
 
-| Component | Backend | Agent | Frontend | Database Schema |
-|-----------|---------|-------|----------|-----------------|
-| v0.1.0    | 0.1.0   | 0.1.0 | 0.1.0    | 19              |
-| v0.2.0    | 0.2.0   | 0.1.0-0.2.0 | 0.2.0 | 22         |
-| v1.0.0    | 1.0.0   | 1.0.0 | 1.0.0    | 30              |
+The backend, frontend and database always ship together in one image, so only the agent version can differ from the server.
 
-> **Note**: During alpha, assume all components must be updated together unless release notes specify otherwise.
+| Server release | Agents that can connect | Notes |
+|----------------|-------------------------|-------|
+| 3.0.x          | 3.0.x (mTLS), 2.1.x (API key) | 2.1.x agents work but cannot auto-update or use mTLS, loopback, slow-hash mode or network-share tiers. |
+| 2.1.x          | 2.1.x, 2.0.x            | |
+| 2.0.x          | 2.0.x, 1.x ≥ 1.1.0      | The 1.1.0 WebSocket protocol change is the floor. |
+| 1.x            | 1.x ≥ 1.1.0             | |
+
+> **Rule of thumb:** run agents at the same major version as the server. An older agent generally still connects, but new features are negotiated per feature and silently unavailable to it. A newer agent than the server is not supported.
 
 ### Checking Compatibility
 

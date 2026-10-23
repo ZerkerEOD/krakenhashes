@@ -281,10 +281,10 @@ services:
 #### 2. Image Security
 ```bash
 # Scan images for vulnerabilities
-docker scan krakenhashes/backend:latest
+docker scan zerkereod/krakenhashes:latest
 
 # Use specific versions, not 'latest'
-image: krakenhashes/backend:v0.1.0-alpha
+image: zerkereod/krakenhashes:3.0.0
 
 # Sign images
 export DOCKER_CONTENT_TRUST=1
