@@ -326,4 +326,4 @@ Now that you understand what KrakenHashes offers, choose your next step:
 ---
 
 !!! info "Version Note"
-    This documentation reflects KrakenHashes v0.1.0-alpha. As the project is under active development, features may change. Always refer to the [GitHub repository](https://github.com/ZerkerEOD/krakenhashes) for the latest updates.
+    This documentation is published per release (use the version selector in the header to match your deployment). Features still change between releases; the [CHANGELOG](https://github.com/ZerkerEOD/krakenhashes/blob/master/CHANGELOG.md) and the [GitHub releases](https://github.com/ZerkerEOD/krakenhashes/releases) list what changed in each one.

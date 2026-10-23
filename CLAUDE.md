@@ -353,7 +353,7 @@ npm test -- --testNamePattern="Login"
 
 ## Database Schema
 
-Key tables (94 migrations total):
+Key tables (209 migrations as of 3.0.0):
 
 -   `users` - User accounts with MFA settings
 -   `agents` - Registered compute agents

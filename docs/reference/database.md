@@ -1,6 +1,6 @@
 # KrakenHashes Database Schema Reference
 
-This document provides a comprehensive reference for the KrakenHashes database schema, extracted from migration files (v0.1.0-alpha).
+This document provides a comprehensive reference for the KrakenHashes database schema, extracted from the migration files in `backend/db/migrations/`.
 
 ## Table of Contents
 

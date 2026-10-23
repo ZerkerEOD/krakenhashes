@@ -11,7 +11,7 @@ This project is currently in released and used in production environments. Key c
 
 > **Use at your own risk** - This software may eat your data, catch fire, or summon a digital Kraken. You've been warned.
 
-With the release of version 2.0.0, it should be a working for it's intended uses. While it may have bugs, I request that you open an issue (bottom of the frontend has a link). This tool is for legitimate professionals with permission from clients to run hashes for their testing. I am not responsible for how you use the tool or anything you do with it. In addition while the docs should be helpful, please let me know if you identify any issues.
+With the release of version 3.0.0, it should be working for its intended uses. While it may have bugs, I request that you open an issue (bottom of the frontend has a link). This tool is for legitimate professionals with permission from clients to run hashes for their testing. I am not responsible for how you use the tool or anything you do with it. In addition while the docs should be helpful, please let me know if you identify any issues.
 
 ## Component Details
 
@@ -66,8 +66,16 @@ Join our Discord community for support, discussions, and updates:
 
 Instructions for setting up and running each component can be found in their respective directories.
 
-### Version 3.0.0 Considerations
+### What's new in 3.0
 
--   [ ] Better file syncing to agents
--   [x] Use bloodhound data for client password analytics
--   [x] Cloud GPU provisioning — rent GPUs on demand with per-client budgets and guaranteed teardown (AWS tested; RunPod and Vast.ai experimental)
+See the [CHANGELOG](CHANGELOG.md) for the full 3.0.0 entry and the
+[release page](https://github.com/ZerkerEOD/krakenhashes/releases/latest) for binaries and upgrade
+notes. Upgrading from 2.x? Read the
+[3.0.0 upgrade notes](https://zerkereod.github.io/krakenhashes/latest/deployment/updates/#upgrading-to-300-from-2x)
+first.
+
+### Roadmap
+
+Planned work is tracked as [GitHub issues](https://github.com/ZerkerEOD/krakenhashes/issues).
+Open an issue before starting a contribution so it can be discussed and claimed (see
+[CONTRIBUTING](CONTRIBUTING.md)).

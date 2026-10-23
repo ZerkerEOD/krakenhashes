@@ -291,6 +291,7 @@ jobs:
           echo "BACKEND_VERSION=$(jq -r .backend versions.json)" >> $GITHUB_OUTPUT
           echo "FRONTEND_VERSION=$(jq -r .frontend versions.json)" >> $GITHUB_OUTPUT
           echo "AGENT_VERSION=$(jq -r .agent versions.json)" >> $GITHUB_OUTPUT
+          echo "LAUNCHER_VERSION=$(jq -r '.launcher // .agent' versions.json)" >> $GITHUB_OUTPUT
       
       - name: Get release notes from commit
         id: release_notes
@@ -303,6 +304,12 @@ jobs:
           
           # Extract everything after the first line (the detailed release notes)
           RELEASE_NOTES=$(echo "$COMMIT_MESSAGE" | tail -n +3)
+
+          # Docker Hub tags are lower-case and carry no "v" (docker/metadata-action
+          # semver pattern {{version}}), so the pull commands must match that.
+          IMAGE=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          TAG="${{ steps.version.outputs.VERSION }}"
+          IMAGE_TAG="${TAG#v}"
           
           # Create release body with component versions header
           cat > release_body.md << EOF
@@ -310,10 +317,11 @@ jobs:
           - Backend: v${{ steps.release_info.outputs.BACKEND_VERSION }}
           - Frontend: v${{ steps.release_info.outputs.FRONTEND_VERSION }}
           - Agent: v${{ steps.release_info.outputs.AGENT_VERSION }}
+          - Launcher: v${{ steps.release_info.outputs.LAUNCHER_VERSION }}
           
           ## Docker Images
-          - \`docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}\`
-          - \`docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`
+          - \`docker pull ${{ env.REGISTRY }}/${IMAGE}:${IMAGE_TAG}\`
+          - \`docker pull ${{ env.REGISTRY }}/${IMAGE}:latest\`
           
           ## Agent Binaries
           Download the appropriate binary for your platform from the assets below.
