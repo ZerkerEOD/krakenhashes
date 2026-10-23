@@ -22,6 +22,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/scheduler"
 	wsservice "github.com/ZerkerEOD/krakenhashes/backend/internal/services/websocket"
+	khtls "github.com/ZerkerEOD/krakenhashes/backend/internal/tls"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -231,20 +232,20 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	// Identify the agent. The HTTPS listener verifies a client certificate if one
 	// is presented (verify-if-present). A per-agent certificate (CommonName = the
 	// agent ID) authenticates as mTLS. No certificate (nginx browser traffic, or
-	// provided/certbot mode where mTLS is off) uses the API key. The legacy shared
-	// cert (CN "KrakenHashes Client") is NOT a per-agent identity and is rejected
-	// here on purpose: an up-to-date agent renews to a per-agent cert before
-	// connecting (auto-migration), so it never presents the shared cert.
+	// provided/certbot mode where mTLS is off) uses the API key, and so does the
+	// legacy shared bootstrap cert that pre-3.0 agents present on every
+	// connection: it is not an identity, so it is ignored rather than rejected
+	// (see mtlsIdentity). Any other verified cert with a non-numeric CN is
+	// rejected.
 	var agent *models.Agent
-	if r.TLS != nil && len(r.TLS.VerifiedChains) > 0 && len(r.TLS.VerifiedChains[0]) > 0 {
-		leaf := r.TLS.VerifiedChains[0][0]
-		certAgentID, perr := strconv.Atoi(leaf.Subject.CommonName)
-		if perr != nil {
-			debug.Error("mTLS client cert CN %q is not an agent ID from %s", leaf.Subject.CommonName, r.RemoteAddr)
-			http.Error(w, "Invalid client certificate identity", http.StatusUnauthorized)
-			return
-		}
-		if h.agentService.IsAgentRevoked(certAgentID) || h.agentService.IsSerialRevoked(leaf.SerialNumber.Text(16)) {
+	certAgentID, certSerial, viaMTLS, identErr := mtlsIdentity(r.TLS)
+	if identErr != nil {
+		debug.Error("mTLS client cert from %s rejected: %v", r.RemoteAddr, identErr)
+		http.Error(w, "Invalid client certificate identity", http.StatusUnauthorized)
+		return
+	}
+	if viaMTLS {
+		if h.agentService.IsAgentRevoked(certAgentID) || h.agentService.IsSerialRevoked(certSerial) {
 			debug.Warning("Rejecting revoked agent %d (mTLS) from %s", certAgentID, r.RemoteAddr)
 			http.Error(w, "Agent revoked", http.StatusForbidden)
 			return
@@ -3210,4 +3211,31 @@ func (h *Handler) DisconnectAgent(agentID int) {
 		debug.Info("Force-closing WebSocket for revoked agent %d", agentID)
 		_ = c.conn.Close()
 	}
+}
+
+// mtlsIdentity extracts the per-agent identity from a verified client
+// certificate. ok is true only for a per-agent certificate (CommonName is the
+// agent ID); agentID and serial (hex) are then set. ok is false with a nil
+// error when the connection carries no usable identity and the caller must
+// fall back to API-key auth: no client certificate at all, or the legacy
+// shared bootstrap certificate (CN LegacySharedClientCN). Every pre-3.0 agent
+// presents that shared cert on every connection — the server simply never
+// asked for it before mTLS existed — so rejecting it would lock 2.x agents out
+// of a 3.x backend. A verified certificate with any other non-numeric CN is an
+// error.
+func mtlsIdentity(state *tls.ConnectionState) (agentID int, serial string, ok bool, err error) {
+	if state == nil || len(state.VerifiedChains) == 0 || len(state.VerifiedChains[0]) == 0 {
+		return 0, "", false, nil
+	}
+	leaf := state.VerifiedChains[0][0]
+	cn := leaf.Subject.CommonName
+	if cn == khtls.LegacySharedClientCN {
+		debug.Info("Client presented the legacy shared bootstrap certificate (CN %q); using API-key auth", cn)
+		return 0, "", false, nil
+	}
+	id, perr := strconv.Atoi(cn)
+	if perr != nil {
+		return 0, "", false, fmt.Errorf("client cert CN %q is not an agent ID", cn)
+	}
+	return id, leaf.SerialNumber.Text(16), true, nil
 }

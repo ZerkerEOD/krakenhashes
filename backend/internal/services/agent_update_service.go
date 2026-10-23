@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -28,6 +29,29 @@ const (
 	defaultAgentUpdateHealthTimeoutSec = 300
 	defaultAgentUpdateMaxAttempts      = 3
 )
+
+// minAutoUpdateAgentVersion is the first agent release that understands the
+// agent_update_command message: the auto-update pipeline shipped with 3.0.0 and
+// every 2.x binary silently ignores the command. Targeting such an agent would
+// park it in 'updating' until the health timeout, burn its retry attempts, and
+// leave a permanent dashboard alert, so the pipeline never selects it. Those
+// agents are updated by hand (or re-installed through the launcher) and join
+// auto-update from then on.
+const minAutoUpdateAgentVersion = "3.0.0"
+
+// SupportsAutoUpdate reports whether an agent on agentVersion can act on an
+// update command. Dev builds ("2.1.0-<commit>-dev") and non-semver strings
+// return true: a dev build is built from current source regardless of the
+// release number it carries, and unknown versions never pass IsStale anyway.
+func SupportsAutoUpdate(agentVersion string) bool {
+	if strings.ContainsAny(agentVersion, "-+") {
+		return true
+	}
+	if _, ok := parseSemver(agentVersion); !ok {
+		return true
+	}
+	return !semverLess(agentVersion, minAutoUpdateAgentVersion)
+}
 
 // AgentUpdateSender pushes an update command to a connected agent over its
 // WebSocket. It is implemented by the WebSocket handler and injected after
@@ -60,6 +84,12 @@ type AgentUpdateService struct {
 	settingsRepo  *repository.SystemSettingsRepository
 	binaryService *AgentBinaryService
 	sender        AgentUpdateSender
+
+	// unsupportedLogged records, per agent, the last version for which the
+	// "too old for auto-update" notice was logged, so the 15s sweeper does not
+	// repeat it every pass.
+	unsupportedMu     sync.Mutex
+	unsupportedLogged map[int]string
 }
 
 // NewAgentUpdateService constructs the service. Call SetSender once the
@@ -143,6 +173,10 @@ func (s *AgentUpdateService) ResolveIdleState(ctx context.Context, agentID int) 
 		}
 		return
 	}
+	if !SupportsAutoUpdate(agent.Version) {
+		s.noteUnsupported(agent.ID, agent.Version)
+		return
+	}
 	// Stale and given up: leave alone (admin can retry).
 	if agent.UpdateAttempts >= cfg.MaxAttempts {
 		return
@@ -195,8 +229,13 @@ func (s *AgentUpdateService) PromotePending(ctx context.Context) {
 		return
 	}
 	for id, version := range idle {
-		// Cheap pre-filter: skip agents already on the expected version.
+		// Cheap pre-filter: skip agents already on the expected version, and
+		// agents too old to understand the update command at all.
 		if !s.IsStale(version) {
+			continue
+		}
+		if !SupportsAutoUpdate(version) {
+			s.noteUnsupported(id, version)
 			continue
 		}
 		agent, err := s.agentRepo.GetByID(ctx, id)
@@ -244,6 +283,22 @@ func (s *AgentUpdateService) SweepTimedOut(ctx context.Context) []int {
 // (admin manual recovery action).
 func (s *AgentUpdateService) RetryUpdate(ctx context.Context, agentID int) error {
 	return s.agentRepo.ResetUpdateState(ctx, agentID, true)
+}
+
+// noteUnsupported logs, once per agent and version, that a stale agent predates
+// the auto-update pipeline and has to be updated manually.
+func (s *AgentUpdateService) noteUnsupported(agentID int, version string) {
+	s.unsupportedMu.Lock()
+	defer s.unsupportedMu.Unlock()
+	if s.unsupportedLogged == nil {
+		s.unsupportedLogged = make(map[int]string)
+	}
+	if s.unsupportedLogged[agentID] == version {
+		return
+	}
+	s.unsupportedLogged[agentID] = version
+	debug.Warning("auto-update: agent %d runs %s, which predates auto-update (needs >= %s); update it manually or reinstall it through the launcher",
+		agentID, version, minAutoUpdateAgentVersion)
 }
 
 // tryStartUpdate attempts to begin an update for a loaded, version-stale agent.

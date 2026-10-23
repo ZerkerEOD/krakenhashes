@@ -180,6 +180,7 @@ jobs:
                     ./internal/handlers/jobs/... \
                     ./internal/handlers/analytics/... \
                     ./internal/handlers/api/team/... \
+                    ./internal/handlers/websocket/... \
                     ./internal/routes/... \
                     ./internal/integration_test/... \
                     ./internal/testutil/...
