@@ -4,6 +4,70 @@ All notable changes to KrakenHashes, newest release first. This file tracks tagg
 releases; the complete per-tag history is available on the [GitHub Releases page](https://github.com/ZerkerEOD/krakenhashes/releases).
 Patch releases are rolled into their minor version's section.
 
+## 3.0.0 - 2026-10-23
+
+The second major milestone. Everything delivered since 2.1.2 (roughly 50 pull requests): on-demand cloud GPUs, agents that update themselves, a rebuilt interface in 17 languages, and a lot of hardening driven by issues people filed while running it for real.
+
+### Highlights
+
+- **Cloud GPU provisioning** — when your own agents are saturated, a job can rent GPUs on demand and give them back when it is done. Spend is budgeted per client and reserved up front, instance lifetime is sized to the remaining work, and several independent paths guarantee teardown (including a watchdog inside the instance). AWS EC2 is tested end to end; RunPod and Vast.ai are built but marked **experimental**. Cloud agents must join over a VPN — there is no public-internet mode ([#94], [#107]).
+- **Agent auto-update** — a new launcher supervises the agent and swaps its binary when the server is upgraded: download, checksum, health-check and automatic rollback, and only while the agent is idle so a running job is never interrupted. Per-user service install on Linux, macOS and Windows ([#46]).
+- **Agent mTLS and revoke** — agents authenticate with a per-agent certificate on the existing port, migrating automatically with no new port or firewall change. A new Revoke action is the hard kill (invalidates the credential and cuts the connection) ([#104]).
+- **Network-share storage** — wordlists and rules can live on an NFS/SMB share, with a per-agent storage tier (full cache, on-demand LRU, or direct read-only mount) and a resumable, MD5-checked migration between local and share storage ([#83], [#101]).
+- **Loopback attacks** — re-run a step's rules or hybrid mask against only the newly cracked passwords, round after round, until a round finds nothing new ([#64]).
+- **Analytics API, BloodHound enrichment, and PDF export** — analytics over the user API, optional in-memory BloodHound AD-privilege enrichment (never written to disk), and internal (full) vs external (server-redacted) PDF reports ([#66]).
+- **Rebuilt frontend** — one shared table component, light and dark themes, a grouped sidebar, an admin settings hub with autosave, a client detail page, and a dashboard scoped to you or your teams. UI now in **17 languages** (up from 7) ([#109]).
+- **Custom branding** — set the app name, colours, logo and favicon, applied to the login page, PDFs, emails, the TOTP issuer and webhooks. "Powered by KrakenHashes" attribution is enforced server-side ([#41]).
+- **Multi-Team hardening** — closed a cross-team IDOR on the hashlist download endpoints and added team-access checks to 37 handlers that were missing them ([#100], [#48]).
+- **Scheduler improvements** — automatic slow-hash candidate mode (`-S`) keeps the GPU fed on bcrypt/PBKDF2/WPA-style hashes under rules, a chunk-overrun guard stops runaway tasks, and admins can set a default and enforced ceiling for max agents per job ([#70], [#126]).
+
+### Upgrade notes (from 2.x)
+
+Read the full [upgrade guide](https://zerkereod.github.io/krakenhashes/latest/deployment/updates/#upgrading-to-300-from-2x) before you start. In short:
+
+- **Back up the database first.** Some migrations rewrite data, one of them (`$HEX[...]` password decoding) cannot be reversed, and two take a write lock on the `hashes` table while they run (an index rebuild and a `cracked_at` backfill) — plan for minutes on large tables and `VACUUM ANALYZE hashes` afterwards. Rolling back means restoring the backup.
+- **Existing 2.x agents keep working** on their API key and are flagged "Update available"; move them onto the launcher (or replace the binary) to get mTLS and auto-update. New installs should use a 3.x agent. Port 1337 is still needed for agents (CA download and certificate renewal).
+- **Removed or changed:** rule splitting and its settings; the agent port-swap/auth-mode settings; `GET /api/dashboard` (replaced by `/api/dashboard/*`). Custom job creation now returns `202 preparing`; stricter multi-team checks return 404 for out-of-team resources; "Remember Me" now only pre-fills the username.
+
+### Agent and scheduling
+
+- Launcher-based auto-update pipeline with rollout limits, retry and rollback ([#46]).
+- Slow-hash candidate mode (`-S`) selected automatically for slow hashes combined with rules or a hybrid mask ([#70]).
+- Chunk-overrun guard, stable PCI-based device identity, and a surgical `--force` autotune retry when hashcat skips kernel autotune.
+- Loopback re-runs, with per-step and per-job toggles and a monitoring panel; team-scoped and leak-fixed ([#64], [#78], [#79]).
+- Admin default and enforced ceiling for a job's max agents ([#126]).
+- Hybrid job naming and a Hashlist/Preset column in the jobs list ([#49]).
+- Removed rule splitting in favour of keyspace splitting, and consolidated the keyspace multiplier.
+- Many keyspace and progress fixes: premature completion, chunk-progress display, salted jobs stuck at 99.99%, keyspace pre-flight no longer failing job creation ([#62], [#76], [#77], [#84]).
+- Per-job rule sync and MD5 verification at dispatch, client-specific wordlist/potfile delivery, and automatic recovery of files missing on disk ([#61], [#67], [#93]).
+
+### Data and reporting
+
+- Analytics and reporting over the user API ([#66]).
+- Optional BloodHound AD-privilege enrichment, parsed in memory and never persisted ([#66]).
+- Internal and external (server-redacted) PDF export, plus a domain-extraction fix.
+- Long Kerberos hashes (13100) can now be imported; usernames and realms are extracted for 13100/19600/19700 ([#88]).
+- The Cracked Hashes list is sorted by crack time with a new `cracked_at` column, and real passwords are stored instead of `$HEX[...]` literals ([#90], [#112]).
+- Custom hashcat charsets, HEX charsets and per-job custom arguments ([#32], [#35], [#44]).
+
+### Security
+
+- Fixed a cross-team IDOR on the hashlist hashes/download endpoints and added team-access checks to 37 handlers ([#100], [#48]).
+- Scoped the hashlist client picker and job lists to the caller's teams ([#51]).
+- Dependency CVE updates, a SAML decompression-bomb cap, upload-metadata and email-header hardening, and the Vite migration clearing the frontend's npm advisories.
+- Auth determinism fixes: duplicate-JWT collision and first-time authenticator-app setup ([#89]).
+
+### Frontend, branding and interface
+
+- Full redesign with light/dark themes and a team-scoped dashboard, and 10 new UI languages for 17 total ([#109]).
+- Custom branding with server-enforced attribution ([#41]).
+- Dashboard and view fixes: inflated/again-non-zero agent hashrate, cross-team job-name leak, empty hashlist view, and the team filter on the hashlist list ([#111], [#113], [#114]).
+- Reworded the credential-stuffing use case ([#108]).
+
+### Thanks
+
+A lot of this release came straight out of issues people filed while using KrakenHashes on real work. Thank you to [@Lat3magnet1c], [@Lolozendev], [@Devil123166], [@LorisP-ISEC], [@0xDECEA5ED], [@clem9669] and [@mjk72578] for the reports, feature requests and the security disclosure.
+
 ## 2.1.2 - 2026-06-10
 
 - Filtered wordlists now regenerate automatically when their source wordlist changes, appending only the new entries incrementally instead of rebuilding from scratch ([#40]).
@@ -98,4 +162,47 @@ link, e.g. "([#40])", and add its definition below. GitHub redirects
 N is an issue or a PR — no need to know which it is up front.
 -->
 
+[#32]: https://github.com/ZerkerEOD/krakenhashes/issues/32
+[#35]: https://github.com/ZerkerEOD/krakenhashes/issues/35
 [#40]: https://github.com/ZerkerEOD/krakenhashes/issues/40
+[#41]: https://github.com/ZerkerEOD/krakenhashes/issues/41
+[#44]: https://github.com/ZerkerEOD/krakenhashes/issues/44
+[#46]: https://github.com/ZerkerEOD/krakenhashes/issues/46
+[#48]: https://github.com/ZerkerEOD/krakenhashes/issues/48
+[#49]: https://github.com/ZerkerEOD/krakenhashes/issues/49
+[#51]: https://github.com/ZerkerEOD/krakenhashes/issues/51
+[#61]: https://github.com/ZerkerEOD/krakenhashes/issues/61
+[#62]: https://github.com/ZerkerEOD/krakenhashes/issues/62
+[#64]: https://github.com/ZerkerEOD/krakenhashes/issues/64
+[#66]: https://github.com/ZerkerEOD/krakenhashes/issues/66
+[#67]: https://github.com/ZerkerEOD/krakenhashes/issues/67
+[#70]: https://github.com/ZerkerEOD/krakenhashes/issues/70
+[#76]: https://github.com/ZerkerEOD/krakenhashes/issues/76
+[#77]: https://github.com/ZerkerEOD/krakenhashes/issues/77
+[#78]: https://github.com/ZerkerEOD/krakenhashes/issues/78
+[#79]: https://github.com/ZerkerEOD/krakenhashes/issues/79
+[#83]: https://github.com/ZerkerEOD/krakenhashes/issues/83
+[#84]: https://github.com/ZerkerEOD/krakenhashes/issues/84
+[#88]: https://github.com/ZerkerEOD/krakenhashes/issues/88
+[#89]: https://github.com/ZerkerEOD/krakenhashes/issues/89
+[#90]: https://github.com/ZerkerEOD/krakenhashes/issues/90
+[#93]: https://github.com/ZerkerEOD/krakenhashes/issues/93
+[#94]: https://github.com/ZerkerEOD/krakenhashes/issues/94
+[#100]: https://github.com/ZerkerEOD/krakenhashes/issues/100
+[#101]: https://github.com/ZerkerEOD/krakenhashes/issues/101
+[#104]: https://github.com/ZerkerEOD/krakenhashes/issues/104
+[#107]: https://github.com/ZerkerEOD/krakenhashes/issues/107
+[#108]: https://github.com/ZerkerEOD/krakenhashes/issues/108
+[#109]: https://github.com/ZerkerEOD/krakenhashes/issues/109
+[#111]: https://github.com/ZerkerEOD/krakenhashes/issues/111
+[#112]: https://github.com/ZerkerEOD/krakenhashes/issues/112
+[#113]: https://github.com/ZerkerEOD/krakenhashes/issues/113
+[#114]: https://github.com/ZerkerEOD/krakenhashes/issues/114
+[#126]: https://github.com/ZerkerEOD/krakenhashes/issues/126
+[@Lat3magnet1c]: https://github.com/Lat3magnet1c
+[@Lolozendev]: https://github.com/Lolozendev
+[@Devil123166]: https://github.com/Devil123166
+[@LorisP-ISEC]: https://github.com/LorisP-ISEC
+[@0xDECEA5ED]: https://github.com/0xDECEA5ED
+[@clem9669]: https://github.com/clem9669
+[@mjk72578]: https://github.com/mjk72578

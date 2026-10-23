@@ -1,9 +1,9 @@
 {
-    "release": "2.1.2",
-    "backend": "2.2.0",
-    "frontend": "2.2.0",
-    "agent": "2.1.0",
-    "launcher": "0.1.0",
-    "api": "2.1.0",
-    "database": "2.1.1"
+    "release": "3.0.0",
+    "backend": "3.0.0",
+    "frontend": "3.0.0",
+    "agent": "3.0.0",
+    "launcher": "3.0.0",
+    "api": "3.0.0",
+    "database": "3.0.0"
 }
