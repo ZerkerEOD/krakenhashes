@@ -479,13 +479,23 @@ func buildBenchmarkRequest(
 	var hashType int
 	var originalFilePath string
 	var jobAdditionalArgs string
+	// Custom charsets must ride along on the benchmark too: a mask (-a 3)
+	// speed test with ?1..?4 but no -1 definition aborts with
+	// "Custom-charset 1 is undefined" — which is exactly the RunSpeedTest
+	// failure reported in GH #132. The JSONB columns are nullable; their
+	// sql.Scanner impls map NULL to a nil map.
+	var customCharsets models.CustomCharsets
+	var charsetFiles models.CustomCharsetFiles
+	var hexCharset bool
 	err = database.QueryRowContext(ctx, `
 		SELECT je.hashlist_id, h.hash_type_id, COALESCE(h.original_file_path, ''),
-		       COALESCE(je.additional_args, '')
+		       COALESCE(je.additional_args, ''),
+		       je.custom_charsets, je.custom_charset_files, je.hex_charset
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
 		WHERE je.id = $1
-	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &originalFilePath, &jobAdditionalArgs)
+	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &originalFilePath, &jobAdditionalArgs,
+		&customCharsets, &charsetFiles, &hexCharset)
 	if err != nil {
 		return nil, fmt.Errorf("lookup parent + hashlist: %w", err)
 	}
@@ -549,9 +559,9 @@ func buildBenchmarkRequest(
 		WordlistPaths:           taskPayload.WordlistPaths,
 		RulePaths:               taskPayload.RulePaths,
 		Mask:                    taskPayload.Mask,
-		CustomCharsets:          taskPayload.CustomCharsets,
-		CharsetFiles:            taskPayload.CharsetFiles,
-		HexCharset:              taskPayload.HexCharset,
+		CustomCharsets:          map[string]string(customCharsets),
+		CharsetFiles:            convertCharsetFiles(charsetFiles),
+		HexCharset:              hexCharset,
 		AssociationWordlistPath: taskPayload.AssociationWordlistPath,
 		ExtraParameters:         agentExtraParams,
 		JobAdditionalArgs:       jobAdditionalArgs,

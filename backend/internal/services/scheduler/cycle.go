@@ -1543,16 +1543,23 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 	// file path so hashcat can pair hashes with candidates by line
 	// order; that lives in hashlists.original_file_path.
 	//
-	// Three fields the legacy dispatcher set that the v2 cycle
-	// previously dropped on the floor (the agent reads them all):
+	// Fields the legacy dispatcher set that the v2 cycle previously
+	// dropped on the floor (the agent reads them all):
 	//   - job_executions.additional_args     → payload.JobAdditionalArgs
 	//   - job_executions.base_keyspace       → payload.BaseKeyspace
 	//   - hashlists.client_id                → payload.ClientID
+	//   - job_executions.custom_charsets      → payload.CustomCharsets
+	//   - job_executions.custom_charset_files → payload.CharsetFiles
+	//   - job_executions.hex_charset          → payload.HexCharset
 	//
-	// Without these the agent runs hashcat with wrong tuning, can't
-	// resolve client potfile routing, and (when -O kernel-split fires)
-	// can land --skip/--limit in the wrong window. Restoring them here
-	// matches the legacy behavior verbatim.
+	// Without the first three the agent runs hashcat with wrong tuning,
+	// can't resolve client potfile routing, and (when -O kernel-split
+	// fires) can land --skip/--limit in the wrong window. Without the
+	// charset trio a mask (-a 3) attack that references a custom charset
+	// ships the mask (e.g. ?1?1?1?1) with no -1 definition, so hashcat
+	// aborts with "Custom-charset 1 is undefined" (GH #132). Restoring
+	// them here matches the legacy emitter at
+	// job_websocket_integration.go:805-807 verbatim.
 	var hashlistID int64
 	var hashType int
 	var originalFilePath string
@@ -1560,17 +1567,24 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 	var baseKeyspace sql.NullInt64
 	var hashlistClientID uuid.NullUUID
 	var slow bool
+	var customCharsets models.CustomCharsets
+	var charsetFiles models.CustomCharsetFiles
+	var hexCharset bool
 	// LEFT JOIN hash_types so a missing/unknown hash type can never break dispatch —
-	// slow just defaults to FALSE (no -S) via COALESCE.
+	// slow just defaults to FALSE (no -S) via COALESCE. The custom_charsets /
+	// custom_charset_files JSONB columns are nullable; their sql.Scanner impls
+	// map SQL NULL to a nil map, which omitempty then drops from the wire.
 	err = c.db.QueryRowContext(ctx, `
 		SELECT je.hashlist_id, h.hash_type_id, COALESCE(h.original_file_path, ''),
-		       je.additional_args, je.base_keyspace, h.client_id, COALESCE(ht.slow, FALSE)
+		       je.additional_args, je.base_keyspace, h.client_id, COALESCE(ht.slow, FALSE),
+		       je.custom_charsets, je.custom_charset_files, je.hex_charset
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
 		LEFT JOIN hash_types ht ON ht.id = h.hash_type_id
 		WHERE je.id = $1
 	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &originalFilePath,
-		&jobAdditionalArgs, &baseKeyspace, &hashlistClientID, &slow)
+		&jobAdditionalArgs, &baseKeyspace, &hashlistClientID, &slow,
+		&customCharsets, &charsetFiles, &hexCharset)
 	if err != nil {
 		return fmt.Errorf("lookup parent + hashlist: %w", err)
 	}
@@ -1605,6 +1619,13 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 	if hashlistClientID.Valid {
 		payload.ClientID = hashlistClientID.UUID.String()
 	}
+
+	// Custom charsets (inline, file-based, and the hex flag) — mode-agnostic;
+	// mask attacks reference them via ?1..?4, other modes ignore them. A nil
+	// map is dropped by omitempty, so non-charset jobs are unaffected.
+	payload.CustomCharsets = map[string]string(customCharsets)
+	payload.CharsetFiles = convertCharsetFiles(charsetFiles)
+	payload.HexCharset = hexCharset
 
 	// Client wordlists and the client potfile arrive flattened into the
 	// generic payload.WordlistPaths as "wordlists/clients/{clientID}/{file}"
@@ -1688,6 +1709,26 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 	debug.Info("scheduler-v2 dispatched task %s to agent %d (range [%d, %d))",
 		dt.TaskID, dt.AgentID, dt.RangeStart, dt.RangeEnd)
 	return nil
+}
+
+// convertCharsetFiles maps the DB's file-based charset refs to the wire-format
+// CharsetFileInfo the agent expects (slot -> file metadata). Mirrors the legacy
+// helper at integration/job_websocket_integration.go:30-42. The agent syncs each
+// file by MD5 (agent ensureCharsetFiles), so Size is left 0 — it isn't stored on
+// CharsetFileRef. Returns nil for an empty map so omitempty drops it from the wire.
+func convertCharsetFiles(files models.CustomCharsetFiles) map[string]wsservice.CharsetFileInfo {
+	if len(files) == 0 {
+		return nil
+	}
+	result := make(map[string]wsservice.CharsetFileInfo, len(files))
+	for slot, ref := range files {
+		result[slot] = wsservice.CharsetFileInfo{
+			Name:      filepath.Base(ref.FilePath),
+			MD5Hash:   ref.MD5,
+			ByteCount: ref.ByteCount,
+		}
+	}
+	return result
 }
 
 // attachFileMD5s looks up the current on-server MD5 for each wordlist, rule,
