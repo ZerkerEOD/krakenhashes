@@ -31,12 +31,12 @@ const (
 //
 // Per `[plan §7]`:
 //
-//   -a 0  WordlistPaths=[wl], RulePaths=rules[]
-//   -a 1  WordlistPaths=[dict1, dict2]
-//   -a 3  Mask, no wordlist
-//   -a 6  WordlistPaths=[dict], Mask
-//   -a 7  WordlistPaths=[dict], Mask
-//   -a 9  WordlistPaths=[wl], AssociationWordlistPath=wl, RulePaths=rules[]
+//	-a 0  WordlistPaths=[wl], RulePaths=rules[]
+//	-a 1  WordlistPaths=[dict1, dict2]
+//	-a 3  Mask, no wordlist
+//	-a 6  WordlistPaths=[dict], Mask
+//	-a 7  WordlistPaths=[dict], Mask
+//	-a 9  WordlistPaths=[wl], AssociationWordlistPath=wl, RulePaths=rules[]
 //
 // IsKeyspaceSplit is set true for every mode because the rewrite uses
 // --skip/--limit on every chunk. The agent's hashcat command builder at
