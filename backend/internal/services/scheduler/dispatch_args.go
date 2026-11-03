@@ -141,19 +141,12 @@ func BuildTaskAssignment(
 		return nil, fmt.Errorf("BuildTaskAssignment: unsupported attack_mode %d", unit.AttackMode)
 	}
 
-	// Custom charsets are mode-agnostic — mask attacks may reference
-	// them; non-mask modes simply ignore. Forward whatever the unit
-	// has.
-	if len(unit.CustomCharsets) > 0 {
-		// CustomCharsets in the unit is stored as JSONB; convert to
-		// the wire-format map. The conversion is a typed unmarshal at
-		// the caller side because SchedulingUnit holds it as
-		// json.RawMessage. For B.1, the parsed structure isn't needed
-		// here — that's the cycle's job, which has access to typed
-		// PresetJob fields.
-		// (Intentional no-op in this function; cycle.go fills
-		// CustomCharsets / CharsetFiles / HexCharset.)
-	}
+	// Custom charsets (inline, file-based, and the hex flag) are NOT set
+	// here. They live on job_executions, not the SchedulingUnit, so the
+	// callers enrich them after this returns — cycle.sendAssignment and
+	// buildBenchmarkRequest read custom_charsets / custom_charset_files /
+	// hex_charset in the same job_executions lookup that fills
+	// JobAdditionalArgs / BaseKeyspace / ClientID (GH #132).
 
 	return p, nil
 }
