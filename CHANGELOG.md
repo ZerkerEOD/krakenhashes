@@ -6,6 +6,8 @@ Patch releases are rolled into their minor version's section.
 
 ## 3.0.0 - 2026-10-23
 
+**Patch 3.0.1 (2026-11-03):** Custom charsets fixed — brute-force (`-a 3`) mask attacks that reference a custom charset (inline `-1 ?l?d`, `.hcchr` charset files, or hex) failed in 3.0.0 with "Custom-charset 1 is undefined". The scheduler-v2 dispatch path dropped the charset definitions on the way to the agent; they are now forwarded on both the speed-test/benchmark and the real run, verified end to end on real hardware ([#132]).
+
 The second major milestone. Everything delivered since 2.1.2 (roughly 50 pull requests): on-demand cloud GPUs, agents that update themselves, a rebuilt interface in 17 languages, and a lot of hardening driven by issues people filed while running it for real.
 
 ### Highlights
@@ -199,6 +201,7 @@ N is an issue or a PR — no need to know which it is up front.
 [#113]: https://github.com/ZerkerEOD/krakenhashes/issues/113
 [#114]: https://github.com/ZerkerEOD/krakenhashes/issues/114
 [#126]: https://github.com/ZerkerEOD/krakenhashes/issues/126
+[#132]: https://github.com/ZerkerEOD/krakenhashes/issues/132
 [@Lat3magnet1c]: https://github.com/Lat3magnet1c
 [@Lolozendev]: https://github.com/Lolozendev
 [@Devil123166]: https://github.com/Devil123166
