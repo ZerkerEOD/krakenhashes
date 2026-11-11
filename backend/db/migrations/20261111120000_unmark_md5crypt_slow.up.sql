@@ -1,0 +1,12 @@
+-- Stop treating md5crypt (-m 500) as a slow hash.
+--
+-- 20260721120000_mark_slow_hash_types flagged 500 slow = TRUE alongside the other Unix
+-- crypt variants. The slow flag makes the dispatcher pass hashcat -S (--slow-candidates),
+-- which trades GPU-side candidate generation for host-side generation. md5crypt is only
+-- 1000 MD5 rounds and runs fast enough on modern GPUs that -S starves it instead of
+-- helping, so the default should be FALSE like the other fast hashes.
+--
+-- Only rows still carrying the migration default are touched. An admin who already set
+-- 500 to not-slow through the hash type manager is unaffected (the row is already FALSE),
+-- and the statement is idempotent.
+UPDATE hash_types SET slow = FALSE WHERE id = 500 AND slow = TRUE;

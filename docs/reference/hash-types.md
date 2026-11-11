@@ -28,6 +28,11 @@ Slow hash algorithms are intentionally computationally expensive to resist brute
 - Argon2 variants
 - TrueCrypt/VeraCrypt containers
 
+**The `slow` flag and `--slow-candidates`:** Every hash type carries a `slow` flag. When a job runs against a slow-flagged type, KrakenHashes passes hashcat's `-S` (`--slow-candidates`), which moves candidate generation onto the host CPU so the GPU stays saturated even when keyspace splitting leaves a chunk's base wordlist small. The flag is applied conservatively: only genuinely iterated or memory-hard algorithms are marked slow, because enabling `-S` on a fast hash starves the GPU and lowers throughput.
+
+!!! note "md5crypt (mode 500) is treated as a fast hash"
+    Although md5crypt is a Unix `crypt(3)` variant, it runs only 1000 MD5 iterations and is fast on modern GPUs, so it is **not** flagged slow by default and `-S` is not applied to it. An administrator can still change any type's slow flag under **Admin → Hash Types**.
+
 ### Application-Specific Hashes
 Many hash types are specific to particular applications, operating systems, or protocols.
 
