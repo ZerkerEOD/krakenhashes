@@ -1,479 +1,483 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/SSL_TLS_CERTBOT_CONFIGURATION/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/SSL_TLS_CERTBOT_CONFIGURATION/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/security/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/security/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/advanced/chunking/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/advanced/chunking/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/advanced/job-priority/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/advanced/job-priority/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/advanced/performance/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/advanced/performance/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/advanced/presets/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/advanced/presets/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/agents/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/agents/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/audit-log/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/audit-log/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/backup/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/backup/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/clients/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/clients/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/data-retention/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/data-retention/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/diagnostics/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/diagnostics/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/job-settings/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/job-settings/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/monitoring/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/monitoring/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/notifications/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/notifications/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/potfile/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/potfile/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/scheduling/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/scheduling/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/team-management/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/team-management/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/operations/users/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/operations/users/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/resource-management/binaries/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/resource-management/binaries/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/resource-management/rules/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/resource-management/rules/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/resource-management/storage/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/resource-management/storage/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/resource-management/wordlists/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/resource-management/wordlists/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/authentication/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/authentication/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/branding/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/branding/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/cloud-aws/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/cloud-aws/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/cloud-providers/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/cloud-providers/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/cloud-runpod/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/cloud-runpod/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/cloud-vastai/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/cloud-vastai/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/cloud-vpn/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/cloud-vpn/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/configuration/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/configuration/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/email/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/email/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/ssl-tls-custom-acme/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/ssl-tls-custom-acme/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/ssl-tls-provided-mode/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/ssl-tls-provided-mode/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/ssl-tls/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/ssl-tls/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/sso/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/system-setup/sso/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/troubleshooting/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/auto-update/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/troubleshooting/potfile-issues/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/cloud-deployment/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/admin-guide/troubleshooting/task-lifecycle/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/configuration/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/debugging/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/auto-update/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/device-management/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/cloud-deployment/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/docker-deployment/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/configuration/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/file-sync/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/debugging/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/installation/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/device-management/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/monitoring/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/docker-deployment/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/scheduling/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/file-sync/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/systemd-setup/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/installation/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/agent-guide/troubleshooting/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/monitoring/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/archive/development-notes/IMPLEMENTATION_SUMMARY/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/scheduling/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/archive/development-notes/POLLING_IMPLEMENTATION/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/systemd-setup/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/archive/development-notes/WORK_DIRECTORY_FIX_SUMMARY/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/agent-guide/troubleshooting/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/archive/development-notes/docker-initialization/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/archive/development-notes/IMPLEMENTATION_SUMMARY/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/archive/development-notes/hashlists/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/archive/development-notes/POLLING_IMPLEMENTATION/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/contributing/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/archive/development-notes/WORK_DIRECTORY_FIX_SUMMARY/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/contributing/translations/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/archive/development-notes/docker-initialization/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/deployment/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/archive/development-notes/hashlists/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/deployment/docker-compose/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/deployment/docker/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/first-crack/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/deployment/production/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/installation/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/deployment/updates/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/overview/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/developer/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/quick-start/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/developer/agent/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/deployment/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/developer/architecture/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/deployment/docker-compose/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/developer/backend/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/deployment/docker/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/developer/frontend/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/deployment/production/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/getting-started/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/getting-started/deployment/updates/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/getting-started/first-crack/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/getting-started/installation/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/database/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/getting-started/overview/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/environment/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/getting-started/quick-start/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/errors/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/glossary/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/database/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/hash-types/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/environment/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/postgresql-tuning/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/errors/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/system-requirements/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/glossary/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/agent-mtls/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/hash-types/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/association-attack/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/postgresql-tuning/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/benchmark-workflow/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/system-requirements/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/binary-version-patterns/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/agent-mtls/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/bloodhound-enrichment/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/association-attack/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/chunking/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/benchmark-workflow/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/cloud-provisioning/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/binary-version-patterns/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/crack-batching-system/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/bloodhound-enrichment/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/cross-hashlist-sync/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/chunking/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/file-hash-cache/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/cloud-provisioning/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/increment-mode/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/crack-batching-system/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/job-completion-system/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/cross-hashlist-sync/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/job-update-system/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/file-hash-cache/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/lm-ntlm-linking/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/increment-mode/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/loopback/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/job-completion-system/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/network-share-storage/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/job-update-system/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/notification-system/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/lm-ntlm-linking/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/rule-splitting/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/loopback/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/scheduler-v2-overview/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/network-share-storage/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/architecture/username-extraction/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/notification-system/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/contributing/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/rule-splitting/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/contributing/translations/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/scheduler-v2-overview/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/developer/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/reference/architecture/username-extraction/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/developer/agent/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/security/agent-data-security/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/developer/architecture/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/troubleshooting/potfile-issues/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/developer/backend/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/troubleshooting/task-lifecycle/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/reference/developer/frontend/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-api/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/security/agent-data-security/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-api/USER_GUIDE/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/analytics-reports/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/analytics-reports/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/analyzing-results/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/analyzing-results/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/core-concepts/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/core-concepts/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/custom-charsets-arguments/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/custom-charsets-arguments/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/hashlists/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/hashlists/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/jobs-workflows/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/jobs-workflows/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/loopback/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/loopback/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/notifications/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/notifications/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/teams/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/teams/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/troubleshooting/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/troubleshooting/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/wordlist-filtering/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/wordlist-filtering/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/wordlists-rules/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
     <url>
-         <loc>https://zerkereod.github.io/krakenhashes/dev/user-guide/wordlists-rules/</loc>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/api/</loc>
+         <lastmod>2026-11-11</lastmod>
+    </url>
+    <url>
+         <loc>https://zerkersec.io/krakenhashes/docs/dev/user-guide/api/guide/</loc>
          <lastmod>2026-11-11</lastmod>
     </url>
 </urlset>
