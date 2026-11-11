@@ -4,6 +4,17 @@ All notable changes to KrakenHashes, newest release first. This file tracks tagg
 releases; the complete per-tag history is available on the [GitHub Releases page](https://github.com/ZerkerEOD/krakenhashes/releases).
 Patch releases are rolled into their minor version's section.
 
+## 3.1.0 - 2026-11-11
+
+A maintenance release on top of 3.0.1.
+
+- **Hashlist deletion fixed** — deleting a hashlist that had run one or more jobs failed with a task-ID type error, so any list of 10,000+ hashes with job history could not be removed. Deletion now completes and clears cracked-by-task references first ([#137]).
+- **Admin dialog markup fixed** — the delete-user confirmation and the wordlist/rule cascade-delete prompts rendered raw `<strong>` tags instead of bold text ([#137]).
+- **md5crypt (`-m 500`) is no longer slow by default** — it runs only 1000 MD5 rounds and is fast on modern GPUs, where hashcat's `-S` (`--slow-candidates`) hurt throughput. A reversible, data-only migration clears the slow flag for mode 500 on installs that still carry the default; admins who already changed it are unaffected ([#139]).
+- **Documentation** — rebuilt site navigation, now hosted at zerkersec.io and published by CI ([#140]).
+
+The migration (`20261111120000_unmark_md5crypt_slow`) runs automatically on startup; there is no schema change.
+
 ## 3.0.0 - 2026-10-23
 
 **Patch 3.0.1 (2026-11-03):** Custom charsets fixed — brute-force (`-a 3`) mask attacks that reference a custom charset (inline `-1 ?l?d`, `.hcchr` charset files, or hex) failed in 3.0.0 with "Custom-charset 1 is undefined". The scheduler-v2 dispatch path dropped the charset definitions on the way to the agent; they are now forwarded on both the speed-test/benchmark and the real run, verified end to end on real hardware ([#132]).
@@ -202,6 +213,9 @@ N is an issue or a PR — no need to know which it is up front.
 [#114]: https://github.com/ZerkerEOD/krakenhashes/issues/114
 [#126]: https://github.com/ZerkerEOD/krakenhashes/issues/126
 [#132]: https://github.com/ZerkerEOD/krakenhashes/issues/132
+[#137]: https://github.com/ZerkerEOD/krakenhashes/issues/137
+[#139]: https://github.com/ZerkerEOD/krakenhashes/issues/139
+[#140]: https://github.com/ZerkerEOD/krakenhashes/issues/140
 [@Lat3magnet1c]: https://github.com/Lat3magnet1c
 [@Lolozendev]: https://github.com/Lolozendev
 [@Devil123166]: https://github.com/Devil123166
