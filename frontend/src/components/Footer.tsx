@@ -105,7 +105,7 @@ const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
         }}
       >
         <Link
-          href="https://zerkereod.github.io/krakenhashes/"
+          href="https://zerkersec.io/krakenhashes/docs/latest/"
           target="_blank"
           rel="noopener noreferrer"
           color="text.secondary"
