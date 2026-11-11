@@ -9,7 +9,7 @@
  *   - Enable/disable rules
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -654,7 +654,7 @@ export default function RulesManagement() {
               <Divider sx={{ my: 2 }} />
 
               <Typography variant="body2" sx={{ mb: 1 }}>
-                {t('rules.dialogs.delete.confirmationPrompt', { id: deletionImpact.resource_id }) as string}
+                <Trans t={t} i18nKey="rules.dialogs.delete.confirmationPrompt" values={{ id: deletionImpact.resource_id }} components={{ strong: <strong /> }} />
               </Typography>
               <TextField
                 fullWidth

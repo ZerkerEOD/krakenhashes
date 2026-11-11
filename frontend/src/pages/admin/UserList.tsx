@@ -22,7 +22,7 @@ import { dateFnsLocaleFor } from '../../i18n/locales';
 
 /** date-fns locale for the current UI language. */
 const dateLocale = () => dateFnsLocaleFor(i18n.language);
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { User } from '../../types/user';
 import { listAdminUsers, enableAdminUser, disableAdminUser, createAdminUser, deleteAdminUser } from '../../services/api';
@@ -574,7 +574,7 @@ const UserList: React.FC = () => {
                             {t('users.dialogs.deleteUser.warning')}
                         </Alert>
                         <Typography variant="body1">
-                            {t('users.dialogs.deleteUser.confirmation', { username: deleteUsername })}
+                            <Trans t={t} i18nKey="users.dialogs.deleteUser.confirmation" values={{ username: deleteUsername }} components={{ strong: <strong /> }} />
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                             {t('users.dialogs.deleteUser.dataNote')}

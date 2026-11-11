@@ -1095,9 +1095,9 @@ func (r *HashListRepository) DeleteWithProgressStreaming(ctx context.Context, id
 		debug.Error("[DeleteWithProgressStreaming:%d] Failed to get task IDs: %v", id, err)
 		return fmt.Errorf("failed to get task IDs for hashlist %d: %w", id, err)
 	}
-	var taskIDs []int64
+	var taskIDs []uuid.UUID
 	for taskRows.Next() {
-		var taskID int64
+		var taskID uuid.UUID
 		if err := taskRows.Scan(&taskID); err != nil {
 			taskRows.Close()
 			debug.Error("[DeleteWithProgressStreaming:%d] Failed to scan task ID: %v", id, err)
