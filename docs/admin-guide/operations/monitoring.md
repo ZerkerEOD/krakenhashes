@@ -1,5 +1,8 @@
 # System Monitoring Guide
 
+!!! info "See also"
+    Per-agent device and job monitoring is in the [Agent guide → Monitoring](../../agent-guide/monitoring.md).
+
 This guide covers comprehensive monitoring strategies for KrakenHashes, including system health indicators, performance metrics, logging, and alerting configurations.
 
 ## Table of Contents

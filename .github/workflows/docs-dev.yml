@@ -1,0 +1,9 @@
+name: Docs (dev)
+on:
+  push:
+    branches: [master]
+    paths: [docs/**, mkdocs.yml, requirements-docs.txt, .github/workflows/docs-*.yml]
+permissions: { contents: write }
+jobs:
+  dev:
+    uses: ZerkerEOD/docs-theme/.github/workflows/mkdocs-dev.yml@main

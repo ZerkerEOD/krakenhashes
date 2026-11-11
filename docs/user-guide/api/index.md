@@ -5,12 +5,12 @@ This directory contains comprehensive documentation for the KrakenHashes User AP
 ## Quick Start
 
 1. **Get your API key**: Log into KrakenHashes → Profile Settings → Generate API Key
-2. **Read the User Guide**: [USER_GUIDE.md](USER_GUIDE.md)
+2. **Read the User Guide**: [USER_GUIDE.md](guide.md)
 3. **Try the examples**: See `examples/` directory
 
 ## Documentation Files
 
-- **[USER_GUIDE.md](USER_GUIDE.md)** - Complete user guide with workflows and best practices
+- **[USER_GUIDE.md](guide.md)** - Complete user guide with workflows and best practices
 - **[openapi.yaml](openapi.yaml)** - OpenAPI 3.0 specification
 - **[examples/python_client.py](examples/python_client.py)** - Python client library and examples
 - **[examples/curl_examples.sh](examples/curl_examples.sh)** - cURL command examples
@@ -155,8 +155,8 @@ Open: http://localhost:8080
 ## Support
 
 - **Issues**: https://github.com/ZerkerEOD/krakenhashes/issues
-- **Main Documentation**: See the [documentation site](../index.md)
-- **User Guide**: [USER_GUIDE.md](USER_GUIDE.md)
+- **Main Documentation**: See the [documentation site](../../index.md)
+- **User Guide**: [USER_GUIDE.md](guide.md)
 
 ## Version
 

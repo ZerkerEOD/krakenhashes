@@ -1,0 +1,38 @@
+# Labels new issues from supporters at Foothold tier or above with `supporter`, so
+# triage order is visible and honest. The author's login is checked against
+# zerkersec.io, which answers only yes/no for a login that opted in to linking
+# GitHub on their supporter page. Fails soft: a missing label never blocks an issue.
+name: supporter-priority
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    if: github.event.issue.user.type == 'User'
+    steps:
+      - name: Ask zerkersec.io whether the author has priority support
+        id: ask
+        env:
+          AUTHOR: ${{ github.event.issue.user.login }}
+          SECRET: ${{ secrets.PRIORITY_SECRET }}
+        run: |
+          set -u
+          body=$(printf '{"login":%s}' "$(printf '%s' "$AUTHOR" | jq -R .)")
+          resp=$(curl -sS --max-time 15 -X POST https://zerkersec.io/api/priority \
+            -H "Authorization: Bearer $SECRET" -H 'content-type: application/json' --data "$body") || { echo "priority=false" >> "$GITHUB_OUTPUT"; exit 0; }
+          echo "priority=$(printf '%s' "$resp" | jq -r '.priority // false')" >> "$GITHUB_OUTPUT"
+      - name: Label the issue
+        if: steps.ask.outputs.priority == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh label create supporter --repo "$REPO" --color B91C1C --description "Opened by a project supporter (priority triage)" 2>/dev/null || true
+          gh issue edit "$NUMBER" --repo "$REPO" --add-label supporter

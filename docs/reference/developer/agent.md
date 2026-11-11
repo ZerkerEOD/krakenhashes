@@ -758,7 +758,7 @@ When backend receives `crack_batches_complete`:
 3. Agent busy status cleared
 4. Agent can immediately accept new tasks
 
-See [Crack Batching System](../reference/architecture/crack-batching-system.md) for full details on batching logic and performance optimization.
+See [Crack Batching System](../architecture/crack-batching-system.md) for full details on batching logic and performance optimization.
 
 ## File Synchronization
 

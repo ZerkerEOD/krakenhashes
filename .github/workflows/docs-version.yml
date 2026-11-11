@@ -1,0 +1,15 @@
+name: Docs (version)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version: { description: "Version to publish (e.g. 3.0.1)", required: true, type: string }
+      set_as_latest: { description: "Point latest at it", type: boolean, default: true }
+permissions: { contents: write }
+jobs:
+  version:
+    uses: ZerkerEOD/docs-theme/.github/workflows/mkdocs-version.yml@main
+    with:
+      version: ${{ github.event.inputs.version || github.ref_name }}
+      set_as_latest: ${{ github.event.inputs.set_as_latest != 'false' }}

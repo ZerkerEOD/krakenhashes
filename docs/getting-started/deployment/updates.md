@@ -7,7 +7,7 @@ This guide covers the procedures for updating KrakenHashes deployments, includin
 !!! tip "Agents can update themselves"
     Agents installed via the launcher update **automatically** once the server is upgraded — you
     don't have to re-download and replace each binary by hand. The server-side rollout limit and
-    other controls live under Admin Settings. See [Agent Auto-Update](../agent-guide/auto-update.md).
+    other controls live under Admin Settings. See [Agent Auto-Update](../../agent-guide/auto-update.md).
     Standalone agents (installed without the launcher) are still updated manually as described in the
     Agent Update Process below.
 
@@ -38,7 +38,7 @@ This guide covers the procedures for updating KrakenHashes deployments, includin
 ### Agents
 
 - **2.x agents keep working** against a 3.0 backend, on their API key. The backend recognises the shared bootstrap certificate they present and does not treat it as an mTLS identity. They show as "Update available" on the Agent page.
-- **Auto-update cannot update them.** A 2.x binary does not understand the update command, so 3.0 deliberately never sends it to agents below 3.0.0. The recommended fix is to move each one onto the [launcher](../agent-guide/auto-update.md), which swaps the binary and keeps it current from then on; you can also replace the binary by hand (download from the Agent page or the GitHub release). Once a 3.x agent connects it migrates to per-agent mTLS automatically ([details](../reference/architecture/agent-mtls.md)).
+- **Auto-update cannot update them.** A 2.x binary does not understand the update command, so 3.0 deliberately never sends it to agents below 3.0.0. The recommended fix is to move each one onto the [launcher](../../agent-guide/auto-update.md), which swaps the binary and keeps it current from then on; you can also replace the binary by hand (download from the Agent page or the GitHub release). Once a 3.x agent connects it migrates to per-agent mTLS automatically ([details](../../reference/architecture/agent-mtls.md)).
 - **Port 1337 (plain HTTP) is still needed, for agents only.** It serves the CA certificate and certificate renewal. 3.0 moved the browser's CA download to the HTTPS origin (`/ca.crt`), so users no longer need 1337, but agents do.
 - **Agents that dial the backend on a public IP:** certificate addresses (SANs) are now managed in Admin → Certificates and public IPs are not accepted. Your current certificate is untouched until you reissue it; before reissuing, make sure agents reach the backend by hostname or a private/VPN address.
 
@@ -227,7 +227,7 @@ The backend image ships the matching agent and launcher binaries, so once the se
 
 Agents installed through the launcher update themselves: the backend sends an update command to each idle, out-of-date agent (a few at a time, never one that is running a job), the launcher swaps the binary, health-checks the new version and rolls back if it fails. Watch progress on the Agent page or in the backend log.
 
-The rollout limits live under Admin → Settings → Agents. See [Agent Auto-Update](../agent-guide/auto-update.md).
+The rollout limits live under Admin → Settings → Agents. See [Agent Auto-Update](../../agent-guide/auto-update.md).
 
 ### Standalone agents (manual)
 
@@ -279,18 +279,18 @@ The network-share storage backend and per-agent storage tiers are a good model o
 3. **Enable + migrate** — go to **Admin → System Settings → Storage**, validate the mount, and run the one-time migration to move wordlists/rules onto the share. The migration is resumable and reversible.
 4. **Per-agent tiers (optional)** — assign on-prem agents the `network_direct` or `on_demand` tier as needed.
 
-Full details: [Storage Architecture](../admin-guide/resource-management/storage.md#network-share-storage) and the [Network Share Storage architecture](../reference/architecture/network-share-storage.md) reference. The same "check release notes → review `.env.example` diff → enable in Admin" flow applies to any opt-in feature a release introduces.
+Full details: [Storage Architecture](../../admin-guide/resource-management/storage.md#network-share-storage) and the [Network Share Storage architecture](../../reference/architecture/network-share-storage.md) reference. The same "check release notes → review `.env.example` diff → enable in Admin" flow applies to any opt-in feature a release introduces.
 
 ### Agent mTLS migrates automatically
 
 Agent mutual-TLS authentication is the exception to the opt-in pattern: it turns itself on. After you upgrade a **self-signed** deployment, 3.x agents migrate from API-key to per-agent-certificate (mTLS) auth **automatically, on their next connection** — over the existing agent port, with no new port, no `.env` variable, and no Admin toggle. New agents use mTLS from registration; existing 3.x agents renew their certificate once and reconnect. API-key and mTLS agents interoperate throughout, so the migration is invisible and needs nothing from you.
 
-- **2.x agents keep working, on their API key.** A 2.x agent does not know how to migrate, so rather than being locked out it keeps connecting with its API key (the backend recognises the old shared bootstrap certificate it presents and does not treat it as an identity). This is a transitional bridge, not a permanent API-key tier: the Agent page flags these agents as "Update available", and the recommended fix is to move each one onto the [launcher](../agent-guide/auto-update.md), which swaps the binary and keeps it current from then on. On its next connection as a 3.x agent it migrates to mTLS. You can also replace the binary by hand. Auto-update never targets a 2.x agent, because a 2.x binary cannot act on the update command.
+- **2.x agents keep working, on their API key.** A 2.x agent does not know how to migrate, so rather than being locked out it keeps connecting with its API key (the backend recognises the old shared bootstrap certificate it presents and does not treat it as an identity). This is a transitional bridge, not a permanent API-key tier: the Agent page flags these agents as "Update available", and the recommended fix is to move each one onto the [launcher](../../agent-guide/auto-update.md), which swaps the binary and keeps it current from then on. On its next connection as a 3.x agent it migrates to mTLS. You can also replace the binary by hand. Auto-update never targets a 2.x agent, because a 2.x binary cannot act on the update command.
 
 - **Self-signed mode only.** In `provided`/`certbot` TLS modes there is no internal CA to issue agent certificates, so agents stay on API-key auth and nothing changes.
 - **Revoke vs disable.** A new **Revoke** action (Admin → Agents → the agent's menu) is the hard kill: it invalidates an agent's credentials, severs its connection, and moves it to a Revoked list; bringing it back needs a new claim code. **Disable** is unchanged — it only pauses scheduling and the agent's credentials stay valid.
 
-Full details: [Agent mTLS Authentication](../reference/architecture/agent-mtls.md).
+Full details: [Agent mTLS Authentication](../../reference/architecture/agent-mtls.md).
 
 !!! note "Database columns for a new feature arrive with the migration"
     Opt-in features that need new tables/columns get them automatically when migrations run on backend startup (above) — the schema is ready even while the feature stays off. You only *enable* the behavior; you don't run any extra schema step.

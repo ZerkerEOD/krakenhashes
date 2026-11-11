@@ -859,7 +859,7 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(
 }
 ```
 
-See [Job Completion System](../reference/architecture/job-completion-system.md) and [Crack Batching System](../reference/architecture/crack-batching-system.md) for full details.
+See [Job Completion System](../architecture/job-completion-system.md) and [Crack Batching System](../architecture/crack-batching-system.md) for full details.
 
 ### Atomic Task Completion Operations
 

@@ -89,7 +89,7 @@ KH_CA_VALIDITY_DAYS=3650
     `KH_SHARE_DIR_HOST` to the host path of a mounted SMB/NFS share makes it available to the
     backend at `KH_SHARE_DIR` (`/var/lib/krakenhashes-share`). Nothing changes until you enable it
     from **Admin → System Settings → Storage** and migrate; see
-    [Network Share Storage](../admin-guide/resource-management/storage.md#network-share-storage).
+    [Network Share Storage](../../admin-guide/resource-management/storage.md#network-share-storage).
 
 ### Service-Specific Configuration
 
@@ -189,7 +189,7 @@ credentials), set `KH_SHARE_DIR_HOST` to that host path, and the compose file bi
 backend at `KH_SHARE_DIR`. It remains inactive (local-disk behavior) until enabled and migrated
 from **Admin → System Settings → Storage**. Leaving `KH_SHARE_DIR_HOST` unset binds a harmless
 empty default and keeps local storage. Full details, including per-agent storage tiers and the
-migration flow, are in [Storage Architecture](../admin-guide/resource-management/storage.md#network-share-storage).
+migration flow, are in [Storage Architecture](../../admin-guide/resource-management/storage.md#network-share-storage).
 
 ### Backup Strategy
 

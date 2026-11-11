@@ -105,7 +105,7 @@ If the global setting is off, no job preempts anything, regardless of priority. 
 with priority `0` also never preempts, even with both gates open.
 
 Work through the checklist in
-[Job Priority System — Job Not Interrupting Lower Priority Work](../admin-guide/advanced/job-priority.md#job-not-interrupting-lower-priority-work).
+[Job Priority System — Job Not Interrupting Lower Priority Work](../advanced/job-priority.md#job-not-interrupting-lower-priority-work).
 
 ### My task has been in "processing" for a while
 
@@ -131,7 +131,7 @@ The sweep never marks such a task `failed` — deliberately, because that would 
 the whole job over an agent that merely went away. Worst case, a task waiting on cracks
 that never arrive sits in `processing` for 90 minutes before the backstop gives up on it.
 For the full mechanism see
-[Job Completion System — Stale Processing Backstop](../reference/architecture/job-completion-system.md#stale-processing-backstop).
+[Job Completion System — Stale Processing Backstop](../../reference/architecture/job-completion-system.md#stale-processing-backstop).
 
 ## What Happens When a Task Is Stopped
 
@@ -262,7 +262,7 @@ docker logs krakenhashes 2>&1 | grep -i "keyspace released for re-dispatch"
 
 ## Related Documentation
 
-- [Glossary — Job and Task Statuses](../reference/glossary.md#job-and-task-statuses)
-- [Job Priority System](../admin-guide/advanced/job-priority.md)
-- [Database Schema — job_tasks](../reference/database.md#job_tasks)
-- [General Troubleshooting Guide](../user-guide/troubleshooting.md)
+- [Glossary — Job and Task Statuses](../../reference/glossary.md#job-and-task-statuses)
+- [Job Priority System](../advanced/job-priority.md)
+- [Database Schema — job_tasks](../../reference/database.md#job_tasks)
+- [General Troubleshooting Guide](../../user-guide/troubleshooting.md)

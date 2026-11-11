@@ -1,5 +1,8 @@
 # Agent Monitoring Guide
 
+!!! info "See also"
+    Server-wide health and metrics are covered in [Admin guide → System monitoring](../admin-guide/operations/monitoring.md).
+
 This comprehensive guide covers monitoring distributed agents in KrakenHashes, including real-time metrics, health checks, performance monitoring, and troubleshooting strategies for administrators managing agent fleets.
 
 ## Table of Contents

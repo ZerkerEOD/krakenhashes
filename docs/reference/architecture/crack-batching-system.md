@@ -995,7 +995,7 @@ Potential improvements under consideration:
 ## Related Documentation
 
 - [Job Completion System](./job-completion-system.md) - Hashlist completion detection and the stale-processing backstop
-- [Task Lifecycle and Statuses](../../troubleshooting/task-lifecycle.md) - What a task in `processing` means and how it always leaves that state
+- [Task Lifecycle and Statuses](../../admin-guide/troubleshooting/task-lifecycle.md) - What a task in `processing` means and how it always leaves that state
 - [Potfile Management](../../admin-guide/operations/potfile.md) - Crack storage and reuse
 - [Agent Troubleshooting](../../agent-guide/troubleshooting.md) - Connection and stability issues
 - [System Monitoring](../../admin-guide/operations/monitoring.md) - Performance tracking

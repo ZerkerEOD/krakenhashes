@@ -1,5 +1,8 @@
 # Notification Administration
 
+!!! info "See also"
+    What users see and how they manage their own alerts is in the [User guide → Notifications](../../user-guide/notifications.md).
+
 ## Overview
 
 Administrators can configure system-wide notification settings, including global webhooks for external integrations, agent offline monitoring parameters, and view all user webhook configurations.

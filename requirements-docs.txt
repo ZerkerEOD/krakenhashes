@@ -5,3 +5,4 @@ mkdocs-git-revision-date-localized-plugin>=1.2.0
 mkdocs-minify-plugin>=0.8.0
 pymdown-extensions>=10.0
 mike>=2.0.0
+mkdocs-redirects>=1.2

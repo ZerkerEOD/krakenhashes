@@ -574,7 +574,7 @@ processing → (untouched)                  (server ignores the shutdown notice;
 
 For the full user-facing explanation of these statuses — including why tasks sometimes disappear
 from the task list entirely — see
-[Task Lifecycle and Statuses](../../troubleshooting/task-lifecycle.md).
+[Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md).
 
 ### Monitoring Disconnection Events
 

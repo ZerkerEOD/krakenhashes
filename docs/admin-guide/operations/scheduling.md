@@ -1,5 +1,8 @@
 # Agent Scheduling
 
+!!! info "See also"
+    For how an agent applies its schedule locally, see the [Agent guide → Scheduling](../../agent-guide/scheduling.md).
+
 ## Overview
 
 The Agent Scheduling feature in KrakenHashes allows administrators to define specific time windows when agents are available for job execution. This feature helps optimize resource usage, manage electricity costs, and ensure agents run during appropriate hours.
