@@ -351,3 +351,43 @@ func TestHashlistRepository_ListWithTeamFilter_EmptyReturnsNonNilSlice(t *testin
 	assert.NotNil(t, hashlists, "must be a non-nil slice so JSON marshals to [] not null (issue #114)")
 	assert.Len(t, hashlists, 0)
 }
+
+// Regression: job_tasks.id and hashes.cracked_by_task_id are UUID columns. The
+// streaming delete used to scan task IDs into int64, so deleting any hashlist that
+// had ever run a job failed with "failed to scan task ID ... to a int64".
+func TestHashlistRepository_DeleteWithProgressStreaming_ClearsTaskRefs(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	repo := NewHashListRepository(db)
+	ctx := context.Background()
+
+	user := testutil.CreateTestUser(t, db, "deluser", "del@example.com", testutil.DefaultTestPassword, "user")
+	clientID := testutil.CreateTestClient(t, db, "delete-client", testutil.ClientCloudOpts{})
+	hashlistID := testutil.CreateTestHashlist(t, db, user.ID, clientID, "delete-with-tasks")
+	jobID := testutil.CreateTestJobExecution(t, db, hashlistID, user.ID, "completed")
+	agentID := testutil.CreateTestAgent(t, db, user.ID, nil)
+
+	var taskID uuid.UUID
+	require.NoError(t, db.QueryRow(`
+		INSERT INTO job_tasks (job_execution_id, agent_id, status, keyspace_start, keyspace_end, chunk_duration)
+		VALUES ($1, $2, 'completed', 0, 1000, 60)
+		RETURNING id`, jobID, agentID).Scan(&taskID))
+
+	// One hash cracked by that task and owned only by this hashlist (becomes an orphan).
+	var hashID uuid.UUID
+	require.NoError(t, db.QueryRow(`
+		INSERT INTO hashes (hash_value, original_hash, hash_type_id, is_cracked, password, cracked_by_task_id)
+		VALUES ('deadbeef', 'deadbeef', 0, true, 'pw', $1)
+		RETURNING id`, taskID).Scan(&hashID))
+	_, err := db.Exec(`INSERT INTO hashlist_hashes (hashlist_id, hash_id) VALUES ($1, $2)`, hashlistID, hashID)
+	require.NoError(t, err)
+
+	require.NoError(t, repo.DeleteWithProgressStreaming(ctx, hashlistID, nil))
+
+	var n int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM hashlists WHERE id = $1`, hashlistID).Scan(&n))
+	assert.Equal(t, 0, n, "hashlist row should be gone")
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM job_tasks WHERE id = $1`, taskID).Scan(&n))
+	assert.Equal(t, 0, n, "job task should cascade away with the job execution")
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM hashes WHERE id = $1`, hashID).Scan(&n))
+	assert.Equal(t, 0, n, "orphaned hash should be cleaned up")
+}

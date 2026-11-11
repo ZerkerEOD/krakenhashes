@@ -912,7 +912,7 @@ export default function WordlistsManagement() {
               <Divider sx={{ my: 2 }} />
 
               <Typography variant="body2" sx={{ mb: 1 }}>
-                {t('wordlists.dialogs.delete.confirmationPrompt', { id: deletionImpact.resource_id }) as string}
+                <Trans t={t} i18nKey="wordlists.dialogs.delete.confirmationPrompt" values={{ id: deletionImpact.resource_id }} components={{ strong: <strong /> }} />
               </Typography>
               <TextField
                 fullWidth
