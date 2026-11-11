@@ -1,5 +1,5 @@
 site_name: KrakenHashes Documentation
-site_url: https://zerkereod.github.io/krakenhashes/
+site_url: https://zerkersec.io/krakenhashes/docs/
 site_description: Distributed password cracking system for security professionals
 site_author: ZerkerEOD
 
@@ -32,25 +32,32 @@ theme:
     - content.code.annotate
     - content.tabs.link
   palette:
-    - scheme: slate
-      primary: red
-      accent: red
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-    - scheme: default
-      primary: red
-      accent: red
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-  font:
-    text: Roboto
-    code: Roboto Mono
+    scheme: slate
+    primary: custom
+    accent: custom
+  font: false
   icon:
     repo: fontawesome/brands/github
 
 plugins:
+  - redirects:
+      redirect_maps:
+        deployment/index.md: getting-started/deployment/index.md
+        deployment/docker.md: getting-started/deployment/docker.md
+        deployment/docker-compose.md: getting-started/deployment/docker-compose.md
+        deployment/production.md: getting-started/deployment/production.md
+        deployment/updates.md: getting-started/deployment/updates.md
+        user-api/index.md: user-guide/api/index.md
+        user-api/USER_GUIDE.md: user-guide/api/guide.md
+        troubleshooting/task-lifecycle.md: admin-guide/troubleshooting/task-lifecycle.md
+        troubleshooting/potfile-issues.md: admin-guide/troubleshooting/potfile-issues.md
+        developer/index.md: reference/developer/index.md
+        developer/architecture.md: reference/developer/architecture.md
+        developer/backend.md: reference/developer/backend.md
+        developer/frontend.md: reference/developer/frontend.md
+        developer/agent.md: reference/developer/agent.md
+        contributing/index.md: reference/contributing/index.md
+        contributing/translations.md: reference/contributing/translations.md
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
   - minify:
@@ -100,12 +107,18 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Getting Started:
+  - Get Started:
     - getting-started/index.md
     - Overview: getting-started/overview.md
     - Quick Start: getting-started/quick-start.md
     - Installation: getting-started/installation.md
     - First Password Crack: getting-started/first-crack.md
+    - Deployment:
+      - getting-started/deployment/index.md
+      - Docker: getting-started/deployment/docker.md
+      - Docker Compose: getting-started/deployment/docker-compose.md
+      - Production Best Practices: getting-started/deployment/production.md
+      - Update Procedures: getting-started/deployment/updates.md
   - User Guide:
     - user-guide/index.md
     - Core Concepts: user-guide/core-concepts.md
@@ -120,12 +133,12 @@ nav:
     - Analytics Reports: user-guide/analytics-reports.md
     - Notifications: user-guide/notifications.md
     - Troubleshooting: user-guide/troubleshooting.md
-  - User API:
-    - user-api/README.md
-    - User Guide: user-api/USER_GUIDE.md
-    - Examples:
-      - Python Client: user-api/examples/python_client.py
-      - cURL Examples: user-api/examples/curl_examples.sh
+    - API:
+      - user-guide/api/index.md
+      - Using the API: user-guide/api/guide.md
+      - Examples:
+        - Python Client: user-guide/api/examples/python_client.py
+        - cURL Examples: user-guide/api/examples/curl_examples.sh
   - Admin Guide:
     - admin-guide/index.md
     - System Setup:
@@ -165,7 +178,11 @@ nav:
       - Job Priority: admin-guide/advanced/job-priority.md
       - Job Chunking System: admin-guide/advanced/chunking.md
       - Performance Tuning: admin-guide/advanced/performance.md
-  - Agent Guide:
+    - Troubleshooting:
+      - admin-guide/troubleshooting/index.md
+      - Task Lifecycle and Statuses: admin-guide/troubleshooting/task-lifecycle.md
+      - Potfile Issues: admin-guide/troubleshooting/potfile-issues.md
+  - Agents:
     - agent-guide/index.md
     - Installation: agent-guide/installation.md
     - Auto-Update: agent-guide/auto-update.md
@@ -179,22 +196,15 @@ nav:
     - File Synchronization: agent-guide/file-sync.md
     - Debugging: agent-guide/debugging.md
     - Troubleshooting: agent-guide/troubleshooting.md
-  - Deployment:
-    - deployment/index.md
-    - Docker Deployment: deployment/docker.md
-    - Docker Compose: deployment/docker-compose.md
-    - Production Best Practices: deployment/production.md
-    - Update Procedures: deployment/updates.md
-  - Developer Guide:
-    - developer/index.md
-    - System Architecture: developer/architecture.md
-    - Backend Development: developer/backend.md
-    - Frontend Development: developer/frontend.md
-    - Agent Development: developer/agent.md
   - Reference:
     - reference/index.md
     - System Requirements: reference/system-requirements.md
     - PostgreSQL Tuning: reference/postgresql-tuning.md
+    - Environment Variables: reference/environment.md
+    - Database Schema: reference/database.md
+    - Hash Types: reference/hash-types.md
+    - Error Codes: reference/errors.md
+    - Glossary: reference/glossary.md
     - Architecture:
       - Scheduler v2 Overview: reference/architecture/scheduler-v2-overview.md
       - Cloud GPU Provisioning: reference/architecture/cloud-provisioning.md
@@ -216,17 +226,15 @@ nav:
       - Cross-Hashlist Sync: reference/architecture/cross-hashlist-sync.md
       - Username Extraction: reference/architecture/username-extraction.md
       - LM/NTLM Linking: reference/architecture/lm-ntlm-linking.md
-    - Environment Variables: reference/environment.md
-    - Database Schema: reference/database.md
-    - Hash Types: reference/hash-types.md
-    - Error Codes: reference/errors.md
-    - Glossary: reference/glossary.md
-  - Troubleshooting:
-    - Task Lifecycle and Statuses: troubleshooting/task-lifecycle.md
-    - Potfile Issues: troubleshooting/potfile-issues.md
-  - Contributing:
-    - contributing/index.md
-    - Translations: contributing/translations.md
+    - Developer Guide:
+      - reference/developer/index.md
+      - System Architecture: reference/developer/architecture.md
+      - Backend Development: reference/developer/backend.md
+      - Frontend Development: reference/developer/frontend.md
+      - Agent Development: reference/developer/agent.md
+    - Contributing:
+      - reference/contributing/index.md
+      - Translations: reference/contributing/translations.md
 
 extra:
   social:

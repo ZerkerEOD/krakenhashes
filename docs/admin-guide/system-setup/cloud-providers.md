@@ -1,5 +1,8 @@
 # Cloud GPU Providers
 
+!!! info "See also"
+    What happens on the agent side once a cloud instance starts is in the [Agent guide → Cloud deployment](../../agent-guide/cloud-deployment.md).
+
 Configure AWS EC2, RunPod or Vast.ai so KrakenHashes can rent GPU capacity on demand.
 
 This page covers what every provider shares — prerequisites, trust tiers, budgets, and the

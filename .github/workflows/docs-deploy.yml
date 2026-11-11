@@ -1,0 +1,22 @@
+name: Docs (deploy)
+# Runs after either docs workflow pushes to gh-pages (mike pushes with the Actions
+# token, which never fires `on: push`), or on demand. Uploads the tree as the static
+# assets of the `krakenhashes-docs` Worker, served at zerkersec.io/krakenhashes/docs/.
+on:
+  workflow_run:
+    workflows: ["Docs (dev)", "Docs (version)"]
+    types: [completed]
+  workflow_dispatch:
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    uses: ZerkerEOD/docs-theme/.github/workflows/deploy-worker.yml@main
+    with:
+      worker_name: krakenhashes-docs
+      docs_prefix: /krakenhashes/docs
+      project_name: krakenhashes
+      project_url: https://zerkersec.io/krakenhashes/
+      old_origin: https://zerkereod.github.io/krakenhashes
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

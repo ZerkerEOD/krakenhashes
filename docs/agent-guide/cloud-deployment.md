@@ -1,5 +1,8 @@
 # Cloud Agent Deployment
 
+!!! info "See also"
+    Cloud providers, budgets and credentials are configured by an administrator first: [Admin guide → Cloud GPU providers](../admin-guide/system-setup/cloud-providers.md).
+
 Cloud agents are ephemeral: rented, used for one job, and destroyed. They are provisioned
 by the backend rather than installed by hand — this page explains what the image does, so
 you can reason about it and debug it.

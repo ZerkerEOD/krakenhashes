@@ -1,5 +1,8 @@
 # Docker Deployment
 
+!!! info "See also"
+    This page runs the agent in Docker. Deploying the server with Docker is in [Get started → Deployment](../getting-started/deployment/docker.md).
+
 This guide covers deploying the KrakenHashes agent as a Docker container with GPU support.
 
 ## Overview

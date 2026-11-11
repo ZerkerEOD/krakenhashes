@@ -1,5 +1,8 @@
 # Notifications
 
+!!! info "See also"
+    Administrators configure the delivery channels under [Operations → Notifications](../admin-guide/operations/notifications.md); this page covers what you receive and how to tune it.
+
 ## Overview
 
 KrakenHashes provides a comprehensive notification system to keep you informed about important events in your password cracking operations. You can receive notifications through multiple channels and customize your preferences for each notification type.

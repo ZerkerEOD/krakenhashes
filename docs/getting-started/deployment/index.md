@@ -95,6 +95,6 @@ For production environments, follow our [Production Best Practices](production.m
 
 ## Getting Help
 
-- Check our [Troubleshooting Guide](../user-guide/troubleshooting.md)
+- Check our [Troubleshooting Guide](../../user-guide/troubleshooting.md)
 - Join our [Discord Community](https://discord.gg/taafA9cSFV)
 - Review [GitHub Issues](https://github.com/ZerkerEOD/krakenhashes/issues)

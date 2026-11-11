@@ -155,7 +155,7 @@ graph LR
 
     System configuration, user management, and operational procedures
 
--   :material-server: **[Deployment](deployment/index.md)**
+-   :material-server: **[Deployment](getting-started/deployment/index.md)**
 
     Production deployment, Docker setup, and update procedures
 
@@ -163,13 +163,7 @@ graph LR
 
 ## Project Status
 
-!!! warning "Alpha Software"
-    KrakenHashes is currently in **alpha development** (v0.1.0). While core functionality is implemented, expect:
-    
-    - Breaking changes between versions
-    - Incomplete features and documentation
-    - No migration path for data until v1.0
-    - Active development with frequent updates
+KrakenHashes 3.x is released and runs in production environments. Releases are tagged on GitHub and summarised in the [changelog](https://github.com/ZerkerEOD/krakenhashes/blob/master/CHANGELOG.md); every tagged version keeps its own copy of these docs (use the version switcher in the header).
 
 See our [GitHub repository](https://github.com/ZerkerEOD/krakenhashes) for the latest development status and roadmap.
 

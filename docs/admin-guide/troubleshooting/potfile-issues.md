@@ -282,6 +282,6 @@ Restart the backend to force bloom filter reload and metadata refresh.
 
 ## Related Documentation
 
-- [Potfile Management Guide](../admin-guide/operations/potfile.md)
-- [Client Management Guide](../admin-guide/operations/clients.md)
-- [Binary Management](../admin-guide/resource-management/binaries.md)
+- [Potfile Management Guide](../operations/potfile.md)
+- [Client Management Guide](../operations/clients.md)
+- [Binary Management](../resource-management/binaries.md)

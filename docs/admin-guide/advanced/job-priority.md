@@ -129,7 +129,7 @@ one behind.
 `pending` and is re-dispatched as soon as an agent is free.
 
 For the complete task-status picture, including the states that have nothing to do with preemption,
-see [Task Lifecycle & Statuses](../../troubleshooting/task-lifecycle.md).
+see [Task Lifecycle & Statuses](../troubleshooting/task-lifecycle.md).
 
 ### What Happens to Interrupted Jobs?
 
@@ -316,7 +316,7 @@ Check, in this order — the first two are silent when off, so they account for 
    so preemption can look like it did nothing for a cycle or two
 
 For what the stopped task should look like afterwards, and every other status a task can end in, see
-[Task Lifecycle & Statuses](../../troubleshooting/task-lifecycle.md).
+[Task Lifecycle & Statuses](../troubleshooting/task-lifecycle.md).
 
 ### Interrupted Job Not Resuming
 

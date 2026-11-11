@@ -128,4 +128,4 @@ Under **Admin → Settings**, the **Agent Auto-Update** settings govern the flee
 - [Installation](installation.md) — installing and running agents
 - [Systemd Setup](systemd-setup.md) — running agents as services
 - [Configuration](configuration.md) — agent configuration options
-- [Update Procedures](../deployment/updates.md) — upgrading the overall deployment
+- [Update Procedures](../getting-started/deployment/updates.md) — upgrading the overall deployment

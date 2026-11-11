@@ -317,7 +317,7 @@ Two constants govern that deferral. They are **hardcoded and not tunable** by an
     keyspace was fully recoverable. Both the branch and the repository method are gone.
 
 For the user-facing view of these statuses and outcomes, see
-[Task Lifecycle and Statuses](../../troubleshooting/task-lifecycle.md).
+[Task Lifecycle and Statuses](../../admin-guide/troubleshooting/task-lifecycle.md).
 
 ### Email Notification Integration
 
@@ -629,7 +629,7 @@ Track in monitoring:
 
 ## Related Documentation
 
-- [Task Lifecycle and Statuses](../../troubleshooting/task-lifecycle.md) - User-facing view of task statuses, the three stop outcomes, and why `failed` is reserved for agent-reported failures
+- [Task Lifecycle and Statuses](../../admin-guide/troubleshooting/task-lifecycle.md) - User-facing view of task statuses, the three stop outcomes, and why `failed` is reserved for agent-reported failures
 - [Crack Batching System](./crack-batching-system.md) - How crack batches are transmitted and the processing status integration
 - [Chunking System](./chunking.md) - How jobs are divided into chunks
 - [Job Update System](./job-update-system.md) - How keyspace updates work

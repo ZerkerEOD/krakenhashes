@@ -110,7 +110,7 @@ Internet
 - Implement RAID for redundancy (RAID 10 recommended)
 - Monitor disk usage and set alerts at 80% capacity
 - Use SSD/NVMe for database and frequently accessed data
-- For large wordlist/rule corpora, use the built-in [network share storage](../admin-guide/resource-management/storage.md#network-share-storage) backend (SMB/NFS) so servers and select agents share one copy instead of each holding the full set. Hashlists, binaries, and uploads stay on local disk.
+- For large wordlist/rule corpora, use the built-in [network share storage](../../admin-guide/resource-management/storage.md#network-share-storage) backend (SMB/NFS) so servers and select agents share one copy instead of each holding the full set. Hashlists, binaries, and uploads stay on local disk.
 
 ## Security Hardening Checklist
 

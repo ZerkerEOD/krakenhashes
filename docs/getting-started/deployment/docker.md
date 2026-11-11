@@ -1,5 +1,8 @@
 # Docker Initialization Guide
 
+!!! info "See also"
+    Running agents in Docker is a separate page: [Agent guide → Docker deployment](../../agent-guide/docker-deployment.md).
+
 ## Overview
 This guide explains how to initialize and run KrakenHashes using Docker. KrakenHashes runs as a single container that includes the frontend, backend, and PostgreSQL database.
 
