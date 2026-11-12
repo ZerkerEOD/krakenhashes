@@ -50,11 +50,11 @@ With the release of version 3.0.0, it should be working for its intended uses. W
 
 Comprehensive documentation is available in the [docs/](docs/) directory:
 
--   **[Quick Start](https://zerkereod.github.io/krakenhashes/latest/getting-started/quick-start/)** - Quick start guide for installation
--   **[Documentation Index](https://zerkereod.github.io/krakenhashes/latest/)** - Complete documentation overview
--   **[User Guide](https://zerkereod.github.io/krakenhashes/latest/user-guide/)** - Understanding jobs and workflows
--   **[Admin Guide](https://zerkereod.github.io/krakenhashes/latest/admin-guide/)** - Creating and managing attack strategies
--   **[Docker Setup](https://zerkereod.github.io/krakenhashes/latest/deployment/docker/)** - Getting started with Docker
+-   **[Quick Start](https://zerkersec.io/krakenhashes/docs/latest/getting-started/quick-start/)** - Quick start guide for installation
+-   **[Documentation Index](https://zerkersec.io/krakenhashes/docs/latest/)** - Complete documentation overview
+-   **[User Guide](https://zerkersec.io/krakenhashes/docs/latest/user-guide/)** - Understanding jobs and workflows
+-   **[Admin Guide](https://zerkersec.io/krakenhashes/docs/latest/admin-guide/)** - Creating and managing attack strategies
+-   **[Docker Setup](https://zerkersec.io/krakenhashes/docs/latest/getting-started/deployment/docker/)** - Getting started with Docker
 
 ## Community
 
@@ -71,7 +71,7 @@ Instructions for setting up and running each component can be found in their res
 See the [CHANGELOG](CHANGELOG.md) for the full 3.0.0 entry and the
 [release page](https://github.com/ZerkerEOD/krakenhashes/releases/latest) for binaries and upgrade
 notes. Upgrading from 2.x? Read the
-[3.0.0 upgrade notes](https://zerkereod.github.io/krakenhashes/latest/deployment/updates/#upgrading-to-300-from-2x)
+[3.0.0 upgrade notes](https://zerkersec.io/krakenhashes/docs/latest/getting-started/deployment/updates/#upgrading-to-300-from-2x)
 first.
 
 ### Roadmap

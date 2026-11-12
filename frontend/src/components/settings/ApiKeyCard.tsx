@@ -125,7 +125,7 @@ const ApiKeyCard: React.FC = () => {
             {t('apiKey.revoke') as string}
           </Button>
         )}
-        <Button variant="text" component={Link} href="https://zerkereod.github.io/krakenhashes/user-api/" target="_blank" rel="noopener noreferrer">
+        <Button variant="text" component={Link} href="https://zerkersec.io/krakenhashes/docs/latest/user-guide/api/" target="_blank" rel="noopener noreferrer">
           {t('apiKey.viewDocs') as string}
         </Button>
       </Box>

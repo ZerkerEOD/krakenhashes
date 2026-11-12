@@ -28,7 +28,7 @@ const CaCertificateCard: React.FC = () => {
         <Button
           variant="text"
           component={Link}
-          href="https://zerkereod.github.io/krakenhashes/admin-guide/system-setup/ssl-tls/"
+          href="https://zerkersec.io/krakenhashes/docs/latest/admin-guide/system-setup/ssl-tls/"
           target="_blank"
           rel="noopener noreferrer"
         >

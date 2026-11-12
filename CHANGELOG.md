@@ -36,7 +36,7 @@ The second major milestone. Everything delivered since 2.1.2 (roughly 50 pull re
 
 ### Upgrade notes (from 2.x)
 
-Read the full [upgrade guide](https://zerkereod.github.io/krakenhashes/latest/deployment/updates/#upgrading-to-300-from-2x) before you start. In short:
+Read the full [upgrade guide](https://zerkersec.io/krakenhashes/docs/latest/getting-started/deployment/updates/#upgrading-to-300-from-2x) before you start. In short:
 
 - **Back up the database first.** Some migrations rewrite data, one of them (`$HEX[...]` password decoding) cannot be reversed, and two take a write lock on the `hashes` table while they run (an index rebuild and a `cracked_at` backfill) — plan for minutes on large tables and `VACUUM ANALYZE hashes` afterwards. Rolling back means restoring the backup.
 - **Existing 2.x agents keep working** on their API key and are flagged "Update available"; move them onto the launcher (or replace the binary) to get mTLS and auto-update. New installs should use a 3.x agent. Port 1337 is still needed for agents (CA download and certificate renewal).
