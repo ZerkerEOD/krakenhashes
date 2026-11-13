@@ -41,6 +41,7 @@
     "hashType": "Тип хеша",
     "hashes": "Хеши",
     "cracked": "Взломано",
+    "createdAt": "Дата создания",
     "status": "Статус",
     "active": "Активный",
     "archived": "Архивный",

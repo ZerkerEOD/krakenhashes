@@ -41,6 +41,7 @@
     "hashType": "Loại hash",
     "hashes": "Hash",
     "cracked": "Đã bẻ khóa",
+    "createdAt": "Ngày tạo",
     "status": "Trạng thái",
     "active": "Hoạt động",
     "archived": "Đã lưu trữ",

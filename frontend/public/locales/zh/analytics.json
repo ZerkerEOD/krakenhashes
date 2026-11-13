@@ -41,6 +41,7 @@
     "hashType": "哈希类型",
     "hashes": "哈希数",
     "cracked": "已破解",
+    "createdAt": "创建时间",
     "status": "状态",
     "active": "活跃",
     "archived": "已归档",

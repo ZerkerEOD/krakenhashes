@@ -41,6 +41,7 @@
     "hashType": "해시 유형",
     "hashes": "해시",
     "cracked": "크래킹된",
+    "createdAt": "생성됨",
     "status": "상태",
     "active": "활성",
     "archived": "보관됨",

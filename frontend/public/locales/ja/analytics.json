@@ -41,6 +41,7 @@
     "hashType": "ハッシュタイプ",
     "hashes": "ハッシュ値",
     "cracked": "クラック済み",
+    "createdAt": "作成日",
     "status": "ステータス",
     "active": "アクティブ",
     "archived": "アーカイブ",
