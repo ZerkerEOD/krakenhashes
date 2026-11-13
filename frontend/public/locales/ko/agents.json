@@ -53,7 +53,8 @@
     "deactivateVoucher": "바우처 비활성화",
     "removeAgent": "에이전트 제거",
     "clearBusyStatus": "사용 중 상태 지우기",
-    "retry": "재시도"
+    "retry": "재시도",
+    "deleteAgent": "에이전트 삭제"
   },
   "vouchers": {
     "title": "바우처",
@@ -128,7 +129,8 @@
     "toggleDebugFailed": "디버그 모드를 전환하지 못했습니다.",
     "noAgentBinaries": "사용 가능한 에이전트 바이너리가 없습니다.",
     "loadDownloadsFailed": "다운로드 정보를 로드하지 못했습니다.",
-    "saveSchedulesFailed": "스케줄을 저장하지 못했습니다."
+    "saveSchedulesFailed": "스케줄을 저장하지 못했습니다.",
+    "deleteFailed": "에이전트 삭제에 실패했습니다"
   },
   "page": {
     "title": "에이전트 관리",
@@ -210,7 +212,8 @@
     "noDevicesDetected": "감지된 장치 없음",
     "extraParametersDescription": "에이전트별 hashcat 매개변수(예: -d 1 -w 4 -O)",
     "binaryVersionPattern": "에이전트는 {{version}} 패턴을 사용합니다.",
-    "binaryDefault": "작업 또는 시스템 기본값 바이너리를 사용 중입니다."
+    "binaryDefault": "작업 또는 시스템 기본값 바이너리를 사용 중입니다.",
+    "agentDeleted": "에이전트가 삭제되었습니다"
   },
   "fields": {
     "agentId": "에이전트 ID",
@@ -358,5 +361,8 @@
       "mountPathUpdated": "마운트 경로가 업데이트되었습니다",
       "mountPathUpdateFailed": "마운트 경로 업데이트에 실패했습니다"
     }
+  },
+  "revoked": {
+    "deleteWarning": "{{name}} 및 해당 기록을 영구적으로 삭제합니다. 이전 작업의 비용 귀속이 사라집니다."
   }
 }

@@ -53,7 +53,8 @@
     "deactivateVoucher": "Disattiva Voucher",
     "removeAgent": "Rimuovi Agent",
     "clearBusyStatus": "Cancella Stato Occupato",
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "deleteAgent": "Elimina agente"
   },
   "vouchers": {
     "title": "Voucher",
@@ -128,7 +129,8 @@
     "toggleDebugFailed": "Errore nel cambio della modalità di debug",
     "noAgentBinaries": "Nessun binario agent disponibile",
     "loadDownloadsFailed": "Errore nel caricamento delle informazioni di download",
-    "saveSchedulesFailed": "Errore nel salvataggio delle pianificazioni"
+    "saveSchedulesFailed": "Errore nel salvataggio delle pianificazioni",
+    "deleteFailed": "Impossibile eliminare l'agente"
   },
   "page": {
     "title": "Gestione Agent",
@@ -210,7 +212,8 @@
     "noDevicesDetected": "Nessun dispositivo rilevato",
     "extraParametersDescription": "Parametri hashcat specifici dell'agent (ad es. -d 1 -w 4 -O)",
     "binaryVersionPattern": "L'agent utilizzerà il pattern {{version}}",
-    "binaryDefault": "Utilizzo del binario predefinito del job o del sistema"
+    "binaryDefault": "Utilizzo del binario predefinito del job o del sistema",
+    "agentDeleted": "Agente eliminato con successo"
   },
   "fields": {
     "agentId": "ID agent",
@@ -362,5 +365,8 @@
       "mountPathUpdated": "Percorso di montaggio aggiornato",
       "mountPathUpdateFailed": "Impossibile aggiornare il percorso di montaggio"
     }
+  },
+  "revoked": {
+    "deleteWarning": "Elimina definitivamente {{name}} e la sua cronologia. Le attività precedenti perderanno l'attribuzione dei costi."
   }
 }

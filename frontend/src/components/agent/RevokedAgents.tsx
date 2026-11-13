@@ -12,12 +12,14 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Box, Typography } from '@mui/material';
+import { Delete as DeleteIcon } from '@mui/icons-material';
 import type { GridColDef } from '@mui/x-data-grid';
 import { RevokedAgent, NullString, NullTime } from '../../types/agent';
-import { getRevokedAgents } from '../../services/api';
-import { DataTable } from '../ui';
+import { api, getRevokedAgents } from '../../services/api';
+import { DataTable, useConfirm, useToast } from '../ui';
+import { getErrorMessage } from '../../utils/errors';
 import { formatAgentVersion } from '../../utils/agentVersion';
 import { formatDateTime, formatRelativeTime } from '../../utils/formatters';
 
@@ -35,6 +37,30 @@ const nullTime = (v?: NullTime): string | null => (v && v.Valid ? v.Time : null)
 export default function RevokedAgents() {
   const { t } = useTranslation('agents');
   const tr = (k: string, o?: any) => t(k, o) as string;
+  const queryClient = useQueryClient();
+  const confirm = useConfirm();
+  const toast = useToast();
+
+  // Delete permanently removes a revoked agent and its history. The backend
+  // DELETE endpoint already exists and is not gated on revoke status; this
+  // gives admins a way to clear revoked agents that can never be re-enabled.
+  const handleDeleteAgent = async (agent: RevokedAgent) => {
+    await confirm({
+      title: tr('actions.deleteAgent'),
+      message: tr('revoked.deleteWarning', { name: agent.name || String(agent.id) }),
+      severity: 'danger',
+      confirmLabel: tr('actions.deleteAgent'),
+      action: async () => {
+        try {
+          await api.delete(`/api/agents/${agent.id}`);
+        } catch (err) {
+          throw new Error(getErrorMessage(err) || tr('errors.deleteFailed'));
+        }
+        toast.success(tr('messages.agentDeleted'));
+        queryClient.invalidateQueries({ queryKey: ['revoked-agents'] });
+      },
+    });
+  };
 
   const {
     data: agents = [],
@@ -126,6 +152,16 @@ export default function RevokedAgents() {
         pagination={{ mode: 'client', initialPageSize: 25 }}
         sorting={{ mode: 'client', initial: [{ field: 'revokedAt', sort: 'desc' }] }}
         toolbar={{ title: tr('sections.revokedAgents') }}
+        rowActions={(agent) => [
+          {
+            key: 'delete',
+            label: tr('actions.deleteAgent'),
+            icon: <DeleteIcon fontSize="small" />,
+            danger: true,
+            placement: 'inline',
+            onClick: (a) => handleDeleteAgent(a),
+          },
+        ]}
         emptyState={{ title: tr('messages.noRevokedAgents') }}
         tableKey="revoked-agents"
       />

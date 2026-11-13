@@ -53,6 +53,7 @@
     "deactivateVoucher": "Deactivate Voucher",
     "removeAgent": "Remove Agent",
     "revokeAgent": "Revoke Agent",
+    "deleteAgent": "Delete Agent",
     "clearBusyStatus": "Clear Busy Status",
     "retry": "Retry"
   },
@@ -130,7 +131,8 @@
     "toggleDebugFailed": "Failed to toggle debug mode",
     "noAgentBinaries": "No agent binaries available",
     "loadDownloadsFailed": "Failed to load download information",
-    "saveSchedulesFailed": "Failed to save schedules"
+    "saveSchedulesFailed": "Failed to save schedules",
+    "deleteFailed": "Failed to delete agent"
   },
   "page": {
     "title": "Agent Management",
@@ -223,7 +225,8 @@
     "noDevicesDetected": "No devices detected",
     "extraParametersDescription": "Agent-specific hashcat parameters (e.g., -d 1 -w 4 -O)",
     "binaryVersionPattern": "Agent will use {{version}} pattern",
-    "binaryDefault": "Using job or system default binary"
+    "binaryDefault": "Using job or system default binary",
+    "agentDeleted": "Agent deleted successfully"
   },
   "fields": {
     "agentId": "Agent ID",
@@ -358,7 +361,8 @@
       "revokedBy": "Revoked By",
       "lastSeen": "Last Seen",
       "certSerial": "Cert Serial"
-    }
+    },
+    "deleteWarning": "Permanently delete {{name}} and its history. Past job tasks lose their cost attribution."
   },
   "storage": {
     "title": "Storage tier",
