@@ -41,6 +41,7 @@
     "hashType": "Tipo di hash",
     "hashes": "Hash",
     "cracked": "Craccati",
+    "createdAt": "Creato",
     "status": "Stato",
     "active": "Attiva",
     "archived": "Archiviata",

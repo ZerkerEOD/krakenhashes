@@ -41,6 +41,7 @@
     "hashType": "Typ hashe",
     "hashes": "Hashe",
     "cracked": "Prolomeno",
+    "createdAt": "Vytvořeno",
     "status": "Stav",
     "active": "Aktivní",
     "archived": "Archivováno",

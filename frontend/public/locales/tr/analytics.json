@@ -41,6 +41,7 @@
     "hashType": "Hash Türü",
     "hashes": "Hashler",
     "cracked": "Kırılmış",
+    "createdAt": "Oluşturuldu",
     "status": "Durum",
     "active": "Etkin",
     "archived": "Arşivlenmiş",

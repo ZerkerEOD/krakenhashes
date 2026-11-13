@@ -41,6 +41,7 @@
     "hashType": "Hash-type",
     "hashes": "Hashes",
     "cracked": "Gekraakt",
+    "createdAt": "Aangemaakt op",
     "status": "Status",
     "active": "Actief",
     "archived": "Gearchiveerd",

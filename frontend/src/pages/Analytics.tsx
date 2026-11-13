@@ -488,6 +488,16 @@ export default function Analytics() {
       valueFormatter: (v) => (v == null ? '' : Number(v).toLocaleString()),
     },
     {
+      field: 'created_at',
+      headerName: t('hashlistSelection.createdAt') as string,
+      type: 'dateTime',
+      width: 160,
+      valueGetter: (v) => (v ? new Date(v as string) : null),
+      renderCell: (p) => (
+        <span>{p.row.created_at ? formatDate(p.row.created_at, 'MMM d, yyyy HH:mm') : ''}</span>
+      ),
+    },
+    {
       field: 'archived_at',
       headerName: t('hashlistSelection.status') as string,
       width: 120,

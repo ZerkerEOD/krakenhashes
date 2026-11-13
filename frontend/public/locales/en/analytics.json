@@ -41,6 +41,7 @@
     "hashType": "Hash Type",
     "hashes": "Hashes",
     "cracked": "Cracked",
+    "createdAt": "Created",
     "status": "Status",
     "active": "Active",
     "archived": "Archived",

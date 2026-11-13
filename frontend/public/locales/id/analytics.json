@@ -41,6 +41,7 @@
     "hashType": "Tipe Hash",
     "hashes": "Hash",
     "cracked": "Tercrack",
+    "createdAt": "Dibuat",
     "status": "Status",
     "active": "Aktif",
     "archived": "Diarsipkan",
