@@ -338,12 +338,12 @@ type AgentHealthMetrics struct {
 	Timestamp      time.Time `json:"timestamp"`
 }
 
-// ListOwnedAgentIDs returns the ids of non-retired agents a user owns (or
-// created, when the agent has no explicit owner).
+// ListOwnedAgentIDs returns the ids of non-retired, non-revoked agents a user
+// owns (or created, when the agent has no explicit owner).
 func (r *DashboardRepository) ListOwnedAgentIDs(ctx context.Context, userID uuid.UUID) ([]int, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id FROM agents
-		WHERE retired_at IS NULL AND (owner_id = $1 OR (owner_id IS NULL AND created_by_id = $1))`, userID)
+		WHERE retired_at IS NULL AND is_revoked = false AND (owner_id = $1 OR (owner_id IS NULL AND created_by_id = $1))`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("dashboard owned agents: %w", err)
 	}
@@ -440,7 +440,7 @@ func (r *DashboardRepository) ListAgentHealth(ctx context.Context, scope Dashboa
 			FROM job_tasks rt
 			WHERE rt.agent_id = a.id AND rt.status = 'running'
 		) hr ON true
-		WHERE a.retired_at IS NULL` + idFilter + `
+		WHERE a.retired_at IS NULL AND a.is_revoked = false` + idFilter + `
 		ORDER BY
 		  CASE a.status WHEN 'error' THEN 0 WHEN 'inactive' THEN 1 WHEN 'pending' THEN 2 WHEN 'updating' THEN 3 WHEN 'disabled' THEN 5 ELSE 4 END,
 		  a.name ASC`
@@ -636,7 +636,7 @@ func (r *DashboardRepository) attentionAgents(ctx context.Context, scope Dashboa
 		       CASE WHEN a.status = 'error' THEN COALESCE(a.last_error, '') ELSE COALESCE(a.update_error, '') END,
 		       COALESCE(a.last_heartbeat, a.updated_at)
 		FROM agents a
-		WHERE a.retired_at IS NULL
+		WHERE a.retired_at IS NULL AND a.is_revoked = false
 		  AND (a.status = 'error' OR COALESCE(a.update_error, '') <> '')` + idFilter
 	return r.scanAttention(ctx, "agent", query, args...)
 }

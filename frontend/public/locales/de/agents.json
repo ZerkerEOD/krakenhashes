@@ -53,7 +53,8 @@
     "deactivateVoucher": "Gutschein deaktivieren",
     "removeAgent": "Agent entfernen",
     "clearBusyStatus": "Beschäftigt-Status zurücksetzen",
-    "retry": "Wiederholen"
+    "retry": "Wiederholen",
+    "deleteAgent": "Agent löschen"
   },
   "vouchers": {
     "title": "Gutscheine",
@@ -135,7 +136,8 @@
     "toggleDebugFailed": "Fehler beim Umschalten des Debug-Modus",
     "noAgentBinaries": "Keine Agent-Binärdateien verfügbar",
     "loadDownloadsFailed": "Fehler beim Laden der Download-Informationen",
-    "saveSchedulesFailed": "Fehler beim Speichern der Zeitpläne"
+    "saveSchedulesFailed": "Fehler beim Speichern der Zeitpläne",
+    "deleteFailed": "Agent konnte nicht gelöscht werden"
   },
   "page": {
     "title": "Agentenverwaltung",
@@ -217,7 +219,8 @@
     "noDevicesDetected": "Keine Geräte erkannt",
     "extraParametersDescription": "Agentenspezifische Hashcat-Parameter (z.B. -d 1 -w 4 -O)",
     "binaryVersionPattern": "Agent verwendet {{version}} Muster",
-    "binaryDefault": "Verwendet Auftrags- oder Systemstandard-Binär"
+    "binaryDefault": "Verwendet Auftrags- oder Systemstandard-Binär",
+    "agentDeleted": "Agent erfolgreich gelöscht"
   },
   "fields": {
     "agentId": "Agent-ID",
@@ -367,5 +370,8 @@
       "mountPathUpdated": "Einbindungspfad aktualisiert",
       "mountPathUpdateFailed": "Fehler beim Aktualisieren des Einbindungspfads"
     }
+  },
+  "revoked": {
+    "deleteWarning": "{{name}} und seinen Verlauf dauerhaft löschen. Frühere Job-Aufgaben verlieren ihre Kostenzuordnung."
   }
 }
