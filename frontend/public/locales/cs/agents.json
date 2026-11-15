@@ -53,7 +53,8 @@
     "deactivateVoucher": "Deaktivovat voucher",
     "removeAgent": "Odebrat agenta",
     "clearBusyStatus": "Vymazat stav zaneprázdněno",
-    "retry": "Opakovat"
+    "retry": "Opakovat",
+    "deleteAgent": "Smazat agenta"
   },
   "vouchers": {
     "title": "Vouchery",
@@ -128,7 +129,8 @@
     "toggleDebugFailed": "Nepodařilo se přepnout režim ladění",
     "noAgentBinaries": "Nejsou k dispozici žádné binární soubory agenta",
     "loadDownloadsFailed": "Nepodařilo se načíst informace o stažení",
-    "saveSchedulesFailed": "Nepodařilo se uložit plány"
+    "saveSchedulesFailed": "Nepodařilo se uložit plány",
+    "deleteFailed": "Nepodařilo se smazat agenta"
   },
   "page": {
     "title": "Správa agentů",
@@ -210,7 +212,8 @@
     "noDevicesDetected": "Nebyla detekována žádná zařízení",
     "extraParametersDescription": "Parametry hashcat specifické pro agenta (např. -d 1 -w 4 -O)",
     "binaryVersionPattern": "Agent bude používat vzor {{version}}",
-    "binaryDefault": "Používá se výchozí binární soubor úlohy nebo systému"
+    "binaryDefault": "Používá se výchozí binární soubor úlohy nebo systému",
+    "agentDeleted": "Agent byl úspěšně smazán"
   },
   "fields": {
     "agentId": "ID agenta",
@@ -364,5 +367,8 @@
       "mountPathUpdated": "Cesta připojení aktualizována",
       "mountPathUpdateFailed": "Nepodařilo se aktualizovat cestu připojení"
     }
+  },
+  "revoked": {
+    "deleteWarning": "Trvale smazat {{name}} a jeho historii. Předchozí úlohy ztratí přiřazení nákladů."
   }
 }

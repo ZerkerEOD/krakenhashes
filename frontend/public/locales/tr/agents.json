@@ -53,7 +53,8 @@
     "deactivateVoucher": "Kayıt Kodunu Devre Dışı Bırak",
     "removeAgent": "Ajanı Kaldır",
     "clearBusyStatus": "Meşgul Durumunu Temizle",
-    "retry": "Yeniden Dene"
+    "retry": "Yeniden Dene",
+    "deleteAgent": "Aracıyı sil"
   },
   "vouchers": {
     "title": "Kayıt Kodları",
@@ -128,7 +129,8 @@
     "toggleDebugFailed": "Hata ayıklama modunu değiştirme başarısız",
     "noAgentBinaries": "Ajan ikili dosyası yok",
     "loadDownloadsFailed": "İndirme bilgilerini yükleme başarısız",
-    "saveSchedulesFailed": "Zamanlamaları kaydetme başarısız"
+    "saveSchedulesFailed": "Zamanlamaları kaydetme başarısız",
+    "deleteFailed": "Aracı silinemedi"
   },
   "page": {
     "title": "Ajan Yönetimi",
@@ -210,7 +212,8 @@
     "noDevicesDetected": "Cihaz algılanmadı",
     "extraParametersDescription": "Ajana özgü hashcat parametreleri (örn. -d 1 -w 4 -O)",
     "binaryVersionPattern": "Ajan {{version}} desenini kullanacak",
-    "binaryDefault": "İş veya sistem varsayılan ikili dosyası kullanılıyor"
+    "binaryDefault": "İş veya sistem varsayılan ikili dosyası kullanılıyor",
+    "agentDeleted": "Aracı başarıyla silindi"
   },
   "fields": {
     "agentId": "Ajan Kimliği",
@@ -360,5 +363,8 @@
       "mountPathUpdated": "Bağlama yolu güncellendi",
       "mountPathUpdateFailed": "Bağlama yolu güncellenemedi"
     }
+  },
+  "revoked": {
+    "deleteWarning": "{{name}} ve geçmişini kalıcı olarak sil. Önceki görevler maliyet ilişkisini kaybeder."
   }
 }

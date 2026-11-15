@@ -53,7 +53,8 @@
     "deactivateVoucher": "Деактивировать ваучер",
     "removeAgent": "Удалить агента",
     "clearBusyStatus": "Сбросить статус занятости",
-    "retry": "Повторить"
+    "retry": "Повторить",
+    "deleteAgent": "Удалить агента"
   },
   "vouchers": {
     "title": "Ваучеры",
@@ -135,7 +136,8 @@
     "toggleDebugFailed": "Не удалось переключить режим отладки",
     "noAgentBinaries": "Бинарные файлы агента недоступны",
     "loadDownloadsFailed": "Не удалось загрузить информацию о загрузках",
-    "saveSchedulesFailed": "Не удалось сохранить расписания"
+    "saveSchedulesFailed": "Не удалось сохранить расписания",
+    "deleteFailed": "Не удалось удалить агента"
   },
   "page": {
     "title": "Управление агентами",
@@ -217,7 +219,8 @@
     "noDevicesDetected": "Устройства не обнаружены",
     "extraParametersDescription": "Специфичные для агента параметры Hashcat (например, -d 1 -w 4 -O)",
     "binaryVersionPattern": "Агент будет использовать шаблон {{version}}",
-    "binaryDefault": "Используется бинарный файл задания или системный по умолчанию"
+    "binaryDefault": "Используется бинарный файл задания или системный по умолчанию",
+    "agentDeleted": "Агент успешно удалён"
   },
   "fields": {
     "agentId": "ID агента",
@@ -371,5 +374,8 @@
       "mountPathUpdated": "Путь монтирования обновлён",
       "mountPathUpdateFailed": "Ошибка обновления пути монтирования"
     }
+  },
+  "revoked": {
+    "deleteWarning": "Безвозвратно удалить {{name}} и его историю. Прошлые задачи потеряют привязку затрат."
   }
 }

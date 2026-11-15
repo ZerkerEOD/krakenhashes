@@ -53,7 +53,8 @@
     "deactivateVoucher": "Nonaktifkan Voucher",
     "removeAgent": "Hapus Agent",
     "clearBusyStatus": "Hapus Status Sibuk",
-    "retry": "Coba Lagi"
+    "retry": "Coba Lagi",
+    "deleteAgent": "Hapus agen"
   },
   "vouchers": {
     "title": "Voucher",
@@ -128,7 +129,8 @@
     "toggleDebugFailed": "Gagal mengalihkan mode debug",
     "noAgentBinaries": "Tidak ada binary agent yang tersedia",
     "loadDownloadsFailed": "Gagal memuat informasi unduhan",
-    "saveSchedulesFailed": "Gagal menyimpan jadwal"
+    "saveSchedulesFailed": "Gagal menyimpan jadwal",
+    "deleteFailed": "Gagal menghapus agen"
   },
   "page": {
     "title": "Manajemen Agent",
@@ -210,7 +212,8 @@
     "noDevicesDetected": "Tidak ada device yang terdeteksi",
     "extraParametersDescription": "Parameter hashcat spesifik agent (misalnya, -d 1 -w 4 -O)",
     "binaryVersionPattern": "Agent akan menggunakan pola {{version}}",
-    "binaryDefault": "Menggunakan binary default job atau sistem"
+    "binaryDefault": "Menggunakan binary default job atau sistem",
+    "agentDeleted": "Agen berhasil dihapus"
   },
   "fields": {
     "agentId": "Agent ID",
@@ -358,5 +361,8 @@
       "mountPathUpdated": "Jalur Mount Diperbarui",
       "mountPathUpdateFailed": "Gagal Memperbarui Jalur Mount"
     }
+  },
+  "revoked": {
+    "deleteWarning": "Hapus {{name}} dan riwayatnya secara permanen. Tugas sebelumnya kehilangan atribusi biayanya."
   }
 }

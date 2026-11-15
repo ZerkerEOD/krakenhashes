@@ -53,7 +53,8 @@
     "deactivateVoucher": "停用凭证",
     "removeAgent": "移除代理",
     "clearBusyStatus": "清除忙碌状态",
-    "retry": "重试"
+    "retry": "重试",
+    "deleteAgent": "删除代理"
   },
   "vouchers": {
     "title": "凭证",
@@ -135,7 +136,8 @@
     "toggleDebugFailed": "切换调试模式失败",
     "noAgentBinaries": "没有可用的代理二进制文件",
     "loadDownloadsFailed": "加载下载信息失败",
-    "saveSchedulesFailed": "保存调度失败"
+    "saveSchedulesFailed": "保存调度失败",
+    "deleteFailed": "删除代理失败"
   },
   "page": {
     "title": "代理管理",
@@ -217,7 +219,8 @@
     "noDevicesDetected": "未检测到设备",
     "extraParametersDescription": "代理特定的 Hashcat 参数（例如 -d 1 -w 4 -O）",
     "binaryVersionPattern": "代理将使用 {{version}} 模式",
-    "binaryDefault": "使用任务或系统默认二进制"
+    "binaryDefault": "使用任务或系统默认二进制",
+    "agentDeleted": "代理已成功删除"
   },
   "fields": {
     "agentId": "代理 ID",
@@ -365,5 +368,8 @@
       "mountPathUpdated": "挂载路径已更新",
       "mountPathUpdateFailed": "更新挂载路径失败"
     }
+  },
+  "revoked": {
+    "deleteWarning": "永久删除 {{name}} 及其历史记录。过往作业任务将失去成本归属。"
   }
 }

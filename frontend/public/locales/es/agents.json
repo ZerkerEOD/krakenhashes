@@ -53,7 +53,8 @@
     "deactivateVoucher": "Desactivar vale",
     "removeAgent": "Eliminar agente",
     "clearBusyStatus": "Limpiar estado ocupado",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "deleteAgent": "Eliminar agente"
   },
   "vouchers": {
     "title": "Vales",
@@ -135,7 +136,8 @@
     "toggleDebugFailed": "Error al alternar modo de depuración",
     "noAgentBinaries": "No hay binarios de agente disponibles",
     "loadDownloadsFailed": "Error al cargar información de descarga",
-    "saveSchedulesFailed": "Error al guardar horarios"
+    "saveSchedulesFailed": "Error al guardar horarios",
+    "deleteFailed": "No se pudo eliminar el agente"
   },
   "page": {
     "title": "Gestión de agentes",
@@ -217,7 +219,8 @@
     "noDevicesDetected": "No se detectaron dispositivos",
     "extraParametersDescription": "Parámetros específicos de Hashcat para el agente (ej., -d 1 -w 4 -O)",
     "binaryVersionPattern": "El agente usará el patrón {{version}}",
-    "binaryDefault": "Usando binario predeterminado del trabajo o sistema"
+    "binaryDefault": "Usando binario predeterminado del trabajo o sistema",
+    "agentDeleted": "Agente eliminado correctamente"
   },
   "fields": {
     "agentId": "ID del agente",
@@ -369,5 +372,8 @@
       "mountPathUpdated": "Ruta de montaje actualizada",
       "mountPathUpdateFailed": "Error al actualizar la ruta de montaje"
     }
+  },
+  "revoked": {
+    "deleteWarning": "Eliminar permanentemente {{name}} y su historial. Las tareas anteriores perderán su atribución de costos."
   }
 }

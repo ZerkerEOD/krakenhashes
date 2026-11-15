@@ -53,7 +53,8 @@
     "deactivateVoucher": "Désactiver le voucher",
     "removeAgent": "Supprimer l'agent",
     "clearBusyStatus": "Effacer le statut occupé",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "deleteAgent": "Supprimer l'agent"
   },
   "vouchers": {
     "title": "Vouchers",
@@ -135,7 +136,8 @@
     "toggleDebugFailed": "Impossible d'activer ou désactiver le mode debug",
     "noAgentBinaries": "Aucune version binaire d'agent disponible",
     "loadDownloadsFailed": "Impossible de charger les informations de téléchargement",
-    "saveSchedulesFailed": "Impossible d'enregistrer les plannings"
+    "saveSchedulesFailed": "Impossible d'enregistrer les plannings",
+    "deleteFailed": "Échec de la suppression de l'agent"
   },
   "page": {
     "title": "Gestion des Agents",
@@ -217,7 +219,8 @@
     "noDevicesDetected": "Aucun appareil détecté",
     "extraParametersDescription": "Paramètres hashcat spécifiques à l'agent (ex. : -d 1 -w 4 -O)",
     "binaryVersionPattern": "L'agent utilisera le pattern {{version}}",
-    "binaryDefault": "Utilise le binaire par défaut du job ou du système"
+    "binaryDefault": "Utilise le binaire par défaut du job ou du système",
+    "agentDeleted": "Agent supprimé avec succès"
   },
   "fields": {
     "agentId": "ID de l'agent",
@@ -369,5 +372,8 @@
       "mountPathUpdated": "Chemin de montage mis à jour",
       "mountPathUpdateFailed": "Impossible de mettre à jour le chemin de montage"
     }
+  },
+  "revoked": {
+    "deleteWarning": "Supprimer définitivement {{name}} et son historique. Les tâches précédentes perdront leur attribution des coûts."
   }
 }

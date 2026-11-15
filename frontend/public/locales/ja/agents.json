@@ -53,7 +53,8 @@
     "deactivateVoucher": "バウチャーを無効化",
     "removeAgent": "エージェントを削除",
     "clearBusyStatus": "ビジーステータスをクリア",
-    "retry": "再試行"
+    "retry": "再試行",
+    "deleteAgent": "エージェントを削除"
   },
   "vouchers": {
     "title": "バウチャー",
@@ -128,7 +129,8 @@
     "toggleDebugFailed": "デバッグモードの切り替えに失敗しました",
     "noAgentBinaries": "エージェントバイナリが利用できません",
     "loadDownloadsFailed": "ダウンロード情報の読み込みに失敗しました",
-    "saveSchedulesFailed": "スケジュールの保存に失敗しました"
+    "saveSchedulesFailed": "スケジュールの保存に失敗しました",
+    "deleteFailed": "エージェントの削除に失敗しました"
   },
   "page": {
     "title": "エージェント管理",
@@ -210,7 +212,8 @@
     "noDevicesDetected": "デバイスが検出されていません",
     "extraParametersDescription": "エージェント固有のhashcatパラメータ（例：-d 1 -w 4 -O）",
     "binaryVersionPattern": "エージェントは{{version}}パターンを使用します",
-    "binaryDefault": "ジョブまたはシステムのデフォルトバイナリを使用しています"
+    "binaryDefault": "ジョブまたはシステムのデフォルトバイナリを使用しています",
+    "agentDeleted": "エージェントを削除しました"
   },
   "fields": {
     "agentId": "エージェントID",
@@ -358,5 +361,8 @@
       "mountPathUpdated": "マウントパスが更新されました",
       "mountPathUpdateFailed": "マウントパスの更新に失敗しました"
     }
+  },
+  "revoked": {
+    "deleteWarning": "{{name}} とその履歴を完全に削除します。過去のジョブタスクのコスト帰属が失われます。"
   }
 }

@@ -53,7 +53,8 @@
     "deactivateVoucher": "Desativar Voucher",
     "removeAgent": "Remover Agente",
     "clearBusyStatus": "Limpar Status Ocupado",
-    "retry": "Tentar Novamente"
+    "retry": "Tentar Novamente",
+    "deleteAgent": "Excluir agente"
   },
   "vouchers": {
     "title": "Vouchers",
@@ -128,7 +129,8 @@
     "toggleDebugFailed": "Falha ao alternar modo de depuração",
     "noAgentBinaries": "Nenhum binário de agente disponível",
     "loadDownloadsFailed": "Falha ao carregar informações de download",
-    "saveSchedulesFailed": "Falha ao salvar agendamentos"
+    "saveSchedulesFailed": "Falha ao salvar agendamentos",
+    "deleteFailed": "Falha ao excluir o agente"
   },
   "page": {
     "title": "Gerenciamento de Agentes",
@@ -210,7 +212,8 @@
     "noDevicesDetected": "Nenhum dispositivo detectado",
     "extraParametersDescription": "Parâmetros específicos do hashcat do agente (p. ex., -d 1 -w 4 -O)",
     "binaryVersionPattern": "O agente usará o padrão {{version}}",
-    "binaryDefault": "Usando binário padrão do job ou do sistema"
+    "binaryDefault": "Usando binário padrão do job ou do sistema",
+    "agentDeleted": "Agente excluído com sucesso"
   },
   "fields": {
     "agentId": "ID do Agente",
@@ -362,5 +365,8 @@
       "mountPathUpdated": "Caminho de montagem atualizado",
       "mountPathUpdateFailed": "Falha ao atualizar caminho de montagem"
     }
+  },
+  "revoked": {
+    "deleteWarning": "Excluir permanentemente {{name}} e seu histórico. As tarefas anteriores perderão a atribuição de custos."
   }
 }

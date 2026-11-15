@@ -53,7 +53,8 @@
     "deactivateVoucher": "Voucher deactiveren",
     "removeAgent": "Agent verwijderen",
     "clearBusyStatus": "Bezig-status wissen",
-    "retry": "Opnieuw proberen"
+    "retry": "Opnieuw proberen",
+    "deleteAgent": "Agent verwijderen"
   },
   "vouchers": {
     "title": "Vouchers",
@@ -135,7 +136,8 @@
     "toggleDebugFailed": "Wijzigen van debugmodus mislukt",
     "noAgentBinaries": "Geen agent-binaries beschikbaar",
     "loadDownloadsFailed": "Laden van downloadinformatie mislukt",
-    "saveSchedulesFailed": "Opslaan van schema's mislukt"
+    "saveSchedulesFailed": "Opslaan van schema's mislukt",
+    "deleteFailed": "Kan agent niet verwijderen"
   },
   "page": {
     "title": "Agentbeheer",
@@ -217,7 +219,8 @@
     "noDevicesDetected": "Geen apparaten gedetecteerd",
     "extraParametersDescription": "Agent-specifieke Hashcat-parameters (bijv. -d 1 -w 4 -O)",
     "binaryVersionPattern": "Agent gebruikt {{version}} patroon",
-    "binaryDefault": "Standaard binaire versie van taak of systeem"
+    "binaryDefault": "Standaard binaire versie van taak of systeem",
+    "agentDeleted": "Agent succesvol verwijderd"
   },
   "fields": {
     "agentId": "Agent-ID",
@@ -367,5 +370,8 @@
       "mountPathUpdated": "Koppelpad bijgewerkt",
       "mountPathUpdateFailed": "Bijwerken van koppelpad mislukt"
     }
+  },
+  "revoked": {
+    "deleteWarning": "{{name}} en de bijbehorende geschiedenis permanent verwijderen. Eerdere taken verliezen hun kostentoewijzing."
   }
 }
