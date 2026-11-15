@@ -158,6 +158,7 @@
       "jobNameHelper": "입력한 이름이 각 작업 유형에 추가됩니다 (예: '내 이름 - Potfile 실행')",
       "description": "실행할 하나 이상의 프리셋 작업을 선택하세요. 여러 작업을 선택할 수 있으며 별도의 작업 실행으로 생성됩니다.",
       "priorityLabel": "우선순위: {{priority}}",
+      "keyspaceLabel": "키스페이스: {{keyspace}}",
       "selectedCount_other": "{{count}}개 작업 선택됨"
     },
     "loopback": {

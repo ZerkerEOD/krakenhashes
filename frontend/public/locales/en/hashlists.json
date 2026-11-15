@@ -166,6 +166,7 @@
       "jobNameHelper": "Your name will be appended with each job type (e.g., 'My Name - Potfile Run')",
       "description": "Select one or more preset jobs to run. You can select multiple jobs - they will be created as separate job executions.",
       "priorityLabel": "Priority: {{priority}}",
+      "keyspaceLabel": "Keyspace: {{keyspace}}",
       "selectedCount_one": "{{count}} job selected",
       "selectedCount_other": "{{count}} jobs selected"
     },

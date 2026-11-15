@@ -158,6 +158,7 @@
       "jobNameHelper": "您的名称后将附加每个任务类型（例如\"我的名称 - Potfile 运行\"）",
       "description": "选择一个或多个预设任务来运行。您可以选择多个任务 - 它们将被创建为单独的任务执行。",
       "priorityLabel": "优先级：{{priority}}",
+      "keyspaceLabel": "密钥空间: {{keyspace}}",
       "selectedCount_other": "已选择 {{count}} 个任务"
     },
     "loopback": {

@@ -174,6 +174,7 @@
       "jobNameHelper": "Votre nom sera ajouté à chaque type de Job (p. ex., « Mon nom - Exécution Potfile »)",
       "description": "Sélectionnez un ou plusieurs Jobs prédéfinis à exécuter. Vous pouvez sélectionner plusieurs Jobs - ils seront créés en tant qu'exécutions de Job séparées.",
       "priorityLabel": "Priorité : {{priority}}",
+      "keyspaceLabel": "Keyspace: {{keyspace}}",
       "selectedCount_many": "{{count}} Jobs sélectionnés",
       "selectedCount_one": "{{count}} Job sélectionné",
       "selectedCount_other": "{{count}} Jobs sélectionnés"

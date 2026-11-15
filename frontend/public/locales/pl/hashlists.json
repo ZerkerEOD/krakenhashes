@@ -182,6 +182,7 @@
       "jobNameHelper": "Twoja nazwa będzie dołączona do każdego typu zadania (np. \"Moja nazwa - Potfile Run\")",
       "description": "Wybierz jeden lub więcej szablonów zadań do uruchomienia. Możesz wybrać wiele zadań - będą one utworzone jako oddzielne wykonania zadań.",
       "priorityLabel": "Priorytet: {{priority}}",
+      "keyspaceLabel": "Przestrzeń kluczy: {{keyspace}}",
       "selectedCount_few": "Wybrano {{count}} zadania",
       "selectedCount_many": "Wybrano {{count}} zadań",
       "selectedCount_one": "Wybrano {{count}} zadanie",

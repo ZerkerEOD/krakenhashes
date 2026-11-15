@@ -2482,6 +2482,13 @@ func (h *UserJobsHandler) GetAvailablePresetJobs(w http.ResponseWriter, r *http.
 			"rule_ids":                     job.RuleIDs,
 			"mask":                         job.Mask,
 			"allow_high_priority_override": job.AllowHighPriorityOverride,
+			// Keyspace so the create-job UI can show how big a preset is.
+			// effective_keyspace (base × rules × salts) is the meaningful number;
+			// keyspace is the base, and is_accurate_keyspace says whether the
+			// effective value came from hashcat --total-candidates or an estimate.
+			"keyspace":             job.Keyspace,
+			"effective_keyspace":   job.EffectiveKeyspace,
+			"is_accurate_keyspace": job.IsAccurateKeyspace,
 		})
 	}
 
