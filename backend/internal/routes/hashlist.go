@@ -961,8 +961,21 @@ func (h *hashlistHandler) handleListHashlists(w http.ResponseWriter, r *http.Req
 	if status := queryVals.Get("status"); status != "" {
 		params.Status = &status
 	}
-	if name := queryVals.Get("name"); name != "" {
+	// The frontend sends the name search as `name_like`; accept the legacy
+	// `name` param too so older callers keep working. Without this the search
+	// box on /hashlists silently did nothing (the handler read `name`).
+	if name := queryVals.Get("name_like"); name != "" {
 		params.NameLike = &name
+	} else if name := queryVals.Get("name"); name != "" {
+		params.NameLike = &name
+	}
+	// Sorting is validated against an allowlist in the repository layer, so an
+	// unknown sort_by simply falls back to the default ordering.
+	if sortBy := queryVals.Get("sort_by"); sortBy != "" {
+		params.SortBy = sortBy
+	}
+	if order := queryVals.Get("order"); order != "" {
+		params.Order = order
 	}
 	if queryVals.Get("include_archived") == "true" {
 		params.IncludeArchived = true
