@@ -182,6 +182,7 @@
       "jobNameHelper": "Vaše jméno bude připojeno k typu každé úlohy (např. 'Moje jméno - Spuštění Potfile')",
       "description": "Vyberte jednu nebo více přednastavených úloh ke spuštění. Můžete vybrat více úloh - budou vytvořeny jako oddělená spuštění úloh.",
       "priorityLabel": "Priorita: {{priority}}",
+      "keyspaceLabel": "Keyspace: {{keyspace}}",
       "selectedCount_few": "{{count}} úlohy vybrány",
       "selectedCount_many": "{{count}} úloh vybráno",
       "selectedCount_one": "{{count}} úloha vybrána",

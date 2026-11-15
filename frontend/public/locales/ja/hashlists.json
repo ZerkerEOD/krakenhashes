@@ -158,6 +158,7 @@
       "jobNameHelper": "名前は各ジョブタイプと一緒に追加されます（例：「山田 - potファイル実行」）",
       "description": "実行するプリセットジョブを1つ以上選択します。複数のジョブを選択できます - 別々のジョブ実行として作成されます。",
       "priorityLabel": "優先度：{{priority}}",
+      "keyspaceLabel": "キースペース: {{keyspace}}",
       "selectedCount_other": "{{count}} 個のジョブを選択"
     },
     "loopback": {

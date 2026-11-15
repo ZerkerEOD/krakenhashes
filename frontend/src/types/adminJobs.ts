@@ -58,7 +58,10 @@ export interface PresetJob {
   custom_charset_file_ids?: Record<string, string> | null; // File charset references: {"1": "uuid", "2": "uuid"}
   custom_charset_files?: Record<string, { id: string; file_path: string; md5: string; byte_count: number }> | null; // Full file charset refs from API
   hex_charset?: boolean; // True if inline charsets use hex encoding
-  keyspace?: number | null; // Pre-calculated keyspace
+  keyspace?: number | null; // Pre-calculated base keyspace (--keyspace); for -a 0 equals wordlist line count
+  effective_keyspace?: string | null; // Calculated keyspace (base x rules x salts) from --total-candidates; decimal string
+  is_accurate_keyspace?: boolean; // True when effective_keyspace came from hashcat, not an estimate
+  multiplication_factor?: number; // Rule multiplier (effective/base)
   max_agents: number; // Max agents allowed (0 = unlimited)
   increment_mode?: string; // Mask increment mode: off, increment, increment_inverse
   increment_min?: number | null; // Starting mask length

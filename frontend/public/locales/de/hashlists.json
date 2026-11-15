@@ -166,6 +166,7 @@
       "jobNameHelper": "Ihr Name wird an jeden Auftragstyp angehängt (z.B. \"Mein Name - Potfile-Lauf\")",
       "description": "Wählen Sie einen oder mehrere Vorlagen-Aufträge aus, um sie auszuführen. Sie können mehrere Aufträge auswählen - sie werden als separate Auftragsausführungen erstellt.",
       "priorityLabel": "Priorität: {{priority}}",
+      "keyspaceLabel": "Keyspace: {{keyspace}}",
       "selectedCount_one": "{{count}} Auftrag ausgewählt",
       "selectedCount_other": "{{count}} Aufträge ausgewählt"
     },

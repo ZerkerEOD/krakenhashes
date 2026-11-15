@@ -11,6 +11,7 @@ import { ROUTES } from '../../constants/routes';
 // Import types and API functions from existing services
 // Ensure AttackMode enum is imported if needed for display formatting
 import { PresetJob, AttackMode } from '../../types/adminJobs'; 
+import { formatKeyspace as formatKeyspaceCompact } from '../../utils/jobProgress';
 import { listPresetJobs, deletePresetJob, api } from '../../services/api';
 
 // Helper function to format AttackMode enum for display
@@ -115,13 +116,16 @@ const PresetJobListPage: React.FC = () => {
   };
 
   // Helper function to format keyspace
-  const formatKeyspace = (keyspace: number | null | undefined): string => {
+  const formatKeyspace = (keyspace: number | string | null | undefined): string => {
     if (keyspace === null || keyspace === undefined) {
       return t('presetJobs.keyspaceNotCalculated') as string;
     }
-    // Format large numbers with commas
-    return keyspace.toLocaleString();
+    // effective_keyspace arrives as a decimal string (can exceed 2^53); the
+    // shared helper coerces and abbreviates (K/M/B/T) without precision issues.
+    return formatKeyspaceCompact(keyspace);
   };
+  // Exact, precision-safe grouped digits for the tooltip (works on string or number).
+  const groupDigits = (v: number | string): string => String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
   // Check if any jobs need keyspace calculation
   const hasJobsWithoutKeyspace = presetJobs?.some(job => job.keyspace === null || job.keyspace === undefined) || false;
@@ -173,7 +177,12 @@ const PresetJobListPage: React.FC = () => {
       field: 'keyspace',
       headerName: t('presetJobs.columns.keyspace') as string,
       width: 170,
-      valueGetter: (_v, row) => (row.keyspace === null || row.keyspace === undefined ? -1 : Number(row.keyspace)),
+      // Show the real effective keyspace (base x rules x salts); fall back to the
+      // base keyspace only when effective has not been calculated yet.
+      valueGetter: (_v, row) => {
+        const ks = row.effective_keyspace ?? row.keyspace;
+        return ks === null || ks === undefined ? -1 : Number(ks);
+      },
       renderCell: (p) => {
         const job = p.row;
         if (calculatingJobs.has(job.id)) {
@@ -186,12 +195,15 @@ const PresetJobListPage: React.FC = () => {
             </Box>
           );
         }
-        if (job.keyspace === null || job.keyspace === undefined) {
+        const ks = job.effective_keyspace ?? job.keyspace;
+        if (ks === null || ks === undefined) {
           return <Chip label={t('presetJobs.keyspaceNotCalculated') as string} size="small" color="warning" />;
         }
+        // A leading ~ marks an estimate (effective came from a fallback, not hashcat).
+        const prefix = job.is_accurate_keyspace ? '' : '~';
         return (
-          <Tooltip title={formatKeyspace(job.keyspace)}>
-            <span>{formatKeyspace(job.keyspace)}</span>
+          <Tooltip title={groupDigits(ks)}>
+            <span>{prefix}{formatKeyspace(ks)}</span>
           </Tooltip>
         );
       },

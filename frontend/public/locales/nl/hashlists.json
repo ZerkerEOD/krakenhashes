@@ -166,6 +166,7 @@
       "jobNameHelper": "Uw naam wordt met elk taaktype toegevoegd (bijvoorbeeld 'Mijn naam - potfile-run')",
       "description": "Selecteer een of meer vooringestelde taken om uit te voeren. U kunt meerdere taken selecteren - zij worden als afzonderlijke taakuitvoeringen aangemaakt.",
       "priorityLabel": "Prioriteit: {{priority}}",
+      "keyspaceLabel": "Keyspace: {{keyspace}}",
       "selectedCount_one": "{{count}} taak geselecteerd",
       "selectedCount_other": "{{count}} taken geselecteerd"
     },

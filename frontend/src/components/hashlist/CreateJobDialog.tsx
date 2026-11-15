@@ -48,6 +48,7 @@ import { CustomCharset } from '../../types/customCharsets';
 import { listAccessibleCharsets } from '../../services/customCharsetService';
 import FilterCriteriaForm, { isFilterEmpty } from '../wordlists/FilterCriteriaForm';
 import { WordlistFilter } from '../../types/wordlists';
+import { formatKeyspace } from '../../utils/jobProgress';
 
 interface PresetJob {
   id: string;
@@ -59,6 +60,11 @@ interface PresetJob {
   rule_ids?: string[];
   mask?: string;
   allow_high_priority_override?: boolean;
+  // Keyspace so users get a size hint when picking a preset. effective_keyspace
+  // (base x rules x salts) arrives as a decimal string; keyspace is the base.
+  keyspace?: number | null;
+  effective_keyspace?: string | null;
+  is_accurate_keyspace?: boolean;
 }
 
 interface JobWorkflow {
@@ -753,6 +759,18 @@ export default function CreateJobDialog({
                                     label={t('createJob.presetJobs.priorityLabel', { priority: job.priority }) as string}
                                     sx={{ mr: 1 }}
                                   />
+                                  {(() => {
+                                    const ks = job.effective_keyspace ?? job.keyspace;
+                                    if (ks === null || ks === undefined) return null;
+                                    const prefix = job.is_accurate_keyspace ? '' : '~';
+                                    return (
+                                      <Chip
+                                        size="small"
+                                        label={t('createJob.presetJobs.keyspaceLabel', { keyspace: `${prefix}${formatKeyspace(ks)}` }) as string}
+                                        sx={{ mr: 1 }}
+                                      />
+                                    );
+                                  })()}
                                   {job.allow_high_priority_override && (
                                     <Chip
                                       size="small"

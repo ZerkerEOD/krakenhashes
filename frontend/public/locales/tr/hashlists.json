@@ -166,6 +166,7 @@
       "jobNameHelper": "Adınız her iş türüyle eklenir (örneğin, 'Benim Adım - Potfile Çalışması')",
       "description": "Çalıştırılacak bir veya daha fazla ön tanımlı iş seçin. Birden çok iş seçebilirsiniz - ayrı iş yürütmeleri olarak oluşturulacaklar.",
       "priorityLabel": "Öncelik: {{priority}}",
+      "keyspaceLabel": "Keyspace: {{keyspace}}",
       "selectedCount_one": "{{count}} iş seçildi",
       "selectedCount_other": "{{count}} iş seçildi"
     },

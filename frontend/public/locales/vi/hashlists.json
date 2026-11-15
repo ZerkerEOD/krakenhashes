@@ -158,6 +158,7 @@
       "jobNameHelper": "Tên của bạn sẽ được thêm vào mỗi loại công việc (ví dụ: 'Tên của tôi - Potfile Run')",
       "description": "Chọn một hoặc nhiều công việc cài sẵn để chạy. Bạn có thể chọn nhiều công việc - chúng sẽ được tạo dưới dạng các thực thi công việc riêng biệt.",
       "priorityLabel": "Ưu tiên: {{priority}}",
+      "keyspaceLabel": "Keyspace: {{keyspace}}",
       "selectedCount_other": "{{count}} công việc được chọn"
     },
     "loopback": {
