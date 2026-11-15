@@ -419,16 +419,28 @@ const JobDetails: React.FC = () => {
   };
 
   const calculateTotalRunningTime = (): string => {
-    if (!jobData?.started_at) return t('common.notAvailable');
+    // accumulated_run_seconds is the cumulative time spent in 'running' across
+    // all segments, folded in by a DB trigger each time the job leaves running.
+    // This survives running->pending->running interrupt/resume cycles, which
+    // the old (now - started_at) math reset to zero on every interrupt because
+    // started_at only ever marks the current segment.
+    const accumulated = Number(jobData?.accumulated_run_seconds ?? 0);
 
-    const startTime = new Date(jobData.started_at).getTime();
-    const endTime = jobData.completed_at
-      ? new Date(jobData.completed_at).getTime()
-      : Date.now();
+    // While actually running, the current segment is not yet folded into the
+    // accumulator, so add it live. started_at is the current segment's start.
+    let liveSeconds = 0;
+    if (jobData?.status === 'running' && jobData?.started_at) {
+      liveSeconds = Math.floor((Date.now() - new Date(jobData.started_at).getTime()) / 1000);
+      if (liveSeconds < 0) liveSeconds = 0;
+    }
 
-    const totalSeconds = Math.floor((endTime - startTime) / 1000);
+    const totalSeconds = accumulated + liveSeconds;
 
-    if (totalSeconds <= 0) return t('details.lessThanOneMinute');
+    if (totalSeconds <= 0) {
+      // A job that has genuinely never run has no accumulator and no start.
+      if (accumulated === 0 && !jobData?.started_at) return t('common.notAvailable');
+      return t('details.lessThanOneMinute');
+    }
 
     const duration = formatDuration(totalSeconds);
     // formatDuration prepends "~" for estimates; strip it for actual elapsed time

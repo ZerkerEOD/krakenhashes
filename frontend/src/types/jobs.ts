@@ -207,6 +207,10 @@ export interface JobDetailsResponse {
   cracking_completed_at?: string;
   completed_at?: string;
   updated_at?: string;
+  // Cumulative seconds spent running across all segments (survives
+  // running->pending->running interrupt/resume). The live current segment is
+  // added on top while status === 'running'. See calculateTotalRunningTime.
+  accumulated_run_seconds?: number;
   error_message?: string;
   tasks: JobTask[];  // All tasks for the job
   tasks_page?: number;
