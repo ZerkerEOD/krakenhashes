@@ -390,6 +390,12 @@ type ListHashlistsParams struct {
 	Limit    int
 	Offset   int
 
+	// Sorting. SortBy is a client-facing field name validated against an
+	// allowlist (see hashlistOrderByClause); Order is "asc" or "desc". An empty
+	// or unknown SortBy falls back to created_at DESC.
+	SortBy string
+	Order  string
+
 	// New fields for team filtering
 	TeamIDs      []uuid.UUID // Filter by these teams (via client)
 	TeamsEnabled bool        // Whether team filtering is active
@@ -397,6 +403,31 @@ type ListHashlistsParams struct {
 
 	// Archive filtering
 	IncludeArchived bool // If false (default), exclude archived hashlists
+}
+
+// hashlistSortColumns is the allowlist of client-facing sort fields mapped to
+// their SQL expressions. A sort_by value not in this map can never reach the
+// ORDER BY clause, so arbitrary input cannot be injected there.
+var hashlistSortColumns = map[string]string{
+	"name":       "LOWER(h.name)",
+	"clientName": "LOWER(c.name)",
+	"status":     "h.status",
+	"createdAt":  "h.created_at",
+}
+
+// hashlistOrderByClause builds a safe " ORDER BY ..." clause from a requested
+// sort field and direction, with h.id as a stable tiebreak. Unknown fields fall
+// back to created_at DESC (the historical default).
+func hashlistOrderByClause(sortBy, order string) string {
+	col, ok := hashlistSortColumns[sortBy]
+	if !ok {
+		return " ORDER BY h.created_at DESC, h.id DESC"
+	}
+	dir := "ASC"
+	if strings.EqualFold(order, "desc") {
+		dir = "DESC"
+	}
+	return fmt.Sprintf(" ORDER BY %s %s, h.id %s", col, dir, dir)
 }
 
 func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParams) ([]models.HashList, int, error) {
@@ -478,7 +509,7 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 	// Construct final query with ordering and pagination
 	finalQuery := baseQuery + whereClause
 	// Order by h.created_at
-	finalQuery += " ORDER BY h.created_at DESC"
+	finalQuery += hashlistOrderByClause(params.SortBy, params.Order)
 
 	if params.Limit > 0 {
 		finalQuery += fmt.Sprintf(" LIMIT $%d", argID)
@@ -1688,7 +1719,7 @@ func (r *HashListRepository) ListWithTeamFilter(ctx context.Context, params List
 	}
 
 	// Add ordering and pagination
-	baseQuery += ` ORDER BY h.created_at DESC`
+	baseQuery += hashlistOrderByClause(params.SortBy, params.Order)
 
 	if params.Limit > 0 {
 		baseQuery += fmt.Sprintf(` LIMIT $%d`, argIndex)
