@@ -10,16 +10,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAccumulatedRunSeconds guards issue #138: a job's total running time must
-// survive running -> pending -> running interrupt/resume cycles instead of
-// resetting to the latest segment. The accumulator is maintained by the
-// trg_accumulate_job_run_seconds trigger (migration 20261115120000), so this
-// drives the real repository methods and reads the value back through GetByID
-// (which also exercises the new column's scan).
+// TestAccumulatedRunSeconds guards issue #138 end to end:
+//   - total running time survives running -> pending -> running cycles instead
+//     of resetting to the latest segment (accumulated_run_seconds);
+//   - the job's started_at is the FIRST start and never moves on re-dispatch,
+//     while running_since tracks the current segment.
 //
-// Timings are made deterministic without sleeps by backdating started_at with
-// an explicit interval: the trigger folds NOW() - started_at at the moment the
-// job leaves running, and consecutive statements run well under a second apart.
+// It drives the real repository methods and reads values back through GetByID
+// (exercising the new column scans). The accumulator is maintained by the
+// trg_accumulate_job_run_seconds trigger (migration 20261115120000).
+//
+// Timings are deterministic without sleeps: running_since is backdated with an
+// explicit interval, and the trigger folds NOW() - running_since at the instant
+// the job leaves running (consecutive statements run well under a second apart).
 func TestAccumulatedRunSeconds(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping database test in short mode")
@@ -39,55 +42,57 @@ func TestAccumulatedRunSeconds(t *testing.T) {
 	// A separate job stands in as the interrupter (interrupted_by references it).
 	interrupter := testutil.CreateTestJobExecution(t, database, hl, user.ID, "running")
 
-	backdate := func(seconds int) {
+	// backdate the CURRENT segment start so the next exit folds ~seconds.
+	backdateSegment := func(seconds int) {
 		t.Helper()
-		// status stays 'running' so the trigger leaves started_at as set here.
 		if _, err := database.Exec(
-			`UPDATE job_executions SET started_at = NOW() - make_interval(secs => $2) WHERE id = $1`,
+			`UPDATE job_executions SET running_since = NOW() - make_interval(secs => $2) WHERE id = $1`,
 			job, seconds); err != nil {
-			t.Fatalf("backdate started_at: %v", err)
+			t.Fatalf("backdate running_since: %v", err)
 		}
 	}
-	accumulated := func() int64 {
+	get := func() *models.JobExecution {
 		t.Helper()
 		got, err := repo.GetByID(ctx, job)
 		require.NoError(t, err)
-		return got.AccumulatedRunSeconds
+		return got
 	}
 
-	// Fresh pending job: nothing accumulated yet.
-	require.Equal(t, int64(0), accumulated())
+	// Fresh pending job: nothing accumulated, not running.
+	require.Equal(t, int64(0), get().AccumulatedRunSeconds)
 
-	// Segment 1: start, run for ~10s, then get interrupted back to pending.
+	// Segment 1: start. started_at and running_since are stamped.
 	require.NoError(t, repo.StartExecution(ctx, job))
-	backdate(10)
-	require.NoError(t, repo.InterruptExecution(ctx, job, interrupter))
+	started := get()
+	require.NotNil(t, started.StartedAt, "first start stamps started_at")
+	require.NotNil(t, started.RunningSince, "entering running stamps running_since")
+	firstStart := *started.StartedAt
 
-	after1, err := repo.GetByID(ctx, job)
-	require.NoError(t, err)
+	// Run ~10s, then get interrupted back to pending.
+	backdateSegment(10)
+	require.NoError(t, repo.InterruptExecution(ctx, job, interrupter))
+	after1 := get()
 	require.Equal(t, models.JobExecutionStatusPending, after1.Status, "interrupt returns the job to pending")
 	require.GreaterOrEqual(t, after1.AccumulatedRunSeconds, int64(10), "segment 1 (~10s) folded into accumulator")
 	require.LessOrEqual(t, after1.AccumulatedRunSeconds, int64(12))
+	require.Nil(t, after1.RunningSince, "running_since cleared when leaving running")
+	require.WithinDuration(t, firstStart, *after1.StartedAt, time.Second, "started_at must NOT move on interrupt")
 
-	// Resume: re-dispatch resets started_at to a fresh segment start, so the
-	// accumulator is unchanged (the prior segment was already folded) and we do
-	// not re-count the stale start.
+	// Resume: started_at is unchanged (immutable first start); running_since is a
+	// fresh segment; the accumulator is untouched on entry (no double-count).
 	require.NoError(t, repo.StartExecution(ctx, job))
-	resumed, err := repo.GetByID(ctx, job)
-	require.NoError(t, err)
+	resumed := get()
+	require.WithinDuration(t, firstStart, *resumed.StartedAt, time.Second, "started_at stays the first start across re-dispatch")
 	require.Equal(t, after1.AccumulatedRunSeconds, resumed.AccumulatedRunSeconds, "resume must not change the accumulator")
-	// started_at must be reset to the new segment start, not the stale ~10s-ago
-	// value; otherwise the next fold would re-count the already-folded segment.
-	require.NotNil(t, resumed.StartedAt)
-	require.Less(t, time.Since(*resumed.StartedAt), 5*time.Second, "resume resets started_at to the fresh segment start")
+	require.NotNil(t, resumed.RunningSince)
+	require.Less(t, time.Since(*resumed.RunningSince), 5*time.Second, "resume opens a fresh segment")
 
-	// Segment 2: run for ~5s, then finish. Total must be ~15s, not just 5s.
-	backdate(5)
+	// Segment 2: run ~5s, then finish. Total ~15s (both segments), not just 5s.
+	backdateSegment(5)
 	require.NoError(t, repo.UpdateStatus(ctx, job, models.JobExecutionStatusCompleted))
-
-	final, err := repo.GetByID(ctx, job)
-	require.NoError(t, err)
+	final := get()
 	require.Equal(t, models.JobExecutionStatusCompleted, final.Status)
 	require.GreaterOrEqual(t, final.AccumulatedRunSeconds, int64(15), "both segments (~10s + ~5s) counted, surviving the interrupt")
 	require.LessOrEqual(t, final.AccumulatedRunSeconds, int64(18))
+	require.WithinDuration(t, firstStart, *final.StartedAt, time.Second, "started_at is still the first start at completion")
 }

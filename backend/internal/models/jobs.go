@@ -308,8 +308,13 @@ type JobExecution struct {
 	// when the job leaves running, so this survives running->pending->running
 	// interrupt/resume cycles. Excludes paused/pending gaps and the processing
 	// phase. The UI adds the live current segment on top while status=running.
-	AccumulatedRunSeconds int64      `json:"accumulated_run_seconds" db:"accumulated_run_seconds"`
-	ArchivedAt            *time.Time `json:"archived_at,omitempty" db:"archived_at"`
+	AccumulatedRunSeconds int64 `json:"accumulated_run_seconds" db:"accumulated_run_seconds"`
+	// RunningSince marks the start of the CURRENT running segment (set on entry
+	// to running, cleared on exit, NULL when not running). The UI adds
+	// now-RunningSince to AccumulatedRunSeconds while running. StartedAt, by
+	// contrast, is the immutable first start.
+	RunningSince *time.Time `json:"running_since,omitempty" db:"running_since"`
+	ArchivedAt   *time.Time `json:"archived_at,omitempty" db:"archived_at"`
 
 	// Self-contained configuration fields (no need to look up preset)
 	Name                      string             `json:"name" db:"name"`

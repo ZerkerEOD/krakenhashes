@@ -17,7 +17,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
+  DialogActions,
+  Tooltip
 } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
 import {
@@ -26,7 +27,8 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
-  CheckCircle as CheckCircleIcon
+  CheckCircle as CheckCircleIcon,
+  InfoOutlined as InfoOutlinedIcon
 } from '@mui/icons-material';
 import { getJobDetails, getJobLayers, api } from '../../services/api';
 import { JobDetailsResponse, JobTask, JobIncrementLayerWithStats, EntityRef, UserRef } from '../../types/jobs';
@@ -57,6 +59,7 @@ interface InfoRow {
   label: React.ReactNode;
   value: React.ReactNode;
   mono?: boolean;
+  tooltip?: string;
 }
 
 const ACTIVE_JOB_STATUSES = ['pending', 'running', 'paused'];
@@ -427,10 +430,11 @@ const JobDetails: React.FC = () => {
     const accumulated = Number(jobData?.accumulated_run_seconds ?? 0);
 
     // While actually running, the current segment is not yet folded into the
-    // accumulator, so add it live. started_at is the current segment's start.
+    // accumulator, so add it live. running_since marks the current segment's
+    // start (started_at is the immutable first start, not the segment start).
     let liveSeconds = 0;
-    if (jobData?.status === 'running' && jobData?.started_at) {
-      liveSeconds = Math.floor((Date.now() - new Date(jobData.started_at).getTime()) / 1000);
+    if (jobData?.status === 'running' && jobData?.running_since) {
+      liveSeconds = Math.floor((Date.now() - new Date(jobData.running_since).getTime()) / 1000);
       if (liveSeconds < 0) liveSeconds = 0;
     }
 
@@ -444,6 +448,25 @@ const JobDetails: React.FC = () => {
 
     const duration = formatDuration(totalSeconds);
     // formatDuration prepends "~" for estimates; strip it for actual elapsed time
+    return duration.startsWith('~') ? duration.substring(1).trim() : duration;
+  };
+
+  // Wall-clock span from the job's first start to completion (or now). Unlike
+  // running time, this INCLUDES time the job spent interrupted/queued between
+  // segments, so elapsed - running = time not spent cracking. started_at is the
+  // immutable first start, which makes this span stable across interrupts.
+  const calculateTotalElapsed = (): string => {
+    if (!jobData?.started_at) return t('common.notAvailable');
+
+    const startTime = new Date(jobData.started_at).getTime();
+    const endTime = jobData.completed_at
+      ? new Date(jobData.completed_at).getTime()
+      : Date.now();
+
+    const totalSeconds = Math.floor((endTime - startTime) / 1000);
+    if (totalSeconds <= 0) return t('details.lessThanOneMinute');
+
+    const duration = formatDuration(totalSeconds);
     return duration.startsWith('~') ? duration.substring(1).trim() : duration;
   };
 
@@ -971,7 +994,20 @@ const JobDetails: React.FC = () => {
     { key: 'cracking-completed-at', label: t('details.crackingCompletedAt'), value: formatDate(jobData.cracking_completed_at) },
     { key: 'completed-at', label: t('common.completedAt'), value: formatDate(jobData.completed_at) },
     ...(jobData.started_at
-      ? [{ key: 'total-running-time', label: t('details.totalRunningTime'), value: calculateTotalRunningTime() }]
+      ? [
+          {
+            key: 'total-running-time',
+            label: t('details.totalRunningTime'),
+            value: calculateTotalRunningTime(),
+            tooltip: t('details.totalRunningTimeTooltip') as string,
+          },
+          {
+            key: 'total-elapsed',
+            label: t('details.totalElapsed'),
+            value: calculateTotalElapsed(),
+            tooltip: t('details.totalElapsedTooltip') as string,
+          },
+        ]
       : []),
     ...(jobData.error_message
       ? [{
@@ -1310,7 +1346,19 @@ const JobDetails: React.FC = () => {
               field: 'label',
               headerName: '',
               width: '30%',
-              render: (r) => <Box component="span" sx={{ fontWeight: 'bold' }}>{r.label}</Box>,
+              render: (r) => (
+                <Box component="span" sx={{ fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                  {r.label}
+                  {r.tooltip ? (
+                    <Tooltip title={r.tooltip} arrow>
+                      <InfoOutlinedIcon
+                        fontSize="inherit"
+                        sx={{ color: 'text.secondary', cursor: 'help', verticalAlign: 'middle' }}
+                      />
+                    </Tooltip>
+                  ) : null}
+                </Box>
+              ),
             },
             {
               field: 'value',

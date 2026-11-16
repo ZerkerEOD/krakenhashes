@@ -1,30 +1,33 @@
--- #138: Total running time must survive running -> pending -> running.
+-- #138: Total running time must survive running -> pending -> running, and the
+-- job's "Started At" must stay the FIRST start (not jump on every re-dispatch).
 --
--- The frontend used to compute running time as (now - started_at). But
--- started_at marks only the CURRENT running segment: InterruptExecution flips
--- a running job back to pending (leaving started_at alone), and the next
--- dispatch's StartExecution overwrites started_at with the new segment start.
--- Every prior segment was therefore discarded and the displayed total reset to
--- zero on each interrupt/resume cycle.
+-- Two problems, one root cause. StartExecution set started_at = NOW() on every
+-- pending -> running transition, so (a) the frontend's (now - started_at)
+-- running time reset to the latest segment on each interrupt/resume, and
+-- (b) the displayed "Started At" jumped forward every time the job picked up a
+-- new task. (Per-task start times live on job_tasks and are unaffected.)
 --
--- Fix: keep a cumulative accumulator of time actually spent in 'running', and
--- maintain it with a BEFORE UPDATE trigger on the table itself. A table-level
--- trigger cannot be bypassed: it covers every status writer (the repository
--- methods, the scheduler-v2 converter, and any future caller) and every exit
--- from running (-> pending, processing, paused, completed, failed, cancelled),
--- so no transition can silently forget to record its segment.
+-- Fix, maintained by one table-level BEFORE UPDATE trigger that cannot be
+-- bypassed by any status writer or exit path:
+--   * started_at              -> the job's first start, set once and never
+--                                overwritten thereafter (immutable).
+--   * running_since           -> the CURRENT running segment's start; set when
+--                                the job enters running, cleared when it leaves.
+--                                The UI adds (now - running_since) live while
+--                                running; the trigger folds it on exit.
+--   * accumulated_run_seconds -> cumulative seconds spent running across all
+--                                segments. Excludes pending/paused gaps and the
+--                                post-cracking 'processing' phase.
 
 ALTER TABLE job_executions
     ADD COLUMN accumulated_run_seconds BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE job_executions
+    ADD COLUMN running_since TIMESTAMPTZ;
 
 -- Best-effort backfill for jobs that already finished. Only the last known
--- segment can be reconstructed (started_at -> when cracking stopped); segments
--- discarded by past interrupts were never recorded and cannot be recovered.
--- Running time excludes the post-cracking 'processing' phase, so we end the
--- segment at cracking_completed_at when it is set, else completed_at. Jobs that
--- are still live (pending/running/paused/processing/preparing) are left at the
--- default 0: a running job's current segment is added live by the UI, and
--- seeding it here would double-count.
+-- segment can be reconstructed; segments discarded by past interrupts were
+-- never recorded. Running time ends when cracking stops, so use
+-- cracking_completed_at when set, else completed_at.
 UPDATE job_executions
 SET accumulated_run_seconds = GREATEST(
         0,
@@ -33,23 +36,31 @@ SET accumulated_run_seconds = GREATEST(
 WHERE started_at IS NOT NULL
   AND status IN ('completed', 'failed', 'cancelled');
 
+-- A job that is running right now has its current segment anchored at the
+-- existing started_at (the old column stored the last-segment start). Seed
+-- running_since so the live segment keeps counting across the upgrade. Going
+-- forward started_at is the first start and running_since is the segment start.
+UPDATE job_executions
+SET running_since = started_at
+WHERE status = 'running' AND started_at IS NOT NULL;
+
 CREATE OR REPLACE FUNCTION accumulate_job_run_seconds()
 RETURNS TRIGGER AS $$
 BEGIN
     IF OLD.status = 'running' AND NEW.status IS DISTINCT FROM 'running' THEN
-        -- Leaving running: fold the elapsed segment into the accumulator.
-        -- GREATEST guards against clock skew producing a negative interval.
-        IF OLD.started_at IS NOT NULL THEN
+        -- Leaving running: fold the current segment into the accumulator and
+        -- close it. GREATEST guards against clock skew.
+        IF OLD.running_since IS NOT NULL THEN
             NEW.accumulated_run_seconds := NEW.accumulated_run_seconds
-                + GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - OLD.started_at)))::bigint);
+                + GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - OLD.running_since)))::bigint);
         END IF;
+        NEW.running_since := NULL;
     ELSIF NEW.status = 'running' AND OLD.status IS DISTINCT FROM 'running' THEN
-        -- Entering running from any other state begins a fresh segment, so the
-        -- live (now - started_at) the UI adds measures only the current segment
-        -- and never overlaps time already folded into the accumulator. This
-        -- matches what StartExecution already does for pending -> running and
-        -- extends it to any other entry path (e.g. task-recovery nudges).
-        NEW.started_at := NOW();
+        -- Entering running: open a fresh segment, and stamp the first start once
+        -- so started_at never moves on later re-dispatches (COALESCE keeps the
+        -- original even if a caller, e.g. StartExecution, also sets started_at).
+        NEW.running_since := NOW();
+        NEW.started_at := COALESCE(OLD.started_at, NOW());
     END IF;
     RETURN NEW;
 END;
@@ -61,4 +72,6 @@ CREATE TRIGGER trg_accumulate_job_run_seconds
     EXECUTE FUNCTION accumulate_job_run_seconds();
 
 COMMENT ON COLUMN job_executions.accumulated_run_seconds IS
-    'Cumulative seconds spent in the running state across all segments, folded in by trg_accumulate_job_run_seconds on each exit from running. Excludes paused/pending gaps and the post-cracking processing phase. The UI adds the live current segment on top while status = running.';
+    'Cumulative seconds spent running across all segments, folded in by trg_accumulate_job_run_seconds on each exit from running. Excludes paused/pending gaps and the post-cracking processing phase. The UI adds the live current segment (now - running_since) on top while status = running.';
+COMMENT ON COLUMN job_executions.running_since IS
+    'Start of the current running segment; set on entry to running and cleared on exit. NULL when not running. started_at, by contrast, is the immutable first start.';

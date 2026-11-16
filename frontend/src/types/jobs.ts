@@ -211,6 +211,10 @@ export interface JobDetailsResponse {
   // running->pending->running interrupt/resume). The live current segment is
   // added on top while status === 'running'. See calculateTotalRunningTime.
   accumulated_run_seconds?: number;
+  // Start of the current running segment (set while running, absent otherwise);
+  // the live segment added to accumulated_run_seconds is measured from here.
+  // started_at, by contrast, is the immutable first start.
+  running_since?: string;
   error_message?: string;
   tasks: JobTask[];  // All tasks for the job
   tasks_page?: number;
