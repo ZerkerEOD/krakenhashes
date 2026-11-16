@@ -166,6 +166,53 @@ func TestStructuralWPA(t *testing.T) {
 	}
 }
 
+func TestStructuralIPMI(t *testing.T) {
+	v := New(DefaultStructural()...)
+
+	// 40-hex HMAC-SHA1 digest, shared across the valid cases.
+	const mac = "a94c5f0f1e2d3c4b5a69788877665544332211ff"
+	// Salts are RAKP messages encoded as hex; their length varies with the
+	// username and session fields, so valid hashes are NOT all the 130-hex
+	// length of hashcat's own example — that fixed length was the bug in #145.
+	salt130 := strings.Repeat("ab", 65) // 130 hex — hashcat example length
+	salt120 := strings.Repeat("cd", 60) // 120 hex — shorter username (e.g. iLO 4)
+	salt150 := strings.Repeat("0f", 75) // 150 hex — longer session fields
+
+	cases := []struct {
+		name      string
+		hash      string
+		wantValid bool
+	}{
+		{"example_length_130", salt130 + ":" + mac, true},
+		{"short_salt_120", salt120 + ":" + mac, true},
+		{"long_salt_150", salt150 + ":" + mac, true},
+		{"no_mac_tail", salt130, false},
+		{"empty_mac", salt130 + ":", false},
+		{"mac_39_hex", salt130 + ":" + mac[:39], false},
+		{"mac_41_hex", salt130 + ":" + mac + "a", false},
+		{"mac_non_hex", salt130 + ":a94c5f0f1e2d3c4b5a69788877665544332211fz", false},
+		{"odd_length_salt", "abc:" + mac, false},
+		{"non_hex_salt", strings.Repeat("zz", 65) + ":" + mac, false},
+		{"empty_salt", ":" + mac, false},
+		{"ntlm_bare_no_colon", "b4b9b02e6f09a9bd760f388b67351e2b", false},
+		{"three_parts", salt130 + ":" + mac + ":extra", false},
+		{"empty", "", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := v.Validate(7300, tc.hash)
+			if got.Valid != tc.wantValid {
+				t.Fatalf("Validate(7300, %q) = %+v, want Valid=%v", tc.hash, got, tc.wantValid)
+			}
+		})
+	}
+
+	if !v.HasValidator(7300) {
+		t.Fatalf("HasValidator(7300) should be true after DefaultStructural")
+	}
+}
+
 func TestUnvalidatedMode(t *testing.T) {
 	v := New()
 	// 99999 is well past any defined hashcat mode.

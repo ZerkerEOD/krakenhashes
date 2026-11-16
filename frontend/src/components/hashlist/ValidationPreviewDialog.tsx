@@ -19,7 +19,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation, Trans } from 'react-i18next';
 import { api } from '../../services/api';
-import { SimpleTable, SimpleColumn } from '../ui';
+import { SimpleTable, SimpleColumn, useConfirm } from '../ui';
 
 export interface ValidationInvalidEntry {
   id?: number;
@@ -84,6 +84,7 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
   // Counters etc. start from the props (the initial upload outcome) but get
   // replaced if the user re-validates with a different hash type.
   const { t } = useTranslation('hashlists');
+  const confirm = useConfirm();
   const [snapshot, setSnapshot] = useState<RevalidatedSnapshot | null>(null);
   const totalInputLines = snapshot?.totalInputLines ?? propTotalInputLines;
   const validCount = snapshot?.validCount ?? propValidCount;
@@ -93,7 +94,7 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<ValidationInvalidEntry[]>(initialSample);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState<'proceed' | 'cancel' | 'revalidate' | null>(null);
+  const [submitting, setSubmitting] = useState<'proceed' | 'cancel' | 'revalidate' | 'import-all' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedHashType, setSelectedHashType] = useState<HashTypeOption | null>(null);
 
@@ -179,12 +180,12 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
     }
   };
 
-  const handleConfirm = async (action: 'proceed' | 'cancel') => {
+  const handleConfirm = async (action: 'proceed' | 'cancel', importInvalid = false) => {
     if (!hashlistId) return;
-    setSubmitting(action);
+    setSubmitting(importInvalid ? 'import-all' : action);
     setError(null);
     try {
-      await api.post(`/api/hashlists/${hashlistId}/confirm`, { action });
+      await api.post(`/api/hashlists/${hashlistId}/confirm`, { action, import_invalid: importInvalid });
       if (action === 'proceed') onProceed();
       else onCancel();
     } catch (e: any) {
@@ -231,6 +232,24 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
     } finally {
       setSubmitting(null);
     }
+  };
+
+  // "Upload anyway" (issue #145): the validator is advisory, not a hard gate.
+  // The user has seen the warning and the flagged lines and chooses to import
+  // EVERY line regardless. A confirm step keeps the override explicit; the
+  // backend then clears the flagged-line skip-set so all lines are processed.
+  const handleImportAll = async () => {
+    const ok = await confirm({
+      title: t('validationPreview.uploadAnywayConfirm.title') as string,
+      message: t('validationPreview.uploadAnywayConfirm.message', {
+        hashTypeName: currentHashTypeName,
+        totalLines: totalInputLines.toLocaleString(),
+      }) as string,
+      confirmLabel: t('validationPreview.uploadAnywayConfirm.confirmLabel') as string,
+      severity: 'danger',
+    });
+    if (!ok) return;
+    await handleConfirm('proceed', true);
   };
 
   const allInvalid = validCount === 0 && invalidCount > 0;
@@ -358,6 +377,19 @@ const ValidationPreviewDialog: React.FC<ValidationPreviewProps> = ({
         >
           {submitting === 'cancel' ? (t('validationPreview.cancelling') as string) : (t('validationPreview.cancelAndFix') as string)}
         </Button>
+        <Box sx={{ flex: 1 }} />
+        {invalidCount > 0 && (
+          <Button
+            color="warning"
+            variant="outlined"
+            onClick={handleImportAll}
+            disabled={submitting !== null}
+          >
+            {submitting === 'import-all'
+              ? (t('validationPreview.starting') as string)
+              : (t('validationPreview.uploadAllAnywayButton', { totalLines: totalInputLines.toLocaleString() }) as string)}
+          </Button>
+        )}
         {!allInvalid && (
           <Button
             color="primary"

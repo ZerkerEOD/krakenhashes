@@ -766,6 +766,17 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// A forced upload (force=true) bypassed the pause above even though the
+	// validator flagged lines. Honor that as "import everything": clear the
+	// invalid_hashes skip-set so the processor imports all input lines rather
+	// than silently dropping the flagged ones. Mirrors the import_invalid branch
+	// of handleConfirmValidation (GitHub issue #145).
+	if force && outcome.HasValidator && outcome.InvalidCount > 0 {
+		if err := h.invalidHashRepo.DeleteByHashlist(ctx, hashlist.ID); err != nil {
+			debug.Warning("Forced upload: failed to clear invalid_hashes for hashlist %d: %v", hashlist.ID, err)
+		}
+	}
+
 	// --- Update database status and trigger processing ---
 	hashlist.Status = models.HashListStatusProcessing // Ready for background processing
 	hashlist.UpdatedAt = time.Now()
