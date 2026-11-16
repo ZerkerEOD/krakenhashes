@@ -1,0 +1,1859 @@
+openapi: 3.0.3
+info:
+  title: KrakenHashes User API
+  description: |
+    REST API for programmatic access to KrakenHashes functionality.
+
+    ## Authentication
+    All endpoints require two headers:
+    - `X-User-Email`: Your user email address
+    - `X-API-Key`: Your 64-character API key
+
+    ## Getting Started
+    1. Log into the KrakenHashes web interface
+    2. Navigate to Profile Settings
+    3. Generate an API key (save it immediately - it won't be shown again!)
+    4. Use the email and API key in your API requests
+
+    ## Base URL
+    - Production: `https://your-domain.com/api/v1`
+    - Development: `http://localhost:31337/api/v1`
+
+    ## Dynamic Validation
+    Some validation limits are configurable via system settings:
+    - `max_job_priority`: Maximum job priority value (default: 1000)
+    - `require_client_for_hashlist`: Whether client_id is required for hashlist uploads (default: false)
+
+  version: 1.0.0
+  contact:
+    name: KrakenHashes Support
+    url: https://github.com/ZerkerEOD/krakenhashes
+
+servers:
+  - url: https://your-domain.com/api/v1
+    description: Production server
+  - url: http://localhost:31337/api/v1
+    description: Development server
+
+security:
+  - UserAPIKey: []
+
+tags:
+  - name: Health
+    description: API health check
+  - name: Clients
+    description: Manage clients (organizations/engagements)
+  - name: Hashlists
+    description: Upload and manage password hashlists
+  - name: Jobs
+    description: Create and manage cracking jobs
+  - name: Agents
+    description: Manage compute agents and registration vouchers
+  - name: Metadata
+    description: Helper endpoints for hash types, workflows, and presets
+  - name: Analytics
+    description: Generate and retrieve password analytics & reporting, including BloodHound-enriched AD-privilege analysis
+
+components:
+  securitySchemes:
+    UserAPIKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Your 64-character API key
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number (1-indexed)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: Items per page (max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code
+      example:
+        error: "Client not found"
+        code: "CLIENT_NOT_FOUND"
+
+    AnalyticsReport:
+      type: object
+      description: |
+        A password analytics report. `status` transitions queued → processing → completed | failed.
+        `analytics_data` is populated once `status` is `completed` and contains all analysis sections,
+        including the BloodHound-enriched AD-privilege sections (`ad_privilege`, `path_to_domain_admin`,
+        `kerberoast_cracked`, `asrep_roast_cracked`, `admin_count_cracked`, `local_admin_blast_radius`,
+        `dcsync_cracked`) when a dump was uploaded.
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        total_hashlists:
+          type: integer
+        total_hashes:
+          type: integer
+        total_cracked:
+          type: integer
+        queue_position:
+          type: integer
+          nullable: true
+        hashlist_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        custom_patterns:
+          type: array
+          items:
+            type: string
+        analytics_data:
+          nullable: true
+          description: Full analysis payload (present when completed). Its shape mirrors the in-app report.
+          allOf:
+            - $ref: '#/components/schemas/AnalyticsData'
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AnalyticsData:
+      type: object
+      additionalProperties: true
+      description: |
+        Full analysis payload, present once the report is `completed`. Contains the core analysis
+        sections (overview, length_distribution, complexity_analysis, pattern_detection, mask_analysis,
+        strength_metrics, top_passwords, etc. — free-form here) plus, when a BloodHound dump was
+        uploaded, the typed Active Directory privilege-exposure sections below. Each AD section is
+        omitted unless a dump was provided.
+      properties:
+        ad_privilege:
+          $ref: '#/components/schemas/ADPrivilegeStats'
+        path_to_domain_admin:
+          $ref: '#/components/schemas/PathToDAStats'
+        kerberoast_cracked:
+          $ref: '#/components/schemas/RoastableCrackStats'
+        asrep_roast_cracked:
+          $ref: '#/components/schemas/RoastableCrackStats'
+        admin_count_cracked:
+          $ref: '#/components/schemas/AdminCountCrackStats'
+        local_admin_blast_radius:
+          $ref: '#/components/schemas/LocalAdminBlastStats'
+        dcsync_cracked:
+          $ref: '#/components/schemas/DCSyncCrackStats'
+
+    CompromisedAccount:
+      type: object
+      description: |
+        A single cracked AD account and its privilege standing. Present in INTERNAL exports and API
+        responses; stripped from external (redacted) PDF exports.
+      properties:
+        username:
+          type: string
+        domain:
+          type: string
+        sid:
+          type: string
+        privileged_groups:
+          type: array
+          items:
+            type: string
+          description: Names of privileged/tier-0 groups the account is (transitively) a member of.
+        enabled:
+          type: boolean
+
+    ADPrivilegeStats:
+      type: object
+      description: Headline privileged-account compromise. Aggregate counts survive external redaction; `accounts` is stripped.
+      properties:
+        in_scope_privileged:
+          type: integer
+          description: Privileged accounts present in the report's hashlists.
+        cracked_privileged:
+          type: integer
+        cracked_effective_domain_admin:
+          type: integer
+        cracked_tier_zero:
+          type: integer
+        domain_privileged_total:
+          type: integer
+          description: Privileged accounts across the whole dump; -1 if skipped (dump too large).
+        percent_privileged_cracked:
+          type: number
+          format: float
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompromisedAccount'
+
+    PathToDAStats:
+      type: object
+      description: Cracked accounts with a graph attack path to Domain Admin.
+      properties:
+        skipped:
+          type: boolean
+          description: True if path analysis was skipped because the graph exceeded the analysis limit.
+        in_scope_with_path:
+          type: integer
+        cracked_with_path:
+          type: integer
+        shortest_hops:
+          type: integer
+          description: Minimum hops among cracked accounts; 0 if none.
+        accounts:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/CompromisedAccount'
+              - type: object
+                properties:
+                  hops:
+                    type: integer
+
+    RoastableCrackStats:
+      type: object
+      description: Kerberoastable or AS-REP-roastable cracked accounts (same shape for both sections).
+      properties:
+        domain_total:
+          type: integer
+          description: Enabled roastable accounts across the dump.
+        in_scope_total:
+          type: integer
+        cracked:
+          type: integer
+        cracked_privileged:
+          type: integer
+        percent_cracked:
+          type: number
+          format: float
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompromisedAccount'
+
+    AdminCountCrackStats:
+      type: object
+      description: Cracked AdminSDHolder-protected (admincount=1) accounts.
+      properties:
+        domain_total:
+          type: integer
+        in_scope_total:
+          type: integer
+        cracked:
+          type: integer
+        percent_cracked:
+          type: number
+          format: float
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompromisedAccount'
+
+    LocalAdminBlastStats:
+      type: object
+      description: Local-admin reach of cracked accounts across computers.
+      properties:
+        cracked_with_local_admin:
+          type: integer
+        total_admin_relationships:
+          type: integer
+        max_computers_single:
+          type: integer
+        top_accounts:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/CompromisedAccount'
+              - type: object
+                properties:
+                  computer_count:
+                    type: integer
+
+    DCSyncCrackStats:
+      type: object
+      description: Cracked accounts holding DCSync (domain replication) rights.
+      properties:
+        domain_principals:
+          type: integer
+          description: DCSync-capable principals in the dump; -1 if skipped.
+        cracked:
+          type: integer
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompromisedAccount'
+
+    Client:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique client identifier
+        name:
+          type: string
+          description: Client name
+        description:
+          type: string
+          nullable: true
+          description: Client description
+        domain:
+          type: string
+          nullable: true
+          description: Client domain or contact information
+        data_retention_months:
+          type: integer
+          nullable: true
+          description: Data retention period in months (0 = keep forever, null = use system default)
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Hashlist:
+      type: object
+      required:
+        - id
+        - name
+        - hash_type
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: Unique hashlist identifier
+        name:
+          type: string
+          description: Hashlist name
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated client ID (may be null if client not required)
+        hash_type:
+          type: string
+          description: Hash type name
+        hash_type_id:
+          type: integer
+          description: Hashcat hash type ID
+        hash_count:
+          type: integer
+          description: Total number of hashes
+        cracked_count:
+          type: integer
+          description: Number of cracked hashes
+        progress:
+          type: number
+          format: float
+          description: Crack progress percentage
+        status:
+          type: string
+          description: Hashlist processing status
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Job:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - priority
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique job identifier
+        name:
+          type: string
+          description: Job name
+        status:
+          type: string
+          enum: [preparing, pending, running, paused, processing, completed, failed, cancelled]
+          description: Job status
+        priority:
+          type: integer
+          minimum: 1
+          description: Job priority (1=lowest). Maximum determined by max_job_priority system setting (default 1000)
+        max_agents:
+          type: integer
+          minimum: 0
+          description: Maximum number of agents to assign (0=unlimited)
+        increment_mode:
+          type: string
+          enum: [off, enabled, enabled_with_brain]
+          description: Increment mode for variable-length attacks
+        dispatched_percent:
+          type: number
+          format: float
+          description: Percentage of work dispatched
+        searched_percent:
+          type: number
+          format: float
+          description: Percentage of keyspace searched
+        cracked_count:
+          type: integer
+          description: Number of hashes cracked
+        hashlist_id:
+          type: integer
+          description: Associated hashlist ID
+        hashlist_name:
+          type: string
+          description: Associated hashlist name
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated client ID
+        client_name:
+          type: string
+          nullable: true
+          description: Associated client name
+        preset_job_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Preset job configuration ID
+        preset_job_name:
+          type: string
+          nullable: true
+          description: Preset job name
+        workflow_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Workflow ID
+        workflow_name:
+          type: string
+          nullable: true
+          description: Workflow name
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    JobLayer:
+      type: object
+      description: >-
+        One increment layer of a job, with its aggregated task statistics. Each layer is a
+        single mask in the increment sequence.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Layer ID
+        job_execution_id:
+          type: string
+          format: uuid
+          description: Parent job ID
+        layer_index:
+          type: integer
+          description: Position of this layer in the increment sequence
+        mask:
+          type: string
+          description: The hashcat mask for this layer (for example `?l?l?l`)
+        status:
+          type: string
+          enum: [pending, running, paused, completed, failed, cancelled]
+          description: Layer status
+        base_keyspace:
+          type: integer
+          format: int64
+          nullable: true
+          description: Base keyspace from hashcat `--keyspace`. Null until known
+        effective_keyspace:
+          type: string
+          nullable: true
+          description: >-
+            Keyspace including the rule multiplier, taken from the benchmark's progress[1].
+            Serialized as a decimal string because the value can exceed a 64-bit integer.
+            Null until the layer has been benchmarked
+        processed_keyspace:
+          type: string
+          description: Effective keyspace processed so far, summed over the layer's tasks (decimal string)
+        dispatched_keyspace:
+          type: string
+          description: Effective keyspace dispatched to agents so far (decimal string)
+        is_accurate_keyspace:
+          type: boolean
+          description: True once the layer's keyspace comes from a benchmark rather than an estimate
+        overall_progress_percent:
+          type: number
+          format: float
+          description: Layer progress, 0-100
+        last_progress_update:
+          type: string
+          format: date-time
+          nullable: true
+          description: When this layer last received a progress update
+        total_tasks:
+          type: integer
+          description: Total tasks created for this layer
+        running_tasks:
+          type: integer
+          description: Tasks currently running, assigned or processing
+        completed_tasks:
+          type: integer
+          description: Tasks that completed successfully
+        failed_tasks:
+          type: integer
+          description: Tasks that failed
+        crack_count:
+          type: integer
+          description: Hashes cracked by this layer's tasks
+        error_message:
+          type: string
+          nullable: true
+          description: Failure detail when the layer's status is `failed`
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+
+    Agent:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - version
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: Unique agent identifier
+        name:
+          type: string
+          description: Agent name
+        status:
+          type: string
+          enum: [pending, active, inactive, error, disabled]
+          description: Agent status
+        is_enabled:
+          type: boolean
+          description: Whether agent is enabled
+        version:
+          type: string
+          description: Agent version
+        hardware:
+          type: object
+          description: Hardware information
+          properties:
+            gpus:
+              type: array
+              items:
+                type: object
+                properties:
+                  vendor:
+                    type: string
+                  model:
+                    type: string
+                  memory:
+                    type: integer
+        last_heartbeat:
+          type: string
+          format: date-time
+          description: Last heartbeat timestamp
+        created_at:
+          type: string
+          format: date-time
+
+    Voucher:
+      type: object
+      required:
+        - code
+        - is_active
+        - is_continuous
+        - created_at
+      properties:
+        code:
+          type: string
+          description: Voucher code for agent registration
+        is_active:
+          type: boolean
+          description: Whether voucher is active
+        is_continuous:
+          type: boolean
+          description: Whether voucher can be used multiple times
+        created_at:
+          type: string
+          format: date-time
+
+    HashType:
+      type: object
+      required:
+        - id
+        - name
+        - is_enabled
+      properties:
+        id:
+          type: integer
+          description: Hashcat mode number
+        name:
+          type: string
+          description: Hash type name (e.g., "MD5", "NTLM")
+        description:
+          type: string
+          nullable: true
+          description: Description of the hash type
+        example:
+          type: string
+          nullable: true
+          description: Example hash format
+        is_enabled:
+          type: boolean
+          description: Whether hash type is supported
+        slow:
+          type: boolean
+          description: Whether this is a slow hash algorithm
+
+    Workflow:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Workflow ID
+        name:
+          type: string
+          description: Workflow name
+        step_count:
+          type: integer
+          description: >-
+            Number of steps in the workflow. This listing does not expand the steps
+            themselves; launch the workflow by ID via POST /api/v1/jobs.
+        loopback_all_eligible:
+          type: boolean
+          description: >-
+            Whether the workflow's master loopback toggle is on. Note that loopback
+            sessions are currently only created by the web UI, not by POST /api/v1/jobs.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          description: When the workflow was last modified.
+
+    PresetJob:
+      type: object
+      required:
+        - id
+        - name
+        - attack_mode
+        - hash_type
+        - priority
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Preset job ID
+        name:
+          type: string
+          description: Preset job name
+        wordlist_ids:
+          type: array
+          items:
+            type: string
+          description: Associated wordlist IDs
+        rule_ids:
+          type: array
+          items:
+            type: string
+          description: Associated rule IDs
+        attack_mode:
+          type: string
+          enum: [dictionary, combinator, mask, hybrid_wordlist_mask, hybrid_mask_wordlist]
+          description: Attack mode
+        hash_type:
+          type: integer
+          description: Hashcat hash type ID
+        priority:
+          type: integer
+          description: Job priority (higher = more priority)
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Verify the User API is operational
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: API is operational
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  message:
+                    type: string
+                    example: "User API v1 is operational"
+
+  /clients:
+    get:
+      summary: List clients
+      description: Retrieve a paginated list of all clients (clients are global resources)
+      tags: [Clients]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clients:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Client'
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create client
+      description: Create a new client (organization/engagement)
+      tags: [Clients]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Client name (must be unique)
+                description:
+                  type: string
+                  nullable: true
+                  description: Client description
+                domain:
+                  type: string
+                  nullable: true
+                  description: Client domain or contact information
+                data_retention_months:
+                  type: integer
+                  nullable: true
+                  description: Data retention in months (0 = keep forever). If omitted, uses system default.
+            example:
+              name: "Acme Corp"
+              description: "Annual penetration test"
+              domain: "acme.com"
+              data_retention_months: 12
+      responses:
+        '201':
+          description: Client created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Client name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /clients/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Client ID
+
+    get:
+      summary: Get client
+      description: Retrieve a specific client by ID
+      tags: [Clients]
+      responses:
+        '200':
+          description: Client details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update client
+      description: Update client details
+      tags: [Clients]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                domain:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Client updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Client name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete client
+      description: Delete a client (only if no hashlists exist)
+      tags: [Clients]
+      responses:
+        '204':
+          description: Client deleted successfully
+        '409':
+          description: Client has associated hashlists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hashlists:
+    get:
+      summary: List hashlists
+      description: Retrieve a paginated list of hashlists owned by the authenticated user
+      tags: [Hashlists]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: client_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by client ID
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by hashlist name
+      responses:
+        '200':
+          description: List of hashlists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hashlists:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Hashlist'
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+
+    post:
+      summary: Create hashlist
+      description: |
+        Upload a new hashlist file.
+
+        **Note:** The `client_id` field is conditionally required based on the
+        `require_client_for_hashlist` system setting. If the setting is `true`,
+        you must provide a client_id.
+      tags: [Hashlists]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - name
+                - hash_type_id
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Hashlist file (one hash per line)
+                name:
+                  type: string
+                  description: Hashlist name
+                description:
+                  type: string
+                  description: Hashlist description
+                client_id:
+                  type: string
+                  format: uuid
+                  description: Associated client ID (required if require_client_for_hashlist setting is true)
+                hash_type_id:
+                  type: integer
+                  description: Hashcat hash type ID (e.g., 1000 for NTLM)
+      responses:
+        '201':
+          description: Hashlist created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hashlist'
+        '400':
+          description: Invalid request or CLIENT_REQUIRED if client_id missing when required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Client or hash type not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hashlists/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Hashlist ID
+
+    get:
+      summary: Get hashlist
+      description: Retrieve hashlist details with statistics
+      tags: [Hashlists]
+      responses:
+        '200':
+          description: Hashlist details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hashlist'
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Hashlist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete hashlist
+      description: Delete a hashlist and all associated data
+      tags: [Hashlists]
+      responses:
+        '204':
+          description: Hashlist deleted successfully
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Hashlist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Hashlist has active jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs:
+    get:
+      summary: List jobs
+      description: Retrieve a paginated list of jobs owned by the authenticated user
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [preparing, pending, running, paused, processing, completed, failed, cancelled]
+          description: Filter by job status
+      responses:
+        '200':
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Job'
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create job
+      description: |
+        Create a new cracking job using a preset configuration or workflow.
+
+        You must specify either `preset_job_id` OR `workflow_id`, but not both.
+
+        **Note:** The maximum priority value is determined by the `max_job_priority`
+        system setting (default: 1000).
+      tags: [Jobs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - hashlist_id
+              properties:
+                name:
+                  type: string
+                  description: Job name
+                hashlist_id:
+                  type: integer
+                  description: ID of the hashlist to crack
+                preset_job_id:
+                  type: string
+                  format: uuid
+                  description: Preset job ID (mutually exclusive with workflow_id)
+                workflow_id:
+                  type: string
+                  format: uuid
+                  description: Workflow ID (mutually exclusive with preset_job_id)
+                priority:
+                  type: integer
+                  minimum: 1
+                  default: 5
+                  description: Job priority (1=lowest). Max determined by system setting (default 1000)
+                max_agents:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                  description: Maximum agents to assign (0=unlimited)
+                increment_mode:
+                  type: string
+                  enum: [off, enabled, enabled_with_brain]
+                  default: "off"
+                  description: Enable increment mode for variable-length password attacks
+            example:
+              name: "Potfile Run for Client ABC"
+              hashlist_id: 123
+              preset_job_id: "fe03b156-df7a-41a8-a591-abce3c0f0217"
+              priority: 8
+              max_agents: 5
+      responses:
+        '201':
+          description: Job created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Invalid request or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Hashlist, preset, or workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Job ID
+
+    get:
+      summary: Get job details
+      description: Retrieve detailed information about a specific job
+      tags: [Jobs]
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update job
+      description: |
+        Update job priority or max_agents allocation.
+
+        **Note:** The maximum priority value is determined by the `max_job_priority`
+        system setting (default: 1000).
+      tags: [Jobs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                priority:
+                  type: integer
+                  minimum: 1
+                  description: New job priority. Max determined by system setting (default 1000)
+                max_agents:
+                  type: integer
+                  minimum: 0
+                  description: New max agents limit
+            example:
+              priority: 100
+              max_agents: 10
+      responses:
+        '200':
+          description: Job updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Invalid request or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{id}/layers:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Job ID
+
+    get:
+      summary: List job layers
+      description: |
+        Retrieve increment layers for a job. Only applicable for jobs with
+        increment_mode enabled. Each layer represents a password length range.
+      tags: [Jobs]
+      responses:
+        '200':
+          description: List of job layers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobLayer'
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{id}/layers/{layer_id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Job ID
+      - name: layer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Layer ID
+
+    get:
+      summary: Get layer tasks
+      description: Retrieve tasks for a specific increment layer
+      tags: [Jobs]
+      responses:
+        '200':
+          description: List of tasks for the layer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    status:
+                      type: string
+                    progress:
+                      type: number
+                    agent_id:
+                      type: integer
+                      nullable: true
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job or layer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agents/vouchers:
+    post:
+      summary: Generate voucher
+      description: Generate a registration voucher for a new agent
+      tags: [Agents]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                is_continuous:
+                  type: boolean
+                  description: Whether voucher can be used multiple times
+                  default: false
+            example:
+              is_continuous: false
+      responses:
+        '201':
+          description: Voucher generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Voucher'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agents:
+    get:
+      summary: List agents
+      description: Retrieve a paginated list of all agents
+      tags: [Agents]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, active, inactive, error, disabled]
+          description: Filter by agent status
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+
+  /agents/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Agent ID
+
+    get:
+      summary: Get agent
+      description: Retrieve agent details
+      tags: [Agents]
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update agent
+      description: Update agent settings
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Agent name
+                extra_parameters:
+                  type: string
+                  description: Extra hashcat parameters
+                is_enabled:
+                  type: boolean
+                  description: Enable/disable agent
+      responses:
+        '200':
+          description: Agent updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete agent
+      description: Disable an agent (soft delete)
+      tags: [Agents]
+      responses:
+        '204':
+          description: Agent disabled successfully
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hash-types:
+    get:
+      summary: List hash types
+      description: Retrieve all available hash types
+      tags: [Metadata]
+      parameters:
+        - name: enabled_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Only return enabled hash types
+      responses:
+        '200':
+          description: List of hash types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hash_types:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HashType'
+                  total:
+                    type: integer
+
+  /workflows:
+    get:
+      summary: List workflows
+      description: Retrieve all available job workflows
+      tags: [Metadata]
+      responses:
+        '200':
+          description: List of workflows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workflows:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Workflow'
+                  total:
+                    type: integer
+
+  /preset-jobs:
+    get:
+      summary: List preset jobs
+      description: Retrieve all available preset jobs
+      tags: [Metadata]
+      responses:
+        '200':
+          description: List of preset jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preset_jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PresetJob'
+                  total:
+                    type: integer
+
+  /analytics/reports:
+    post:
+      tags: [Analytics]
+      summary: Queue a new analytics report
+      description: Creates a password analytics report for a client and queues it for background generation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_id]
+              properties:
+                client_id:
+                  type: string
+                  format: uuid
+                hashlist_ids:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+                  description: Hashlists to analyze. If omitted, falls back to the client's hashlists in the date range.
+                start_date:
+                  type: string
+                  format: date-time
+                end_date:
+                  type: string
+                  format: date-time
+                custom_patterns:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Report queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+        '400': { description: Validation error }
+        '401': { description: Authentication required }
+        '404': { description: Client not found (or not accessible) }
+    get:
+      tags: [Analytics]
+      summary: List analytics reports for a client
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Reports for the client
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnalyticsReport'
+                  total:
+                    type: integer
+        '400': { description: client_id is required or invalid }
+        '404': { description: Client not found (or not accessible) }
+
+  /analytics/reports/bloodhound:
+    post:
+      tags: [Analytics]
+      summary: Queue a report enriched with a BloodHound dump
+      description: |
+        Creates an analytics report enriched with an uploaded BloodHound / SharpHound Active Directory
+        collection dump. The dump (a SharpHound `.zip` or one or more BloodHound `.json` files) is parsed
+        **in memory only** — the raw dump is never written to disk, and the compact derived AD-privilege
+        context is deleted after the report finishes generating. Re-analysis requires re-uploading the dump.
+
+        The enrichment cross-references CRACKED accounts against their AD standing: privileged/tier-0
+        membership, Kerberoastable/AS-REP roastable, admincount, DCSync rights, local-admin blast radius,
+        and graph attack paths to Domain Admin.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [client_id, hashlist_ids, file]
+              properties:
+                client_id:
+                  type: string
+                  format: uuid
+                hashlist_ids:
+                  type: string
+                  description: JSON array (e.g. "[1,2,3]") or CSV (e.g. "1,2,3") of hashlist IDs.
+                start_date:
+                  type: string
+                  description: RFC3339; defaults to now.
+                end_date:
+                  type: string
+                  description: RFC3339; defaults to now.
+                custom_patterns:
+                  type: string
+                  description: JSON array or CSV of custom patterns.
+                file:
+                  type: string
+                  format: binary
+                  description: SharpHound .zip or a BloodHound .json file (repeatable).
+      responses:
+        '201':
+          description: Report queued with derived AD context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+        '400': { description: Validation error / invalid or oversized upload }
+        '401': { description: Authentication required }
+        '404': { description: Client not found (or not accessible) }
+        '413': { description: Upload exceeds configured size limits }
+
+  /analytics/reports/{id}:
+    get:
+      tags: [Analytics]
+      summary: Get an analytics report (including its metrics)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The report, including analytics_data when completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+        '404': { description: Report not found }
+    delete:
+      tags: [Analytics]
+      summary: Delete an analytics report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204': { description: Deleted }
+        '404': { description: Report not found }
+
+  /analytics/reports/{id}/retry:
+    post:
+      tags: [Analytics]
+      summary: Retry a failed report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Re-queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+        '400': { description: Only failed reports can be retried }
+        '404': { description: Report not found }
+
+  /analytics/reports/{id}/export:
+    get:
+      tags: [Analytics]
+      summary: Export a completed report as a PDF
+      description: |
+        Renders a completed report as a PDF. `type=internal` contains full detail (plaintext passwords,
+        usernames, hash values, per-account AD detail); `type=external` is an aggregate-only summary with
+        identifying detail redacted server-side.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [internal, external]
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pdf]
+      responses:
+        '200':
+          description: PDF document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400': { description: Invalid type, or report not completed }
+        '404': { description: Report not found }
+
+  /analytics/hashlists:
+    get:
+      tags: [Analytics]
+      summary: List hashlists selectable for a report
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Hashlist summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '400': { description: client_id is required or invalid }
+
+  /analytics/queue-status:
+    get:
+      tags: [Analytics]
+      summary: Get the analytics generation queue status
+      responses:
+        '200':
+          description: Queue status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queue_length:
+                    type: integer
+                  is_processing:
+                    type: boolean
