@@ -18,6 +18,7 @@ func DefaultStructural() []Option {
 	return []Option{
 		WithStructural(1000, validateNTLM, "NTLM"),
 		WithStructural(3000, validateLM, "LM"),
+		WithStructural(7300, validateIPMI, "IPMI2 RAKP HMAC-SHA1"),
 		WithStructural(16500, validateJWT, "JWT (JSON Web Token)"),
 		WithStructural(22000, validateWPA, "WPA-PBKDF2-PMKID+EAPOL"),
 	}
@@ -142,6 +143,34 @@ func validateWPA(hash string) Result {
 	}
 	if len(parts[4]) != 12 || !isHexString(parts[4]) {
 		return Result{Valid: false, Reason: "WPA field 5 (MAC_STA) must be 12 hex characters"}
+	}
+	return Result{Valid: true}
+}
+
+// validateIPMI accepts hashcat mode 7300 (IPMI2 RAKP HMAC-SHA1). The hashline
+// format is <salt>:<hmac>, where the salt is the RAKP message as hex and the
+// hmac is the 40-hex HMAC-SHA1 response.
+//
+// The vendored regex (patterns.go) pins the salt to exactly 130 hex characters,
+// which is true only for hashcat's own example hash (username "hashcat"). Real
+// IPMI/iLO RAKP captures carry a variable-length message — the username and
+// session fields differ per host — so the salt length legitimately varies. A
+// correct check therefore accepts any non-empty even-length hex salt and
+// requires the mandatory :HMAC-SHA1 tail. This keeps 7300 a meaningful
+// heavy-confidence check (it still rejects non-hex, missing-colon, and
+// wrong-length-digest input) while no longer rejecting valid hashes. See
+// GitHub issue #145.
+func validateIPMI(hash string) Result {
+	parts := strings.Split(hash, ":")
+	if len(parts) != 2 {
+		return Result{Valid: false, Reason: "expected <salt-hex>:<40-hex HMAC-SHA1>"}
+	}
+	salt, mac := parts[0], parts[1]
+	if len(salt) == 0 || len(salt)%2 != 0 || !isHexString(salt) {
+		return Result{Valid: false, Reason: "salt must be a non-empty, even-length hex string"}
+	}
+	if len(mac) != 40 || !isHexString(mac) {
+		return Result{Valid: false, Reason: "HMAC-SHA1 must be 40 hex characters; got " + describeHexFailure(mac, 40)}
 	}
 	return Result{Valid: true}
 }

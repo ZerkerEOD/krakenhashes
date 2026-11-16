@@ -33,6 +33,14 @@ func (h *hashlistHandler) handleConfirmValidation(w http.ResponseWriter, r *http
 
 	var body struct {
 		Action string `json:"action"`
+		// ImportInvalid (GitHub issue #145): when true on a "proceed" action,
+		// the user has acknowledged the validation warning and wants EVERY input
+		// line imported, including the ones the validator flagged. We clear the
+		// invalid_hashes skip-set so the processor stops dropping them. This is
+		// the "upload anyway" escape hatch — the validator is advisory, not a
+		// hard gate, and its heavy-confidence check can be wrong (e.g. a hash
+		// type whose format it models too strictly).
+		ImportInvalid bool `json:"import_invalid"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		jsonError(w, "Invalid JSON body", http.StatusBadRequest)
@@ -56,6 +64,17 @@ func (h *hashlistHandler) handleConfirmValidation(w http.ResponseWriter, r *http
 			debug.Error("Could not locate uploaded file for hashlist %d under %s", hashlist.ID, h.dataDir)
 			jsonError(w, "Uploaded file not found on disk; cannot resume processing", http.StatusInternalServerError)
 			return
+		}
+		// "Upload anyway" (issue #145): the user overrides the validator. Drop
+		// the flagged-line skip-set so the processor imports every input line
+		// rather than only the lines that passed validation. Without this the
+		// processor would skip the flagged lines (hashlist_processor.go), which
+		// for an all-invalid file (e.g. a too-strict IPMI check) means an empty
+		// hashlist. Log-and-continue on error, matching the other clear sites.
+		if body.ImportInvalid {
+			if err := h.invalidHashRepo.DeleteByHashlist(ctx, hashlist.ID); err != nil {
+				debug.Warning("Confirm (import_invalid): failed to clear invalid_hashes for hashlist %d: %v", hashlist.ID, err)
+			}
 		}
 		if err := h.hashlistRepo.UpdateStatus(ctx, hashlist.ID, models.HashListStatusProcessing, ""); err != nil {
 			debug.Error("Failed to transition hashlist %d to processing: %v", hashlist.ID, err)
