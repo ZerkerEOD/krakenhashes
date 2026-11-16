@@ -4,6 +4,22 @@ All notable changes to KrakenHashes, newest release first. This file tracks tagg
 releases; the complete per-tag history is available on the [GitHub Releases page](https://github.com/ZerkerEOD/krakenhashes/releases).
 Patch releases are rolled into their minor version's section.
 
+## 3.2.0 - 2026-11-16
+
+A maintenance release on top of 3.1.0, resolving a batch of operator-reported issues. All components are aligned at 3.2.0.
+
+- **IPMI (hashmode 7300) uploads fixed** — valid IPMI2 RAKP HMAC-SHA1 hashes whose salt length differed from hashcat's example (real iLO 4 captures) were rejected. The validator now accepts variable-length salts, and more broadly hash validation is advisory: when lines don't look like the selected type you are warned but can confirm and upload anyway ([#145]).
+- **Total running time survives interrupt/resume** — a job's running time no longer resets on running → pending → running; it accumulates across segments, "Started At" stays the first start, and a new "Total Elapsed" shows wall-clock time ([#138]).
+- **Revoked agents dropped from the dashboard** — they no longer count toward "agents online" or "needs attention", and can be deleted ([#134]).
+- **Hashlist sorting works** — the Name/Client/Status/Created columns sort, and the hashlist name filter narrows results again ([#143]).
+- **Preset jobs show keyspace** — the create-job dialog and admin list show the calculated (effective) keyspace, no benchmark needed ([#144]).
+- **Analytics hashlist picker** — a sortable "Created" column ([#141]).
+- **Documentation** links now point at zerkersec.io.
+
+This release includes one schema migration (`20261115120000_add_accumulated_run_seconds`, adding two columns and a trigger to `job_executions`) that runs automatically on startup and is reversible. Back up your database before upgrading, as always.
+
+Thanks to [@Lat3magnet1c], who reported every issue in this release.
+
 ## 3.1.0 - 2026-11-11
 
 A maintenance release on top of 3.0.1.
@@ -216,6 +232,12 @@ N is an issue or a PR — no need to know which it is up front.
 [#137]: https://github.com/ZerkerEOD/krakenhashes/issues/137
 [#139]: https://github.com/ZerkerEOD/krakenhashes/issues/139
 [#140]: https://github.com/ZerkerEOD/krakenhashes/issues/140
+[#141]: https://github.com/ZerkerEOD/krakenhashes/issues/141
+[#134]: https://github.com/ZerkerEOD/krakenhashes/issues/134
+[#143]: https://github.com/ZerkerEOD/krakenhashes/issues/143
+[#144]: https://github.com/ZerkerEOD/krakenhashes/issues/144
+[#138]: https://github.com/ZerkerEOD/krakenhashes/issues/138
+[#145]: https://github.com/ZerkerEOD/krakenhashes/issues/145
 [@Lat3magnet1c]: https://github.com/Lat3magnet1c
 [@Lolozendev]: https://github.com/Lolozendev
 [@Devil123166]: https://github.com/Devil123166
