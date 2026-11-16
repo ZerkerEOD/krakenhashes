@@ -504,7 +504,7 @@
     "noInvalidLines": "No invalid lines to display.",
     "allInvalid": {
       "body1": "<strong>None</strong> of the {{totalLines}} lines in <em>{{hashlistName}}</em> look like valid <strong>{{hashTypeName}}</strong> hashes — the hash type may be wrong.",
-      "body2": "Pick the correct type below and click <strong>Re-validate</strong> (the file stays uploaded, so you don't need to start over), or choose <strong>Upload anyway</strong> if you're sure these hashes are correct."
+      "body2": "Pick the correct type below and click <strong>Re-validate</strong> — the file stays uploaded, so you don't need to start over. Or choose \"Upload anyway\" below if you're sure these hashes are correct."
     },
     "notAllInvalid": {
       "body": "<strong>{{invalidCount}}</strong> of <strong>{{totalLines}}</strong> lines in <em>{{hashlistName}}</em> failed validation and will be skipped if you proceed. <strong>{{validCount}}</strong> valid hashes will be imported."
