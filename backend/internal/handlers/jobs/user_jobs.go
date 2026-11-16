@@ -1831,6 +1831,7 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		"total_speed":                 totalSpeed,
 		"created_at":                  job.CreatedAt.Format(time.RFC3339),
 		"updated_at":                  job.UpdatedAt.Format(time.RFC3339),
+		"accumulated_run_seconds":     job.AccumulatedRunSeconds,
 		"diagnostics":                 h.jobDiagnostics(r.Context(), jobID),
 		"tasks":                       taskSummaries,
 		"total_tasks":                 totalTasks,
@@ -1843,6 +1844,9 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 
 	if job.StartedAt != nil {
 		response["started_at"] = job.StartedAt.Format(time.RFC3339)
+	}
+	if job.RunningSince != nil {
+		response["running_since"] = job.RunningSince.Format(time.RFC3339)
 	}
 	if job.CompletedAt != nil {
 		response["completed_at"] = job.CompletedAt.Format(time.RFC3339)
