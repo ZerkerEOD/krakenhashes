@@ -59,6 +59,27 @@ func NewProvider(providerConfig *sso.ProviderConfig, repo sso.Repository) (sso.P
 	return p, nil
 }
 
+// newOIDCProviderFromDiscovery builds an OIDC provider from a discovery URL.
+//
+// go-oidc requires the URL given to oidc.NewProvider to be strictly equal to the
+// "issuer" published in the discovery document, and the discovery URL alone does
+// not tell whether the issuer ends with "/" (Authentik, Keycloak: yes; Azure Entra
+// ID, Google: no). Both forms are therefore tried, trailing slash first to keep the
+// behaviour existing deployments rely on.
+func newOIDCProviderFromDiscovery(ctx context.Context, discoveryURL string) (*oidc.Provider, error) {
+	base := strings.TrimSuffix(strings.TrimSpace(discoveryURL), "/.well-known/openid-configuration")
+	base = strings.TrimSuffix(base, "/")
+
+	provider, err := oidc.NewProvider(ctx, base+"/")
+	if err == nil {
+		return provider, nil
+	}
+	if p2, err2 := oidc.NewProvider(ctx, base); err2 == nil {
+		return p2, nil
+	}
+	return nil, err
+}
+
 // initializeConfig sets up OAuth2 config and OIDC verifier
 func (p *Provider) initializeConfig(ctx context.Context) error {
 	// Decrypt client secret
@@ -69,13 +90,7 @@ func (p *Provider) initializeConfig(ctx context.Context) error {
 
 	// If OIDC with discovery URL, use it to auto-configure
 	if p.config.IsOIDC && p.config.DiscoveryURL != "" {
-		// Normalize issuer URL - ensure trailing slash for compatibility with most OIDC providers
-		// (Authentik, Keycloak, Okta, etc. return issuer URLs with trailing slashes)
-		issuerURL := strings.TrimSuffix(p.config.DiscoveryURL, "/.well-known/openid-configuration")
-		if !strings.HasSuffix(issuerURL, "/") {
-			issuerURL += "/"
-		}
-		provider, err := oidc.NewProvider(ctx, issuerURL)
+		provider, err := newOIDCProviderFromDiscovery(ctx, p.config.DiscoveryURL)
 		if err != nil {
 			return fmt.Errorf("failed to create OIDC provider from discovery: %w", err)
 		}
@@ -450,12 +465,7 @@ func (p *Provider) fetchUserInfo(ctx context.Context, token *oauth2.Token) (*mod
 func (p *Provider) TestConnection(ctx context.Context) error {
 	// For OIDC with discovery, verify the provider is reachable
 	if p.config.IsOIDC && p.config.DiscoveryURL != "" {
-		// Same URL normalization as initializeConfig
-		issuerURL := strings.TrimSuffix(p.config.DiscoveryURL, "/.well-known/openid-configuration")
-		if !strings.HasSuffix(issuerURL, "/") {
-			issuerURL += "/"
-		}
-		_, err := oidc.NewProvider(ctx, issuerURL)
+		_, err := newOIDCProviderFromDiscovery(ctx, p.config.DiscoveryURL)
 		if err != nil {
 			return fmt.Errorf("OIDC discovery failed: %w", err)
 		}

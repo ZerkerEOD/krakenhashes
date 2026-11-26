@@ -382,7 +382,13 @@ If no username is found after trying all fallbacks, the email address is used as
 !!! tip "Provider-Specific Notes"
     - **GitHub**: Uses `login` claim for username
     - **Google**: Uses `email` as username (no username claim)
-    - **Azure AD**: Uses `preferred_username` or `upn`
+    - **Azure AD / Entra ID**: Uses `preferred_username`. The `email` claim is optional: it is only
+      issued if added under *Token configuration > Optional claims* (and the user has a mail attribute).
+      Without it, email-based account linking is skipped, so either add the claim or set
+      `preferred_username` as the Email Attribute.
+    - **Azure AD / Entra ID multi-tenant endpoints** (`/common`, `/organizations`): not supported for
+      discovery, because their issuer contains a `{tenantid}` placeholder. Use your tenant ID in the
+      Discovery URL, e.g. `https://login.microsoftonline.com/<tenant-id>/v2.0/.well-known/openid-configuration`.
     - **Authentik/Keycloak**: Uses `preferred_username` by default
 
 ## SSO User Accounts
@@ -482,7 +488,7 @@ Administrators can override global authentication settings per user:
 
 2. **"Issuer mismatch"**
    - **Cause**: Trailing slash inconsistency in discovery URL
-   - **Solution**: Ensure discovery URL matches IdP exactly (including trailing slashes)
+   - **Solution**: The trailing slash of the issuer is detected automatically (both forms are tried). If it still fails, make sure the discovery URL belongs to the same issuer the IdP publishes (for Azure, use the tenant ID rather than `/common`)
 
 3. **"Account processing failed"**
    - **Cause**: Various server-side errors
